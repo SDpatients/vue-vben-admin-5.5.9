@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.law.test'),
         },
       },
+      {
+        name: 'LawCaseManagement',
+        path: '/case-management',
+        component: () => import('#/views/law/case-management/index.vue'),
+        meta: {
+          affixTab: true,
+          icon: 'lucide:folder-open',
+          title: $t('page.law.caseManagement'),
+        },
+      },
     ],
   },
 ];

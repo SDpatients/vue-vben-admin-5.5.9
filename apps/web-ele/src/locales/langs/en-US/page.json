@@ -14,5 +14,9 @@
   "law": {
     "title": "Law Module",
     "test": "Test Page"
+  },
+  "user": {
+    "title": "User Management",
+    "management": "User List"
   }
 }

@@ -65,7 +65,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (config) => {
       const accessStore = useAccessStore();
 
-      config.headers.Authorization = formatToken(accessStore.accessToken);
       config.headers['Accept-Language'] = preferences.app.locale;
       return config;
     },
@@ -74,9 +73,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   // 处理返回的响应数据格式
   client.addResponseInterceptor(
     defaultResponseInterceptor({
-      codeField: 'code',
+      codeField: 'status',
       dataField: 'data',
-      successCode: 0,
+      successCode: '1',
     }),
   );
 
@@ -107,7 +106,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 }
 
 export const requestClient = createRequestClient(apiURL, {
-  responseReturn: 'data',
+  responseReturn: 'body',
 });
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });

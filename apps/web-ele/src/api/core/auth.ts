@@ -22,7 +22,14 @@ export namespace AuthApi {
  * 登录
  */
 export async function loginApi(data: AuthApi.LoginParams) {
-  return requestClient.post<AuthApi.LoginResult>('/auth/login', data);
+  // 使用POST请求方式调用实际的登录接口
+  // 将参数转换为后端期望的格式：UserName和Pwd
+  const postData = {
+    UserName: data.username || '',
+    Pwd: data.password || '',
+    token: 'fb3fb274ffcebe8f9c986ac3a6ea73fc',
+  };
+  return requestClient.post<any>('/api/web/login', postData);
 }
 
 /**

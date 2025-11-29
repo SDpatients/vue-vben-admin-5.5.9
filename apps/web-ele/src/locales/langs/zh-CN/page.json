@@ -13,6 +13,11 @@
   },
   "law": {
     "title": "法律模块",
-    "test": "测试页面"
+    "test": "测试页面",
+    "caseManagement": "案件管理"
+  },
+  "user": {
+    "title": "用户管理",
+    "management": "用户列表"
   }
 }

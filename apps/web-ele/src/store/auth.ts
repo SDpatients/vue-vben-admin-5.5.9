@@ -10,7 +10,7 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { ElNotification } from 'element-plus';
 import { defineStore } from 'pinia';
 
-import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
+import { getUserInfoApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -29,36 +29,49 @@ export const useAuthStore = defineStore('auth', () => {
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
   ) {
-    // 异步处理用户登录操作并获取 accessToken
+    // 异步处理用户登录操作
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { accessToken } = await loginApi(params);
+      const result = await loginApi(params);
 
-      // 如果成功获取到 accessToken
-      if (accessToken) {
-        // 将 accessToken 存储到 accessStore 中
-        accessStore.setAccessToken(accessToken);
+      // 检查返回的数据结构
+      if (result && result.status === '1' && result.data) {
+        // 登录成功，使用后端返回的用户信息
+        const backendUserInfo = result.data;
 
-        // 获取用户信息并存储到 accessStore 中
-        const [fetchUserInfoResult, accessCodes] = await Promise.all([
-          fetchUserInfo(),
-          getAccessCodesApi(),
-        ]);
+        // 将用户信息转换为系统需要的格式
+        userInfo = {
+          userId: backendUserInfo.U_USER,
+          username: backendUserInfo.U_USER,
+          realName: backendUserInfo.U_NAME,
+          homePath: preferences.app.defaultHomePath,
+          avatar: '', // 默认头像
+          desc: '', // 用户描述
+          token: '', // accessToken
+          // 其他必要字段
+        };
 
-        userInfo = fetchUserInfoResult;
+        // 设置一个模拟的accessToken（实际项目中应该从后端获取）
+        const mockAccessToken = `mock_token_${Date.now()}`;
+        accessStore.setAccessToken(mockAccessToken);
 
+        // 设置用户信息
         userStore.setUserInfo(userInfo);
-        accessStore.setAccessCodes(accessCodes);
+
+        // 设置模拟权限码
+        accessStore.setAccessCodes(['admin']);
 
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);
         } else {
-          onSuccess
-            ? await onSuccess?.()
-            : await router.push(
-                userInfo.homePath || preferences.app.defaultHomePath,
-              );
+          if (onSuccess) {
+            await onSuccess?.();
+          } else {
+            const targetPath =
+              userInfo.homePath || preferences.app.defaultHomePath;
+            await router.push(targetPath);
+          }
         }
 
         if (userInfo?.realName) {
@@ -68,7 +81,25 @@ export const useAuthStore = defineStore('auth', () => {
             type: 'success',
           });
         }
+      } else {
+        // 登录失败，显示错误信息
+        const errorMsg =
+          result?.error ||
+          result?.message ||
+          $t('authentication.passwordErrorTip');
+        ElNotification({
+          message: errorMsg,
+          title: '登录失败',
+          type: 'error',
+        });
       }
+    } catch (error: any) {
+      // 网络错误或其他异常
+      ElNotification({
+        message: error?.message || '登录请求失败，请检查网络连接',
+        title: '登录失败',
+        type: 'error',
+      });
     } finally {
       loginLoading.value = false;
     }
