@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
         path: '/management',
         component: () => import('#/views/user/management/index.vue'),
         meta: {
-          affixTab: true,
+          affixTab: false,
           icon: 'lucide:user-cog',
           title: $t('page.user.management'),
         },

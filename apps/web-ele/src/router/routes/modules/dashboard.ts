@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
         path: '/analytics',
         component: () => import('#/views/dashboard/analytics/index.vue'),
         meta: {
-          affixTab: true,
+          affixTab: false,
           icon: 'lucide:area-chart',
           title: $t('page.dashboard.analytics'),
         },
@@ -31,8 +31,17 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+      {
+        name: 'OperationRecord',
+        path: '/operation-record',
+        component: () => import('#/views/dashboard/operation-record/index.vue'),
+        meta: {
+          icon: 'lucide:clock',
+          title: '操作记录',
+        },
+      },
     ],
   },
 ];
 
-export default routes;
+export default routes;

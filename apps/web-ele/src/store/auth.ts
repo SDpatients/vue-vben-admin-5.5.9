@@ -85,7 +85,6 @@ export const useAuthStore = defineStore('auth', () => {
         // 登录失败，显示错误信息
         const errorMsg =
           result?.error ||
-          result?.message ||
           $t('authentication.passwordErrorTip');
         ElNotification({
           message: errorMsg,

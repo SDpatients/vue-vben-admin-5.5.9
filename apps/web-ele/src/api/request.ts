@@ -18,6 +18,7 @@ import { ElMessage } from 'element-plus';
 import { useAuthStore } from '#/store';
 
 import { refreshTokenApi } from './core';
+import { createApiTrackingInterceptor } from './operation-tracker';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
@@ -60,11 +61,16 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     return token ? `Bearer ${token}` : null;
   }
 
+  // API跟踪拦截器
+  const apiTrackingInterceptor = createApiTrackingInterceptor();
+
+  // 添加API跟踪拦截器
+  client.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+  client.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
   // 请求头处理
   client.addRequestInterceptor({
     fulfilled: async (config) => {
-      const accessStore = useAccessStore();
-
       config.headers['Accept-Language'] = preferences.app.locale;
       return config;
     },

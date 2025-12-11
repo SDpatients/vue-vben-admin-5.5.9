@@ -13,10 +13,23 @@
   },
   "law": {
     "title": "Law Module",
-    "test": "Test Page"
+    "test": "Test Page",
+    "caseManagement": "Case Management",
+    "caseDetail": "Case Detail",
+    "caseAdd": "Case Add",
+    "taskEdit": "Task Edit"
   },
   "user": {
     "title": "User Management",
     "management": "User List"
+  },
+  "basicData": {
+    "title": "Basic Data",
+    "creditorManagement": "Creditor Management",
+    "debtorManagement": "Debtor Management",
+    "courtManagement": "Court Management",
+    "bankAccountManagement": "Bank Account Management",
+    "workPlanManagement": "Work Plan Management",
+    "workTeamManagement": "Work Team Management"
   }
 }

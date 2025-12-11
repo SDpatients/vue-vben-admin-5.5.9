@@ -1,0 +1,369 @@
+<script lang="ts" setup>
+import type { WorkTeamApi } from '#/api/core';
+
+import { onMounted, reactive, ref } from 'vue';
+
+import {
+  ElButton,
+  ElCard,
+  ElInput,
+  ElMessage,
+  ElPagination,
+  ElTable,
+  ElTableColumn,
+} from 'element-plus';
+
+import { getWorkTeamListApi } from '#/api/core';
+
+// 工作团队列表数据
+const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
+
+// 加载状态
+const loading = ref(false);
+
+// 搜索表单
+const searchForm = reactive({
+  GLAJBH: '',
+  TDFZR: '',
+  AH: '',
+});
+
+// 分页配置
+const pagination = reactive({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  pages: 0,
+});
+
+// 获取工作团队列表
+const fetchWorkTeamList = async () => {
+  loading.value = true;
+  try {
+    const params: WorkTeamApi.WorkTeamQueryParams = {
+      page: pagination.page,
+      size: pagination.pageSize,
+    };
+
+    const response = await getWorkTeamListApi(params);
+
+    if (response.status === '1' && response.data) {
+      workTeamList.value = response.data.records || [];
+      pagination.itemCount = response.data.count || 0;
+      pagination.pages = response.data.pages || 0;
+      ElMessage.success('工作团队列表加载成功');
+    } else {
+      ElMessage.error(response.error || '获取工作团队列表失败');
+      // 使用模拟数据作为后备
+      generateMockData();
+    }
+  } catch {
+    ElMessage.error('后端API暂时不可用，请稍后再试');
+    // 使用模拟数据作为后备
+    generateMockData();
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 生成模拟数据
+const generateMockData = () => {
+  workTeamList.value = [
+    {
+      row: 1,
+      TDID: null,
+      GLAJBH: 'PCAJ202511008',
+      TDFZR: null,
+      ZHZCY: null,
+      CXZCY: null,
+      CCGLZCY: null,
+      ZQSHZCY: null,
+      LDRSZCY: null,
+      ZZQLZCY: null,
+      AH: '2025001',
+      DQZT: null,
+    },
+    {
+      row: 2,
+      TDID: 'TD800001',
+      GLAJBH: 'PCAJ202511002',
+      TDFZR: 'admin',
+      ZHZCY: '测试综合组1、测试综合组2',
+      CXZCY: '测试',
+      CCGLZCY: '测试',
+      ZQSHZCY: '测试',
+      LDRSZCY: '测试',
+      ZZQLZCY: '测试',
+      AH: '（2025）浙湖破字第 003 号',
+      DQZT: null,
+    },
+  ];
+  pagination.itemCount = 2;
+  pagination.pages = 1;
+};
+
+// 处理分页变化
+const handlePageChange = (page: number) => {
+  pagination.page = page;
+  fetchWorkTeamList();
+};
+
+// 处理页面大小变化
+const handleSizeChange = (size: number) => {
+  pagination.pageSize = size;
+  pagination.page = 1;
+  fetchWorkTeamList();
+};
+
+// 搜索
+const handleSearch = () => {
+  pagination.page = 1;
+  fetchWorkTeamList();
+};
+
+// 重置搜索
+const handleReset = () => {
+  searchForm.GLAJBH = '';
+  searchForm.TDFZR = '';
+  searchForm.AH = '';
+  pagination.page = 1;
+  fetchWorkTeamList();
+};
+
+// 刷新
+const handleRefresh = () => {
+  pagination.page = 1;
+  fetchWorkTeamList();
+};
+
+// 新增工作团队
+const handleAddWorkTeam = () => {
+  ElMessage.info('新增工作团队功能开发中...');
+};
+
+// 编辑工作团队
+const handleEdit = (row: WorkTeamApi.WorkTeamInfo) => {
+  ElMessage.info(`编辑工作团队: ${row.GLAJBH}`);
+};
+
+// 删除工作团队
+const handleDelete = (row: WorkTeamApi.WorkTeamInfo) => {
+  ElMessage.warning(`删除工作团队: ${row.GLAJBH} (功能开发中...)`);
+};
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchWorkTeamList();
+});
+</script>
+
+<template>
+  <div class="p-6">
+    <ElCard header="工作团队管理" size="small">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-semibold">工作团队管理</span>
+          <div class="flex items-center space-x-2">
+            <ElButton type="primary" @click="handleAddWorkTeam">
+              <i class="i-lucide-plus mr-1"></i>
+              新增团队
+            </ElButton>
+            <ElButton type="primary" @click="handleRefresh">
+              <i class="i-lucide-refresh-cw mr-1"></i>
+              刷新
+            </ElButton>
+          </div>
+        </div>
+      </template>
+
+      <!-- 搜索区域 -->
+      <div class="mb-4 rounded-lg bg-gray-50 p-4">
+        <div class="flex flex-wrap gap-4">
+          <ElInput
+            v-model="searchForm.GLAJBH"
+            placeholder="关联案件编号"
+            clearable
+            style="width: 200px"
+          />
+          <ElInput
+            v-model="searchForm.TDFZR"
+            placeholder="团队负责人"
+            clearable
+            style="width: 200px"
+          />
+          <ElInput
+            v-model="searchForm.AH"
+            placeholder="案号"
+            clearable
+            style="width: 200px"
+          />
+          <ElButton type="primary" @click="handleSearch">
+            <i class="i-lucide-search mr-1"></i>
+            搜索
+          </ElButton>
+          <ElButton @click="handleReset">
+            <i class="i-lucide-refresh-cw mr-1"></i>
+            重置
+          </ElButton>
+        </div>
+      </div>
+
+      <!-- 数据表格 -->
+      <ElTable v-loading="loading" :data="workTeamList" border stripe>
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+        <ElTableColumn
+          prop="TDID"
+          label="团队ID"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.TDID">{{ row.TDID }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="GLAJBH"
+          label="关联案件编号"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="TDFZR"
+          label="团队负责人"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.TDFZR">{{ row.TDFZR }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="AH"
+          label="案号"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="ZHZCY"
+          label="综合组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.ZHZCY">{{ row.ZHZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="CXZCY"
+          label="程序组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.CXZCY">{{ row.CXZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="CCGLZCY"
+          label="财产管理组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.CCGLZCY">{{ row.CCGLZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="ZQSHZCY"
+          label="债权审核组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.ZQSHZCY">{{ row.ZQSHZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="LDRSZCY"
+          label="劳动人事组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.LDRSZCY">{{ row.LDRSZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="ZZQLZCY"
+          label="资产清理组成员"
+          width="150"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.ZZQLZCY">{{ row.ZZQLZCY }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="DQZT"
+          label="当前状态"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.DQZT">{{ row.DQZT }}</span>
+            <span v-else class="text-gray-400">未设置</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <ElButton type="primary" size="small" @click="handleEdit(row)">
+              <i class="i-lucide-edit mr-1"></i>
+              编辑
+            </ElButton>
+            <ElButton type="danger" size="small" @click="handleDelete(row)">
+              <i class="i-lucide-trash-2 mr-1"></i>
+              删除
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+
+      <!-- 分页 -->
+      <div class="mt-4 flex justify-end">
+        <ElPagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.itemCount"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </ElCard>
+  </div>
+</template>
+
+<style scoped>
+:deep(.el-table .cell) {
+  white-space: nowrap;
+}
+</style>

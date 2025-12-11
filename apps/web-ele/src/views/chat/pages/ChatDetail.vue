@@ -1,0 +1,673 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
+import ChatLayout from '../components/ChatLayout.vue';
+
+const route = useRoute();
+const router = useRouter();
+
+// 获取联系人ID
+const contactId = computed(() => Number(route.params.id) || 0);
+
+// 模拟数据
+const mockContact = {
+  id: 1,
+  name: '张三',
+  avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  isOnline: true,
+  phone: '13800138000',
+  email: 'zhangsan@example.com',
+};
+
+const mockMessages = [
+  {
+    id: 1,
+    senderId: 1,
+    receiverId: 2,
+    content: '你好，最近怎么样？',
+    timestamp: '2023-06-15T14:30:00',
+    status: 'sent',
+    isSent: false,
+    isRecalled: false,
+  },
+  {
+    id: 2,
+    senderId: 2,
+    receiverId: 1,
+    content: '挺好的，你呢？',
+    timestamp: '2023-06-15T14:31:00',
+    status: 'sent',
+    isSent: true,
+    isRecalled: false,
+  },
+  {
+    id: 3,
+    senderId: 1,
+    receiverId: 2,
+    content: '我也不错，最近在忙项目',
+    timestamp: '2023-06-15T14:32:00',
+    status: 'sent',
+    isSent: false,
+    isRecalled: false,
+  },
+];
+
+// 状态
+const messageInput = ref('');
+const messages = ref(mockMessages);
+const showEmojiPicker = ref(false);
+const showFileUpload = ref(false);
+
+// 计算属性
+const formattedMessages = computed(() => {
+  return messages.value.map((msg) => ({
+    ...msg,
+    formattedTime: new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }));
+});
+
+// 方法
+function sendMessage() {
+  if (!messageInput.value.trim()) return;
+
+  const newMessage = {
+    id: messages.value.length + 1,
+    senderId: 2,
+    receiverId: contactId.value,
+    content: messageInput.value.trim(),
+    timestamp: new Date().toISOString(),
+    status: 'sending',
+    isSent: true,
+    isRecalled: false,
+  };
+
+  messages.value.push(newMessage);
+  messageInput.value = '';
+
+  // 模拟消息发送成功
+  setTimeout(() => {
+    newMessage.status = 'sent';
+  }, 500);
+
+  // 模拟对方回复
+  setTimeout(() => {
+    const replyMessage = {
+      id: messages.value.length + 1,
+      senderId: contactId.value,
+      receiverId: 2,
+      content: `收到你的消息：${newMessage.content}`,
+      timestamp: new Date().toISOString(),
+      status: 'read',
+      isSent: false,
+      isRecalled: false,
+    };
+    messages.value.push(replyMessage);
+  }, 1000);
+}
+
+function handleKeyPress(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
+  }
+}
+
+function toggleEmojiPicker() {
+  showEmojiPicker.value = !showEmojiPicker.value;
+}
+
+function toggleFileUpload() {
+  showFileUpload.value = !showFileUpload.value;
+}
+
+function addEmoji(emoji: string) {
+  messageInput.value += emoji;
+  showEmojiPicker.value = false;
+}
+
+function goBack() {
+  router.back();
+}
+
+function recallMessage(messageId: number) {
+  const message = messages.value.find((msg) => msg.id === messageId);
+  if (message && message.isSent) {
+    message.content = '[消息已撤回]';
+    message.isRecalled = true;
+  }
+}
+
+// 生命周期钩子
+onMounted(() => {
+  // 滚动到底部
+  scrollToBottom();
+});
+
+// 监听消息变化，自动滚动到底部
+watch(
+  messages,
+  () => {
+    scrollToBottom();
+  },
+  { deep: true },
+);
+
+// 滚动到底部
+function scrollToBottom() {
+  setTimeout(() => {
+    const messageContainer = document.querySelector('.message-list');
+    if (messageContainer) {
+      messageContainer.scrollTop = messageContainer.scrollHeight;
+    }
+  }, 100);
+}
+</script>
+
+<template>
+  <ChatLayout>
+    <!-- 聊天窗口 -->
+    <div class="chat-detail-container">
+      <!-- 顶部联系人信息 -->
+      <header class="chat-header">
+        <div class="header-left">
+          <el-button type="text" icon="el-icon-back" @click="goBack">
+            返回
+          </el-button>
+          <el-avatar :src="mockContact.avatar" size="small" />
+          <div class="contact-info">
+            <div class="contact-name">
+              {{ mockContact.name }}
+              <el-tag v-if="mockContact.isOnline" type="success" size="small">
+                在线
+              </el-tag>
+            </div>
+            <div class="contact-status">最近活跃：刚刚</div>
+          </div>
+        </div>
+        <div class="header-right">
+          <el-button type="text" icon="el-icon-phone" />
+          <el-button type="text" icon="el-icon-video-camera" />
+          <el-button type="text" icon="el-icon-more">
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item>查看详情</el-dropdown-item>
+                <el-dropdown-item>设置备注</el-dropdown-item>
+                <el-dropdown-item>加入黑名单</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-button>
+        </div>
+      </header>
+
+      <!-- 消息列表 -->
+      <main class="message-list">
+        <div
+          v-for="message in formattedMessages"
+          :key="message.id"
+          class="message-item"
+          :class="{
+            'message-sent': message.isSent,
+            'message-received': !message.isSent,
+          }"
+        >
+          <el-avatar
+            v-if="!message.isSent"
+            :src="mockContact.avatar"
+            size="small"
+            class="message-avatar"
+          />
+          <div class="message-content">
+            <div class="message-bubble">
+              <div class="message-text">{{ message.content }}</div>
+              <div class="message-status">
+                <span class="message-time">{{ message.formattedTime }}</span>
+                <span v-if="message.isSent" class="message-delivery-status">
+                  <i
+                    v-if="message.status === 'sending'"
+                    class="status-icon el-icon-loading"
+                  ></i>
+                  <i
+                    v-else-if="message.status === 'sent'"
+                    class="status-icon el-icon-check"
+                  ></i>
+                  <i
+                    v-else-if="message.status === 'read'"
+                    class="status-icon el-icon-check-double"
+                  ></i>
+                </span>
+              </div>
+              <el-dropdown
+                v-if="message.isSent && !message.isRecalled"
+                class="message-actions"
+              >
+                <el-button type="text" size="small" icon="el-icon-more" />
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="recallMessage(message.id)">
+                      撤回
+                    </el-dropdown-item>
+                    <el-dropdown-item>复制</el-dropdown-item>
+                    <el-dropdown-item>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </div>
+          <el-avatar
+            v-if="message.isSent"
+            src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
+            size="small"
+            class="message-avatar"
+          />
+        </div>
+      </main>
+
+      <!-- 消息输入区域 -->
+      <footer class="message-input-area">
+        <!-- 功能按钮 -->
+        <div class="input-tools">
+          <el-button type="text" icon="el-icon-plus" @click="toggleFileUpload">
+            <template #dropdown v-if="showFileUpload">
+              <el-dropdown-menu>
+                <el-dropdown-item>
+                  <el-icon name="Picture" />
+                  <span>发送图片</span>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                  <el-icon name="Document" />
+                  <span>发送文件</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-button>
+          <el-button
+            type="text"
+            icon="el-icon-emoji"
+            @click="toggleEmojiPicker"
+          />
+          <el-button type="text" icon="el-icon-camera" />
+          <el-button type="text" icon="el-icon-mic" />
+        </div>
+
+        <!-- 消息输入框 -->
+        <div class="input-container">
+          <el-input
+            v-model="messageInput"
+            type="textarea"
+            :rows="3"
+            placeholder="输入消息..."
+            resize="none"
+            @keydown="handleKeyPress"
+          />
+          <el-button
+            type="primary"
+            icon="el-icon-send"
+            @click="sendMessage"
+            :disabled="!messageInput.trim()"
+          >
+            发送
+          </el-button>
+        </div>
+
+        <!-- 表情选择器 -->
+        <div v-if="showEmojiPicker" class="emoji-picker">
+          <div class="emoji-grid">
+            <span
+              v-for="emoji in [
+                '😀',
+                '😃',
+                '😄',
+                '😁',
+                '😆',
+                '😅',
+                '😂',
+                '🤣',
+                '😊',
+                '😇',
+                '🙂',
+                '🙃',
+                '😉',
+                '😌',
+                '😍',
+                '🥰',
+                '😘',
+                '😗',
+                '😙',
+                '😚',
+                '😋',
+                '😛',
+                '😝',
+                '😜',
+                '🤪',
+                '🤨',
+                '🧐',
+                '🤓',
+                '😎',
+                '🤩',
+                '🥳',
+                '😏',
+                '😒',
+                '😞',
+                '😔',
+                '😟',
+                '😕',
+                '🙁',
+                '☹️',
+                '😣',
+                '😖',
+                '😫',
+                '😩',
+                '🥺',
+                '😢',
+                '😭',
+                '😤',
+                '😠',
+                '😡',
+                '🤬',
+                '🤯',
+                '😳',
+                '🥵',
+                '🥶',
+                '😱',
+                '😨',
+                '😰',
+                '😥',
+                '😓',
+                '🤗',
+                '🤔',
+                '🤭',
+                '🤫',
+                '🤥',
+                '😶',
+                '😐',
+                '😑',
+                '😬',
+                '🙄',
+                '😯',
+                '😦',
+                '😧',
+                '😮',
+                '😲',
+                '🥱',
+                '😴',
+                '🤤',
+                '😪',
+                '😵',
+                '🤐',
+                '🥴',
+                '🤢',
+                '🤮',
+                '🤧',
+                '😷',
+                '🤒',
+                '🤕',
+                '🤑',
+                '🤠',
+                '😈',
+                '👿',
+                '👹',
+                '👺',
+                '🤡',
+                '💩',
+                '👻',
+                '💀',
+                '☠️',
+                '👽',
+                '👾',
+                '🤖',
+                '🎃',
+                '😺',
+                '😸',
+                '😹',
+                '😻',
+                '😼',
+                '😽',
+                '🙀',
+                '😿',
+                '😾',
+              ]"
+              :key="emoji"
+              class="emoji-item"
+              @click="addEmoji(emoji)"
+            >
+              {{ emoji }}
+            </span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </ChatLayout>
+</template>
+
+<style scoped>
+.chat-detail-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f5f7fa;
+}
+
+/* 聊天头部样式 */
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #e4e7ed;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-status {
+  font-size: 12px;
+  color: #909399;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* 消息列表样式 */
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message-item {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.message-sent {
+  justify-content: flex-end;
+}
+
+.message-received {
+  justify-content: flex-start;
+}
+
+.message-avatar {
+  flex-shrink: 0;
+}
+
+.message-content {
+  max-width: 60%;
+}
+
+.message-bubble {
+  position: relative;
+  padding: 12px 16px;
+  border-radius: 12px;
+  word-wrap: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-sent .message-bubble {
+  background-color: #408aed;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.message-received .message-bubble {
+  background-color: #fff;
+  color: #303133;
+  border-bottom-left-radius: 4px;
+}
+
+.message-text {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.message-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.message-time {
+  color: inherit;
+}
+
+.message-delivery-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-icon {
+  font-size: 12px;
+}
+
+.message-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.message-bubble:hover .message-actions {
+  opacity: 1;
+}
+
+/* 消息输入区域样式 */
+.message-input-area {
+  background-color: #fff;
+  border-top: 1px solid #e4e7ed;
+  padding: 12px 20px;
+}
+
+.input-tools {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.input-container {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.input-container :deep(.el-textarea) {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.input-container :deep(.el-textarea__inner) {
+  border-radius: 16px;
+  resize: none;
+  min-height: 60px;
+  max-height: 120px;
+}
+
+/* 表情选择器样式 */
+.emoji-picker {
+  position: absolute;
+  bottom: 120px;
+  left: 20px;
+  background-color: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.emoji-item {
+  font-size: 20px;
+  cursor: pointer;
+  text-align: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.emoji-item:hover {
+  background-color: #f5f7fa;
+}
+
+/* 滚动条样式 */
+.message-list::-webkit-scrollbar,
+.emoji-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.message-list::-webkit-scrollbar-track,
+.emoji-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.message-list::-webkit-scrollbar-thumb,
+.emoji-grid::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.message-list::-webkit-scrollbar-thumb:hover,
+.emoji-grid::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>

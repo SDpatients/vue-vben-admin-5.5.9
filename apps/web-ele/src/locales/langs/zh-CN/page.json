@@ -14,10 +14,30 @@
   "law": {
     "title": "法律模块",
     "test": "测试页面",
-    "caseManagement": "案件管理"
+    "caseManagement": "案件管理",
+    "caseDetail": "案件详情",
+    "caseAdd": "案件添加",
+    "taskEdit": "任务编辑"
   },
   "user": {
     "title": "用户管理",
     "management": "用户列表"
+  },
+  "basicData": {
+    "title": "基础资料",
+    "creditorManagement": "债权人管理",
+    "debtorManagement": "债务人管理",
+    "courtManagement": "法院管理",
+    "bankAccountManagement": "银行账户管理",
+    "workPlanManagement": "工作计划管理",
+    "workTeamManagement": "工作团队管理"
+  },
+  "chat": {
+    "title": "通信功能",
+    "home": "聊天主页",
+    "detail": "聊天详情",
+    "contactManagement": "联系人管理",
+    "contactAdd": "新增联系人",
+    "contactEdit": "编辑联系人"
   }
 }

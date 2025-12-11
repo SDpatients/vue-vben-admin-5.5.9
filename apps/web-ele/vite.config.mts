@@ -2,10 +2,12 @@ import { defineConfig } from '@vben/vite-config';
 
 import ElementPlus from 'unplugin-element-plus/vite';
 
-export default defineConfig(async () => {
+export default defineConfig(async (): Promise<any> => {
   return {
     application: {},
     vite: {
+      // 添加类型注释以避免推断类型不可移植的问题
+      // @ts-ignore 忽略未找到模块的类型检查
       plugins: [
         ElementPlus({
           format: 'esm',
@@ -18,7 +20,7 @@ export default defineConfig(async () => {
             // 指向自定义后端服务地址
             target: 'http://192.168.0.108:8081',
             ws: true,
-            rewrite: (path) => path.replace(/^\/api/, '/api'),
+            rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
         },
       },

@@ -5,17 +5,17 @@ export interface User {
   U_PID: number;
   U_USER: string;
   U_NAME: string;
-  U_TEL: string | null;
-  U_EMAIL: string | null;
+  U_TEL: null | string;
+  U_EMAIL: null | string;
   U_REMARK: string;
   U_VALID: string;
 }
 
 export interface UserListResponse {
   data: {
-    paras: any;
     count: number;
     pages: number;
+    paras: any;
     records: User[];
   };
   status: string;
@@ -41,17 +41,19 @@ export interface BaseResponse {
  * 获取所有用户列表
  */
 export async function getAllUsers(params?: {
-  SearchKeyword?: string;
   page?: number;
+  SearchKeyword?: string;
   size?: number;
 }) {
   // 根据您提供的接口，使用size和page参数
   const queryParams = {
     size: params?.size || 10,
-    page: params?.page || 1
+    page: params?.page || 1,
   };
-  
-  return requestClient.get<UserListResponse>('/api/web/selectAllUsers', { params: queryParams });
+
+  return requestClient.get<UserListResponse>('/api/web/selectAllUsers', {
+    params: queryParams,
+  });
 }
 
 /**
@@ -65,7 +67,10 @@ export async function createUser(userData: UserForm) {
  * 更新用户
  */
 export async function updateUser(userId: number, userData: UserForm) {
-  return requestClient.put<BaseResponse>(`/api/web/updateUser/${userId}`, userData);
+  return requestClient.put<BaseResponse>(
+    `/api/web/updateUser/${userId}`,
+    userData,
+  );
 }
 
 /**

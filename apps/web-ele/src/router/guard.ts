@@ -5,6 +5,7 @@ import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { startProgress, stopProgress } from '@vben/utils';
 
+import { selectLoginRecordApi } from '#/api/core/auth';
 import { accessRoutes, coreRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';
 
@@ -120,6 +121,79 @@ function setupAccessGuard(router: Router) {
 }
 
 /**
+ * 聊天功能守卫配置
+ * @param router
+ */
+function setupChatGuard(router: Router) {
+  router.beforeEach(async (to) => {
+    // 检查是否是聊天相关路由
+    if (to.path.startsWith('/chat')) {
+      // 检查本地存储中是否有登录信息
+      const chatUserId = localStorage.getItem('chat_user_id');
+      const chatLogintime = localStorage.getItem('chat_logintime');
+      const chatUsername = localStorage.getItem('chat_username');
+
+      // 如果本地没有登录信息，尝试从后端获取
+      if (!chatUserId || !chatLogintime) {
+        if (!chatUsername) {
+          // 如果没有用户名，跳转到登录页面
+          return {
+            path: LOGIN_PATH,
+            query: { redirect: encodeURIComponent(to.fullPath) },
+            replace: true,
+          };
+        }
+
+        try {
+          // 调用后端查询登录记录接口
+          const result = await selectLoginRecordApi({
+            username: chatUsername,
+            page: 1,
+            size: 1,
+          });
+
+          if (
+            result.status === '1' &&
+            result.data?.records &&
+            result.data.records.length > 0
+          ) {
+            // 从记录中获取最新的登录信息
+            const latestRecord = result.data.records[0];
+
+            // 存储到本地存储
+            if (latestRecord) {
+              localStorage.setItem('chat_user_id', latestRecord.userid);
+              localStorage.setItem('chat_logintime', latestRecord.logintime);
+            }
+
+            // 继续访问聊天页面
+            return true;
+          } else {
+            // 后端也没有记录，跳转到登录页面
+            return {
+              path: LOGIN_PATH,
+              query: { redirect: encodeURIComponent(to.fullPath) },
+              replace: true,
+            };
+          }
+        } catch (error) {
+          console.error('查询登录记录失败:', error);
+          // 查询失败，跳转到登录页面
+          return {
+            path: LOGIN_PATH,
+            query: { redirect: encodeURIComponent(to.fullPath) },
+            replace: true,
+          };
+        }
+      }
+    }
+
+    // 不是聊天相关路由，直接通过
+    return true;
+  });
+}
+
+/**
  * 项目守卫配置
  * @param router
  */
@@ -128,6 +202,8 @@ function createRouterGuard(router: Router) {
   setupCommonGuard(router);
   /** 权限访问 */
   setupAccessGuard(router);
+  /** 聊天功能 */
+  setupChatGuard(router);
 }
 
 export { createRouterGuard };

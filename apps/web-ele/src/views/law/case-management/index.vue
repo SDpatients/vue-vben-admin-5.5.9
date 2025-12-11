@@ -1,17 +1,26 @@
 <script lang="ts" setup>
+import type { EchartsUIType } from '@vben/plugins/echarts';
+
 import type { CaseApi } from '#/api';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 import { useAccessStore } from '@vben/stores';
 
 import {
-  ElAlert,
   ElButton,
   ElCard,
+  ElCheckbox,
+  ElCheckboxGroup,
   ElCol,
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
   ElMessage,
   ElPagination,
+  ElPopover,
   ElRow,
   ElSpace,
   ElTable,
@@ -31,18 +40,138 @@ const pagination = ref({
   pages: 0,
 });
 
-// 调试相关
-const showDebug = ref(false);
-const accessStore = useAccessStore();
+// 图表相关数据
+const chartRef3 = ref<EchartsUIType>();
 
-// 切换调试信息显示
-const toggleDebug = () => {
-  showDebug.value = !showDebug.value;
+const { renderEcharts: renderEcharts3 } = useEcharts(chartRef3);
+
+// 图表切换选项
+const chartType3 = ref('bar'); // 案件处理进度：bar 或 horizontal-bar
+
+// 案件处理进度数据
+const caseProgressData = computed(() => {
+  const progressMap = new Map<string, number>();
+  caseList.value.forEach((item) => {
+    // 根据案件状态或时间计算进度
+    const status = item['会计账簿'] || '其他';
+    progressMap.set(status, (progressMap.get(status) || 0) + 1);
+  });
+  return [...progressMap.entries()].map(([name, value]) => ({
+    name,
+    value,
+  }));
+});
+
+// 渲染案件处理进度图表
+const renderCaseProgressChart = () => {
+  const data = caseProgressData.value;
+  const isHorizontal = chartType3.value === 'horizontal-bar';
+
+  renderEcharts3({
+    grid: {
+      bottom: 30,
+      containLabel: true,
+      left: isHorizontal ? '15%' : '3%',
+      right: isHorizontal ? '4%' : '4%',
+      top: '10%',
+    },
+    tooltip: {
+      trigger: 'axis',
+    },
+    xAxis: isHorizontal
+      ? {
+          type: 'value',
+          name: '案件数量',
+        }
+      : {
+          data: data.map((item) => item.name),
+          type: 'category',
+          axisLabel: {
+            rotate: 45,
+          },
+        },
+    yAxis: isHorizontal
+      ? {
+          data: data.map((item) => item.name),
+          type: 'category',
+        }
+      : {
+          type: 'value',
+          name: '案件数量',
+        },
+    series: [
+      {
+        data: isHorizontal ? data.map((item) => item.value) : data,
+        type: 'bar',
+        barMaxWidth: 50,
+        itemStyle: {
+          color: '#4f69fd',
+        },
+      },
+    ],
+  });
 };
+
+// 监听图表类型变化，重新渲染对应图表
+watch(chartType3, () => renderCaseProgressChart());
+
+// 监听案件列表变化，重新渲染图表
+watch(
+  caseList,
+  () => {
+    renderCaseProgressChart();
+  },
+  { deep: true },
+);
+
+// 列显示控制
+const columnVisible = ref<string[]>([]);
+
+// 所有可用的列
+const availableColumns = [
+  '案件ID',
+  '案号',
+  '案由',
+  '承办人',
+  '法院',
+  '管理人',
+  '债权人数',
+  '债权总额',
+  '财产金额',
+  '财产比例',
+  '会计账簿',
+  '银行账户数',
+  '银行账户总余额',
+  '有效账户数',
+];
+
+// 默认显示的列（核心信息）
+const defaultColumns = new Set([
+  '会计账簿',
+  '债权人数',
+  '债权总额',
+  '案号',
+  '案由',
+  '财产金额',
+]);
+
+// 检查列是否可见（用于表格列的 v-if）
+const isColumnVisible = (columnName: string) => {
+  return columnVisible.value.includes(columnName);
+};
+
+// 初始化列显示状态
+const initColumnVisibility = () => {
+  columnVisible.value = availableColumns.filter((column) =>
+    defaultColumns.has(column),
+  );
+};
+
+const accessStore = useAccessStore();
 
 // 生成模拟数据
 const generateMockData = () => {
-  const mockCases = [
+  const mockCases: CaseApi.CaseInfo[] = [
     {
       row: 1,
       案件ID: 'CASE2024001',
@@ -69,7 +198,7 @@ const generateMockData = () => {
       银行账户数: 3,
       银行账户总余额: 1_200_000,
       有效账户数: 2,
-    },
+    } as CaseApi.CaseInfo,
     {
       row: 2,
       案件ID: 'CASE2024002',
@@ -96,7 +225,7 @@ const generateMockData = () => {
       银行账户数: 5,
       银行账户总余额: 3_500_000,
       有效账户数: 4,
-    },
+    } as CaseApi.CaseInfo,
     {
       row: 3,
       案件ID: 'CASE2024003',
@@ -123,7 +252,7 @@ const generateMockData = () => {
       银行账户数: 2,
       银行账户总余额: 850_000,
       有效账户数: 1,
-    },
+    } as CaseApi.CaseInfo,
   ];
 
   caseList.value = mockCases;
@@ -149,18 +278,23 @@ const fetchCaseList = async () => {
       pagination.value.itemCount = response.data.count || 0;
       pagination.value.pages = response.data.pages || 0;
       ElMessage.success('案件列表加载成功');
-      console.log('✅ API请求成功');
+      // API请求成功后渲染图表
+      renderCaseProgressChart();
     } else {
       ElMessage.error(response.error || '获取案件列表失败，已使用模拟数据');
-      console.log('❌ API请求失败，响应状态:', response.status);
+      // API请求失败，响应状态: response.status
       // 使用模拟数据作为后备
       generateMockData();
+      // 模拟数据加载后渲染图表
+      renderCaseProgressChart();
     }
   } catch {
     // 显示错误提示
     ElMessage.error('后端API暂时不可用，请稍后再试');
     // 使用模拟数据作为后备
     generateMockData();
+    // 模拟数据加载后渲染图表
+    renderCaseProgressChart();
   } finally {
     loading.value = false;
   }
@@ -187,8 +321,40 @@ const handleRefresh = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  initColumnVisibility();
   fetchCaseList();
 });
+
+// 监听数据加载完成后渲染图表
+watch(
+  () => caseList.value.length,
+  (newLength) => {
+    if (newLength > 0) {
+      renderCaseProgressChart();
+    }
+  },
+  { immediate: true },
+);
+
+// 重置列显示状态
+const resetColumns = () => {
+  initColumnVisibility();
+  ElMessage.success('已重置为默认列显示');
+};
+
+// 显示所有列
+const showAllColumns = () => {
+  columnVisible.value = [...availableColumns];
+  ElMessage.success('已显示所有列');
+};
+
+// 隐藏所有非核心列
+const hideNonCoreColumns = () => {
+  columnVisible.value = availableColumns.filter((column) =>
+    defaultColumns.has(column),
+  );
+  ElMessage.success('已隐藏非核心列');
+};
 
 // 格式化金额显示
 const formatCurrency = (value: number) => {
@@ -196,6 +362,17 @@ const formatCurrency = (value: number) => {
     style: 'currency',
     currency: 'CNY',
   }).format(value);
+};
+
+// 格式化数字（处理大数字显示）
+const formatNumber = (value: number) => {
+  if (value >= 100_000_000) {
+    return `${(value / 100_000_000).toFixed(2)}亿`;
+  } else if (value >= 10_000) {
+    return `${(value / 10_000).toFixed(2)}万`;
+  } else {
+    return new Intl.NumberFormat('zh-CN').format(value);
+  }
 };
 
 // 格式化百分比
@@ -220,6 +397,16 @@ const getAccountBookType = (status: string) => {
     }
   }
 };
+
+// 查看案件详情
+const router = useRouter();
+const viewCaseDetail = (row: any) => {
+  if (row.案件ID) {
+    router.push(`/case-detail/${row.案件ID}`);
+  } else {
+    ElMessage.warning('案件ID不存在，无法查看详情');
+  }
+};
 </script>
 
 <template>
@@ -228,119 +415,124 @@ const getAccountBookType = (status: string) => {
       <template #header>
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">案件管理</span>
-          <ElButton type="primary" @click="handleRefresh" :loading="loading">
-            <i class="i-lucide-refresh-cw mr-1"></i>
-            刷新
-          </ElButton>
+          <div class="flex items-center space-x-2">
+            <ElButton type="primary" @click="router.push('/case-add')">
+              <i class="i-lucide-plus mr-1"></i>
+              新增案件
+            </ElButton>
+            <ElDropdown trigger="click">
+              <ElButton type="info" size="small">
+                <i class="i-lucide-settings mr-1"></i>
+                列设置
+              </ElButton>
+              <template #dropdown>
+                <ElDropdownMenu>
+                  <ElDropdownItem @click="showAllColumns">
+                    显示所有列
+                  </ElDropdownItem>
+                  <ElDropdownItem @click="hideNonCoreColumns">
+                    仅显示核心列
+                  </ElDropdownItem>
+                  <ElDropdownItem @click="resetColumns">
+                    重置为默认
+                  </ElDropdownItem>
+                  <ElDropdownItem divided>
+                    <ElPopover
+                      placement="right"
+                      width="300"
+                      trigger="click"
+                      title="自定义列显示"
+                    >
+                      <template #reference>
+                        <span>自定义列显示</span>
+                      </template>
+                      <div class="space-y-2">
+                        <div class="mb-2 text-sm text-gray-500">
+                          选择要显示的列：
+                        </div>
+                        <ElCheckboxGroup v-model="columnVisible">
+                          <div class="grid grid-cols-2 gap-2">
+                            <ElCheckbox label="案件ID" name="案件ID">
+                              案件ID
+                            </ElCheckbox>
+                            <ElCheckbox label="案号" name="案号">
+                              案号
+                            </ElCheckbox>
+                            <ElCheckbox label="案由" name="案由">
+                              案由
+                            </ElCheckbox>
+                            <ElCheckbox label="承办人" name="承办人">
+                              承办人
+                            </ElCheckbox>
+                            <ElCheckbox label="法院" name="法院">
+                              法院
+                            </ElCheckbox>
+                            <ElCheckbox label="管理人" name="管理人">
+                              管理人
+                            </ElCheckbox>
+                            <ElCheckbox label="债权人数" name="债权人数">
+                              债权人数
+                            </ElCheckbox>
+                            <ElCheckbox label="债权总额" name="债权总额">
+                              债权总额
+                            </ElCheckbox>
+                            <ElCheckbox label="财产金额" name="财产金额">
+                              财产金额
+                            </ElCheckbox>
+                            <ElCheckbox label="财产比例" name="财产比例">
+                              财产比例
+                            </ElCheckbox>
+                            <ElCheckbox label="会计账簿" name="会计账簿">
+                              会计账簿
+                            </ElCheckbox>
+                            <ElCheckbox label="银行账户数" name="银行账户数">
+                              银行账户数
+                            </ElCheckbox>
+                            <ElCheckbox
+                              label="银行账户总余额"
+                              name="银行账户总余额"
+                            >
+                              账户余额
+                            </ElCheckbox>
+                            <ElCheckbox label="有效账户数" name="有效账户数">
+                              有效账户
+                            </ElCheckbox>
+                          </div>
+                        </ElCheckboxGroup>
+                      </div>
+                    </ElPopover>
+                  </ElDropdownItem>
+                </ElDropdownMenu>
+              </template>
+            </ElDropdown>
+            <ElButton type="primary" @click="handleRefresh" :loading="loading">
+              <i class="i-lucide-refresh-cw mr-1"></i>
+              刷新
+            </ElButton>
+          </div>
         </div>
       </template>
 
       <ElSpace direction="vertical" size="large" class="w-full">
-        <ElAlert type="info" title="案件信息统计" show-icon>
-          当前系统共管理 {{ pagination.itemCount }} 个案件，分布在
-          {{ pagination.pages }} 页中。
-        </ElAlert>
-
-        <!-- 调试信息区域 -->
-        <ElCard header="调试信息" size="small" v-if="true">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-semibold text-gray-600">调试信息 (开发模式可见)</span>
-              <ElButton size="small" type="info" @click="toggleDebug">
-                {{ showDebug ? '隐藏' : '显示' }}调试信息
-              </ElButton>
-            </div>
-          </template>
-          <div
-            v-if="showDebug"
-            class="rounded bg-gray-50 p-3 font-mono text-xs"
-          >
-            <div>
-              <strong>API请求URL:</strong>
-              http://localhost:5777/api/web/selectAllCase
-            </div>
-            <div>
-              <strong>后端API地址:</strong>
-              http://192.168.0.108:8081/api/web/selectAllCase
-            </div>
-            <div>
-              <strong>Token:</strong>
-              {{
-                accessStore?.accessToken || '1ae18aba1f1b430c8cf22d2f668a9b79'
-              }}
-            </div>
-            <div>
-              <strong>分页参数:</strong> page={{ pagination.page }}, size={{
-                pagination.pageSize
-              }}
-            </div>
-            <div>
-              <strong>完整请求URL:</strong>
-              http://localhost:5777/api/web/selectAllCase?page={{
-                pagination.page
-              }}&size={{ pagination.pageSize }}&token={{
-                accessStore?.accessToken || '1ae18aba1f1b430c8cf22d2f668a9b79'
-              }}
-            </div>
-          </div>
-        </ElCard>
-
-        <!-- 案件统计信息 -->
-        <ElCard header="案件统计概览" size="small">
-          <ElRow :gutter="16">
-            <ElCol :span="6">
-              <div class="rounded bg-blue-50 p-4 text-center">
-                <div class="text-2xl font-bold text-blue-600">
-                  {{ pagination.itemCount }}
+        <!-- 案件处理进度图表 -->
+        <ElRow :gutter="20">
+          <ElCol :span="24">
+            <ElCard header="案件处理进度" size="small">
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <span>案件处理进度</span>
+                  <ElRadioGroup v-model="chartType3" size="small">
+                    <ElRadio label="bar">柱状图</ElRadio>
+                    <ElRadio label="horizontal-bar">横向柱状图</ElRadio>
+                  </ElRadioGroup>
                 </div>
-                <div class="text-sm text-gray-500">总案件数</div>
+              </template>
+              <div class="h-[300px]">
+                <EchartsUI ref="chartRef3" />
               </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="rounded bg-green-50 p-4 text-center">
-                <div class="text-2xl font-bold text-green-600">
-                  {{
-                    caseList.reduce(
-                      (sum, item) => sum + (item['债权人数'] || 0),
-                      0,
-                    )
-                  }}
-                </div>
-                <div class="text-sm text-gray-500">总债权人数</div>
-              </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="rounded bg-purple-50 p-4 text-center">
-                <div class="text-2xl font-bold text-purple-600">
-                  {{
-                    formatCurrency(
-                      caseList.reduce(
-                        (sum, item) => sum + (item['债权总额'] || 0),
-                        0,
-                      ),
-                    )
-                  }}
-                </div>
-                <div class="text-sm text-gray-500">总债权金额</div>
-              </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="rounded bg-orange-50 p-4 text-center">
-                <div class="text-2xl font-bold text-orange-600">
-                  {{
-                    formatCurrency(
-                      caseList.reduce(
-                        (sum, item) => sum + (item['财产金额'] || 0),
-                        0,
-                      ),
-                    )
-                  }}
-                </div>
-                <div class="text-sm text-gray-500">总财产金额</div>
-              </div>
-            </ElCol>
-          </ElRow>
-        </ElCard>
+            </ElCard>
+          </ElCol>
+        </ElRow>
 
         <!-- 案件列表表格 -->
         <ElCard header="案件列表" size="small">
@@ -350,36 +542,76 @@ const getAccountBookType = (status: string) => {
             stripe
             border
             size="small"
-            :style="{ width: '100%' }"
+            :style="{ width: '100%', maxHeight: '500px' }"
+            scrollable
           >
+            <!-- 案件ID -->
             <ElTableColumn
+              v-if="isColumnVisible('案件ID')"
               prop="案件ID"
               label="案件ID"
               width="120"
               fixed="left"
+              show-overflow-tooltip
             />
-            <ElTableColumn prop="案号" label="案号" width="180" />
+
+            <!-- 案号 -->
             <ElTableColumn
+              v-if="isColumnVisible('案号')"
+              prop="案号"
+              label="案号"
+              width="180"
+              show-overflow-tooltip
+            />
+
+            <!-- 案由 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案由')"
               prop="案由"
               label="案由"
               width="200"
               show-overflow-tooltip
             />
-            <ElTableColumn prop="承办人" label="承办人" width="100" />
+
+            <!-- 承办人 -->
             <ElTableColumn
+              v-if="isColumnVisible('承办人')"
+              prop="承办人"
+              label="承办人"
+              width="100"
+              show-overflow-tooltip
+            />
+
+            <!-- 法院 -->
+            <ElTableColumn
+              v-if="isColumnVisible('法院')"
               prop="法院"
               label="法院"
               width="200"
               show-overflow-tooltip
             />
-            <ElTableColumn prop="管理人" label="管理人" width="120" />
+
+            <!-- 管理人 -->
             <ElTableColumn
+              v-if="isColumnVisible('管理人')"
+              prop="管理人"
+              label="管理人"
+              width="120"
+              show-overflow-tooltip
+            />
+
+            <!-- 债权人数 -->
+            <ElTableColumn
+              v-if="isColumnVisible('债权人数')"
               prop="债权人数"
               label="债权人数"
               width="100"
               align="center"
             />
+
+            <!-- 债权总额 -->
             <ElTableColumn
+              v-if="isColumnVisible('债权总额')"
               prop="债权总额"
               label="债权总额"
               width="120"
@@ -389,7 +621,10 @@ const getAccountBookType = (status: string) => {
                 {{ formatCurrency(row['债权总额']) }}
               </template>
             </ElTableColumn>
+
+            <!-- 财产金额 -->
             <ElTableColumn
+              v-if="isColumnVisible('财产金额')"
               prop="财产金额"
               label="财产金额"
               width="120"
@@ -399,7 +634,10 @@ const getAccountBookType = (status: string) => {
                 {{ formatCurrency(row['财产金额']) }}
               </template>
             </ElTableColumn>
+
+            <!-- 财产比例 -->
             <ElTableColumn
+              v-if="isColumnVisible('财产比例')"
               prop="财产比例"
               label="财产比例"
               width="100"
@@ -409,7 +647,10 @@ const getAccountBookType = (status: string) => {
                 {{ formatPercentage(row['财产比例']) }}
               </template>
             </ElTableColumn>
+
+            <!-- 会计账簿 -->
             <ElTableColumn
+              v-if="isColumnVisible('会计账簿')"
               prop="会计账簿"
               label="会计账簿"
               width="100"
@@ -421,13 +662,19 @@ const getAccountBookType = (status: string) => {
                 </ElTag>
               </template>
             </ElTableColumn>
+
+            <!-- 银行账户数 -->
             <ElTableColumn
+              v-if="isColumnVisible('银行账户数')"
               prop="银行账户数"
               label="账户数"
               width="80"
               align="center"
             />
+
+            <!-- 银行账户总余额 -->
             <ElTableColumn
+              v-if="isColumnVisible('银行账户总余额')"
               prop="银行账户总余额"
               label="账户余额"
               width="120"
@@ -437,15 +684,27 @@ const getAccountBookType = (status: string) => {
                 {{ formatCurrency(row['银行账户总余额']) }}
               </template>
             </ElTableColumn>
+
+            <!-- 有效账户数 -->
             <ElTableColumn
+              v-if="isColumnVisible('有效账户数')"
               prop="有效账户数"
               label="有效账户"
               width="80"
               align="center"
             />
+
+            <!-- 操作列 -->
             <ElTableColumn label="操作" width="120" fixed="right">
-              <template #default>
-                <ElButton type="primary" size="small" link>查看</ElButton>
+              <template #default="{ row }">
+                <ElButton
+                  type="primary"
+                  size="small"
+                  link
+                  @click="viewCaseDetail(row)"
+                >
+                  查看
+                </ElButton>
                 <ElButton type="info" size="small" link>编辑</ElButton>
               </template>
             </ElTableColumn>
@@ -476,9 +735,152 @@ const getAccountBookType = (status: string) => {
 
 :deep(.el-table) {
   border-radius: 8px;
+  font-size: 12px;
 }
 
 :deep(.el-table .cell) {
-  line-height: 1.5;
+  line-height: 1.4;
+  padding: 4px 8px;
+}
+
+:deep(.el-table__header-wrapper) {
+  font-weight: 600;
+}
+
+:deep(.el-table--scrollable-x .el-table__body-wrapper) {
+  overflow-x: auto;
+}
+
+:deep(.el-table--scrollable-y .el-table__body-wrapper) {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* 响应式表格样式 */
+@media (max-width: 1200px) {
+  :deep(.el-table) {
+    font-size: 11px;
+  }
+
+  :deep(.el-table .cell) {
+    padding: 3px 6px;
+  }
+}
+
+/* 表格列宽自适应优化 */
+:deep(.el-table__body) {
+  min-width: fit-content;
+}
+
+/* 操作列样式优化 */
+:deep(.el-table__fixed-right) {
+  z-index: 3;
+}
+
+/* 统计卡片样式优化 */
+.stat-card {
+  transition: all 0.3s ease;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(240, 249, 255, 0.8),
+    rgba(240, 249, 255, 1)
+  );
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* 统计图标样式 */
+.stat-icon {
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1);
+}
+
+/* 数字显示优化 */
+.number-value {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  max-width: 100%;
+  line-height: 1.3;
+  min-height: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 8px;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* 统计卡片容器优化 */
+:deep(.el-col) {
+  min-width: 0;
+}
+
+/* 响应式统计卡片 */
+@media (max-width: 1200px) {
+  .stat-card {
+    min-height: 130px;
+    padding: 16px 10px;
+  }
+
+  .stat-icon {
+    font-size: 2.5rem;
+  }
+
+  .number-value {
+    font-size: 1.75rem;
+    line-height: 1.2;
+    padding: 0 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stat-card {
+    min-height: 120px;
+    padding: 14px 8px;
+  }
+
+  .stat-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+  }
+
+  .number-value {
+    font-size: 1.5rem;
+    line-height: 1.1;
+    padding: 0 4px;
+  }
+}
+
+@media (max-width: 576px) {
+  .stat-card {
+    min-height: 110px;
+    padding: 12px 6px;
+  }
+
+  .stat-icon {
+    font-size: 1.75rem;
+    margin-bottom: 6px;
+  }
+
+  .number-value {
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0 2px;
+  }
 }
 </style>
