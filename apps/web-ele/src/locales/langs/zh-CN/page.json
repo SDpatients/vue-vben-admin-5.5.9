@@ -39,5 +39,10 @@
     "contactManagement": "联系人管理",
     "contactAdd": "新增联系人",
     "contactEdit": "编辑联系人"
+  },
+  "payment": {
+    "title": "支付管理",
+    "list": "支付列表",
+    "detail": "支付详情"
   }
 }

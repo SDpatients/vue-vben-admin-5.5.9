@@ -129,7 +129,6 @@ const columnVisible = ref<string[]>([]);
 
 // 所有可用的列
 const availableColumns = [
-  '案件ID',
   '案号',
   '案由',
   '承办人',
@@ -174,7 +173,6 @@ const generateMockData = () => {
   const mockCases: CaseApi.CaseInfo[] = [
     {
       row: 1,
-      案件ID: 'CASE2024001',
       序号: 1,
       年度: '2024',
       案号: '(2024)沪01破1号',
@@ -201,7 +199,6 @@ const generateMockData = () => {
     } as CaseApi.CaseInfo,
     {
       row: 2,
-      案件ID: 'CASE2024002',
       序号: 2,
       年度: '2024',
       案号: '(2024)京02破5号',
@@ -228,7 +225,6 @@ const generateMockData = () => {
     } as CaseApi.CaseInfo,
     {
       row: 3,
-      案件ID: 'CASE2024003',
       序号: 3,
       年度: '2024',
       案号: '(2024)深03破8号',
@@ -401,10 +397,10 @@ const getAccountBookType = (status: string) => {
 // 查看案件详情
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
-  if (row.案件ID) {
-    router.push(`/case-detail/${row.案件ID}`);
+  if (row.序号) {
+    router.push(`/case-detail/${row.序号}`);
   } else {
-    ElMessage.warning('案件ID不存在，无法查看详情');
+    ElMessage.warning('案件序号不存在，无法查看详情');
   }
 };
 </script>
@@ -452,9 +448,6 @@ const viewCaseDetail = (row: any) => {
                         </div>
                         <ElCheckboxGroup v-model="columnVisible">
                           <div class="grid grid-cols-2 gap-2">
-                            <ElCheckbox label="案件ID" name="案件ID">
-                              案件ID
-                            </ElCheckbox>
                             <ElCheckbox label="案号" name="案号">
                               案号
                             </ElCheckbox>
@@ -545,16 +538,6 @@ const viewCaseDetail = (row: any) => {
             :style="{ width: '100%', maxHeight: '500px' }"
             scrollable
           >
-            <!-- 案件ID -->
-            <ElTableColumn
-              v-if="isColumnVisible('案件ID')"
-              prop="案件ID"
-              label="案件ID"
-              width="120"
-              fixed="left"
-              show-overflow-tooltip
-            />
-
             <!-- 案号 -->
             <ElTableColumn
               v-if="isColumnVisible('案号')"

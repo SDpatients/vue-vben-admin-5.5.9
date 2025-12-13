@@ -1046,16 +1046,7 @@ onMounted(async () => {
         <!-- 关键信息概览 -->
         <div class="key-info-overview mb-6">
           <ElRow :gutter="20">
-            <ElCol :xs="24" :sm="8" :md="6">
-              <div class="key-info-item rounded-lg bg-blue-50 p-4 text-center">
-                <div class="key-info-label mb-1 text-sm text-gray-500">
-                  案件ID
-                </div>
-                <div class="key-info-value text-xl font-bold text-blue-600">
-                  {{ caseDetail.案件ID }}
-                </div>
-              </div>
-            </ElCol>
+
             <ElCol :xs="24" :sm="8" :md="6">
               <div class="key-info-item rounded-lg bg-green-50 p-4 text-center">
                 <div class="key-info-label mb-1 text-sm text-gray-500">
@@ -1101,279 +1092,201 @@ onMounted(async () => {
           </ElRow>
         </div>
 
-        <!-- 详细信息网格 -->
-        <div class="detail-info-grid">
-          <ElRow :gutter="20">
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  案件名称：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.案件名称 }}
-                </span>
+        <!-- 按类别分组展示详细信息 -->
+        <div class="category-sections">
+          <!-- 案件基本信息 -->
+          <ElCard class="category-card mb-4" shadow="hover">
+            <template #header>
+              <div class="category-header">
+                <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                <span class="text-md font-semibold">案件基本信息</span>
               </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  受理日期：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.受理日期 }}
-                </span>
+            </template>
+            <div class="category-content">
+              <ElRow :gutter="20">
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件名称 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.受理日期 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件来源 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.受理法院 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">案由：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.案由 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件进度 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.是否简化审 }}</span>
+                  </div>
+                </ElCol>
+              </ElRow>
+            </div>
+          </ElCard>
+
+          <!-- 时间相关信息 -->
+          <ElCard class="category-card mb-4" shadow="hover">
+            <template #header>
+              <div class="category-header">
+                <Icon icon="lucide:calendar" class="mr-2 text-green-500" />
+                <span class="text-md font-semibold">时间相关信息</span>
               </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  案件来源：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.案件来源 }}
-                </span>
+            </template>
+            <div class="category-content">
+              <ElRow :gutter="20">
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.立案日期 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.结案日期 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.破产时间 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.终结时间 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.注销时间 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.归档时间 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权申报截止时间 }}</span>
+                  </div>
+                </ElCol>
+              </ElRow>
+            </div>
+          </ElCard>
+
+          <!-- 管理人信息 -->
+          <ElCard class="category-card mb-4" shadow="hover">
+            <template #header>
+              <div class="category-header">
+                <Icon icon="lucide:users" class="mr-2 text-purple-500" />
+                <span class="text-md font-semibold">管理人信息</span>
               </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  管理人负责人：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.管理人负责人 }}
-                </span>
+            </template>
+            <div class="category-content">
+              <ElRow :gutter="20">
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人负责人 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人类型 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人状态 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.律师事务所 }}</span>
+                  </div>
+                </ElCol>
+              </ElRow>
+            </div>
+          </ElCard>
+
+          <!-- 债权人信息 -->
+          <ElCard class="category-card mb-4" shadow="hover">
+            <template #header>
+              <div class="category-header">
+                <Icon icon="lucide:handshake" class="mr-2 text-orange-500" />
+                <span class="text-md font-semibold">债权人信息</span>
               </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  承办法官：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.承办法官 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  案由：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.案由 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  债权申报截止时间：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.债权申报截止时间 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  是否简化审：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.是否简化审 }}
-                </span>
-              </div>
-            </ElCol>
-            <!-- 新增债务人信息 -->
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  债务人：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.债务人 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  法定代表人：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.法定代表人 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  注册地址：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.注册地址 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  注册资本：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.注册资本 }}
-                </span>
-              </div>
-            </ElCol>
-            <!-- 新增债权人信息 -->
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  债权人名称：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.债权人名称 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  债权人类型：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.债权人类型 }}
-                </span>
-              </div>
-            </ElCol>
-            <!-- 新增法院相关信息 -->
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  会议庭成员：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.会议庭成员 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  受理庭室：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.受理庭室 }}
-                </span>
-              </div>
-            </ElCol>
-            <!-- 新增案件状态信息 -->
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  立案日期：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.立案日期 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  破产时间：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.破产时间 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  归档时间：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.归档时间 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  注销时间：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.注销时间 }}
-                </span>
-              </div>
-            </ElCol>
-            <!-- 新增管理人信息 -->
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  管理人类型：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.管理人类型 }}
-                </span>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-              <div
-                class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-              >
-                <span class="detail-info-label font-medium text-gray-600">
-                  管理人联系方式：
-                </span>
-                <span class="detail-info-value text-gray-900">
-                  {{ caseDetail.管理人联系方式 }}
-                </span>
-              </div>
-            </ElCol>
-          </ElRow>
+            </template>
+            <div class="category-content">
+              <ElRow :gutter="20">
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权人名称 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权人类型 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.联系电话 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.联系邮箱 }}</span>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="24" :md="16" :lg="12">
+                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                    <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
+                    <span class="detail-info-value text-gray-900">{{ caseDetail.办公地址 }}</span>
+                  </div>
+                </ElCol>
+              </ElRow>
+            </div>
+          </ElCard>
         </div>
       </div>
 
