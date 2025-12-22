@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { fileUploadRequestClient, requestClient } from '#/api/request';
 
 export namespace CaseApi {
   /** 案件查询参数 */
@@ -6,6 +6,20 @@ export namespace CaseApi {
     page?: number;
     size?: number;
     token?: string;
+  }
+
+  /** 案件处理进度数据 */
+  export interface CaseProgressInfo {
+    AJJD: string;
+  }
+
+  /** 案件处理进度响应 */
+  export interface CaseProgressResponse {
+    data: {
+      records: CaseProgressInfo[];
+    };
+    status: string;
+    error: string;
   }
 
   /** 案件信息 */
@@ -45,6 +59,39 @@ export namespace CaseApi {
     };
     status: string;
     error: string;
+  }
+
+  /** 添加案件请求体 */
+  export interface AddCaseRequest {
+    ah: string;
+    ajmc: string;
+    slrq?: string;
+    ajly?: string;
+    slfy?: string;
+    zdjg?: string;
+    glrfzr?: string;
+    sfjhs?: string;
+    ay?: string;
+    ajjd?: string;
+    zqsbjzsj?: string;
+    larq?: string;
+    jarq?: string;
+    pcsj?: string;
+    zjsj?: string;
+    zxsj?: string;
+    gdsj?: string;
+    beizhu?: string;
+    wjsc?: string;
+    sepLd?: number;
+    sepMd?: number;
+    sepNd?: string;
+  }
+
+  /** 添加案件响应 */
+  export interface AddCaseResponse {
+    status: string;
+    error: string;
+    data: string;
   }
 }
 
@@ -125,4 +172,134 @@ export async function getCaseDetailApi(serialNumber: string) {
       SEP_ID: serialNumber,
     },
   });
+}
+
+/**
+ * 添加单个破产案件
+ */
+export async function addOneCaseApi(data: CaseApi.AddCaseRequest) {
+  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  return requestClient.post<CaseApi.AddCaseResponse>(
+    '/api/web/AddOneCase',
+    [data],
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}
+
+/**
+ * 上传案件文件
+ */
+export async function uploadCaseFileApi(
+  token: string,
+  file: File,
+  SEP_ID: string,
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return fileUploadRequestClient.post<any>(
+    '/api/web/uploadCaseFile',
+    formData,
+    {
+      params: {
+        token,
+        SEP_ID,
+      },
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+}
+
+/**
+ * 批量上传案件文件
+ */
+export async function batchUploadCaseFilesApi(
+  token: string,
+  files: File[],
+  SEP_ID: string,
+) {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+  return fileUploadRequestClient.post<any>(
+    '/api/web/batchUploadCaseFiles',
+    formData,
+    {
+      params: {
+        token,
+        SEP_ID,
+      },
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+}
+
+/**
+ * 获取案件文件列表
+ */
+export async function getCaseFilesApi(
+  token: string,
+  SEP_ID: string,
+  page?: number,
+  size?: number,
+) {
+  return fileUploadRequestClient.get<any>('/api/web/getCaseFiles', {
+    params: {
+      token,
+      SEP_ID,
+      page,
+      size,
+    },
+  });
+}
+
+/**
+ * 删除案件文件
+ */
+export async function deleteCaseFileApi(token: string, fileId: string) {
+  return fileUploadRequestClient.delete<any>(
+    `/api/web/deleteCaseFile/${fileId}`,
+    {
+      params: {
+        token,
+      },
+    },
+  );
+}
+
+/**
+ * 下载案件文件
+ */
+export async function downloadCaseFileApi(token: string, fileId: string) {
+  return fileUploadRequestClient.get<any>(
+    `/api/web/downloadCaseFile/${fileId}`,
+    {
+      params: {
+        token,
+      },
+      responseType: 'blob',
+    },
+  );
+}
+
+/**
+ * 获取案件处理进度数据
+ */
+export async function getCaseProgressApi(token: string) {
+  return requestClient.get<CaseApi.CaseProgressResponse>(
+    '/api/web/selectAllCaseFor',
+    {
+      params: {
+        token,
+      },
+    },
+  );
 }

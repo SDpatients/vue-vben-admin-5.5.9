@@ -11,7 +11,6 @@ export namespace BankAccountApi {
   /** 银行账户信息 */
   export interface BankAccountInfo {
     row: number;
-    CASEID: string; // 案件ID
     account_name: string; // 账户名称
     bank_name: string; // 银行名称
     account_number: string; // 账户号码
@@ -21,9 +20,7 @@ export namespace BankAccountApi {
     KHRQ: string; // 开户日期
     XHRQ: string; // 销户日期
     ZT: string; // 状态
-    AH: string; // 案号
     MM: string; // 密码
-    ZHID: null | string; // 账户ID
   }
 
   /** 银行账户列表响应 */

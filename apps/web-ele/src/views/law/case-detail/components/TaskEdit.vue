@@ -27,7 +27,7 @@ import {
   getSealManagementApi,
   getWorkPlanApi,
   getWorkTeamApi,
-  updateTaskStatusApi,
+  unifiedTaskOperationApi,
 } from '#/api/core/case-process';
 
 // 路由参数
@@ -161,18 +161,6 @@ const taskTypeMap: Record<string, any> = {
   },
   creditorClaim: {
     name: '债权人申报',
-    api: '',
-    fields: [
-      { label: '调查类型', prop: 'TCLX', type: 'input' },
-      { label: '调查内容', prop: 'TCNR', type: 'textarea' },
-      { label: '调查日期', prop: 'TCRQ', type: 'date' },
-      { label: '调查人', prop: 'TCR', type: 'input' },
-      { label: '调查方向', prop: 'TCFX', type: 'input' },
-      { label: '调查状态', prop: 'TCZT', type: 'input' },
-    ],
-  },
-  employeeClaims: {
-    name: '职工债权',
     api: '',
     fields: [
       { label: '调查类型', prop: 'TCLX', type: 'input' },
@@ -331,10 +319,16 @@ const loadTaskData = async () => {
   loading.value = true;
   try {
     let apiResponse;
-    
+
     // 检查是否为第一阶段任务类型
-    const firstStageTaskTypes = ['legalProcedure', 'management', 'sealManagement', 'workPlan', 'workTeam'];
-    
+    const firstStageTaskTypes = [
+      'legalProcedure',
+      'management',
+      'sealManagement',
+      'workPlan',
+      'workTeam',
+    ];
+
     if (firstStageTaskTypes.includes(taskType)) {
       // 根据任务类型调用对应的API接口
       switch (taskType) {
@@ -362,21 +356,22 @@ const loadTaskData = async () => {
           throw new Error('未知的任务类型');
         }
       }
-      
+
       // 处理第一阶段API响应
       if (apiResponse.status === '1' && apiResponse.data) {
         // 使用API返回的数据
         taskData.value = {
           ...apiResponse.data,
           // 确保有默认值
-          DQZT: (apiResponse.data?.DQZT as CaseProcessApi.TaskStatus) || '未确认',
+          DQZT:
+            (apiResponse.data?.DQZT as CaseProcessApi.TaskStatus) || '未确认',
+          // 确保SEP_ID存在
+          SEP_ID: apiResponse.data?.SEP_ID || caseId,
         };
       } else {
         // API调用失败或数据为空，使用默认数据
         taskData.value = {
-          SEP_ID: '1',
-          GLAJBH: caseId,
-          AH: caseId,
+          SEP_ID: caseId,
           DQZT: '未确认',
           ...Object.fromEntries(
             currentTask.value.fields.map((field: any) => [field.prop, '']),
@@ -386,24 +381,49 @@ const loadTaskData = async () => {
       }
     } else {
       // 第三阶段任务类型，使用不同的API调用方式
-      const apiConfig: Record<string, { url: string; token: string }> = {
-        propertyInvestigation: { url: '/api/web/getAllPropertyInvestigation', token: '17fce65ebabe3088ab45b97f77f91b5a' },
-        bankExpenses: { url: '/api/web/getAllBankExpenses', token: 'ff7185ba1adffaa6630ec57062ae6473' },
-        rightsClaim: { url: '/api/web/getAllRightsClaim', token: '0ce8909084c3cd60a2e2f8ba450df13a' },
-        reclaimReview: { url: '/api/web/getAllReclaimReview', token: 'dcdc3c95faccd88d495c94923f8e2148' },
-        litigationArbitration: { url: '/api/web/getAllLitigationArbitration', token: '7adbf35a9986045cb55ce9e1d8d8b90c' },
-        creditorClaim: { url: '/api/web/getAllCreditorClaim', token: '7fb219c01b0107dc5cb58d173ce87664' },
-        employeeClaims: { url: '/api/web/getAllEmployeeClaims', token: '328c37a28705fdbc976bea5b128e68b4' },
-        socialSF: { url: '/api/web/getAllSociaSF', token: 'a8990ffa15ebbd2bff6aed37db08cadf' },
-        taxVerification: { url: '/api/web/getAllTaxVerification', token: '59a21e973cc5a522c63b11c19a988d0b' },
+      const apiConfig: Record<string, { token: string; url: string }> = {
+        propertyInvestigation: {
+          url: '/api/web/getAllPropertyInvestigation',
+          token: '17fce65ebabe3088ab45b97f77f91b5a',
+        },
+        bankExpenses: {
+          url: '/api/web/getAllBankExpenses',
+          token: 'ff7185ba1adffaa6630ec57062ae6473',
+        },
+        rightsClaim: {
+          url: '/api/web/getAllRightsClaim',
+          token: '0ce8909084c3cd60a2e2f8ba450df13a',
+        },
+        reclaimReview: {
+          url: '/api/web/getAllReclaimReview',
+          token: 'dcdc3c95faccd88d495c94923f8e2148',
+        },
+        litigationArbitration: {
+          url: '/api/web/getAllLitigationArbitration',
+          token: '7adbf35a9986045cb55ce9e1d8d8b90c',
+        },
+        creditorClaim: {
+          url: '/api/web/getAllCreditorClaim',
+          token: '7fb219c01b0107dc5cb58d173ce87664',
+        },
+        socialSF: {
+          url: '/api/web/getAllSociaSF',
+          token: 'a8990ffa15ebbd2bff6aed37db08cadf',
+        },
+        taxVerification: {
+          url: '/api/web/getAllTaxVerification',
+          token: '59a21e973cc5a522c63b11c19a988d0b',
+        },
       };
-      
+
       const config = apiConfig[taskType];
       if (config) {
-        // 调用第三阶段API，将参数从AJID改为GLAJBH
-        const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}${config.url}?token=${config.token}&GLAJBH=${caseId}&page=1&size=10`);
+        // 调用第三阶段API，使用SEP_ID作为参数
+        const response = await fetch(
+          `${import.meta.env.VITE_GLOB_API_URL}${config.url}?token=${config.token}&SEP_ID=${caseId}&page=1&size=10`,
+        );
         const data = await response.json();
-        
+
         if (data.status === '1' && data.data?.records?.length > 0) {
           // 使用API返回的数据
           const record = data.data.records[0];
@@ -423,7 +443,7 @@ const loadTaskData = async () => {
               currentTask.value.fields.map((field: any) => [field.prop, '']),
             ),
           };
-          
+
           // 处理status为"0"的情况
           if (data.status === '0') {
             const errorMsg = data.error || 'API调用失败';
@@ -456,20 +476,40 @@ const loadTaskData = async () => {
   }
 };
 
+// 任务类型映射到OperateType
+const taskTypeToOperateType: Record<string, string> = {
+  // 第一阶段任务
+  workTeam: '0',
+  workPlan: '1',
+  management: '2',
+  sealManagement: '3',
+  legalProcedure: '4',
+  // 第二阶段任务
+  propertyReceipt: '5',
+  emergency: '6',
+  propertyPlan: '7',
+  personnelEmp: '8',
+  internalAffairs: '9',
+  businessManagement: '10',
+};
+
 // 保存任务数据
 const saveTask = async (confirmStatus: boolean = false) => {
   if (!currentTask.value) return;
 
   saving.value = true;
   try {
-    // 调用更新API接口
-    const status = confirmStatus ? '完成' : taskData.value.DQZT;
-    const apiResponse = await updateTaskStatusApi(
-      taskType,
-      caseId,
-      status,
-      taskData.value,
-    );
+    // 准备统一API参数
+    const params = {
+      SEP_LD: caseId,
+      SEP_ID: taskData.value.SEP_ID || caseId,
+      ZT: confirmStatus ? '1' : '0', // 确认完成则ZT=1，否则ZT=0
+      OperateType: taskTypeToOperateType[taskType] || '0',
+      ...taskData.value, // 上传所有修改的值
+    };
+
+    // 调用统一API (update)
+    const apiResponse = await unifiedTaskOperationApi(params);
 
     // 处理API响应
     if (apiResponse.status === '1') {
@@ -484,7 +524,7 @@ const saveTask = async (confirmStatus: boolean = false) => {
         router.back();
       }
     } else {
-      ElMessage.error(`保存任务数据失败：${apiResponse.message || '未知错误'}`);
+      ElMessage.error(`保存任务数据失败：${apiResponse.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('保存任务数据失败:', error);
@@ -518,20 +558,24 @@ const showConfirmDialog = () => {
 const skipTask = async () => {
   saving.value = true;
   try {
-    // 调用API更新状态为跳过
-    const apiResponse = await updateTaskStatusApi(
-      taskType,
-      caseId,
-      '跳过',
-      taskData.value,
-    );
+    // 准备统一API参数
+    const params = {
+      SEP_LD: caseId,
+      SEP_ID: taskData.value.SEP_ID || caseId,
+      ZT: '2', // 跳过状态
+      OperateType: taskTypeToOperateType[taskType] || '0',
+      ...taskData.value,
+    };
+
+    // 调用统一API (update)
+    const apiResponse = await unifiedTaskOperationApi(params);
 
     if (apiResponse.status === '1') {
       taskData.value.DQZT = '跳过';
       isSkipped.value = true;
       ElMessage.success('任务已跳过');
     } else {
-      ElMessage.error(`跳过任务失败：${apiResponse.message || '未知错误'}`);
+      ElMessage.error(`跳过任务失败：${apiResponse.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('跳过任务失败:', error);
@@ -541,28 +585,49 @@ const skipTask = async () => {
   }
 };
 
-// 撤回跳过
+// 撤回跳过或完成操作
 const revokeSkip = async () => {
   saving.value = true;
   try {
-    // 调用API更新状态为未确认
-    const apiResponse = await updateTaskStatusApi(
-      taskType,
-      caseId,
-      '未确认',
-      taskData.value,
-    );
+    // 任务类型映射到OperateType
+    const taskTypeToOperateType: Record<string, string> = {
+      // 第一阶段任务
+      workTeam: '0',
+      workPlan: '1',
+      management: '2',
+      sealManagement: '3',
+      legalProcedure: '4',
+      // 第二阶段任务
+      propertyReceipt: '5',
+      emergency: '6',
+      propertyPlan: '7',
+      personnelEmp: '8',
+      internalAffairs: '9',
+      businessManagement: '10',
+    };
+
+    // 准备统一API参数
+    const params = {
+      SEP_LD: caseId,
+      SEP_ID: taskData.value.SEP_ID || caseId,
+      ZT: '0', // 未确认状态
+      OperateType: taskTypeToOperateType[taskType] || '0',
+      ...taskData.value, // 上传所有修改的值
+    };
+
+    // 调用统一API
+    const apiResponse = await unifiedTaskOperationApi(params);
 
     if (apiResponse.status === '1') {
       taskData.value.DQZT = '未确认';
       isSkipped.value = false;
-      ElMessage.success('已撤回跳过操作');
+      ElMessage.success('已撤回操作');
     } else {
-      ElMessage.error(`撤回跳过失败：${apiResponse.message || '未知错误'}`);
+      ElMessage.error(`撤回操作失败：${apiResponse.error || '未知错误'}`);
     }
   } catch (error) {
-    console.error('撤回跳过失败:', error);
-    ElMessage.error('撤回跳过失败');
+    console.error('撤回操作失败:', error);
+    ElMessage.error('撤回操作失败');
   } finally {
     saving.value = false;
   }

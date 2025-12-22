@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { chatRequestClient } from '#/api/request';
 
 // 定义类型
 export namespace ChatApi {
@@ -158,12 +158,19 @@ export namespace ChatApi {
 /**
  * 获取联系人列表
  */
-export async function getContactsApi() {
-  const response = await requestClient.get<
+export async function getContactsApi(params?: {
+  userId?: number;
+  groupId?: number;
+  keyword?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ContactResponse>
-  >('http://192.168.0.108:8081/api/web/contact', {
+  >('/api/web/contact', {
     params: {
       token: '7a7bad27c7be5cced8fd12b796ab2a49',
+      ...params,
     },
   });
 
@@ -193,14 +200,104 @@ export async function getContactsApi() {
 }
 
 /**
+ * 新增联系人
+ */
+export async function addContactApi(data: {
+  userId: number;
+  contactUserId: number;
+  name: string;
+  phone: string;
+  email: string;
+  idCard?: string | null;
+  avatar?: string | null;
+  description?: string | null;
+  isSystemUser?: boolean | null;
+  groupId: number;
+  isPinned?: boolean;
+}) {
+  const response = await chatRequestClient.post<{
+    status: string;
+    data: number;
+    error: string;
+  }>('/api/web/contact', {
+    params: {
+      token: '7a7bad27c7be5cced8fd12b796ab2a49',
+    },
+    data,
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '新增联系人失败');
+}
+
+/**
+ * 修改联系人
+ */
+export async function updateContactApi(id: number, data: {
+  userId: number;
+  contactUserId: number;
+  name: string;
+  phone: string;
+  email: string;
+  idCard?: string | null;
+  avatar?: string | null;
+  description?: string | null;
+  isSystemUser?: boolean | null;
+  groupId: number;
+  isPinned?: boolean;
+}) {
+  const response = await chatRequestClient.put<{
+    status: string;
+    data: number;
+    error: string;
+  }>(`/api/web/contact/${id}`, {
+    params: {
+      token: '7a7bad27c7be5cced8fd12b796ab2a49',
+    },
+    data,
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '修改联系人失败');
+}
+
+/**
+ * 删除联系人
+ */
+export async function deleteContactApi(id: number) {
+  const response = await chatRequestClient.delete<{
+    status: string;
+    data: string;
+    error: string;
+  }>(`/api/web/contact/${id}`, {
+    params: {
+      token: '7a7bad27c7be5cced8fd12b796ab2a49',
+    },
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '删除联系人失败');
+}
+
+/**
  * 获取联系人分组列表
  */
-export async function getContactGroupsApi() {
-  const response = await requestClient.get<
+export async function getContactGroupsApi(userId?: number) {
+  const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ContactGroupResponse>
-  >('http://192.168.0.108:8081/api/web/contact-groups', {
+  >('/api/web/contact-groups', {
     params: {
       token: 'e94e143c594a7c829223c342c3b37bcb',
+      ...(userId && { userId }),
     },
   });
 
@@ -220,21 +317,91 @@ export async function getContactGroupsApi() {
 }
 
 /**
- * 获取特定聊天人的聊天信息
+ * 新增联系人分组
  */
-export async function getChatSessionsApi(contactId?: number) {
-  const params: any = {
-    token: '426830c0e79077b368ff20bbc758a484',
-  };
+export async function addContactGroupApi(data: {
+  userId: number;
+  name: string;
+  sortOrder: number;
+  color: string;
+}) {
+  const response = await chatRequestClient.post<{
+    status: string;
+    data: number;
+    error: string;
+  }>('/api/web/contact-groups', {
+    params: {
+      token: 'e94e143c594a7c829223c342c3b37bcb',
+    },
+    data,
+  });
 
-  if (contactId) {
-    params.contactId = contactId;
+  if (response.status === '1') {
+    return response.data;
   }
 
-  const response = await requestClient.get<
+  throw new Error(response.error || '新增联系人分组失败');
+}
+
+/**
+ * 修改联系人分组
+ */
+export async function updateContactGroupApi(id: number, data: {
+  userId: number;
+  name: string;
+  sortOrder: number;
+  color: string;
+}) {
+  const response = await chatRequestClient.put<{
+    status: string;
+    data: number;
+    error: string;
+  }>(`/api/web/contact-groups/${id}`, {
+    params: {
+      token: 'e94e143c594a7c829223c342c3b37bcb',
+    },
+    data,
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '修改联系人分组失败');
+}
+
+/**
+ * 删除联系人分组
+ */
+export async function deleteContactGroupApi(id: number) {
+  const response = await chatRequestClient.delete<{
+    status: string;
+    data: string;
+    error: string;
+  }>(`/api/web/contact-groups/${id}`, {
+    params: {
+      token: 'e94e143c594a7c829223c342c3b37bcb',
+    },
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '删除联系人分组失败');
+}
+
+/**
+ * 获取聊天会话列表
+ */
+export async function getChatSessionsApi(userId?: number) {
+  const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ChatSessionResponse>
-  >('http://192.168.0.108:8081/api/web/chatsession', {
-    params,
+  >('/api/web/sessions', {
+    params: {
+      token: '426830c0e79077b368ff20bbc758a484',
+      ...(userId && { userId }),
+    },
   });
 
   // 转换为前端使用的格式
@@ -250,25 +417,25 @@ export async function getChatSessionsApi(contactId?: number) {
     })) as ChatApi.ChatSession[];
   }
 
-  throw new Error(response.error || '获取聊天信息失败');
+  throw new Error(response.error || '获取聊天会话列表失败');
 }
 
 /**
- * 获取聊天消息列表
+ * 获取聊天记录
  */
-export async function getChatMessagesApi(senderId?: number) {
-  const params: any = {
-    token: '7aa41b18fd545a069fe1b53ae01df1c4',
-  };
-
-  if (senderId) {
-    params.SENDERID = senderId;
-  }
-
-  const response = await requestClient.get<
+export async function getChatMessagesApi(params: {
+  userId: number;
+  contactId: number;
+  page?: number;
+  page_size?: number;
+}) {
+  const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
-  >('http://192.168.0.108:8081/api/web/message', {
-    params,
+  >(`/api/web/messages/${params.contactId}`, {
+    params: {
+      token: '7aa41b18fd545a069fe1b53ae01df1c4',
+      ...params,
+    },
   });
 
   // 转换为前端使用的格式
@@ -296,12 +463,136 @@ export async function getChatMessagesApi(senderId?: number) {
 }
 
 /**
+ * 发送消息（HTTP备用）
+ */
+export async function sendMessageApi(data: {
+  senderId: number;
+  receiverId: number;
+  messageType: number;
+  content: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  thumbnailUrl?: string | null;
+}) {
+  const response = await chatRequestClient.post<{
+    status: string;
+    data: number;
+    error: string;
+  }>('/api/web/messages', {
+    params: {
+      token: '7aa41b18fd545a069fe1b53ae01df1c4',
+    },
+    data,
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '发送消息失败');
+}
+
+/**
+ * 撤回消息
+ */
+export async function recallMessageApi(id: number) {
+  const response = await chatRequestClient.put<{
+    status: string;
+    data: string;
+    error: string;
+  }>(`/api/web/messages/${id}/recall`, {
+    params: {
+      token: '7aa41b18fd545a069fe1b53ae01df1c4',
+    },
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '撤回消息失败');
+}
+
+/**
+ * 标记消息为已读
+ */
+export async function markMessagesAsReadApi(data: {
+  contactId: number;
+  receiverId: number;
+  messageIds?: number[];
+}) {
+  const response = await chatRequestClient.put<{
+    status: string;
+    data: string;
+    error: string;
+  }>('/api/web/messages/read', {
+    params: {
+      token: '7aa41b18fd545a069fe1b53ae01df1c4',
+    },
+    data,
+  });
+
+  if (response.status === '1') {
+    return response.data;
+  }
+
+  throw new Error(response.error || '标记消息为已读失败');
+}
+
+/**
+ * 搜索聊天记录
+ */
+export async function searchChatMessagesApi(params: {
+  userId: number;
+  keyword: string;
+  start_time?: string;
+  end_time?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
+  >('/api/web/messages/search', {
+    params: {
+      token: '7aa41b18fd545a069fe1b53ae01df1c4',
+      ...params,
+    },
+  });
+
+  // 转换为前端使用的格式
+  if (response.status === '1') {
+    return response.data.records.map((record) => ({
+      id: record['单据号'],
+      senderId: Number.parseInt(record.senderId),
+      receiverId: Number.parseInt(record.receiverId),
+      messageType: record.messageType as 'file' | 'image' | 'system' | 'text',
+      content: record.content,
+      fileUrl: record.fileUrl,
+      fileName: record.fileName,
+      fileSize: record.fileSize ? Number.parseInt(record.fileSize) : null,
+      thumbnailUrl: record['图片缩略图'],
+      isRecalled: record.isRecalled ? record.isRecalled === '1' : false,
+      recallTime: record.recallTime,
+      readStatus: record.readStatus === '1',
+      timestamp: record.timestamp,
+      status: record.status === '1' ? 'sent' : 'failed',
+      createdAt: record['创建时间'],
+    })) as ChatApi.ChatMessage[];
+  }
+
+  throw new Error(response.error || '搜索聊天记录失败');
+}
+
+/**
  * 更新联系人在线状态
  */
 export async function updateContactStatusApi(contactUserId: number, status: string) {
-  const response = await requestClient.get<
-    ChatApi.BaseResponse<{}>
-  >('http://192.168.0.108:8081/api/web/updatestatus', {
+  const response = await chatRequestClient.get<{
+    status: string;
+    data: any;
+    error: string;
+  }>('/api/web/updatestatus', {
     params: {
       token: '37433bd455313db96e6cc8f8302f7196',
       contactuserid: contactUserId,

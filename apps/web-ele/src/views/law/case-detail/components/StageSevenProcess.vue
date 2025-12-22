@@ -14,6 +14,13 @@ import {
   ElTag,
 } from 'element-plus';
 
+import {
+  getAdditionalDisiributionApi,
+  getCanRRInfoApi,
+  getTerminationLitiApi,
+  updateTaskStatusApi,
+} from '#/api/core/case-process';
+
 // 组件属性
 interface Props {
   caseId: string;
@@ -31,32 +38,25 @@ const router = useRouter();
 // 任务数据
 const tasks = ref<CaseProcessApi.TaskInfo[]>([
   {
-    id: 'assetValuation',
-    name: '资产价值评估',
+    id: 'canRR',
+    name: '债权人会议决议',
     status: '未确认',
-    apiUrl: '/api/web/getAllAssetValuation',
-    token: '786eca97a5c1b3271231f4f0dad8b3cf',
+    apiUrl: '/api/web/getAllCanRR',
+    token: 'b9687d9bae9050728ce5f471ae32c737',
   },
   {
-    id: 'propertyVPlan',
-    name: '财产变价方案',
+    id: 'terminationLiti',
+    name: '终止诉讼',
     status: '未确认',
-    apiUrl: '/api/web/getAllPropertyVPlan',
-    token: '033f7b7923ec289a820c8034eae68148',
+    apiUrl: '/api/web/getAllTerminationLiti',
+    token: '8e4a5f0694dc40db05031994e3b3b332',
   },
   {
-    id: 'bankruptcyDeclaration',
-    name: '破产宣告',
+    id: 'additionalDisiribution',
+    name: '追加分配',
     status: '未确认',
-    apiUrl: '/api/web/getAllBankruptcyDeclaration',
-    token: '79f1d12edeabe1bcd74c915a9e18d698',
-  },
-  {
-    id: 'propertyVIM',
-    name: '财产分配方案',
-    status: '未确认',
-    apiUrl: '/api/web/getAllPropertyVIM',
-    token: '09bc23e906457a5f0748765a0e95c7f3',
+    apiUrl: '/api/web/getAllAdditionalDisiribution',
+    token: '17da492375ef4f11867f65c39406594c',
   },
 ]);
 
@@ -114,13 +114,20 @@ const completeTask = async (taskId: string) => {
       type: 'warning',
     });
 
-    // 更新本地状态
-    const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-    if (taskIndex !== -1 && tasks.value[taskIndex]) {
-      tasks.value[taskIndex].status = '完成';
-      // 通知父组件任务状态变更
-      emit('taskStatusChanged', taskId, '完成');
-      ElMessage.success('任务已完成');
+    // 调用API更新任务状态
+    const result = await updateTaskStatusApi(taskId, props.caseId, '完成');
+
+    if (result && result.status === '1') {
+      // 更新本地状态
+      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
+      if (taskIndex !== -1 && tasks.value[taskIndex]) {
+        tasks.value[taskIndex].status = '完成';
+        // 通知父组件任务状态变更
+        emit('taskStatusChanged', taskId, '完成');
+        ElMessage.success('任务已完成');
+      }
+    } else {
+      ElMessage.error('更新任务状态失败');
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -133,13 +140,20 @@ const completeTask = async (taskId: string) => {
 // 跳过任务
 const skipTask = async (taskId: string) => {
   try {
-    // 更新本地状态
-    const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-    if (taskIndex !== -1 && tasks.value[taskIndex]) {
-      tasks.value[taskIndex].status = '跳过';
-      // 通知父组件任务状态变更
-      emit('taskStatusChanged', taskId, '跳过');
-      ElMessage.success('任务已跳过');
+    // 调用API更新任务状态
+    const result = await updateTaskStatusApi(taskId, props.caseId, '跳过');
+
+    if (result && result.status === '1') {
+      // 更新本地状态
+      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
+      if (taskIndex !== -1 && tasks.value[taskIndex]) {
+        tasks.value[taskIndex].status = '跳过';
+        // 通知父组件任务状态变更
+        emit('taskStatusChanged', taskId, '跳过');
+        ElMessage.success('任务已跳过');
+      }
+    } else {
+      ElMessage.error('更新任务状态失败');
     }
   } catch (error) {
     console.error('跳过任务失败:', error);
@@ -150,13 +164,20 @@ const skipTask = async (taskId: string) => {
 // 撤回跳过任务
 const withdrawSkipTask = async (taskId: string) => {
   try {
-    // 更新本地状态为未确认
-    const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-    if (taskIndex !== -1 && tasks.value[taskIndex]) {
-      tasks.value[taskIndex].status = '未确认';
-      // 通知父组件任务状态变更
-      emit('taskStatusChanged', taskId, '未确认');
-      ElMessage.success('已撤回跳过操作');
+    // 调用API更新任务状态为未确认
+    const result = await updateTaskStatusApi(taskId, props.caseId, '未确认');
+
+    if (result && result.status === '1') {
+      // 更新本地状态
+      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
+      if (taskIndex !== -1 && tasks.value[taskIndex]) {
+        tasks.value[taskIndex].status = '未确认';
+        // 通知父组件任务状态变更
+        emit('taskStatusChanged', taskId, '未确认');
+        ElMessage.success('已撤回跳过操作');
+      }
+    } else {
+      ElMessage.error('撤回操作失败');
     }
   } catch (error) {
     console.error('撤回跳过任务失败:', error);
@@ -164,167 +185,106 @@ const withdrawSkipTask = async (taskId: string) => {
   }
 };
 
-// 通用API调用函数
-const callApi = async (apiUrl: string, token: string, caseId: string) => {
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&SEP_ID=${caseId}&page=1&size=10`,
-    );
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`API调用失败 ${apiUrl}:`, error);
-    return null;
-  }
+// ZT状态映射函数
+const ztToStatus = (zt: number | undefined): CaseProcessApi.TaskStatus => {
+  if (zt === 1) return '完成';
+  if (zt === 2) return '跳过';
+  return '未确认';
 };
 
 // 加载任务数据
 const loadTaskData = async () => {
   loading.value = true;
   try {
-    // 调用后端API获取任务数据
-    const [
-      assetValuationRes,
-      propertyVPlanRes,
-      bankruptcyDeclarationRes,
-      propertyVIMRes,
-    ] = await Promise.allSettled([
-      callApi(
-        '/api/web/getAllAssetValuation',
-        '786eca97a5c1b3271231f4f0dad8b3cf',
-        props.caseId,
-      ),
-      callApi(
-        '/api/web/getAllPropertyVPlan',
-        '033f7b7923ec289a820c8034eae68148',
-        props.caseId,
-      ),
-      callApi(
-        '/api/web/getAllBankruptcyDeclaration',
-        '79f1d12edeabe1bcd74c915a9e18d698',
-        props.caseId,
-      ),
-      callApi(
-        '/api/web/getAllPropertyVIM',
-        '09bc23e906457a5f0748765a0e95c7f3',
-        props.caseId,
-      ),
-    ]);
+    // 调用后端API获取任务数据，传递page和size参数
+    const [canRRRes, terminationLitiRes, additionalDisiributionRes] =
+      await Promise.allSettled([
+        getCanRRInfoApi(props.caseId, 1, 10),
+        getTerminationLitiApi(props.caseId, 1, 10),
+        getAdditionalDisiributionApi(props.caseId, 1, 10),
+      ]);
 
-    // 处理API响应，转换ZT状态为任务状态
-    const ztToStatus = (zt: number | undefined): CaseProcessApi.TaskStatus => {
-      if (zt === 1) return '完成';
-      if (zt === 2) return '跳过';
-      return '未确认';
-    };
-
-    const getTaskStatus = (
-      res: PromiseSettledResult<any>,
-    ): CaseProcessApi.TaskStatus => {
-      if (
-        res.status === 'fulfilled' &&
-        res.value &&
-        res.value.status === '1' &&
-        res.value.data &&
-        Number.parseInt(res.value.data.paras?.zt2_count || '0') > 0
-      ) {
-        return '跳过';
-      }
-      return '未确认';
-    };
-
-    const getTaskCount = (res: PromiseSettledResult<any>): number => {
-      if (res.status === 'fulfilled' && res.value && res.value.status === '1') {
-        return res.value.data?.count || 0;
-      }
-      return 0;
-    };
-
-    const getTaskParas = (
-      res: PromiseSettledResult<any>,
-    ):
-      | undefined
-      | { zt0_count?: string; zt1_count?: string; zt2_count?: string } => {
-      if (
-        res.status === 'fulfilled' &&
-        res.value &&
-        res.value.status === '1' &&
-        res.value.data
-      ) {
-        return res.value.data.paras;
-      }
-      return undefined;
-    };
-
+    // 处理API响应
     tasks.value = [
       {
-        id: 'assetValuation',
-        name: '资产价值评估',
-        status: getTaskStatus(assetValuationRes),
-        apiUrl: '/api/web/getAllAssetValuation',
-        token: '786eca97a5c1b3271231f4f0dad8b3cf',
-        count: getTaskCount(assetValuationRes),
-        paras: getTaskParas(assetValuationRes),
+        id: 'canRR',
+        name: '债权人会议决议',
+        status:
+          canRRRes.status === 'fulfilled' &&
+          canRRRes.value.status === '1' &&
+          canRRRes.value.data &&
+          Number.parseInt(canRRRes.value.data.paras?.zt2_count || '0') > 0
+            ? '跳过'
+            : '未确认',
+        apiUrl: '/api/web/getAllCanRR',
+        token: 'b9687d9bae9050728ce5f471ae32c737',
+        count:
+          canRRRes.status === 'fulfilled' && canRRRes.value.data
+            ? canRRRes.value.data.count || 0
+            : 0,
+        paras:
+          canRRRes.status === 'fulfilled' && canRRRes.value.data
+            ? canRRRes.value.data.paras
+            : undefined,
       },
       {
-        id: 'propertyVPlan',
-        name: '财产变价方案',
-        status: getTaskStatus(propertyVPlanRes),
-        apiUrl: '/api/web/getAllPropertyVPlan',
-        token: '033f7b7923ec289a820c8034eae68148',
-        count: getTaskCount(propertyVPlanRes),
-        paras: getTaskParas(propertyVPlanRes),
+        id: 'terminationLiti',
+        name: '终止诉讼',
+        status:
+          terminationLitiRes.status === 'fulfilled' &&
+          terminationLitiRes.value.status === '1' &&
+          terminationLitiRes.value.data &&
+          Number.parseInt(
+            terminationLitiRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
+            : '未确认',
+        apiUrl: '/api/web/getAllTerminationLiti',
+        token: '8e4a5f0694dc40db05031994e3b3b332',
+        count:
+          terminationLitiRes.status === 'fulfilled' && terminationLitiRes.value.data
+            ? terminationLitiRes.value.data.count || 0
+            : 0,
+        paras:
+          terminationLitiRes.status === 'fulfilled' && terminationLitiRes.value.data
+            ? terminationLitiRes.value.data.paras
+            : undefined,
       },
       {
-        id: 'bankruptcyDeclaration',
-        name: '破产宣告',
-        status: getTaskStatus(bankruptcyDeclarationRes),
-        apiUrl: '/api/web/getAllBankruptcyDeclaration',
-        token: '79f1d12edeabe1bcd74c915a9e18d698',
-        count: getTaskCount(bankruptcyDeclarationRes),
-        paras: getTaskParas(bankruptcyDeclarationRes),
-      },
-      {
-        id: 'propertyVIM',
-        name: '财产分配方案',
-        status: getTaskStatus(propertyVIMRes),
-        apiUrl: '/api/web/getAllPropertyVIM',
-        token: '09bc23e906457a5f0748765a0e95c7f3',
-        count: getTaskCount(propertyVIMRes),
-        paras: getTaskParas(propertyVIMRes),
+        id: 'additionalDisiribution',
+        name: '追加分配',
+        status:
+          additionalDisiributionRes.status === 'fulfilled' &&
+          additionalDisiributionRes.value.status === '1' &&
+          additionalDisiributionRes.value.data &&
+          Number.parseInt(
+            additionalDisiributionRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
+            : '未确认',
+        apiUrl: '/api/web/getAllAdditionalDisiribution',
+        token: '17da492375ef4f11867f65c39406594c',
+        count:
+          additionalDisiributionRes.status === 'fulfilled' &&
+          additionalDisiributionRes.value.data
+            ? additionalDisiributionRes.value.data.count || 0
+            : 0,
+        paras:
+          additionalDisiributionRes.status === 'fulfilled' &&
+          additionalDisiributionRes.value.data
+            ? additionalDisiributionRes.value.data.paras
+            : undefined,
       },
     ];
 
-    // 检查API响应状态，处理status为"0"的情况
-    const allApiResponses = [
-      assetValuationRes,
-      propertyVPlanRes,
-      bankruptcyDeclarationRes,
-      propertyVIMRes,
-    ];
-
-    // 统计失败的API数量
-    let failedApis = 0;
-    const errorMessages: string[] = [];
-
-    allApiResponses.forEach((res) => {
-      if (res.status === 'rejected') {
-        failedApis++;
-        errorMessages.push(`API调用失败`);
-      } else if (res.value && res.value.status === '0') {
-        // 处理status为"0"的情况
-        failedApis++;
-        const errorMsg = res.value.error || '未知错误';
-        errorMessages.push(`API返回错误: ${errorMsg}`);
-      }
-    });
+    // 检查是否有API调用失败
+    const failedApis = [
+      canRRRes,
+      terminationLitiRes,
+      additionalDisiributionRes,
+    ].filter((res) => res.status === 'rejected').length;
 
     if (failedApis > 0) {
-      // 去重并显示错误信息
-      const uniqueErrorMessages = [...new Set(errorMessages)];
-      uniqueErrorMessages.forEach((msg) => {
-        ElMessage.warning(msg);
-      });
       ElMessage.warning(`${failedApis}个API调用失败，使用默认数据`);
     }
   } catch (error) {
@@ -342,12 +302,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <ElCard class="stage-five-process" v-loading="loading">
+  <ElCard class="stage-seven-process" v-loading="loading">
     <template #header>
       <div class="stage-header">
         <div class="stage-title">
           <Icon icon="lucide:workflow" class="mr-2" />
-          <span>第五阶段：第二次债权人会议至破产宣告前工作</span>
+          <span>第七阶段：债权人会议决议等相关工作</span>
         </div>
         <div class="stage-progress">
           <span class="progress-text">完成进度：{{ progress }}%</span>
@@ -377,7 +337,7 @@ onMounted(() => {
                   v-if="task.count !== undefined && task.count > 0"
                   class="task-count"
                 >
-                  ({{ task.count }}个)
+                  ({{ task.count }})
                 </span>
               </div>
               <div class="task-status">
@@ -388,17 +348,17 @@ onMounted(() => {
             </div>
             <div class="task-description">
               当前状态：
-              {{
-                task.status === '完成'
-                  ? '已完成确认'
-                  : task.status === '跳过'
-                    ? '已跳过'
+              {{ 
+                task.status === '完成' 
+                  ? '已完成确认' 
+                  : task.status === '跳过' 
+                    ? '已跳过' 
                     : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
               }}
             </div>
           </div>
           <div class="task-actions">
-            <!-- 如果count为0，显示新增和跳过按钮 -->
+            <!-- 动态按钮渲染 -->
             <template v-if="task.count === 0">
               <ElButton
                 type="primary"
@@ -409,7 +369,7 @@ onMounted(() => {
                 <Icon icon="lucide:plus" class="mr-1" />
                 新增
               </ElButton>
-
+              <!-- 跳过/撤回按钮 -->
               <ElButton
                 v-if="task.status === '跳过' || task.status === '完成'"
                 type="danger"
@@ -419,7 +379,6 @@ onMounted(() => {
                 <Icon icon="lucide:undo" class="mr-1" />
                 撤回
               </ElButton>
-
               <ElButton
                 v-else
                 type="warning"
@@ -431,8 +390,6 @@ onMounted(() => {
                 跳过
               </ElButton>
             </template>
-
-            <!-- 如果count不为0，显示编辑、完成、跳过和新增按钮 -->
             <template v-else>
               <ElButton
                 type="primary"
@@ -443,7 +400,6 @@ onMounted(() => {
                 <Icon icon="lucide:edit" class="mr-1" />
                 编辑
               </ElButton>
-
               <ElButton
                 type="success"
                 size="small"
@@ -453,8 +409,7 @@ onMounted(() => {
                 <Icon icon="lucide:check" class="mr-1" />
                 完成
               </ElButton>
-
-              <!-- 动态按钮：完成或跳过状态显示撤回，其他状态显示跳过 -->
+              <!-- 跳过/撤回按钮 -->
               <ElButton
                 v-if="task.status === '跳过' || task.status === '完成'"
                 type="danger"
@@ -464,7 +419,6 @@ onMounted(() => {
                 <Icon icon="lucide:undo" class="mr-1" />
                 撤回
               </ElButton>
-
               <ElButton
                 v-else
                 type="warning"
@@ -475,7 +429,6 @@ onMounted(() => {
                 <Icon icon="lucide:skip-forward" class="mr-1" />
                 跳过
               </ElButton>
-
               <!-- 新增按钮 -->
               <ElButton
                 type="info"
@@ -496,14 +449,14 @@ onMounted(() => {
     <div v-if="progress === 100" class="stage-complete">
       <div class="complete-message">
         <Icon icon="lucide:check-circle" class="mr-2 text-green-500" />
-        <span>第五阶段所有任务已完成！</span>
+        <span>第七阶段所有任务已完成！</span>
       </div>
     </div>
   </ElCard>
 </template>
 
 <style scoped>
-.stage-five-process {
+.stage-seven-process {
   margin-bottom: 24px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -602,14 +555,13 @@ onMounted(() => {
 }
 
 .task-count {
+  margin-left: 8px;
   font-size: 12px;
-  font-weight: 400;
-  color: #6b7280;
-  margin-left: 4px;
-  background-color: #f3f4f6;
-  padding: 2px 6px;
+  font-weight: 500;
+  color: #3b82f6;
+  background: #eff6ff;
+  padding: 2px 8px;
   border-radius: 10px;
-  display: inline-block;
   vertical-align: middle;
 }
 
@@ -650,18 +602,6 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #065f46;
-}
-
-.text-green-500 {
-  color: #10b981;
-}
-
-.mr-1 {
-  margin-right: 4px;
-}
-
-.mr-2 {
-  margin-right: 8px;
 }
 
 /* 响应式设计 */

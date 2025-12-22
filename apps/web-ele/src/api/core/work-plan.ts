@@ -12,8 +12,6 @@ export namespace WorkPlanApi {
   export interface WorkPlanInfo {
     row: number;
     SEP_ID: number;
-    JHID: null | string;
-    GLAJBH: string;
     JHLX: null | string;
     JHNR: null | string;
     KSRQ: null | string;

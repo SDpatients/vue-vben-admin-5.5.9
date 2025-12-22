@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { BankAccountApi } from '#/api/core/bank-account';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
 import { onMounted, ref } from 'vue';
 
@@ -25,6 +26,7 @@ import {
 } from 'element-plus';
 
 import { getBankAccountListApi } from '#/api/core/bank-account';
+import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
 const bankAccountList = ref<BankAccountApi.BankAccountInfo[]>([]);
@@ -49,7 +51,6 @@ const columnVisible = ref<string[]>([]);
 // 所有可用的列
 const availableColumns = [
   '行号',
-  '案件ID',
   '账户名称',
   '银行名称',
   '账户号码',
@@ -59,8 +60,6 @@ const availableColumns = [
   '开户日期',
   '销户日期',
   '状态',
-  '案号',
-  '账户ID',
 ];
 
 // 默认显示的列（核心信息）
@@ -227,13 +226,73 @@ const viewBankAccountDetail = (row: BankAccountApi.BankAccountInfo) => {
   ElMessage.info(`查看银行账户详情: ${row.account_name}`);
   // 后续可添加路由跳转逻辑
   // const router = useRouter();
-  // router.push(`/basic-data/bank-account-management/detail/${row.ZHID || row.row}`);
+  // router.push(`/basic-data/bank-account-management/detail/${row.row}`);
 };
 
 // 编辑银行账户
 const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   ElMessage.info(`编辑银行账户: ${row.account_name}`);
   // 后续可添加编辑弹窗逻辑
+};
+
+// 导出银行账户数据为Excel
+const exportBankAccountData = () => {
+  if (bankAccountList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  // 定义导出列配置
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'row', title: '行号', width: 8 },
+    { field: 'account_name', title: '账户名称', width: 15 },
+    { field: 'bank_name', title: '银行名称', width: 12 },
+    { field: 'account_number', title: '账户号码', width: 18 },
+    {
+      field: 'account_type',
+      title: '账户类型',
+      width: 10,
+      formatter: (value) => value || '-',
+    },
+    { field: 'currency', title: '币种', width: 10 },
+    {
+      field: 'balance',
+      title: '余额',
+      width: 12,
+      formatter: (value) => formatCurrency(value),
+    },
+    {
+      field: 'KHRQ',
+      title: '开户日期',
+      width: 12,
+      formatter: (value) => formatDate(value),
+    },
+    {
+      field: 'XHRQ',
+      title: '销户日期',
+      width: 12,
+      formatter: (value) => formatDate(value),
+    },
+    {
+      field: 'ZT',
+      title: '状态',
+      width: 8,
+      formatter: (value) => value || '-',
+    },
+  ];
+
+  try {
+    exportToExcel({
+      data: bankAccountList.value,
+      fileName: '银行账户管理数据',
+      sheetName: '银行账户',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
 };
 </script>
 
@@ -303,7 +362,9 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
 
           <div class="flex items-center space-x-2">
             <ElButton type="primary"> 新增账户 </ElButton>
-            <ElButton type="success"> 导出数据 </ElButton>
+            <ElButton type="success" @click="exportBankAccountData">
+              导出数据
+            </ElButton>
           </div>
         </div>
 
@@ -325,15 +386,6 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
               width="80"
               align="center"
               fixed="left"
-            />
-
-            <!-- 案件ID列 -->
-            <ElTableColumn
-              v-if="isColumnVisible('案件ID')"
-              prop="CASEID"
-              label="案件ID"
-              width="180"
-              show-overflow-tooltip
             />
 
             <!-- 账户名称列 -->
@@ -441,24 +493,6 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
                 </ElTag>
               </template>
             </ElTableColumn>
-
-            <!-- 案号列 -->
-            <ElTableColumn
-              v-if="isColumnVisible('案号')"
-              prop="AH"
-              label="案号"
-              width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 账户ID列 -->
-            <ElTableColumn
-              v-if="isColumnVisible('账户ID')"
-              prop="ZHID"
-              label="账户ID"
-              width="150"
-              show-overflow-tooltip
-            />
 
             <!-- 操作列 -->
             <ElTableColumn label="操作" width="180" fixed="right">

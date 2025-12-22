@@ -2,6 +2,7 @@
 import type { WorkTeamApi } from '#/api/core';
 
 import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import {
   ElButton,
@@ -15,6 +16,9 @@ import {
 
 import { getWorkTeamListApi } from '#/api/core';
 
+// 路由
+const router = useRouter();
+
 // 工作团队列表数据
 const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
 
@@ -23,9 +27,7 @@ const loading = ref(false);
 
 // 搜索表单
 const searchForm = reactive({
-  GLAJBH: '',
   TDFZR: '',
-  AH: '',
 });
 
 // 分页配置
@@ -43,6 +45,7 @@ const fetchWorkTeamList = async () => {
     const params: WorkTeamApi.WorkTeamQueryParams = {
       page: pagination.page,
       size: pagination.pageSize,
+      TDFZR: searchForm.TDFZR,
     };
 
     const response = await getWorkTeamListApi(params);
@@ -71,8 +74,7 @@ const generateMockData = () => {
   workTeamList.value = [
     {
       row: 1,
-      TDID: null,
-      GLAJBH: 'PCAJ202511008',
+      SEP_ID: 35,
       TDFZR: null,
       ZHZCY: null,
       CXZCY: null,
@@ -80,13 +82,12 @@ const generateMockData = () => {
       ZQSHZCY: null,
       LDRSZCY: null,
       ZZQLZCY: null,
-      AH: '2025001',
+      AH: null,
       DQZT: null,
     },
     {
       row: 2,
-      TDID: 'TD800001',
-      GLAJBH: 'PCAJ202511002',
+      SEP_ID: 37,
       TDFZR: 'admin',
       ZHZCY: '测试综合组1、测试综合组2',
       CXZCY: '测试',
@@ -94,7 +95,7 @@ const generateMockData = () => {
       ZQSHZCY: '测试',
       LDRSZCY: '测试',
       ZZQLZCY: '测试',
-      AH: '（2025）浙湖破字第 003 号',
+      AH: '（2023）测试案件',
       DQZT: null,
     },
   ];
@@ -123,9 +124,7 @@ const handleSearch = () => {
 
 // 重置搜索
 const handleReset = () => {
-  searchForm.GLAJBH = '';
   searchForm.TDFZR = '';
-  searchForm.AH = '';
   pagination.page = 1;
   fetchWorkTeamList();
 };
@@ -143,12 +142,12 @@ const handleAddWorkTeam = () => {
 
 // 编辑工作团队
 const handleEdit = (row: WorkTeamApi.WorkTeamInfo) => {
-  ElMessage.info(`编辑工作团队: ${row.GLAJBH}`);
+  router.push(`/basic-data/work-team-management/edit/${row.SEP_ID}`);
 };
 
 // 删除工作团队
 const handleDelete = (row: WorkTeamApi.WorkTeamInfo) => {
-  ElMessage.warning(`删除工作团队: ${row.GLAJBH} (功能开发中...)`);
+  ElMessage.warning(`删除工作团队 (功能开发中...)`);
 };
 
 // 页面加载时获取数据
@@ -180,20 +179,8 @@ onMounted(() => {
       <div class="mb-4 rounded-lg bg-gray-50 p-4">
         <div class="flex flex-wrap gap-4">
           <ElInput
-            v-model="searchForm.GLAJBH"
-            placeholder="关联案件编号"
-            clearable
-            style="width: 200px"
-          />
-          <ElInput
             v-model="searchForm.TDFZR"
             placeholder="团队负责人"
-            clearable
-            style="width: 200px"
-          />
-          <ElInput
-            v-model="searchForm.AH"
-            placeholder="案号"
             clearable
             style="width: 200px"
           />
@@ -212,24 +199,17 @@ onMounted(() => {
       <ElTable v-loading="loading" :data="workTeamList" border stripe>
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="TDID"
-          label="团队ID"
-          width="120"
+          prop="AH"
+          label="案号"
+          width="180"
           align="center"
           show-overflow-tooltip
         >
           <template #default="{ row }">
-            <span v-if="row.TDID">{{ row.TDID }}</span>
+            <span v-if="row.AH">{{ row.AH }}</span>
             <span v-else class="text-gray-400">未设置</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="GLAJBH"
-          label="关联案件编号"
-          width="150"
-          align="center"
-          show-overflow-tooltip
-        />
         <ElTableColumn
           prop="TDFZR"
           label="团队负责人"
@@ -242,12 +222,6 @@ onMounted(() => {
             <span v-else class="text-gray-400">未设置</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="AH"
-          label="案号"
-          min-width="200"
-          show-overflow-tooltip
-        />
         <ElTableColumn
           prop="ZHZCY"
           label="综合组成员"

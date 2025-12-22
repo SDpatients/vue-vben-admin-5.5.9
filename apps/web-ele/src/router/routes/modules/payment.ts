@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:credit-card',
       order: 3,
       title: $t('page.payment.title'),
+      hideInMenu: true,
     },
     name: 'Payment',
     path: '/payment',

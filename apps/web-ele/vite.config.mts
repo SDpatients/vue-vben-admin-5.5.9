@@ -14,6 +14,7 @@ export default defineConfig(async (): Promise<any> => {
         }),
       ],
       server: {
+        port: 5779, // 设置固定端口，避免自动切换导致的问题
         proxy: {
           '/api': {
             changeOrigin: true,

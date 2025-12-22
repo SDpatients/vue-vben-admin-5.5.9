@@ -111,8 +111,20 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   return client;
 }
 
+// 默认API客户端，使用环境变量中的API_URL
 export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
 });
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });
+
+
+// 聊天API客户端，使用独立的配置
+export const chatRequestClient = createRequestClient('http://localhost:8080', {
+  responseReturn: 'body',
+});
+
+// 文件上传API客户端，使用独立的配置
+export const fileUploadRequestClient = createRequestClient('http://127.0.0.1:8080', {
+  responseReturn: 'body',
+});

@@ -14,8 +14,6 @@ declare namespace DebtorApi {
   interface DebtorInfo {
     /** 行号 */
     row: number;
-    /** 企业ID */
-    QYID: string;
     /** 案件ID */
     AJID: string;
     /** 企业名称 */
@@ -27,7 +25,7 @@ declare namespace DebtorApi {
     /** 登记机关 */
     DJJG: string;
     /** 成立日期 */
-    CLRQ: string;
+    CLRQ: string | null;
     /** 注册资本 */
     ZCZB: string;
     /** 经营范围 */
@@ -68,6 +66,33 @@ declare namespace DebtorApi {
     status: string;
     error: string;
   }
+
+  /** 添加债务人请求体 */
+  interface AddDebtorRequest {
+    qymc: string;
+    tyshxydm: string;
+    fddbr?: string;
+    djjg?: string;
+    clrq?: string | null;
+    zczb?: string;
+    jyfw?: string;
+    qylx?: string;
+    sshy?: string;
+    zcdz?: string;
+    lxdh?: string;
+    lxr?: string;
+    zt?: string;
+    sepLd?: number;
+    sepMd?: number;
+    sepNd?: string;
+  }
+
+  /** 添加债务人响应 */
+  interface AddDebtorResponse {
+    status: string;
+    error: string;
+    data: string;
+  }
 }
 
 /**
@@ -88,6 +113,20 @@ export async function getDebtorDetailApi(debtorId: string, token: string) {
     '/api/web/selectDebtorById',
     { params: { debtorId, token } },
   );
+}
+
+/**
+ * 添加债务人企业信息
+ */
+export async function addDebtorApi(
+  data: DebtorApi.AddDebtorRequest,
+) {
+  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  return requestClient.post<DebtorApi.AddDebtorResponse>('/api/web/addDebtor', [data], {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
 export type { DebtorApi };

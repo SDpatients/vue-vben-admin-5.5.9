@@ -1,23 +1,643 @@
-<script lang="ts" setup>
+<script setup lang="ts">
+import type { CaseApi } from '#/api/core/case';
+
+import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { ElButton, ElCard } from 'element-plus';
+import { ElMessage } from 'element-plus';
+
+import { addOneCaseApi } from '#/api/core/case';
 
 const router = useRouter();
+
+// 表单引用
+const formRef = ref();
+
+// 加载状态
+const loading = ref(false);
+
+// 表单数据
+const form = reactive<CaseApi.AddCaseRequest>({
+  ah: '',
+  ajmc: '',
+  slrq: undefined,
+  ajly: undefined,
+  slfy: undefined,
+  zdjg: undefined,
+  glrfzr: undefined,
+  sfjhs: undefined,
+  ay: undefined,
+  ajjd: undefined,
+  zqsbjzsj: undefined,
+  larq: undefined,
+  jarq: undefined,
+  pcsj: undefined,
+  zjsj: undefined,
+  zxsj: undefined,
+  gdsj: undefined,
+  beizhu: undefined,
+  wjsc: undefined,
+  sepLd: undefined,
+  sepMd: undefined,
+  sepNd: undefined,
+});
+
+// 文件上传相关状态
+const uploadedFiles = ref<{ file: File; name: string; url: string }[]>([]);
+const maxFileSize = 10 * 1024 * 1024; // 10MB
+const allowedTypes = new Set([
+  '.doc',
+  '.docx',
+  '.jpg',
+  '.pdf',
+  '.png',
+  '.xls',
+  '.xlsx',
+]);
+
+// 格式化当前年月（YYYYMM）
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}${month}`;
+};
+
+// 检查文件类型和大小
+const validateFile = (file: File) => {
+  const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
+  if (!allowedTypes.has(fileExtension)) {
+    ElMessage.error(
+      `不支持的文件类型：${fileExtension}，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件`,
+    );
+    return false;
+  }
+  if (file.size > maxFileSize) {
+    ElMessage.error(
+      `文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`,
+    );
+    return false;
+  }
+  return true;
+};
+
+// 处理文件选择
+const handleFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    const file = input.files[0];
+    if (validateFile(file)) {
+      try {
+        // 上传文件到服务器
+        const loading = ElMessage.loading({
+          message: '文件上传中...',
+          duration: 0,
+        });
+
+        // 这里使用固定token，实际应用中应从认证状态获取
+        const token = '6d014638f3a8e59d656b9c3e83b5501a';
+        const response = await uploadCaseFileApi(token, file);
+
+        loading.close();
+
+        if (response.status === '1') {
+          // 上传成功，将文件信息添加到列表
+          uploadedFiles.value.push({
+            name: file.name,
+            url: response.data?.fileUrl || '',
+            file,
+            fileId: response.data?.fileId || '',
+          });
+          // 更新表单的文件上传字段
+          form.wjsc = uploadedFiles.value.map((f) => f.name).join(';');
+
+          ElMessage.success('文件上传成功');
+        } else {
+          ElMessage.error(`文件上传失败：${response.error || '未知错误'}`);
+        }
+      } catch (error: any) {
+        ElMessage.error(`文件上传失败：${error.message || '网络错误'}`);
+      }
+    }
+  }
+  // 清空input值，允许选择相同文件
+  input.value = '';
+};
+
+// 删除已上传文件
+const removeFile = (index: number) => {
+  const file = uploadedFiles.value[index];
+  // 如果是本地文件URL，释放资源
+  if (file.url && file.url.startsWith('blob:')) {
+    URL.revokeObjectURL(file.url);
+  }
+  // 这里可以添加服务器端文件删除逻辑
+  // const token = '6d014638f3a8e59d656b9c3e83b5501a';
+  // await deleteCaseFileApi(token, file.fileId);
+
+  uploadedFiles.value.splice(index, 1);
+  // 更新表单的文件上传字段
+  form.wjsc = uploadedFiles.value.map((f) => f.name).join(';');
+
+  ElMessage.success('文件已删除');
+};
+
+// 下载文件（从服务器下载或本地下载）
+const downloadFile = (file: any) => {
+  if (file.url && !file.url.startsWith('blob:')) {
+    // 如果有服务器URL，直接打开下载
+    window.open(file.url, '_blank');
+  } else {
+    // 否则使用本地文件下载
+    const fileURL = URL.createObjectURL(file.file);
+    const a = document.createElement('a');
+    a.href = fileURL;
+    a.download = file.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(fileURL);
+  }
+};
+
+// 表单验证规则
+const rules = reactive({
+  ah: [
+    { required: true, message: '请输入案号', trigger: 'blur' },
+    { min: 1, max: 50, message: '案号长度在 1 到 50 个字符', trigger: 'blur' },
+  ],
+  ajmc: [
+    { required: true, message: '请输入案件名称', trigger: 'blur' },
+    {
+      min: 1,
+      max: 100,
+      message: '案件名称长度在 1 到 100 个字符',
+      trigger: 'blur',
+    },
+  ],
+});
+
+// 重置表单
+const resetForm = () => {
+  formRef.value?.resetFields();
+  ElMessage.info('表单已重置');
+};
+
+// 提交表单
+const submitForm = async () => {
+  if (!formRef.value) return;
+
+  try {
+    await formRef.value.validate();
+    loading.value = true;
+
+    // 设置3秒超时
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('后端请求超时'));
+      }, 3000);
+    });
+
+    // 调用API，使用Promise.race实现超时控制
+    const result = await Promise.race([
+      addOneCaseApi('6d014638f3a8e59d656b9c3e83b5501a', form),
+      timeoutPromise,
+    ]);
+
+    // 处理响应
+    if (result.status === '1') {
+      ElMessage.success(result.data || '案件添加成功');
+      router.push('/case-management');
+    } else {
+      ElMessage.error(result.error || '案件添加失败');
+    }
+  } catch (error: any) {
+    if (error.message === '后端请求超时') {
+      ElMessage.error('后端请求超时');
+    } else {
+      ElMessage.error(error.message || '案件添加失败');
+    }
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
   <div class="p-6">
-    <ElCard header="新增案件" size="small">
-      <div class="flex h-64 flex-col items-center justify-center">
-        <h2 class="mb-4 text-2xl font-bold text-gray-500">案件新增功能</h2>
-        <p class="mb-6 text-gray-400">该功能正在开发中，敬请期待</p>
-        <ElButton type="primary" @click="router.back()">返回</ElButton>
-      </div>
-    </ElCard>
+    <div class="mb-6 flex items-center justify-between">
+      <h1 class="text-2xl font-bold">新增破产案件</h1>
+      <button
+        class="text-gray-500 transition-colors hover:text-gray-700"
+        @click="router.back()"
+      >
+        <i class="i-lucide-x text-xl"></i>
+      </button>
+    </div>
+
+    <el-card shadow="hover" class="case-add-card">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="120px"
+        class="case-form"
+      >
+        <el-row :gutter="20">
+          <!-- 案号 -->
+          <el-col :span="12">
+            <el-form-item label="案号" prop="ah">
+              <el-input
+                v-model="form.ah"
+                placeholder="请输入案号"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 案件名称 -->
+          <el-col :span="12">
+            <el-form-item label="案件名称" prop="ajmc">
+              <el-input
+                v-model="form.ajmc"
+                placeholder="请输入案件名称"
+                maxlength="100"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 受理日期 -->
+          <el-col :span="12">
+            <el-form-item label="受理日期">
+              <el-date-picker
+                v-model="form.slrq"
+                type="datetime"
+                placeholder="请选择受理日期"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 案件来源 -->
+          <el-col :span="12">
+            <el-form-item label="案件来源">
+              <el-input
+                v-model="form.ajly"
+                placeholder="请输入案件来源"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 受理法院 -->
+          <el-col :span="12">
+            <el-form-item label="受理法院">
+              <el-input
+                v-model="form.slfy"
+                placeholder="请输入受理法院"
+                maxlength="100"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 管理人 -->
+          <el-col :span="12">
+            <el-form-item label="管理人">
+              <el-input
+                v-model="form.zdjg"
+                placeholder="请输入管理人"
+                maxlength="100"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 主要负责人 -->
+          <el-col :span="12">
+            <el-form-item label="主要负责人">
+              <el-input
+                v-model="form.glrfzr"
+                placeholder="请输入主要负责人"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 是否简化审 -->
+          <el-col :span="12">
+            <el-form-item label="是否简化审">
+              <el-select v-model="form.sfjhs" placeholder="请选择是否简化审">
+                <el-option label="是" value="1" />
+                <el-option label="否" value="0" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+
+          <!-- 案由 -->
+          <el-col :span="12">
+            <el-form-item label="案由">
+              <el-input
+                v-model="form.ay"
+                placeholder="请输入案由"
+                maxlength="100"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 案件进度 -->
+          <el-col :span="12">
+            <el-form-item label="案件进度">
+              <el-input
+                v-model="form.ajjd"
+                placeholder="请输入案件进度"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 债权申报截止时间 -->
+          <el-col :span="12">
+            <el-form-item label="债权申报截止时间">
+              <el-date-picker
+                v-model="form.zqsbjzsj"
+                type="datetime"
+                placeholder="请选择债权申报截止时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 立案日期 -->
+          <el-col :span="12">
+            <el-form-item label="立案日期">
+              <el-date-picker
+                v-model="form.larq"
+                type="datetime"
+                placeholder="请选择立案日期"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 结案日期 -->
+          <el-col :span="12">
+            <el-form-item label="结案日期">
+              <el-date-picker
+                v-model="form.jarq"
+                type="datetime"
+                placeholder="请选择结案日期"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 破产时间 -->
+          <el-col :span="12">
+            <el-form-item label="破产时间">
+              <el-date-picker
+                v-model="form.pcsj"
+                type="datetime"
+                placeholder="请选择破产时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 终结时间 -->
+          <el-col :span="12">
+            <el-form-item label="终结时间">
+              <el-date-picker
+                v-model="form.zjsj"
+                type="datetime"
+                placeholder="请选择终结时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 注销时间 -->
+          <el-col :span="12">
+            <el-form-item label="注销时间">
+              <el-date-picker
+                v-model="form.zxsj"
+                type="datetime"
+                placeholder="请选择注销时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 归档时间 -->
+          <el-col :span="12">
+            <el-form-item label="归档时间">
+              <el-date-picker
+                v-model="form.gdsj"
+                type="datetime"
+                placeholder="请选择归档时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 备注 -->
+          <el-col :span="24">
+            <el-form-item label="备注">
+              <el-input
+                v-model="form.beizhu"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入备注信息"
+                maxlength="500"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+
+          <!-- 文件上传 -->
+          <el-col :span="24">
+            <el-form-item label="文件上传">
+              <div class="file-upload-container">
+                <!-- 选择文件按钮 -->
+                <div class="mb-4 flex items-center gap-3">
+                  <input
+                    type="file"
+                    ref="fileInput"
+                    class="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png"
+                    @change="handleFileChange"
+                  />
+                  <el-button type="primary" @click="$refs.fileInput.click()">
+                    <i class="i-lucide-upload mr-1"></i>
+                    选择并上传文件
+                  </el-button>
+                  <el-button
+                    type="success"
+                    @click="uploadedFiles.forEach((f, i) => downloadFile(f))"
+                    :disabled="uploadedFiles.length === 0"
+                  >
+                    <i class="i-lucide-download mr-1"></i>
+                    下载所有文件
+                  </el-button>
+                </div>
+
+                <!-- 文件列表 -->
+                <div v-if="uploadedFiles.length > 0" class="uploaded-file-list">
+                  <el-card
+                    v-for="(file, index) in uploadedFiles"
+                    :key="index"
+                    class="uploaded-file-item mb-3"
+                    shadow="hover"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <i class="i-lucide-file text-xl text-blue-500"></i>
+                        <div class="file-info">
+                          <div class="file-name">{{ file.name }}</div>
+                          <div class="file-size">
+                            {{ (file.file.size / 1024 / 1024).toFixed(2) }} MB
+                          </div>
+                        </div>
+                      </div>
+                      <div class="file-actions flex gap-2">
+                        <el-button
+                          type="primary"
+                          size="small"
+                          @click="downloadFile(file.file)"
+                        >
+                          <i class="i-lucide-download mr-1"></i>
+                          下载
+                        </el-button>
+                        <el-button
+                          type="danger"
+                          size="small"
+                          @click="removeFile(index)"
+                        >
+                          <i class="i-lucide-trash-2 mr-1"></i>
+                          删除
+                        </el-button>
+                      </div>
+                    </div>
+                  </el-card>
+                </div>
+
+                <!-- 提示信息 -->
+                <div v-else class="mt-2 text-sm text-gray-500">
+                  暂无上传文件
+                </div>
+
+                <!-- 上传说明 -->
+                <div class="upload-tip mt-3 text-sm text-gray-500">
+                  <p>
+                    支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
+                    格式文件，单个文件大小不超过 10MB
+                  </p>
+                  <p class="mt-1">
+                    文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
+                  </p>
+                  <p class="mt-1 text-blue-500">
+                    服务器存储路径：C:\Users\Lenovo\Desktop\yzz\Release\律师\Service\ServiceWin\wwwroot\Upload\File
+                  </p>
+                </div>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 表单操作按钮 -->
+        <div class="form-actions mt-6 flex justify-end gap-3">
+          <el-button @click="resetForm">重置</el-button>
+          <el-button type="primary" @click="submitForm" :loading="loading">
+            提交案件
+          </el-button>
+        </div>
+      </el-form>
+    </el-card>
   </div>
 </template>
 
 <style scoped>
-/* 可以添加自定义样式 */
+.case-add-card {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.case-form {
+  padding: 20px 0;
+}
+
+.form-actions {
+  padding: 20px 0 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.file-uploader {
+  width: 100%;
+}
+
+/* 自定义文件上传样式 */
+.file-upload-container {
+  width: 100%;
+}
+
+.uploaded-file-list {
+  width: 100%;
+}
+
+.uploaded-file-item {
+  transition: all 0.3s ease;
+}
+
+.uploaded-file-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #999;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.upload-tip {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border-left: 4px solid #409eff;
+}
+
+.upload-tip p {
+  margin: 0;
+  line-height: 1.5;
+}
 </style>

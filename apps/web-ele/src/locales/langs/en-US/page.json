@@ -13,7 +13,6 @@
   },
   "law": {
     "title": "Law Module",
-    "test": "Test Page",
     "caseManagement": "Case Management",
     "caseDetail": "Case Detail",
     "caseAdd": "Case Add",
@@ -30,6 +29,7 @@
     "courtManagement": "Court Management",
     "bankAccountManagement": "Bank Account Management",
     "workPlanManagement": "Work Plan Management",
-    "workTeamManagement": "Work Team Management"
+    "workTeamManagement": "Work Team Management",
+    "workTeamEdit": "Edit Work Team"
   }
 }

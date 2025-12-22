@@ -2,6 +2,7 @@
   "law": {
     "title": "法律管理",
     "test": "测试页面",
+    "apiTest": "后端接口测试",
     "caseManagement": "案件管理",
     "caseDetail": "案件详情",
     "taskEdit": "任务编辑"

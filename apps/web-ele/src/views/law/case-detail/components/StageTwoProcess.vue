@@ -14,6 +14,7 @@ import {
   ElTag,
 } from 'element-plus';
 
+// 导入API函数和类型
 import {
   getBusinessManagementApi,
   getEmergencyApi,
@@ -21,7 +22,7 @@ import {
   getPersonnelEmpApi,
   getPropertyPlanApi,
   getPropertyReceiptApi,
-  updateTaskStatusApi,
+  unifiedTaskOperationApi,
 } from '#/api/core/case-process';
 
 // 组件属性
@@ -124,6 +125,16 @@ const getStatusClass = (status: CaseProcessApi.TaskStatus) => {
   }
 };
 
+// 任务类型映射到OperateType
+const taskTypeToOperateType: Record<string, string> = {
+  propertyReceipt: '5',
+  emergency: '6',
+  propertyPlan: '7',
+  personnelEmp: '8',
+  internalAffairs: '9',
+  businessManagement: '10',
+};
+
 // 编辑任务
 const editTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
@@ -138,8 +149,23 @@ const completeTask = async (taskId: string) => {
       type: 'warning',
     });
 
-    // 调用API更新任务状态
-    const result = await updateTaskStatusApi(taskId, props.caseId, '完成');
+    // 获取当前任务信息
+    const task = tasks.value.find((t) => t.id === taskId);
+    if (!task) {
+      ElMessage.error('任务不存在');
+      return;
+    }
+
+    // 准备统一API参数
+    const params = {
+      SEP_LD: props.caseId,
+      ZT: '1', // 完成状态
+      OperateType: taskTypeToOperateType[taskId] || '5',
+      ...task, // 上传所有任务数据
+    };
+
+    // 调用统一API
+    const result = await unifiedTaskOperationApi(params);
 
     if (result && result.status === '1') {
       // 更新本地状态
@@ -151,7 +177,7 @@ const completeTask = async (taskId: string) => {
         ElMessage.success('任务已完成');
       }
     } else {
-      ElMessage.error('更新任务状态失败');
+      ElMessage.error(`更新任务状态失败：${result.error || '未知错误'}`);
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -164,32 +190,232 @@ const completeTask = async (taskId: string) => {
 // 跳过任务
 const skipTask = async (taskId: string) => {
   try {
-    // 调用API更新任务状态
-    const result = await updateTaskStatusApi(taskId, props.caseId, '跳过');
+    await ElMessageBox.confirm('确认跳过该任务吗？', '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
 
-    if (result && result.status === '1') {
-      // 更新本地状态
-      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-      if (taskIndex !== -1 && tasks.value[taskIndex]) {
-        tasks.value[taskIndex].status = '跳过';
-        // 通知父组件任务状态变更
-        emit('taskStatusChanged', taskId, '跳过');
-        ElMessage.success('任务已跳过');
+    // 获取当前任务信息
+    const task = tasks.value.find((t) => t.id === taskId);
+    if (!task) {
+      ElMessage.error('任务不存在');
+      return;
+    }
+
+    // 从本地存储获取操作人信息
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    const sep_auser = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    const sep_adate = new Date().toISOString();
+
+    let addResponse: any;
+    let updateResult: any;
+
+    // 根据任务是否存在（count为0表示不存在）来决定调用哪个API
+    if (task.count === 0) {
+      // 任务不存在，调用新增API
+      switch (taskId) {
+        case 'businessManagement': {
+          // 准备经营管理默认数据
+          const businessManagementData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            yyqktc: '',
+            fxlzbg: '',
+            jdnr: '',
+            fypzrq: sep_adate,
+            sszt: '',
+            fzr: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加经营管理API
+          const { addBusinessManagementApi } =
+            await import('#/api/core/case-process');
+          addResponse = await addBusinessManagementApi(businessManagementData);
+          break;
+        }
+
+        case 'emergency': {
+          // 准备应急预案默认数据
+          const emergencyData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            fzr: '',
+            abcs: '',
+            bxxx: '',
+            bzcccl: '',
+            qlsxyqj: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加应急预案API
+          const { addEmergencyApi } = await import('#/api/core/case-process');
+          addResponse = await addEmergencyApi(emergencyData);
+          break;
+        }
+
+        case 'internalAffairs': {
+          // 准备内部事务默认数据
+          const internalAffairsData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            swlx: '',
+            swnr: '',
+            jdrq: sep_adate,
+            jdr: '',
+            kzje: '',
+            kzsm: '',
+            clzt: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加内部事务API
+          const { addInternalAffairsApi } =
+            await import('#/api/core/case-process');
+          addResponse = await addInternalAffairsApi(internalAffairsData);
+          break;
+        }
+
+        case 'personnelEmp': {
+          // 准备人事管理默认数据
+          const personnelEmpData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            ygxm: '',
+            yglx: '',
+            zw: '',
+            pyrq: sep_adate,
+            xcxx: '',
+            fypzqk: '',
+            pyzt: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加人事管理API
+          const { addPersonnelEmploymentApi } =
+            await import('#/api/core/case-process');
+          addResponse = await addPersonnelEmploymentApi(personnelEmpData);
+          break;
+        }
+
+        case 'propertyPlan': {
+          // 准备财产处置计划默认数据
+          const propertyPlanData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            famc: '',
+            bdcglcs: '',
+            dcglcs: '',
+            hbccglcs: '',
+            wxccglcs: '',
+            dwtzglcs: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加财产处置计划API
+          const { addPropertyPlanApi } =
+            await import('#/api/core/case-process');
+          addResponse = await addPropertyPlanApi(propertyPlanData);
+          break;
+        }
+
+        case 'propertyReceipt': {
+          // 准备财产接管默认数据
+          const propertyReceiptData = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            jjhyrq: sep_adate,
+            chry: '',
+            cczksm: '',
+            jjrq: sep_adate,
+            jjr: '',
+            jsr: '',
+            jszt: '',
+            cclx: '',
+            ccmc: '',
+            ccje: '',
+            cfdd: '',
+            zt: '2', // 跳过状态默认为2
+          };
+
+          // 调用添加财产接管API
+          const { addPropertyReceiptApi } =
+            await import('#/api/core/case-process');
+          addResponse = await addPropertyReceiptApi(propertyReceiptData);
+          break;
+        }
+
+        default: {
+          break;
+        }
+      }
+
+      // 检查API调用结果
+      if (addResponse && addResponse.status !== '1') {
+        ElMessage.error(`添加数据失败：${addResponse.error || '未知错误'}`);
+        return;
       }
     } else {
-      ElMessage.error('更新任务状态失败');
+      // 任务存在，调用统一API更新状态
+      // 准备统一API参数
+      const params = {
+        SEP_LD: props.caseId,
+        ZT: '2', // 跳过状态
+        OperateType: taskTypeToOperateType[taskId] || '5',
+      };
+
+      // 调用统一API
+      updateResult = await unifiedTaskOperationApi(params);
+
+      if (updateResult && updateResult.status !== '1') {
+        ElMessage.error(
+          `更新任务状态失败：${updateResult.error || '未知错误'}`,
+        );
+        return;
+      }
+    }
+
+    // 更新本地状态
+    const taskIndex = tasks.value.findIndex((t) => t.id === taskId);
+    if (taskIndex !== -1 && tasks.value[taskIndex]) {
+      tasks.value[taskIndex].status = '跳过';
+      // 通知父组件任务状态变更
+      emit('taskStatusChanged', taskId, '跳过');
+      ElMessage.success('任务已跳过');
     }
   } catch (error) {
-    console.error('跳过任务失败:', error);
-    ElMessage.error('跳过任务失败');
+    if (error !== 'cancel') {
+      console.error('跳过任务失败:', error);
+      ElMessage.error('跳过任务失败');
+    }
   }
 };
 
-// 撤回跳过任务
+// 撤回任务（跳过或完成）
 const withdrawSkipTask = async (taskId: string) => {
   try {
-    // 调用API更新任务状态为未确认
-    const result = await updateTaskStatusApi(taskId, props.caseId, '未确认');
+    await ElMessageBox.confirm('确认撤回该任务操作吗？', '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
+    // 准备统一API参数
+    const params = {
+      SEP_LD: props.caseId,
+      ZT: '0', // 未确认状态
+      OperateType: taskTypeToOperateType[taskId] || '5',
+    };
+
+    // 调用统一API
+    const result = await unifiedTaskOperationApi(params);
 
     if (result && result.status === '1') {
       // 更新本地状态
@@ -198,14 +424,16 @@ const withdrawSkipTask = async (taskId: string) => {
         tasks.value[taskIndex].status = '未确认';
         // 通知父组件任务状态变更
         emit('taskStatusChanged', taskId, '未确认');
-        ElMessage.success('已撤回跳过操作');
+        ElMessage.success('已撤回操作');
       }
     } else {
-      ElMessage.error('撤回操作失败');
+      ElMessage.error(`撤回操作失败：${result.error || '未知错误'}`);
     }
   } catch (error) {
-    console.error('撤回跳过任务失败:', error);
-    ElMessage.error('撤回跳过任务失败');
+    if (error !== 'cancel') {
+      console.error('撤回操作失败:', error);
+      ElMessage.error('撤回操作失败');
+    }
   }
 };
 
@@ -213,7 +441,7 @@ const withdrawSkipTask = async (taskId: string) => {
 const loadTaskData = async () => {
   loading.value = true;
   try {
-    // 调用后端API获取任务数据
+    // 调用后端API获取任务数据，传递page和size参数
     const [
       propertyReceiptRes,
       emergencyRes,
@@ -222,12 +450,12 @@ const loadTaskData = async () => {
       internalAffairsRes,
       businessManagementRes,
     ] = await Promise.allSettled([
-      getPropertyReceiptApi(props.caseId),
-      getEmergencyApi(props.caseId),
-      getPropertyPlanApi(props.caseId),
-      getPersonnelEmpApi(props.caseId),
-      getInternalAffairsApi(props.caseId),
-      getBusinessManagementApi(props.caseId),
+      getPropertyReceiptApi(props.caseId, 1, 10),
+      getEmergencyApi(props.caseId, 1, 10),
+      getPropertyPlanApi(props.caseId, 1, 10),
+      getPersonnelEmpApi(props.caseId, 1, 10),
+      getInternalAffairsApi(props.caseId, 1, 10),
+      getBusinessManagementApi(props.caseId, 1, 10),
     ]);
 
     // 处理API响应
@@ -238,12 +466,23 @@ const loadTaskData = async () => {
         status:
           propertyReceiptRes.status === 'fulfilled' &&
           propertyReceiptRes.value.status === '1' &&
-          propertyReceiptRes.value.data
-            ? (propertyReceiptRes.value.data
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          propertyReceiptRes.value.data &&
+          Number.parseInt(
+            propertyReceiptRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getPropertyReceipt',
         token: '699a11d9338b983ce9eafc5e75f1833f',
+        count:
+          (propertyReceiptRes.status === 'fulfilled' &&
+            propertyReceiptRes.value.data?.count) ||
+          0,
+        paras:
+          propertyReceiptRes.status === 'fulfilled' &&
+          propertyReceiptRes.value.data
+            ? propertyReceiptRes.value.data.paras
+            : undefined,
       },
       {
         id: 'emergency',
@@ -251,12 +490,20 @@ const loadTaskData = async () => {
         status:
           emergencyRes.status === 'fulfilled' &&
           emergencyRes.value.status === '1' &&
-          emergencyRes.value.data
-            ? (emergencyRes.value.data.DQZT as CaseProcessApi.TaskStatus) ||
-              '未确认'
+          emergencyRes.value.data &&
+          Number.parseInt(emergencyRes.value.data.paras?.zt2_count || '0') > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getEmergency',
         token: 'c6c85c5e695fec908ded4f05f9e9bfc9',
+        count:
+          (emergencyRes.status === 'fulfilled' &&
+            emergencyRes.value.data?.count) ||
+          0,
+        paras:
+          emergencyRes.status === 'fulfilled' && emergencyRes.value.data
+            ? emergencyRes.value.data.paras
+            : undefined,
       },
       {
         id: 'propertyPlan',
@@ -264,12 +511,21 @@ const loadTaskData = async () => {
         status:
           propertyPlanRes.status === 'fulfilled' &&
           propertyPlanRes.value.status === '1' &&
-          propertyPlanRes.value.data
-            ? (propertyPlanRes.value.data.DQZT as CaseProcessApi.TaskStatus) ||
-              '未确认'
+          propertyPlanRes.value.data &&
+          Number.parseInt(propertyPlanRes.value.data.paras?.zt2_count || '0') >
+            0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getPropertyPlan',
         token: '924180f974b81f375d6625ab0fd59f60',
+        count:
+          (propertyPlanRes.status === 'fulfilled' &&
+            propertyPlanRes.value.data?.count) ||
+          0,
+        paras:
+          propertyPlanRes.status === 'fulfilled' && propertyPlanRes.value.data
+            ? propertyPlanRes.value.data.paras
+            : undefined,
       },
       {
         id: 'personnelEmp',
@@ -277,12 +533,21 @@ const loadTaskData = async () => {
         status:
           personnelEmpRes.status === 'fulfilled' &&
           personnelEmpRes.value.status === '1' &&
-          personnelEmpRes.value.data
-            ? (personnelEmpRes.value.data.DQZT as CaseProcessApi.TaskStatus) ||
-              '未确认'
+          personnelEmpRes.value.data &&
+          Number.parseInt(personnelEmpRes.value.data.paras?.zt2_count || '0') >
+            0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getPersonnelEmp',
         token: 'ae3987ea39249e94edb9bdccf1c859d7',
+        count:
+          (personnelEmpRes.status === 'fulfilled' &&
+            personnelEmpRes.value.data?.count) ||
+          0,
+        paras:
+          personnelEmpRes.status === 'fulfilled' && personnelEmpRes.value.data
+            ? personnelEmpRes.value.data.paras
+            : undefined,
       },
       {
         id: 'internalAffairs',
@@ -290,12 +555,23 @@ const loadTaskData = async () => {
         status:
           internalAffairsRes.status === 'fulfilled' &&
           internalAffairsRes.value.status === '1' &&
-          internalAffairsRes.value.data
-            ? (internalAffairsRes.value.data
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          internalAffairsRes.value.data &&
+          Number.parseInt(
+            internalAffairsRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getInternalAffairs',
         token: 'ba251b8fffee8a47a71b3429ab9cccb5',
+        count:
+          (internalAffairsRes.status === 'fulfilled' &&
+            internalAffairsRes.value.data?.count) ||
+          0,
+        paras:
+          internalAffairsRes.status === 'fulfilled' &&
+          internalAffairsRes.value.data
+            ? internalAffairsRes.value.data.paras
+            : undefined,
       },
       {
         id: 'businessManagement',
@@ -303,12 +579,23 @@ const loadTaskData = async () => {
         status:
           businessManagementRes.status === 'fulfilled' &&
           businessManagementRes.value.status === '1' &&
-          businessManagementRes.value.data
-            ? (businessManagementRes.value.data
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          businessManagementRes.value.data &&
+          Number.parseInt(
+            businessManagementRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getBusinessManagement',
         token: '0611b92b9a4bd76e5fc315d145a90fc2',
+        count:
+          (businessManagementRes.status === 'fulfilled' &&
+            businessManagementRes.value.data?.count) ||
+          0,
+        paras:
+          businessManagementRes.status === 'fulfilled' &&
+          businessManagementRes.value.data
+            ? businessManagementRes.value.data.paras
+            : undefined,
       },
     ];
 
@@ -369,7 +656,15 @@ onMounted(() => {
         >
           <div class="task-info">
             <div class="task-main">
-              <div class="task-name">{{ task.name }}</div>
+              <div class="task-name">
+                {{ task.name }}
+                <span
+                  v-if="task.count !== undefined && task.count > 0"
+                  class="task-count"
+                >
+                  ({{ task.count }}个)
+                </span>
+              </div>
               <div class="task-status">
                 <ElTag :type="getStatusType(task.status)" size="small">
                   {{ task.status }}
@@ -383,52 +678,100 @@ onMounted(() => {
                   ? '已完成确认'
                   : task.status === '跳过'
                     ? '已跳过'
-                    : '待确认'
+                    : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
               }}
             </div>
           </div>
           <div class="task-actions">
-            <ElButton
-              type="primary"
-              size="small"
-              @click="editTask(task.id)"
-              :disabled="task.status === '完成' || task.status === '跳过'"
-            >
-              <Icon icon="lucide:edit" class="mr-1" />
-              编辑
-            </ElButton>
+            <!-- 如果count为0，显示新增和跳过按钮 -->
+            <template v-if="task.count === 0">
+              <ElButton
+                type="primary"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
 
-            <ElButton
-              type="success"
-              size="small"
-              @click="completeTask(task.id)"
-              :disabled="task.status === '完成' || task.status === '跳过'"
-            >
-              <Icon icon="lucide:check" class="mr-1" />
-              完成
-            </ElButton>
+              <ElButton
+                v-if="task.status === '跳过'"
+                type="danger"
+                size="small"
+                @click="withdrawSkipTask(task.id)"
+              >
+                <Icon icon="lucide:undo" class="mr-1" />
+                撤回
+              </ElButton>
 
-            <!-- 动态按钮：跳过状态显示撤回，其他状态显示跳过 -->
-            <ElButton
-              v-if="task.status === '跳过'"
-              type="danger"
-              size="small"
-              @click="withdrawSkipTask(task.id)"
-            >
-              <Icon icon="lucide:undo" class="mr-1" />
-              撤回
-            </ElButton>
+              <ElButton
+                v-else
+                type="warning"
+                size="small"
+                @click="skipTask(task.id)"
+                :disabled="task.status === '完成'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
+              </ElButton>
+            </template>
 
-            <ElButton
-              v-else
-              type="warning"
-              size="small"
-              @click="skipTask(task.id)"
-              :disabled="task.status === '完成'"
-            >
-              <Icon icon="lucide:skip-forward" class="mr-1" />
-              跳过
-            </ElButton>
+            <!-- 如果count不为0，显示编辑、完成、跳过和新增按钮 -->
+            <template v-else>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+
+              <ElButton
+                type="success"
+                size="small"
+                @click="completeTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+
+              <!-- 动态按钮：完成或跳过状态显示撤回，其他状态显示跳过 -->
+              <ElButton
+                v-if="task.status === '跳过' || task.status === '完成'"
+                type="danger"
+                size="small"
+                @click="withdrawSkipTask(task.id)"
+              >
+                <Icon icon="lucide:undo" class="mr-1" />
+                撤回
+              </ElButton>
+
+              <ElButton
+                v-else
+                type="warning"
+                size="small"
+                @click="skipTask(task.id)"
+                :disabled="task.status === '完成'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
+              </ElButton>
+
+              <!-- 新增按钮 -->
+              <ElButton
+                type="info"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
+            </template>
           </div>
         </div>
       </div>
@@ -541,6 +884,18 @@ onMounted(() => {
   font-weight: 600;
   color: #1f2937;
   min-width: 120px;
+}
+
+.task-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 4px;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .task-status {

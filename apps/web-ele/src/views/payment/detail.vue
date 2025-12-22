@@ -1,174 +1,15 @@
-<template>
-  <div class="payment-detail-page">
-    <div class="page-header">
-      <el-button type="primary" plain size="small" @click="goBack">
-        <el-icon><arrow-left /></el-icon>
-        返回
-      </el-button>
-      <h1>支付详情</h1>
-    </div>
-    
-    <div class="payment-detail-content">
-      <!-- 支付信息卡片 -->
-      <el-card shadow="hover" class="payment-info-card">
-        <template #header>
-          <div class="card-header">
-            <h2>订单信息</h2>
-          </div>
-        </template>
-        
-        <div class="order-info">
-          <div class="info-row">
-            <span class="info-label">订单号：</span>
-            <span class="info-value">{{ orderInfo.orderId }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">案件名称：</span>
-            <span class="info-value">{{ orderInfo.caseName }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">支付金额：</span>
-            <span class="info-value amount">{{ orderInfo.amount }} 元</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">下单时间：</span>
-            <span class="info-value">{{ orderInfo.orderTime }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">订单状态：</span>
-            <el-tag :type="orderInfo.status === '待支付' ? 'warning' : 'success'">
-              {{ orderInfo.status }}
-            </el-tag>
-          </div>
-        </div>
-      </el-card>
-      
-      <!-- 支付方式选择 -->
-      <el-card shadow="hover" class="payment-method-card" v-if="orderInfo.status === '待支付'">
-        <template #header>
-          <div class="card-header">
-            <h2>选择支付方式</h2>
-          </div>
-        </template>
-        
-        <div class="payment-methods">
-          <el-radio-group v-model="selectedPayMethod" class="payment-method-list">
-            <el-radio-button label="alipay" class="payment-method-item">
-              <div class="method-content">
-                <el-icon><money /></el-icon>
-                <span>支付宝</span>
-              </div>
-            </el-radio-button>
-            <el-radio-button label="wechat" class="payment-method-item">
-              <div class="method-content">
-                <el-icon><chat-dot-round /></el-icon>
-                <span>微信支付</span>
-              </div>
-            </el-radio-button>
-            <el-radio-button label="bank" class="payment-method-item">
-              <div class="method-content">
-                <el-icon><bank-card /></el-icon>
-                <span>银行卡</span>
-              </div>
-            </el-radio-button>
-          </el-radio-group>
-        </div>
-        
-        <!-- 支付按钮 -->
-        <div class="payment-action">
-          <el-button 
-            type="primary" 
-            size="large" 
-            @click="confirmPayment"
-            :loading="confirmLoading"
-            class="pay-button"
-          >
-            <el-icon><credit-card /></el-icon>
-            确认支付
-          </el-button>
-        </div>
-      </el-card>
-      
-      <!-- 已支付信息 -->
-      <el-card shadow="hover" class="payment-success-card" v-else>
-        <template #header>
-          <div class="card-header">
-            <h2>支付成功</h2>
-          </div>
-        </template>
-        
-        <div class="payment-success-info">
-          <div class="success-icon">
-            <el-icon :size="60" color="#67c23a"><circle-check /></el-icon>
-          </div>
-          <h3>支付已完成</h3>
-          <div class="success-detail">
-            <div class="detail-row">
-              <span class="detail-label">支付方式：</span>
-              <span class="detail-value">{{ getPayMethodName(orderInfo.payMethod) }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">支付时间：</span>
-              <span class="detail-value">{{ orderInfo.payTime }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">支付金额：</span>
-              <span class="detail-value amount">{{ orderInfo.amount }} 元</span>
-            </div>
-          </div>
-          <el-button type="primary" @click="goBack" class="back-button">
-            返回订单列表
-          </el-button>
-        </div>
-      </el-card>
-      
-      <!-- 支付二维码弹窗 -->
-      <el-dialog
-        v-model="dialogVisible"
-        title="扫描二维码支付"
-        width="400px"
-        :before-close="handleDialogClose"
-        center
-      >
-        <div class="qr-code-container">
-          <div class="qr-code-info">
-            <h3>{{ getPayMethodName(selectedPayMethod) }}支付</h3>
-            <p>请使用{{ getPayMethodName(selectedPayMethod) }}扫描下方二维码完成支付</p>
-            <div class="qr-code-amount">金额：{{ orderInfo.amount }} 元</div>
-          </div>
-          <div class="qr-code">
-            <!-- 模拟二维码，实际项目中应根据支付方式生成真实二维码 -->
-            <div class="mock-qr-code">
-              <div class="mock-qr-content">{{ selectedPayMethod }}_QR_CODE</div>
-            </div>
-          </div>
-          <div class="qr-code-tip">
-            <p>支付完成后点击"已完成支付"按钮，或等待系统自动检测</p>
-          </div>
-        </div>
-        <template #footer>
-          <div class="dialog-footer">
-            <el-button @click="handleDialogClose">取消</el-button>
-            <el-button type="primary" @click="confirmPaymentSuccess">已完成支付</el-button>
-          </div>
-        </template>
-      </el-dialog>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
 import {
   ArrowLeft,
-  BankCard,
-  ChatDotRound,
-  CircleCheck,
+  ChatRound,
+  Check,
   CreditCard,
-  Money
+  Money,
 } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const route = useRoute();
@@ -196,43 +37,43 @@ const orderInfo = ref<OrderInfo>({
   amount: 0,
   orderTime: '',
   status: '待支付',
-  payMethod: ''
+  payMethod: '',
 });
 
 // 模拟订单数据
 const mockOrders: Record<string, OrderInfo> = {
-  'PAY202512120001': {
+  PAY202512120001: {
     orderId: 'PAY202512120001',
     caseName: '张三诉李四合同纠纷案',
-    amount: 1500.00,
+    amount: 1500,
     orderTime: '2025-12-12 10:30:00',
     status: '待支付',
-    payMethod: ''
+    payMethod: '',
   },
-  'PAY202512120002': {
+  PAY202512120002: {
     orderId: 'PAY202512120002',
     caseName: '王五诉赵六侵权纠纷案',
-    amount: 2800.00,
+    amount: 2800,
     orderTime: '2025-12-12 11:45:00',
     status: '待支付',
-    payMethod: ''
+    payMethod: '',
   },
-  'PAY202512110001': {
+  PAY202512110001: {
     orderId: 'PAY202512110001',
     caseName: '钱七诉孙八借贷纠纷案',
-    amount: 5000.00,
+    amount: 5000,
     orderTime: '2025-12-11 14:20:00',
     status: '已支付',
     payMethod: '银行转账',
-    payTime: '2025-12-11 14:25:30'
-  }
+    payTime: '2025-12-11 14:25:30',
+  },
 };
 
 // 获取订单详情
 const fetchOrderDetail = () => {
   // 从URL参数获取订单ID
   const id = orderId.value;
-  
+
   // 模拟API请求
   setTimeout(() => {
     const order = mockOrders[id] || {
@@ -241,9 +82,9 @@ const fetchOrderDetail = () => {
       amount: 0,
       orderTime: new Date().toLocaleString(),
       status: '待支付',
-      payMethod: ''
+      payMethod: '',
     };
-    
+
     orderInfo.value = order;
   }, 500);
 };
@@ -254,7 +95,7 @@ const getPayMethodName = (method: string): string => {
     alipay: '支付宝',
     wechat: '微信支付',
     bank: '银行卡',
-    '银行转账': '银行转账'
+    银行转账: '银行转账',
   };
   return methodMap[method] || method;
 };
@@ -267,13 +108,13 @@ const goBack = () => {
 // 确认支付
 const confirmPayment = () => {
   confirmLoading.value = true;
-  
+
   // 模拟API请求
   setTimeout(() => {
     confirmLoading.value = false;
     // 显示支付二维码弹窗
     dialogVisible.value = true;
-    
+
     // 模拟5秒后自动检测支付状态
     setTimeout(() => {
       if (dialogVisible.value) {
@@ -292,12 +133,12 @@ const handleDialogClose = () => {
 // 确认支付成功
 const confirmPaymentSuccess = () => {
   dialogVisible.value = false;
-  
+
   // 更新订单状态
   orderInfo.value.status = '已支付';
   orderInfo.value.payMethod = selectedPayMethod.value;
   orderInfo.value.payTime = new Date().toLocaleString();
-  
+
   ElMessage.success('支付成功！');
 };
 
@@ -306,6 +147,182 @@ onMounted(() => {
   fetchOrderDetail();
 });
 </script>
+
+<template>
+  <div class="payment-detail-page">
+    <div class="page-header">
+      <el-button type="primary" plain size="small" @click="goBack">
+        <el-icon><ArrowLeft /></el-icon>
+        返回
+      </el-button>
+      <h1>支付详情</h1>
+    </div>
+
+    <div class="payment-detail-content">
+      <!-- 支付信息卡片 -->
+      <el-card shadow="hover" class="payment-info-card">
+        <template #header>
+          <div class="card-header">
+            <h2>订单信息</h2>
+          </div>
+        </template>
+
+        <div class="order-info">
+          <div class="info-row">
+            <span class="info-label">订单号：</span>
+            <span class="info-value">{{ orderInfo.orderId }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">案件名称：</span>
+            <span class="info-value">{{ orderInfo.caseName }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">支付金额：</span>
+            <span class="info-value amount">{{ orderInfo.amount }} 元</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">下单时间：</span>
+            <span class="info-value">{{ orderInfo.orderTime }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">订单状态：</span>
+            <el-tag
+              :type="orderInfo.status === '待支付' ? 'warning' : 'success'"
+            >
+              {{ orderInfo.status }}
+            </el-tag>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 支付方式选择 -->
+      <el-card
+        shadow="hover"
+        class="payment-method-card"
+        v-if="orderInfo.status === '待支付'"
+      >
+        <template #header>
+          <div class="card-header">
+            <h2>选择支付方式</h2>
+          </div>
+        </template>
+
+        <div class="payment-methods">
+          <el-radio-group
+            v-model="selectedPayMethod"
+            class="payment-method-list"
+            >
+            <el-radio-button value="alipay" class="payment-method-item">
+              <div class="method-content">
+                <el-icon><Money /></el-icon>
+                <span>支付宝</span>
+              </div>
+            </el-radio-button>
+            <el-radio-button value="wechat" class="payment-method-item">
+              <div class="method-content">
+                <el-icon><ChatRound /></el-icon>
+                <span>微信支付</span>
+              </div>
+            </el-radio-button>
+            <el-radio-button value="bank" class="payment-method-item">
+              <div class="method-content">
+                <el-icon><CreditCard /></el-icon>
+                <span>银行卡</span>
+              </div>
+            </el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <!-- 支付按钮 -->
+        <div class="payment-action">
+          <el-button
+            type="primary"
+            size="large"
+            @click="confirmPayment"
+            :loading="confirmLoading"
+            class="pay-button"
+          >
+            <el-icon><CreditCard /></el-icon>
+            确认支付
+          </el-button>
+        </div>
+      </el-card>
+
+      <!-- 已支付信息 -->
+      <el-card shadow="hover" class="payment-success-card" v-else>
+        <template #header>
+          <div class="card-header">
+            <h2>支付成功</h2>
+          </div>
+        </template>
+
+        <div class="payment-success-info">
+          <div class="success-icon">
+            <el-icon :size="60" color="#67c23a"><Check /></el-icon>
+          </div>
+          <h3>支付已完成</h3>
+          <div class="success-detail">
+            <div class="detail-row">
+              <span class="detail-label">支付方式：</span>
+              <span class="detail-value">{{
+                getPayMethodName(orderInfo.payMethod)
+              }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">支付时间：</span>
+              <span class="detail-value">{{ orderInfo.payTime }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">支付金额：</span>
+              <span class="detail-value amount">{{ orderInfo.amount }} 元</span>
+            </div>
+          </div>
+          <el-button type="primary" @click="goBack" class="back-button">
+            返回订单列表
+          </el-button>
+        </div>
+      </el-card>
+
+      <!-- 支付二维码弹窗 -->
+      <el-dialog
+        v-model="dialogVisible"
+        title="扫描二维码支付"
+        width="400px"
+        :before-close="handleDialogClose"
+        center
+      >
+        <div class="qr-code-container">
+          <div class="qr-code-info">
+            <h3>{{ getPayMethodName(selectedPayMethod) }}支付</h3>
+            <p>
+              请使用{{
+                getPayMethodName(selectedPayMethod)
+              }}扫描下方二维码完成支付
+            </p>
+            <div class="qr-code-amount">金额：{{ orderInfo.amount }} 元</div>
+          </div>
+          <div class="qr-code">
+            <!-- 模拟二维码，实际项目中应根据支付方式生成真实二维码 -->
+            <div class="mock-qr-code">
+              <div class="mock-qr-content">{{ selectedPayMethod }}_QR_CODE</div>
+            </div>
+          </div>
+          <div class="qr-code-tip">
+            <p>支付完成后点击"已完成支付"按钮，或等待系统自动检测</p>
+          </div>
+        </div>
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="handleDialogClose">取消</el-button>
+            <el-button type="primary" @click="confirmPaymentSuccess">
+              已完成支付
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .payment-detail-page {

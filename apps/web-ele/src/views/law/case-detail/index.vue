@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
@@ -9,19 +8,20 @@ import {
   ElCol,
   ElEmpty,
   ElMessage,
-  ElProgress,
   ElRow,
   ElSkeleton,
-  ElTag,
 } from 'element-plus';
 
 import { getCaseDetailApi } from '#/api/core/case';
+import FileUploader from '../../../components/FileUploader.vue';
 
+import StageFiveProcess from './components/StageFiveProcess.vue';
+import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
 import StageThreeProcess from './components/StageThreeProcess.vue';
 import StageTwoProcess from './components/StageTwoProcess.vue';
-import StageFourProcess from './components/StageFourProcess.vue';
-import StageFiveProcess from './components/StageFiveProcess.vue';
+import StageSixProcess from './components/StageSixProcess.vue';
+import StageSevenProcess from './components/StageSevenProcess.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -29,6 +29,9 @@ const router = useRouter();
 const caseId = ref(route.params.id as string);
 const loading = ref(false);
 const caseDetail = ref<any>(null);
+const isInfoCollapsed = ref(true); // 控制案件基本信息折叠状态
+const isEditing = ref(false); // 控制是否处于编辑状态
+const editedData = reactive<any>({}); // 存储编辑后的数据
 
 // 当前选中的阶段索引
 const currentStageIndex = ref(0);
@@ -287,24 +290,74 @@ const processStages = ref([
   },
   {
     id: 6,
-    title: '破产分配至终结前的工作',
+    title: '破产财产分配方案等相关工作',
     description: '阶段六',
     component: 'StageSixProcess',
     tasks: [
-      { id: 18, name: '财产分配执行', completed: false, dueDate: '2023-04-20' },
-      { id: 19, name: '分配报告编制', completed: false, dueDate: '2023-04-25' },
-      { id: 20, name: '终结申请', completed: false, dueDate: '2023-04-30' },
+      {
+        id: 18,
+        name: '破产财产分配方案',
+        completed: false,
+        dueDate: '2023-04-20',
+        apiId: 'bankruptcyDistPlan',
+      },
+      {
+        id: 19,
+        name: '员工安置方案',
+        completed: false,
+        dueDate: '2023-04-25',
+        apiId: 'employeeSPlan',
+      },
+      {
+        id: 20,
+        name: '优先受偿权',
+        completed: false,
+        dueDate: '2023-04-30',
+        apiId: 'priorityPayment',
+      },
+      {
+        id: 21,
+        name: '财产状况说明',
+        completed: false,
+        dueDate: '2023-05-05',
+        apiId: 'propertyDEC',
+      },
+      {
+        id: 22,
+        name: '存款管理',
+        completed: false,
+        dueDate: '2023-05-10',
+        apiId: 'depositManagement',
+      },
     ],
   },
   {
     id: 7,
-    title: '破产终结的工作',
+    title: '债权人会议决议等相关工作',
     description: '阶段七',
     component: 'StageSevenProcess',
     tasks: [
-      { id: 21, name: '终结裁定执行', completed: false, dueDate: '2023-05-05' },
-      { id: 22, name: '档案整理归档', completed: false, dueDate: '2023-05-10' },
-      { id: 23, name: '工作总结报告', completed: false, dueDate: '2023-05-15' },
+      {
+        id: 23,
+        name: '债权人会议决议',
+        completed: false,
+        dueDate: '2023-05-15',
+        apiId: 'canRR',
+      },
+      {
+        id: 24,
+        name: '终止诉讼',
+        completed: false,
+        dueDate: '2023-05-20',
+        apiId: 'terminationLiti',
+      },
+      {
+        id: 25,
+        name: '追加分配',
+        completed: false,
+        dueDate: '2023-05-25',
+        apiId: 'additionalDisiribution',
+      },
     ],
   },
 ]);
@@ -319,26 +372,19 @@ const currentStage = computed(() => {
   return stage;
 });
 
-const currentStageProgress = computed(() => {
-  if (!currentStage.value) return 0;
-  const tasks = currentStage.value.tasks;
-  const completedCount = tasks.filter((task) => task.completed).length;
-  return Math.round((completedCount / tasks.length) * 100);
-});
-
 // 方法
-const getCaseStatusType = (status: string) => {
-  const statusMap: Record<string, any> = {
-    破产申请与受理: 'primary',
-    债权申报核查与债权人会议: 'warning',
-    资产处理: 'info',
-    财产处置: 'warning',
-    破产财产分配: 'success',
-    程序终结与注销: 'success',
-    复权程序: 'info',
-    已结案: 'success',
+const getCaseStatusStyle = (status: string) => {
+  const colorMap: Record<string, any> = {
+    破产申请与受理: { backgroundColor: '#409EFF', color: '#000000' },
+    债权申报核查与债权人会议: { backgroundColor: '#E6A23C', color: '#000000' },
+    资产处理: { backgroundColor: '#909399', color: '#000000' },
+    财产处置: { backgroundColor: '#F56C6C', color: '#000000' },
+    破产财产分配: { backgroundColor: '#67C23A', color: '#000000' },
+    程序终结与注销: { backgroundColor: '#8590A6', color: '#000000' },
+    复权程序: { backgroundColor: '#722ED1', color: '#000000' },
+    已结案: { backgroundColor: '#13C2C2', color: '#000000' },
   };
-  return statusMap[status] || 'info';
+  return colorMap[status] || { backgroundColor: '#909399', color: '#000000' };
 };
 
 // 同步StageTwoProcess组件中的任务状态
@@ -446,7 +492,7 @@ const syncTaskStatusFromStageOne = async () => {
       getLegalProcedureApi,
     } = await import('#/api/core/case-process');
 
-    // 调用所有API获取任务状态
+    // 调用所有API获取任务状态，传递page和size参数
     const [
       workTeamRes,
       workPlanRes,
@@ -454,11 +500,11 @@ const syncTaskStatusFromStageOne = async () => {
       sealManagementRes,
       legalProcedureRes,
     ] = await Promise.allSettled([
-      getWorkTeamApi(caseId.value),
-      getWorkPlanApi(caseId.value),
-      getManagementApi(caseId.value),
-      getSealManagementApi(caseId.value),
-      getLegalProcedureApi(caseId.value),
+      getWorkTeamApi(caseId.value, 1, 10),
+      getWorkPlanApi(caseId.value, 1, 10),
+      getManagementApi(caseId.value, 1, 10),
+      getSealManagementApi(caseId.value, 1, 10),
+      getLegalProcedureApi(caseId.value, 1, 10),
     ]);
 
     // 更新阶段一的任务状态
@@ -500,11 +546,16 @@ const syncTaskStatusFromStageOne = async () => {
           }
         }
 
-        // 根据DQZT字段更新任务完成状态
-        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const dqzt = apiResponse.data.DQZT;
-          // 如果DQZT为'完成'或'跳过'，则标记任务为已完成
-          task.completed = dqzt === '完成' || dqzt === '跳过';
+        // 根据API响应更新任务完成状态
+        // 对于分页响应，检查是否有数据记录
+        if (
+          apiResponse &&
+          apiResponse.status === '1' && // 如果API返回了分页数据且有记录，则标记任务为已完成
+          apiResponse.data &&
+          apiResponse.data.records &&
+          apiResponse.data.records.length > 0
+        ) {
+          task.completed = true;
         }
       });
     }
@@ -520,7 +571,7 @@ const syncTaskStatusFromStageThree = async () => {
     const callApi = async (apiUrl: string, token: string, caseId: string) => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&GLAJBH=${caseId}&page=1&size=10`,
+          `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&SEP_ID=${caseId}&page=1&size=10`,
         );
         const data = await response.json();
         return data;
@@ -817,39 +868,6 @@ const saveStageTasks = (stageIndex: number) => {
   }
 };
 
-// 处理阶段二到阶段七的任务状态变更
-const handleStageTaskChange = (
-  stageIndex: number,
-  taskId: number | string,
-  completed: boolean,
-) => {
-  if (stageIndex === 0) {
-    // 阶段一已经通过事件机制处理
-    return;
-  }
-
-  const stage = processStages.value[stageIndex];
-  if (!stage || !stage.tasks) return;
-
-  const task = stage.tasks.find((t) => t.id === taskId);
-  if (task) {
-    task.completed = completed;
-
-    // 保存状态到本地存储
-    saveStageTasks(stageIndex);
-
-    // 显示状态变更提示
-    const statusText = completed ? '已完成' : '未完成';
-    ElMessage.success(`任务"${task.name}"${statusText}`);
-  }
-};
-
-const getProgressStatus = (percentage: number) => {
-  if (percentage >= 100) return 'success';
-  if (percentage >= 80) return 'warning';
-  return 'exception';
-};
-
 const switchStage = async (index: number) => {
   currentStageIndex.value = index;
 
@@ -873,8 +891,20 @@ const switchStage = async (index: number) => {
 
       break;
     }
+    case 5: {
+      // 切换到阶段六，同步任务状态
+      await syncTaskStatusFromStageSix();
+
+      break;
+    }
+    case 6: {
+      // 切换到阶段七，同步任务状态
+      await syncTaskStatusFromStageSeven();
+
+      break;
+    }
     default: {
-      // 如果切换到阶段四到阶段七，同步本地存储的任务状态
+      // 如果切换到阶段四到阶段五，同步本地存储的任务状态
       syncStageTasks(index);
     }
   }
@@ -902,8 +932,188 @@ const switchStage = async (index: number) => {
 //   updateTaskProgress(task);
 // };
 
+// 同步StageSixProcess组件中的任务状态
+const syncTaskStatusFromStageSix = async () => {
+  try {
+    // 导入StageSixProcess组件使用的API
+    const {
+      getBankruptcyDistPlanApi,
+      getEmployeeSPlanApi,
+      getPriorityPaymentApi,
+      getPropertyDECApi,
+      getDepositManagementApi,
+    } = await import('#/api/core/case-process');
+
+    // 调用所有API获取任务状态
+    const [
+      bankruptcyDistPlanRes,
+      employeeSPlanRes,
+      priorityPaymentRes,
+      propertyDECRes,
+      depositManagementRes,
+    ] = await Promise.allSettled([
+      getBankruptcyDistPlanApi(caseId.value),
+      getEmployeeSPlanApi(caseId.value),
+      getPriorityPaymentApi(caseId.value),
+      getPropertyDECApi(caseId.value),
+      getDepositManagementApi(caseId.value),
+    ]);
+
+    // 更新阶段六的任务状态
+    const stageSix = processStages.value[5];
+    if (stageSix && stageSix.tasks) {
+      stageSix.tasks.forEach((task) => {
+        let apiResponse: any = null;
+
+        // 根据任务ID获取对应的API响应
+        switch ((task as any).apiId) {
+          case 'bankruptcyDistPlan': {
+            apiResponse =
+              bankruptcyDistPlanRes.status === 'fulfilled'
+                ? bankruptcyDistPlanRes.value
+                : null;
+            break;
+          }
+          case 'depositManagement': {
+            apiResponse =
+              depositManagementRes.status === 'fulfilled'
+                ? depositManagementRes.value
+                : null;
+            break;
+          }
+          case 'employeeSPlan': {
+            apiResponse =
+              employeeSPlanRes.status === 'fulfilled'
+                ? employeeSPlanRes.value
+                : null;
+            break;
+          }
+          case 'priorityPayment': {
+            apiResponse =
+              priorityPaymentRes.status === 'fulfilled'
+                ? priorityPaymentRes.value
+                : null;
+            break;
+          }
+          case 'propertyDEC': {
+            apiResponse =
+              propertyDECRes.status === 'fulfilled'
+                ? propertyDECRes.value
+                : null;
+            break;
+          }
+        }
+
+        // 根据DQZT字段更新任务完成状态
+        if (
+          apiResponse &&
+          apiResponse.status === '1' && // 对于分页响应，检查是否有数据记录
+          apiResponse.data &&
+          apiResponse.data.records &&
+          apiResponse.data.records.length > 0
+        ) {
+          task.completed = true;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('同步第六阶段任务状态失败:', error);
+  }
+};
+
+// 同步StageSevenProcess组件中的任务状态
+const syncTaskStatusFromStageSeven = async () => {
+  try {
+    // 导入StageSevenProcess组件使用的API
+    const {
+      getCanRRInfoApi,
+      getTerminationLitiApi,
+      getAdditionalDisiributionApi,
+    } = await import('#/api/core/case-process');
+
+    // 调用所有API获取任务状态
+    const [canRRRes, terminationLitiRes, additionalDisiributionRes] =
+      await Promise.allSettled([
+        getCanRRInfoApi(caseId.value),
+        getTerminationLitiApi(caseId.value),
+        getAdditionalDisiributionApi(caseId.value),
+      ]);
+
+    // 更新阶段七的任务状态
+    const stageSeven = processStages.value[6];
+    if (stageSeven && stageSeven.tasks) {
+      stageSeven.tasks.forEach((task) => {
+        let apiResponse: any = null;
+
+        // 根据任务ID获取对应的API响应
+        switch ((task as any).apiId) {
+          case 'additionalDisiribution': {
+            apiResponse =
+              additionalDisiributionRes.status === 'fulfilled'
+                ? additionalDisiributionRes.value
+                : null;
+            break;
+          }
+          case 'canRR': {
+            apiResponse =
+              canRRRes.status === 'fulfilled' ? canRRRes.value : null;
+            break;
+          }
+          case 'terminationLiti': {
+            apiResponse =
+              terminationLitiRes.status === 'fulfilled'
+                ? terminationLitiRes.value
+                : null;
+            break;
+          }
+        }
+
+        // 根据DQZT字段更新任务完成状态
+        if (
+          apiResponse &&
+          apiResponse.status === '1' && // 对于分页响应，检查是否有数据记录
+          apiResponse.data &&
+          apiResponse.data.records &&
+          apiResponse.data.records.length > 0
+        ) {
+          task.completed = true;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('同步第七阶段任务状态失败:', error);
+  }
+};
+
 const goBack = () => {
   router.back();
+};
+
+// 开始编辑
+const startEditing = () => {
+  isEditing.value = true;
+  // 复制当前数据到编辑对象
+  Object.assign(editedData, caseDetail.value);
+};
+
+// 保存编辑
+const saveEditing = () => {
+  // 保存编辑后的数据到caseDetail
+  Object.assign(caseDetail.value, editedData);
+  isEditing.value = false;
+  ElMessage.success('案件信息已保存');
+  // 这里可以添加调用后端API的代码，目前后端API待开发
+  // const response = await saveCaseDetailApi(caseId.value, editedData);
+};
+
+// 取消编辑
+const cancelEditing = () => {
+  isEditing.value = false;
+  // 清空编辑数据
+  Object.keys(editedData).forEach((key) => {
+    delete editedData[key];
+  });
+  ElMessage.info('已取消编辑');
 };
 
 // 生命周期
@@ -1032,9 +1242,42 @@ onMounted(async () => {
     <!-- 案件基本信息卡片 -->
     <ElCard class="case-info-card" shadow="hover">
       <template #header>
-        <div class="card-header">
-          <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
-          <span class="text-lg font-semibold">案件基本信息</span>
+        <div class="card-header flex items-center justify-between">
+          <div class="flex items-center">
+            <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+            <span class="text-lg font-semibold">案件基本信息</span>
+          </div>
+          <div class="flex space-x-2">
+            <template v-if="!isEditing">
+              <ElButton type="primary" @click="startEditing">
+                <Icon icon="lucide:pencil" class="mr-1" />
+                编辑
+              </ElButton>
+            </template>
+            <template v-else>
+              <ElButton type="success" @click="saveEditing">
+                <Icon icon="lucide:save" class="mr-1" />
+                保存
+              </ElButton>
+              <ElButton @click="cancelEditing">
+                <Icon icon="lucide:x" class="mr-1" />
+                取消
+              </ElButton>
+            </template>
+            <ElButton
+              link
+              @click="isInfoCollapsed = !isInfoCollapsed"
+              :icon="Icon"
+            >
+              <Icon
+                :icon="
+                  isInfoCollapsed ? 'lucide:chevron-down' : 'lucide:chevron-up'
+                "
+                class="ml-1"
+              />
+              {{ isInfoCollapsed ? '展开详情' : '收起详情' }}
+            </ElButton>
+          </div>
         </div>
       </template>
 
@@ -1046,7 +1289,6 @@ onMounted(async () => {
         <!-- 关键信息概览 -->
         <div class="key-info-overview mb-6">
           <ElRow :gutter="20">
-
             <ElCol :xs="24" :sm="8" :md="6">
               <div class="key-info-item rounded-lg bg-green-50 p-4 text-center">
                 <div class="key-info-label mb-1 text-sm text-gray-500">
@@ -1065,13 +1307,12 @@ onMounted(async () => {
                   案件进度
                 </div>
                 <div class="key-info-value">
-                  <ElTag
-                    :type="getCaseStatusType(caseDetail.案件进度)"
-                    size="large"
-                    class="text-black"
+                  <div
+                    :style="getCaseStatusStyle(caseDetail.案件进度)"
+                    class="inline-block rounded-full px-4 py-1 text-base font-semibold"
                   >
                     {{ caseDetail.案件进度 }}
-                  </ElTag>
+                  </div>
                 </div>
               </div>
             </ElCol>
@@ -1092,8 +1333,11 @@ onMounted(async () => {
           </ElRow>
         </div>
 
-        <!-- 按类别分组展示详细信息 -->
-        <div class="category-sections">
+        <!-- 按类别分组展示详细信息 - 可折叠 -->
+        <div
+          v-show="!isInfoCollapsed"
+          class="category-sections transition-all duration-300 ease-in-out"
+        >
           <!-- 案件基本信息 -->
           <ElCard class="category-card mb-4" shadow="hover">
             <template #header>
@@ -1105,45 +1349,144 @@ onMounted(async () => {
             <div class="category-content">
               <ElRow :gutter="20">
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件名称 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.案件名称"
+                        size="small"
+                        placeholder="请输入案件名称"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.案件名称
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.受理日期 }}</span>
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.受理日期"
+                        type="date"
+                        size="small"
+                        placeholder="请选择受理日期"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.受理日期
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件来源 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.案件来源"
+                        size="small"
+                        placeholder="请输入案件来源"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.案件来源
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.受理法院 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.受理法院"
+                        size="small"
+                        placeholder="请输入受理法院"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.受理法院
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">案由：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.案由 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.案由"
+                        size="small"
+                        placeholder="请输入案由"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.案由
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.案件进度 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.案件进度"
+                        size="small"
+                        placeholder="请输入案件进度"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.案件进度
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.是否简化审 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.是否简化审"
+                        size="small"
+                        placeholder="请输入是否简化审"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.是否简化审
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
               </ElRow>
@@ -1161,45 +1504,164 @@ onMounted(async () => {
             <div class="category-content">
               <ElRow :gutter="20">
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.立案日期 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >立案日期：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.立案日期"
+                        type="date"
+                        size="small"
+                        placeholder="请选择立案日期"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.立案日期
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.结案日期 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >结案日期：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.结案日期"
+                        type="date"
+                        size="small"
+                        placeholder="请选择结案日期"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.结案日期
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.破产时间 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >破产时间：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.破产时间"
+                        type="date"
+                        size="small"
+                        placeholder="请选择破产时间"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.破产时间
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.终结时间 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >终结时间：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.终结时间"
+                        type="date"
+                        size="small"
+                        placeholder="请选择终结时间"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.终结时间
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.注销时间 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >注销时间：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.注销时间"
+                        type="date"
+                        size="small"
+                        placeholder="请选择注销时间"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.注销时间
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.归档时间 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >归档时间：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.归档时间"
+                        type="date"
+                        size="small"
+                        placeholder="请选择归档时间"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.归档时间
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权申报截止时间 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >债权申报截止时间：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElDatePicker
+                        v-model="editedData.债权申报截止时间"
+                        type="date"
+                        size="small"
+                        placeholder="请选择债权申报截止时间"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.债权申报截止时间
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
               </ElRow>
@@ -1217,27 +1679,91 @@ onMounted(async () => {
             <div class="category-content">
               <ElRow :gutter="20">
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人负责人 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >管理人负责人：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.管理人负责人"
+                        size="small"
+                        placeholder="请输入管理人负责人"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.管理人负责人
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人类型 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >管理人类型：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.管理人类型"
+                        size="small"
+                        placeholder="请输入管理人类型"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.管理人类型
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.管理人状态 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >管理人状态：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.管理人状态"
+                        size="small"
+                        placeholder="请输入管理人状态"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.管理人状态
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
-                    <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.律师事务所 }}</span>
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
+                    <span class="detail-info-label font-medium text-gray-600"
+                      >律师事务所：</span
+                    >
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.律师事务所"
+                        size="small"
+                        placeholder="请输入律师事务所"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.律师事务所
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
               </ElRow>
@@ -1255,33 +1781,103 @@ onMounted(async () => {
             <div class="category-content">
               <ElRow :gutter="20">
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权人名称 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.债权人名称"
+                        size="small"
+                        placeholder="请输入债权人名称"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.债权人名称
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.债权人类型 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.债权人类型"
+                        size="small"
+                        placeholder="请输入债权人类型"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.债权人类型
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.联系电话 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.联系电话"
+                        size="small"
+                        placeholder="请输入联系电话"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.联系电话
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.联系邮箱 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.联系邮箱"
+                        size="small"
+                        placeholder="请输入联系邮箱"
+                        style="width: 160px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.联系邮箱
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
                 <ElCol :xs="24" :sm="24" :md="16" :lg="12">
-                  <div class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3">
+                  <div
+                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                  >
                     <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
-                    <span class="detail-info-value text-gray-900">{{ caseDetail.办公地址 }}</span>
+                    <template v-if="isEditing">
+                      <ElInput
+                        v-model="editedData.办公地址"
+                        size="small"
+                        placeholder="请输入办公地址"
+                        style="width: 300px"
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="detail-info-value text-gray-900">{{
+                        caseDetail.办公地址
+                      }}</span>
+                    </template>
                   </div>
                 </ElCol>
               </ElRow>
@@ -1294,6 +1890,9 @@ onMounted(async () => {
         <ElEmpty description="案件信息加载失败" />
       </div>
     </ElCard>
+
+    <!-- 文件上传组件 -->
+    <FileUploader :case-id="caseId" multiple />
 
     <!-- 破产流程阶段视图 -->
     <ElCard class="process-stage-card" shadow="never">
@@ -1372,157 +1971,66 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 当前阶段进度 -->
-      <div class="current-stage-progress">
-        <div class="progress-header">
-          <h3>{{ currentStage?.title }}</h3>
-          <ElProgress
-            :percentage="currentStageProgress"
-            :status="getProgressStatus(currentStageProgress)"
-            :stroke-width="8"
-          />
-          <div class="progress-text">
-            当前阶段完成度：{{ currentStageProgress }}%
-          </div>
-        </div>
+      <!-- 动态阶段流程组件 -->
+      <StageOneProcess
+        :case-id="caseId"
+        v-if="currentStageIndex === 0"
+        @task-status-changed="handleTaskStatusChanged"
+      />
 
-        <!-- 阶段任务列表 - 简化版 -->
-        <div class="stage-tasks-simple">
-          <h4 class="mb-3 text-sm font-medium text-gray-700">阶段任务状态</h4>
-          <div class="task-list-simple">
-            <div
-              v-for="task in currentStage?.tasks || []"
-              :key="task.id"
-              class="task-item-simple"
-              :class="task.completed ? 'completed' : 'pending'"
-            >
-              <div class="task-checkbox">
-                <Icon
-                  :icon="
-                    task.completed ? 'lucide:check-circle' : 'lucide:circle'
-                  "
-                  :class="task.completed ? 'text-green-500' : 'text-gray-400'"
-                  class="text-lg"
-                />
-              </div>
-              <div class="task-info-simple">
-                <span class="task-name-simple">{{ task.name }}</span>
-                <span
-                  class="task-status-simple"
-                  :class="task.completed ? 'text-green-600' : 'text-gray-500'"
-                >
-                  {{ task.completed ? '已完成' : '未完成' }}
-                </span>
-              </div>
+      <StageTwoProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 1"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <StageThreeProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 2"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <StageFourProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 3"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <StageFiveProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 4"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <StageSixProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 5"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <StageSevenProcess
+        :case-id="caseId"
+        v-else-if="currentStageIndex === 6"
+        @task-status-changed="handleTaskStatusChanged"
+      />
+
+      <!-- 其他阶段占位组件（待创建） -->
+      <div v-else class="stage-placeholder">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <Icon icon="lucide:construction" class="mr-2" />
+              <span>{{ currentStage?.title || '未知阶段' }}</span>
             </div>
+          </template>
+          <div class="placeholder-content py-8 text-center">
+            <Icon icon="lucide:file-text" class="mb-3 text-4xl text-gray-300" />
+            <p class="mb-4 text-gray-500">该阶段流程组件尚未创建</p>
+            <ElButton type="primary" disabled> 组件开发中 </ElButton>
           </div>
-        </div>
+        </ElCard>
       </div>
     </ElCard>
-
-    <!-- 动态阶段流程组件 -->
-    <StageOneProcess
-      :case-id="caseId"
-      v-if="currentStageIndex === 0"
-      @task-status-changed="handleTaskStatusChanged"
-    />
-
-    <StageTwoProcess
-      :case-id="caseId"
-      v-else-if="currentStageIndex === 1"
-      @task-status-changed="handleTaskStatusChanged"
-    />
-
-    <StageThreeProcess
-      :case-id="caseId"
-      v-else-if="currentStageIndex === 2"
-      @task-status-changed="handleTaskStatusChanged"
-    />
-
-    <StageFourProcess
-      :case-id="caseId"
-      v-else-if="currentStageIndex === 3"
-      @task-status-changed="handleTaskStatusChanged"
-    />
-
-    <StageFiveProcess
-      :case-id="caseId"
-      v-else-if="currentStageIndex === 4"
-      @task-status-changed="handleTaskStatusChanged"
-    />
-
-    <!-- 其他阶段占位组件（待创建） -->
-    <div v-else class="stage-placeholder">
-      <ElCard shadow="hover">
-        <template #header>
-          <div class="card-header">
-            <Icon icon="lucide:construction" class="mr-2" />
-            <span>{{ currentStage?.title || '未知阶段' }}</span>
-          </div>
-        </template>
-        <div class="placeholder-content">
-          <Icon icon="lucide:wrench" class="mb-4 text-4xl text-gray-400" />
-          <h3 class="mb-2 text-lg font-semibold text-gray-600">
-            阶段组件开发中
-          </h3>
-          <p class="text-gray-500">该阶段的详细功能组件正在开发中...</p>
-
-          <!-- 显示当前阶段的静态任务列表 -->
-          <div class="static-tasks mt-6" v-if="currentStage?.tasks">
-            <h4 class="text-md mb-3 font-semibold text-gray-700">
-              阶段任务列表
-            </h4>
-            <div class="task-grid">
-              <div
-                v-for="task in currentStage.tasks"
-                :key="task.id"
-                class="task-item mb-2 rounded-md border border-gray-200 p-3"
-                :class="
-                  task.completed ? 'border-green-200 bg-green-50' : 'bg-white'
-                "
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center">
-                    <!-- 任务完成状态切换按钮 -->
-                    <button
-                      @click="
-                        handleStageTaskChange(
-                          currentStageIndex,
-                          task.id,
-                          !task.completed,
-                        )
-                      "
-                      class="mr-3 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all"
-                      :class="
-                        task.completed
-                          ? 'border-green-500 bg-green-500'
-                          : 'border-gray-300 hover:border-green-400'
-                      "
-                    >
-                      <Icon
-                        v-if="task.completed"
-                        icon="lucide:check"
-                        class="h-3 w-3 text-white"
-                      />
-                    </button>
-                    <span class="font-medium">{{ task.name }}</span>
-                  </div>
-                  <ElTag
-                    :type="task.completed ? 'success' : 'info'"
-                    size="small"
-                  >
-                    {{ task.completed ? '已完成' : '未完成' }}
-                  </ElTag>
-                </div>
-                <div class="mt-1 text-sm text-gray-500">
-                  截止日期：{{ task.dueDate }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </ElCard>
-    </div>
   </div>
 </template>
 

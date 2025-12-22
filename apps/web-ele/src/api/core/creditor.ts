@@ -15,8 +15,6 @@ declare namespace CreditorApi {
   interface CreditorInfo {
     /** 行号 */
     row: number;
-    /** 债权人ID */
-    ZQRID: string;
     /** 债权人名称 */
     ZQR: string;
     /** 债权人分类 */
@@ -32,7 +30,7 @@ declare namespace CreditorApi {
     /** 行业分类 */
     HYFL: string;
     /** 成立日期（企业） */
-    CLRQQY: string;
+    CLRQQY: null | string;
     /** 注册资本（企业） */
     ZCZBQY: number;
     /** 关联案件ID */
@@ -63,6 +61,29 @@ declare namespace CreditorApi {
     status: string;
     error: string;
   }
+
+  /** 添加债权人请求体 */
+  interface AddCreditorRequest {
+    sep_ld: string;
+    sep_auser: string;
+    sep_adate: string;
+    zqr: string;
+    zqrfl: string;
+    zjhm: string;
+    fddbrqy: string;
+    zcdz: string;
+    jyfwqy: string;
+    hyfl: string;
+    clrqqy: null | string;
+    zczbqy: number;
+    zt: string;
+  }
+
+  /** 添加债权人响应 */
+  interface AddCreditorResponse {
+    status: string;
+    error: string;
+  }
 }
 
 /**
@@ -84,6 +105,22 @@ export async function getCreditorDetailApi(creditorId: string, token: string) {
   return requestClient.get<CreditorApi.CreditorDetailResponse>(
     '/api/web/selectOneCreditor',
     { params: { creditorId, token } },
+  );
+}
+
+/**
+ * 添加债权人信息
+ */
+export async function addCreditorApi(data: CreditorApi.AddCreditorRequest) {
+  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  return requestClient.post<CreditorApi.AddCreditorResponse>(
+    '/api/web/addCreditor',
+    [data],
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
   );
 }
 

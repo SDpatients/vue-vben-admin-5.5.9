@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { CreditorApi } from '#/api/core/creditor';
 
-import { onMounted, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
 
@@ -27,7 +27,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCreditorListApi } from '#/api/core/creditor';
+import { addCreditorApi, getCreditorListApi } from '#/api/core/creditor';
 
 // 响应式数据
 const creditorList = ref<CreditorApi.CreditorInfo[]>([]);
@@ -38,6 +38,135 @@ const pagination = ref({
   itemCount: 0,
   pages: 0,
 });
+
+// 新增债权人模态框
+const dialogVisible = ref(false);
+const formLoading = ref(false);
+
+// 查看详情模态框
+const detailDialogVisible = ref(false);
+const currentCreditor = ref<CreditorApi.CreditorInfo | null>(null);
+
+// 债权人分类选项
+const creditorTypeOptions = [
+  { label: '个人', value: '个人' },
+  { label: '企业', value: '企业' },
+  { label: '金融机构', value: '金融机构' },
+  { label: '政府机构', value: '政府机构' },
+  { label: '其他', value: '其他' },
+];
+
+// 新增债权人表单数据
+const formData = reactive<CreditorApi.AddCreditorRequest>({
+  sep_ld: '',
+  sep_auser: '',
+  sep_adate: new Date().toISOString().slice(0, 19),
+  zqr: '',
+  zqrfl: '',
+  zjhm: '',
+  fddbrqy: '',
+  zcdz: '',
+  jyfwqy: '',
+  hyfl: '',
+  clrqqy: null, // 成立日期初始值为null
+  zczbqy: 0, // 注册资本默认值为0，int类型
+  zt: '1', // 状态默认为1
+});
+
+// 表单验证规则
+const rules = {
+  zqr: [{ required: true, message: '请输入债权人名称', trigger: 'blur' }],
+  zqrfl: [{ required: true, message: '请选择债权人分类', trigger: 'change' }],
+  zjhm: [{ required: true, message: '请输入证件号码', trigger: 'blur' }],
+  fddbrqy: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证法定代表人
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入法定代表人'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  zcdz: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证注册地址
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入注册地址'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  jyfwqy: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证经营范围
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入经营范围'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  hyfl: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证行业分类
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入行业分类'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  clrqqy: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证成立日期
+        if (formData.zqrfl !== '个人' && value === '') {
+          callback(new Error('请选择成立日期'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'change',
+    },
+  ],
+  zczbqy: [
+    {
+      validator: (rule, value, callback) => {
+        // 只有当债权人分类不是个人时，才验证注册资本
+        if (formData.zqrfl === '个人') {
+          callback();
+        } else {
+          // 数字类型验证，允许0值
+          if (value === null || value === undefined) {
+            callback(new Error('请输入注册资本'));
+          } else if (typeof value === 'number' && isNaN(value)) {
+            callback(new Error('注册资本必须是数字'));
+          } else {
+            callback();
+          }
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+};
+
+// 表单引用
+const formRef = ref();
 
 // 搜索相关数据
 const searchKeyword = ref('');
@@ -75,7 +204,6 @@ const columnVisible = ref<string[]>([]);
 // 所有可用的列
 const availableColumns = [
   '行号',
-  '债权人ID',
   '债权人名称',
   '债权人分类',
   '证件号码',
@@ -85,8 +213,6 @@ const availableColumns = [
   '行业分类',
   '成立日期',
   '注册资本',
-  '关联案件ID',
-  '案号',
 ];
 
 // 默认显示的列（核心信息）
@@ -227,21 +353,84 @@ const getCreditorType = (type: string) => {
   }
 };
 
-// 查看债权人详情
-const viewCreditorDetail = (row: CreditorApi.CreditorInfo) => {
-  if (row.ZQRID) {
-    ElMessage.info(`查看债权人详情: ${row.ZQR}`);
-    // 后续可添加路由跳转逻辑
-    // const router = useRouter();
-    // router.push(`/creditor-detail/${row.ZQRID}`);
-  } else {
-    ElMessage.warning('债权人ID不存在，无法查看详情');
+// 打开新增债权人模态框
+const handleAddCreditor = () => {
+  dialogVisible.value = true;
+};
+
+// 关闭新增债权人模态框
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  // 重置表单
+  if (formRef.value) {
+    formRef.value.resetFields();
   }
 };
 
-// 新增债权人
-const handleAddCreditor = () => {
-  ElMessage.info('新增债权人功能待实现');
+// 查看债权人详情
+const viewCreditorDetail = (row: CreditorApi.CreditorInfo) => {
+  currentCreditor.value = row;
+  detailDialogVisible.value = true;
+};
+
+// 关闭详情模态框
+const handleCloseDetailDialog = () => {
+  detailDialogVisible.value = false;
+  currentCreditor.value = null;
+};
+
+// 提交新增债权人表单
+const handleSubmit = async () => {
+  if (!formRef.value) return;
+
+  try {
+    // 自动填写sep_auser：从本地存储获取chat_user_info中的U_USER
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        formData.sep_auser = chatUserInfo.U_USER || '';
+      } catch (error) {
+        console.error('解析chat_user_info失败:', error);
+      }
+    }
+
+    // 自动填写sep_adate：使用ISO格式的日期字符串，不替换T，让后端自行处理日期转换
+    formData.sep_adate = new Date().toISOString().slice(0, 19);
+
+    await formRef.value.validate();
+    formLoading.value = true;
+
+    // 处理成立日期，如果没有输入，设置为NULL
+    const submitData = { ...formData };
+    if (!submitData.clrqqy) {
+      submitData.clrqqy = null;
+    }
+    // 处理注册资本，如果没有输入，确保为0（int类型）
+    if (submitData.zczbqy === '' || submitData.zczbqy === undefined) {
+      submitData.zczbqy = 0;
+    }
+
+    const response = await addCreditorApi(submitData);
+
+    if (response.status === '1') {
+      ElMessage.success('债权人添加成功');
+      dialogVisible.value = false;
+      // 刷新债权人列表
+      fetchCreditorList();
+    } else {
+      ElMessage.error(response.error || '债权人添加失败');
+    }
+  } catch (error: any) {
+    if (error.name === 'ElValidationError') {
+      // 表单验证失败，已经有提示
+      return;
+    }
+    ElMessage.error('债权人添加失败，请稍后重试');
+    console.error('添加债权人失败:', error);
+  } finally {
+    formLoading.value = false;
+  }
 };
 
 // 编辑债权人
@@ -292,9 +481,6 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
                             <ElCheckbox label="行号" name="行号">
                               行号
                             </ElCheckbox>
-                            <ElCheckbox label="债权人ID" name="债权人ID">
-                              债权人ID
-                            </ElCheckbox>
                             <ElCheckbox label="债权人名称" name="债权人名称">
                               债权人名称
                             </ElCheckbox>
@@ -321,12 +507,6 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
                             </ElCheckbox>
                             <ElCheckbox label="注册资本" name="注册资本">
                               注册资本
-                            </ElCheckbox>
-                            <ElCheckbox label="关联案件ID" name="关联案件ID">
-                              关联案件ID
-                            </ElCheckbox>
-                            <ElCheckbox label="案号" name="案号">
-                              案号
                             </ElCheckbox>
                           </div>
                         </ElCheckboxGroup>
@@ -384,9 +564,7 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
                 </template>
               </ElInput>
             </div>
-            <ElButton size="small" @click="resetSearch">
-              重置
-            </ElButton>
+            <ElButton size="small" @click="resetSearch"> 重置 </ElButton>
             <div class="ml-auto text-sm text-gray-500">
               提示：只能选择一种搜索类型进行搜索
             </div>
@@ -458,16 +636,6 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               width="60"
               fixed="left"
               align="center"
-            />
-
-            <!-- 债权人ID -->
-            <ElTableColumn
-              v-if="isColumnVisible('债权人ID')"
-              prop="ZQRID"
-              label="债权人ID"
-              width="120"
-              fixed="left"
-              show-overflow-tooltip
             />
 
             <!-- 债权人名称 -->
@@ -621,6 +789,280 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
           </div>
         </ElCard>
       </ElSpace>
+
+      <!-- 新增债权人模态框 -->
+      <ElDialog
+        v-model="dialogVisible"
+        title="新增债权人"
+        width="800px"
+        :before-close="handleCloseDialog"
+        class="creditor-dialog"
+      >
+        <ElForm
+          ref="formRef"
+          :model="formData"
+          :rules="rules"
+          label-width="120px"
+          label-position="top"
+          class="creditor-form"
+        >
+          <!-- 基础信息 -->
+          <ElCard size="small" class="form-section">
+            <template #header>
+              <div class="text-primary text-lg font-semibold">基础信息</div>
+            </template>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="债权人名称" prop="zqr">
+                  <ElInput
+                    v-model="formData.zqr"
+                    placeholder="请输入债权人名称"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="债权人分类" prop="zqrfl">
+                  <ElSelect
+                    v-model="formData.zqrfl"
+                    placeholder="请选择债权人分类"
+                    style="width: 100%"
+                    size="large"
+                  >
+                    <ElOption
+                      v-for="option in creditorTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="证件号码" prop="zjhm">
+                  <ElInput
+                    v-model="formData.zjhm"
+                    placeholder="请输入证件号码"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem
+                  label="法定代表人（企业）"
+                  prop="fddbrqy"
+                  v-if="formData.zqrfl !== '个人'"
+                >
+                  <ElInput
+                    v-model="formData.fddbrqy"
+                    placeholder="请输入法定代表人"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+
+          <!-- 企业信息 -->
+          <ElCard
+            size="small"
+            class="form-section mt-4"
+            v-if="formData.zqrfl !== '个人'"
+          >
+            <template #header>
+              <div class="text-primary text-lg font-semibold">企业信息</div>
+            </template>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="注册地址" prop="zcdz">
+                  <ElInput
+                    v-model="formData.zcdz"
+                    placeholder="请输入注册地址"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="经营范围（企业）" prop="jyfwqy">
+                  <ElInput
+                    v-model="formData.jyfwqy"
+                    placeholder="请输入经营范围"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="行业分类" prop="hyfl">
+                  <ElInput
+                    v-model="formData.hyfl"
+                    placeholder="请输入行业分类"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="成立日期" prop="clrqqy">
+                  <ElDatePicker
+                    v-model="formData.clrqqy"
+                    type="datetime"
+                    placeholder="请选择成立日期"
+                    style="width: 100%"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="注册资本" prop="zczbqy">
+                  <ElInput
+                    v-model.number="formData.zczbqy"
+                    placeholder="请输入注册资本"
+                    size="large"
+                    type="number"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleSubmit"
+              :loading="formLoading"
+            >
+              确定
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
+
+      <!-- 查看债权人详情模态框 -->
+      <ElDialog
+        v-model="detailDialogVisible"
+        title="债权人详情"
+        width="700px"
+        :before-close="handleCloseDetailDialog"
+        class="creditor-dialog"
+      >
+        <div v-if="currentCreditor" class="creditor-detail">
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">债权人名称：</span>
+                <span class="detail-value">{{ currentCreditor.ZQR }}</span>
+              </div>
+            </ElCol>
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">债权人分类：</span>
+                <span class="detail-value">
+                  <ElTag
+                    :type="getCreditorType(currentCreditor.ZQRFL)"
+                    size="small"
+                  >
+                    {{ currentCreditor.ZQRFL }}
+                  </ElTag>
+                </span>
+              </div>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">证件号码：</span>
+                <span class="detail-value">{{
+                  currentCreditor.ZJHM || '-'
+                }}</span>
+              </div>
+            </ElCol>
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">法定代表人（企业）：</span>
+                <span class="detail-value">{{
+                  currentCreditor.FDDBRQY || '-'
+                }}</span>
+              </div>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">注册地址：</span>
+                <span class="detail-value">{{
+                  currentCreditor.ZCDZ || '-'
+                }}</span>
+              </div>
+            </ElCol>
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">经营范围（企业）：</span>
+                <span class="detail-value">{{
+                  currentCreditor.JYFWQY || '-'
+                }}</span>
+              </div>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">行业分类：</span>
+                <span class="detail-value">{{
+                  currentCreditor.HYFL || '-'
+                }}</span>
+              </div>
+            </ElCol>
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">成立日期：</span>
+                <span class="detail-value">{{
+                  formatDate(currentCreditor.CLRQQY)
+                }}</span>
+              </div>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">注册资本：</span>
+                <span class="detail-value">{{
+                  formatCurrency(currentCreditor.ZCZBQY)
+                }}</span>
+              </div>
+            </ElCol>
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">关联案件ID：</span>
+                <span class="detail-value">{{
+                  currentCreditor.GLAJID || '-'
+                }}</span>
+              </div>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20" class="mb-4">
+            <ElCol :span="12">
+              <div class="detail-item">
+                <span class="detail-label">案号：</span>
+                <span class="detail-value">{{
+                  currentCreditor.AH || '-'
+                }}</span>
+              </div>
+            </ElCol>
+          </ElRow>
+        </div>
+
+        <template #footer>
+          <ElButton @click="handleCloseDetailDialog">关闭</ElButton>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>
@@ -675,5 +1117,93 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
 
 .number-value {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 新增债权人模态框样式 */
+.creditor-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  :deep(.el-dialog__header) {
+    border-bottom: 1px solid #e9ecef;
+    background-color: #ffffff;
+    border-radius: 8px 8px 0 0;
+  }
+
+  :deep(.el-dialog__title) {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  :deep(.el-dialog__footer) {
+    border-top: 1px solid #e9ecef;
+    background-color: #ffffff;
+    border-radius: 0 0 8px 8px;
+    padding: 15px 20px;
+  }
+}
+
+/* 表单样式 */
+.creditor-form {
+  :deep(.el-form-item__label) {
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 8px;
+  }
+
+  :deep(.el-input__wrapper) {
+    border-radius: 6px;
+  }
+
+  :deep(.el-select__wrapper) {
+    border-radius: 6px;
+  }
+}
+
+/* 表单区块样式 */
+.form-section {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  :deep(.el-card__header) {
+    background-color: #f0f9ff;
+    border-bottom: 1px solid #e0f2fe;
+    border-radius: 8px 8px 0 0;
+    padding: 12px 16px;
+  }
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+}
+
+/* 详情模态框样式 */
+.creditor-detail {
+  .detail-item {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+  }
+
+  .detail-label {
+    font-weight: 600;
+    color: #555;
+    min-width: 120px;
+  }
+
+  .detail-value {
+    color: #333;
+    flex: 1;
+  }
 }
 </style>

@@ -112,6 +112,8 @@ class OperationTracker {
   // 发送操作记录到后端API
   private async sendToBackend(record: OperationRecord) {
     try {
+      // 暂时关闭addAFollow接口调用
+      /*
       const operationData = {
         CZR: record.operator,
         CZSJ: record.operationTime,
@@ -124,6 +126,7 @@ class OperationTracker {
       await requestClient.post('/api/web/addAFollow', operationData, {
         params: { token },
       });
+      */
     } catch (error) {
       console.error('操作记录API请求错误:', error);
     }

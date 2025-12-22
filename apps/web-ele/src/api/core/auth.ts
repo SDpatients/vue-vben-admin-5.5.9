@@ -135,7 +135,7 @@ export async function getAccessCodesApi() {
  */
 export async function addLoginRecordApi(data: AuthApi.LoginRecordParams) {
   return requestClient.post<AuthApi.LoginResult>(
-    'http://192.168.0.108:8081/api/web/LoginRecord',
+    '/api/web/LoginRecord',
     data,
     {
       params: {
@@ -152,7 +152,7 @@ export async function selectLoginRecordApi(
   data: AuthApi.SelectLoginRecordParams,
 ) {
   return requestClient.get<AuthApi.LoginRecordResult>(
-    'http://192.168.0.108:8081/api/web/selectLoginRecord',
+    '/api/web/selectLoginRecord',
     {
       params: {
         token: '3c510727f8bcf6d45c4afc0931e8cc10',

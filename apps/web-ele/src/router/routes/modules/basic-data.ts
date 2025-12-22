@@ -14,7 +14,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         name: 'BasicDataCreditorManagement',
-        path: '/creditor-management',
+        path: 'creditor-management',
         component: () =>
           import('#/views/basic-data/creditor-management/index.vue'),
         meta: {
@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'BasicDataDebtorManagement',
-        path: '/debtor-management',
+        path: 'debtor-management',
         component: () =>
           import('#/views/basic-data/debtor-management/index.vue'),
         meta: {
@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'BasicDataCourtManagement',
-        path: '/court-management',
+        path: 'court-management',
         component: () =>
           import('#/views/basic-data/court-management/index.vue'),
         meta: {
@@ -50,7 +50,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'BasicDataBankAccountManagement',
-        path: '/bank-account-management',
+        path: 'bank-account-management',
         component: () =>
           import('#/views/basic-data/bank-account-management/index.vue'),
         meta: {
@@ -62,7 +62,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'BasicDataWorkPlanManagement',
-        path: '/work-plan-management',
+        path: 'work-plan-management',
         component: () =>
           import('#/views/basic-data/work-plan-management/index.vue'),
         meta: {
@@ -74,7 +74,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'BasicDataWorkTeamManagement',
-        path: '/work-team-management',
+        path: 'work-team-management',
         component: () =>
           import('#/views/basic-data/work-team-management/index.vue'),
         meta: {
@@ -82,6 +82,19 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:users',
           title: $t('page.basicData.workTeamManagement'),
         },
+        children: [
+          {
+            name: 'BasicDataWorkTeamEdit',
+            path: 'edit/:sepId',
+            component: () =>
+              import('#/views/basic-data/work-team-management/WorkTeamEdit.vue'),
+            meta: {
+              affixTab: false,
+              icon: 'lucide:edit',
+              title: $t('page.basicData.workTeamEdit'),
+            },
+          },
+        ],
       },
     ],
   },

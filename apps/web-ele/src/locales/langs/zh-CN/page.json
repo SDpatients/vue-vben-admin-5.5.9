@@ -13,7 +13,6 @@
   },
   "law": {
     "title": "法律模块",
-    "test": "测试页面",
     "caseManagement": "案件管理",
     "caseDetail": "案件详情",
     "caseAdd": "案件添加",
@@ -30,7 +29,8 @@
     "courtManagement": "法院管理",
     "bankAccountManagement": "银行账户管理",
     "workPlanManagement": "工作计划管理",
-    "workTeamManagement": "工作团队管理"
+    "workTeamManagement": "工作团队管理",
+    "workTeamEdit": "编辑工作团队"
   },
   "chat": {
     "title": "通信功能",

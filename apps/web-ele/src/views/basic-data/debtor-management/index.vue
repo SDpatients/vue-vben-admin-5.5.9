@@ -75,8 +75,6 @@ const columnVisible = ref<string[]>([]);
 // 所有可用的列
 const availableColumns = [
   '行号',
-  '企业ID',
-  '案件ID',
   '企业名称',
   '统一社会信用代码',
   '法定代表人',
@@ -94,7 +92,6 @@ const availableColumns = [
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '企业ID',
   '企业名称',
   '法定代表人',
   '状态',
@@ -223,14 +220,10 @@ const getStatusType = (status: string) => {
 
 // 查看债务人详情
 const viewDebtorDetail = (row: DebtorApi.DebtorInfo) => {
-  if (row.QYID) {
-    ElMessage.info(`查看债务人详情: ${row.QYMC}`);
-    // 后续可添加路由跳转逻辑
-    // const router = useRouter();
-    // router.push(`/debtor-detail/${row.QYID}`);
-  } else {
-    ElMessage.warning('债务人ID不存在，无法查看详情');
-  }
+  ElMessage.info(`查看债务人详情: ${row.QYMC}`);
+  // 后续可添加路由跳转逻辑
+  // const router = useRouter();
+  // router.push(`/debtor-detail`);
 };
 
 // 新增债务人
@@ -286,12 +279,7 @@ const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
                             <ElCheckbox label="行号" name="行号">
                               行号
                             </ElCheckbox>
-                            <ElCheckbox label="企业ID" name="企业ID">
-                              企业ID
-                            </ElCheckbox>
-                            <ElCheckbox label="案件ID" name="案件ID">
-                              案件ID
-                            </ElCheckbox>
+
                             <ElCheckbox label="企业名称" name="企业名称">
                               企业名称
                             </ElCheckbox>
@@ -457,14 +445,6 @@ const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
             />
 
             <!-- 企业ID -->
-            <ElTableColumn
-              v-if="isColumnVisible('企业ID')"
-              prop="QYID"
-              label="企业ID"
-              width="120"
-              fixed="left"
-              show-overflow-tooltip
-            />
 
             <!-- 案件ID -->
             <ElTableColumn

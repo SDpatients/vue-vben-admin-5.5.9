@@ -37,28 +37,22 @@ const columnVisible = ref<string[]>([]);
 // 所有可用的列
 const availableColumns = [
   '行号',
-  '计划ID',
-  '计划编号',
-  '关联案件编号',
   '计划类型',
   '计划内容',
   '开始日期',
   '结束日期',
   '负责人',
   '综合状态',
-  '案号',
   '当前状态',
 ];
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '关联案件编号',
   '开始日期',
   '结束日期',
   '综合状态',
   '计划内容',
   '计划类型',
-  '计划编号',
   '负责人',
 ]);
 
@@ -259,29 +253,6 @@ const getPlanType = (type: null | string) => {
           :border="true"
           :style="{ width: '100%' }"
         >
-          <!-- 计划编号 -->
-          <ElTableColumn
-            v-if="isColumnVisible('计划编号')"
-            prop="JHID"
-            label="计划编号"
-            width="120"
-            align="center"
-          >
-            <template #default="{ row }">
-              <span v-if="row.JHID">{{ row.JHID }}</span>
-              <ElTag v-else type="info">未设置</ElTag>
-            </template>
-          </ElTableColumn>
-
-          <!-- 关联案件编号 -->
-          <ElTableColumn
-            v-if="isColumnVisible('关联案件编号')"
-            prop="GLAJBH"
-            label="关联案件编号"
-            width="150"
-            align="center"
-          />
-
           <!-- 计划类型 -->
           <ElTableColumn
             v-if="isColumnVisible('计划类型')"

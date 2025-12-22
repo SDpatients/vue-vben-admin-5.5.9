@@ -73,13 +73,6 @@ const tasks = ref<CaseProcessApi.TaskInfo[]>([
     token: '7fb219c01b0107dc5cb58d173ce87664',
   },
   {
-    id: 'employeeClaims',
-    name: '职工债权',
-    status: '未确认',
-    apiUrl: '/api/web/getAllEmployeeClaims',
-    token: '328c37a28705fdbc976bea5b128e68b4',
-  },
-  {
     id: 'socialSF',
     name: '社保费用表',
     status: '未确认',
@@ -203,7 +196,7 @@ const withdrawSkipTask = async (taskId: string) => {
 const callApi = async (apiUrl: string, token: string, caseId: string) => {
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&GLAJBH=${caseId}&page=1&size=10`,
+      `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&SEP_ID=${caseId}&page=1&size=10`,
     );
     const data = await response.json();
     return data;
@@ -225,7 +218,6 @@ const loadTaskData = async () => {
       reclaimReviewRes,
       litigationArbitrationRes,
       creditorClaimRes,
-      employeeClaimsRes,
       socialSFRes,
       taxVerificationRes,
     ] = await Promise.allSettled([
@@ -260,11 +252,6 @@ const loadTaskData = async () => {
         props.caseId,
       ),
       callApi(
-        '/api/web/getAllEmployeeClaims',
-        '328c37a28705fdbc976bea5b128e68b4',
-        props.caseId,
-      ),
-      callApi(
         '/api/web/getAllSociaSF',
         'a8990ffa15ebbd2bff6aed37db08cadf',
         props.caseId,
@@ -276,6 +263,13 @@ const loadTaskData = async () => {
       ),
     ]);
 
+    // 处理API响应，转换ZT状态为任务状态
+    const ztToStatus = (zt: number | undefined): CaseProcessApi.TaskStatus => {
+      if (zt === 1) return '完成';
+      if (zt === 2) return '跳过';
+      return '未确认';
+    };
+
     // 处理API响应
     tasks.value = [
       {
@@ -285,12 +279,24 @@ const loadTaskData = async () => {
           propertyInvestigationRes.status === 'fulfilled' &&
           propertyInvestigationRes.value &&
           propertyInvestigationRes.value.status === '1' &&
-          propertyInvestigationRes.value.data?.records?.length > 0
-            ? (propertyInvestigationRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          propertyInvestigationRes.value.data &&
+          Number.parseInt(
+            propertyInvestigationRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllPropertyInvestigation',
         token: '17fce65ebabe3088ab45b97f77f91b5a',
+        count:
+          propertyInvestigationRes.status === 'fulfilled' &&
+          propertyInvestigationRes.value
+            ? propertyInvestigationRes.value.data?.count || 0
+            : 0,
+        paras:
+          propertyInvestigationRes.status === 'fulfilled' &&
+          propertyInvestigationRes.value
+            ? propertyInvestigationRes.value.data.paras
+            : undefined,
       },
       {
         id: 'bankExpenses',
@@ -299,12 +305,21 @@ const loadTaskData = async () => {
           bankExpensesRes.status === 'fulfilled' &&
           bankExpensesRes.value &&
           bankExpensesRes.value.status === '1' &&
-          bankExpensesRes.value.data?.records?.length > 0
-            ? (bankExpensesRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          bankExpensesRes.value.data &&
+          Number.parseInt(bankExpensesRes.value.data.paras?.zt2_count || '0') >
+            0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllBankExpenses',
         token: 'ff7185ba1adffaa6630ec57062ae6473',
+        count:
+          bankExpensesRes.status === 'fulfilled' && bankExpensesRes.value
+            ? bankExpensesRes.value.data?.count || 0
+            : 0,
+        paras:
+          bankExpensesRes.status === 'fulfilled' && bankExpensesRes.value
+            ? bankExpensesRes.value.data.paras
+            : undefined,
       },
       {
         id: 'rightsClaim',
@@ -313,12 +328,20 @@ const loadTaskData = async () => {
           rightsClaimRes.status === 'fulfilled' &&
           rightsClaimRes.value &&
           rightsClaimRes.value.status === '1' &&
-          rightsClaimRes.value.data?.records?.length > 0
-            ? (rightsClaimRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          rightsClaimRes.value.data &&
+          Number.parseInt(rightsClaimRes.value.data.paras?.zt2_count || '0') > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllRightsClaim',
         token: '0ce8909084c3cd60a2e2f8ba450df13a',
+        count:
+          rightsClaimRes.status === 'fulfilled' && rightsClaimRes.value
+            ? rightsClaimRes.value.data?.count || 0
+            : 0,
+        paras:
+          rightsClaimRes.status === 'fulfilled' && rightsClaimRes.value
+            ? rightsClaimRes.value.data.paras
+            : undefined,
       },
       {
         id: 'reclaimReview',
@@ -327,12 +350,21 @@ const loadTaskData = async () => {
           reclaimReviewRes.status === 'fulfilled' &&
           reclaimReviewRes.value &&
           reclaimReviewRes.value.status === '1' &&
-          reclaimReviewRes.value.data?.records?.length > 0
-            ? (reclaimReviewRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          reclaimReviewRes.value.data &&
+          Number.parseInt(reclaimReviewRes.value.data.paras?.zt2_count || '0') >
+            0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllReclaimReview',
         token: 'dcdc3c95faccd88d495c94923f8e2148',
+        count:
+          reclaimReviewRes.status === 'fulfilled' && reclaimReviewRes.value
+            ? reclaimReviewRes.value.data?.count || 0
+            : 0,
+        paras:
+          reclaimReviewRes.status === 'fulfilled' && reclaimReviewRes.value
+            ? reclaimReviewRes.value.data.paras
+            : undefined,
       },
       {
         id: 'litigationArbitration',
@@ -341,12 +373,24 @@ const loadTaskData = async () => {
           litigationArbitrationRes.status === 'fulfilled' &&
           litigationArbitrationRes.value &&
           litigationArbitrationRes.value.status === '1' &&
-          litigationArbitrationRes.value.data?.records?.length > 0
-            ? (litigationArbitrationRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          litigationArbitrationRes.value.data &&
+          Number.parseInt(
+            litigationArbitrationRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllLitigationArbitration',
         token: '7adbf35a9986045cb55ce9e1d8d8b90c',
+        count:
+          litigationArbitrationRes.status === 'fulfilled' &&
+          litigationArbitrationRes.value
+            ? litigationArbitrationRes.value.data?.count || 0
+            : 0,
+        paras:
+          litigationArbitrationRes.status === 'fulfilled' &&
+          litigationArbitrationRes.value
+            ? litigationArbitrationRes.value.data.paras
+            : undefined,
       },
       {
         id: 'creditorClaim',
@@ -355,26 +399,21 @@ const loadTaskData = async () => {
           creditorClaimRes.status === 'fulfilled' &&
           creditorClaimRes.value &&
           creditorClaimRes.value.status === '1' &&
-          creditorClaimRes.value.data?.records?.length > 0
-            ? (creditorClaimRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          creditorClaimRes.value.data &&
+          Number.parseInt(creditorClaimRes.value.data.paras?.zt2_count || '0') >
+            0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllCreditorClaim',
         token: '7fb219c01b0107dc5cb58d173ce87664',
-      },
-      {
-        id: 'employeeClaims',
-        name: '职工债权',
-        status:
-          employeeClaimsRes.status === 'fulfilled' &&
-          employeeClaimsRes.value &&
-          employeeClaimsRes.value.status === '1' &&
-          employeeClaimsRes.value.data?.records?.length > 0
-            ? (employeeClaimsRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
-            : '未确认',
-        apiUrl: '/api/web/getAllEmployeeClaims',
-        token: '328c37a28705fdbc976bea5b128e68b4',
+        count:
+          creditorClaimRes.status === 'fulfilled' && creditorClaimRes.value
+            ? creditorClaimRes.value.data?.count || 0
+            : 0,
+        paras:
+          creditorClaimRes.status === 'fulfilled' && creditorClaimRes.value
+            ? creditorClaimRes.value.data.paras
+            : undefined,
       },
       {
         id: 'socialSF',
@@ -383,12 +422,20 @@ const loadTaskData = async () => {
           socialSFRes.status === 'fulfilled' &&
           socialSFRes.value &&
           socialSFRes.value.status === '1' &&
-          socialSFRes.value.data?.records?.length > 0
-            ? (socialSFRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          socialSFRes.value.data &&
+          Number.parseInt(socialSFRes.value.data.paras?.zt2_count || '0') > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllSociaSF',
         token: 'a8990ffa15ebbd2bff6aed37db08cadf',
+        count:
+          socialSFRes.status === 'fulfilled' && socialSFRes.value
+            ? socialSFRes.value.data?.count || 0
+            : 0,
+        paras:
+          socialSFRes.status === 'fulfilled' && socialSFRes.value
+            ? socialSFRes.value.data.paras
+            : undefined,
       },
       {
         id: 'taxVerification',
@@ -397,12 +444,22 @@ const loadTaskData = async () => {
           taxVerificationRes.status === 'fulfilled' &&
           taxVerificationRes.value &&
           taxVerificationRes.value.status === '1' &&
-          taxVerificationRes.value.data?.records?.length > 0
-            ? (taxVerificationRes.value.data.records[0]
-                .DQZT as CaseProcessApi.TaskStatus) || '未确认'
+          taxVerificationRes.value.data &&
+          Number.parseInt(
+            taxVerificationRes.value.data.paras?.zt2_count || '0',
+          ) > 0
+            ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllTaxVerification',
         token: '59a21e973cc5a522c63b11c19a988d0b',
+        count:
+          taxVerificationRes.status === 'fulfilled' && taxVerificationRes.value
+            ? taxVerificationRes.value.data?.count || 0
+            : 0,
+        paras:
+          taxVerificationRes.status === 'fulfilled' && taxVerificationRes.value
+            ? taxVerificationRes.value.data.paras
+            : undefined,
       },
     ];
 
@@ -414,7 +471,6 @@ const loadTaskData = async () => {
       reclaimReviewRes,
       litigationArbitrationRes,
       creditorClaimRes,
-      employeeClaimsRes,
       socialSFRes,
       taxVerificationRes,
     ];
@@ -487,7 +543,15 @@ onMounted(() => {
         >
           <div class="task-info">
             <div class="task-main">
-              <div class="task-name">{{ task.name }}</div>
+              <div class="task-name">
+                {{ task.name }}
+                <span
+                  v-if="task.count !== undefined && task.count > 0"
+                  class="task-count"
+                >
+                  ({{ task.count }}个)
+                </span>
+              </div>
               <div class="task-status">
                 <ElTag :type="getStatusType(task.status)" size="small">
                   {{ task.status }}
@@ -501,52 +565,100 @@ onMounted(() => {
                   ? '已完成确认'
                   : task.status === '跳过'
                     ? '已跳过'
-                    : '待确认'
+                    : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
               }}
             </div>
           </div>
           <div class="task-actions">
-            <ElButton
-              type="primary"
-              size="small"
-              @click="editTask(task.id)"
-              :disabled="task.status === '完成' || task.status === '跳过'"
-            >
-              <Icon icon="lucide:edit" class="mr-1" />
-              编辑
-            </ElButton>
+            <!-- 如果count为0，显示新增和跳过按钮 -->
+            <template v-if="task.count === 0">
+              <ElButton
+                type="primary"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
 
-            <ElButton
-              type="success"
-              size="small"
-              @click="completeTask(task.id)"
-              :disabled="task.status === '完成' || task.status === '跳过'"
-            >
-              <Icon icon="lucide:check" class="mr-1" />
-              完成
-            </ElButton>
+              <ElButton
+                v-if="task.status === '跳过'"
+                type="danger"
+                size="small"
+                @click="withdrawSkipTask(task.id)"
+              >
+                <Icon icon="lucide:undo" class="mr-1" />
+                撤回
+              </ElButton>
 
-            <!-- 动态按钮：跳过状态显示撤回，其他状态显示跳过 -->
-            <ElButton
-              v-if="task.status === '跳过'"
-              type="danger"
-              size="small"
-              @click="withdrawSkipTask(task.id)"
-            >
-              <Icon icon="lucide:undo" class="mr-1" />
-              撤回
-            </ElButton>
+              <ElButton
+                v-else
+                type="warning"
+                size="small"
+                @click="skipTask(task.id)"
+                :disabled="task.status === '完成'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
+              </ElButton>
+            </template>
 
-            <ElButton
-              v-else
-              type="warning"
-              size="small"
-              @click="skipTask(task.id)"
-              :disabled="task.status === '完成'"
-            >
-              <Icon icon="lucide:skip-forward" class="mr-1" />
-              跳过
-            </ElButton>
+            <!-- 如果count不为0，显示编辑、完成、跳过和新增按钮 -->
+            <template v-else>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+
+              <ElButton
+                type="success"
+                size="small"
+                @click="completeTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+
+              <!-- 动态按钮：完成或跳过状态显示撤回，其他状态显示跳过 -->
+              <ElButton
+                v-if="task.status === '跳过' || task.status === '完成'"
+                type="danger"
+                size="small"
+                @click="withdrawSkipTask(task.id)"
+              >
+                <Icon icon="lucide:undo" class="mr-1" />
+                撤回
+              </ElButton>
+
+              <ElButton
+                v-else
+                type="warning"
+                size="small"
+                @click="skipTask(task.id)"
+                :disabled="task.status === '完成'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
+              </ElButton>
+
+              <!-- 新增按钮 -->
+              <ElButton
+                type="info"
+                size="small"
+                @click="editTask(task.id)"
+                :disabled="task.status === '完成' || task.status === '跳过'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
+            </template>
           </div>
         </div>
       </div>
@@ -659,6 +771,18 @@ onMounted(() => {
   font-weight: 600;
   color: #1f2937;
   min-width: 120px;
+}
+
+.task-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 4px;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .task-status {

@@ -13,16 +13,6 @@ const routes: RouteRecordRaw[] = [
     path: '/law',
     children: [
       {
-        name: 'LawTest',
-        path: '/test',
-        component: () => import('#/views/law/test.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:file-text',
-          title: $t('page.law.test'),
-        },
-      },
-      {
         name: 'LawCaseManagement',
         path: '/case-management',
         component: () => import('#/views/law/case-management/index.vue'),
