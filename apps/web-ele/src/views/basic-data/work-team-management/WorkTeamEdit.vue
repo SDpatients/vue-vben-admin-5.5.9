@@ -34,22 +34,24 @@ const saveData = async () => {
     const sepeuser = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
 
     // 准备API参数
-    const updateParams = [
-      {
-        OperateType: 0,
-        sep_id: sepId.value,
-        tdfzr: formData.value.tdfzr,
-        zhzcy: formData.value.zhzcy,
-        cxzcy: formData.value.cxzcy,
-        ccglzcy: formData.value.ccglzcy,
-        zqshzcy: formData.value.zqshzcy,
-        ldrszcy: formData.value.ldrszcy,
-        zzqlzcy: formData.value.zzqlzcy,
-        sepeuser,
-        sepedate: new Date().toISOString(),
-        zt: 0,
-      }
-    ];
+    const updateParams = {
+      // 必须的参数
+      SEP_EUSER: sepeuser,
+      SEP_EDATE: new Date().toISOString(),
+      OperateType: '0',
+      
+      // 其他参数
+      SEP_ID: sepId.value,
+      SEP_LD: sepId.value,
+      TDFZR: formData.value.tdfzr,
+      ZHZCY: formData.value.zhzcy,
+      CXZCY: formData.value.cxzcy,
+      CCGLZCY: formData.value.ccglzcy,
+      ZQSHZCY: formData.value.zqshzcy,
+      LDRSZCY: formData.value.ldrszcy,
+      ZZQLZCY: formData.value.zzqlzcy,
+      ZT: '0',
+    };
 
     // 调用update1 API
     const result = await update1(updateParams);

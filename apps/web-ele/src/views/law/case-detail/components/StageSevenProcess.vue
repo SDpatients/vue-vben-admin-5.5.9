@@ -105,6 +105,11 @@ const editTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
 };
 
+// 新增任务
+const addTask = (taskId: string) => {
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
+};
+
 // 完成任务
 const completeTask = async (taskId: string) => {
   try {
@@ -242,11 +247,13 @@ const loadTaskData = async () => {
         apiUrl: '/api/web/getAllTerminationLiti',
         token: '8e4a5f0694dc40db05031994e3b3b332',
         count:
-          terminationLitiRes.status === 'fulfilled' && terminationLitiRes.value.data
+          terminationLitiRes.status === 'fulfilled' &&
+          terminationLitiRes.value.data
             ? terminationLitiRes.value.data.count || 0
             : 0,
         paras:
-          terminationLitiRes.status === 'fulfilled' && terminationLitiRes.value.data
+          terminationLitiRes.status === 'fulfilled' &&
+          terminationLitiRes.value.data
             ? terminationLitiRes.value.data.paras
             : undefined,
       },
@@ -348,11 +355,11 @@ onMounted(() => {
             </div>
             <div class="task-description">
               当前状态：
-              {{ 
-                task.status === '完成' 
-                  ? '已完成确认' 
-                  : task.status === '跳过' 
-                    ? '已跳过' 
+              {{
+                task.status === '完成'
+                  ? '已完成确认'
+                  : task.status === '跳过'
+                    ? '已跳过'
                     : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
               }}
             </div>
@@ -363,7 +370,7 @@ onMounted(() => {
               <ElButton
                 type="primary"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />
@@ -433,7 +440,7 @@ onMounted(() => {
               <ElButton
                 type="info"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />

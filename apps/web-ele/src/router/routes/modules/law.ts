@@ -58,6 +58,18 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'LawTaskAdd',
+        path: '/case-detail/:caseId/task/:taskType/add',
+        component: () => import('#/views/law/case-detail/TaskEdit.vue'),
+        meta: {
+          affixTab: false,
+          hideInTab: true,
+          icon: 'lucide:plus',
+          title: $t('page.law.taskAdd'),
+          hideInMenu: true,
+        },
+      },
+      {
         name: 'LawServiceOfDocuments',
         path: '/service-of-documents',
         component: () => import('#/views/law/service-of-documents/index.vue'),

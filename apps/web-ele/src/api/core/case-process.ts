@@ -542,14 +542,55 @@ export const unifiedTaskOperationApi = async (data: {
 
     // 从本地存储获取操作人信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
-    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    let SEP_EUSER = 'admin';
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        SEP_EUSER = userInfo.U_USER || userInfo.U_NAME || 'admin';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+      SEP_EUSER = 'admin';
+    }
     const SEP_EDATE = new Date().toISOString().split('T')[0]; // 格式：YYYY-MM-DD
 
-    // 准备请求数据
+    // 准备请求数据，只包含后端需要的字段
     const requestData = {
+      // 必须的参数
       SEP_EUSER,
       SEP_EDATE,
-      ...data,
+      OperateType: data.OperateType,
+
+      // 其他参数
+      SEP_LD: data.SEP_LD,
+      ZT: data.ZT,
+      ...(data.SEP_ID && { SEP_ID: data.SEP_ID }),
+
+      // 只添加后端需要的特定字段
+      ...(data.TDFZR && { TDFZR: data.TDFZR }),
+      ...(data.ZHZCY && { ZHZCY: data.ZHZCY }),
+      ...(data.CXZCY && { CXZCY: data.CXZCY }),
+      ...(data.CCGLZCY && { CCGLZCY: data.CCGLZCY }),
+      ...(data.ZQSHZCY && { ZQSHZCY: data.ZQSHZCY }),
+      ...(data.LDRSZCY && { LDRSZCY: data.LDRSZCY }),
+      ...(data.ZZQLZCY && { ZZQLZCY: data.ZZQLZCY }),
+      ...(data.JHLX && { JHLX: data.JHLX }),
+      ...(data.JHNR && { JHNR: data.JHNR }),
+      ...(data.KSRQ && { KSRQ: data.KSRQ }),
+      ...(data.JSRQ && { JSRQ: data.JSRQ }),
+      ...(data.FZR && { FZR: data.FZR }),
+      ...(data.ZDLX && { ZDLX: data.ZDLX }),
+      ...(data.ZDMC && { ZDMC: data.ZDMC }),
+      ...(data.ZDNR && { ZDNR: data.ZDNR }),
+      ...(data.SXRQ && { SXRQ: data.SXRQ }),
+      ...(data.YZLX && { YZLX: data.YZLX }),
+      ...(data.YZBH && { YZBH: data.YZBH }),
+      ...(data.YZYBLJ && { YZYBLJ: data.YZYBLJ }),
+      ...(data.BARQ && { BARQ: data.BARQ }),
+      ...(data.YZMC && { YZMC: data.YZMC }),
+      ...(data.CXLX && { CXLX: data.CXLX }),
+      ...(data.CXNR && { CXNR: data.CXNR }),
+      ...(data.ZHRQ && { ZHRQ: data.ZHRQ }),
     };
 
     // 发送请求

@@ -53,7 +53,10 @@ const activeTab = ref('caseInfo'); // caseInfo: 案件基本信息, process: 流
 const announcementData = reactive({
   title: '',
   content: '',
-  status: 'draft',
+  announcement_type: 'NORMAL',
+  is_top: false,
+  top_expire_time: '',
+  attachments: [],
 });
 
 const announcements = ref<any[]>([]);
@@ -76,14 +79,18 @@ const fetchAnnouncements = async () => {
       pageSize.value,
     );
     if (response.status === '1') {
-      announcements.value = response.data.records;
-      totalAnnouncements.value = response.data.count;
+      announcements.value = response.data.records || [];
+      totalAnnouncements.value = response.data.count || 0;
     } else {
       ElMessage.error(`获取公告列表失败：${response.error || '未知错误'}`);
+      announcements.value = [];
+      totalAnnouncements.value = 0;
     }
   } catch (error) {
     console.error('获取公告列表失败:', error);
     ElMessage.error('获取公告列表失败');
+    announcements.value = [];
+    totalAnnouncements.value = 0;
   } finally {
     loadingAnnouncements.value = false;
   }
@@ -205,7 +212,11 @@ const editAnnouncement = (announcement: any) => {
   dialogTitle.value = '编辑公告';
   announcementData.title = announcement.title;
   announcementData.content = announcement.content;
-  announcementData.status = announcement.status;
+  announcementData.announcement_type =
+    announcement.announcement_type || 'NORMAL';
+  announcementData.is_top = Boolean(announcement.is_top);
+  announcementData.top_expire_time = announcement.top_expire_time || '';
+  announcementData.attachments = announcement.attachments || [];
   showAnnouncementDialog.value = true;
 };
 
@@ -229,7 +240,10 @@ const resetAnnouncement = () => {
   // 重置表单数据
   announcementData.title = '';
   announcementData.content = '';
-  announcementData.status = 'draft';
+  announcementData.announcement_type = 'NORMAL';
+  announcementData.is_top = false;
+  announcementData.top_expire_time = '';
+  announcementData.attachments = [];
   // 重置编辑状态
   isEditingAnnouncement.value = false;
   currentAnnouncementId.value = null;
@@ -2231,12 +2245,37 @@ onMounted(async () => {
                   height="400px"
                 />
               </ElFormItem>
-              <ElFormItem label="状态">
-                <ElSelect v-model="announcementData.status" size="large">
-                  <ElOption label="草稿" value="draft" />
-                  <ElOption label="已发布" value="published" />
+              <ElFormItem label="公告类型">
+                <ElSelect
+                  v-model="announcementData.announcement_type"
+                  size="large"
+                >
+                  <ElOption label="普通" value="NORMAL" />
+                  <ElOption label="紧急" value="URGENT" />
+                  <ElOption label="重要" value="IMPORTANT" />
                 </ElSelect>
               </ElFormItem>
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="是否置顶">
+                    <ElSwitch v-model="announcementData.is_top" size="large" />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem
+                    label="置顶过期时间"
+                    v-if="announcementData.is_top"
+                  >
+                    <ElDatePicker
+                      v-model="announcementData.top_expire_time"
+                      type="datetime"
+                      placeholder="选择置顶过期时间"
+                      size="large"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
             </ElForm>
           </div>
         </div>

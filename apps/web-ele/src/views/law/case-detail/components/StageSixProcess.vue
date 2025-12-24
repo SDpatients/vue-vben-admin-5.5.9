@@ -121,6 +121,11 @@ const editTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
 };
 
+// 新增任务
+const addTask = (taskId: string) => {
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
+};
+
 // 完成任务
 const completeTask = async (taskId: string) => {
   try {
@@ -276,18 +281,21 @@ const loadTaskData = async () => {
           priorityPaymentRes.status === 'fulfilled' &&
           priorityPaymentRes.value.status === '1' &&
           priorityPaymentRes.value.data &&
-          Number.parseInt(priorityPaymentRes.value.data.paras?.zt2_count || '0') >
-            0
+          Number.parseInt(
+            priorityPaymentRes.value.data.paras?.zt2_count || '0',
+          ) > 0
             ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllPriorityPayment',
         token: 'd8b58a8dade9ee9f4047c0faef6b701b',
         count:
-          priorityPaymentRes.status === 'fulfilled' && priorityPaymentRes.value.data
+          priorityPaymentRes.status === 'fulfilled' &&
+          priorityPaymentRes.value.data
             ? priorityPaymentRes.value.data.count || 0
             : 0,
         paras:
-          priorityPaymentRes.status === 'fulfilled' && priorityPaymentRes.value.data
+          priorityPaymentRes.status === 'fulfilled' &&
+          priorityPaymentRes.value.data
             ? priorityPaymentRes.value.data.paras
             : undefined,
       },
@@ -298,8 +306,7 @@ const loadTaskData = async () => {
           propertyDECRes.status === 'fulfilled' &&
           propertyDECRes.value.status === '1' &&
           propertyDECRes.value.data &&
-          Number.parseInt(propertyDECRes.value.data.paras?.zt2_count || '0') >
-            0
+          Number.parseInt(propertyDECRes.value.data.paras?.zt2_count || '0') > 0
             ? '跳过'
             : '未确认',
         apiUrl: '/api/web/getAllPropertyDEC',
@@ -328,11 +335,13 @@ const loadTaskData = async () => {
         apiUrl: '/api/web/getAllDepositManagement',
         token: '0e422bd12a2426db4878f646d7815302',
         count:
-          depositManagementRes.status === 'fulfilled' && depositManagementRes.value.data
+          depositManagementRes.status === 'fulfilled' &&
+          depositManagementRes.value.data
             ? depositManagementRes.value.data.count || 0
             : 0,
         paras:
-          depositManagementRes.status === 'fulfilled' && depositManagementRes.value.data
+          depositManagementRes.status === 'fulfilled' &&
+          depositManagementRes.value.data
             ? depositManagementRes.value.data.paras
             : undefined,
       },
@@ -411,11 +420,11 @@ onMounted(() => {
             </div>
             <div class="task-description">
               当前状态：
-              {{ 
-                task.status === '完成' 
-                  ? '已完成确认' 
-                  : task.status === '跳过' 
-                    ? '已跳过' 
+              {{
+                task.status === '完成'
+                  ? '已完成确认'
+                  : task.status === '跳过'
+                    ? '已跳过'
                     : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
               }}
             </div>
@@ -426,7 +435,7 @@ onMounted(() => {
               <ElButton
                 type="primary"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />
@@ -496,7 +505,7 @@ onMounted(() => {
               <ElButton
                 type="info"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />

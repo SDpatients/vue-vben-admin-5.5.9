@@ -100,9 +100,9 @@ const getStatusClass = (status: CaseProcessApi.TaskStatus) => {
   }
 };
 
-// 编辑任务
-const editTask = (taskId: string) => {
-  router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
+// 新增任务
+const addTask = (taskId: string) => {
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
 };
 
 // 完成任务
@@ -403,7 +403,7 @@ onMounted(() => {
               <ElButton
                 type="primary"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />
@@ -480,7 +480,7 @@ onMounted(() => {
               <ElButton
                 type="info"
                 size="small"
-                @click="editTask(task.id)"
+                @click="addTask(task.id)"
                 :disabled="task.status === '完成' || task.status === '跳过'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />

@@ -513,6 +513,19 @@ const stageMapping: Record<string, number> = {
   taxVerification: 3,
 };
 
+// 辅助函数：将日期转换为ISO字符串格式
+const formatDate = (date: any): string => {
+  if (date instanceof Date) {
+    return date.toISOString();
+  } else if (typeof date === 'string') {
+    // 如果已经是字符串，直接返回
+    return date;
+  } else {
+    // 其他情况返回当前时间
+    return new Date().toISOString();
+  }
+};
+
 // 任务类型映射到OperateType（按阶段重新编号，每个阶段从0开始）
 const taskTypeToOperateType: Record<string, string> = {
   // 第一阶段任务
@@ -548,14 +561,15 @@ const updateApiUrls: Record<number, string> = {
 
 // 页面标题
 const pageTitle = computed(() => {
+  const baseTitle = isAddMode.value ? '新增' : '编辑';
   if (
     taskId.value === 'workTeam' &&
     caseDetail.value &&
     caseDetail.value.案号
   ) {
-    return `${caseDetail.value.案号} 工作团队确认`;
+    return `${caseDetail.value.案号} ${baseTitle} 工作团队确认`;
   }
-  return currentTask.value.name;
+  return `${baseTitle} ${currentTask.value.name}`;
 });
 
 // 获取状态标签类型
@@ -744,27 +758,33 @@ const saveData = async (confirm: boolean = false) => {
         }
       } else {
         // 编辑模式：调用第一阶段的update接口
-        const updateUrl = updateApiUrls[1];
+        const updateUrl = updateApiUrls[1] || '';
+        if (!updateUrl) {
+          throw new Error('未找到对应的更新接口');
+        }
         const SEP_EDATE = new Date().toISOString();
 
-        // 准备统一API参数
+        // 准备统一API参数，只包含后端需要的字段
         const updateParams = {
+          // 必须的参数
+          SEP_EUSER: sepeuser,
+          SEP_EDATE,
           OperateType: taskTypeToOperateType[taskId.value] || '0',
-          sep_id: String(
+
+          // 其他参数
+          SEP_ID: String(
             (formData.value || {}).SEP_ID ||
               (formData.value || {}).sep_id ||
               caseId.value,
           ),
           SEP_LD: caseId.value,
-          SEP_EUSER: sepeuser,
-          SEP_EDATE,
-          tdfzr: (formData.value || {}).TDFZR || '',
-          zhzcy: (formData.value || {}).ZHZCY || '',
-          cxzcy: (formData.value || {}).CXZCY || '',
-          ccglzcy: (formData.value || {}).CCGLZCY || '',
-          zqshzcy: (formData.value || {}).ZQSHZCY || '',
-          ldrszcy: (formData.value || {}).LDRSZCY || '',
-          zzqlzcy: (formData.value || {}).ZZQLZCY || '',
+          TDFZR: (formData.value || {}).TDFZR || '',
+          ZHZCY: (formData.value || {}).ZHZCY || '',
+          CXZCY: (formData.value || {}).CXZCY || '',
+          CCGLZCY: (formData.value || {}).CCGLZCY || '',
+          ZQSHZCY: (formData.value || {}).ZQSHZCY || '',
+          LDRSZCY: (formData.value || {}).LDRSZCY || '',
+          ZZQLZCY: (formData.value || {}).ZZQLZCY || '',
           ZT: confirm ? '1' : '0',
         };
 
@@ -993,21 +1013,62 @@ const saveData = async (confirm: boolean = false) => {
       } else {
         // 编辑模式：根据任务类型确定所属阶段，调用对应的update接口
         const stage = stageMapping[taskId.value] || 1;
-        const updateUrl = updateApiUrls[stage];
+        const updateUrl = updateApiUrls[stage] || '';
+        if (!updateUrl) {
+          throw new Error('未找到对应的更新接口');
+        }
         const SEP_EDATE = new Date().toISOString();
 
-        // 准备统一API参数
+        // 准备统一API参数，只包含后端需要的字段
         const params = {
+          // 必须的参数
+          SEP_EUSER: sepeuser,
+          SEP_EDATE,
+          OperateType: taskTypeToOperateType[taskId.value] || '0',
+
+          // 其他参数
           SEP_LD: caseId.value,
           SEP_ID:
             (formData.value || {}).SEP_ID ||
             (formData.value || {}).sep_id ||
             caseId.value,
           ZT: confirm ? '1' : '0', // 确认完成则ZT=1，否则ZT=0
-          OperateType: taskTypeToOperateType[taskId.value] || '0',
-          SEP_EUSER: sepeuser,
-          SEP_EDATE,
-          ...formData.value, // 上传所有修改的值
+
+          // 只添加后端需要的特定字段，避免传递所有表单数据
+          ...(formData.value?.TDFZR && { TDFZR: formData.value.TDFZR }),
+          ...(formData.value?.ZHZCY && { ZHZCY: formData.value.ZHZCY }),
+          ...(formData.value?.CXZCY && { CXZCY: formData.value.CXZCY }),
+          ...(formData.value?.CCGLZCY && { CCGLZCY: formData.value.CCGLZCY }),
+          ...(formData.value?.ZQSHZCY && { ZQSHZCY: formData.value.ZQSHZCY }),
+          ...(formData.value?.LDRSZCY && { LDRSZCY: formData.value.LDRSZCY }),
+          ...(formData.value?.ZZQLZCY && { ZZQLZCY: formData.value.ZZQLZCY }),
+          ...(formData.value?.JHLX && { JHLX: formData.value.JHLX }),
+          ...(formData.value?.JHNR && { JHNR: formData.value.JHNR }),
+          ...(formData.value?.KSRQ && {
+            KSRQ: formatDate(formData.value.KSRQ),
+          }),
+          ...(formData.value?.JSRQ && {
+            JSRQ: formatDate(formData.value.JSRQ),
+          }),
+          ...(formData.value?.FZR && { FZR: formData.value.FZR }),
+          ...(formData.value?.ZDLX && { ZDLX: formData.value.ZDLX }),
+          ...(formData.value?.ZDMC && { ZDMC: formData.value.ZDMC }),
+          ...(formData.value?.ZDNR && { ZDNR: formData.value.ZDNR }),
+          ...(formData.value?.SXRQ && {
+            SXRQ: formatDate(formData.value.SXRQ),
+          }),
+          ...(formData.value?.YZLX && { YZLX: formData.value.YZLX }),
+          ...(formData.value?.YZBH && { YZBH: formData.value.YZBH }),
+          ...(formData.value?.YZYBLJ && { YZYBLJ: formData.value.YZYBLJ }),
+          ...(formData.value?.BARQ && {
+            BARQ: formatDate(formData.value.BARQ),
+          }),
+          ...(formData.value?.YZMC && { YZMC: formData.value.YZMC }),
+          ...(formData.value?.CXLX && { CXLX: formData.value.CXLX }),
+          ...(formData.value?.CXNR && { CXNR: formData.value.CXNR }),
+          ...(formData.value?.ZHRQ && {
+            ZHRQ: formatDate(formData.value.ZHRQ),
+          }),
         };
 
         // 调用对应的update接口
@@ -1065,7 +1126,6 @@ const skipTask = async () => {
     const SEP_EUSER = userInfo.uName || userInfo.U_USER || 'admin';
     const SEP_EDATE = new Date().toISOString();
 
-    let apiResponse;
     let resultData;
 
     // 特殊处理工作团队任务（忽略大小写比较）
@@ -1094,25 +1154,71 @@ const skipTask = async () => {
         sepauser: SEP_EUSER,
         sepadate: SEP_EDATE,
       };
-      apiResponse = await addWorkTeamApi(addParams);
-      resultData = apiResponse;
+      resultData = await addWorkTeamApi(addParams);
     } else {
       // 非工作团队任务，根据任务类型确定所属阶段，调用对应的update接口
       const stage = stageMapping[taskId.value] || 1;
-      const updateUrl = updateApiUrls[stage];
+      const updateUrl = updateApiUrls[stage] || '';
+      if (!updateUrl) {
+        throw new Error('未找到对应的更新接口');
+      }
 
-      // 准备统一API参数
+      // 准备统一API参数，只包含后端需要的字段
       const params = {
+        // 必须的参数
+        SEP_EUSER,
+        SEP_EDATE,
+        OperateType: taskTypeToOperateType[taskId.value] || '0',
+
+        // 其他参数
         SEP_LD: caseId.value,
         SEP_ID:
           (formData.value || {}).SEP_ID ||
           (formData.value || {}).sep_id ||
           caseId.value,
         ZT: '2', // 跳过状态
-        OperateType: taskTypeToOperateType[taskId.value] || '0',
-        SEP_EDATE,
-        SEP_EUSER,
-        ...formData.value, // 上传所有修改的值
+
+        // 只添加后端需要的特定字段
+        ...(formData.value?.TDFZR && { TDFZR: formData.value.TDFZR }),
+        ...(formData.value?.ZHZCY && { ZHZCY: formData.value.ZHZCY }),
+        ...(formData.value?.CXZCY && { CXZCY: formData.value.CXZCY }),
+        ...(formData.value?.CCGLZCY && { CCGLZCY: formData.value.CCGLZCY }),
+        ...(formData.value?.ZQSHZCY && { ZQSHZCY: formData.value.ZQSHZCY }),
+        ...(formData.value?.LDRSZCY && { LDRSZCY: formData.value.LDRSZCY }),
+        ...(formData.value?.ZZQLZCY && { ZZQLZCY: formData.value.ZZQLZCY }),
+        ...(formData.value?.JHLX && { JHLX: formData.value.JHLX }),
+        ...(formData.value?.JHNR && { JHNR: formData.value.JHNR }),
+        ...(formData.value?.KSRQ && { KSRQ: formatDate(formData.value.KSRQ) }),
+        ...(formData.value?.JSRQ && { JSRQ: formatDate(formData.value.JSRQ) }),
+        ...(formData.value?.FZR && { FZR: formData.value.FZR }),
+        ...(formData.value?.ZDLX && { ZDLX: formData.value.ZDLX }),
+        ...(formData.value?.ZDMC && { ZDMC: formData.value.ZDMC }),
+        ...(formData.value?.ZDNR && { ZDNR: formData.value.ZDNR }),
+        ...(formData.value?.SXRQ && { SXRQ: formatDate(formData.value.SXRQ) }),
+        ...(formData.value?.YZLX && { YZLX: formData.value.YZLX }),
+        ...(formData.value?.YZBH && { YZBH: formData.value.YZBH }),
+        ...(formData.value?.YZYBLJ && { YZYBLJ: formData.value.YZYBLJ }),
+        ...(formData.value?.BARQ && { BARQ: formatDate(formData.value.BARQ) }),
+        ...(formData.value?.YZMC && { YZMC: formData.value.YZMC }),
+        ...(formData.value?.CXLX && { CXLX: formData.value.CXLX }),
+        ...(formData.value?.CXNR && { CXNR: formData.value.CXNR }),
+        ...(formData.value?.ZHRQ && { ZHRQ: formatDate(formData.value.ZHRQ) }),
+        ...(formData.value?.GLRQ && { GLRQ: formatDate(formData.value.GLRQ) }),
+        ...(formData.value?.FBRQ && { FBRQ: formatDate(formData.value.FBRQ) }),
+        ...(formData.value?.CLRQ && { CLRQ: formatDate(formData.value.CLRQ) }),
+        ...(formData.value?.CCJGRQ && {
+          CCJGRQ: formatDate(formData.value.CCJGRQ),
+        }),
+        ...(formData.value?.TCRQ && { TCRQ: formatDate(formData.value.TCRQ) }),
+        ...(formData.value?.HYRQ && { HYRQ: formatDate(formData.value.HYRQ) }),
+        ...(formData.value?.SCRQ && { SCRQ: formatDate(formData.value.SCRQ) }),
+        ...(formData.value?.QRQ && { QRQ: formatDate(formData.value.QRQ) }),
+        ...(formData.value?.FSRQ && { FSRQ: formatDate(formData.value.FSRQ) }),
+        ...(formData.value?.SHRQ && { SHRQ: formatDate(formData.value.SHRQ) }),
+        ...(formData.value?.CJRQ && { CJRQ: formatDate(formData.value.CJRQ) }),
+        ...(formData.value?.PGRQ && { PGRQ: formatDate(formData.value.PGRQ) }),
+        ...(formData.value?.ZDRQ && { ZDRQ: formatDate(formData.value.ZDRQ) }),
+        ...(formData.value?.XGRQ && { XGRQ: formatDate(formData.value.XGRQ) }),
       };
 
       // 调用对应的update接口
@@ -1152,7 +1258,6 @@ const revokeSkip = async () => {
     const SEP_EUSER = userInfo.uName || userInfo.U_USER || 'admin';
     const SEP_EDATE = new Date().toISOString();
 
-    let apiResponse;
     let resultData;
 
     // 特殊处理工作团队任务（忽略大小写比较）
@@ -1178,7 +1283,10 @@ const revokeSkip = async () => {
       };
 
       // 调用第一阶段的update接口
-      const updateUrl = updateApiUrls[1];
+      const updateUrl = updateApiUrls[1] || '';
+      if (!updateUrl) {
+        throw new Error('未找到对应的更新接口');
+      }
       const result = await fetch(updateUrl, {
         method: 'POST',
         headers: {
@@ -1191,20 +1299,67 @@ const revokeSkip = async () => {
     } else {
       // 非工作团队任务，根据任务类型确定所属阶段，调用对应的update接口
       const stage = stageMapping[taskId.value] || 1;
-      const updateUrl = updateApiUrls[stage];
+      const updateUrl = updateApiUrls[stage] || '';
+      if (!updateUrl) {
+        throw new Error('未找到对应的更新接口');
+      }
 
-      // 准备统一API参数
+      // 准备统一API参数，只包含后端需要的字段
       const params = {
+        // 必须的参数
+        SEP_EUSER,
+        SEP_EDATE,
+        OperateType: taskTypeToOperateType[taskId.value] || '0',
+
+        // 其他参数
         SEP_LD: caseId.value,
         SEP_ID:
           (formData.value || {}).SEP_ID ||
           (formData.value || {}).sep_id ||
           caseId.value,
         ZT: '0', // 未确认状态
-        OperateType: taskTypeToOperateType[taskId.value] || '0',
-        SEP_EDATE,
-        SEP_EUSER,
-        ...formData.value, // 上传所有修改的值
+
+        // 只添加后端需要的特定字段
+        ...(formData.value?.TDFZR && { TDFZR: formData.value.TDFZR }),
+        ...(formData.value?.ZHZCY && { ZHZCY: formData.value.ZHZCY }),
+        ...(formData.value?.CXZCY && { CXZCY: formData.value.CXZCY }),
+        ...(formData.value?.CCGLZCY && { CCGLZCY: formData.value.CCGLZCY }),
+        ...(formData.value?.ZQSHZCY && { ZQSHZCY: formData.value.ZQSHZCY }),
+        ...(formData.value?.LDRSZCY && { LDRSZCY: formData.value.LDRSZCY }),
+        ...(formData.value?.ZZQLZCY && { ZZQLZCY: formData.value.ZZQLZCY }),
+        ...(formData.value?.JHLX && { JHLX: formData.value.JHLX }),
+        ...(formData.value?.JHNR && { JHNR: formData.value.JHNR }),
+        ...(formData.value?.KSRQ && { KSRQ: formatDate(formData.value.KSRQ) }),
+        ...(formData.value?.JSRQ && { JSRQ: formatDate(formData.value.JSRQ) }),
+        ...(formData.value?.FZR && { FZR: formData.value.FZR }),
+        ...(formData.value?.ZDLX && { ZDLX: formData.value.ZDLX }),
+        ...(formData.value?.ZDMC && { ZDMC: formData.value.ZDMC }),
+        ...(formData.value?.ZDNR && { ZDNR: formData.value.ZDNR }),
+        ...(formData.value?.SXRQ && { SXRQ: formatDate(formData.value.SXRQ) }),
+        ...(formData.value?.YZLX && { YZLX: formData.value.YZLX }),
+        ...(formData.value?.YZBH && { YZBH: formData.value.YZBH }),
+        ...(formData.value?.YZYBLJ && { YZYBLJ: formData.value.YZYBLJ }),
+        ...(formData.value?.BARQ && { BARQ: formatDate(formData.value.BARQ) }),
+        ...(formData.value?.YZMC && { YZMC: formData.value.YZMC }),
+        ...(formData.value?.CXLX && { CXLX: formData.value.CXLX }),
+        ...(formData.value?.CXNR && { CXNR: formData.value.CXNR }),
+        ...(formData.value?.ZHRQ && { ZHRQ: formatDate(formData.value.ZHRQ) }),
+        ...(formData.value?.GLRQ && { GLRQ: formatDate(formData.value.GLRQ) }),
+        ...(formData.value?.FBRQ && { FBRQ: formatDate(formData.value.FBRQ) }),
+        ...(formData.value?.CLRQ && { CLRQ: formatDate(formData.value.CLRQ) }),
+        ...(formData.value?.CCJGRQ && {
+          CCJGRQ: formatDate(formData.value.CCJGRQ),
+        }),
+        ...(formData.value?.TCRQ && { TCRQ: formatDate(formData.value.TCRQ) }),
+        ...(formData.value?.HYRQ && { HYRQ: formatDate(formData.value.HYRQ) }),
+        ...(formData.value?.SCRQ && { SCRQ: formatDate(formData.value.SCRQ) }),
+        ...(formData.value?.QRQ && { QRQ: formatDate(formData.value.QRQ) }),
+        ...(formData.value?.FSRQ && { FSRQ: formatDate(formData.value.FSRQ) }),
+        ...(formData.value?.SHRQ && { SHRQ: formatDate(formData.value.SHRQ) }),
+        ...(formData.value?.CJRQ && { CJRQ: formatDate(formData.value.CJRQ) }),
+        ...(formData.value?.PGRQ && { PGRQ: formatDate(formData.value.PGRQ) }),
+        ...(formData.value?.ZDRQ && { ZDRQ: formatDate(formData.value.ZDRQ) }),
+        ...(formData.value?.XGRQ && { XGRQ: formatDate(formData.value.XGRQ) }),
       };
 
       // 调用对应的update接口
