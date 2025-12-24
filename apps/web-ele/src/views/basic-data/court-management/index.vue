@@ -2,10 +2,14 @@
 import type { CourtApi } from '#/api/core';
 
 import { onMounted, reactive, ref } from 'vue';
+import { useUserStore } from '@vben/stores';
 
 import {
   ElButton,
   ElCard,
+  ElDialog,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElPagination,
@@ -13,7 +17,7 @@ import {
   ElTableColumn,
 } from 'element-plus';
 
-import { getCourtListApi } from '#/api/core';
+import { addCourtApi, getCourtListApi } from '#/api/core';
 
 // 法院列表数据
 const courtList = ref<CourtApi.CourtInfo[]>([]);
@@ -138,9 +142,74 @@ const handleRefresh = () => {
   fetchCourtList();
 };
 
+// 新增法院弹窗状态
+const dialogVisible = ref(false);
+
+// 新增法院表单数据
+const addCourtForm = reactive({
+  fyqc: '',
+  fyjc: '',
+  fyjb: '',
+  dz: '',
+  lxdh: '',
+  fzr: '',
+  cbfg: '',
+});
+
+// 表单验证规则
+const rules = reactive({
+  fyqc: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
+  fyjc: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
+  fyjb: [{ required: true, message: '请输入法院级别', trigger: 'blur' }],
+});
+
 // 新增法院
 const handleAddCourt = () => {
-  ElMessage.info('新增法院功能开发中...');
+  dialogVisible.value = true;
+};
+
+// 关闭弹窗
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  // 重置表单
+  Object.assign(addCourtForm, {
+    fyqc: '',
+    fyjc: '',
+    fyjb: '',
+    dz: '',
+    lxdh: '',
+    fzr: '',
+    cbfg: '',
+  });
+};
+
+// 提交新增法院
+const submitAddCourt = async () => {
+  try {
+    const userStore = useUserStore();
+    const currentUser = userStore.userInfo;
+
+    // 构建完整的请求数据，自动添加不需要前端展示的参数
+    const requestData = {
+      ...addCourtForm,
+      sep_auser: currentUser?.username || 'admin', // 当前登录用户
+      sep_adate: new Date().toISOString(), // 当前创建时间
+      scbj: '0', // 默认值为0
+    };
+
+    const response = await addCourtApi(requestData);
+    if (response.status === '1') {
+      ElMessage.success('法院添加成功');
+      dialogVisible.value = false;
+      // 刷新列表
+      fetchCourtList();
+    } else {
+      ElMessage.error(response.error || '法院添加失败');
+    }
+  } catch (error) {
+    console.error('添加法院失败:', error);
+    ElMessage.error('网络错误，请稍后重试');
+  }
 };
 
 // 编辑法院
@@ -282,6 +351,44 @@ onMounted(() => {
           @current-change="handlePageChange"
         />
       </div>
+
+      <!-- 新增法院弹窗 -->
+      <ElDialog
+        v-model="dialogVisible"
+        title="新增法院"
+        width="500px"
+        @close="handleCloseDialog"
+      >
+        <ElForm :model="addCourtForm" label-width="100px" :rules="rules">
+          <ElFormItem label="法院全称" prop="fyqc">
+            <ElInput v-model="addCourtForm.fyqc" placeholder="请输入法院全称" />
+          </ElFormItem>
+          <ElFormItem label="法院简称" prop="fyjc">
+            <ElInput v-model="addCourtForm.fyjc" placeholder="请输入法院简称" />
+          </ElFormItem>
+          <ElFormItem label="法院级别" prop="fyjb">
+            <ElInput v-model="addCourtForm.fyjb" placeholder="请输入法院级别" />
+          </ElFormItem>
+          <ElFormItem label="地址">
+            <ElInput v-model="addCourtForm.dz" placeholder="请输入地址" />
+          </ElFormItem>
+          <ElFormItem label="联系电话">
+            <ElInput v-model="addCourtForm.lxdh" placeholder="请输入联系电话" />
+          </ElFormItem>
+          <ElFormItem label="负责人">
+            <ElInput v-model="addCourtForm.fzr" placeholder="请输入负责人" />
+          </ElFormItem>
+          <ElFormItem label="承办法官">
+            <ElInput v-model="addCourtForm.cbfg" placeholder="请输入承办法官" />
+          </ElFormItem>
+        </ElForm>
+        <template #footer>
+          <div class="dialog-footer">
+            <ElButton @click="handleCloseDialog">取消</ElButton>
+            <ElButton type="primary" @click="submitAddCourt">确定</ElButton>
+          </div>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>

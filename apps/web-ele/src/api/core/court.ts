@@ -44,3 +44,38 @@ export async function getCourtListApi(params: CourtApi.CourtQueryParams) {
     },
   });
 }
+
+/** 添加法院请求 */
+export interface AddCourtRequest {
+  sep_auser: string;
+  sep_adate: string;
+  fyqc: string;
+  fyjc: string;
+  fyjb: string;
+  dz: string;
+  lxdh: string;
+  fzr: string;
+  cbfg: string;
+  scbj: string;
+}
+
+/** 添加法院响应 */
+export interface AddCourtResponse {
+  status: string;
+  error: string;
+}
+
+/**
+ * 添加法院信息
+ */
+export async function addCourtApi(data: AddCourtRequest) {
+  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
+  return requestClient.post<AddCourtResponse>('/api/web/addCourt', [data], {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: {
+      token,
+    },
+  });
+}
