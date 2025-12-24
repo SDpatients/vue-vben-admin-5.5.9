@@ -12,12 +12,13 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn,
 } from 'element-plus';
 
-import { addCourtApi, getCourtListApi } from '#/api/core';
+import { addCourtApi, getCourtListApi, updateCourtApi, deleteCourtApi } from '#/api/core';
 
 // 法院列表数据
 const courtList = ref<CourtApi.CourtInfo[]>([]);
@@ -58,54 +59,20 @@ const fetchCourtList = async () => {
       ElMessage.success('法院列表加载成功');
     } else {
       ElMessage.error(response.error || '获取法院列表失败');
-      // 使用模拟数据作为后备
-      generateMockData();
+      // 清空列表数据
+      courtList.value = [];
+      pagination.itemCount = 0;
+      pagination.pages = 0;
     }
   } catch {
     ElMessage.error('后端API暂时不可用，请稍后再试');
-    // 使用模拟数据作为后备
-    generateMockData();
+    // 清空列表数据
+    courtList.value = [];
+    pagination.itemCount = 0;
+    pagination.pages = 0;
   } finally {
     loading.value = false;
   }
-};
-
-// 生成模拟数据
-const generateMockData = () => {
-  courtList.value = [
-    {
-      row: 1,
-      FYQC: '测试法院1',
-      FYJC: '测法1',
-      FYJB: '高级人民法院',
-      DZ: '浙江省湖州市',
-      LXDH: '15177777777',
-      FZR: '小刘',
-      CBFG: '江法官',
-    },
-    {
-      row: 2,
-      FYQC: '测试法院2',
-      FYJC: '测法2',
-      FYJB: '中级人民法院',
-      DZ: '浙江省杭州市',
-      LXDH: '15288888888',
-      FZR: '小王',
-      CBFG: '李法官',
-    },
-    {
-      row: 3,
-      FYQC: '测试法院3',
-      FYJC: '测法3',
-      FYJB: '基层人民法院',
-      DZ: '浙江省宁波市',
-      LXDH: '15399999999',
-      FZR: '小张',
-      CBFG: '王法官',
-    },
-  ];
-  pagination.itemCount = 3;
-  pagination.pages = 1;
 };
 
 // 处理分页变化
@@ -156,6 +123,21 @@ const addCourtForm = reactive({
   cbfg: '',
 });
 
+// 编辑法院弹窗状态
+const editDialogVisible = ref(false);
+
+// 编辑法院表单数据
+const editCourtForm = reactive({
+  SEP_ID: '',
+  FYQC: '',
+  FYJC: '',
+  FYJB: '',
+  DZ: '',
+  LXDH: '',
+  FZR: '',
+  CBFG: '',
+});
+
 // 表单验证规则
 const rules = reactive({
   fyqc: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
@@ -190,10 +172,14 @@ const submitAddCourt = async () => {
     const currentUser = userStore.userInfo;
 
     // 构建完整的请求数据，自动添加不需要前端展示的参数
+    const now = new Date();
+    // 调整为北京时间（UTC+8）
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
     const requestData = {
       ...addCourtForm,
       sep_auser: currentUser?.username || 'admin', // 当前登录用户
-      sep_adate: new Date().toISOString(), // 当前创建时间
+      sep_adate: beijingTime.toISOString(), // 当前创建时间（北京时间）
       scbj: '0', // 默认值为0
     };
 
@@ -214,12 +200,81 @@ const submitAddCourt = async () => {
 
 // 编辑法院
 const handleEdit = (row: CourtApi.CourtInfo) => {
-  ElMessage.info(`编辑法院: ${row.FYQC}`);
+  // 填充编辑表单数据
+  editCourtForm.SEP_ID = row.SEP_ID;
+  editCourtForm.FYQC = row.FYQC;
+  editCourtForm.FYJC = row.FYJC;
+  editCourtForm.FYJB = row.FYJB;
+  editCourtForm.DZ = row.DZ;
+  editCourtForm.LXDH = row.LXDH;
+  editCourtForm.FZR = row.FZR;
+  editCourtForm.CBFG = row.CBFG;
+
+  // 打开编辑弹窗
+  editDialogVisible.value = true;
+};
+
+// 关闭编辑弹窗
+const handleCloseEditDialog = () => {
+  editDialogVisible.value = false;
+};
+
+// 提交编辑法院
+const submitEditCourt = async () => {
+  try {
+    const userStore = useUserStore();
+    const currentUser = userStore.userInfo;
+
+    // 构建完整的请求数据，自动添加不需要前端展示的参数
+    const now = new Date();
+    // 调整为北京时间（UTC+8）
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
+    const requestData = {
+      ...editCourtForm,
+      SEP_EUSER: currentUser?.username || 'admin', // 当前登录用户
+      SEP_EDATE: beijingTime.toISOString(), // 当前修改时间（北京时间）
+    };
+
+    const response = await updateCourtApi(requestData);
+    if (response.status === '1') {
+      ElMessage.success('法院修改成功');
+      editDialogVisible.value = false;
+      // 刷新列表
+      fetchCourtList();
+    } else {
+      ElMessage.error(response.error || '法院修改失败');
+    }
+  } catch (error) {
+    console.error('修改法院失败:', error);
+    ElMessage.error('网络错误，请稍后重试');
+  }
 };
 
 // 删除法院
-const handleDelete = (row: CourtApi.CourtInfo) => {
-  ElMessage.warning(`删除法院: ${row.FYQC} (功能开发中...)`);
+const handleDelete = async (row: CourtApi.CourtInfo) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该法院吗？', '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    
+    const response = await deleteCourtApi({ SEP_ID: row.SEP_ID });
+    if (response.status === '1') {
+      ElMessage.success('法院删除成功');
+      // 刷新列表
+      fetchCourtList();
+    } else {
+      ElMessage.error(response.error || '法院删除失败');
+    }
+  } catch (error) {
+    // 如果用户取消删除，不显示错误信息
+    if (error !== 'cancel') {
+      console.error('删除法院失败:', error);
+      ElMessage.error('网络错误，请稍后重试');
+    }
+  }
 };
 
 // 页面加载时获取数据
@@ -386,6 +441,59 @@ onMounted(() => {
           <div class="dialog-footer">
             <ElButton @click="handleCloseDialog">取消</ElButton>
             <ElButton type="primary" @click="submitAddCourt">确定</ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
+      <!-- 编辑法院弹窗 -->
+      <ElDialog
+        v-model="editDialogVisible"
+        title="编辑法院"
+        width="500px"
+        @close="handleCloseEditDialog"
+      >
+        <ElForm :model="editCourtForm" label-width="100px" :rules="rules">
+          <ElFormItem label="法院全称" prop="FYQC">
+            <ElInput
+              v-model="editCourtForm.FYQC"
+              placeholder="请输入法院全称"
+            />
+          </ElFormItem>
+          <ElFormItem label="法院简称" prop="FYJC">
+            <ElInput
+              v-model="editCourtForm.FYJC"
+              placeholder="请输入法院简称"
+            />
+          </ElFormItem>
+          <ElFormItem label="法院级别" prop="FYJB">
+            <ElInput
+              v-model="editCourtForm.FYJB"
+              placeholder="请输入法院级别"
+            />
+          </ElFormItem>
+          <ElFormItem label="地址">
+            <ElInput v-model="editCourtForm.DZ" placeholder="请输入地址" />
+          </ElFormItem>
+          <ElFormItem label="联系电话">
+            <ElInput
+              v-model="editCourtForm.LXDH"
+              placeholder="请输入联系电话"
+            />
+          </ElFormItem>
+          <ElFormItem label="负责人">
+            <ElInput v-model="editCourtForm.FZR" placeholder="请输入负责人" />
+          </ElFormItem>
+          <ElFormItem label="承办法官">
+            <ElInput
+              v-model="editCourtForm.CBFG"
+              placeholder="请输入承办法官"
+            />
+          </ElFormItem>
+        </ElForm>
+        <template #footer>
+          <div class="dialog-footer">
+            <ElButton @click="handleCloseEditDialog">取消</ElButton>
+            <ElButton type="primary" @click="submitEditCourt">确定</ElButton>
           </div>
         </template>
       </ElDialog>

@@ -11,6 +11,7 @@ export namespace CourtApi {
   /** 法院信息 */
   export interface CourtInfo {
     row: number;
+    SEP_ID: string; // 法院ID
     FYQC: string; // 法院全称
     FYJC: string; // 法院简称
     FYJB: string; // 法院级别
@@ -71,6 +72,67 @@ export interface AddCourtResponse {
 export async function addCourtApi(data: AddCourtRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
   return requestClient.post<AddCourtResponse>('/api/web/addCourt', [data], {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: {
+      token,
+    },
+  });
+}
+
+/** 更新法院请求 */
+export interface UpdateCourtRequest {
+  SEP_EUSER: string;
+  SEP_EDATE: string;
+  SEP_ID: string;
+  FYQC: string;
+  FYJC: string;
+  FYJB: string;
+  DZ: string;
+  LXDH: string;
+  FZR: string;
+  CBFG: string;
+}
+
+/** 更新法院响应 */
+export interface UpdateCourtResponse {
+  status: string;
+  error: string;
+}
+
+/**
+ * 更新法院信息
+ */
+export async function updateCourtApi(data: UpdateCourtRequest) {
+  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
+  return requestClient.post<UpdateCourtResponse>('/api/web/updateCourt', data, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: {
+      token,
+    },
+  });
+}
+
+/** 删除法院请求 */
+export interface DeleteCourtRequest {
+  SEP_ID: string;
+}
+
+/** 删除法院响应 */
+export interface DeleteCourtResponse {
+  status: string;
+  error: string;
+}
+
+/**
+ * 删除法院信息
+ */
+export async function deleteCourtApi(data: DeleteCourtRequest) {
+  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
+  return requestClient.post<DeleteCourtResponse>('/api/web/deleteCourt', data, {
     headers: {
       'Content-Type': 'application/json',
     },
