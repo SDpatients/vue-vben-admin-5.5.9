@@ -43,14 +43,18 @@
     "@vben/types": "workspace:*",
     "@vben/utils": "workspace:*",
     "@vueuse/core": "catalog:",
+    "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/editor-for-vue": "^5.1.12",
     "dayjs": "catalog:",
     "element-plus": "catalog:",
+    "markdown-it": "^14.1.0",
     "pinia": "catalog:",
     "vue": "catalog:",
     "vue-router": "catalog:",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "unplugin-element-plus": "catalog:"
   }
 }

@@ -1,27 +1,37 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
   ElCol,
   ElEmpty,
+  ElInput,
   ElMessage,
   ElRow,
   ElSkeleton,
 } from 'element-plus';
 
 import { getCaseDetailApi } from '#/api/core/case';
-import FileUploader from '../../../components/FileUploader.vue';
+import {
+  deleteAnnouncementApi,
+  getAnnouncementListApi,
+  publishAnnouncementApi,
+  revokeAnnouncementApi,
+  updateAnnouncementApi,
+} from '#/api/core/case-announcement';
 
+import FileUploader from '../../../components/FileUploader.vue';
+import RichTextEditor from '../../../components/RichTextEditor.vue';
 import StageFiveProcess from './components/StageFiveProcess.vue';
 import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
+import StageSevenProcess from './components/StageSevenProcess.vue';
+import StageSixProcess from './components/StageSixProcess.vue';
 import StageThreeProcess from './components/StageThreeProcess.vue';
 import StageTwoProcess from './components/StageTwoProcess.vue';
-import StageSixProcess from './components/StageSixProcess.vue';
-import StageSevenProcess from './components/StageSevenProcess.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -35,6 +45,215 @@ const editedData = reactive<any>({}); // 存储编辑后的数据
 
 // 当前选中的阶段索引
 const currentStageIndex = ref(0);
+
+// 页面内容类型切换
+const activeTab = ref('caseInfo'); // caseInfo: 案件基本信息, process: 流程处理, announcement: 公告管理
+
+// 公告管理相关
+const announcementData = reactive({
+  title: '',
+  content: '',
+  status: 'draft',
+});
+
+const announcements = ref<any[]>([]);
+const totalAnnouncements = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const loadingAnnouncements = ref(false);
+const showAnnouncementDialog = ref(false);
+const isEditingAnnouncement = ref(false);
+const currentAnnouncementId = ref<null | string>(null);
+const dialogTitle = ref('发布新公告');
+
+// 从后端获取公告列表
+const fetchAnnouncements = async () => {
+  loadingAnnouncements.value = true;
+  try {
+    const response = await getAnnouncementListApi(
+      caseId.value,
+      currentPage.value,
+      pageSize.value,
+    );
+    if (response.status === '1') {
+      announcements.value = response.data.records;
+      totalAnnouncements.value = response.data.count;
+    } else {
+      ElMessage.error(`获取公告列表失败：${response.error || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('获取公告列表失败:', error);
+    ElMessage.error('获取公告列表失败');
+  } finally {
+    loadingAnnouncements.value = false;
+  }
+};
+
+// 保存公告
+const saveAnnouncement = async () => {
+  try {
+    let response;
+
+    // 添加调试日志
+    console.log('=== 保存公告调试信息 ===');
+    console.log('1. 函数开始，响应式变量值:');
+    console.log('   isEditingAnnouncement.value:', isEditingAnnouncement.value);
+    console.log('   currentAnnouncementId.value:', currentAnnouncementId.value);
+    console.log('   announcementData:', announcementData);
+
+    // 在条件判断之前保存编辑状态和当前公告ID
+    const isEditing = isEditingAnnouncement.value;
+    const announcementId = currentAnnouncementId.value;
+
+    console.log('2. 保存到本地变量后的值:');
+    console.log('   isEditing:', isEditing);
+    console.log('   announcementId:', announcementId);
+
+    console.log('3. 条件判断结果:');
+    console.log('   isEditing && announcementId:', isEditing && announcementId);
+
+    if (isEditing && announcementId) {
+      console.log('4. 进入更新公告分支');
+      // 更新现有公告
+      response = await updateAnnouncementApi(announcementId, announcementData);
+      console.log('5. updateAnnouncementApi 响应:', response);
+      if (response.status === '1') {
+        ElMessage.success('公告更新成功');
+        await fetchAnnouncements();
+        closeAnnouncementDialog();
+      } else {
+        ElMessage.error(`公告更新失败：${response.error || '未知错误'}`);
+      }
+    } else {
+      console.log('4. 进入发布新公告分支');
+      // 发布新公告
+      response = await publishAnnouncementApi(caseId.value, announcementData);
+      console.log('5. publishAnnouncementApi 响应:', response);
+      if (response.status === '1') {
+        ElMessage.success('公告发布成功');
+        await fetchAnnouncements();
+        closeAnnouncementDialog();
+      } else {
+        ElMessage.error(`公告发布失败：${response.error || '未知错误'}`);
+      }
+    }
+  } catch (error) {
+    console.error('保存公告失败:', error);
+    ElMessage.error('保存公告失败');
+  }
+};
+
+// 发布公告
+const publishAnnouncement = async (announcementId: string) => {
+  try {
+    // 由于我们没有直接的发布API，我们可以跳转到编辑页面让用户修改状态
+    // 或者使用updateAnnouncementApi更新状态
+    ElMessage.info('请使用编辑功能修改公告状态');
+  } catch (error) {
+    console.error('发布公告失败:', error);
+    ElMessage.error('发布公告失败');
+  }
+};
+
+// 撤销公告
+const revokeAnnouncement = async (announcementId: string) => {
+  try {
+    const response = await revokeAnnouncementApi(announcementId);
+    if (response.status === '1') {
+      ElMessage.success('公告撤销成功');
+      await fetchAnnouncements();
+    } else {
+      ElMessage.error(`公告撤销失败：${response.error || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('撤销公告失败:', error);
+    ElMessage.error('撤销公告失败');
+  }
+};
+
+// 删除公告
+const deleteAnnouncement = async (announcementId: string) => {
+  try {
+    const response = await deleteAnnouncementApi(announcementId);
+    if (response.status === '1') {
+      ElMessage.success('公告删除成功');
+      await fetchAnnouncements();
+    } else {
+      ElMessage.error(`公告删除失败：${response.error || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('删除公告失败:', error);
+    ElMessage.error('删除公告失败');
+  }
+};
+
+// 编辑公告
+const editAnnouncement = (announcement: any) => {
+  console.log('=== 编辑公告调试信息 ===');
+  console.log('公告对象:', announcement);
+
+  isEditingAnnouncement.value = true;
+
+  // 检查公告对象的ID字段，可能是id或announcement_id
+  const announcementId =
+    announcement.id ||
+    announcement.announcement_id ||
+    announcement.announcementId;
+  console.log('提取到的公告ID:', announcementId);
+
+  currentAnnouncementId.value = announcementId;
+  dialogTitle.value = '编辑公告';
+  announcementData.title = announcement.title;
+  announcementData.content = announcement.content;
+  announcementData.status = announcement.status;
+  showAnnouncementDialog.value = true;
+};
+
+// 打开新增公告对话框
+const openNewAnnouncementDialog = () => {
+  isEditingAnnouncement.value = false;
+  currentAnnouncementId.value = null;
+  dialogTitle.value = '发布新公告';
+  resetAnnouncement();
+  showAnnouncementDialog.value = true;
+};
+
+// 关闭公告对话框
+const closeAnnouncementDialog = () => {
+  showAnnouncementDialog.value = false;
+  resetAnnouncement();
+};
+
+// 重置公告表单
+const resetAnnouncement = () => {
+  // 重置表单数据
+  announcementData.title = '';
+  announcementData.content = '';
+  announcementData.status = 'draft';
+  // 重置编辑状态
+  isEditingAnnouncement.value = false;
+  currentAnnouncementId.value = null;
+};
+
+// 监听分页变化
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+  fetchAnnouncements();
+};
+
+// 监听页面大小变化
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchAnnouncements();
+};
+
+// 当切换到公告管理标签页时，自动加载公告列表
+watch(activeTab, (newTab) => {
+  if (newTab === 'announcement') {
+    fetchAnnouncements();
+  }
+});
 
 // 破产流程阶段数据
 const processStages = ref([
@@ -1239,798 +1458,939 @@ onMounted(async () => {
       <h1 class="page-title">案件详情</h1>
     </div>
 
+    <!-- 内容类型切换 -->
+    <div class="content-tabs mb-6">
+      <ElRadioGroup v-model="activeTab" size="large" class="tabs-container">
+        <ElRadioButton value="caseInfo" class="tab-button">
+          案件基本信息
+        </ElRadioButton>
+        <ElRadioButton value="process" class="tab-button">
+          流程处理
+        </ElRadioButton>
+        <ElRadioButton value="announcement" class="tab-button">
+          公告管理
+        </ElRadioButton>
+      </ElRadioGroup>
+    </div>
+
     <!-- 案件基本信息卡片 -->
-    <ElCard class="case-info-card" shadow="hover">
-      <template #header>
-        <div class="card-header flex items-center justify-between">
-          <div class="flex items-center">
-            <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
-            <span class="text-lg font-semibold">案件基本信息</span>
+    <div v-if="activeTab === 'caseInfo'">
+      <ElCard class="case-info-card" shadow="hover">
+        <template #header>
+          <div class="card-header flex items-center justify-between">
+            <div class="flex items-center">
+              <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+              <span class="text-lg font-semibold">案件基本信息</span>
+            </div>
+            <div class="flex space-x-2">
+              <template v-if="!isEditing">
+                <ElButton type="primary" @click="startEditing">
+                  <Icon icon="lucide:pencil" class="mr-1" />
+                  编辑
+                </ElButton>
+              </template>
+              <template v-else>
+                <ElButton type="success" @click="saveEditing">
+                  <Icon icon="lucide:save" class="mr-1" />
+                  保存
+                </ElButton>
+                <ElButton @click="cancelEditing">
+                  <Icon icon="lucide:x" class="mr-1" />
+                  取消
+                </ElButton>
+              </template>
+              <ElButton
+                link
+                @click="isInfoCollapsed = !isInfoCollapsed"
+                :icon="Icon"
+              >
+                <Icon
+                  :icon="
+                    isInfoCollapsed
+                      ? 'lucide:chevron-down'
+                      : 'lucide:chevron-up'
+                  "
+                  class="ml-1"
+                />
+                {{ isInfoCollapsed ? '展开详情' : '收起详情' }}
+              </ElButton>
+            </div>
           </div>
-          <div class="flex space-x-2">
-            <template v-if="!isEditing">
-              <ElButton type="primary" @click="startEditing">
-                <Icon icon="lucide:pencil" class="mr-1" />
-                编辑
+        </template>
+
+        <div v-if="loading" class="loading-container">
+          <ElSkeleton :rows="5" animated />
+        </div>
+
+        <div v-else-if="caseDetail" class="case-info-content">
+          <!-- 关键信息概览 -->
+          <div class="key-info-overview mb-6">
+            <ElRow :gutter="20">
+              <ElCol :xs="24" :sm="8" :md="6">
+                <div
+                  class="key-info-item rounded-lg bg-green-50 p-4 text-center"
+                >
+                  <div class="key-info-label mb-1 text-sm text-gray-500">
+                    案号
+                  </div>
+                  <div class="key-info-value text-xl font-bold text-green-600">
+                    {{ caseDetail.案号 }}
+                  </div>
+                </div>
+              </ElCol>
+              <ElCol :xs="24" :sm="8" :md="6">
+                <div
+                  class="key-info-item rounded-lg bg-purple-50 p-4 text-center"
+                >
+                  <div class="key-info-label mb-1 text-sm text-gray-500">
+                    案件进度
+                  </div>
+                  <div class="key-info-value">
+                    <div
+                      :style="getCaseStatusStyle(caseDetail.案件进度)"
+                      class="inline-block rounded-full px-4 py-1 text-base font-semibold"
+                    >
+                      {{ caseDetail.案件进度 }}
+                    </div>
+                  </div>
+                </div>
+              </ElCol>
+              <ElCol :xs="24" :sm="8" :md="6">
+                <div
+                  class="key-info-item rounded-lg bg-orange-50 p-4 text-center"
+                >
+                  <div class="key-info-label mb-1 text-sm text-gray-500">
+                    受理法院
+                  </div>
+                  <div
+                    class="key-info-value text-lg font-semibold text-orange-600"
+                  >
+                    {{ caseDetail.受理法院 }}
+                  </div>
+                </div>
+              </ElCol>
+            </ElRow>
+          </div>
+
+          <!-- 按类别分组展示详细信息 - 可折叠 -->
+          <div
+            v-show="!isInfoCollapsed"
+            class="category-sections transition-all duration-300 ease-in-out"
+          >
+            <!-- 案件基本信息 -->
+            <ElCard class="category-card mb-4" shadow="hover">
+              <template #header>
+                <div class="category-header">
+                  <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                  <span class="text-md font-semibold">案件基本信息</span>
+                </div>
+              </template>
+              <div class="category-content">
+                <ElRow :gutter="20">
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案件名称"
+                          size="small"
+                          placeholder="请输入案件名称"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.案件名称
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.受理日期"
+                          type="date"
+                          size="small"
+                          placeholder="请选择受理日期"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.受理日期
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案件来源"
+                          size="small"
+                          placeholder="请输入案件来源"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.案件来源
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.受理法院"
+                          size="small"
+                          placeholder="请输入受理法院"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.受理法院
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案由"
+                          size="small"
+                          placeholder="请输入案由"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.案由
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案件进度"
+                          size="small"
+                          placeholder="请输入案件进度"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.案件进度
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.是否简化审"
+                          size="small"
+                          placeholder="请输入是否简化审"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.是否简化审
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                </ElRow>
+              </div>
+            </ElCard>
+
+            <!-- 时间相关信息 -->
+            <ElCard class="category-card mb-4" shadow="hover">
+              <template #header>
+                <div class="category-header">
+                  <Icon icon="lucide:calendar" class="mr-2 text-green-500" />
+                  <span class="text-md font-semibold">时间相关信息</span>
+                </div>
+              </template>
+              <div class="category-content">
+                <ElRow :gutter="20">
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.立案日期"
+                          type="date"
+                          size="small"
+                          placeholder="请选择立案日期"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.立案日期
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.结案日期"
+                          type="date"
+                          size="small"
+                          placeholder="请选择结案日期"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.结案日期
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.破产时间"
+                          type="date"
+                          size="small"
+                          placeholder="请选择破产时间"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.破产时间
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.终结时间"
+                          type="date"
+                          size="small"
+                          placeholder="请选择终结时间"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.终结时间
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.注销时间"
+                          type="date"
+                          size="small"
+                          placeholder="请选择注销时间"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.注销时间
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.归档时间"
+                          type="date"
+                          size="small"
+                          placeholder="请选择归档时间"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.归档时间
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.债权申报截止时间"
+                          type="date"
+                          size="small"
+                          placeholder="请选择债权申报截止时间"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.债权申报截止时间
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                </ElRow>
+              </div>
+            </ElCard>
+
+            <!-- 管理人信息 -->
+            <ElCard class="category-card mb-4" shadow="hover">
+              <template #header>
+                <div class="category-header">
+                  <Icon icon="lucide:users" class="mr-2 text-purple-500" />
+                  <span class="text-md font-semibold">管理人信息</span>
+                </div>
+              </template>
+              <div class="category-content">
+                <ElRow :gutter="20">
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.管理人负责人"
+                          size="small"
+                          placeholder="请输入管理人负责人"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.管理人负责人
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.管理人类型"
+                          size="small"
+                          placeholder="请输入管理人类型"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.管理人类型
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.管理人状态"
+                          size="small"
+                          placeholder="请输入管理人状态"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.管理人状态
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.律师事务所"
+                          size="small"
+                          placeholder="请输入律师事务所"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.律师事务所
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                </ElRow>
+              </div>
+            </ElCard>
+
+            <!-- 债权人信息 -->
+            <ElCard class="category-card mb-4" shadow="hover">
+              <template #header>
+                <div class="category-header">
+                  <Icon icon="lucide:handshake" class="mr-2 text-orange-500" />
+                  <span class="text-md font-semibold">债权人信息</span>
+                </div>
+              </template>
+              <div class="category-content">
+                <ElRow :gutter="20">
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.债权人名称"
+                          size="small"
+                          placeholder="请输入债权人名称"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.债权人名称
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.债权人类型"
+                          size="small"
+                          placeholder="请输入债权人类型"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.债权人类型
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.联系电话"
+                          size="small"
+                          placeholder="请输入联系电话"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.联系电话
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.联系邮箱"
+                          size="small"
+                          placeholder="请输入联系邮箱"
+                          style="width: 160px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.联系邮箱
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="24" :md="16" :lg="12">
+                    <div
+                      class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                    >
+                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.办公地址"
+                          size="small"
+                          placeholder="请输入办公地址"
+                          style="width: 300px"
+                        />
+                      </template>
+                      <template v-else>
+                        <span class="detail-info-value text-gray-900">{{
+                          caseDetail.办公地址
+                        }}</span>
+                      </template>
+                    </div>
+                  </ElCol>
+                </ElRow>
+              </div>
+            </ElCard>
+          </div>
+        </div>
+
+        <div v-else class="error-container">
+          <ElEmpty description="案件信息加载失败" />
+        </div>
+      </ElCard>
+
+      <!-- 文件上传组件 -->
+      <FileUploader :case-id="caseId" multiple />
+    </div>
+
+    <!-- 公告管理 -->
+    <div v-if="activeTab === 'announcement'">
+      <ElCard class="case-info-card" shadow="hover">
+        <template #header>
+          <div class="card-header flex items-center justify-between">
+            <div class="flex items-center">
+              <Icon icon="lucide:bullhorn" class="mr-2 text-blue-500" />
+              <span class="text-lg font-semibold">公告管理</span>
+            </div>
+            <div class="flex space-x-2">
+              <ElButton type="primary" @click="openNewAnnouncementDialog">
+                <Icon icon="lucide:plus" class="mr-1" />
+                发布新公告
               </ElButton>
-            </template>
-            <template v-else>
-              <ElButton type="success" @click="saveEditing">
-                <Icon icon="lucide:save" class="mr-1" />
-                保存
-              </ElButton>
-              <ElButton @click="cancelEditing">
-                <Icon icon="lucide:x" class="mr-1" />
-                取消
-              </ElButton>
-            </template>
+            </div>
+          </div>
+        </template>
+
+        <!-- 公告列表 -->
+        <div class="announcement-list-container">
+          <ElTable
+            v-loading="loadingAnnouncements"
+            :data="announcements"
+            border
+            stripe
+            style="width: 100%"
+            class="mb-4"
+          >
+            <ElTableColumn prop="title" label="公告标题" min-width="200" />
+            <ElTableColumn prop="publishDate" label="发布日期" width="180" />
+            <ElTableColumn prop="author" label="发布人" width="120" />
+            <ElTableColumn prop="status" label="状态" width="120">
+              <template #default="scope">
+                <ElTag
+                  :type="
+                    scope.row.status === 'published' ? 'success' : 'warning'
+                  "
+                >
+                  {{ scope.row.status === 'published' ? '已发布' : '草稿' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="操作" width="250" fixed="right">
+              <template #default="scope">
+                <ElButton
+                  v-if="scope.row.status === 'draft'"
+                  type="primary"
+                  size="small"
+                  @click="publishAnnouncement(scope.row.id)"
+                >
+                  发布
+                </ElButton>
+                <ElButton
+                  v-else
+                  type="warning"
+                  size="small"
+                  @click="revokeAnnouncement(scope.row.id)"
+                >
+                  撤销
+                </ElButton>
+                <ElButton
+                  type="info"
+                  size="small"
+                  @click="editAnnouncement(scope.row)"
+                  style="margin-left: 8px"
+                >
+                  编辑
+                </ElButton>
+                <ElPopconfirm
+                  title="确定要删除这条公告吗？"
+                  @confirm="deleteAnnouncement(scope.row.id)"
+                >
+                  <ElButton type="danger" size="small" style="margin-left: 8px">
+                    删除
+                  </ElButton>
+                </ElPopconfirm>
+              </template>
+            </ElTableColumn>
+          </ElTable>
+
+          <!-- 分页 -->
+          <div class="pagination-container flex justify-end">
+            <ElPagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="totalAnnouncements"
+              @size-change="handlePageSizeChange"
+              @current-change="handlePageChange"
+            />
+          </div>
+        </div>
+      </ElCard>
+
+      <!-- 公告编辑对话框 -->
+      <ElDialog
+        v-model="showAnnouncementDialog"
+        :title="dialogTitle"
+        width="80%"
+        destroy-on-close
+      >
+        <div class="announcement-editor-container">
+          <div class="mb-4">
+            <ElForm label-width="80px">
+              <ElFormItem label="公告标题" required>
+                <ElInput
+                  v-model="announcementData.title"
+                  placeholder="请输入公告标题"
+                  size="large"
+                />
+              </ElFormItem>
+              <ElFormItem label="公告内容" required>
+                <RichTextEditor
+                  v-model="announcementData.content"
+                  placeholder="请输入公告内容"
+                  height="400px"
+                />
+              </ElFormItem>
+              <ElFormItem label="状态">
+                <ElSelect v-model="announcementData.status" size="large">
+                  <ElOption label="草稿" value="draft" />
+                  <ElOption label="已发布" value="published" />
+                </ElSelect>
+              </ElFormItem>
+            </ElForm>
+          </div>
+        </div>
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="closeAnnouncementDialog">取消</ElButton>
+            <ElButton type="primary" @click="saveAnnouncement">确定</ElButton>
+          </span>
+        </template>
+      </ElDialog>
+    </div>
+
+    <!-- 破产流程阶段视图 -->
+    <div v-if="activeTab === 'process'">
+      <ElCard class="process-stage-card" shadow="never">
+        <template #header>
+          <div class="card-header">
+            <Icon icon="lucide:workflow" class="mr-2" />
+            <span>破产流程阶段</span>
+          </div>
+        </template>
+
+        <!-- 阶段导航 -->
+        <div class="stage-navigation mb-6">
+          <!-- 阶段标题和进度 -->
+          <div class="stage-header mb-4">
+            <h3 class="mb-2 text-xl font-semibold text-gray-800">
+              {{ currentStage?.description }}：{{ currentStage?.title }}
+            </h3>
+            <div class="stage-progress-info flex items-center justify-between">
+              <span class="text-sm text-gray-600">
+                当前阶段：{{ currentStageIndex + 1 }}/{{ processStages.length }}
+              </span>
+              <span class="text-sm text-gray-600">
+                任务完成：{{
+                  currentStage?.tasks?.filter((t) => t.completed).length || 0
+                }}/{{ currentStage?.tasks?.length || 0 }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 导航控制 -->
+          <div class="navigation-controls flex items-center justify-between">
             <ElButton
-              link
-              @click="isInfoCollapsed = !isInfoCollapsed"
+              :disabled="currentStageIndex === 0"
+              @click="switchStage(currentStageIndex - 1)"
+              type="primary"
               :icon="Icon"
             >
-              <Icon
-                :icon="
-                  isInfoCollapsed ? 'lucide:chevron-down' : 'lucide:chevron-up'
-                "
-                class="ml-1"
-              />
-              {{ isInfoCollapsed ? '展开详情' : '收起详情' }}
+              <Icon icon="lucide:chevron-left" class="mr-1" />
+              上一阶段
+            </ElButton>
+
+            <!-- 阶段指示器 -->
+            <div class="stage-indicators flex space-x-3">
+              <div
+                v-for="(stage, index) in processStages"
+                :key="stage.id"
+                @click="switchStage(index)"
+                class="stage-indicator-item cursor-pointer text-center transition-all"
+                :class="[
+                  index === currentStageIndex
+                    ? 'font-semibold text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700',
+                ]"
+              >
+                <div
+                  class="stage-dot mx-auto mb-1 h-3 w-3 rounded-full transition-all"
+                  :class="[
+                    index === currentStageIndex
+                      ? 'scale-125 bg-blue-500'
+                      : 'bg-gray-300 hover:bg-gray-400',
+                  ]"
+                ></div>
+                <span class="text-xs">{{ stage.description }}</span>
+              </div>
+            </div>
+
+            <ElButton
+              :disabled="currentStageIndex === processStages.length - 1"
+              @click="switchStage(currentStageIndex + 1)"
+              type="primary"
+              :icon="Icon"
+            >
+              下一阶段
+              <Icon icon="lucide:chevron-right" class="ml-1" />
             </ElButton>
           </div>
         </div>
-      </template>
 
-      <div v-if="loading" class="loading-container">
-        <ElSkeleton :rows="5" animated />
-      </div>
+        <!-- 动态阶段流程组件 -->
+        <StageOneProcess
+          :case-id="caseId"
+          v-if="currentStageIndex === 0"
+          @task-status-changed="handleTaskStatusChanged"
+        />
 
-      <div v-else-if="caseDetail" class="case-info-content">
-        <!-- 关键信息概览 -->
-        <div class="key-info-overview mb-6">
-          <ElRow :gutter="20">
-            <ElCol :xs="24" :sm="8" :md="6">
-              <div class="key-info-item rounded-lg bg-green-50 p-4 text-center">
-                <div class="key-info-label mb-1 text-sm text-gray-500">
-                  案号
-                </div>
-                <div class="key-info-value text-xl font-bold text-green-600">
-                  {{ caseDetail.案号 }}
-                </div>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="8" :md="6">
-              <div
-                class="key-info-item rounded-lg bg-purple-50 p-4 text-center"
-              >
-                <div class="key-info-label mb-1 text-sm text-gray-500">
-                  案件进度
-                </div>
-                <div class="key-info-value">
-                  <div
-                    :style="getCaseStatusStyle(caseDetail.案件进度)"
-                    class="inline-block rounded-full px-4 py-1 text-base font-semibold"
-                  >
-                    {{ caseDetail.案件进度 }}
-                  </div>
-                </div>
-              </div>
-            </ElCol>
-            <ElCol :xs="24" :sm="8" :md="6">
-              <div
-                class="key-info-item rounded-lg bg-orange-50 p-4 text-center"
-              >
-                <div class="key-info-label mb-1 text-sm text-gray-500">
-                  受理法院
-                </div>
-                <div
-                  class="key-info-value text-lg font-semibold text-orange-600"
-                >
-                  {{ caseDetail.受理法院 }}
-                </div>
-              </div>
-            </ElCol>
-          </ElRow>
-        </div>
+        <StageTwoProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 1"
+          @task-status-changed="handleTaskStatusChanged"
+        />
 
-        <!-- 按类别分组展示详细信息 - 可折叠 -->
-        <div
-          v-show="!isInfoCollapsed"
-          class="category-sections transition-all duration-300 ease-in-out"
-        >
-          <!-- 案件基本信息 -->
-          <ElCard class="category-card mb-4" shadow="hover">
+        <StageThreeProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 2"
+          @task-status-changed="handleTaskStatusChanged"
+        />
+
+        <StageFourProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 3"
+          @task-status-changed="handleTaskStatusChanged"
+        />
+
+        <StageFiveProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 4"
+          @task-status-changed="handleTaskStatusChanged"
+        />
+
+        <StageSixProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 5"
+          @task-status-changed="handleTaskStatusChanged"
+        />
+
+        <StageSevenProcess
+          :case-id="caseId"
+          v-else-if="currentStageIndex === 6"
+          @task-status-changed="handleTaskStatusChanged"
+        />
+
+        <!-- 其他阶段占位组件（待创建） -->
+        <div v-else class="stage-placeholder">
+          <ElCard shadow="hover">
             <template #header>
-              <div class="category-header">
-                <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
-                <span class="text-md font-semibold">案件基本信息</span>
+              <div class="card-header">
+                <Icon icon="lucide:construction" class="mr-2" />
+                <span>{{ currentStage?.title || '未知阶段' }}</span>
               </div>
             </template>
-            <div class="category-content">
-              <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.案件名称"
-                        size="small"
-                        placeholder="请输入案件名称"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.案件名称
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.受理日期"
-                        type="date"
-                        size="small"
-                        placeholder="请选择受理日期"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.受理日期
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.案件来源"
-                        size="small"
-                        placeholder="请输入案件来源"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.案件来源
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.受理法院"
-                        size="small"
-                        placeholder="请输入受理法院"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.受理法院
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">案由：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.案由"
-                        size="small"
-                        placeholder="请输入案由"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.案由
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.案件进度"
-                        size="small"
-                        placeholder="请输入案件进度"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.案件进度
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.是否简化审"
-                        size="small"
-                        placeholder="请输入是否简化审"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.是否简化审
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-              </ElRow>
-            </div>
-          </ElCard>
-
-          <!-- 时间相关信息 -->
-          <ElCard class="category-card mb-4" shadow="hover">
-            <template #header>
-              <div class="category-header">
-                <Icon icon="lucide:calendar" class="mr-2 text-green-500" />
-                <span class="text-md font-semibold">时间相关信息</span>
-              </div>
-            </template>
-            <div class="category-content">
-              <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >立案日期：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.立案日期"
-                        type="date"
-                        size="small"
-                        placeholder="请选择立案日期"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.立案日期
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >结案日期：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.结案日期"
-                        type="date"
-                        size="small"
-                        placeholder="请选择结案日期"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.结案日期
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >破产时间：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.破产时间"
-                        type="date"
-                        size="small"
-                        placeholder="请选择破产时间"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.破产时间
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >终结时间：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.终结时间"
-                        type="date"
-                        size="small"
-                        placeholder="请选择终结时间"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.终结时间
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >注销时间：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.注销时间"
-                        type="date"
-                        size="small"
-                        placeholder="请选择注销时间"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.注销时间
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >归档时间：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.归档时间"
-                        type="date"
-                        size="small"
-                        placeholder="请选择归档时间"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.归档时间
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >债权申报截止时间：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElDatePicker
-                        v-model="editedData.债权申报截止时间"
-                        type="date"
-                        size="small"
-                        placeholder="请选择债权申报截止时间"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.债权申报截止时间
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-              </ElRow>
-            </div>
-          </ElCard>
-
-          <!-- 管理人信息 -->
-          <ElCard class="category-card mb-4" shadow="hover">
-            <template #header>
-              <div class="category-header">
-                <Icon icon="lucide:users" class="mr-2 text-purple-500" />
-                <span class="text-md font-semibold">管理人信息</span>
-              </div>
-            </template>
-            <div class="category-content">
-              <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >管理人负责人：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.管理人负责人"
-                        size="small"
-                        placeholder="请输入管理人负责人"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.管理人负责人
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >管理人类型：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.管理人类型"
-                        size="small"
-                        placeholder="请输入管理人类型"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.管理人类型
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >管理人状态：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.管理人状态"
-                        size="small"
-                        placeholder="请输入管理人状态"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.管理人状态
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600"
-                      >律师事务所：</span
-                    >
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.律师事务所"
-                        size="small"
-                        placeholder="请输入律师事务所"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.律师事务所
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-              </ElRow>
-            </div>
-          </ElCard>
-
-          <!-- 债权人信息 -->
-          <ElCard class="category-card mb-4" shadow="hover">
-            <template #header>
-              <div class="category-header">
-                <Icon icon="lucide:handshake" class="mr-2 text-orange-500" />
-                <span class="text-md font-semibold">债权人信息</span>
-              </div>
-            </template>
-            <div class="category-content">
-              <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.债权人名称"
-                        size="small"
-                        placeholder="请输入债权人名称"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.债权人名称
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.债权人类型"
-                        size="small"
-                        placeholder="请输入债权人类型"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.债权人类型
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.联系电话"
-                        size="small"
-                        placeholder="请输入联系电话"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.联系电话
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8" :lg="6">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.联系邮箱"
-                        size="small"
-                        placeholder="请输入联系邮箱"
-                        style="width: 160px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.联系邮箱
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="24" :md="16" :lg="12">
-                  <div
-                    class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
-                  >
-                    <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
-                    <template v-if="isEditing">
-                      <ElInput
-                        v-model="editedData.办公地址"
-                        size="small"
-                        placeholder="请输入办公地址"
-                        style="width: 300px"
-                      />
-                    </template>
-                    <template v-else>
-                      <span class="detail-info-value text-gray-900">{{
-                        caseDetail.办公地址
-                      }}</span>
-                    </template>
-                  </div>
-                </ElCol>
-              </ElRow>
+            <div class="placeholder-content py-8 text-center">
+              <Icon
+                icon="lucide:file-text"
+                class="mb-3 text-4xl text-gray-300"
+              />
+              <p class="mb-4 text-gray-500">该阶段流程组件尚未创建</p>
+              <ElButton type="primary" disabled> 组件开发中 </ElButton>
             </div>
           </ElCard>
         </div>
-      </div>
-
-      <div v-else class="error-container">
-        <ElEmpty description="案件信息加载失败" />
-      </div>
-    </ElCard>
-
-    <!-- 文件上传组件 -->
-    <FileUploader :case-id="caseId" multiple />
-
-    <!-- 破产流程阶段视图 -->
-    <ElCard class="process-stage-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <Icon icon="lucide:workflow" class="mr-2" />
-          <span>破产流程阶段</span>
-        </div>
-      </template>
-
-      <!-- 阶段导航 -->
-      <div class="stage-navigation mb-6">
-        <!-- 阶段标题和进度 -->
-        <div class="stage-header mb-4">
-          <h3 class="mb-2 text-xl font-semibold text-gray-800">
-            {{ currentStage?.description }}：{{ currentStage?.title }}
-          </h3>
-          <div class="stage-progress-info flex items-center justify-between">
-            <span class="text-sm text-gray-600">
-              当前阶段：{{ currentStageIndex + 1 }}/{{ processStages.length }}
-            </span>
-            <span class="text-sm text-gray-600">
-              任务完成：{{
-                currentStage?.tasks?.filter((t) => t.completed).length || 0
-              }}/{{ currentStage?.tasks?.length || 0 }}
-            </span>
-          </div>
-        </div>
-
-        <!-- 导航控制 -->
-        <div class="navigation-controls flex items-center justify-between">
-          <ElButton
-            :disabled="currentStageIndex === 0"
-            @click="switchStage(currentStageIndex - 1)"
-            type="primary"
-            :icon="Icon"
-          >
-            <Icon icon="lucide:chevron-left" class="mr-1" />
-            上一阶段
-          </ElButton>
-
-          <!-- 阶段指示器 -->
-          <div class="stage-indicators flex space-x-3">
-            <div
-              v-for="(stage, index) in processStages"
-              :key="stage.id"
-              @click="switchStage(index)"
-              class="stage-indicator-item cursor-pointer text-center transition-all"
-              :class="[
-                index === currentStageIndex
-                  ? 'font-semibold text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700',
-              ]"
-            >
-              <div
-                class="stage-dot mx-auto mb-1 h-3 w-3 rounded-full transition-all"
-                :class="[
-                  index === currentStageIndex
-                    ? 'scale-125 bg-blue-500'
-                    : 'bg-gray-300 hover:bg-gray-400',
-                ]"
-              ></div>
-              <span class="text-xs">{{ stage.description }}</span>
-            </div>
-          </div>
-
-          <ElButton
-            :disabled="currentStageIndex === processStages.length - 1"
-            @click="switchStage(currentStageIndex + 1)"
-            type="primary"
-            :icon="Icon"
-          >
-            下一阶段
-            <Icon icon="lucide:chevron-right" class="ml-1" />
-          </ElButton>
-        </div>
-      </div>
-
-      <!-- 动态阶段流程组件 -->
-      <StageOneProcess
-        :case-id="caseId"
-        v-if="currentStageIndex === 0"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageTwoProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 1"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageThreeProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 2"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageFourProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 3"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageFiveProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 4"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageSixProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 5"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <StageSevenProcess
-        :case-id="caseId"
-        v-else-if="currentStageIndex === 6"
-        @task-status-changed="handleTaskStatusChanged"
-      />
-
-      <!-- 其他阶段占位组件（待创建） -->
-      <div v-else class="stage-placeholder">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <Icon icon="lucide:construction" class="mr-2" />
-              <span>{{ currentStage?.title || '未知阶段' }}</span>
-            </div>
-          </template>
-          <div class="placeholder-content py-8 text-center">
-            <Icon icon="lucide:file-text" class="mb-3 text-4xl text-gray-300" />
-            <p class="mb-4 text-gray-500">该阶段流程组件尚未创建</p>
-            <ElButton type="primary" disabled> 组件开发中 </ElButton>
-          </div>
-        </ElCard>
-      </div>
-    </ElCard>
+      </ElCard>
+    </div>
   </div>
 </template>
 
@@ -2054,6 +2414,24 @@ onMounted(async () => {
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+}
+
+.content-tabs {
+  margin-bottom: 20px;
+}
+
+.tabs-container {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabs-container :deep(.el-radio-button) {
+  margin: 0 !important;
+}
+
+.tab-button {
+  min-width: 120px;
 }
 
 .case-info-card,
@@ -2122,6 +2500,14 @@ onMounted(async () => {
 .loading-container {
   padding: 20px;
   background: #ffffff;
+}
+
+.announcement-editor-container {
+  padding: 20px;
+}
+
+.editor-wrapper {
+  width: 100%;
 }
 
 .error-container {

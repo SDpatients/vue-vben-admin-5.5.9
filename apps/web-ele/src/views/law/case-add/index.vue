@@ -94,17 +94,16 @@ const handleFileChange = async (event: Event) => {
           duration: 0,
         });
 
-        // 这里使用固定token，实际应用中应从认证状态获取
-        const token = '6d014638f3a8e59d656b9c3e83b5501a';
-        const response = await uploadCaseFileApi(token, file);
+        // 调用上传API
+        const response = await uploadCaseFileApi(file, ''); // 案件添加时可能还没有SEP_ID，暂时传递空字符串
 
         loading.close();
 
         if (response.status === '1') {
-          // 上传成功，将文件信息添加到列表
+          // 上传成功，将文件信息添加到列表，兼容不同的API响应格式
           uploadedFiles.value.push({
             name: file.name,
-            url: response.data?.fileUrl || '',
+            url: response.data?.url || response.data?.fileUrl || '',
             file,
             fileId: response.data?.fileId || '',
           });
@@ -200,7 +199,7 @@ const submitForm = async () => {
 
     // 调用API，使用Promise.race实现超时控制
     const result = await Promise.race([
-      addOneCaseApi('6d014638f3a8e59d656b9c3e83b5501a', form),
+      addOneCaseApi(form),
       timeoutPromise,
     ]);
 

@@ -118,10 +118,12 @@ const getStatusClass = (status: CaseProcessApi.TaskStatus) => {
 
 // 编辑任务
 const editTask = (taskId: string) => {
-  // 从当前caseDetail中获取SEP_ID和案号，这里假设caseDetail可以通过某种方式获取
-  // 由于当前组件没有直接访问caseDetail，我需要修改调用方式或添加props
-  // 暂时先按原方式跳转，后面再处理案件信息的传递
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
+};
+
+// 新增任务
+const addTask = (taskId: string) => {
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
 };
 
 // 任务类型映射到OperateType
@@ -149,11 +151,18 @@ const completeTask = async (taskId: string) => {
       return;
     }
 
+    // 从本地存储获取操作人信息
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    const SEP_EDATE = new Date().toISOString();
+
     // 准备统一API参数
     const params = {
       SEP_LD: props.caseId,
       ZT: '1', // 完成状态
       OperateType: taskTypeToOperateType[taskId] || '0',
+      SEP_EDATE,
+      SEP_EUSER,
       ...task, // 上传所有任务数据
     };
 
@@ -198,8 +207,8 @@ const skipTask = async (taskId: string) => {
 
     // 从本地存储获取操作人信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
-    const sep_auser = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    const sep_adate = new Date().toISOString();
+    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    const SEP_EDATE = new Date().toISOString();
 
     let addResponse: any;
     let updateResult: any;
@@ -212,13 +221,14 @@ const skipTask = async (taskId: string) => {
           // 准备法律程序默认数据
           const legalProcedureData = {
             sep_ld: props.caseId,
-            sep_auser,
-            sep_adate,
+            SEP_EUSER,
+            SEP_EDATE,
             cxlx: '',
             cxnr: '',
-            zhrq: sep_adate,
+            zhrq: SEP_EDATE,
             fzr: '',
             zt: '2', // 跳过状态默认为2
+            OperateType: taskTypeToOperateType[taskId] || '4',
           };
 
           // 调用添加法律程序API
@@ -232,13 +242,14 @@ const skipTask = async (taskId: string) => {
           // 准备管理制度默认数据
           const managementData = {
             sep_ld: props.caseId,
-            sep_auser,
-            sep_adate,
+            SEP_EUSER,
+            SEP_EDATE,
             zdlx: '',
             zdmc: '',
             zdnr: '',
-            sxrq: sep_adate,
+            sxrq: SEP_EDATE,
             zt: '2', // 跳过状态默认为2
+            OperateType: taskTypeToOperateType[taskId] || '2',
           };
 
           // 调用添加管理制度API
@@ -251,14 +262,15 @@ const skipTask = async (taskId: string) => {
           // 准备印章管理默认数据
           const sealManagementData = {
             sep_ld: props.caseId,
-            sep_auser,
-            sep_adate,
+            SEP_EUSER,
+            SEP_EDATE,
             yzlx: '',
             yzbh: '',
             yzyblj: '',
             zt: '2', // 跳过状态默认为2
-            barq: sep_adate,
+            barq: SEP_EDATE,
             yzmc: '',
+            OperateType: taskTypeToOperateType[taskId] || '3',
           };
 
           // 调用添加印章管理API
@@ -272,14 +284,15 @@ const skipTask = async (taskId: string) => {
           // 准备工作计划默认数据
           const workPlanData = {
             sep_ld: props.caseId,
-            sep_auser,
-            sep_adate,
+            SEP_EUSER,
+            SEP_EDATE,
             jhlx: '',
             jhnr: '',
-            ksrq: sep_adate,
-            jsrq: sep_adate,
+            ksrq: SEP_EDATE,
+            jsrq: SEP_EDATE,
             fzr: '',
             zt: '2', // 跳过状态默认为2
+            OperateType: taskTypeToOperateType[taskId] || '1',
           };
 
           // 调用添加工作计划API
@@ -299,9 +312,10 @@ const skipTask = async (taskId: string) => {
             zqshzcy: '', // 债权审核组成员，默认空
             ldrszcy: '', // 劳动人事组成员，默认空
             zzqlzcy: '', // 资产清理组成员，默认空
-            sepauser: sep_auser, // 从本地存储获取操作人
-            sepadate: sep_adate, // 操作日期，当前时间
+            SEP_EUSER, // 从本地存储获取操作人
+            SEP_EDATE, // 操作日期，当前时间
             ZT: '2', // 状态字段，默认为2（跳过状态）
+            OperateType: taskTypeToOperateType[taskId] || '0',
           };
 
           // 动态导入addWorkTeamApi，避免循环依赖
@@ -328,6 +342,8 @@ const skipTask = async (taskId: string) => {
         SEP_LD: props.caseId,
         ZT: '2', // 跳过状态
         OperateType: taskTypeToOperateType[taskId] || '0',
+        SEP_EDATE,
+        SEP_EUSER,
       };
 
       // 调用统一API
@@ -366,11 +382,18 @@ const withdrawSkipTask = async (taskId: string) => {
       type: 'warning',
     });
 
+    // 从本地存储获取操作人信息
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    const SEP_EDATE = new Date().toISOString();
+
     // 准备统一API参数
     const params = {
       SEP_LD: props.caseId,
       ZT: '0', // 未确认状态
       OperateType: taskTypeToOperateType[taskId] || '0',
+      SEP_EDATE,
+      SEP_EUSER,
     };
 
     // 调用统一API

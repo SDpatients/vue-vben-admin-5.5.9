@@ -350,7 +350,7 @@ const exportBankAccountData = () => {
                       :key="column"
                       :span="12"
                     >
-                      <ElCheckbox :label="column">
+                      <ElCheckbox :value="column">
                         {{ column }}
                       </ElCheckbox>
                     </ElCol>

@@ -117,7 +117,7 @@ export async function addWorkTeamApi(data: WorkTeamApi.AddWorkTeamRequest) {
 /**
  * 更新工作团队
  */
-export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest[]) {
+export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
   const token = 'f438aa4e6ec2436a8b6adf70f0062670';
   return requestClient.post<WorkTeamApi.UpdateWorkTeamResponse>(
     '/api/web/update1',

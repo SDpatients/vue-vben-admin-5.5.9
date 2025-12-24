@@ -5,6 +5,8 @@
     "apiTest": "后端接口测试",
     "caseManagement": "案件管理",
     "caseDetail": "案件详情",
-    "taskEdit": "任务编辑"
+    "taskEdit": "任务编辑",
+    "serviceOfDocuments": "文书送达",
+    "serviceOfDocumentsAdd": "新增文书送达"
   }
 }

@@ -48,13 +48,12 @@ export const useAuthStore = defineStore('auth', () => {
           homePath: preferences.app.defaultHomePath,
           avatar: '', // 默认头像
           desc: '', // 用户描述
-          token: '', // accessToken
+          token: backendUserInfo.token, // 使用后端返回的accessToken
           // 其他必要字段
         };
 
-        // 设置一个模拟的accessToken（实际项目中应该从后端获取）
-        const mockAccessToken = `mock_token_${Date.now()}`;
-        accessStore.setAccessToken(mockAccessToken);
+        // 设置从后端获取的accessToken
+        accessStore.setAccessToken(backendUserInfo.token);
 
         // 设置用户信息
         userStore.setUserInfo(userInfo);

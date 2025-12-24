@@ -73,6 +73,26 @@ const fileList = ref<UploadFile[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 
+const previewVisible = ref(false);
+const previewFileName = ref('');
+const previewError = ref('');
+const previewBlobUrl = ref('');
+
+const previewUrl = computed(() => {
+  const token =
+    localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
+  const encodedFileName = encodeURIComponent(previewFileName.value);
+  return `http://192.168.0.107:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
+});
+
+const fileType = computed(() => {
+  return previewFileName.value.split('.').pop()?.toLowerCase() || '';
+});
+
+const isImage = computed(() => {
+  return ['gif', 'jpeg', 'jpg', 'png'].includes(fileType.value);
+});
+
 // 计算属性：转换文件大小为可读格式
 const formatFileSize = (size: number | undefined): string => {
   const safeSize = size || 0;
@@ -96,7 +116,7 @@ const token = '17fce65ebabe3088ab45b97f77f91b5a';
 // 初始化文件列表
 if (props.initialFiles && props.initialFiles.length > 0) {
   fileList.value = props.initialFiles.map((file) => ({
-    uid: Number(file.id),
+    uid: Number(file.id) || Date.now() + Math.random(),
     name: file.name,
     url: file.url,
     size: file.size,
@@ -109,11 +129,11 @@ if (props.initialFiles && props.initialFiles.length > 0) {
 const fetchFileList = async () => {
   uploading.value = true;
   try {
-    const response = await getCaseFilesApi(token, props.caseId);
-    if (response.status === '1' || response.data?.status === '1') {
-      const files = response.data?.data?.records || [];
+    const response = await getCaseFilesApi(props.caseId);
+    if (response.status === '1') {
+      const files = response.data?.records || [];
       fileList.value = files.map((file: any) => ({
-        uid: Number(file.id),
+        uid: Number(file.id) || Date.now() + Math.random(),
         name: file.name,
         url: file.url,
         size: file.size,
@@ -122,9 +142,7 @@ const fetchFileList = async () => {
       }));
       emit('file-list-change', fileList.value);
     } else {
-      ElMessage.error(
-        `获取文件列表失败：${response.error || response.data?.error || '未知错误'}`,
-      );
+      ElMessage.error(`获取文件列表失败：${response.error || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`获取文件列表失败：${error.message || '未知错误'}`);
@@ -172,22 +190,22 @@ const handleUpload = async (options: any) => {
     }, 200);
 
     // 调用上传API
-    const response = await uploadCaseFileApi(token, rawFile, props.caseId);
+    const response = await uploadCaseFileApi(rawFile, props.caseId);
 
     // 清除进度模拟
     clearInterval(progressInterval);
     uploadProgress.value = 100;
     options.onProgress?.({ percent: 100 });
 
-    if (response.status === '1' || response.data?.status === '1') {
+    if (response.status === '1') {
       // 上传成功
       const uploadedFile = {
         uid: Date.now(),
         name: rawFile.name,
-        url: response.data?.data?.url || '',
+        url: response.data?.url || response.data?.fileUrl || '',
         size: rawFile.size,
         status: 'success' as const,
-        response: response.data?.data || {},
+        response: response.data || {},
       };
 
       fileList.value.push(uploadedFile);
@@ -197,9 +215,7 @@ const handleUpload = async (options: any) => {
       ElMessage.success('文件上传成功');
     } else {
       // 上传失败
-      const error = new Error(
-        response.error || response.data?.error || '文件上传失败',
-      );
+      const error = new Error(response.error || '文件上传失败');
       options.onError?.(error);
       throw error;
     }
@@ -226,14 +242,11 @@ const handleUploadChange = (file: UploadFile) => {
 // 删除文件
 const handleRemove = async (file: UploadFile) => {
   try {
-    // 获取文件ID
-    const fileId = file.uid.toString();
+    const fileName = file.name;
 
-    // 调用删除文件API
-    const response = await deleteCaseFileApi(token, fileId);
+    const response = await deleteCaseFileApi(fileName);
 
-    if (response.status === '1' || response.data?.status === '1') {
-      // 删除成功，更新文件列表
+    if (response.status === '1') {
       const index = fileList.value.findIndex((item) => item.uid === file.uid);
       if (index !== -1) {
         fileList.value.splice(index, 1);
@@ -241,9 +254,7 @@ const handleRemove = async (file: UploadFile) => {
         ElMessage.success('文件已删除');
       }
     } else {
-      ElMessage.error(
-        `文件删除失败：${response.error || response.data?.error || '未知错误'}`,
-      );
+      ElMessage.error(`文件删除失败：${response.error || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`文件删除失败：${error.message || '未知错误'}`);
@@ -256,26 +267,66 @@ onMounted(() => {
 });
 
 // 查看文件
-const handlePreview = (file: UploadFile) => {
-  if (file.url) {
-    window.open(file.url, '_blank');
+const handlePreview = async (file: UploadFile) => {
+  const fileName = file.name;
+  const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
+
+  if (fileExt === 'pdf' || ['gif', 'jpeg', 'jpg', 'png'].includes(fileExt)) {
+    try {
+      const token =
+        localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
+      const encodedFileName = encodeURIComponent(fileName);
+      const url = `http://192.168.0.107:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('文件加载失败');
+      }
+
+      const blob = await response.blob();
+      previewBlobUrl.value = URL.createObjectURL(blob);
+      previewFileName.value = fileName;
+      previewError.value = '';
+      previewVisible.value = true;
+    } catch (error: any) {
+      ElMessage.error(`文件预览失败：${error.message || '未知错误'}`);
+    }
   } else {
-    ElMessage.info('文件URL不可用');
+    ElMessage.info('此文件类型不支持在线预览，请下载后查看');
   }
+};
+
+const handlePreviewError = () => {
+  previewError.value = '文件加载失败，请检查文件是否存在';
+};
+
+const handlePreviewClose = () => {
+  if (previewBlobUrl.value) {
+    URL.revokeObjectURL(previewBlobUrl.value);
+    previewBlobUrl.value = '';
+  }
+  previewVisible.value = false;
 };
 
 // 下载文件
 const handleDownload = (file: UploadFile) => {
-  if (file.url) {
+  try {
+    const fileName = file.name;
+    const token =
+      localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
+    const encodedFileName = encodeURIComponent(fileName);
+    const downloadUrl = `http://192.168.0.107:8080/api/web/downloadCaseFile/${encodedFileName}?token=${token}`;
+
     const link = document.createElement('a');
-    link.href = file.url;
-    link.download = file.name;
+    link.href = downloadUrl;
+    link.download = fileName;
     document.body.append(link);
     link.click();
     link.remove();
     ElMessage.success('文件下载开始');
-  } else {
-    ElMessage.info('文件URL不可用');
+  } catch (error: any) {
+    ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
   }
 };
 </script>
@@ -378,21 +429,11 @@ const handleDownload = (file: UploadFile) => {
               </div>
             </div>
             <div class="file-actions flex space-x-2">
-              <ElButton
-                link
-                size="small"
-                @click="handlePreview(file)"
-                :disabled="!file.url"
-              >
+              <ElButton link size="small" @click="handlePreview(file)">
                 <Icon icon="lucide:eye" class="mr-1" />
                 查看
               </ElButton>
-              <ElButton
-                link
-                size="small"
-                @click="handleDownload(file)"
-                :disabled="!file.url"
-              >
+              <ElButton link size="small" @click="handleDownload(file)">
                 <Icon icon="lucide:download" class="mr-1" />
                 下载
               </ElButton>
@@ -414,6 +455,35 @@ const handleDownload = (file: UploadFile) => {
         <p>暂无上传文件</p>
       </div>
     </ElCard>
+
+    <ElDialog
+      v-model="previewVisible"
+      :title="`预览: ${previewFileName}`"
+      width="80%"
+      :close-on-click-modal="false"
+      @close="handlePreviewClose"
+      class="file-preview-dialog"
+    >
+      <div class="file-viewer">
+        <iframe
+          v-if="fileType === 'pdf' && previewBlobUrl"
+          :src="previewBlobUrl"
+          class="preview-iframe"
+          @error="handlePreviewError"
+        ></iframe>
+        <img
+          v-else-if="isImage && previewBlobUrl"
+          :src="previewBlobUrl"
+          :alt="previewFileName"
+          class="preview-image"
+          @error="handlePreviewError"
+        />
+        <p v-else class="preview-unsupported">
+          该文件类型不支持在线预览，请下载后查看
+        </p>
+        <p v-if="previewError" class="preview-error">{{ previewError }}</p>
+      </div>
+    </ElDialog>
   </div>
 </template>
 
@@ -466,5 +536,39 @@ const handleDownload = (file: UploadFile) => {
 
 .no-files {
   padding: 2rem 0;
+}
+
+.file-preview-dialog {
+  .file-viewer {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-iframe {
+    width: 100%;
+    height: 70vh;
+    border: none;
+  }
+
+  .preview-image {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+
+  .preview-unsupported {
+    color: #909399;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .preview-error {
+    color: #f56c6c;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 10px;
+  }
 }
 </style>

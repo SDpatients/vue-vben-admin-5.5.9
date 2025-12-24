@@ -324,56 +324,79 @@ const viewCaseDetail = (row: any) => {
                       <template #reference>
                         <span>自定义列显示</span>
                       </template>
-                      <div class="space-y-2">
-                        <div class="mb-2 text-sm text-gray-500">
-                          选择要显示的列：
+                      <div class="space-y-3">
+                        <div class="mb-2 flex items-center justify-between">
+                          <div class="text-sm font-medium text-gray-700">
+                            选择要显示的列：
+                          </div>
+                          <div class="flex space-x-2">
+                            <ElButton
+                              size="small"
+                              link
+                              @click="columnVisible = [...availableColumns]"
+                            >
+                              全选
+                            </ElButton>
+                            <ElButton
+                              size="small"
+                              link
+                              @click="columnVisible = []"
+                            >
+                              取消全选
+                            </ElButton>
+                          </div>
                         </div>
                         <ElCheckboxGroup v-model="columnVisible">
-                          <div class="grid grid-cols-2 gap-2">
-                            <ElCheckbox label="案号" name="案号">
+                          <div
+                            class="grid max-h-60 grid-cols-2 gap-3 overflow-y-auto"
+                          >
+                            <ElCheckbox value="案号" name="案号">
                               案号
                             </ElCheckbox>
-                            <ElCheckbox label="案由" name="案由">
+                            <ElCheckbox value="案由" name="案由">
                               案由
                             </ElCheckbox>
-                            <ElCheckbox label="承办人" name="承办人">
+                            <ElCheckbox value="承办人" name="承办人">
                               承办人
                             </ElCheckbox>
-                            <ElCheckbox label="法院" name="法院">
+                            <ElCheckbox value="法院" name="法院">
                               法院
                             </ElCheckbox>
-                            <ElCheckbox label="管理人" name="管理人">
+                            <ElCheckbox value="管理人" name="管理人">
                               管理人
                             </ElCheckbox>
-                            <ElCheckbox label="债权人数" name="债权人数">
+                            <ElCheckbox value="债权人数" name="债权人数">
                               债权人数
                             </ElCheckbox>
-                            <ElCheckbox label="债权总额" name="债权总额">
+                            <ElCheckbox value="债权总额" name="债权总额">
                               债权总额
                             </ElCheckbox>
-                            <ElCheckbox label="财产金额" name="财产金额">
+                            <ElCheckbox value="财产金额" name="财产金额">
                               财产金额
                             </ElCheckbox>
-                            <ElCheckbox label="财产比例" name="财产比例">
+                            <ElCheckbox value="财产比例" name="财产比例">
                               财产比例
                             </ElCheckbox>
-                            <ElCheckbox label="会计账簿" name="会计账簿">
+                            <ElCheckbox value="会计账簿" name="会计账簿">
                               会计账簿
                             </ElCheckbox>
-                            <ElCheckbox label="银行账户数" name="银行账户数">
+                            <ElCheckbox value="银行账户数" name="银行账户数">
                               银行账户数
                             </ElCheckbox>
                             <ElCheckbox
-                              label="银行账户总余额"
+                              value="银行账户总余额"
                               name="银行账户总余额"
                             >
                               账户余额
                             </ElCheckbox>
-                            <ElCheckbox label="有效账户数" name="有效账户数">
+                            <ElCheckbox value="有效账户数" name="有效账户数">
                               有效账户
                             </ElCheckbox>
                           </div>
                         </ElCheckboxGroup>
+                        <div class="pt-2 text-center text-xs text-gray-500">
+                          提示：勾选的列将在表格中显示
+                        </div>
                       </div>
                     </ElPopover>
                   </ElDropdownItem>
@@ -484,11 +507,23 @@ const viewCaseDetail = (row: any) => {
               v-if="isColumnVisible('财产比例')"
               prop="财产比例"
               label="财产比例"
-              min-width="100"
+              min-width="200"
               align="center"
             >
               <template #default="{ row }">
-                {{ formatPercentage(row['财产比例']) }}
+                <div class="flex w-full flex-col items-center px-4">
+                  <div class="mb-1 w-full">
+                    <ElProgress
+                      :percentage="row['财产比例'] * 100"
+                      :stroke-width="8"
+                      :color="row['财产比例'] >= 0.5 ? '#67c23a' : '#e6a23c'"
+                      size="small"
+                    />
+                  </div>
+                  <span class="text-sm text-gray-600">
+                    {{ formatPercentage(row['财产比例']) }}
+                  </span>
+                </div>
               </template>
             </ElTableColumn>
 
@@ -539,13 +574,12 @@ const viewCaseDetail = (row: any) => {
             />
 
             <!-- 操作列 -->
-            <ElTableColumn label="操作" min-width="80">
+            <ElTableColumn label="操作" min-width="100">
               <template #default="{ row }">
                 <ElButton
                   type="primary"
-                  size="small"
-                  link
                   @click="viewCaseDetail(row)"
+                  style="color: black"
                 >
                   查看
                 </ElButton>
@@ -572,6 +606,95 @@ const viewCaseDetail = (row: any) => {
 </template>
 
 <style scoped>
+/* 卡片样式增强 */
+:deep(.el-card) {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+:deep(.el-card:hover) {
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* 按钮样式优化 */
+:deep(.el-button) {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+:deep(.el-button--primary) {
+  background-color: #409eff;
+  border-color: #409eff;
+}
+
+:deep(.el-button--primary:hover) {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+:deep(.el-button--info) {
+  background-color: #909399;
+  border-color: #909399;
+}
+
+:deep(.el-button--info:hover) {
+  background-color: #a6a9ad;
+  border-color: #a6a9ad;
+}
+
+/* 下拉菜单样式优化 */
+:deep(.el-dropdown-menu) {
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-dropdown-item) {
+  transition: all 0.2s ease;
+}
+
+:deep(.el-dropdown-item:hover) {
+  background-color: #f5f7fa;
+  color: #409eff;
+}
+
+/* 表格样式优化 */
+:deep(.el-table) {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+:deep(.el-table__header-wrapper th) {
+  background-color: #fafafa;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  padding: 12px 0;
+}
+
+:deep(.el-table__body-wrapper tr) {
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+:deep(.el-table__body-wrapper tr:hover > td) {
+  background-color: #f5f7fa !important;
+}
+
+:deep(.el-table__body-wrapper td) {
+  padding: 12px 0;
+  color: #606266;
+}
+
+/* 标签样式优化 */
+:deep(.el-tag) {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
 /* 表格单元格样式 */
 :deep(.el-table .cell) {
   white-space: nowrap;
@@ -581,5 +704,74 @@ const viewCaseDetail = (row: any) => {
 .table-wrapper {
   overflow-x: auto;
   width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .p-6 {
+    padding: 1rem;
+  }
+
+  /* 调整卡片头部按钮布局 */
+  .flex.items-center.justify-between {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flex.items-center.space-x-2 {
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* 调整按钮大小 */
+  :deep(.el-button) {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  /* 调整表格字体大小 */
+  :deep(.el-table__header-wrapper th) {
+    font-size: 12px;
+    padding: 8px 0;
+  }
+
+  :deep(.el-table__body-wrapper tr) {
+    font-size: 11px;
+  }
+
+  :deep(.el-table__body-wrapper td) {
+    padding: 8px 0;
+  }
+
+  /* 调整分页组件 */
+  :deep(.el-pagination) {
+    font-size: 12px;
+  }
+
+  :deep(.el-pagination__sizes .el-input__inner) {
+    width: 80px;
+  }
+}
+
+/* 滚动条样式优化 */
+.table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 </style>

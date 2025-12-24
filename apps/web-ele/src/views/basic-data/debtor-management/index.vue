@@ -276,50 +276,50 @@ const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
                         </div>
                         <ElCheckboxGroup v-model="columnVisible">
                           <div class="grid grid-cols-2 gap-2">
-                            <ElCheckbox label="行号" name="行号">
+                            <ElCheckbox value="行号" name="行号">
                               行号
                             </ElCheckbox>
 
-                            <ElCheckbox label="企业名称" name="企业名称">
+                            <ElCheckbox value="企业名称" name="企业名称">
                               企业名称
                             </ElCheckbox>
                             <ElCheckbox
-                              label="统一社会信用代码"
+                              value="统一社会信用代码"
                               name="统一社会信用代码"
                             >
                               统一社会信用代码
                             </ElCheckbox>
-                            <ElCheckbox label="法定代表人" name="法定代表人">
+                            <ElCheckbox value="法定代表人" name="法定代表人">
                               法定代表人
                             </ElCheckbox>
-                            <ElCheckbox label="登记机关" name="登记机关">
+                            <ElCheckbox value="登记机关" name="登记机关">
                               登记机关
                             </ElCheckbox>
-                            <ElCheckbox label="成立日期" name="成立日期">
+                            <ElCheckbox value="成立日期" name="成立日期">
                               成立日期
                             </ElCheckbox>
-                            <ElCheckbox label="注册资本" name="注册资本">
+                            <ElCheckbox value="注册资本" name="注册资本">
                               注册资本
                             </ElCheckbox>
-                            <ElCheckbox label="经营范围" name="经营范围">
+                            <ElCheckbox value="经营范围" name="经营范围">
                               经营范围
                             </ElCheckbox>
-                            <ElCheckbox label="企业类型" name="企业类型">
+                            <ElCheckbox value="企业类型" name="企业类型">
                               企业类型
                             </ElCheckbox>
-                            <ElCheckbox label="所属行业" name="所属行业">
+                            <ElCheckbox value="所属行业" name="所属行业">
                               所属行业
                             </ElCheckbox>
-                            <ElCheckbox label="注册地址" name="注册地址">
+                            <ElCheckbox value="注册地址" name="注册地址">
                               注册地址
                             </ElCheckbox>
-                            <ElCheckbox label="联系电话" name="联系电话">
+                            <ElCheckbox value="联系电话" name="联系电话">
                               联系电话
                             </ElCheckbox>
-                            <ElCheckbox label="联系人" name="联系人">
+                            <ElCheckbox value="联系人" name="联系人">
                               联系人
                             </ElCheckbox>
-                            <ElCheckbox label="状态" name="状态">
+                            <ElCheckbox value="状态" name="状态">
                               状态
                             </ElCheckbox>
                           </div>

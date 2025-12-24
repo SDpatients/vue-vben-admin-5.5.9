@@ -1,4 +1,4 @@
-import { baseRequestClient, requestClient } from '#/api/request';
+import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
 
 export namespace AuthApi {
   /** 登录接口参数 */
@@ -10,6 +10,7 @@ export namespace AuthApi {
   /** 登录接口返回值 */
   export interface LoginResult {
     data: {
+      token: string;
       U_NAME: string;
       U_PID: string;
       U_TEL: string;
@@ -65,21 +66,22 @@ export async function loginApi(data: AuthApi.LoginParams) {
     Pwd: data.password || '',
     token: 'fb3fb274ffcebe8f9c986ac3a6ea73fc',
   };
-  const result = await requestClient.post<AuthApi.LoginResult>(
+  const result = await fileUploadRequestClient.post<AuthApi.LoginResult>(
     '/api/web/login',
     postData,
   );
 
-  // 如果登录成功，将用户信息存储到本地存储
+  // 如果登录成功，将用户信息和token存储到本地存储
   if (result && result.status === '1' && result.data) {
     const userInfo = result.data;
     const logintime = new Date().toISOString();
 
-    // 存储用户信息到localStorage
+    // 存储用户信息和token到localStorage
     localStorage.setItem('chat_user_info', JSON.stringify(userInfo));
     localStorage.setItem('chat_user_id', userInfo.U_PID);
     localStorage.setItem('chat_username', userInfo.U_NAME);
     localStorage.setItem('chat_logintime', logintime);
+    localStorage.setItem('token', userInfo.token);
 
     // 调用添加登录记录接口
     try {
@@ -114,11 +116,12 @@ export async function logoutApi() {
     withCredentials: true,
   });
 
-  // 清除本地存储中的聊天相关信息
+  // 清除本地存储中的聊天相关信息和token
   localStorage.removeItem('chat_user_info');
   localStorage.removeItem('chat_user_id');
   localStorage.removeItem('chat_username');
   localStorage.removeItem('chat_logintime');
+  localStorage.removeItem('token');
 
   return result;
 }
@@ -127,22 +130,18 @@ export async function logoutApi() {
  * 获取用户权限码
  */
 export async function getAccessCodesApi() {
-  return requestClient.get<string[]>('/auth/codes');
+  return fileUploadRequestClient.get<string[]>('/auth/codes');
 }
 
 /**
  * 添加登录记录
  */
 export async function addLoginRecordApi(data: AuthApi.LoginRecordParams) {
-  return requestClient.post<AuthApi.LoginResult>(
-    '/api/web/LoginRecord',
-    data,
-    {
-      params: {
-        token: 'a35e81e43d7ac32b0b31b89ccae2209b',
-      },
+  return fileUploadRequestClient.post<AuthApi.LoginResult>('/api/web/LoginRecord', data, {
+    params: {
+      token: 'a35e81e43d7ac32b0b31b89ccae2209b',
     },
-  );
+  });
 }
 
 /**
@@ -151,7 +150,7 @@ export async function addLoginRecordApi(data: AuthApi.LoginRecordParams) {
 export async function selectLoginRecordApi(
   data: AuthApi.SelectLoginRecordParams,
 ) {
-  return requestClient.get<AuthApi.LoginRecordResult>(
+  return fileUploadRequestClient.get<AuthApi.LoginRecordResult>(
     '/api/web/selectLoginRecord',
     {
       params: {

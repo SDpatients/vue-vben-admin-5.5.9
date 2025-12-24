@@ -193,11 +193,10 @@ export async function addOneCaseApi(data: CaseApi.AddCaseRequest) {
 /**
  * 上传案件文件
  */
-export async function uploadCaseFileApi(
-  token: string,
-  file: File,
-  SEP_ID: string,
-) {
+export async function uploadCaseFileApi(file: File, SEP_ID: string) {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   const formData = new FormData();
   formData.append('file', file);
   return fileUploadRequestClient.post<any>(
@@ -218,11 +217,10 @@ export async function uploadCaseFileApi(
 /**
  * 批量上传案件文件
  */
-export async function batchUploadCaseFilesApi(
-  token: string,
-  files: File[],
-  SEP_ID: string,
-) {
+export async function batchUploadCaseFilesApi(files: File[], SEP_ID: string) {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
@@ -246,11 +244,13 @@ export async function batchUploadCaseFilesApi(
  * 获取案件文件列表
  */
 export async function getCaseFilesApi(
-  token: string,
   SEP_ID: string,
   page?: number,
   size?: number,
 ) {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   return fileUploadRequestClient.get<any>('/api/web/getCaseFiles', {
     params: {
       token,
@@ -264,7 +264,10 @@ export async function getCaseFilesApi(
 /**
  * 删除案件文件
  */
-export async function deleteCaseFileApi(token: string, fileId: string) {
+export async function deleteCaseFileApi(fileId: string) {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   return fileUploadRequestClient.delete<any>(
     `/api/web/deleteCaseFile/${fileId}`,
     {
@@ -278,7 +281,10 @@ export async function deleteCaseFileApi(token: string, fileId: string) {
 /**
  * 下载案件文件
  */
-export async function downloadCaseFileApi(token: string, fileId: string) {
+export async function downloadCaseFileApi(fileId: string) {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   return fileUploadRequestClient.get<any>(
     `/api/web/downloadCaseFile/${fileId}`,
     {
@@ -293,7 +299,10 @@ export async function downloadCaseFileApi(token: string, fileId: string) {
 /**
  * 获取案件处理进度数据
  */
-export async function getCaseProgressApi(token: string) {
+export async function getCaseProgressApi() {
+  const token =
+    localStorage.getItem('token') ||
+    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   return requestClient.get<CaseApi.CaseProgressResponse>(
     '/api/web/selectAllCaseFor',
     {

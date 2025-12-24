@@ -16,7 +16,8 @@
     "caseManagement": "案件管理",
     "caseDetail": "案件详情",
     "caseAdd": "案件添加",
-    "taskEdit": "任务编辑"
+    "taskEdit": "任务编辑",
+    "serviceOfDocuments": "文书送达"
   },
   "user": {
     "title": "用户管理",

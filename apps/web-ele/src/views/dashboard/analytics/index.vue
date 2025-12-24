@@ -9,6 +9,9 @@ import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { ElCard, ElCol, ElRadio, ElRadioGroup, ElRow } from 'element-plus';
 
+import LatestUpdates from '../components/LatestUpdates.vue';
+import TodoList from '../components/TodoList.vue';
+
 // 案件管理相关代码
 const caseList = ref<CaseApi.CaseInfo[]>([]);
 const chartType1 = ref('line');
@@ -494,6 +497,19 @@ onMounted(() => {
 
 <template>
   <div class="p-5">
+    <!-- 最新动态和待办事项 -->
+    <ElRow :gutter="20" class="mb-5">
+      <ElCol :span="12">
+        <ElCard size="small" class="h-[300px]">
+          <LatestUpdates />
+        </ElCard>
+      </ElCol>
+      <ElCol :span="12">
+        <ElCard size="small" class="h-[300px]">
+          <TodoList />
+        </ElCard>
+      </ElCol>
+    </ElRow>
     <!-- 案件管理图表 -->
     <div class="mt-5">
       <h3 class="mb-4 text-lg font-semibold">案件管理分析</h3>
@@ -506,8 +522,8 @@ onMounted(() => {
               <div class="flex items-center justify-between">
                 <span>案件数量趋势</span>
                 <ElRadioGroup v-model="chartType1" size="small">
-                  <ElRadio label="line">折线图</ElRadio>
-                  <ElRadio label="bar">柱状图</ElRadio>
+                  <ElRadio value="line">折线图</ElRadio>
+                  <ElRadio value="bar">柱状图</ElRadio>
                 </ElRadioGroup>
               </div>
             </template>
@@ -527,8 +543,8 @@ onMounted(() => {
               <div class="flex items-center justify-between">
                 <span>案件类型分布</span>
                 <ElRadioGroup v-model="chartType2" size="small">
-                  <ElRadio label="pie">饼图</ElRadio>
-                  <ElRadio label="donut">环形图</ElRadio>
+                  <ElRadio value="pie">饼图</ElRadio>
+                  <ElRadio value="donut">环形图</ElRadio>
                 </ElRadioGroup>
               </div>
             </template>
@@ -544,8 +560,8 @@ onMounted(() => {
               <div class="flex items-center justify-between">
                 <span>案件处理进度</span>
                 <ElRadioGroup v-model="chartType3" size="small">
-                  <ElRadio label="bar">柱状图</ElRadio>
-                  <ElRadio label="horizontal-bar">横向柱状图</ElRadio>
+                  <ElRadio value="bar">柱状图</ElRadio>
+                  <ElRadio value="horizontal-bar">横向柱状图</ElRadio>
                 </ElRadioGroup>
               </div>
             </template>

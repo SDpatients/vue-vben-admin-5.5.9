@@ -118,13 +118,31 @@ export const requestClient = createRequestClient(apiURL, {
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 
+export { createRequestClient };
 
 // 聊天API客户端，使用独立的配置
-export const chatRequestClient = createRequestClient('http://localhost:8080', {
-  responseReturn: 'body',
-});
+export const chatRequestClient = createRequestClient(
+  'http://192.168.0.107:8080',
+  {
+    responseReturn: 'body',
+  },
+);
 
 // 文件上传API客户端，使用独立的配置
-export const fileUploadRequestClient = createRequestClient('http://127.0.0.1:8080', {
-  responseReturn: 'body',
+export const fileUploadRequestClient = createRequestClient(
+  'http://192.168.0.107:8080',
+  {
+    responseReturn: 'body',
+  },
+);
+
+// 为文件上传API客户端添加JWT请求拦截器
+// 固定的JWT令牌值
+const JWT_TOKEN = 'lawchatsecretkey';
+fileUploadRequestClient.addRequestInterceptor({
+  fulfilled: (config) => {
+    // 将JWT令牌添加到请求头
+    config.headers.Authorization = `Bearer ${JWT_TOKEN}`;
+    return config;
+  },
 });
