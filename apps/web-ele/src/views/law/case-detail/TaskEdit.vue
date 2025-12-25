@@ -541,9 +541,9 @@ const taskTypeToOperateType: Record<string, string> = {
 
 // 阶段对应的更新接口URL
 const updateApiUrls: Record<number, string> = {
-  1: 'http://192.168.0.107:8085/api/web/update1?token=ff3378dd6264d6a0d4293d322e738a85',
-  2: 'http://192.168.0.107:8085/api/web/update2?token=5781352a1e8bd95e5fa74f0ff47074c5',
-  3: 'http://192.168.0.107:8085/api/web/update3?token=da90b1901ed746289dd074c1af9dfa55',
+  1: 'http://192.168.0.120:8085/api/web/update1?token=ff3378dd6264d6a0d4293d322e738a85',
+  2: 'http://192.168.0.120:8085/api/web/update2?token=5781352a1e8bd95e5fa74f0ff47074c5',
+  3: 'http://192.168.0.120:8085/api/web/update3?token=da90b1901ed746289dd074c1af9dfa55',
 };
 
 // 页面标题

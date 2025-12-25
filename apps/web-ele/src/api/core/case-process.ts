@@ -1,6 +1,6 @@
 // 获取环境变量中的API基础地址
 const API_BASE_URL =
-  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.107:8081';
+  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8081';
 
 export namespace CaseProcessApi {
   /** 工作团队信息 */
@@ -536,7 +536,7 @@ export const unifiedTaskOperationApi = async (data: {
   try {
     // 设置API基础地址和token
     const API_BASE_URL =
-      import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.107:8081';
+      import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8081';
     const token = 'b8b63b32acfc6dc4a07ef45cd1fea18a';
     const url = `${API_BASE_URL}/api/web/update1?token=${token}`;
 

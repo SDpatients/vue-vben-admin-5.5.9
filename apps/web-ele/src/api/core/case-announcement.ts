@@ -2,7 +2,7 @@ import { createRequestClient } from '#/api/request';
 
 // 案件公告管理专用客户端，使用指定的基础URL
 const announcementRequestClient = createRequestClient(
-  'http://192.168.0.107:8080',
+  'http://192.168.0.120:8080',
   {
     responseReturn: 'body',
   },

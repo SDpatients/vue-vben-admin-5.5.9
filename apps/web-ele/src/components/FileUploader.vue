@@ -82,7 +82,7 @@ const previewUrl = computed(() => {
   const token =
     localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
   const encodedFileName = encodeURIComponent(previewFileName.value);
-  return `http://192.168.0.107:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
+  return `http://192.168.0.120:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
 });
 
 const fileType = computed(() => {
@@ -276,7 +276,7 @@ const handlePreview = async (file: UploadFile) => {
       const token =
         localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
       const encodedFileName = encodeURIComponent(fileName);
-      const url = `http://192.168.0.107:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
+      const url = `http://192.168.0.120:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
 
       const response = await fetch(url);
 
@@ -316,7 +316,7 @@ const handleDownload = (file: UploadFile) => {
     const token =
       localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
     const encodedFileName = encodeURIComponent(fileName);
-    const downloadUrl = `http://192.168.0.107:8080/api/web/downloadCaseFile/${encodedFileName}?token=${token}`;
+    const downloadUrl = `http://192.168.0.120:8080/api/web/downloadCaseFile/${encodedFileName}?token=${token}`;
 
     const link = document.createElement('a');
     link.href = downloadUrl;

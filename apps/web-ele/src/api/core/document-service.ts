@@ -1,7 +1,7 @@
 import { createRequestClient } from '#/api/request';
 
 // 文书服务管理专用客户端，使用指定的基础URL
-const documentRequestClient = createRequestClient('http://192.168.0.107:8080', {
+const documentRequestClient = createRequestClient('http://192.168.0.120:8080', {
   responseReturn: 'body',
 });
 
