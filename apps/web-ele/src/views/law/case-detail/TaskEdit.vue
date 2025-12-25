@@ -94,6 +94,66 @@ const originalData = computed(
   () => originalDataList.value[currentIndex.value] || {},
 );
 
+// 阶段映射
+const stageMapping: Record<string, number> = {
+  // 第一阶段任务
+  workTeam: 1,
+  workPlan: 1,
+  management: 1,
+  sealManagement: 1,
+  legalProcedure: 1,
+  // 第二阶段任务
+  propertyReceipt: 2,
+  emergency: 2,
+  propertyPlan: 2,
+  personnelEmp: 2,
+  internalAffairs: 2,
+  businessManagement: 2,
+  // 第三阶段任务
+  propertyInvestigation: 3,
+  bankExpenses: 3,
+  rightsClaim: 3,
+  reclaimReview: 3,
+  litigationArbitration: 3,
+  creditorClaim: 3,
+  socialSF: 3,
+  taxVerification: 3,
+};
+
+// 任务类型映射到OperateType（按阶段重新编号，每个阶段从0开始）
+const taskTypeToOperateType: Record<string, string> = {
+  // 第一阶段任务
+  workTeam: '0',
+  workPlan: '1',
+  management: '2',
+  sealManagement: '3',
+  legalProcedure: '4',
+  // 第二阶段任务
+  propertyReceipt: '0',
+  emergency: '1',
+  propertyPlan: '2',
+  personnelEmp: '3',
+  internalAffairs: '4',
+  businessManagement: '5',
+  // 第三阶段任务
+  propertyInvestigation: '0',
+  bankExpenses: '1',
+  rightsClaim: '2',
+  reclaimReview: '3',
+  litigationArbitration: '4',
+  creditorClaim: '5',
+  socialSF: '6',
+  taxVerification: '7',
+};
+
+// 阶段对应的更新接口URL
+const updateApiUrls: Record<number, string> = {
+  1: 'http://192.168.0.120:8085/api/web/update1?token=ff3378dd6264d6a0d4293d322e738a85',
+  2: 'http://192.168.0.120:8085/api/web/update2?token=5781352a1e8bd95e5fa74f0ff47074c5',
+  3: 'http://192.168.0.120:8085/api/web/update3?token=da90b1901ed746289dd074c1af9dfa55',
+};
+
+// 页面标题
 const pageTitle = computed(() => {
   const baseTitle = isAddMode.value ? '新增' : '编辑';
   if (
