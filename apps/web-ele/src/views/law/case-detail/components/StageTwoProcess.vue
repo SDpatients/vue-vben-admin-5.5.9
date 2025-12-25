@@ -140,6 +140,11 @@ const editTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
 };
 
+// 查看任务
+const viewTask = (taskId: string) => {
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/view`);
+};
+
 // 新增任务
 const addTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
@@ -746,6 +751,15 @@ onMounted(() => {
 
             <!-- 如果count不为0，显示编辑、完成、跳过和新增按钮 -->
             <template v-else>
+              <ElButton
+                type="info"
+                size="small"
+                @click="viewTask(task.id)"
+              >
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+
               <ElButton
                 type="primary"
                 size="small"

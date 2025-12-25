@@ -122,7 +122,7 @@ export { createRequestClient };
 
 // 聊天API客户端，使用独立的配置
 export const chatRequestClient = createRequestClient(
-  'http://192.168.0.107:8080',
+  'http://192.168.0.120:8080',
   {
     responseReturn: 'body',
   },
@@ -130,7 +130,7 @@ export const chatRequestClient = createRequestClient(
 
 // 文件上传API客户端，使用独立的配置
 export const fileUploadRequestClient = createRequestClient(
-  'http://192.168.0.107:8080',
+  'http://192.168.0.120:8080',
   {
     responseReturn: 'body',
   },

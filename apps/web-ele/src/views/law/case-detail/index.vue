@@ -14,7 +14,7 @@ import {
   ElSkeleton,
 } from 'element-plus';
 
-import { getCaseDetailApi } from '#/api/core/case';
+import { getCaseDetailApi, updateCaseApi } from '#/api/core/case';
 import {
   deleteAnnouncementApi,
   getAnnouncementListApi,
@@ -39,9 +39,10 @@ const router = useRouter();
 const caseId = ref(route.params.id as string);
 const loading = ref(false);
 const caseDetail = ref<any>(null);
-const isInfoCollapsed = ref(true); // 控制案件基本信息折叠状态
-const isEditing = ref(false); // 控制是否处于编辑状态
-const editedData = reactive<any>({}); // 存储编辑后的数据
+const isInfoCollapsed = ref(true);
+const isEditing = ref(false);
+const editedData = reactive<any>({});
+const saveLoading = ref(false);
 
 // 当前选中的阶段索引
 const currentStageIndex = ref(0);
@@ -700,11 +701,17 @@ const syncTaskStatusFromStageTwo = async () => {
           }
         }
 
-        // 根据DQZT字段更新任务完成状态
         if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const dqzt = apiResponse.data.DQZT;
-          // 如果DQZT为'完成'或'跳过'，则标记任务为已完成
-          task.completed = dqzt === '完成' || dqzt === '跳过';
+          const paras = apiResponse.data.paras;
+          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
+          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
+          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
+
+          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+            task.completed = true;
+          } else if (zt0Count === 0 && zt2Count > 0) {
+            task.completed = true;
+          }
         }
       });
     }
@@ -779,16 +786,17 @@ const syncTaskStatusFromStageOne = async () => {
           }
         }
 
-        // 根据API响应更新任务完成状态
-        // 对于分页响应，检查是否有数据记录
-        if (
-          apiResponse &&
-          apiResponse.status === '1' && // 如果API返回了分页数据且有记录，则标记任务为已完成
-          apiResponse.data &&
-          apiResponse.data.records &&
-          apiResponse.data.records.length > 0
-        ) {
-          task.completed = true;
+        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
+          const paras = apiResponse.data.paras;
+          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
+          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
+          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
+
+          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+            task.completed = true;
+          } else if (zt0Count === 0 && zt2Count > 0) {
+            task.completed = true;
+          }
         }
       });
     }
@@ -944,15 +952,21 @@ const syncTaskStatusFromStageThree = async () => {
           }
         }
 
-        // 根据DQZT字段更新任务完成状态
         if (
           apiResponse &&
           apiResponse.status === '1' &&
           apiResponse.data?.records?.length > 0
         ) {
-          const dqzt = apiResponse.data.records[0].DQZT;
-          // 如果DQZT为'完成'或'跳过'，则标记任务为已完成
-          task.completed = dqzt === '完成' || dqzt === '跳过';
+          const paras = apiResponse.data.paras;
+          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
+          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
+          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
+
+          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+            task.completed = true;
+          } else if (zt0Count === 0 && zt2Count > 0) {
+            task.completed = true;
+          }
         }
       });
     }
@@ -1237,15 +1251,17 @@ const syncTaskStatusFromStageSix = async () => {
           }
         }
 
-        // 根据DQZT字段更新任务完成状态
-        if (
-          apiResponse &&
-          apiResponse.status === '1' && // 对于分页响应，检查是否有数据记录
-          apiResponse.data &&
-          apiResponse.data.records &&
-          apiResponse.data.records.length > 0
-        ) {
-          task.completed = true;
+        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
+          const paras = apiResponse.data.paras;
+          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
+          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
+          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
+
+          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+            task.completed = true;
+          } else if (zt0Count === 0 && zt2Count > 0) {
+            task.completed = true;
+          }
         }
       });
     }
@@ -1301,15 +1317,17 @@ const syncTaskStatusFromStageSeven = async () => {
           }
         }
 
-        // 根据DQZT字段更新任务完成状态
-        if (
-          apiResponse &&
-          apiResponse.status === '1' && // 对于分页响应，检查是否有数据记录
-          apiResponse.data &&
-          apiResponse.data.records &&
-          apiResponse.data.records.length > 0
-        ) {
-          task.completed = true;
+        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
+          const paras = apiResponse.data.paras;
+          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
+          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
+          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
+
+          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+            task.completed = true;
+          } else if (zt0Count === 0 && zt2Count > 0) {
+            task.completed = true;
+          }
         }
       });
     }
@@ -1330,13 +1348,86 @@ const startEditing = () => {
 };
 
 // 保存编辑
-const saveEditing = () => {
-  // 保存编辑后的数据到caseDetail
-  Object.assign(caseDetail.value, editedData);
-  isEditing.value = false;
-  ElMessage.success('案件信息已保存');
-  // 这里可以添加调用后端API的代码，目前后端API待开发
-  // const response = await saveCaseDetailApi(caseId.value, editedData);
+const saveEditing = async () => {
+  saveLoading.value = true;
+  try {
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    const updateData = {
+      AJID: caseId.value,
+      AH: editedData.案号 || '',
+      AJMC: editedData.案件名称 || '',
+      SLRQ: formatDate(editedData.受理日期),
+      AJLY: editedData.案件来源 || '',
+      SLFY: editedData.受理法院 || '',
+      ZDJG: editedData.指定机构 || '',
+      GLRFZR: editedData.管理人负责人 || '',
+      SFJHS: editedData.是否简化审 || '',
+      AY: editedData.案由 || '',
+      AJJD: editedData.案件进度 || '',
+      ZQSBJZSJ: formatDate(editedData.债权申报截止时间),
+      LARQ: formatDate(editedData.立案日期),
+      JARQ: formatDate(editedData.结案日期),
+      PCSJ: formatDate(editedData.破产时间),
+      ZJSJ: formatDate(editedData.终结时间),
+      ZXSJ: formatDate(editedData.注销时间),
+      GDSJ: formatDate(editedData.归档时间),
+      BEIZHU: editedData.备注 || '',
+      SEP_EUSER: editedData.修改者 || '',
+      SEP_EDATE: formatDate(editedData.修改时间) || currentDate,
+      GLRID: caseId.value,
+      GLRLX: editedData.管理人类型 || '',
+      FZRID: editedData.负责人 || '',
+      LXDH: editedData.联系电话 || '',
+      LXYX: editedData.联系邮箱 || '',
+      BGDZ: editedData.办公地址 || '',
+      ZT: editedData.管理人状态 || '',
+      ZQRID: caseId.value,
+      ZQR: editedData.债权人名称 || '',
+      ZQRFL: editedData.债权人类型 || '',
+      ZJHM: editedData.证件号码 || '',
+      FDDBRQY: editedData.法定代表人 || '',
+      ZCDZ: editedData.注册地址 || '',
+      JYFWQY: editedData.经营范围 || '',
+      HYFL: editedData.行业分类 || '',
+      CLRQQY: formatDate(editedData.成立日期),
+      ZCZBQY: editedData.注册资本 || '',
+      ZQSBID: caseId.value,
+      ZQRMC: editedData.申报债权人名称 || '',
+      ZQRLX: editedData.申报债权人类型 || '',
+      SBJE: editedData.申报金额 || '',
+      SBYJ: editedData.申报依据 || '',
+      JSR: editedData.接收人 || '',
+      SBLX: editedData.申报类型 || '',
+      BZ: editedData.申报备注 || '',
+      ZQQRID: caseId.value,
+      FYCDRQ: formatDate(editedData.法院裁定日期),
+      CDWH: editedData.裁定文号 || '',
+      ZZJE: editedData.最终金额 || '',
+    };
+
+    const response = await updateCaseApi(updateData);
+
+    if (response.status === '1') {
+      Object.assign(caseDetail.value, editedData);
+      isEditing.value = false;
+      ElMessage.success('案件信息已保存');
+    } else {
+      ElMessage.error(`保存失败：${response.error || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('保存案件信息失败:', error);
+    ElMessage.error('保存案件信息失败');
+  } finally {
+    saveLoading.value = false;
+  }
+};
+
+const formatDate = (date: any): string | undefined => {
+  if (!date) return undefined;
+  if (typeof date === 'string') return date;
+  if (date instanceof Date) return date.toISOString().split('T')[0];
+  return undefined;
 };
 
 // 取消编辑
@@ -1504,11 +1595,15 @@ onMounted(async () => {
                 </ElButton>
               </template>
               <template v-else>
-                <ElButton type="success" @click="saveEditing">
+                <ElButton
+                  type="success"
+                  @click="saveEditing"
+                  :loading="saveLoading"
+                >
                   <Icon icon="lucide:save" class="mr-1" />
                   保存
                 </ElButton>
-                <ElButton @click="cancelEditing">
+                <ElButton @click="cancelEditing" :disabled="saveLoading">
                   <Icon icon="lucide:x" class="mr-1" />
                   取消
                 </ElButton>
@@ -1605,7 +1700,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件名称"
@@ -1625,7 +1722,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.受理日期"
@@ -1646,7 +1745,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件来源：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件来源"
@@ -1666,7 +1767,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理法院：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.受理法院"
@@ -1686,7 +1789,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案由：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案由"
@@ -1706,7 +1811,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件进度：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件进度"
@@ -1726,7 +1833,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >是否简化审：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.是否简化审"
@@ -1760,7 +1869,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >立案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.立案日期"
@@ -1781,7 +1892,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >结案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.结案日期"
@@ -1802,7 +1915,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >破产时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.破产时间"
@@ -1823,7 +1938,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >终结时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.终结时间"
@@ -1844,7 +1961,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >注销时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.注销时间"
@@ -1865,7 +1984,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >归档时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.归档时间"
@@ -1886,7 +2007,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权申报截止时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.债权申报截止时间"
@@ -1921,7 +2044,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人负责人：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人负责人"
@@ -1941,7 +2066,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人类型"
@@ -1961,7 +2088,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人状态：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人状态"
@@ -1981,7 +2110,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >律师事务所：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.律师事务所"
@@ -2015,7 +2146,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人名称"
@@ -2035,7 +2168,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人类型"
@@ -2055,7 +2190,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系电话：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系电话"
@@ -2075,7 +2212,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系邮箱：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系邮箱"
@@ -2095,7 +2234,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >办公地址：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.办公地址"
@@ -2323,7 +2464,6 @@ onMounted(async () => {
               :disabled="currentStageIndex === 0"
               @click="switchStage(currentStageIndex - 1)"
               type="primary"
-              :icon="Icon"
             >
               <Icon icon="lucide:chevron-left" class="mr-1" />
               上一阶段
@@ -2358,7 +2498,6 @@ onMounted(async () => {
               :disabled="currentStageIndex === processStages.length - 1"
               @click="switchStage(currentStageIndex + 1)"
               type="primary"
-              :icon="Icon"
             >
               下一阶段
               <Icon icon="lucide:chevron-right" class="ml-1" />

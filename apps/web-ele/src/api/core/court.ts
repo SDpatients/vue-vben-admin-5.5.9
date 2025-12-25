@@ -45,8 +45,6 @@ export async function getCourtListApi(params: CourtApi.CourtQueryParams) {
     },
   });
 }
-<<<<<<< HEAD
-=======
 
 /** 添加法院请求 */
 export interface AddCourtRequest {
@@ -143,4 +141,3 @@ export async function deleteCourtApi(data: DeleteCourtRequest) {
     },
   });
 }
->>>>>>> ec9722d (初始化 jxz-dev 分支)

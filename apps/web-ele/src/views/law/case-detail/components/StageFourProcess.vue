@@ -133,6 +133,16 @@ const editTask = (taskId: string) => {
   router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
 };
 
+// 查看任务
+const viewTask = (taskId: string) => {
+  const task = tasks.value.find((task) => task.id === taskId);
+  if (task?.isPending) {
+    ElMessage.info('该任务待开发');
+    return;
+  }
+  router.push(`/case-detail/${props.caseId}/task/${taskId}/view`);
+};
+
 // 新增任务
 const addTask = (taskId: string) => {
   const task = tasks.value.find((task) => task.id === taskId);
@@ -282,9 +292,27 @@ const loadTaskData = async () => {
         res.value &&
         res.value.status === '1' &&
         res.value.data &&
-        Number.parseInt(res.value.data.paras?.zt2_count || '0') > 0
+        res.value.data.paras
       ) {
-        return '跳过';
+        const zt0Count = Number.parseInt(
+          res.value.data.paras.zt0_count || '0',
+          10,
+        );
+        const zt1Count = Number.parseInt(
+          res.value.data.paras.zt1_count || '0',
+          10,
+        );
+        const zt2Count = Number.parseInt(
+          res.value.data.paras.zt2_count || '0',
+          10,
+        );
+
+        if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
+          return '完成';
+        }
+        if (zt0Count === 0 && zt2Count > 0) {
+          return '跳过';
+        }
       }
       return '未确认';
     };
@@ -516,6 +544,11 @@ onMounted(() => {
 
             <!-- 如果count不为0或任务待开发，显示完整按钮组 -->
             <template v-else>
+              <ElButton type="info" size="small" @click="viewTask(task.id)">
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+
               <ElButton
                 type="primary"
                 size="small"

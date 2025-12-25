@@ -93,6 +93,67 @@ export namespace CaseApi {
     error: string;
     data: string;
   }
+
+  /** 更新案件请求体 */
+  export interface UpdateCaseRequest {
+    AJID: string;
+    AH?: string;
+    AJMC?: string;
+    SLRQ?: string;
+    AJLY?: string;
+    SLFY?: string;
+    ZDJG?: string;
+    GLRFZR?: string;
+    SFJHS?: string;
+    AY?: string;
+    AJJD?: string;
+    ZQSBJZSJ?: string;
+    LARQ?: string;
+    JARQ?: string;
+    PCSJ?: string;
+    ZJSJ?: string;
+    ZXSJ?: string;
+    GDSJ?: string;
+    BEIZHU?: string;
+    SEP_EUSER?: string;
+    SEP_EDATE?: string;
+    GLRID?: string;
+    GLRLX?: string;
+    FZRID?: string;
+    LXDH?: string;
+    LXYX?: string;
+    BGDZ?: string;
+    ZT?: string;
+    ZQRID?: string;
+    ZQR?: string;
+    ZQRFL?: string;
+    ZJHM?: string;
+    FDDBRQY?: string;
+    ZCDZ?: string;
+    JYFWQY?: string;
+    HYFL?: string;
+    CLRQQY?: string;
+    ZCZBQY?: string;
+    ZQSBID?: string;
+    ZQRMC?: string;
+    ZQRLX?: string;
+    SBJE?: string;
+    SBYJ?: string;
+    JSR?: string;
+    SBLX?: string;
+    BZ?: string;
+    ZQQRID?: string;
+    FYCDRQ?: string;
+    CDWH?: string;
+    ZZJE?: string;
+  }
+
+  /** 更新案件响应 */
+  export interface UpdateCaseResponse {
+    status: string;
+    error: string;
+    data: string;
+  }
 }
 
 /** 案件详情响应 */
@@ -308,6 +369,27 @@ export async function getCaseProgressApi() {
     {
       params: {
         token,
+      },
+    },
+  );
+}
+
+/**
+ * 更新案件信息
+ */
+export async function updateCaseApi(data: CaseApi.UpdateCaseRequest) {
+  const token =
+    localStorage.getItem('token') ||
+    'a3316d20162a989af32e03994a662ca9';
+  return requestClient.post<CaseApi.UpdateCaseResponse>(
+    '/api/web/updateBCase',
+    data,
+    {
+      params: {
+        token,
+      },
+      headers: {
+        'Content-Type': 'application/json',
       },
     },
   );

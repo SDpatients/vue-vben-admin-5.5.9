@@ -728,9 +728,8 @@ const saveData = async (confirm: boolean = false) => {
 
     if (taskId.value === 'workTeam') {
       if (isAddMode.value) {
-        // 新增模式：调用新增接口
         const { addWorkTeamApi } = await import('#/api/core/work-team');
-        const SEP_EDATE = new Date().toISOString();
+        const sep_adate = new Date().toISOString();
         const addParams = {
           sep_ld: caseId.value,
           sep_id:
@@ -744,12 +743,9 @@ const saveData = async (confirm: boolean = false) => {
           zqshzcy: (formData.value || {}).ZQSHZCY || '',
           ldrszcy: (formData.value || {}).LDRSZCY || '',
           zzqlzcy: (formData.value || {}).ZZQLZCY || '',
-          SEP_EUSER: sepeuser,
-          SEP_EDATE,
+          sep_auser: sepeuser,
+          sep_adate,
           ZT: confirm ? '1' : '0',
-          // 兼容API所需的其他字段
-          sepauser: sepeuser,
-          sepadate: SEP_EDATE,
         };
 
         const result = await addWorkTeamApi(addParams);
@@ -805,9 +801,8 @@ const saveData = async (confirm: boolean = false) => {
     } else {
       // 其他任务类型，根据新增/编辑模式调用不同接口
       if (isAddMode.value) {
-        // 新增模式：调用对应任务类型的新增接口
         let addResponse: any;
-        const SEP_EDATE = new Date().toISOString();
+        const sep_adate = new Date().toISOString();
 
         switch (taskId.value) {
           case 'businessManagement': {
@@ -815,16 +810,14 @@ const saveData = async (confirm: boolean = false) => {
               await import('#/api/core/case-process');
             addResponse = await addBusinessManagementApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               jyglnr: (formData.value || {}).JYGLNR || '',
               fzr: (formData.value || {}).FZR || '',
-              glrq: (formData.value || {}).GLRQ || SEP_EDATE,
+              glrq: (formData.value || {}).GLRQ || sep_adate,
               glzt: (formData.value || {}).GLZT || '',
               bz: (formData.value || {}).BZ || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '10',
-              ...formData.value,
             });
             break;
           }
@@ -833,16 +826,14 @@ const saveData = async (confirm: boolean = false) => {
             const { addEmergencyApi } = await import('#/api/core/case-process');
             addResponse = await addEmergencyApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               yjyamc: (formData.value || {}).YJYAMC || '',
               yjyanr: (formData.value || {}).YJYANR || '',
               fzr: (formData.value || {}).FZR || '',
               yjzt: (formData.value || {}).YJZT || '',
               bz: (formData.value || {}).BZ || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '6',
-              ...formData.value,
             });
             break;
           }
@@ -852,54 +843,46 @@ const saveData = async (confirm: boolean = false) => {
               await import('#/api/core/case-process');
             addResponse = await addInternalAffairsApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               nbswnr: (formData.value || {}).NBSWNR || '',
               fzr: (formData.value || {}).FZR || '',
-              clrq: (formData.value || {}).CLRQ || SEP_EDATE,
+              clrq: (formData.value || {}).CLRQ || sep_adate,
               swzt: (formData.value || {}).SWZT || '',
               bz: (formData.value || {}).BZ || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '9',
-              ...formData.value,
             });
             break;
           }
 
           case 'legalProcedure': {
-            // 调用添加法律程序API
             const { addLegalProcedureApi } =
               await import('#/api/core/case-process');
             addResponse = await addLegalProcedureApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               cxlx: (formData.value || {}).CXLX || '',
               cxnr: (formData.value || {}).CXNR || '',
-              zhrq: (formData.value || {}).ZHRQ || SEP_EDATE,
+              zhrq: (formData.value || {}).ZHRQ || sep_adate,
               fzr: (formData.value || {}).FZR || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '4',
-              ...formData.value,
             });
             break;
           }
 
           case 'management': {
-            // 调用添加管理制度API
             const { addManagementApi } =
               await import('#/api/core/case-process');
             addResponse = await addManagementApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               zdlx: (formData.value || {}).ZDLX || '',
               zdmc: (formData.value || {}).GLMC || '',
               zdnr: (formData.value || {}).GLNR || '',
-              sxrq: (formData.value || {}).FBRQ || SEP_EDATE,
+              sxrq: (formData.value || {}).FBRQ || sep_adate,
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '2',
-              ...formData.value,
             });
             break;
           }
@@ -909,16 +892,14 @@ const saveData = async (confirm: boolean = false) => {
               await import('#/api/core/case-process');
             addResponse = await addPersonnelEmploymentApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               rsglnr: (formData.value || {}).RSGLNR || '',
               fzr: (formData.value || {}).FZR || '',
-              glrq: (formData.value || {}).GLRQ || SEP_EDATE,
+              glrq: (formData.value || {}).GLRQ || sep_adate,
               glzt: (formData.value || {}).GLZT || '',
               bz: (formData.value || {}).BZ || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '8',
-              ...formData.value,
             });
             break;
           }
@@ -928,76 +909,65 @@ const saveData = async (confirm: boolean = false) => {
               await import('#/api/core/case-process');
             addResponse = await addPropertyPlanApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               ccjhmc: (formData.value || {}).CCJHMC || '',
               ccjhnr: (formData.value || {}).CCJHNR || '',
-              ksrq: (formData.value || {}).KSRQ || SEP_EDATE,
-              jsrq: (formData.value || {}).JSRQ || SEP_EDATE,
+              ksrq: (formData.value || {}).KSRQ || sep_adate,
+              jsrq: (formData.value || {}).JSRQ || sep_adate,
               fzr: (formData.value || {}).FZR || '',
               jhzt: (formData.value || {}).JHZT || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '7',
-              ...formData.value,
             });
             break;
           }
 
-          // 第二阶段任务
           case 'propertyReceipt': {
             const { addPropertyReceiptApi } =
               await import('#/api/core/case-process');
             addResponse = await addPropertyReceiptApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
-              ccjgrq: (formData.value || {}).CCJGRQ || SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
+              ccjgrq: (formData.value || {}).CCJGRQ || sep_adate,
               ccjgnr: (formData.value || {}).CCJGNR || '',
               fzr: (formData.value || {}).FZR || '',
               jgzt: (formData.value || {}).JGZT || '',
               bz: (formData.value || {}).BZ || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '5',
-              ...formData.value,
             });
             break;
           }
 
           case 'sealManagement': {
-            // 调用添加印章管理API
             const { addSealManagementApi } =
               await import('#/api/core/case-process');
             addResponse = await addSealManagementApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               yzlx: (formData.value || {}).YZLX || '',
               yzbh: (formData.value || {}).YZBH || '',
               yzyblj: (formData.value || {}).YZYBLJ || '',
               yzmc: (formData.value || {}).YZMC || '',
-              barq: (formData.value || {}).GLRQ || SEP_EDATE,
+              barq: (formData.value || {}).GLRQ || sep_adate,
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '3',
-              ...formData.value,
             });
             break;
           }
 
           case 'workPlan': {
-            // 调用添加工作计划API
             const { addWorkPlanApi } = await import('#/api/core/case-process');
             addResponse = await addWorkPlanApi({
               sep_ld: caseId.value,
-              SEP_EUSER: sepeuser,
-              SEP_EDATE,
+              sep_auser: sepeuser,
+              sep_adate,
               jhlx: (formData.value || {}).JHLX || '',
               jhnr: (formData.value || {}).JHNR || '',
-              ksrq: (formData.value || {}).KSRQ || SEP_EDATE,
-              jsrq: (formData.value || {}).JSRQ || SEP_EDATE,
+              ksrq: (formData.value || {}).KSRQ || sep_adate,
+              jsrq: (formData.value || {}).JSRQ || sep_adate,
               fzr: (formData.value || {}).FZR || '',
               zt: confirm ? '1' : '0',
-              OperateType: taskTypeToOperateType[taskId.value] || '1',
-              ...formData.value,
             });
             break;
           }
@@ -1095,8 +1065,9 @@ const saveData = async (confirm: boolean = false) => {
       ElMessage.success('数据已保存');
     }
 
-    // 更新原始数据
     originalDataList.value[currentIndex.value] = { ...formData.value };
+
+    router.push(`/law/case-detail/${caseId.value}`);
   } catch (error) {
     console.error('保存数据失败:', error);
     ElMessage.error('保存数据失败');
@@ -1120,20 +1091,16 @@ const saveAndConfirm = async () => {
 const skipTask = async () => {
   saving.value = true;
   try {
-    // 从本地存储获取操作人信息，默认使用uName
     const chatUserInfo = localStorage.getItem('chat_user_info');
     const userInfo = chatUserInfo ? JSON.parse(chatUserInfo) : {};
-    const SEP_EUSER = userInfo.uName || userInfo.U_USER || 'admin';
-    const SEP_EDATE = new Date().toISOString();
+    const sep_auser = userInfo.uName || userInfo.U_USER || 'admin';
+    const sep_adate = new Date().toISOString();
 
     let resultData;
 
-    // 特殊处理工作团队任务（忽略大小写比较）
     if (taskId.value.toLowerCase() === 'workteam') {
-      // 导入工作团队API
       const { addWorkTeamApi } = await import('#/api/core/work-team');
 
-      // 准备工作团队API参数
       const addParams = {
         sep_ld: caseId.value,
         sep_id:
@@ -1147,12 +1114,9 @@ const skipTask = async () => {
         zqshzcy: (formData.value || {}).ZQSHZCY || '',
         ldrszcy: (formData.value || {}).LDRSZCY || '',
         zzqlzcy: (formData.value || {}).ZZQLZCY || '',
-        SEP_EUSER,
-        SEP_EDATE,
-        ZT: '2', // 跳过状态
-        // 兼容API所需的其他字段
-        sepauser: SEP_EUSER,
-        sepadate: SEP_EDATE,
+        sep_auser,
+        sep_adate,
+        ZT: '2',
       };
       resultData = await addWorkTeamApi(addParams);
     } else {
@@ -1657,21 +1621,6 @@ onMounted(async () => {
           >
             <Icon icon="lucide:check-circle" class="mr-1" />
             保存并确认
-          </ElButton>
-
-          <ElButton
-            v-if="!isSkipped"
-            type="warning"
-            :loading="saving"
-            @click="skipTask"
-          >
-            <Icon icon="lucide:skip-forward" class="mr-1" />
-            跳过
-          </ElButton>
-
-          <ElButton v-else type="warning" :loading="saving" @click="revokeSkip">
-            <Icon icon="lucide:undo" class="mr-1" />
-            撤回
           </ElButton>
         </div>
       </div>

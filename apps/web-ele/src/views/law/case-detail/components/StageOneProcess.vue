@@ -9,12 +9,10 @@ import {
   ElButton,
   ElCard,
   ElMessage,
-  ElMessageBox,
   ElProgress,
   ElTag,
 } from 'element-plus';
 
-// 导入API函数和类型
 import {
   getLegalProcedureApi,
   getManagementApi,
@@ -24,20 +22,25 @@ import {
   unifiedTaskOperationApi,
 } from '#/api/core/case-process';
 
-// 组件属性
+import { taskConfigs } from '../config/task-config';
+import {
+  calculateTaskStatus,
+  getStatusClass,
+  getStatusType,
+} from '../utils/task-utils';
+
 interface Props {
   caseId: string;
 }
 
 const props = defineProps<Props>();
-// 定义事件
+
 const emit = defineEmits<{
   taskStatusChanged: [taskId: string, status: string];
 }>();
 
 const router = useRouter();
 
-// 任务数据
 const tasks = ref<CaseProcessApi.TaskInfo[]>([
   {
     id: 'workTeam',
@@ -78,7 +81,6 @@ const tasks = ref<CaseProcessApi.TaskInfo[]>([
 
 const loading = ref(false);
 
-// 计算进度
 const progress = computed(() => {
   const completedTasks = tasks.value.filter(
     (task) => task.status === '完成' || task.status === '跳过',
@@ -86,344 +88,167 @@ const progress = computed(() => {
   return Math.round((completedTasks / tasks.value.length) * 100);
 });
 
-// 获取状态标签类型
-const getStatusType = (status: CaseProcessApi.TaskStatus) => {
-  switch (status) {
-    case '完成': {
-      return 'success';
-    }
-    case '跳过': {
-      return 'warning';
-    }
-    default: {
-      return 'info';
-    }
-  }
+const handleAddWorkTeam = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-team/add`,
+  });
 };
 
-// 获取状态样式类
-const getStatusClass = (status: CaseProcessApi.TaskStatus) => {
-  switch (status) {
-    case '完成': {
-      return 'status-completed';
-    }
-    case '跳过': {
-      return 'status-skipped';
-    }
-    default: {
-      return 'status-pending';
-    }
-  }
+const handleEditWorkTeam = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-team/edit`,
+    query: {
+      taskId: 'workTeam',
+    },
+  });
 };
 
-// 编辑任务
-const editTask = (taskId: string) => {
-  router.push(`/case-detail/${props.caseId}/task/${taskId}/edit`);
+const handleViewWorkTeam = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-team/view`,
+    query: {
+      taskId: 'workTeam',
+    },
+  });
 };
 
-// 新增任务
-const addTask = (taskId: string) => {
-  router.push(`/case-detail/${props.caseId}/task/${taskId}/add`);
+const handleAddWorkPlan = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-plan/add`,
+  });
 };
 
-// 任务类型映射到OperateType
-const taskTypeToOperateType: Record<string, string> = {
-  workTeam: '0',
-  workPlan: '1',
-  management: '2',
-  sealManagement: '3',
-  legalProcedure: '4',
+const handleEditWorkPlan = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-plan/edit`,
+    query: {
+      taskId: 'workPlan',
+    },
+  });
 };
 
-// 完成任务
-const completeTask = async (taskId: string) => {
+const handleViewWorkPlan = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/work-plan/view`,
+    query: {
+      taskId: 'workPlan',
+    },
+  });
+};
+
+const handleAddManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/management/add`,
+  });
+};
+
+const handleEditManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/management/edit`,
+    query: {
+      taskId: 'management',
+    },
+  });
+};
+
+const handleViewManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/management/view`,
+    query: {
+      taskId: 'management',
+    },
+  });
+};
+
+const handleAddSealManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/seal-management/add`,
+  });
+};
+
+const handleEditSealManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/seal-management/edit`,
+    query: {
+      taskId: 'sealManagement',
+    },
+  });
+};
+
+const handleViewSealManagement = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/seal-management/view`,
+    query: {
+      taskId: 'sealManagement',
+    },
+  });
+};
+
+const handleAddLegalProcedure = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/legal-procedure/add`,
+  });
+};
+
+const handleEditLegalProcedure = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/legal-procedure/edit`,
+    query: {
+      taskId: 'legalProcedure',
+    },
+  });
+};
+
+const handleViewLegalProcedure = () => {
+  router.push({
+    path: `/law/case-detail/${props.caseId}/legal-procedure/view`,
+    query: {
+      taskId: 'legalProcedure',
+    },
+  });
+};
+
+const handleCompleteTask = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认完成该任务吗？', '提示', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-
-    // 获取当前任务信息
-    const task = tasks.value.find((t) => t.id === taskId);
-    if (!task) {
-      ElMessage.error('任务不存在');
-      return;
-    }
-
-    // 从本地存储获取操作人信息
-    const chatUserInfo = localStorage.getItem('chat_user_info');
-    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    const SEP_EDATE = new Date().toISOString();
-
-    // 准备统一API参数
-    const params = {
+    await unifiedTaskOperationApi({
       SEP_LD: props.caseId,
-      ZT: '1', // 完成状态
-      OperateType: taskTypeToOperateType[taskId] || '0',
-      SEP_EDATE,
-      SEP_EUSER,
-      ...task, // 上传所有任务数据
-    };
-
-    // 调用统一API
-    const result = await unifiedTaskOperationApi(params);
-
-    if (result && result.status === '1') {
-      // 更新本地状态
-      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-      if (taskIndex !== -1 && tasks.value[taskIndex]) {
-        tasks.value[taskIndex].status = '完成';
-        // 通知父组件任务状态变更
-        emit('taskStatusChanged', taskId, '完成');
-        ElMessage.success('任务已完成');
-      }
-    } else {
-      ElMessage.error(`更新任务状态失败：${result.error || '未知错误'}`);
+      OperateType: '1',
+      taskId,
+    });
+    ElMessage.success('任务完成成功');
+    const task = tasks.value.find((t) => t.id === taskId);
+    if (task) {
+      task.status = '完成';
+      emit('taskStatusChanged', taskId, '完成');
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('完成任务失败:', error);
-      ElMessage.error('完成任务失败');
-    }
+    console.error('任务完成失败:', error);
+    ElMessage.error('任务完成失败');
   }
 };
 
-// 跳过任务
-const skipTask = async (taskId: string) => {
+const handleSkipTask = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认跳过该任务吗？', '提示', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning',
+    await unifiedTaskOperationApi({
+      SEP_LD: props.caseId,
+      OperateType: '2',
+      taskId,
     });
-
-    // 获取当前任务信息
+    ElMessage.success('任务跳过成功');
     const task = tasks.value.find((t) => t.id === taskId);
-    if (!task) {
-      ElMessage.error('任务不存在');
-      return;
-    }
-
-    // 从本地存储获取操作人信息
-    const chatUserInfo = localStorage.getItem('chat_user_info');
-    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    const SEP_EDATE = new Date().toISOString();
-
-    let addResponse: any;
-    let updateResult: any;
-
-    // 根据任务是否存在（count为0表示不存在）来决定调用哪个API
-    if (task.count === 0) {
-      // 任务不存在，调用新增API
-      switch (taskId) {
-        case 'legalProcedure': {
-          // 准备法律程序默认数据
-          const legalProcedureData = {
-            sep_ld: props.caseId,
-            SEP_EUSER,
-            SEP_EDATE,
-            cxlx: '',
-            cxnr: '',
-            zhrq: SEP_EDATE,
-            fzr: '',
-            zt: '2', // 跳过状态默认为2
-            OperateType: taskTypeToOperateType[taskId] || '4',
-          };
-
-          // 调用添加法律程序API
-          const { addLegalProcedureApi } =
-            await import('#/api/core/case-process');
-          addResponse = await addLegalProcedureApi(legalProcedureData);
-          break;
-        }
-
-        case 'management': {
-          // 准备管理制度默认数据
-          const managementData = {
-            sep_ld: props.caseId,
-            SEP_EUSER,
-            SEP_EDATE,
-            zdlx: '',
-            zdmc: '',
-            zdnr: '',
-            sxrq: SEP_EDATE,
-            zt: '2', // 跳过状态默认为2
-            OperateType: taskTypeToOperateType[taskId] || '2',
-          };
-
-          // 调用添加管理制度API
-          const { addManagementApi } = await import('#/api/core/case-process');
-          addResponse = await addManagementApi(managementData);
-          break;
-        }
-
-        case 'sealManagement': {
-          // 准备印章管理默认数据
-          const sealManagementData = {
-            sep_ld: props.caseId,
-            SEP_EUSER,
-            SEP_EDATE,
-            yzlx: '',
-            yzbh: '',
-            yzyblj: '',
-            zt: '2', // 跳过状态默认为2
-            barq: SEP_EDATE,
-            yzmc: '',
-            OperateType: taskTypeToOperateType[taskId] || '3',
-          };
-
-          // 调用添加印章管理API
-          const { addSealManagementApi } =
-            await import('#/api/core/case-process');
-          addResponse = await addSealManagementApi(sealManagementData);
-          break;
-        }
-
-        case 'workPlan': {
-          // 准备工作计划默认数据
-          const workPlanData = {
-            sep_ld: props.caseId,
-            SEP_EUSER,
-            SEP_EDATE,
-            jhlx: '',
-            jhnr: '',
-            ksrq: SEP_EDATE,
-            jsrq: SEP_EDATE,
-            fzr: '',
-            zt: '2', // 跳过状态默认为2
-            OperateType: taskTypeToOperateType[taskId] || '1',
-          };
-
-          // 调用添加工作计划API
-          const { addWorkPlanApi } = await import('#/api/core/case-process');
-          addResponse = await addWorkPlanApi(workPlanData);
-          break;
-        }
-
-        case 'workTeam': {
-          // 准备默认数据
-          const workTeamData = {
-            sep_ld: props.caseId, // 使用案件ID作为sep_ld
-            tdfzr: '', // 团队负责人，默认空
-            zhzcy: '', // 综合组成员，默认空
-            cxzcy: '', // 程序组成员，默认空
-            ccglzcy: '', // 财产管理组成员，默认空
-            zqshzcy: '', // 债权审核组成员，默认空
-            ldrszcy: '', // 劳动人事组成员，默认空
-            zzqlzcy: '', // 资产清理组成员，默认空
-            SEP_EUSER, // 从本地存储获取操作人
-            SEP_EDATE, // 操作日期，当前时间
-            ZT: '2', // 状态字段，默认为2（跳过状态）
-            OperateType: taskTypeToOperateType[taskId] || '0',
-          };
-
-          // 动态导入addWorkTeamApi，避免循环依赖
-          const { addWorkTeamApi } = await import('#/api/core/work-team');
-          // 调用添加工作团队API
-          addResponse = await addWorkTeamApi(workTeamData);
-          break;
-        }
-
-        default: {
-          break;
-        }
-      }
-
-      // 检查API调用结果
-      if (addResponse && addResponse.status !== '1') {
-        ElMessage.error(`添加数据失败：${addResponse.error || '未知错误'}`);
-        return;
-      }
-    } else {
-      // 任务存在，调用统一API更新状态
-      // 准备统一API参数
-      const params = {
-        SEP_LD: props.caseId,
-        ZT: '2', // 跳过状态
-        OperateType: taskTypeToOperateType[taskId] || '0',
-        SEP_EDATE,
-        SEP_EUSER,
-      };
-
-      // 调用统一API
-      updateResult = await unifiedTaskOperationApi(params);
-
-      if (updateResult && updateResult.status !== '1') {
-        ElMessage.error(
-          `更新任务状态失败：${updateResult.error || '未知错误'}`,
-        );
-        return;
-      }
-    }
-
-    // 更新本地状态
-    const taskIndex = tasks.value.findIndex((t) => t.id === taskId);
-    if (taskIndex !== -1 && tasks.value[taskIndex]) {
-      tasks.value[taskIndex].status = '跳过';
-      // 通知父组件任务状态变更
+    if (task) {
+      task.status = '跳过';
       emit('taskStatusChanged', taskId, '跳过');
-      ElMessage.success('任务已跳过');
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('跳过任务失败:', error);
-      ElMessage.error('跳过任务失败');
-    }
+    console.error('任务跳过失败:', error);
+    ElMessage.error('任务跳过失败');
   }
 };
 
-// 撤回任务（跳过或完成）
-const withdrawSkipTask = async (taskId: string) => {
-  try {
-    await ElMessageBox.confirm('确认撤回该任务操作吗？', '提示', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-
-    // 从本地存储获取操作人信息
-    const chatUserInfo = localStorage.getItem('chat_user_info');
-    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    const SEP_EDATE = new Date().toISOString();
-
-    // 准备统一API参数
-    const params = {
-      SEP_LD: props.caseId,
-      ZT: '0', // 未确认状态
-      OperateType: taskTypeToOperateType[taskId] || '0',
-      SEP_EDATE,
-      SEP_EUSER,
-    };
-
-    // 调用统一API
-    const result = await unifiedTaskOperationApi(params);
-
-    if (result && result.status === '1') {
-      // 更新本地状态
-      const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-      if (taskIndex !== -1 && tasks.value[taskIndex]) {
-        tasks.value[taskIndex].status = '未确认';
-        // 通知父组件任务状态变更
-        emit('taskStatusChanged', taskId, '未确认');
-        ElMessage.success('已撤回操作');
-      }
-    } else {
-      ElMessage.error(`撤回操作失败：${result.error || '未知错误'}`);
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('撤回操作失败:', error);
-      ElMessage.error('撤回操作失败');
-    }
-  }
-};
-
-// 加载任务数据
 const loadTaskData = async () => {
   loading.value = true;
   try {
-    // 调用后端API获取任务数据，传递page和size参数
     const [
       workTeamRes,
       workPlanRes,
@@ -438,122 +263,54 @@ const loadTaskData = async () => {
       getLegalProcedureApi(props.caseId, 1, 10),
     ]);
 
-    // 处理API响应，从分页数据中获取记录
     tasks.value = [
       {
         id: 'workTeam',
         name: '工作团队确认',
-        status:
-          workTeamRes.status === 'fulfilled' &&
-          workTeamRes.value.status === '1' &&
-          workTeamRes.value.data &&
-          Number.parseInt(workTeamRes.value.data.paras?.zt2_count || '0') > 0
-            ? '跳过'
-            : '未确认',
+        status: calculateTaskStatus(workTeamRes),
         apiUrl: '/api/web/getAllWorkTeam',
         token: '4015f285dc41bd1bb931ba8430966c3f',
-        count:
-          (workTeamRes.status === 'fulfilled' &&
-            workTeamRes.value.data?.count) ||
-          0,
-        paras:
-          workTeamRes.status === 'fulfilled' && workTeamRes.value.data
-            ? workTeamRes.value.data.paras
-            : undefined,
+        count: (workTeamRes.status === 'fulfilled' && workTeamRes.value.data?.count) || 0,
+        paras: workTeamRes.status === 'fulfilled' && workTeamRes.value.data ? workTeamRes.value.data.paras : undefined,
       },
       {
         id: 'workPlan',
         name: '工作计划确认',
-        status:
-          workPlanRes.status === 'fulfilled' &&
-          workPlanRes.value.status === '1' &&
-          workPlanRes.value.data &&
-          Number.parseInt(workPlanRes.value.data.paras?.zt2_count || '0') > 0
-            ? '跳过'
-            : '未确认',
+        status: calculateTaskStatus(workPlanRes),
         apiUrl: '/api/web/getAllWorkPlan',
         token: '8a62e323a84173fd8ec72557e6fc616d',
-        count:
-          (workPlanRes.status === 'fulfilled' &&
-            workPlanRes.value.data?.count) ||
-          0,
-        paras:
-          workPlanRes.status === 'fulfilled' && workPlanRes.value.data
-            ? workPlanRes.value.data.paras
-            : undefined,
+        count: (workPlanRes.status === 'fulfilled' && workPlanRes.value.data?.count) || 0,
+        paras: workPlanRes.status === 'fulfilled' && workPlanRes.value.data ? workPlanRes.value.data.paras : undefined,
       },
       {
         id: 'management',
         name: '管理制度确认',
-        status:
-          managementRes.status === 'fulfilled' &&
-          managementRes.value.status === '1' &&
-          managementRes.value.data &&
-          Number.parseInt(managementRes.value.data.paras?.zt2_count || '0') > 0
-            ? '跳过'
-            : '未确认',
+        status: calculateTaskStatus(managementRes),
         apiUrl: '/api/web/getAllManagement',
         token: '6bbdf0bf97117c1bac495072c961e778',
-        count:
-          (managementRes.status === 'fulfilled' &&
-            managementRes.value.data?.count) ||
-          0,
-        paras:
-          managementRes.status === 'fulfilled' && managementRes.value.data
-            ? managementRes.value.data.paras
-            : undefined,
+        count: (managementRes.status === 'fulfilled' && managementRes.value.data?.count) || 0,
+        paras: managementRes.status === 'fulfilled' && managementRes.value.data ? managementRes.value.data.paras : undefined,
       },
       {
         id: 'sealManagement',
         name: '印章确认',
-        status:
-          sealManagementRes.status === 'fulfilled' &&
-          sealManagementRes.value.status === '1' &&
-          sealManagementRes.value.data &&
-          Number.parseInt(
-            sealManagementRes.value.data.paras?.zt2_count || '0',
-          ) > 0
-            ? '跳过'
-            : '未确认',
+        status: calculateTaskStatus(sealManagementRes),
         apiUrl: '/api/web/getSealManagement',
         token: '203cadf061d22b2aaa2ce1c59b9c4bbb',
-        count:
-          (sealManagementRes.status === 'fulfilled' &&
-            sealManagementRes.value.data?.count) ||
-          0,
-        paras:
-          sealManagementRes.status === 'fulfilled' &&
-          sealManagementRes.value.data
-            ? sealManagementRes.value.data.paras
-            : undefined,
+        count: (sealManagementRes.status === 'fulfilled' && sealManagementRes.value.data?.count) || 0,
+        paras: sealManagementRes.status === 'fulfilled' && sealManagementRes.value.data ? sealManagementRes.value.data.paras : undefined,
       },
       {
         id: 'legalProcedure',
         name: '法律程序确认',
-        status:
-          legalProcedureRes.status === 'fulfilled' &&
-          legalProcedureRes.value.status === '1' &&
-          legalProcedureRes.value.data &&
-          Number.parseInt(
-            legalProcedureRes.value.data.paras?.zt2_count || '0',
-          ) > 0
-            ? '跳过'
-            : '未确认',
+        status: calculateTaskStatus(legalProcedureRes),
         apiUrl: '/api/web/getAllLegalProcedure',
         token: 'a81a3a18b6d52abb4b6c38132e1198da',
-        count:
-          (legalProcedureRes.status === 'fulfilled' &&
-            legalProcedureRes.value.data?.count) ||
-          0,
-        paras:
-          legalProcedureRes.status === 'fulfilled' &&
-          legalProcedureRes.value.data
-            ? legalProcedureRes.value.data.paras
-            : undefined,
+        count: (legalProcedureRes.status === 'fulfilled' && legalProcedureRes.value.data?.count) || 0,
+        paras: legalProcedureRes.status === 'fulfilled' && legalProcedureRes.value.data ? legalProcedureRes.value.data.paras : undefined,
       },
     ];
 
-    // 检查是否有API调用失败
     const failedApis = [
       workTeamRes,
       workPlanRes,
@@ -573,7 +330,6 @@ const loadTaskData = async () => {
   }
 };
 
-// 页面加载时获取数据
 onMounted(() => {
   loadTaskData();
 });
@@ -626,7 +382,7 @@ onMounted(() => {
             </div>
             <div class="task-description">
               当前状态：
-              {{
+              {{ 
                 task.status === '完成'
                   ? '已完成确认'
                   : task.status === '跳过'
@@ -636,105 +392,242 @@ onMounted(() => {
             </div>
           </div>
           <div class="task-actions">
-            <!-- 如果count为0，显示新增和跳过按钮 -->
             <template v-if="task.count === 0">
               <ElButton
                 type="primary"
                 size="small"
-                @click="addTask(task.id)"
-                :disabled="task.status === '完成' || task.status === '跳过'"
+                @click="handleAddWorkTeam"
+                v-if="task.id === 'workTeam'"
               >
                 <Icon icon="lucide:plus" class="mr-1" />
                 新增
               </ElButton>
-
               <ElButton
-                v-if="task.status === '跳过'"
-                type="danger"
+                type="primary"
                 size="small"
-                @click="withdrawSkipTask(task.id)"
+                @click="handleAddWorkPlan"
+                v-if="task.id === 'workPlan'"
               >
-                <Icon icon="lucide:undo" class="mr-1" />
-                撤回
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
               </ElButton>
-
               <ElButton
-                v-else
+                type="primary"
+                size="small"
+                @click="handleAddManagement"
+                v-if="task.id === 'management'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleAddSealManagement"
+                v-if="task.id === 'sealManagement'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleAddLegalProcedure"
+                v-if="task.id === 'legalProcedure'"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                新增
+              </ElButton>
+              <ElButton
                 type="warning"
                 size="small"
-                @click="skipTask(task.id)"
-                :disabled="task.status === '完成'"
+                @click="handleSkipTask(task.id)"
               >
                 <Icon icon="lucide:skip-forward" class="mr-1" />
                 跳过
               </ElButton>
             </template>
 
-            <!-- 如果count不为0，显示编辑、完成、跳过和新增按钮 -->
             <template v-else>
+              <ElButton
+                type="info"
+                size="small"
+                @click="handleViewWorkTeam"
+                v-if="task.id === 'workTeam'"
+              >
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
               <ElButton
                 type="primary"
                 size="small"
-                @click="editTask(task.id)"
-                :disabled="task.status === '完成' || task.status === '跳过'"
+                @click="handleEditWorkTeam"
+                v-if="task.id === 'workTeam'"
               >
                 <Icon icon="lucide:edit" class="mr-1" />
                 编辑
               </ElButton>
-
               <ElButton
                 type="success"
                 size="small"
-                @click="completeTask(task.id)"
-                :disabled="task.status === '完成' || task.status === '跳过'"
+                @click="handleCompleteTask(task.id)"
+                v-if="task.id === 'workTeam'"
               >
                 <Icon icon="lucide:check" class="mr-1" />
                 完成
               </ElButton>
 
-              <!-- 跳过/撤回按钮 -->
               <ElButton
-                v-if="task.status === '跳过' || task.status === '完成'"
+                type="info"
+                size="small"
+                @click="handleViewWorkPlan"
+                v-if="task.id === 'workPlan'"
+              >
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleEditWorkPlan"
+                v-if="task.id === 'workPlan'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+              <ElButton
+                type="success"
+                size="small"
+                @click="handleCompleteTask(task.id)"
+                v-if="task.id === 'workPlan' && task.status !== '完成'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+
+              <ElButton
                 type="danger"
                 size="small"
-                @click="withdrawSkipTask(task.id)"
+                @click="handleSkipTask(task.id)"
+                v-if="task.id === 'workPlan' && task.status === '完成'"
               >
                 <Icon icon="lucide:undo" class="mr-1" />
                 撤回
               </ElButton>
 
               <ElButton
-                v-else
+                type="info"
+                size="small"
+                @click="handleViewManagement"
+                v-if="task.id === 'management'"
+              >
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleEditManagement"
+                v-if="task.id === 'management'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+              <ElButton
+                type="success"
+                size="small"
+                @click="handleCompleteTask(task.id)"
+                v-if="task.id === 'management'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+              <ElButton
                 type="warning"
                 size="small"
-                @click="skipTask(task.id)"
-                :disabled="task.status === '完成'"
+                @click="handleSkipTask(task.id)"
+                v-if="task.id === 'management'"
               >
                 <Icon icon="lucide:skip-forward" class="mr-1" />
                 跳过
               </ElButton>
 
-              <!-- 新增按钮 -->
               <ElButton
                 type="info"
                 size="small"
-                @click="addTask(task.id)"
-                :disabled="task.status === '完成' || task.status === '跳过'"
+                @click="handleViewSealManagement"
+                v-if="task.id === 'sealManagement'"
               >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleEditSealManagement"
+                v-if="task.id === 'sealManagement'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+              <ElButton
+                type="success"
+                size="small"
+                @click="handleCompleteTask(task.id)"
+                v-if="task.id === 'sealManagement'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+              <ElButton
+                type="warning"
+                size="small"
+                @click="handleSkipTask(task.id)"
+                v-if="task.id === 'sealManagement'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
+              </ElButton>
+
+              <ElButton
+                type="info"
+                size="small"
+                @click="handleViewLegalProcedure"
+                v-if="task.id === 'legalProcedure'"
+              >
+                <Icon icon="lucide:eye" class="mr-1" />
+                查看
+              </ElButton>
+              <ElButton
+                type="primary"
+                size="small"
+                @click="handleEditLegalProcedure"
+                v-if="task.id === 'legalProcedure'"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+              <ElButton
+                type="success"
+                size="small"
+                @click="handleCompleteTask(task.id)"
+                v-if="task.id === 'legalProcedure'"
+              >
+                <Icon icon="lucide:check" class="mr-1" />
+                完成
+              </ElButton>
+              <ElButton
+                type="warning"
+                size="small"
+                @click="handleSkipTask(task.id)"
+                v-if="task.id === 'legalProcedure'"
+              >
+                <Icon icon="lucide:skip-forward" class="mr-1" />
+                跳过
               </ElButton>
             </template>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- 阶段完成提示 -->
-    <div v-if="progress === 100" class="stage-complete">
-      <div class="complete-message">
-        <Icon icon="lucide:check-circle" class="mr-2 text-green-500" />
-        <span>第一阶段所有任务已完成！</span>
       </div>
     </div>
   </ElCard>
@@ -742,27 +635,23 @@ onMounted(() => {
 
 <style scoped>
 .stage-one-process {
-  margin-bottom: 24px;
-  border: 1px solid #e5e7eb;
+  margin: 0;
+  padding: 0;
   border-radius: 8px;
-  background: #ffffff;
 }
 
 .stage-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .stage-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
   display: flex;
   align-items: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
 }
 
 .stage-progress {
@@ -772,12 +661,11 @@ onMounted(() => {
 
 .progress-text {
   font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
+  color: #666;
 }
 
 .tasks-container {
-  padding: 20px;
+  margin-top: 20px;
 }
 
 .task-list {
@@ -787,68 +675,58 @@ onMounted(() => {
 }
 
 .task-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
   border-radius: 8px;
-  padding: 16px 20px;
-  transition: all 0.3s ease;
-  background: #ffffff;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
 }
 
 .task-item:hover {
-  transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 状态样式 */
 .status-completed {
-  border-left: 4px solid #10b981;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
 .status-skipped {
-  border-left: 4px solid #f59e0b;
-  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  background-color: #fffbeb;
+  border-color: #fde68a;
 }
 
 .status-pending {
-  border-left: 4px solid #3b82f6;
-  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
 }
 
 .task-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .task-main {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  margin-bottom: 6px;
 }
 
 .task-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
-  min-width: 120px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
 }
 
 .task-count {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 13px;
   color: #6b7280;
-  margin-left: 4px;
-  background-color: #f3f4f6;
-  padding: 2px 6px;
-  border-radius: 10px;
-  display: inline-block;
-  vertical-align: middle;
+  margin-left: 8px;
+  background-color: #e5e7eb;
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
 .task-status {
@@ -857,70 +735,13 @@ onMounted(() => {
 }
 
 .task-description {
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7280;
-  line-height: 1.4;
 }
 
 .task-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: nowrap;
-}
-
-.task-actions .el-button {
-  min-width: 70px;
-}
-
-.stage-complete {
-  margin-top: 20px;
-  padding: 16px;
-  background: #f0fdf4;
-  border: 1px solid #10b981;
-  border-radius: 6px;
-  text-align: center;
-}
-
-.complete-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: #065f46;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .stage-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .stage-progress {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .task-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .task-main {
-    justify-content: space-between;
-  }
-
-  .task-actions {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .task-actions .el-button {
-    flex: 1;
-    min-width: 80px;
-  }
+  justify-content: flex-end;
 }
 </style>

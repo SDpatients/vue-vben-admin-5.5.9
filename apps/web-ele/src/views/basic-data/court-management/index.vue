@@ -14,11 +14,7 @@ import {
   ElTableColumn,
 } from 'element-plus';
 
-<<<<<<< HEAD
-import { getCourtListApi } from '#/api/core';
-=======
 import { addCourtApi, getCourtListApi, updateCourtApi, deleteCourtApi } from '#/api/core';
->>>>>>> ec9722d (初始化 jxz-dev 分支)
 
 // 法院列表数据
 const courtList = ref<CourtApi.CourtInfo[]>([]);
@@ -109,11 +105,6 @@ const handleRefresh = () => {
   fetchCourtList();
 };
 
-<<<<<<< HEAD
-// 新增法院
-const handleAddCourt = () => {
-  ElMessage.info('新增法院功能开发中...');
-=======
 // 新增法院弹窗状态
 const dialogVisible = ref(false);
 
@@ -201,7 +192,6 @@ const submitAddCourt = async () => {
     console.error('添加法院失败:', error);
     ElMessage.error('网络错误，请稍后重试');
   }
->>>>>>> ec9722d (初始化 jxz-dev 分支)
 };
 
 // 编辑法院
@@ -412,8 +402,6 @@ onMounted(() => {
           @current-change="handlePageChange"
         />
       </div>
-<<<<<<< HEAD
-=======
 
       <!-- 新增法院弹窗 -->
       <ElDialog
@@ -505,7 +493,6 @@ onMounted(() => {
           </div>
         </template>
       </ElDialog>
->>>>>>> ec9722d (初始化 jxz-dev 分支)
     </ElCard>
   </div>
 </template>

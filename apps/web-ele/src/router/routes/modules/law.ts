@@ -70,6 +70,18 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'LawTaskView',
+        path: '/case-detail/:caseId/task/:taskId/view',
+        component: () => import('#/views/law/case-detail/TaskView.vue'),
+        meta: {
+          affixTab: false,
+          hideInTab: true,
+          icon: 'lucide:eye',
+          title: $t('page.law.taskView'),
+          hideInMenu: true,
+        },
+      },
+      {
         name: 'LawServiceOfDocuments',
         path: '/service-of-documents',
         component: () => import('#/views/law/service-of-documents/index.vue'),
@@ -114,6 +126,16 @@ const routes: RouteRecordRaw[] = [
           hideInMenu: true,
           hideInBreadcrumb: true,
           hideInTab: true,
+        },
+      },
+      {
+        name: 'LawAnnouncementList',
+        path: '/announcement-list',
+        component: () => import('#/views/law/announcement-list/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:bell',
+          title: '公告列表',
         },
       },
     ],
