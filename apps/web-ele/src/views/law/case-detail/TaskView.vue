@@ -15,7 +15,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCaseDetailApi } from '#/api/core/case';
+import { getCaseDetailApi, getCaseFilesApi } from '#/api/core/case';
 import {
   getBusinessManagementApi,
   getEmergencyApi,
@@ -30,6 +30,13 @@ import {
   getWorkTeamApi,
 } from '#/api/core/case-process';
 
+import { taskConfigs } from '../config/task-config';
+import {
+  extractDataList,
+  formatFileSize,
+  getStatusType,
+} from '../utils/task-utils';
+
 const route = useRoute();
 const router = useRouter();
 
@@ -40,312 +47,6 @@ const taskId = ref(
   (route.params.taskId as string) || (route.params.taskType as string),
 );
 
-const taskConfigs = {
-  workTeam: {
-    name: '工作团队确认',
-    fields: [
-      { key: 'TDFZR', label: '团队负责人', type: 'input' },
-      { key: 'ZHZCY', label: '综合组成员', type: 'input' },
-      { key: 'CXZCY', label: '程序组成员', type: 'input' },
-      { key: 'CCGLZCY', label: '财产管理组成员', type: 'input' },
-      { key: 'ZQSHZCY', label: '债权审核组成员', type: 'input' },
-      { key: 'LDRSZCY', label: '劳动人事组成员', type: 'input' },
-      { key: 'ZZQLZCY', label: '债权确认组成员', type: 'input' },
-    ],
-  },
-  workPlan: {
-    name: '工作计划确认',
-    fields: [
-      { key: 'JHLX', label: '计划类型', type: 'input' },
-      { key: 'JHNR', label: '计划内容', type: 'textarea' },
-      { key: 'KSRQ', label: '开始日期', type: 'date' },
-      { key: 'JSRQ', label: '结束日期', type: 'date' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'ZHZT', label: '综合状态', type: 'input' },
-    ],
-  },
-  management: {
-    name: '管理制度确认',
-    fields: [
-      { key: 'GLMC', label: '管理制度名称', type: 'input' },
-      { key: 'GLNR', label: '管理制度内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'FBRQ', label: '发布日期', type: 'date' },
-      { key: 'SYFW', label: '适用范围', type: 'input' },
-    ],
-  },
-  sealManagement: {
-    name: '印章确认',
-    fields: [
-      { key: 'YZMC', label: '印章名称', type: 'input' },
-      { key: 'YZZT', label: '印章状态', type: 'input' },
-      { key: 'GLR', label: '管理人', type: 'input' },
-      { key: 'GLRQ', label: '管理日期', type: 'date' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  legalProcedure: {
-    name: '法律程序确认',
-    fields: [
-      { key: 'CXMC', label: '程序名称', type: 'input' },
-      { key: 'CXNR', label: '程序内容', type: 'textarea' },
-      { key: 'KSRQ', label: '开始日期', type: 'date' },
-      { key: 'JSRQ', label: '结束日期', type: 'date' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'CXZT', label: '程序状态', type: 'input' },
-    ],
-  },
-  propertyReceipt: {
-    name: '财产接管确认',
-    fields: [
-      { key: 'CCJGRQ', label: '接管日期', type: 'date' },
-      { key: 'CCJGNR', label: '接管内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'JGZT', label: '接管状态', type: 'input' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  emergency: {
-    name: '应急预案确认',
-    fields: [
-      { key: 'YJYAMC', label: '应急预案名称', type: 'input' },
-      { key: 'YJYANR', label: '应急预案内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'YJZT', label: '应急状态', type: 'input' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  propertyPlan: {
-    name: '财产处置计划确认',
-    fields: [
-      { key: 'CCJHMC', label: '财产计划名称', type: 'input' },
-      { key: 'CCJHNR', label: '财产计划内容', type: 'textarea' },
-      { key: 'KSRQ', label: '开始日期', type: 'date' },
-      { key: 'JSRQ', label: '结束日期', type: 'date' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'JHZT', label: '计划状态', type: 'input' },
-    ],
-  },
-  personnelEmp: {
-    name: '人事管理确认',
-    fields: [
-      { key: 'RSGLNR', label: '人事管理内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'GLRQ', label: '管理日期', type: 'date' },
-      { key: 'GLZT', label: '管理状态', type: 'input' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  internalAffairs: {
-    name: '内部事务确认',
-    fields: [
-      { key: 'NBSWNR', label: '内部事务内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'CLRQ', label: '处理日期', type: 'date' },
-      { key: 'SWZT', label: '事务状态', type: 'input' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  businessManagement: {
-    name: '经营管理确认',
-    fields: [
-      { key: 'JYGLNR', label: '经营管理内容', type: 'textarea' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-      { key: 'GLRQ', label: '管理日期', type: 'date' },
-      { key: 'GLZT', label: '管理状态', type: 'input' },
-      { key: 'BZ', label: '备注', type: 'textarea' },
-    ],
-  },
-  propertyInvestigation: {
-    name: '财产调查',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  bankExpenses: {
-    name: '银行费用',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  rightsClaim: {
-    name: '权利主张',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  reclaimReview: {
-    name: '回收审核',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  litigationArbitration: {
-    name: '诉讼仲裁',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  creditorClaim: {
-    name: '债权人申报',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  socialSF: {
-    name: '社保费用表',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  taxVerification: {
-    name: '税收核定表',
-    fields: [
-      { key: 'TCLX', label: '调查类型', type: 'input' },
-      { key: 'TCNR', label: '调查内容', type: 'textarea' },
-      { key: 'TCRQ', label: '调查日期', type: 'date' },
-      { key: 'TCR', label: '调查人', type: 'input' },
-      { key: 'TCFX', label: '调查方向', type: 'input' },
-      { key: 'TCZT', label: '调查状态', type: 'input' },
-    ],
-  },
-  session: {
-    name: '第一次债权人会议',
-    fields: [
-      { key: 'HYLX', label: '会议类型', type: 'input' },
-      { key: 'HYZT', label: '会议主题', type: 'input' },
-      { key: 'HYRQ', label: '会议日期', type: 'date' },
-      { key: 'HYDD', label: '会议地点', type: 'input' },
-      { key: 'ZCR', label: '主持人', type: 'input' },
-      { key: 'CHRS', label: '参会人数', type: 'input' },
-    ],
-  },
-  meetingDocuments: {
-    name: '会议文件',
-    fields: [
-      { key: 'WJMC', label: '文件名称', type: 'input' },
-      { key: 'WJLX', label: '文件类型', type: 'input' },
-      { key: 'WJNR', label: '文件内容', type: 'textarea' },
-      { key: 'SCRQ', label: '上传日期', type: 'date' },
-      { key: 'SCR', label: '上传人', type: 'input' },
-    ],
-  },
-  claimConfirmation: {
-    name: '债权确认',
-    fields: [
-      { key: 'ZQRM', label: '债权人名称', type: 'input' },
-      { key: 'ZQJE', label: '债权金额', type: 'input' },
-      { key: 'ZQLX', label: '债权类型', type: 'input' },
-      { key: 'QRQ', label: '确认日期', type: 'date' },
-      { key: 'QRZT', label: '确认状态', type: 'input' },
-    ],
-  },
-  importantActions: {
-    name: '重要行为',
-    fields: [
-      { key: 'XWMC', label: '行为名称', type: 'input' },
-      { key: 'XWLX', label: '行为类型', type: 'input' },
-      { key: 'XWNR', label: '行为内容', type: 'textarea' },
-      { key: 'FSRQ', label: '发生日期', type: 'date' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-    ],
-  },
-  setoffReview: {
-    name: '抵销审核',
-    fields: [
-      { key: 'DXJE', label: '抵销金额', type: 'input' },
-      { key: 'DXLX', label: '抵销类型', type: 'input' },
-      { key: 'SHRQ', label: '审核日期', type: 'date' },
-      { key: 'SHZT', label: '审核状态', type: 'input' },
-      { key: 'SHR', label: '审核人', type: 'input' },
-    ],
-  },
-  auditReport: {
-    name: '审计报告',
-    fields: [
-      { key: 'BGMC', label: '报告名称', type: 'input' },
-      { key: 'BGBH', label: '报告编号', type: 'input' },
-      { key: 'BGNR', label: '报告内容', type: 'textarea' },
-      { key: 'CJRQ', label: '出具日期', type: 'date' },
-      { key: 'CJJG', label: '出具机构', type: 'input' },
-    ],
-  },
-  assetValuation: {
-    name: '资产价值评估',
-    fields: [
-      { key: 'PGXM', label: '评估项目', type: 'input' },
-      { key: 'PGJZ', label: '评估价值', type: 'input' },
-      { key: 'PGRQ', label: '评估日期', type: 'date' },
-      { key: 'PGJG', label: '评估机构', type: 'input' },
-      { key: 'PGBGBH', label: '评估报告编号', type: 'input' },
-    ],
-  },
-  propertyVPlan: {
-    name: '财产变价方案',
-    fields: [
-      { key: 'FAMC', label: '方案名称', type: 'input' },
-      { key: 'BJFS', label: '变价方式', type: 'input' },
-      { key: 'FANC', label: '方案内容', type: 'textarea' },
-      { key: 'ZDRQ', label: '制定日期', type: 'date' },
-      { key: 'FZR', label: '负责人', type: 'input' },
-    ],
-  },
-  bankruptcyDeclaration: {
-    name: '破产宣告',
-    fields: [
-      { key: 'XGRQ', label: '宣告日期', type: 'date' },
-      { key: 'XGH', label: '宣告文号', type: 'input' },
-      { key: 'XGYY', label: '宣告法院', type: 'input' },
-      { key: 'XGNR', label: '宣告内容', type: 'textarea' },
-    ],
-  },
-  propertyVIM: {
-    name: '财产分配方案',
-    fields: [
-      { key: 'FAMC', label: '方案名称', type: 'input' },
-      { key: 'FPZE', label: '分配总额', type: 'input' },
-      { key: 'FPFS', label: '分配方式', type: 'input' },
-      { key: 'FANC', label: '方案内容', type: 'textarea' },
-      { key: 'ZDRQ', label: '制定日期', type: 'date' },
-    ],
-  },
-};
-
 const currentTask = computed(
   () => taskConfigs[taskId.value as keyof typeof taskConfigs],
 );
@@ -353,11 +54,8 @@ const currentTask = computed(
 const formDataList = ref<Array<Record<string, any>>>([]);
 const currentIndex = ref(0);
 const loading = ref(false);
-
 const caseDetail = ref<any>(null);
-
 const taskStatus = ref<CaseProcessApi.TaskStatus>('未确认');
-
 const fileList = ref<Array<any>>([]);
 
 const formData = computed(() => formDataList.value[currentIndex.value] || {});
@@ -373,88 +71,33 @@ const pageTitle = computed(() => {
   return `查看 ${currentTask.value.name}`;
 });
 
-const getStatusType = (status: CaseProcessApi.TaskStatus) => {
-  switch (status) {
-    case '完成': {
-      return 'success';
-    }
-    case '跳过': {
-      return 'warning';
-    }
-    default: {
-      return 'info';
-    }
-  }
-};
-
 const loadTaskData = async () => {
   loading.value = true;
   try {
-    let apiResponse: any;
+    const apiMap: Record<string, () => Promise<any>> = {
+      businessManagement: () => getBusinessManagementApi(caseId.value),
+      emergency: () => getEmergencyApi(caseId.value),
+      internalAffairs: () => getInternalAffairsApi(caseId.value),
+      legalProcedure: () => getLegalProcedureApi(caseId.value),
+      management: () => getManagementApi(caseId.value),
+      personnelEmp: () => getPersonnelEmpApi(caseId.value),
+      propertyPlan: () => getPropertyPlanApi(caseId.value),
+      propertyReceipt: () => getPropertyReceiptApi(caseId.value),
+      sealManagement: () => getSealManagementApi(caseId.value),
+      workPlan: () => getWorkPlanApi(caseId.value),
+      workTeam: () => getWorkTeamApi(caseId.value),
+    };
 
-    switch (taskId.value) {
-      case 'businessManagement': {
-        apiResponse = await getBusinessManagementApi(caseId.value);
-        break;
-      }
-      case 'emergency': {
-        apiResponse = await getEmergencyApi(caseId.value);
-        break;
-      }
-      case 'internalAffairs': {
-        apiResponse = await getInternalAffairsApi(caseId.value);
-        break;
-      }
-      case 'legalProcedure': {
-        apiResponse = await getLegalProcedureApi(caseId.value);
-        break;
-      }
-      case 'management': {
-        apiResponse = await getManagementApi(caseId.value);
-        break;
-      }
-      case 'personnelEmp': {
-        apiResponse = await getPersonnelEmpApi(caseId.value);
-        break;
-      }
-      case 'propertyPlan': {
-        apiResponse = await getPropertyPlanApi(caseId.value);
-        break;
-      }
-      case 'propertyReceipt': {
-        apiResponse = await getPropertyReceiptApi(caseId.value);
-        break;
-      }
-      case 'sealManagement': {
-        apiResponse = await getSealManagementApi(caseId.value);
-        break;
-      }
-      case 'workPlan': {
-        apiResponse = await getWorkPlanApi(caseId.value);
-        break;
-      }
-      case 'workTeam': {
-        apiResponse = await getWorkTeamApi(caseId.value);
-        break;
-      }
-      default: {
-        throw new Error('未知的任务类型');
-      }
+    const apiFunction = apiMap[taskId.value];
+    if (!apiFunction) {
+      throw new Error('未知的任务类型');
     }
 
+    const apiResponse = await apiFunction();
+
     if (apiResponse.status === '1') {
-      let dataList: Array<Record<string, any>> = [];
-
-      if (apiResponse.data && Array.isArray(apiResponse.data.records)) {
-        dataList = apiResponse.data.records;
-      } else if (Array.isArray(apiResponse.data)) {
-        dataList = apiResponse.data;
-      } else {
-        dataList = [apiResponse.data];
-      }
-
+      const dataList = extractDataList(apiResponse);
       formDataList.value = dataList.map((item) => ({ ...item }));
-
       taskStatus.value =
         (dataList[0]?.DQZT as CaseProcessApi.TaskStatus) || '未确认';
 
@@ -514,14 +157,6 @@ const downloadFile = (file: any) => {
   if (url) {
     window.open(url, '_blank');
   }
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / k ** i).toFixed(2)} ${sizes[i]}`;
 };
 
 onMounted(async () => {
