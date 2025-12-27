@@ -3,17 +3,19 @@ import type { DebtorApi } from '#/api/core/debtor';
 
 import { onMounted, ref } from 'vue';
 
-import { useAccessStore } from '@vben/stores';
-
 import {
   ElButton,
   ElCard,
   ElCheckbox,
   ElCheckboxGroup,
   ElCol,
+  ElDatePicker,
+  ElDialog,
   ElDropdown,
   ElDropdownItem,
   ElDropdownMenu,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElOption,
@@ -27,7 +29,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getDebtorListApi } from '#/api/core/debtor';
+import { addDebtorApi, getDebtorListApi, editDebtorApi, deleteDebtorApi } from '#/api/core/debtor';
 
 // 响应式数据
 const debtorList = ref<DebtorApi.DebtorInfo[]>([]);
@@ -40,31 +42,21 @@ const pagination = ref({
 });
 
 // 搜索相关数据
-const searchKeyword = ref('');
-const searchType = ref(''); // 企业名称/联系人
-const searchOptions = [
-  { label: '企业名称', value: '企业名称' },
-  { label: '联系人', value: '联系人' },
-];
+const searchQymc = ref(''); // 企业名称
+const searchTyshxydm = ref(''); // 统一社会信用代码
+const searchFddbr = ref(''); // 法定代表人
 
 // 搜索功能
 const handleSearch = () => {
-  if (!searchType.value) {
-    ElMessage.warning('请选择搜索类型');
-    return;
-  }
-  if (!searchKeyword.value) {
-    ElMessage.warning('请输入搜索关键词');
-    return;
-  }
   pagination.value.page = 1;
   fetchDebtorList();
 };
 
 // 重置搜索
 const resetSearch = () => {
-  searchKeyword.value = '';
-  searchType.value = '';
+  searchQymc.value = '';
+  searchTyshxydm.value = '';
+  searchFddbr.value = '';
   pagination.value.page = 1;
   fetchDebtorList();
 };
@@ -111,18 +103,18 @@ const initColumnVisibility = () => {
   );
 };
 
-const accessStore = useAccessStore();
-
 // 获取债务人列表
 const fetchDebtorList = async () => {
   loading.value = true;
   try {
-    const token = accessStore.accessToken || '7b9d4b2ec1199667e87ebf863b4d0c83';
+    const token = '6ee6373b2fa95f552a4710a001aff052'; // 使用固定token
     const params = {
       page: pagination.value.page,
       size: pagination.value.pageSize,
       token,
-      SearchKeyword: searchKeyword.value,
+      QYMC: searchQymc.value,
+      TYSHXYDM: searchTyshxydm.value,
+      FDDBR: searchFddbr.value,
     };
 
     const response = await getDebtorListApi(params);
@@ -226,14 +218,263 @@ const viewDebtorDetail = (row: DebtorApi.DebtorInfo) => {
   // router.push(`/debtor-detail`);
 };
 
-// 新增债务人
+// 新增债务人弹窗相关
+const dialogVisible = ref(false);
+const formRef = ref<InstanceType<typeof ElForm>>();
+const formData = ref({
+  QYMC: '', // 企业名称
+  TYSHXYDM: '', // 统一社会信用代码
+  FDDBR: '', // 法定代表人
+  DJJG: '', // 登记机关
+  CLRQ: '', // 成立日期
+  ZCZB: '', // 注册资本
+  JYFW: '', // 经营范围
+  QYLX: '', // 企业类型
+  SSHY: '', // 所属行业
+  ZCDZ: '', // 注册地址
+  LXDH: '', // 联系电话
+  LXR: '', // 联系人
+  ZT: '', // 状态
+});
+
+// 状态选项
+const statusOptions = [
+  { label: '在营', value: '在营' },
+  { label: '注销', value: '注销' },
+  { label: '吊销', value: '吊销' },
+  { label: '停业', value: '停业' },
+  { label: '清算', value: '清算' },
+  { label: '其他', value: '其他' },
+];
+
+// 表单验证规则
+const rules = ref({
+  QYMC: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
+  TYSHXYDM: [{ required: true, message: '请输入统一社会信用代码', trigger: 'blur' }],
+  FDDBR: [{ required: true, message: '请输入法定代表人', trigger: 'blur' }],
+});
+
+// 打开新增债务人弹窗
 const handleAddDebtor = () => {
-  ElMessage.info('新增债务人功能待实现');
+  dialogVisible.value = true;
 };
 
-// 编辑债务人
+// 关闭弹窗
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  // 重置表单
+  if (formRef.value) {
+    formRef.value.resetFields();
+  }
+};
+
+// 提交新增债务人表单
+const handleSubmit = () => {
+  if (!formRef.value) return;
+  
+  formRef.value.validate((valid: boolean) => {
+    if (!valid) {
+      ElMessage.error('表单验证失败，请检查必填项');
+      return;
+    }
+    
+    // 表单验证通过，提交数据
+    submitFormData();
+  });
+};
+
+// 实际提交表单数据
+const submitFormData = async () => {
+  try {
+    // 获取当前登录用户信息
+    const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
+    const username = userInfo.U_NAME || 'admin';
+    
+    // 获取当前北京时间
+    const now = new Date();
+    const sep_adate = now.toISOString().slice(0, 19).replace('T', ' ');
+    
+    // 转换数据格式，将大写属性名转换为小写，并添加必要的字段
+    const requestData = {
+      qymc: formData.value.QYMC,
+      tyshxydm: formData.value.TYSHXYDM,
+      fddbr: formData.value.FDDBR,
+      djjg: formData.value.DJJG,
+      clrq: formData.value.CLRQ ? new Date(formData.value.CLRQ).toISOString().slice(0, 19).replace('T', ' ') : null,
+      zczb: formData.value.ZCZB,
+      jyfw: formData.value.JYFW,
+      qylx: formData.value.QYLX,
+      sshy: formData.value.SSHY,
+      zcdz: formData.value.ZCDZ,
+      lxdh: formData.value.LXDH,
+      lxr: formData.value.LXR,
+      zt: formData.value.ZT,
+      sep_auser: username,
+      sep_adate: sep_adate,
+    };
+    
+    const response = await addDebtorApi(requestData);
+    
+    if (response.status === '1') {
+      ElMessage.success('债务人添加成功');
+      dialogVisible.value = false;
+      // 刷新列表
+      fetchDebtorList();
+      // 重置表单
+      if (formRef.value) {
+        formRef.value.resetFields();
+      }
+    } else {
+      ElMessage.error(`债务人添加失败: ${response.error}`);
+    }
+  } catch (error) {
+    console.error('添加债务人失败:', error);
+    ElMessage.error('添加债务人失败，请检查网络连接或API服务');
+  }
+};
+
+// 删除债务人相关
+const deleteDialogVisible = ref(false);
+const currentDeleteItem = ref<DebtorApi.DebtorInfo | null>(null);
+
+// 编辑债务人相关
+const editDialogVisible = ref(false);
+const editFormRef = ref<InstanceType<typeof ElForm>>();
+const editFormData = ref({
+  row: 0,
+  AJID: '',
+  SEP_ID: '',
+  QYMC: '',
+  TYSHXYDM: '',
+  FDDBR: '',
+  DJJG: '',
+  CLRQ: '',
+  ZCZB: '',
+  JYFW: '',
+  QYLX: '',
+  SSHY: '',
+  ZCDZ: '',
+  LXDH: '',
+  LXR: '',
+  ZT: '',
+} as { row: number; AJID: string; SEP_ID?: string; QYMC: string; TYSHXYDM: string; FDDBR: string; DJJG: string; CLRQ: string; ZCZB: string; JYFW: string; QYLX: string; SSHY: string; ZCDZ: string; LXDH: string; LXR: string; ZT: string; });
+
+// 打开编辑债务人弹窗
 const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
-  ElMessage.info(`编辑债务人: ${row.QYMC}`);
+  // 复制行数据到编辑表单，处理日期字段
+  editFormData.value = {
+    ...row,
+    CLRQ: row.CLRQ ? new Date(row.CLRQ).toISOString().slice(0, 10) : '',
+  };
+  editDialogVisible.value = true;
+};
+
+// 关闭编辑弹窗
+const handleCloseEditDialog = () => {
+  editDialogVisible.value = false;
+  // 重置表单
+  if (editFormRef.value) {
+    editFormRef.value.resetFields();
+  }
+};
+
+// 提交编辑债务人表单
+const handleEditSubmit = () => {
+  if (!editFormRef.value) return;
+  
+  editFormRef.value.validate((valid: boolean) => {
+    if (!valid) {
+      ElMessage.error('表单验证失败，请检查必填项');
+      return;
+    }
+    
+    // 表单验证通过，提交数据
+    submitEditFormData();
+  });
+};
+
+// 实际提交编辑表单数据
+const submitEditFormData = async () => {
+  try {
+    const token = '6ee6373b2fa95f552a4710a001aff052'; // 使用固定token
+    
+    // 获取当前登录用户信息
+    const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
+    const username = userInfo.U_NAME || 'admin';
+    
+    // 获取当前北京时间
+    const now = new Date();
+    const sep_edate = now.toISOString().slice(0, 19).replace('T', ' ');
+    
+    // 构建请求数据
+    const requestData = {
+      SEP_EUSER: username,
+      SEP_EDATE: sep_edate,
+      SEP_ID: editFormData.value.SEP_ID ?? editFormData.value.AJID ?? '', // 优先使用SEP_ID，否则使用AJID，否则使用空字符串
+      QYMC: editFormData.value.QYMC,
+      TYSHXYDM: editFormData.value.TYSHXYDM,
+      FDDBR: editFormData.value.FDDBR,
+      DJJG: editFormData.value.DJJG,
+      CLRQ: editFormData.value.CLRQ ? new Date(editFormData.value.CLRQ).toISOString().slice(0, 19).replace('T', ' ') : null,
+      ZCZB: editFormData.value.ZCZB,
+      JYFW: editFormData.value.JYFW,
+      QYLX: editFormData.value.QYLX,
+      SSHY: editFormData.value.SSHY,
+      ZCDZ: editFormData.value.ZCDZ,
+      LXDH: editFormData.value.LXDH,
+      LXR: editFormData.value.LXR,
+      ZT: editFormData.value.ZT,
+    };
+    
+    // 调用编辑接口
+    const response = await editDebtorApi(requestData, token);
+    
+    if (response.status === '1') {
+      ElMessage.success('债务人修改成功');
+      editDialogVisible.value = false;
+      // 刷新列表
+      fetchDebtorList();
+      // 重置表单
+      if (editFormRef.value) {
+        editFormRef.value.resetFields();
+      }
+    } else {
+      ElMessage.error(`债务人修改失败: ${response.error}`);
+    }
+  } catch (error) {
+    console.error('修改债务人失败:', error);
+    ElMessage.error('修改债务人失败，请检查网络连接或API服务');
+  }
+};
+
+// 打开删除确认弹窗
+const handleDeleteDebtor = (row: DebtorApi.DebtorInfo) => {
+  currentDeleteItem.value = row;
+  deleteDialogVisible.value = true;
+};
+
+// 提交删除请求
+const handleDeleteSubmit = async () => {
+  if (!currentDeleteItem.value) return;
+  
+  try {
+    const token = '7b45265f3ca3eefeaad42615d995e8c5'; // 使用删除接口指定的token
+    const sepId = currentDeleteItem.value.SEP_ID ?? currentDeleteItem.value.AJID ?? '';
+    
+    const response = await deleteDebtorApi({ SEP_ID: sepId }, token);
+    
+    if (response.status === '1') {
+      ElMessage.success('债务人删除成功');
+      deleteDialogVisible.value = false;
+      // 刷新列表
+      fetchDebtorList();
+    } else {
+      ElMessage.error(`债务人删除失败: ${response.error}`);
+    }
+  } catch (error) {
+    console.error('删除债务人失败:', error);
+    ElMessage.error('删除债务人失败，请检查网络连接或API服务');
+  }
 };
 </script>
 
@@ -342,284 +583,417 @@ const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
         </div>
       </template>
 
-      <ElSpace direction="vertical" size="large" class="w-full">
-        <!-- 搜索区域 -->
-        <ElCard size="small">
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">搜索类型：</span>
-              <ElSelect
-                v-model="searchType"
-                placeholder="请选择搜索类型"
-                size="small"
-                style="width: 150px"
-              >
-                <ElOption
-                  v-for="option in searchOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </ElSelect>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">搜索关键词：</span>
-              <ElInput
-                v-model="searchKeyword"
-                placeholder="请输入搜索关键词"
-                size="small"
-                style="width: 200px"
-                @keyup.enter="handleSearch"
-              >
-                <template #append>
-                  <ElButton size="small" type="primary" @click="handleSearch">
-                    搜索
-                  </ElButton>
-                </template>
-              </ElInput>
-            </div>
-            <ElButton size="small" @click="resetSearch"> 重置 </ElButton>
-            <div class="ml-auto text-sm text-gray-500">
-              提示：只能选择一种搜索类型进行搜索
-            </div>
-          </div>
-        </ElCard>
+      <!-- 搜索区域 -->
+      <div class="mb-4 rounded-lg bg-gray-50 p-4">
+        <div class="flex flex-wrap gap-4">
+          <ElInput
+            v-model="searchQymc"
+            placeholder="企业名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElInput
+            v-model="searchTyshxydm"
+            placeholder="统一社会信用代码"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElInput
+            v-model="searchFddbr"
+            placeholder="法定代表人"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElButton type="primary" @click="handleSearch">
+            <i class="i-lucide-search mr-1"></i>
+            搜索
+          </ElButton>
+          <ElButton @click="resetSearch">
+            <i class="i-lucide-refresh-cw mr-1"></i>
+            重置
+          </ElButton>
+        </div>
+      </div>
 
-        <!-- 债务人统计信息 -->
-        <ElCard header="债务人统计概览" size="small">
+      <!-- 数据表格 -->
+      <ElTable
+        v-loading="loading"
+        :data="debtorList"
+        :border="true"
+        :stripe="true"
+        :style="{ width: '100%' }"
+      >
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+        <ElTableColumn
+          prop="QYMC"
+          label="企业名称"
+          min-width="180"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="TYSHXYDM"
+          label="统一社会信用代码"
+          width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="FDDBR"
+          label="法定代表人"
+          width="150"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="DJJG"
+          label="登记机关"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="CLRQ"
+          label="成立日期"
+          width="120"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatDate(row.CLRQ) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="ZCZB"
+          label="注册资本"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="QYLX"
+          label="企业类型"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="SSHY"
+          label="所属行业"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="ZCDZ"
+          label="注册地址"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="LXDH"
+          label="联系电话"
+          width="130"
+          align="center"
+        />
+        <ElTableColumn
+          prop="LXR"
+          label="联系人"
+          width="120"
+          align="center"
+        />
+        <ElTableColumn
+          prop="ZT"
+          label="状态"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElTag :type="getStatusType(row.ZT)" size="small">
+              {{ row.ZT }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <ElButton
+              type="primary"
+              size="small"
+              @click="handleEditDebtor(row)"
+              class="mr-2"
+            >
+              <i class="i-lucide-edit mr-1"></i>
+              编辑
+            </ElButton>
+            <ElButton
+              type="danger"
+              size="small"
+              @click="handleDeleteDebtor(row)"
+            >
+              <i class="i-lucide-trash-2 mr-1"></i>
+              删除
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+
+      <!-- 分页 -->
+      <div class="mt-4 flex justify-end">
+        <ElPagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.itemCount"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+
+      <!-- 新增债务人弹窗 -->
+      <ElDialog
+        v-model="dialogVisible"
+        title="新增债务人"
+        width="1200px"
+        :before-close="handleCloseDialog"
+        custom-class="debtor-dialog"
+      >
+        <ElForm
+          ref="formRef"
+          :model="formData"
+          :rules="rules"
+          label-width="120px"
+          class="w-full"
+        >
           <ElRow :gutter="20">
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-blue-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-blue-600">
-                  {{ pagination.itemCount }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">总债务人数量</div>
-              </div>
+            <!-- 第一行 -->
+            <ElCol :span="8">
+              <ElFormItem label="企业名称" prop="QYMC">
+                <ElInput v-model="formData.QYMC" placeholder="请输入企业名称" />
+              </ElFormItem>
             </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-green-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-green-600">
-                  {{ debtorList.filter((item) => item.ZT === '在营').length }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">在营状态</div>
-              </div>
+            <ElCol :span="8">
+              <ElFormItem label="统一社会信用代码" prop="TYSHXYDM">
+                <ElInput v-model="formData.TYSHXYDM" placeholder="请输入统一社会信用代码" />
+              </ElFormItem>
             </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-purple-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-purple-600">
-                  {{ debtorList.filter((item) => item.ZT === '注销').length }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">注销状态</div>
-              </div>
+            <ElCol :span="8">
+              <ElFormItem label="法定代表人" prop="FDDBR">
+                <ElInput v-model="formData.FDDBR" placeholder="请输入法定代表人" />
+              </ElFormItem>
             </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-orange-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-orange-600">
-                  {{ debtorList.filter((item) => item.ZT === '停业').length }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">停业状态</div>
-              </div>
+            
+            <!-- 第二行 -->
+            <ElCol :span="8">
+              <ElFormItem label="登记机关">
+                <ElInput v-model="formData.DJJG" placeholder="请输入登记机关" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="成立日期">
+                <ElDatePicker
+                  v-model="formData.CLRQ"
+                  type="date"
+                  placeholder="选择成立日期"
+                  style="width: 100%"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="注册资本">
+                <ElInput v-model="formData.ZCZB" placeholder="请输入注册资本" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第三行 -->
+            <ElCol :span="8">
+              <ElFormItem label="经营范围">
+                <ElInput v-model="formData.JYFW" placeholder="请输入经营范围" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="企业类型">
+                <ElInput v-model="formData.QYLX" placeholder="请输入企业类型" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="所属行业">
+                <ElInput v-model="formData.SSHY" placeholder="请输入所属行业" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第四行 -->
+            <ElCol :span="8">
+              <ElFormItem label="注册地址">
+                <ElInput v-model="formData.ZCDZ" placeholder="请输入注册地址" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="联系电话">
+                <ElInput v-model="formData.LXDH" placeholder="请输入联系电话" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="联系人">
+                <ElInput v-model="formData.LXR" placeholder="请输入联系人" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第五行 -->
+            <ElCol :span="8">
+              <ElFormItem label="状态">
+                <ElSelect v-model="formData.ZT" placeholder="请选择状态">
+                  <ElOption
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
             </ElCol>
           </ElRow>
-        </ElCard>
-
-        <!-- 债务人列表表格 -->
-        <ElCard header="债务人列表" size="small">
-          <ElTable
-            :data="debtorList"
-            v-loading="loading"
-            stripe
-            border
-            size="small"
-            :style="{ width: '100%', maxHeight: '600px' }"
-            scrollable
-          >
-            <!-- 行号 -->
-            <ElTableColumn
-              v-if="isColumnVisible('行号')"
-              prop="row"
-              label="行号"
-              width="80"
-              fixed="left"
-              align="center"
-            />
-
-            <!-- 企业ID -->
-
-            <!-- 案件ID -->
-            <ElTableColumn
-              v-if="isColumnVisible('案件ID')"
-              prop="AJID"
-              label="案件ID"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 企业名称 -->
-            <ElTableColumn
-              v-if="isColumnVisible('企业名称')"
-              prop="QYMC"
-              label="企业名称"
-              width="180"
-              show-overflow-tooltip
-            />
-
-            <!-- 统一社会信用代码 -->
-            <ElTableColumn
-              v-if="isColumnVisible('统一社会信用代码')"
-              prop="TYSHXYDM"
-              label="统一社会信用代码"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 法定代表人 -->
-            <ElTableColumn
-              v-if="isColumnVisible('法定代表人')"
-              prop="FDDBR"
-              label="法定代表人"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 登记机关 -->
-            <ElTableColumn
-              v-if="isColumnVisible('登记机关')"
-              prop="DJJG"
-              label="登记机关"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 成立日期 -->
-            <ElTableColumn
-              v-if="isColumnVisible('成立日期')"
-              prop="CLRQ"
-              label="成立日期"
-              width="120"
-              align="center"
-            >
-              <template #default="{ row }">
-                {{ formatDate(row.CLRQ) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 注册资本 -->
-            <ElTableColumn
-              v-if="isColumnVisible('注册资本')"
-              prop="ZCZB"
-              label="注册资本"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 经营范围 -->
-            <ElTableColumn
-              v-if="isColumnVisible('经营范围')"
-              prop="JYFW"
-              label="经营范围"
-              width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 企业类型 -->
-            <ElTableColumn
-              v-if="isColumnVisible('企业类型')"
-              prop="QYLX"
-              label="企业类型"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 所属行业 -->
-            <ElTableColumn
-              v-if="isColumnVisible('所属行业')"
-              prop="SSHY"
-              label="所属行业"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 注册地址 -->
-            <ElTableColumn
-              v-if="isColumnVisible('注册地址')"
-              prop="ZCDZ"
-              label="注册地址"
-              width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 联系电话 -->
-            <ElTableColumn
-              v-if="isColumnVisible('联系电话')"
-              prop="LXDH"
-              label="联系电话"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 联系人 -->
-            <ElTableColumn
-              v-if="isColumnVisible('联系人')"
-              prop="LXR"
-              label="联系人"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 状态 -->
-            <ElTableColumn
-              v-if="isColumnVisible('状态')"
-              prop="ZT"
-              label="状态"
-              width="80"
-              align="center"
-            >
-              <template #default="{ row }">
-                <ElTag :type="getStatusType(row.ZT)" size="small">
-                  {{ row.ZT }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 操作列 -->
-            <ElTableColumn label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  link
-                  @click="viewDebtorDetail(row)"
-                >
-                  查看
-                </ElButton>
-                <ElButton
-                  type="info"
-                  size="small"
-                  link
-                  @click="handleEditDebtor(row)"
-                >
-                  编辑
-                </ElButton>
-                <ElButton type="danger" size="small" link> 删除 </ElButton>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-
-          <!-- 分页组件 -->
-          <div class="mt-4 flex justify-end">
-            <ElPagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="pagination.itemCount"
-              layout="total, sizes, prev, pager, next, jumper"
-              @size-change="handleSizeChange"
-              @current-change="handlePageChange"
-            />
+        </ElForm>
+        
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <ElButton @click="handleCloseDialog">取消</ElButton>
+            <ElButton type="primary" @click="handleSubmit">确定</ElButton>
           </div>
-        </ElCard>
-      </ElSpace>
+        </template>
+      </ElDialog>
+      
+      <!-- 编辑债务人弹窗 -->
+      <ElDialog
+        v-model="editDialogVisible"
+        title="编辑债务人"
+        width="1000px"
+        height="1000px"
+        :before-close="handleCloseEditDialog"
+        custom-class="debtor-dialog"
+      >
+        <ElForm
+          ref="editFormRef"
+          :model="editFormData"
+          :rules="rules"
+          label-width="120px"
+          class="w-full"
+        >
+          <ElRow :gutter="20">
+            <!-- 第一行 -->
+            <ElCol :span="8">
+              <ElFormItem label="企业名称" prop="QYMC">
+                <ElInput v-model="editFormData.QYMC" placeholder="请输入企业名称" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="统一社会信用代码" prop="TYSHXYDM">
+                <ElInput v-model="editFormData.TYSHXYDM" placeholder="请输入统一社会信用代码" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="法定代表人" prop="FDDBR">
+                <ElInput v-model="editFormData.FDDBR" placeholder="请输入法定代表人" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第二行 -->
+            <ElCol :span="8">
+              <ElFormItem label="登记机关">
+                <ElInput v-model="editFormData.DJJG" placeholder="请输入登记机关" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="成立日期">
+                <ElDatePicker
+                  v-model="editFormData.CLRQ"
+                  type="date"
+                  placeholder="选择成立日期"
+                  style="width: 100%"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="注册资本">
+                <ElInput v-model="editFormData.ZCZB" placeholder="请输入注册资本" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第三行 -->
+            <ElCol :span="8">
+              <ElFormItem label="经营范围">
+                <ElInput v-model="editFormData.JYFW" placeholder="请输入经营范围" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="企业类型">
+                <ElInput v-model="editFormData.QYLX" placeholder="请输入企业类型" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="所属行业">
+                <ElInput v-model="editFormData.SSHY" placeholder="请输入所属行业" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第四行 -->
+            <ElCol :span="8">
+              <ElFormItem label="注册地址">
+                <ElInput v-model="editFormData.ZCDZ" placeholder="请输入注册地址" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="联系电话">
+                <ElInput v-model="editFormData.LXDH" placeholder="请输入联系电话" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="联系人">
+                <ElInput v-model="editFormData.LXR" placeholder="请输入联系人" />
+              </ElFormItem>
+            </ElCol>
+            
+            <!-- 第五行 -->
+            <ElCol :span="8">
+              <ElFormItem label="状态">
+                <ElSelect v-model="editFormData.ZT" placeholder="请选择状态">
+                  <ElOption
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+        
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <ElButton @click="handleCloseEditDialog">取消</ElButton>
+            <ElButton type="primary" @click="handleEditSubmit">确定</ElButton>
+          </div>
+        </template>
+      </ElDialog>
+      
+      <!-- 删除确认弹窗 -->
+      <ElDialog
+        v-model="deleteDialogVisible"
+        title="删除确认"
+        width="400px"
+        custom-class="delete-dialog"
+      >
+        <div class="text-center py-4">
+          <div class="text-lg font-medium mb-2">确定要删除债务人 "{{ currentDeleteItem?.QYMC }}" 吗？</div>
+          <div class="text-sm text-gray-500">删除后将无法恢复，请谨慎操作。</div>
+        </div>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <ElButton @click="deleteDialogVisible = false">取消</ElButton>
+            <ElButton type="danger" @click="handleDeleteSubmit">确定删除</ElButton>
+          </div>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>
@@ -674,5 +1048,80 @@ const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
 
 .number-value {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 新增债务人弹窗样式 */
+:deep(.debtor-dialog) {
+  .el-dialog__wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .el-dialog {
+    height: 1000px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .el-dialog__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+  }
+  
+  .el-dialog__header {
+    padding: 30px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .el-dialog__title {
+    font-size: 20px;
+    font-weight: bold;
+  }
+  
+  .el-dialog__footer {
+    padding: 30px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  
+  /* 表单样式优化 */
+  .el-form {
+    max-width: 100%;
+  }
+  
+  .el-form-item {
+    margin-bottom: 20px;
+  }
+  
+  .el-form-item__label {
+    font-weight: bold;
+  }
+  
+  .el-input__wrapper,
+  .el-select__wrapper {
+    border-radius: 4px;
+  }
+  
+  /* 按钮样式优化 */
+  .el-button {
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  
+  .el-button--primary {
+    background-color: #409eff;
+    border-color: #409eff;
+  }
+  
+  .el-button--primary:hover {
+    background-color: #66b1ff;
+    border-color: #66b1ff;
+  }
 }
 </style>

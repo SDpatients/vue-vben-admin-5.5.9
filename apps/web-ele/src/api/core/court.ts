@@ -6,6 +6,9 @@ export namespace CourtApi {
     page?: number;
     size?: number;
     token?: string;
+    FYQC?: string;
+    FYJC?: string;
+    FYJB?: string;
   }
 
   /** 法院信息 */

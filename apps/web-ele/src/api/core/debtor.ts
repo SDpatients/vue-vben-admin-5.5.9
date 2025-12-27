@@ -129,4 +129,34 @@ export async function addDebtorApi(
   });
 }
 
+/**
+ * 编辑债务人信息
+ */
+export async function editDebtorApi(
+  data: any,
+  token: string,
+) {
+  return requestClient.post('/api/web/updateDebtor', data, {
+    params: { token },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+/**
+ * 删除债务人信息
+ */
+export async function deleteDebtorApi(
+  data: { SEP_ID: string },
+  token: string,
+) {
+  return requestClient.post('/api/web/deleteDebtor', data, {
+    params: { token },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
 export type { DebtorApi };

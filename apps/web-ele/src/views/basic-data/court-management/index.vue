@@ -48,6 +48,9 @@ const fetchCourtList = async () => {
     const params: CourtApi.CourtQueryParams = {
       page: pagination.page,
       size: pagination.pageSize,
+      FYQC: searchForm.FYQC,
+      FYJC: searchForm.FYJC,
+      FYJB: searchForm.FYJB,
     };
 
     const response = await getCourtListApi(params);
@@ -310,18 +313,21 @@ onMounted(() => {
             placeholder="法院全称"
             clearable
             style="width: 200px"
+            @keyup.enter="handleSearch"
           />
           <ElInput
             v-model="searchForm.FYJC"
             placeholder="法院简称"
             clearable
             style="width: 200px"
+            @keyup.enter="handleSearch"
           />
           <ElInput
             v-model="searchForm.FYJB"
             placeholder="法院级别"
             clearable
             style="width: 200px"
+            @keyup.enter="handleSearch"
           />
           <ElButton type="primary" @click="handleSearch">
             <i class="i-lucide-search mr-1"></i>

@@ -16,6 +16,7 @@ import {
   ElDropdownMenu,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElPopover,
@@ -27,7 +28,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { addCreditorApi, getCreditorListApi } from '#/api/core/creditor';
+import { addCreditorApi, deleteCreditorApi, editCreditorApi, getCreditorListApi } from '#/api/core/creditor';
 
 // 响应式数据
 const creditorList = ref<CreditorApi.CreditorInfo[]>([]);
@@ -73,14 +74,14 @@ const formData = reactive<CreditorApi.AddCreditorRequest>({
   zt: '1', // 状态默认为1
 });
 
-// 表单验证规则
-const rules = {
+// 新增表单验证规则
+const addRules = {
   zqr: [{ required: true, message: '请输入债权人名称', trigger: 'blur' }],
   zqrfl: [{ required: true, message: '请选择债权人分类', trigger: 'change' }],
   zjhm: [{ required: true, message: '请输入证件号码', trigger: 'blur' }],
   fddbrqy: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证法定代表人
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入法定代表人'));
@@ -93,7 +94,7 @@ const rules = {
   ],
   zcdz: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证注册地址
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入注册地址'));
@@ -106,7 +107,7 @@ const rules = {
   ],
   jyfwqy: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证经营范围
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入经营范围'));
@@ -119,7 +120,7 @@ const rules = {
   ],
   hyfl: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证行业分类
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入行业分类'));
@@ -132,7 +133,7 @@ const rules = {
   ],
   clrqqy: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: string | null, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证成立日期
         if (formData.zqrfl !== '个人' && value === '') {
           callback(new Error('请选择成立日期'));
@@ -145,7 +146,7 @@ const rules = {
   ],
   zczbqy: [
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule: any, value: number, callback: (error?: Error) => void) => {
         // 只有当债权人分类不是个人时，才验证注册资本
         if (formData.zqrfl === '个人') {
           callback();
@@ -165,77 +166,83 @@ const rules = {
   ],
 };
 
+// 编辑表单验证规则（仅验证债权人名称）
+const editRules = {
+  ZQR: [{ required: true, message: '请输入债权人名称', trigger: 'blur' }],
+};
+
 // 表单引用
 const formRef = ref();
 
 // 搜索相关数据
-const searchKeyword = ref('');
-const searchType = ref(''); // 债权人/案号
-const searchOptions = [
-  { label: '债权人', value: '债权人' },
-  { label: '案号', value: '案号' },
-];
+const searchZqr = ref(''); // 债权人名称
+const searchZjhm = ref(''); // 证件号码
+const searchFddbr = ref(''); // 法定代表人
 
 // 搜索功能
 const handleSearch = () => {
-  if (!searchType.value) {
-    ElMessage.warning('请选择搜索类型');
-    return;
-  }
-  if (!searchKeyword.value) {
-    ElMessage.warning('请输入搜索关键词');
-    return;
-  }
   pagination.value.page = 1;
   fetchCreditorList();
 };
 
 // 重置搜索
 const resetSearch = () => {
-  searchKeyword.value = '';
-  searchType.value = '';
+  searchZqr.value = '';
+  searchZjhm.value = '';
+  searchFddbr.value = '';
   pagination.value.page = 1;
   fetchCreditorList();
 };
 
-// 列显示控制
-const columnVisible = ref<string[]>([]);
-
-// 所有可用的列
-const availableColumns = [
-  '行号',
-  '债权人名称',
-  '债权人分类',
-  '证件号码',
-  '法定代表人',
-  '注册地址',
-  '经营范围',
-  '行业分类',
-  '成立日期',
-  '注册资本',
-];
-
-// 默认显示的列（核心信息）
-const defaultColumns = new Set([
-  '债权人ID',
-  '债权人分类',
-  '债权人名称',
-  '法定代表人',
-  '注册资本',
-  '行号',
-  '证件号码',
-]);
-
-// 检查列是否可见（用于表格列的 v-if）
-const isColumnVisible = (columnName: string) => {
-  return columnVisible.value.includes(columnName);
+// 格式化日期显示
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('zh-CN');
 };
 
-// 初始化列显示状态
-const initColumnVisibility = () => {
-  columnVisible.value = availableColumns.filter((column) =>
-    defaultColumns.has(column),
-  );
+// 格式化货币显示
+const formatCurrency = (amount: number) => {
+  if (!amount) return '-';
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+// 获取债权人类型标签
+const getCreditorType = (type: string) => {
+  switch (type) {
+    case '个人': {
+      return 'primary';
+    }
+    case '企业': {
+      return 'success';
+    }
+    default: {
+      return 'info';
+    }
+  }
+};
+
+// 打开新增债权人模态框
+const handleAddCreditor = () => {
+  dialogVisible.value = true;
+};
+
+// 关闭新增债权人模态框
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  // 重置表单
+  if (formRef.value) {
+    formRef.value.resetFields();
+  }
+};
+
+// 关闭详情模态框
+const handleCloseDetailDialog = () => {
+  detailDialogVisible.value = false;
+  currentCreditor.value = null;
 };
 
 const accessStore = useAccessStore();
@@ -249,8 +256,9 @@ const fetchCreditorList = async () => {
       page: pagination.value.page,
       size: pagination.value.pageSize,
       token,
-      SearchKeyword: searchKeyword.value,
-      SearchType: searchType.value,
+      ZQR: searchZqr.value,
+      ZJHM: searchZjhm.value,
+      FDDBRQY: searchFddbr.value,
     };
 
     const response = await getCreditorListApi(params);
@@ -298,86 +306,8 @@ const handleRefresh = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
-  initColumnVisibility();
   fetchCreditorList();
 });
-
-// 重置列显示状态
-const resetColumns = () => {
-  initColumnVisibility();
-  ElMessage.success('已重置为默认列显示');
-};
-
-// 显示所有列
-const showAllColumns = () => {
-  columnVisible.value = [...availableColumns];
-  ElMessage.success('已显示所有列');
-};
-
-// 隐藏所有非核心列
-const hideNonCoreColumns = () => {
-  columnVisible.value = availableColumns.filter((column) =>
-    defaultColumns.has(column),
-  );
-  ElMessage.success('已隐藏非核心列');
-};
-
-// 格式化日期显示
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('zh-CN');
-};
-
-// 格式化货币显示
-const formatCurrency = (amount: number) => {
-  if (!amount) return '-';
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
-
-// 获取债权人类型标签
-const getCreditorType = (type: string) => {
-  switch (type) {
-    case '个人': {
-      return 'primary';
-    }
-    case '企业': {
-      return 'success';
-    }
-    default: {
-      return 'info';
-    }
-  }
-};
-
-// 打开新增债权人模态框
-const handleAddCreditor = () => {
-  dialogVisible.value = true;
-};
-
-// 关闭新增债权人模态框
-const handleCloseDialog = () => {
-  dialogVisible.value = false;
-  // 重置表单
-  if (formRef.value) {
-    formRef.value.resetFields();
-  }
-};
-
-// 查看债权人详情
-const viewCreditorDetail = (row: CreditorApi.CreditorInfo) => {
-  currentCreditor.value = row;
-  detailDialogVisible.value = true;
-};
-
-// 关闭详情模态框
-const handleCloseDetailDialog = () => {
-  detailDialogVisible.value = false;
-  currentCreditor.value = null;
-};
 
 // 提交新增债权人表单
 const handleSubmit = async () => {
@@ -407,7 +337,7 @@ const handleSubmit = async () => {
       submitData.clrqqy = null;
     }
     // 处理注册资本，如果没有输入，确保为0（int类型）
-    if (submitData.zczbqy === '' || submitData.zczbqy === undefined) {
+    if (submitData.zczbqy === undefined) {
       submitData.zczbqy = 0;
     }
 
@@ -433,9 +363,142 @@ const handleSubmit = async () => {
   }
 };
 
-// 编辑债权人
+// 编辑债权人相关
+const editDialogVisible = ref(false);
+const editFormRef = ref();
+const editFormData = reactive({
+  SEP_EUSER: '',
+  SEP_EDATE: '',
+  SEP_ID: '',
+  ZQR: '',
+  ZQRFL: '',
+  ZJHM: '',
+  FDDBRQY: '',
+  ZCDZ: '',
+  JYFWQY: '',
+  HYFL: '',
+  CLRQQY: null as string | null,
+  ZCZBQY: 0,
+  ZT: null as string | null,
+});
+const editFormLoading = ref(false);
+
+// 打开编辑债权人弹窗
 const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
-  ElMessage.info(`编辑债权人: ${row.ZQR}`);
+  // 填充编辑表单数据
+  editFormData.SEP_ID = row.SEP_ID; // 使用债权人自身的SEP_ID
+  editFormData.ZQR = row.ZQR;
+  editFormData.ZQRFL = row.ZQRFL;
+  editFormData.ZJHM = row.ZJHM;
+  editFormData.FDDBRQY = row.FDDBRQY;
+  editFormData.ZCDZ = row.ZCDZ;
+  editFormData.JYFWQY = row.JYFWQY;
+  editFormData.HYFL = row.HYFL;
+  editFormData.CLRQQY = row.CLRQQY;
+  editFormData.ZCZBQY = row.ZCZBQY;
+  editFormData.ZT = row.ZT || '1'; // 使用行数据中的状态，默认1
+  editDialogVisible.value = true;
+};
+
+// 关闭编辑弹窗
+const handleCloseEditDialog = () => {
+  editDialogVisible.value = false;
+  if (editFormRef.value) {
+    editFormRef.value.resetFields();
+  }
+};
+
+// 提交编辑债权人表单
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return;
+
+  try {
+    // 自动填写SEP_EUSER：从本地存储获取chat_user_info.user.uName
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        // 检查chat_user_info是否包含user对象
+        if (chatUserInfo.user && chatUserInfo.user.uName) {
+          editFormData.SEP_EUSER = chatUserInfo.user.uName;
+        } else {
+          // 兼容旧格式
+          editFormData.SEP_EUSER = chatUserInfo.uName || chatUserInfo.U_NAME || '';
+        }
+      } catch (error) {
+        console.error('解析chat_user_info失败:', error);
+      }
+    }
+
+    // 自动填写SEP_EDATE：使用ISO格式的日期时间字符串
+    editFormData.SEP_EDATE = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await editFormRef.value.validate();
+    editFormLoading.value = true;
+
+    // 调用编辑API
+    const token = 'ce4997c93716e0579a8d67bedb57e73e'; // 使用指定的token
+    const response = await editCreditorApi(editFormData, token);
+
+    if (response.status === '1') {
+      ElMessage.success('债权人编辑成功');
+      editDialogVisible.value = false;
+      // 刷新债权人列表
+      fetchCreditorList();
+    } else {
+      ElMessage.error(response.error || '债权人编辑失败');
+    }
+  } catch (error: any) {
+    if (error.name === 'ElValidationError') {
+      // 表单验证失败，已经有提示
+      return;
+    }
+    ElMessage.error('债权人编辑失败，请稍后重试');
+    console.error('编辑债权人失败:', error);
+  } finally {
+    editFormLoading.value = false;
+  }
+};
+
+// 删除债权人相关
+const deleteFormLoading = ref(false);
+
+// 打开删除债权人确认弹窗
+const handleDeleteCreditor = (row: CreditorApi.CreditorInfo) => {
+  ElMessageBox.confirm('确定要删除该债权人吗？', '删除确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(() => {
+      handleDeleteSubmit(row.SEP_ID);
+    })
+    .catch(() => {
+      // 用户取消删除
+      ElMessage.info('已取消删除');
+    });
+};
+
+// 提交删除债权人请求
+const handleDeleteSubmit = async (sepId: string) => {
+  try {
+    deleteFormLoading.value = true;
+    const token = '5c28d8c577a0508da5641c9995975f19'; // 使用指定的删除token
+    const response = await deleteCreditorApi({ SEP_ID: sepId }, token);
+
+    if (response.status === '1') {
+      ElMessage.success('债权人删除成功');
+      // 刷新债权人列表
+      fetchCreditorList();
+    } else {
+      ElMessage.error(response.error || '债权人删除失败');
+    }
+  } catch (error: any) {
+    ElMessage.error('债权人删除失败，请稍后重试');
+    console.error('删除债权人失败:', error);
+  } finally {
+    deleteFormLoading.value = false;
+  }
 };
 </script>
 
@@ -446,76 +509,6 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">债权人管理</span>
           <div class="flex items-center space-x-2">
-            <ElDropdown trigger="click">
-              <ElButton type="info" size="small">
-                <i class="i-lucide-settings mr-1"></i>
-                列设置
-              </ElButton>
-              <template #dropdown>
-                <ElDropdownMenu>
-                  <ElDropdownItem @click="showAllColumns">
-                    显示所有列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="hideNonCoreColumns">
-                    仅显示核心列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="resetColumns">
-                    重置为默认
-                  </ElDropdownItem>
-                  <ElDropdownItem divided>
-                    <ElPopover
-                      placement="right"
-                      width="300"
-                      trigger="click"
-                      title="自定义列显示"
-                    >
-                      <template #reference>
-                        <span>自定义列显示</span>
-                      </template>
-                      <div class="space-y-2">
-                        <div class="mb-2 text-sm text-gray-500">
-                          选择要显示的列：
-                        </div>
-                        <ElCheckboxGroup v-model="columnVisible">
-                          <div class="grid grid-cols-2 gap-2">
-                            <ElCheckbox label="行号" name="行号">
-                              行号
-                            </ElCheckbox>
-                            <ElCheckbox label="债权人名称" name="债权人名称">
-                              债权人名称
-                            </ElCheckbox>
-                            <ElCheckbox label="债权人分类" name="债权人分类">
-                              债权人分类
-                            </ElCheckbox>
-                            <ElCheckbox label="证件号码" name="证件号码">
-                              证件号码
-                            </ElCheckbox>
-                            <ElCheckbox label="法定代表人" name="法定代表人">
-                              法定代表人
-                            </ElCheckbox>
-                            <ElCheckbox label="注册地址" name="注册地址">
-                              注册地址
-                            </ElCheckbox>
-                            <ElCheckbox label="经营范围" name="经营范围">
-                              经营范围
-                            </ElCheckbox>
-                            <ElCheckbox label="行业分类" name="行业分类">
-                              行业分类
-                            </ElCheckbox>
-                            <ElCheckbox label="成立日期" name="成立日期">
-                              成立日期
-                            </ElCheckbox>
-                            <ElCheckbox label="注册资本" name="注册资本">
-                              注册资本
-                            </ElCheckbox>
-                          </div>
-                        </ElCheckboxGroup>
-                      </div>
-                    </ElPopover>
-                  </ElDropdownItem>
-                </ElDropdownMenu>
-              </template>
-            </ElDropdown>
             <ElButton type="primary" @click="handleAddCreditor">
               <i class="i-lucide-plus mr-1"></i>
               新增债权人
@@ -528,267 +521,166 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
         </div>
       </template>
 
-      <ElSpace direction="vertical" size="large" class="w-full">
-        <!-- 搜索区域 -->
-        <ElCard size="small">
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">搜索类型：</span>
-              <ElSelect
-                v-model="searchType"
-                placeholder="请选择搜索类型"
-                size="small"
-                style="width: 150px"
-              >
-                <ElOption
-                  v-for="option in searchOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </ElSelect>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">搜索关键词：</span>
-              <ElInput
-                v-model="searchKeyword"
-                placeholder="请输入搜索关键词"
-                size="small"
-                style="width: 200px"
-                @keyup.enter="handleSearch"
-              >
-                <template #append>
-                  <ElButton size="small" type="primary" @click="handleSearch">
-                    搜索
-                  </ElButton>
-                </template>
-              </ElInput>
-            </div>
-            <ElButton size="small" @click="resetSearch"> 重置 </ElButton>
-            <div class="ml-auto text-sm text-gray-500">
-              提示：只能选择一种搜索类型进行搜索
-            </div>
-          </div>
-        </ElCard>
+      <!-- 搜索区域 -->
+      <div class="mb-4 rounded-lg bg-gray-50 p-4">
+        <div class="flex flex-wrap gap-4">
+          <ElInput
+            v-model="searchZqr"
+            placeholder="债权人名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElInput
+            v-model="searchZjhm"
+            placeholder="证件号码"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElInput
+            v-model="searchFddbr"
+            placeholder="法定代表人"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElButton type="primary" @click="handleSearch">
+            <i class="i-lucide-search mr-1"></i>
+            搜索
+          </ElButton>
+          <ElButton @click="resetSearch">
+            <i class="i-lucide-refresh-cw mr-1"></i>
+            重置
+          </ElButton>
+        </div>
+      </div>
 
-        <!-- 债权人统计信息 -->
-        <ElCard header="债权人统计概览" size="small">
-          <ElRow :gutter="20">
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-blue-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-blue-600">
-                  {{ pagination.itemCount }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">总债权人数量</div>
-              </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-green-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-green-600">
-                  {{
-                    creditorList.filter((item) => item.ZQRFL === '个人').length
-                  }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">个人债权人</div>
-              </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-purple-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-purple-600">
-                  {{
-                    creditorList.filter((item) => item.ZQRFL === '企业').length
-                  }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">企业债权人</div>
-              </div>
-            </ElCol>
-            <ElCol :span="6">
-              <div class="stat-card rounded bg-orange-50 p-5 text-center">
-                <div class="number-value text-2xl font-bold text-orange-600">
-                  {{
-                    creditorList.filter(
-                      (item) => item.GLAJID && item.GLAJID !== '',
-                    ).length
-                  }}
-                </div>
-                <div class="mt-2 text-sm text-gray-500">已关联案件</div>
-              </div>
-            </ElCol>
-          </ElRow>
-        </ElCard>
-
-        <!-- 债权人列表表格 -->
-        <ElCard header="债权人列表" size="small">
-          <ElTable
-            :data="creditorList"
-            v-loading="loading"
-            stripe
-            border
-            size="small"
-            :style="{ width: '100%', maxHeight: '600px' }"
-            scrollable
-          >
-            <!-- 行号 -->
-            <ElTableColumn
-              v-if="isColumnVisible('行号')"
-              prop="row"
-              label="行号"
-              width="60"
-              fixed="left"
-              align="center"
-            />
-
-            <!-- 债权人名称 -->
-            <ElTableColumn
-              v-if="isColumnVisible('债权人名称')"
-              prop="ZQR"
-              label="债权人名称"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 债权人分类 -->
-            <ElTableColumn
-              v-if="isColumnVisible('债权人分类')"
-              prop="ZQRFL"
-              label="债权人分类"
-              width="100"
-              align="center"
+      <!-- 数据表格 -->
+      <ElTable
+        v-loading="loading"
+        :data="creditorList"
+        :border="true"
+        :stripe="true"
+        :style="{ width: '100%' }"
+      >
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+        <ElTableColumn
+          prop="ZQR"
+          label="债权人名称"
+          min-width="180"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="ZQRFL"
+          label="债权人分类"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElTag :type="getCreditorType(row.ZQRFL)" size="small">
+              {{ row.ZQRFL }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="ZJHM"
+          label="证件号码"
+          width="150"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="FDDBRQY"
+          label="法定代表人"
+          width="150"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="ZCDZ"
+          label="注册地址"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="JYFWQY"
+          label="经营范围"
+          width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="HYFL"
+          label="行业分类"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="CLRQQY"
+          label="成立日期"
+          width="120"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatDate(row.CLRQQY) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="ZCZBQY"
+          label="注册资本"
+          width="120"
+          align="right"
+        >
+          <template #default="{ row }">
+            {{ formatCurrency(row.ZCZBQY) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="GLAJID"
+          label="关联案件ID"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="AH"
+          label="案号"
+          width="150"
+          show-overflow-tooltip
+        />
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <ElButton
+              type="primary"
+              size="small"
+              @click="handleEditCreditor(row)"
+              class="mr-2"
             >
-              <template #default="{ row }">
-                <ElTag :type="getCreditorType(row.ZQRFL)" size="small">
-                  {{ row.ZQRFL }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 证件号码 -->
-            <ElTableColumn
-              v-if="isColumnVisible('证件号码')"
-              prop="ZJHM"
-              label="证件号码"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 法定代表人 -->
-            <ElTableColumn
-              v-if="isColumnVisible('法定代表人')"
-              prop="FDDBRQY"
-              label="法定代表人"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 注册地址 -->
-            <ElTableColumn
-              v-if="isColumnVisible('注册地址')"
-              prop="ZCDZ"
-              label="注册地址"
-              width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 经营范围 -->
-            <ElTableColumn
-              v-if="isColumnVisible('经营范围')"
-              prop="JYFWQY"
-              label="经营范围"
-              width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 行业分类 -->
-            <ElTableColumn
-              v-if="isColumnVisible('行业分类')"
-              prop="HYFL"
-              label="行业分类"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 成立日期 -->
-            <ElTableColumn
-              v-if="isColumnVisible('成立日期')"
-              prop="CLRQQY"
-              label="成立日期"
-              width="120"
-              align="center"
+              <i class="i-lucide-edit mr-1"></i>
+              编辑
+            </ElButton>
+            <ElButton
+              type="danger"
+              size="small"
+              @click="handleDeleteCreditor(row)"
+              :loading="deleteFormLoading"
             >
-              <template #default="{ row }">
-                {{ formatDate(row.CLRQQY) }}
-              </template>
-            </ElTableColumn>
+              <i class="i-lucide-trash-2 mr-1"></i>
+              删除
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
 
-            <!-- 注册资本 -->
-            <ElTableColumn
-              v-if="isColumnVisible('注册资本')"
-              prop="ZCZBQY"
-              label="注册资本"
-              width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row.ZCZBQY) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 关联案件ID -->
-            <ElTableColumn
-              v-if="isColumnVisible('关联案件ID')"
-              prop="GLAJID"
-              label="关联案件ID"
-              width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 案号 -->
-            <ElTableColumn
-              v-if="isColumnVisible('案号')"
-              prop="AH"
-              label="案号"
-              width="150"
-              show-overflow-tooltip
-            />
-
-            <!-- 操作列 -->
-            <ElTableColumn label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  link
-                  @click="viewCreditorDetail(row)"
-                >
-                  查看
-                </ElButton>
-                <ElButton
-                  type="info"
-                  size="small"
-                  link
-                  @click="handleEditCreditor(row)"
-                >
-                  编辑
-                </ElButton>
-                <ElButton type="danger" size="small" link> 删除 </ElButton>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-
-          <!-- 分页组件 -->
-          <div class="mt-4 flex justify-end">
-            <ElPagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="pagination.itemCount"
-              layout="total, sizes, prev, pager, next, jumper"
-              @size-change="handleSizeChange"
-              @current-change="handlePageChange"
-            />
-          </div>
-        </ElCard>
-      </ElSpace>
+      <!-- 分页 -->
+      <div class="mt-4 flex justify-end">
+        <ElPagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.itemCount"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
 
       <!-- 新增债权人模态框 -->
       <ElDialog
@@ -801,7 +693,7 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
         <ElForm
           ref="formRef"
           :model="formData"
-          :rules="rules"
+          :rules="addRules"
           label-width="120px"
           label-position="top"
           class="creditor-form"
@@ -980,16 +872,16 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               <div class="detail-item">
                 <span class="detail-label">证件号码：</span>
                 <span class="detail-value">{{
-                  currentCreditor.ZJHM || '-'
-                }}</span>
+                  currentCreditor.ZJHM || '-'}}
+                </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">法定代表人（企业）：</span>
                 <span class="detail-value">{{
-                  currentCreditor.FDDBRQY || '-'
-                }}</span>
+                  currentCreditor.FDDBRQY || '-'}}
+                </span>
               </div>
             </ElCol>
           </ElRow>
@@ -998,16 +890,16 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               <div class="detail-item">
                 <span class="detail-label">注册地址：</span>
                 <span class="detail-value">{{
-                  currentCreditor.ZCDZ || '-'
-                }}</span>
+                  currentCreditor.ZCDZ || '-'}}
+                </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">经营范围（企业）：</span>
                 <span class="detail-value">{{
-                  currentCreditor.JYFWQY || '-'
-                }}</span>
+                  currentCreditor.JYFWQY || '-'}}
+                </span>
               </div>
             </ElCol>
           </ElRow>
@@ -1016,16 +908,16 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               <div class="detail-item">
                 <span class="detail-label">行业分类：</span>
                 <span class="detail-value">{{
-                  currentCreditor.HYFL || '-'
-                }}</span>
+                  currentCreditor.HYFL || '-'}}
+                </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">成立日期：</span>
                 <span class="detail-value">{{
-                  formatDate(currentCreditor.CLRQQY)
-                }}</span>
+                  formatDate(currentCreditor.CLRQQY)}}
+                </span>
               </div>
             </ElCol>
           </ElRow>
@@ -1034,16 +926,16 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               <div class="detail-item">
                 <span class="detail-label">注册资本：</span>
                 <span class="detail-value">{{
-                  formatCurrency(currentCreditor.ZCZBQY)
-                }}</span>
+                  formatCurrency(currentCreditor.ZCZBQY)}}
+                </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">关联案件ID：</span>
                 <span class="detail-value">{{
-                  currentCreditor.GLAJID || '-'
-                }}</span>
+                  currentCreditor.GLAJID || '-'}}
+                </span>
               </div>
             </ElCol>
           </ElRow>
@@ -1052,8 +944,8 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
               <div class="detail-item">
                 <span class="detail-label">案号：</span>
                 <span class="detail-value">{{
-                  currentCreditor.AH || '-'
-                }}</span>
+                  currentCreditor.AH || '-'}}
+                </span>
               </div>
             </ElCol>
           </ElRow>
@@ -1061,6 +953,160 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
 
         <template #footer>
           <ElButton @click="handleCloseDetailDialog">关闭</ElButton>
+        </template>
+      </ElDialog>
+
+      <!-- 编辑债权人模态框 -->
+      <ElDialog
+        v-model="editDialogVisible"
+        title="编辑债权人"
+        width="800px"
+        :before-close="handleCloseEditDialog"
+        class="creditor-dialog"
+      >
+        <ElForm
+          ref="editFormRef"
+          :model="editFormData"
+          :rules="editRules"
+          label-width="120px"
+          label-position="top"
+          class="creditor-form"
+        >
+          <!-- 基础信息 -->
+          <ElCard size="small" class="form-section">
+            <template #header>
+              <div class="text-primary text-lg font-semibold">基础信息</div>
+            </template>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="债权人名称" prop="zqr">
+                  <ElInput
+                    v-model="editFormData.ZQR"
+                    placeholder="请输入债权人名称"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="债权人分类">
+                  <ElSelect
+                    v-model="editFormData.ZQRFL"
+                    placeholder="请选择债权人分类"
+                    style="width: 100%"
+                    size="large"
+                  >
+                    <ElOption
+                      v-for="option in creditorTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="证件号码">
+                  <ElInput
+                    v-model="editFormData.ZJHM"
+                    placeholder="请输入证件号码"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem
+                  label="法定代表人（企业）"
+                  v-if="editFormData.ZQRFL !== '个人'"
+                >
+                  <ElInput
+                    v-model="editFormData.FDDBRQY"
+                    placeholder="请输入法定代表人"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+
+          <!-- 企业信息 -->
+          <ElCard
+            size="small"
+            class="form-section mt-4"
+            v-if="editFormData.ZQRFL !== '个人'"
+          >
+            <template #header>
+              <div class="text-primary text-lg font-semibold">企业信息</div>
+            </template>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="注册地址">
+                  <ElInput
+                    v-model="editFormData.ZCDZ"
+                    placeholder="请输入注册地址"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="经营范围（企业）">
+                  <ElInput
+                    v-model="editFormData.JYFWQY"
+                    placeholder="请输入经营范围"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="行业分类">
+                  <ElInput
+                    v-model="editFormData.HYFL"
+                    placeholder="请输入行业分类"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="成立日期">
+                  <ElDatePicker
+                    v-model="editFormData.CLRQQY"
+                    type="datetime"
+                    placeholder="请选择成立日期"
+                    style="width: 100%"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="注册资本">
+                  <ElInput
+                    v-model.number="editFormData.ZCZBQY"
+                    placeholder="请输入注册资本"
+                    size="large"
+                    type="number"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseEditDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleEditSubmit"
+              :loading="editFormLoading"
+            >
+              确定
+            </ElButton>
+          </span>
         </template>
       </ElDialog>
     </ElCard>

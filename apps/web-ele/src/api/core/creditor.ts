@@ -7,14 +7,20 @@ declare namespace CreditorApi {
     page: number;
     size: number;
     token: string;
-    SearchKeyword?: string;
-    SearchType?: string;
+    /** 债权人 */
+    ZQR?: string;
+    /** 证件号码 */
+    ZJHM?: string;
+    /** 法定代表人 */
+    FDDBRQY?: string;
   }
 
   /** 债权人信息 */
   interface CreditorInfo {
     /** 行号 */
     row: number;
+    /** 债权人ID */
+    SEP_ID: string;
     /** 债权人名称 */
     ZQR: string;
     /** 债权人分类 */
@@ -84,6 +90,54 @@ declare namespace CreditorApi {
     status: string;
     error: string;
   }
+
+  /** 编辑债权人请求体 */
+  interface EditCreditorRequest {
+    /** 当前登录用户 */
+    SEP_EUSER: string;
+    /** 当前北京时间，datetime格式 */
+    SEP_EDATE: string;
+    /** 债权人ID */
+    SEP_ID: string;
+    /** 债权人名称 */
+    ZQR: string;
+    /** 债权人分类 */
+    ZQRFL: string;
+    /** 证件号码 */
+    ZJHM: string;
+    /** 法定代表人（企业） */
+    FDDBRQY: string;
+    /** 注册地址 */
+    ZCDZ: string;
+    /** 经营范围（企业） */
+    JYFWQY: string;
+    /** 行业分类 */
+    HYFL: string;
+    /** 成立日期（企业） */
+    CLRQQY: null | string;
+    /** 注册资本（企业） */
+    ZCZBQY: number;
+    /** 状态，默认为null */
+    ZT: string | null;
+  }
+
+  /** 编辑债权人响应 */
+  interface EditCreditorResponse {
+    status: string;
+    error: string;
+  }
+
+  /** 删除债权人请求体 */
+  interface DeleteCreditorRequest {
+    /** 债权人ID */
+    SEP_ID: string;
+  }
+
+  /** 删除债权人响应 */
+  interface DeleteCreditorResponse {
+    status: string;
+    error: string;
+  }
 }
 
 /**
@@ -117,6 +171,44 @@ export async function addCreditorApi(data: CreditorApi.AddCreditorRequest) {
     '/api/web/addCreditor',
     [data],
     {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}
+
+/**
+ * 编辑债权人信息
+ */
+export async function editCreditorApi(
+  data: CreditorApi.EditCreditorRequest,
+  token: string,
+) {
+  return requestClient.post<CreditorApi.EditCreditorResponse>(
+    '/api/web/updateCreditor',
+    data,
+    {
+      params: { token },
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}
+
+/**
+ * 删除债权人信息
+ */
+export async function deleteCreditorApi(
+  data: CreditorApi.DeleteCreditorRequest,
+  token: string,
+) {
+  return requestClient.post<CreditorApi.DeleteCreditorResponse>(
+    '/api/web/deleteCreditor',
+    data,
+    {
+      params: { token },
       headers: {
         'Content-Type': 'application/json',
       },
