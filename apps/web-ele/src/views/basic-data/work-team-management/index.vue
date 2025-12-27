@@ -7,9 +7,16 @@ import { useRouter } from 'vue-router';
 import {
   ElButton,
   ElCard,
+  ElDialog,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElPagination,
+  ElSelect,
+  ElOption,
+  ElTabs,
+  ElTabPane,
   ElTable,
   ElTableColumn,
 } from 'element-plus';
@@ -135,9 +142,73 @@ const handleRefresh = () => {
   fetchWorkTeamList();
 };
 
-// 新增工作团队
+// 新增工作团队弹窗相关
+const addDialogVisible = ref(false);
+const activeTab = ref('customData'); // customData, uploadFile
+
+// 新增表单数据
+const addFormData = reactive({
+  teamLeader: '', // 团队负责人
+  comprehensiveMembers: '', // 综合组成员
+  procedureMembers: '', // 程序组成员
+  propertyMembers: '', // 财产管理组成员
+  creditorMembers: '', // 债权审核组成员
+  laborMembers: '', // 劳动人事组成员
+  claimMembers: '', // 主张权利组成员
+  caseId: '', // 案件ID
+});
+
+// 表单验证规则
+const addFormRules = {
+  teamLeader: [{ required: true, message: '请输入团队负责人', trigger: 'blur' }],
+};
+
+// 案件列表数据
+const caseList = ref([
+  { label: '（2023）测试案件1', value: '1' },
+  { label: '（2023）测试案件2', value: '2' },
+  { label: '（2023）测试案件3', value: '3' },
+]);
+
+// 上传文件列表
+const uploadFileList = ref([]);
+
+// 打开新增工作团队弹窗
 const handleAddWorkTeam = () => {
-  ElMessage.info('新增工作团队功能开发中...');
+  addDialogVisible.value = true;
+  activeTab.value = 'customData';
+  // 重置表单
+  Object.assign(addFormData, {
+    teamLeader: '',
+    comprehensiveMembers: '',
+    procedureMembers: '',
+    propertyMembers: '',
+    creditorMembers: '',
+    laborMembers: '',
+    claimMembers: '',
+    caseId: '',
+  });
+  uploadFileList.value = [];
+};
+
+// 关闭新增工作团队弹窗
+const handleCloseAddDialog = () => {
+  addDialogVisible.value = false;
+};
+
+// 保存新增工作团队
+const handleSaveAddWorkTeam = () => {
+  // 这里可以添加表单验证和保存逻辑
+  ElMessage.success('工作团队保存成功');
+  handleCloseAddDialog();
+  // 刷新工作团队列表
+  fetchWorkTeamList();
+};
+
+// 选择文件
+const handleFileSelect = () => {
+  // 这里可以添加文件选择逻辑
+  ElMessage.info('文件选择功能开发中...');
 };
 
 // 编辑工作团队
@@ -332,6 +403,99 @@ onMounted(() => {
           @current-change="handlePageChange"
         />
       </div>
+
+      <!-- 新增工作团队弹窗 -->
+      <ElDialog
+        v-model="addDialogVisible"
+        title="新增工作团队"
+        width="600px"
+        :before-close="handleCloseAddDialog"
+      >
+        <ElTabs v-model="activeTab" class="mb-4">
+          <ElTabPane label="上传文件" name="uploadFile">
+            <div class="upload-file-section">
+              <p class="text-sm text-gray-500 mb-4">支持多文件上传，单个文件大小不超过50MB</p>
+              <ElButton type="primary" @click="handleFileSelect" class="mb-4">
+                <i class="i-lucide-upload mr-1"></i>
+                选择文件
+              </ElButton>
+              <div class="file-list">
+                <p v-if="uploadFileList.length === 0" class="text-center text-gray-400 py-8">
+                  暂无上传文件
+                </p>
+                <!-- 这里可以添加文件列表展示 -->
+              </div>
+            </div>
+          </ElTabPane>
+          <ElTabPane label="自定义数据" name="customData">
+            <ElForm :model="addFormData" :rules="addFormRules" label-width="120px">
+              <ElFormItem label="案件" prop="caseId">
+                <ElSelect
+                  v-model="addFormData.caseId"
+                  placeholder="请选择案件"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="caseItem in caseList"
+                    :key="caseItem.value"
+                    :label="caseItem.label"
+                    :value="caseItem.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="团队负责人" prop="teamLeader">
+                <ElInput
+                  v-model="addFormData.teamLeader"
+                  placeholder="请输入团队负责人"
+                />
+              </ElFormItem>
+              <ElFormItem label="综合组成员">
+                <ElInput
+                  v-model="addFormData.comprehensiveMembers"
+                  placeholder="请输入综合组成员"
+                />
+              </ElFormItem>
+              <ElFormItem label="程序组成员">
+                <ElInput
+                  v-model="addFormData.procedureMembers"
+                  placeholder="请输入程序组成员"
+                />
+              </ElFormItem>
+              <ElFormItem label="财产管理组成员">
+                <ElInput
+                  v-model="addFormData.propertyMembers"
+                  placeholder="请输入财产管理组成员"
+                />
+              </ElFormItem>
+              <ElFormItem label="债权审核组成员">
+                <ElInput
+                  v-model="addFormData.creditorMembers"
+                  placeholder="请输入债权审核组成员"
+                />
+              </ElFormItem>
+              <ElFormItem label="劳动人事组成员">
+                <ElInput
+                  v-model="addFormData.laborMembers"
+                  placeholder="请输入劳动人事组成员"
+                />
+              </ElFormItem>
+              <ElFormItem label="主张权利组成员">
+                <ElInput
+                  v-model="addFormData.claimMembers"
+                  placeholder="请输入主张权利组成员"
+                />
+              </ElFormItem>
+            </ElForm>
+          </ElTabPane>
+        </ElTabs>
+
+        <template #footer>
+          <div class="flex justify-end space-x-2">
+            <ElButton @click="handleCloseAddDialog">取消</ElButton>
+            <ElButton type="primary" @click="handleSaveAddWorkTeam">保存</ElButton>
+          </div>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>
@@ -339,5 +503,16 @@ onMounted(() => {
 <style scoped>
 :deep(.el-table .cell) {
   white-space: nowrap;
+}
+
+.upload-file-section {
+  padding: 20px 0;
+}
+
+.file-list {
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  padding: 20px;
+  background-color: #f5f7fa;
 }
 </style>
