@@ -10,45 +10,35 @@ import { Icon } from '@iconify/vue';
 import { ElMessage, ElUpload } from 'element-plus';
 
 import {
-  deleteCaseFileApi,
-  getCaseFilesApi,
-  uploadCaseFileApi,
-} from '#/api/core/case';
+  deleteFileApi,
+  downloadFileApi,
+  getFileListApi,
+  getFilePreviewUrl,
+  uploadFileApi,
+} from '#/api/core/file';
 
-// 定义组件的Props
 interface Props {
-  // 案件ID，用于关联上传的文件
-  caseId: string;
-  // 允许的文件类型，默认支持常见文档格式
+  bizId: number;
+  bizType: string;
   allowedTypes?: string[];
-  // 单个文件大小限制，默认10MB
   maxSize?: number;
-  // 是否允许多文件上传
   multiple?: boolean;
-  // 上传按钮文本
   buttonText?: string;
-  // 已上传文件列表
   initialFiles?: Array<{
-    id: string;
-    name: string;
-    size: number;
-    type: string;
+    fileSize: number;
+    id: number;
+    mimeType: string;
+    originalFileName: string;
     uploadTime: string;
-    url: string;
   }>;
 }
 
-// 定义组件的Events
 interface Emits {
-  // 上传成功事件
   (e: 'upload-success', file: any): void;
-  // 上传失败事件
   (e: 'upload-error', error: any): void;
-  // 文件列表变化事件
   (e: 'file-list-change', files: any[]): void;
 }
 
-// 组件属性
 const props = withDefaults(defineProps<Props>(), {
   allowedTypes: () => [
     '.doc',
@@ -59,16 +49,16 @@ const props = withDefaults(defineProps<Props>(), {
     '.xls',
     '.xlsx',
   ],
-  maxSize: 10 * 1024 * 1024, // 10MB
+  maxSize: 10 * 1024 * 1024,
   multiple: false,
   buttonText: '上传文件',
   initialFiles: () => [],
+  bizType: 'case',
+  bizId: 0,
 });
 
-// 组件事件
 const emit = defineEmits<Emits>();
 
-// 响应式数据
 const fileList = ref<UploadFile[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
@@ -78,13 +68,6 @@ const previewFileName = ref('');
 const previewError = ref('');
 const previewBlobUrl = ref('');
 
-const previewUrl = computed(() => {
-  const token =
-    localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
-  const encodedFileName = encodeURIComponent(previewFileName.value);
-  return `http://192.168.0.120:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
-});
-
 const fileType = computed(() => {
   return previewFileName.value.split('.').pop()?.toLowerCase() || '';
 });
@@ -93,7 +76,6 @@ const isImage = computed(() => {
   return ['gif', 'jpeg', 'jpg', 'png'].includes(fileType.value);
 });
 
-// 计算属性：转换文件大小为可读格式
 const formatFileSize = (size: number | undefined): string => {
   const safeSize = size || 0;
   if (safeSize < 1024) {
@@ -105,44 +87,36 @@ const formatFileSize = (size: number | undefined): string => {
   }
 };
 
-// 计算属性：获取允许的文件类型描述
 const allowedTypesDesc = computed(() => {
   return props.allowedTypes?.join(', ') || '所有文件类型';
 });
 
-// 认证令牌，实际项目中应该从登录状态或配置中获取
-const token = '17fce65ebabe3088ab45b97f77f91b5a';
-
-// 初始化文件列表
 if (props.initialFiles && props.initialFiles.length > 0) {
   fileList.value = props.initialFiles.map((file) => ({
-    uid: Number(file.id) || Date.now() + Math.random(),
-    name: file.name,
-    url: file.url,
-    size: file.size,
+    uid: file.id || Date.now() + Math.random(),
+    name: file.originalFileName,
+    size: file.fileSize,
     status: 'success' as const,
     response: file,
   }));
 }
 
-// 获取案件文件列表
 const fetchFileList = async () => {
   uploading.value = true;
   try {
-    const response = await getCaseFilesApi(props.caseId);
+    const response = await getFileListApi(props.bizType, props.bizId);
     if (response.status === '1') {
-      const files = response.data?.records || [];
+      const files = response.data || [];
       fileList.value = files.map((file: any) => ({
-        uid: Number(file.id) || Date.now() + Math.random(),
-        name: file.name,
-        url: file.url,
-        size: file.size,
+        uid: file.id || Date.now() + Math.random(),
+        name: file.originalFileName,
+        size: file.fileSize,
         status: 'success' as const,
         response: file,
       }));
       emit('file-list-change', fileList.value);
     } else {
-      ElMessage.error(`获取文件列表失败：${response.error || '未知错误'}`);
+      ElMessage.error(`获取文件列表失败：${response.msg || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`获取文件列表失败：${error.message || '未知错误'}`);
@@ -151,9 +125,7 @@ const fetchFileList = async () => {
   }
 };
 
-// 文件上传前的验证
 const beforeUpload = (rawFile: UploadRawFile) => {
-  // 验证文件类型
   const fileExtension = rawFile.name.slice(
     Math.max(0, rawFile.name.lastIndexOf('.')),
   );
@@ -165,7 +137,6 @@ const beforeUpload = (rawFile: UploadRawFile) => {
     return false;
   }
 
-  // 验证文件大小
   if (rawFile.size > props.maxSize) {
     ElMessage.error(`单个文件大小不能超过${formatFileSize(props.maxSize)}`);
     return false;
@@ -174,14 +145,12 @@ const beforeUpload = (rawFile: UploadRawFile) => {
   return true;
 };
 
-// 处理文件上传（针对ElUpload组件的http-request）
 const handleUpload = async (options: any) => {
   uploading.value = true;
   uploadProgress.value = 0;
   const rawFile = options.file;
 
   try {
-    // 模拟上传进度
     const progressInterval = setInterval(() => {
       if (uploadProgress.value < 90) {
         uploadProgress.value += 10;
@@ -189,20 +158,16 @@ const handleUpload = async (options: any) => {
       }
     }, 200);
 
-    // 调用上传API
-    const response = await uploadCaseFileApi(rawFile, props.caseId);
+    const response = await uploadFileApi(rawFile, props.bizType, props.bizId);
 
-    // 清除进度模拟
     clearInterval(progressInterval);
     uploadProgress.value = 100;
     options.onProgress?.({ percent: 100 });
 
     if (response.status === '1') {
-      // 上传成功
       const uploadedFile = {
         uid: Date.now(),
         name: rawFile.name,
-        url: response.data?.url || response.data?.fileUrl || '',
         size: rawFile.size,
         status: 'success' as const,
         response: response.data || {},
@@ -214,8 +179,7 @@ const handleUpload = async (options: any) => {
       options.onSuccess?.(uploadedFile);
       ElMessage.success('文件上传成功');
     } else {
-      // 上传失败
-      const error = new Error(response.error || '文件上传失败');
+      const error = new Error(response.msg || '文件上传失败');
       options.onError?.(error);
       throw error;
     }
@@ -228,23 +192,22 @@ const handleUpload = async (options: any) => {
   }
 };
 
-// 处理文件上传变化
 const handleUploadChange = (file: UploadFile) => {
-  if (
-    file.status === 'ready' &&
-    file.raw && // 如果是多文件上传，直接上传
-    props.multiple
-  ) {
+  if (file.status === 'ready' && file.raw && props.multiple) {
     handleUpload({ file: file.raw });
   }
 };
 
-// 删除文件
 const handleRemove = async (file: UploadFile) => {
   try {
-    const fileName = file.name;
+    const fileId = file.response?.id;
 
-    const response = await deleteCaseFileApi(fileName);
+    if (!fileId) {
+      ElMessage.error('文件ID不存在');
+      return;
+    }
+
+    const response = await deleteFileApi(fileId);
 
     if (response.status === '1') {
       const index = fileList.value.findIndex((item) => item.uid === file.uid);
@@ -254,30 +217,30 @@ const handleRemove = async (file: UploadFile) => {
         ElMessage.success('文件已删除');
       }
     } else {
-      ElMessage.error(`文件删除失败：${response.error || '未知错误'}`);
+      ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`文件删除失败：${error.message || '未知错误'}`);
   }
 };
 
-// 组件挂载时获取文件列表
 onMounted(() => {
   fetchFileList();
 });
 
-// 查看文件
 const handlePreview = async (file: UploadFile) => {
+  const fileId = file.response?.id;
   const fileName = file.name;
   const fileExt = fileName.split('.').pop()?.toLowerCase() || '';
 
   if (fileExt === 'pdf' || ['gif', 'jpeg', 'jpg', 'png'].includes(fileExt)) {
     try {
-      const token =
-        localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
-      const encodedFileName = encodeURIComponent(fileName);
-      const url = `http://192.168.0.120:8080/api/web/viewCaseFile/${encodedFileName}?token=${token}`;
+      if (!fileId) {
+        ElMessage.error('文件ID不存在');
+        return;
+      }
 
+      const url = getFilePreviewUrl(fileId);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -309,21 +272,25 @@ const handlePreviewClose = () => {
   previewVisible.value = false;
 };
 
-// 下载文件
-const handleDownload = (file: UploadFile) => {
+const handleDownload = async (file: UploadFile) => {
   try {
+    const fileId = file.response?.id;
     const fileName = file.name;
-    const token =
-      localStorage.getItem('token') || '17fce65ebabe3088ab45b97f77f91b5a';
-    const encodedFileName = encodeURIComponent(fileName);
-    const downloadUrl = `http://192.168.0.120:8080/api/web/downloadCaseFile/${encodedFileName}?token=${token}`;
 
+    if (!fileId) {
+      ElMessage.error('文件ID不存在');
+      return;
+    }
+
+    const blob = await downloadFileApi(fileId);
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = url;
     link.download = fileName;
     document.body.append(link);
     link.click();
     link.remove();
+    window.URL.revokeObjectURL(url);
     ElMessage.success('文件下载开始');
   } catch (error: any) {
     ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
@@ -366,7 +333,6 @@ const handleDownload = (file: UploadFile) => {
           </ElButton>
         </ElUpload>
 
-        <!-- 上传进度条 -->
         <div v-if="uploading" class="upload-progress mt-4">
           <div class="mb-1 flex items-center justify-between">
             <span class="text-sm text-gray-600">上传进度</span>
@@ -376,7 +342,6 @@ const handleDownload = (file: UploadFile) => {
         </div>
       </div>
 
-      <!-- 已上传文件列表 -->
       <div v-if="fileList.length > 0" class="file-list-section mt-6">
         <h3 class="file-list-title text-md mb-3 font-semibold">
           <Icon icon="lucide:file-check" class="mr-2 text-green-500" />
@@ -446,7 +411,6 @@ const handleDownload = (file: UploadFile) => {
         </div>
       </div>
 
-      <!-- 无文件提示 -->
       <div
         v-else-if="!uploading"
         class="no-files mt-8 text-center text-gray-500"

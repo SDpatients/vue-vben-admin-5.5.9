@@ -1,11 +1,18 @@
 // 获取环境变量中的API基础地址
+import {
+  deleteFileApi,
+  downloadFileApi,
+  getFileListApi,
+  uploadFileApi,
+} from '#/api/core/file';
+
 const API_BASE_URL =
-  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8081';
+  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8085';
 
 export namespace CaseProcessApi {
   /** 工作团队信息 */
   export interface WorkTeamInfo {
-    SEP_ID: string;
+    SEP_ID: number;
     TDFZR: string;
     ZHZCY: string;
     CXZCY: string;
@@ -13,57 +20,85 @@ export namespace CaseProcessApi {
     ZQSHZCY: string;
     LDRSZCY: string;
     ZZQLZCY: string;
-    DQZT: string;
+    ZT: string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 工作计划信息 */
   export interface WorkPlanInfo {
-    SEP_ID: string;
+    SEP_ID: number;
     JHLX: string;
     JHNR: string;
     KSRQ: string;
     JSRQ: string;
     FZR: string;
-    ZHZT: string;
-    DQZT: string;
-    SEP_LD: string;
-    SEP_MD: string;
-    SEP_ND: string;
+    ZT: string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
     SEP_AUSER: string;
     SEP_ADATE: string;
-    SEP_EUSER: string;
-    SEP_EDATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 管理制度信息 */
   export interface ManagementInfo {
-    SEP_ID: string;
-    GLMC: string;
-    GLNR: string;
-    FZR: string;
+    SEP_ID: number;
+    ZDLX: string;
+    ZDMC: string;
+    ZDNR: string;
+    SXRQ: string;
     ZT: string;
-    DQZT: string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 印章管理信息 */
   export interface SealManagementInfo {
-    SEP_ID: string;
-    YZMC: string;
-    YZLX: string;
-    YZNR: string;
-    FZR: string;
+    SEP_ID: number;
+    GLLX: string;
+    XMMC: string;
+    CLRQ: string;
+    CLFS: string;
+    CLJG: string;
+    ZMWJLJ: string;
     ZT: string;
-    DQZT: string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 法律程序信息 */
   export interface LegalProcedureInfo {
-    SEP_ID: string;
-    FLMC: string;
-    FLNR: string;
+    SEP_ID: number;
+    CXLX: string;
+    CXNR: string;
+    ZHRQ: string;
     FZR: string;
     ZT: string;
-    DQZT: string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 第二阶段：财产接管信息 */
@@ -248,7 +283,7 @@ export const getWorkTeamApi = async (
   >
 > => {
   try {
-    const token = '4015f285dc41bd1bb931ba8430966c3f';
+    const token = '7ba2baf1d1cb6e041aecd4ab4873123b';
     const response = await fetch(
       `${API_BASE_URL}/api/web/getAllWorkTeam?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
     );
@@ -274,7 +309,7 @@ export const getWorkPlanApi = async (
   >
 > => {
   try {
-    const token = '8a62e323a84173fd8ec72557e6fc616d';
+    const token = '56a1d909737fb6a21f88b62c4276e27e';
     const response = await fetch(
       `${API_BASE_URL}/api/web/getAllWorkPlan?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
     );
@@ -300,7 +335,7 @@ export const getManagementApi = async (
   >
 > => {
   try {
-    const token = '6bbdf0bf97117c1bac495072c961e778';
+    const token = 'a94316548f03cbfbca9da1a9630457e1';
     const response = await fetch(
       `${API_BASE_URL}/api/web/getAllManagement?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
     );
@@ -326,7 +361,7 @@ export const getSealManagementApi = async (
   >
 > => {
   try {
-    const token = '203cadf061d22b2aaa2ce1c59b9c4bbb';
+    const token = '71d075a40d95b86e5db9ade8101adcef';
     const response = await fetch(
       `${API_BASE_URL}/api/web/getAllSealManagement?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
     );
@@ -352,7 +387,7 @@ export const getLegalProcedureApi = async (
   >
 > => {
   try {
-    const token = 'a81a3a18b6d52abb4b6c38132e1198da';
+    const token = '837a960fabfb5ebb5a3d84e097ffe08f';
     const response = await fetch(
       `${API_BASE_URL}/api/web/getAllLegalProcedure?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
     );
@@ -534,25 +569,58 @@ export const unifiedTaskOperationApi = async (data: {
   ZT: string;
 }): Promise<{ error: string; status: string }> => {
   try {
-    // 设置API基础地址和token
     const API_BASE_URL =
-      import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8081';
-    const token = 'b8b63b32acfc6dc4a07ef45cd1fea18a';
+      import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8085';
+    const token = 'ca7a4a6e97592b260932a5cd896a39ff';
     const url = `${API_BASE_URL}/api/web/update1?token=${token}`;
 
-    // 从本地存储获取操作人信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
-    const SEP_EUSER = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    const SEP_EDATE = new Date().toISOString().split('T')[0]; // 格式：YYYY-MM-DD
+    let SEP_EUSER = 'admin';
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        SEP_EUSER =
+          userInfo.user?.uName || userInfo.U_USER || userInfo.U_NAME || 'admin';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+      SEP_EUSER = 'admin';
+    }
+    const SEP_EDATE = new Date().toISOString().split('T')[0];
 
-    // 准备请求数据
     const requestData = {
       SEP_EUSER,
       SEP_EDATE,
-      ...data,
+      OperateType: data.OperateType,
+      SEP_LD: data.SEP_LD,
+      ZT: data.ZT,
+      ...(data.SEP_ID && { SEP_ID: data.SEP_ID }),
+      ...(data.TDFZR && { TDFZR: data.TDFZR }),
+      ...(data.ZHZCY && { ZHZCY: data.ZHZCY }),
+      ...(data.CXZCY && { CXZCY: data.CXZCY }),
+      ...(data.CCGLZCY && { CCGLZCY: data.CCGLZCY }),
+      ...(data.ZQSHZCY && { ZQSHZCY: data.ZQSHZCY }),
+      ...(data.LDRSZCY && { LDRSZCY: data.LDRSZCY }),
+      ...(data.ZZQLZCY && { ZZQLZCY: data.ZZQLZCY }),
+      ...(data.JHLX && { JHLX: data.JHLX }),
+      ...(data.JHNR && { JHNR: data.JHNR }),
+      ...(data.KSRQ && { KSRQ: data.KSRQ }),
+      ...(data.JSRQ && { JSRQ: data.JSRQ }),
+      ...(data.FZR && { FZR: data.FZR }),
+      ...(data.ZDLX && { ZDLX: data.ZDLX }),
+      ...(data.ZDMC && { ZDMC: data.ZDMC }),
+      ...(data.ZDNR && { ZDNR: data.ZDNR }),
+      ...(data.SXRQ && { SXRQ: data.SXRQ }),
+      ...(data.YZLX && { YZLX: data.YZLX }),
+      ...(data.YZBH && { YZBH: data.YZBH }),
+      ...(data.YZYBLJ && { YZYBLJ: data.YZYBLJ }),
+      ...(data.BARQ && { BARQ: data.BARQ }),
+      ...(data.YZMC && { YZMC: data.YZMC }),
+      ...(data.CXLX && { CXLX: data.CXLX }),
+      ...(data.CXNR && { CXNR: data.CXNR }),
+      ...(data.ZHRQ && { ZHRQ: data.ZHRQ }),
     };
 
-    // 发送请求
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -622,10 +690,36 @@ export const updateTaskStatusApi = async (
   }
 };
 
+/** 工作团队新增API */
+export const addWorkTeamApi = async (data: any) => {
+  try {
+    const token = '2a5f7f6a75486015359bf5e2067c6061';
+    const response = await fetch(
+      `${API_BASE_URL}/api/web/addWorkTeam?token=${token}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([data]),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('添加工作团队失败:', error);
+    throw error;
+  }
+};
+
 /** 工作计划新增API */
 export const addWorkPlanApi = async (data: any) => {
   try {
-    const token = '8a62e323a84173fd8ec72557e6fc616d';
+    const token = 'c310a4999c680d78b7232549849ae64d';
     const response = await fetch(
       `${API_BASE_URL}/api/web/addWorkPlan?token=${token}`,
       {
@@ -651,7 +745,7 @@ export const addWorkPlanApi = async (data: any) => {
 /** 管理制度新增API */
 export const addManagementApi = async (data: any) => {
   try {
-    const token = '6bbdf0bf97117c1bac495072c961e778';
+    const token = '03414cb311024b3b7487c2af8eb6b430';
     const response = await fetch(
       `${API_BASE_URL}/api/web/addManagement?token=${token}`,
       {
@@ -674,36 +768,10 @@ export const addManagementApi = async (data: any) => {
   }
 };
 
-/** 法律程序新增API */
-export const addLegalProcedureApi = async (data: any) => {
-  try {
-    const token = 'a81a3a18b6d52abb4b6c38132e1198da';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addLegalProcedure?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('添加法律程序失败:', error);
-    throw error;
-  }
-};
-
 /** 印章管理新增API */
 export const addSealManagementApi = async (data: any) => {
   try {
-    const token = '203cadf061d22b2aaa2ce1c59b9c4bbb';
+    const token = 'f4ba5cb06d5d1792b35229b402e3ab18';
     const response = await fetch(
       `${API_BASE_URL}/api/web/addSealManagement?token=${token}`,
       {
@@ -722,6 +790,32 @@ export const addSealManagementApi = async (data: any) => {
     return await response.json();
   } catch (error) {
     console.error('添加印章管理失败:', error);
+    throw error;
+  }
+};
+
+/** 法律程序新增API */
+export const addLegalProcedureApi = async (data: any) => {
+  try {
+    const token = 'ca4bc9b5c65eedc893c1b207e2087cc7';
+    const response = await fetch(
+      `${API_BASE_URL}/api/web/addLegalProcedure?token=${token}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([data]),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('添加法律程序失败:', error);
     throw error;
   }
 };
@@ -1139,4 +1233,90 @@ export const getAdditionalDisiributionApi = async (
     console.error('获取追加分配数据失败:', error);
     throw error;
   }
+};
+
+/**
+ * 流程处理文件上传API
+ * 根据文档，流程处理文件使用统一的 /api/file/* 接口
+ */
+
+/**
+ * 上传流程处理文件（单文件）
+ * @param params 参数对象
+ * @param params.taskId 任务ID（对应案件的SEP_ID）
+ * @param params.file 文件对象
+ * @param params.caseId 案件ID
+ * @param params.taskType 任务类型
+ * @returns 上传结果
+ */
+export const uploadProcessFileApi = async (params: {
+  caseId: string;
+  file: File;
+  taskId: string;
+  taskType: string;
+}) => {
+  return uploadFileApi(params.file, 'process', Number(params.taskId));
+};
+
+/**
+ * 批量上传流程处理文件
+ * @param taskId 任务ID（对应案件的SEP_ID）
+ * @param files 文件数组
+ * @returns 上传结果
+ */
+export const batchUploadProcessFilesApi = async (
+  taskId: string,
+  files: File[],
+) => {
+  const { batchUploadFilesApi } = await import('#/api/core/file');
+  return batchUploadFilesApi(files, 'process', Number(taskId));
+};
+
+/**
+ * 获取流程处理文件列表
+ * @param params 参数对象
+ * @param params.taskType 任务类型
+ * @param params.taskId 任务ID
+ * @param params.caseId 案件ID
+ * @returns 文件列表
+ */
+export const getProcessFileListApi = async (params: {
+  caseId: string;
+  taskId: string;
+  taskType: string;
+}) => {
+  return getFileListApi('process', Number(params.taskId));
+};
+
+/**
+ * 下载流程处理文件
+ * @param fileId 文件ID
+ * @returns 文件Blob
+ */
+export const downloadProcessFileApi = async (fileId: number) => {
+  return downloadFileApi(fileId);
+};
+
+/**
+ * 删除流程处理文件
+ * @param params 参数对象
+ * @param params.fileId 文件ID
+ * @param params.caseId 案件ID
+ * @returns 删除结果
+ */
+export const deleteProcessFileApi = async (params: {
+  caseId: string;
+  fileId: number;
+}) => {
+  return deleteFileApi(params.fileId);
+};
+
+/**
+ * 预览流程处理文件
+ * @param fileId 文件ID
+ * @returns 文件预览URL
+ */
+export const previewProcessFileApi = async (fileId: number) => {
+  const { getFilePreviewUrl } = await import('#/api/core/file');
+  return getFilePreviewUrl(fileId);
 };

@@ -45,18 +45,7 @@ const routes: RouteRecordRaw[] = [
           hideInMenu: true,
         },
       },
-      {
-        name: 'LawTaskEdit',
-        path: '/case-detail/:caseId/task/:taskId/edit',
-        component: () => import('#/views/law/case-detail/TaskEdit.vue'),
-        meta: {
-          affixTab: false,
-          hideInTab: true,
-          icon: 'lucide:edit-3',
-          title: $t('page.law.taskEdit'),
-          hideInMenu: true,
-        },
-      },
+
       {
         name: 'LawServiceOfDocuments',
         path: '/service-of-documents',
@@ -102,6 +91,16 @@ const routes: RouteRecordRaw[] = [
           hideInMenu: true,
           hideInBreadcrumb: true,
           hideInTab: true,
+        },
+      },
+      {
+        name: 'LawAnnouncementList',
+        path: '/announcement-list',
+        component: () => import('#/views/law/announcement-list/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:bell',
+          title: '公告列表',
         },
       },
     ],

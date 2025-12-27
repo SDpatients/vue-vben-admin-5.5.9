@@ -145,12 +145,24 @@ function setupChatGuard(router: Router) {
         }
 
         try {
-          // 调用后端查询登录记录接口
-          const result = await selectLoginRecordApi({
-            username: chatUsername,
-            page: 1,
-            size: 1,
-          });
+          // 调用后端查询登录记录接口，使用从登录接口返回的token
+          const token = localStorage.getItem('token');
+          if (!token) {
+            return {
+              path: LOGIN_PATH,
+              query: { redirect: encodeURIComponent(to.fullPath) },
+              replace: true,
+            };
+          }
+
+          const result = await selectLoginRecordApi(
+            {
+              username: chatUsername,
+              page: 1,
+              size: 1,
+            },
+            token,
+          );
 
           if (
             result.status === '1' &&

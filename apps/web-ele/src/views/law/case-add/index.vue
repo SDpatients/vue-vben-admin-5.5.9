@@ -95,7 +95,9 @@ const handleFileChange = async (event: Event) => {
         });
 
         // 调用上传API
-        const response = await uploadCaseFileApi(file, ''); // 案件添加时可能还没有SEP_ID，暂时传递空字符串
+        // 注意：案件添加时还没有SEP_ID，这里暂时传递空字符串
+        // 建议优化：先创建案件获取SEP_ID后再上传文件
+        const response = await uploadCaseFileApi(file, '', 'key');
 
         loading.close();
 
@@ -103,16 +105,16 @@ const handleFileChange = async (event: Event) => {
           // 上传成功，将文件信息添加到列表，兼容不同的API响应格式
           uploadedFiles.value.push({
             name: file.name,
-            url: response.data?.url || response.data?.fileUrl || '',
+            url: response.data?.filePath || '',
             file,
-            fileId: response.data?.fileId || '',
+            fileId: response.data?.id || 0,
           });
           // 更新表单的文件上传字段
           form.wjsc = uploadedFiles.value.map((f) => f.name).join(';');
 
           ElMessage.success('文件上传成功');
         } else {
-          ElMessage.error(`文件上传失败：${response.error || '未知错误'}`);
+          ElMessage.error(`文件上传失败：${response.msg || '未知错误'}`);
         }
       } catch (error: any) {
         ElMessage.error(`文件上传失败：${error.message || '网络错误'}`);
