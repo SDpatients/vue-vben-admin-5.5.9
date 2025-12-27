@@ -5,6 +5,7 @@ export * from './case-announcement';
 export * from './court';
 export * from './creditor';
 export * from './debtor';
+export * from './file';
 export * from './menu';
 export * from './user';
 export * from './work-team';

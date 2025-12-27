@@ -2,6 +2,7 @@
 import type { CourtApi } from '#/api/core';
 
 import { onMounted, reactive, ref } from 'vue';
+
 import { useUserStore } from '@vben/stores';
 
 import {
@@ -18,7 +19,14 @@ import {
   ElTableColumn,
 } from 'element-plus';
 
-import { addCourtApi, getCourtListApi, updateCourtApi, deleteCourtApi } from '#/api/core';
+import {
+  addCourtApi,
+  deleteCourtApi,
+  getCourtListApi,
+  updateCourtApi,
+} from '#/api/core';
+
+const userStore = useUserStore();
 
 // 法院列表数据
 const courtList = ref<CourtApi.CourtInfo[]>([]);
@@ -168,7 +176,6 @@ const handleCloseDialog = () => {
 // 提交新增法院
 const submitAddCourt = async () => {
   try {
-    const userStore = useUserStore();
     const currentUser = userStore.userInfo;
 
     // 构建完整的请求数据，自动添加不需要前端展示的参数
@@ -222,7 +229,6 @@ const handleCloseEditDialog = () => {
 // 提交编辑法院
 const submitEditCourt = async () => {
   try {
-    const userStore = useUserStore();
     const currentUser = userStore.userInfo;
 
     // 构建完整的请求数据，自动添加不需要前端展示的参数
@@ -259,7 +265,7 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
       cancelButtonText: '取消',
       type: 'warning',
     });
-    
+
     const response = await deleteCourtApi({ SEP_ID: row.SEP_ID });
     if (response.status === '1') {
       ElMessage.success('法院删除成功');

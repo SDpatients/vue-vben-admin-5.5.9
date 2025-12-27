@@ -64,7 +64,6 @@ export async function loginApi(data: AuthApi.LoginParams) {
   const postData = {
     UserName: data.username || '',
     Pwd: data.password || '',
-    token: 'fb3fb274ffcebe8f9c986ac3a6ea73fc',
   };
   const result = await fileUploadRequestClient.post<AuthApi.LoginResult>(
     '/api/web/login',
@@ -83,13 +82,16 @@ export async function loginApi(data: AuthApi.LoginParams) {
     localStorage.setItem('chat_logintime', logintime);
     localStorage.setItem('token', userInfo.token);
 
-    // 调用添加登录记录接口
+    // 调用添加登录记录接口，使用从登录接口返回的token
     try {
-      await addLoginRecordApi({
-        userid: userInfo.U_PID,
-        username: userInfo.U_NAME,
-        logintime,
-      });
+      await addLoginRecordApi(
+        {
+          userid: userInfo.U_PID,
+          username: userInfo.U_NAME,
+          logintime,
+        },
+        userInfo.token,
+      );
     } catch (error) {
       console.error('添加登录记录失败:', error);
       // 登录记录添加失败不影响登录流程
@@ -136,12 +138,19 @@ export async function getAccessCodesApi() {
 /**
  * 添加登录记录
  */
-export async function addLoginRecordApi(data: AuthApi.LoginRecordParams) {
-  return fileUploadRequestClient.post<AuthApi.LoginResult>('/api/web/LoginRecord', data, {
-    params: {
-      token: 'a35e81e43d7ac32b0b31b89ccae2209b',
+export async function addLoginRecordApi(
+  data: AuthApi.LoginRecordParams,
+  token: string,
+) {
+  return fileUploadRequestClient.post<AuthApi.LoginResult>(
+    '/api/web/LoginRecord',
+    data,
+    {
+      params: {
+        token,
+      },
     },
-  });
+  );
 }
 
 /**
@@ -149,12 +158,13 @@ export async function addLoginRecordApi(data: AuthApi.LoginRecordParams) {
  */
 export async function selectLoginRecordApi(
   data: AuthApi.SelectLoginRecordParams,
+  token: string,
 ) {
   return fileUploadRequestClient.get<AuthApi.LoginRecordResult>(
     '/api/web/selectLoginRecord',
     {
       params: {
-        token: '3c510727f8bcf6d45c4afc0931e8cc10',
+        token,
         ...data,
       },
     },

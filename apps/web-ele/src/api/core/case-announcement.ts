@@ -41,6 +41,8 @@ export namespace CaseAnnouncementApi {
     attachments: AnnouncementAttachment[];
     create_time: string;
     update_time: string;
+    ah: string; // 案号
+    glyfrz: string; // 主要负责人
   }
 
   /** 公告列表响应 */
@@ -70,6 +72,8 @@ export namespace CaseAnnouncementApi {
     is_top?: boolean;
     top_expire_time?: string;
     attachments?: AnnouncementAttachment[];
+    publisher_id?: string;
+    publisher_name?: string;
   }
 
   /** 更新公告请求体 */
@@ -118,6 +122,7 @@ export async function getAnnouncementListApi(
   sepId: string,
   page?: number,
   size?: number,
+  status?: string,
 ) {
   return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementListResponse>(
     '/api/web/getCaseAnnouncements',
@@ -127,6 +132,7 @@ export async function getAnnouncementListApi(
         sep_id: sepId,
         page,
         size,
+        status,
       },
     },
   );
@@ -154,11 +160,27 @@ export async function publishAnnouncementApi(
   sepId: string,
   data: Omit<CaseAnnouncementApi.CreateAnnouncementRequest, 'sep_id'>,
 ) {
+  const chatUserInfo = localStorage.getItem('chat_user_info');
+  let publisherId = '';
+  let publisherName = '';
+  
+  try {
+    if (chatUserInfo) {
+      const userInfo = JSON.parse(chatUserInfo);
+      publisherId = userInfo.user?.uPid || '';
+      publisherName = userInfo.user?.uName || '';
+    }
+  } catch (error) {
+    console.error('解析用户信息失败:', error);
+  }
+
   return announcementRequestClient.post<CaseAnnouncementApi.AnnouncementDetailResponse>(
     '/api/web/publishAnnouncement',
     {
       ...data,
       sep_id: sepId,
+      publisher_id: publisherId,
+      publisher_name: publisherName,
     },
     {
       params: {
@@ -227,11 +249,14 @@ export async function revokeAnnouncementApi(
 /**
  * 记录公告浏览
  */
-export async function recordAnnouncementViewApi(announcementId: string) {
+export async function recordAnnouncementViewApi(announcementId: string, ajid: string, viewerId: string, viewerName: string) {
   return announcementRequestClient.post<{ error: string; status: string }>(
     '/api/web/recordAnnouncementView',
     {
       announcement_id: announcementId,
+      ajid: ajid,
+      viewer_id: viewerId,
+      viewer_name: viewerName,
     },
     {
       params: {

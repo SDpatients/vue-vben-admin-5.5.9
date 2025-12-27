@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue';
 
+import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
@@ -10,8 +11,6 @@ import {
   ElPagination,
   ElTag,
 } from 'element-plus';
-
-import { Icon } from '@iconify/vue';
 
 import {
   getAnnouncementDetailApi,
@@ -34,6 +33,13 @@ interface Announcement {
   topExpireTime: string;
   createTime: string;
   updateTime: string;
+  ah: string; // 案号
+  glyfrz: string; // 主要负责人
+  attachments?: Array<{
+    file_id: string;
+    file_name: string;
+    file_url: string;
+  }>; // 公告附件
 }
 
 const announcements = ref<Announcement[]>([]);
@@ -45,6 +51,8 @@ const total = ref(0);
 const showDetailDialog = ref(false);
 const currentAnnouncement = ref<Announcement | null>(null);
 const detailLoading = ref(false);
+const showPreviewDialog = ref(false);
+const previewUrl = ref('');
 
 const announcementTypeMap: Record<string, { label: string; type: string }> = {
   NORMAL: { label: '普通', type: 'info' },
@@ -102,10 +110,44 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
   currentAnnouncement.value = announcement;
 
   try {
-    await recordAnnouncementViewApi(announcement.id);
+    // 从localStorage获取用户信息
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    let viewerId = '';
+    let viewerName = '';
+
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        viewerId = userInfo.user?.uPid || '';
+        viewerName = userInfo.user?.uName || '';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+    }
+
+    // 调用浏览记录接口，传入ajid、viewer_id、viewer_name
+    await recordAnnouncementViewApi(
+      announcement.id,
+      announcement.sepId,
+      viewerId,
+      viewerName,
+    );
+
     const response = await getAnnouncementDetailApi(announcement.id);
     if (response.status === '1') {
-      currentAnnouncement.value = response.data;
+      const detail = response.data;
+
+      // 解析attachments字段，将JSON字符串转换为数组
+      if (detail.attachments && typeof detail.attachments === 'string') {
+        try {
+          detail.attachments = JSON.parse(detail.attachments);
+        } catch (error) {
+          console.error('解析attachments失败:', error);
+          detail.attachments = [];
+        }
+      }
+
+      currentAnnouncement.value = detail;
     }
   } catch (error) {
     console.error('获取公告详情失败:', error);
@@ -123,6 +165,40 @@ const handlePageSizeChange = (size: number) => {
   pageSize.value = size;
   currentPage.value = 1;
   fetchAnnouncements();
+};
+
+/**
+ * 下载文件
+ */
+const downloadFile = (attachment: {
+  file_id: string;
+  file_name: string;
+  file_url: string;
+}) => {
+  try {
+    const link = document.createElement('a');
+    link.href = attachment.file_url;
+    link.download = attachment.file_name;
+    link.target = '_blank';
+    link.style.display = 'none';
+
+    document.body.append(link);
+    link.click();
+
+    link.remove();
+  } catch (error) {
+    console.error('文件下载失败:', error);
+    ElMessage.error('文件下载失败');
+  }
+};
+
+/**
+ * 打开文件预览
+ */
+const previewFile = (attachment: { file_id: string; file_name: string }) => {
+  const baseUrl = 'http://192.168.0.120:8080';
+  previewUrl.value = `${baseUrl}/api/file/view/${attachment.file_id}`;
+  showPreviewDialog.value = true;
 };
 
 onMounted(() => {
@@ -145,7 +221,11 @@ onMounted(() => {
           <ElEmpty description="暂无公告" />
         </div>
 
-        <div v-for="item in announcements" :key="item.id" class="announcement-item">
+        <div
+          v-for="item in announcements"
+          :key="item.id"
+          class="announcement-item"
+        >
           <div class="announcement-header">
             <div class="title-section">
               <Icon
@@ -155,16 +235,20 @@ onMounted(() => {
               />
               <h3 class="announcement-title">{{ item.title }}</h3>
               <ElTag
-                :type="announcementTypeMap[item.announcementType]?.type || 'info'"
+                :type="
+                  announcementTypeMap[item.announcementType]?.type || 'info'
+                "
                 size="small"
                 class="ml-2"
               >
-                {{ announcementTypeMap[item.announcementType]?.label || '普通' }}
+                {{
+                  announcementTypeMap[item.announcementType]?.label || '普通'
+                }}
               </ElTag>
               <ElTag
                 :type="statusMap[item.status]?.type || 'info'"
                 size="small"
-                class="ml-2"
+                class="status-tag ml-2"
               >
                 {{ statusMap[item.status]?.label || '未知' }}
               </ElTag>
@@ -186,6 +270,14 @@ onMounted(() => {
             <span class="meta-item">
               <Icon icon="lucide:calendar" class="icon" />
               发布时间：{{ formatDate(item.publishTime) }}
+            </span>
+            <span class="meta-item">
+              <Icon icon="lucide:file-text" class="icon" />
+              案号：{{ item.ah }}
+            </span>
+            <span class="meta-item">
+              <Icon icon="lucide:users" class="icon" />
+              主要负责人：{{ item.glyfrz }}
             </span>
             <span class="meta-item">
               <Icon icon="lucide:eye" class="icon" />
@@ -237,6 +329,7 @@ onMounted(() => {
               <ElTag
                 :type="statusMap[currentAnnouncement.status]?.type || 'info'"
                 size="small"
+                class="status-tag"
               >
                 {{ statusMap[currentAnnouncement.status]?.label || '未知' }}
               </ElTag>
@@ -248,6 +341,14 @@ onMounted(() => {
             <div class="meta-row">
               <span class="label">发布时间：</span>
               <span>{{ formatDate(currentAnnouncement.publishTime) }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">案号：</span>
+              <span>{{ currentAnnouncement.ah }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">主要负责人：</span>
+              <span>{{ currentAnnouncement.glyfrz }}</span>
             </div>
             <div class="meta-row">
               <span class="label">浏览次数：</span>
@@ -262,7 +363,61 @@ onMounted(() => {
               v-html="currentAnnouncement.content"
             ></div>
           </div>
+
+          <!-- 附件列表 -->
+          <div
+            v-if="
+              currentAnnouncement.attachments &&
+              currentAnnouncement.attachments.length > 0
+            "
+            class="detail-body"
+          >
+            <h4 class="section-title">附件列表</h4>
+            <div class="attachments-list">
+              <div
+                v-for="(attachment, index) in currentAnnouncement.attachments"
+                :key="index"
+                class="attachment-item"
+              >
+                <div class="attachment-info">
+                  <Icon icon="lucide:file" class="file-icon" />
+                  <span class="file-name">{{ attachment.file_name }}</span>
+                </div>
+                <div class="attachment-actions">
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    @click="previewFile(attachment)"
+                  >
+                    查看
+                  </ElButton>
+                  <ElButton
+                    size="small"
+                    class="ml-2"
+                    @click="downloadFile(attachment)"
+                  >
+                    下载
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+    </ElDialog>
+    <ElDialog
+      v-model="showPreviewDialog"
+      title="文件预览"
+      width="80%"
+      height="80%"
+      destroy-on-close
+    >
+      <div class="preview-container">
+        <iframe
+          :src="previewUrl"
+          class="preview-iframe"
+          frameborder="0"
+        ></iframe>
       </div>
     </ElDialog>
   </div>
@@ -405,5 +560,68 @@ onMounted(() => {
   max-width: 100%;
   height: auto;
   border-radius: 4px;
+}
+
+.status-tag {
+  color: #000000 !important;
+}
+
+/* 附件列表样式 */
+.attachments-list {
+  margin-top: 16px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: #f9fafb;
+  transition: all 0.3s;
+}
+
+.attachment-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+}
+
+.attachment-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.file-icon {
+  margin-right: 12px;
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.file-name {
+  font-size: 14px;
+  color: #374151;
+  word-break: break-all;
+}
+
+.attachment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.attachment-actions .ml-2 {
+  margin-left: 8px;
+}
+
+.preview-container {
+  width: 100%;
+  height: 70vh;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 100%;
 }
 </style>

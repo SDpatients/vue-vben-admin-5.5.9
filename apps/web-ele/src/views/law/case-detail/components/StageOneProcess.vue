@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import type { CaseProcessApi } from '#/api/core/case-process';
-
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
+  ElCol,
+  ElEmpty,
   ElMessage,
   ElProgress,
+  ElRow,
+  ElSkeleton,
+  ElTable,
+  ElTableColumn,
   ElTag,
 } from 'element-plus';
 
@@ -19,15 +22,9 @@ import {
   getSealManagementApi,
   getWorkPlanApi,
   getWorkTeamApi,
-  unifiedTaskOperationApi,
 } from '#/api/core/case-process';
 
-import { taskConfigs } from '../config/task-config';
-import {
-  calculateTaskStatus,
-  getStatusClass,
-  getStatusType,
-} from '../utils/task-utils';
+import TaskEdit from '../TaskEdit.vue';
 
 interface Props {
   caseId: string;
@@ -35,713 +32,645 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const emit = defineEmits<{
-  taskStatusChanged: [taskId: string, status: string];
-}>();
-
-const router = useRouter();
-
-const tasks = ref<CaseProcessApi.TaskInfo[]>([
-  {
-    id: 'workTeam',
-    name: '工作团队确认',
-    status: '未确认',
-    apiUrl: '/api/web/getAllWorkTeam',
-    token: '4015f285dc41bd1bb931ba8430966c3f',
-  },
-  {
-    id: 'workPlan',
-    name: '工作计划确认',
-    status: '未确认',
-    apiUrl: '/api/web/getAllWorkPlan',
-    token: '8a62e323a84173fd8ec72557e6fc616d',
-  },
-  {
-    id: 'management',
-    name: '管理制度确认',
-    status: '未确认',
-    apiUrl: '/api/web/getAllManagement',
-    token: '6bbdf0bf97117c1bac495072c961e778',
-  },
-  {
-    id: 'sealManagement',
-    name: '印章确认',
-    status: '未确认',
-    apiUrl: '/api/web/getSealManagement',
-    token: '203cadf061d22b2aaa2ce1c59b9c4bbb',
-  },
-  {
-    id: 'legalProcedure',
-    name: '法律程序确认',
-    status: '未确认',
-    apiUrl: '/api/web/getAllLegalProcedure',
-    token: 'a81a3a18b6d52abb4b6c38132e1198da',
-  },
-]);
-
 const loading = ref(false);
+const tasks = ref<any[]>([]);
+const showTaskEdit = ref(false);
+const currentTask = ref<any>(null);
+const currentTaskType = ref('');
+const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
-const progress = computed(() => {
-  const completedTasks = tasks.value.filter(
-    (task) => task.status === '完成' || task.status === '跳过',
-  ).length;
-  return Math.round((completedTasks / tasks.value.length) * 100);
-});
+const taskConfig = [
+  {
+    key: 'workTeam',
+    name: '工作团队',
+    icon: 'lucide:users',
+    api: getWorkTeamApi,
+    fields: [
+      { label: '团队负责人', prop: 'TDFZR' },
+      { label: '综合组成员', prop: 'ZHZCY' },
+      { label: '程序组成员', prop: 'CXZCY' },
+      { label: '财产管理组成员', prop: 'CCGLZCY' },
+      { label: '债权审核组成员', prop: 'ZQSHZCY' },
+      { label: '劳动人事组成员', prop: 'LDRSZCY' },
+      { label: '主张权利组成员', prop: 'ZZQLZCY' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'workPlan',
+    name: '工作计划',
+    icon: 'lucide:calendar',
+    api: getWorkPlanApi,
+    fields: [
+      { label: '计划类型', prop: 'JHLX' },
+      { label: '计划内容', prop: 'JHNR' },
+      { label: '开始日期', prop: 'KSRQ', isDate: true },
+      { label: '结束日期', prop: 'JSRQ', isDate: true },
+      { label: '负责人', prop: 'FZR' },
+      { label: '执行状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'management',
+    name: '管理制度',
+    icon: 'lucide:file-text',
+    api: getManagementApi,
+    fields: [
+      { label: '制度类型', prop: 'ZDLX' },
+      { label: '制度名称', prop: 'ZDMC' },
+      { label: '制度内容', prop: 'ZDNR' },
+      { label: '生效日期', prop: 'SXRQ', isDate: true },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'sealManagement',
+    name: '印章管理',
+    icon: 'lucide:stamp',
+    api: getSealManagementApi,
+    fields: [
+      { label: '管理类型', prop: 'GLLX' },
+      { label: '项目名称', prop: 'XMMC' },
+      { label: '处理日期', prop: 'CLRQ', isDate: true },
+      { label: '处理方式', prop: 'CLFS' },
+      { label: '处理结果', prop: 'CLJG' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'legalProcedure',
+    name: '法律程序',
+    icon: 'lucide:gavel',
+    api: getLegalProcedureApi,
+    fields: [
+      { label: '程序类型', prop: 'CXLX' },
+      { label: '程序内容', prop: 'CXNR' },
+      { label: '执行日期', prop: 'ZHRQ', isDate: true },
+      { label: '负责人', prop: 'FZR' },
+      { label: '执行状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+];
 
-const handleAddWorkTeam = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-team/add`,
-  });
+const taskStatusMap = {
+  0: { label: '待确认', type: 'info', color: '#409EFF' },
+  1: { label: '完成', type: 'success', color: '#67C23A' },
+  2: { label: '跳过', type: 'warning', color: '#E6A23C' },
 };
 
-const handleEditWorkTeam = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-team/edit`,
-    query: {
-      taskId: 'workTeam',
-    },
-  });
-};
-
-const handleViewWorkTeam = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-team/view`,
-    query: {
-      taskId: 'workTeam',
-    },
-  });
-};
-
-const handleAddWorkPlan = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-plan/add`,
-  });
-};
-
-const handleEditWorkPlan = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-plan/edit`,
-    query: {
-      taskId: 'workPlan',
-    },
-  });
-};
-
-const handleViewWorkPlan = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/work-plan/view`,
-    query: {
-      taskId: 'workPlan',
-    },
-  });
-};
-
-const handleAddManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/management/add`,
-  });
-};
-
-const handleEditManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/management/edit`,
-    query: {
-      taskId: 'management',
-    },
-  });
-};
-
-const handleViewManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/management/view`,
-    query: {
-      taskId: 'management',
-    },
-  });
-};
-
-const handleAddSealManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/seal-management/add`,
-  });
-};
-
-const handleEditSealManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/seal-management/edit`,
-    query: {
-      taskId: 'sealManagement',
-    },
-  });
-};
-
-const handleViewSealManagement = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/seal-management/view`,
-    query: {
-      taskId: 'sealManagement',
-    },
-  });
-};
-
-const handleAddLegalProcedure = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/legal-procedure/add`,
-  });
-};
-
-const handleEditLegalProcedure = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/legal-procedure/edit`,
-    query: {
-      taskId: 'legalProcedure',
-    },
-  });
-};
-
-const handleViewLegalProcedure = () => {
-  router.push({
-    path: `/law/case-detail/${props.caseId}/legal-procedure/view`,
-    query: {
-      taskId: 'legalProcedure',
-    },
-  });
-};
-
-const handleCompleteTask = async (taskId: string) => {
+const fetchTaskData = async (taskConfigItem: any) => {
   try {
-    await unifiedTaskOperationApi({
-      SEP_LD: props.caseId,
-      OperateType: '1',
-      taskId,
-    });
-    ElMessage.success('任务完成成功');
-    const task = tasks.value.find((t) => t.id === taskId);
-    if (task) {
-      task.status = '完成';
-      emit('taskStatusChanged', taskId, '完成');
+    const response = await taskConfigItem.api(props.caseId, 1, 10);
+    if (response.status === '1') {
+      return {
+        ...taskConfigItem,
+        data: response.data.records || [],
+        count: response.data.count || 0,
+        status: 'loaded',
+      };
+    } else {
+      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      return {
+        ...taskConfigItem,
+        data: [],
+        count: 0,
+        status: 'error',
+      };
     }
   } catch (error) {
-    console.error('任务完成失败:', error);
-    ElMessage.error('任务完成失败');
+    console.error(`获取${taskConfigItem.name}失败:`, error);
+    return {
+      ...taskConfigItem,
+      data: [],
+      count: 0,
+      status: 'error',
+    };
   }
 };
 
-const handleSkipTask = async (taskId: string) => {
-  try {
-    await unifiedTaskOperationApi({
-      SEP_LD: props.caseId,
-      OperateType: '2',
-      taskId,
-    });
-    ElMessage.success('任务跳过成功');
-    const task = tasks.value.find((t) => t.id === taskId);
-    if (task) {
-      task.status = '跳过';
-      emit('taskStatusChanged', taskId, '跳过');
-    }
-  } catch (error) {
-    console.error('任务跳过失败:', error);
-    ElMessage.error('任务跳过失败');
-  }
-};
-
-const loadTaskData = async () => {
+const loadAllTasks = async () => {
   loading.value = true;
   try {
-    const [
-      workTeamRes,
-      workPlanRes,
-      managementRes,
-      sealManagementRes,
-      legalProcedureRes,
-    ] = await Promise.allSettled([
-      getWorkTeamApi(props.caseId, 1, 10),
-      getWorkPlanApi(props.caseId, 1, 10),
-      getManagementApi(props.caseId, 1, 10),
-      getSealManagementApi(props.caseId, 1, 10),
-      getLegalProcedureApi(props.caseId, 1, 10),
-    ]);
-
-    tasks.value = [
-      {
-        id: 'workTeam',
-        name: '工作团队确认',
-        status: calculateTaskStatus(workTeamRes),
-        apiUrl: '/api/web/getAllWorkTeam',
-        token: '4015f285dc41bd1bb931ba8430966c3f',
-        count: (workTeamRes.status === 'fulfilled' && workTeamRes.value.data?.count) || 0,
-        paras: workTeamRes.status === 'fulfilled' && workTeamRes.value.data ? workTeamRes.value.data.paras : undefined,
-      },
-      {
-        id: 'workPlan',
-        name: '工作计划确认',
-        status: calculateTaskStatus(workPlanRes),
-        apiUrl: '/api/web/getAllWorkPlan',
-        token: '8a62e323a84173fd8ec72557e6fc616d',
-        count: (workPlanRes.status === 'fulfilled' && workPlanRes.value.data?.count) || 0,
-        paras: workPlanRes.status === 'fulfilled' && workPlanRes.value.data ? workPlanRes.value.data.paras : undefined,
-      },
-      {
-        id: 'management',
-        name: '管理制度确认',
-        status: calculateTaskStatus(managementRes),
-        apiUrl: '/api/web/getAllManagement',
-        token: '6bbdf0bf97117c1bac495072c961e778',
-        count: (managementRes.status === 'fulfilled' && managementRes.value.data?.count) || 0,
-        paras: managementRes.status === 'fulfilled' && managementRes.value.data ? managementRes.value.data.paras : undefined,
-      },
-      {
-        id: 'sealManagement',
-        name: '印章确认',
-        status: calculateTaskStatus(sealManagementRes),
-        apiUrl: '/api/web/getSealManagement',
-        token: '203cadf061d22b2aaa2ce1c59b9c4bbb',
-        count: (sealManagementRes.status === 'fulfilled' && sealManagementRes.value.data?.count) || 0,
-        paras: sealManagementRes.status === 'fulfilled' && sealManagementRes.value.data ? sealManagementRes.value.data.paras : undefined,
-      },
-      {
-        id: 'legalProcedure',
-        name: '法律程序确认',
-        status: calculateTaskStatus(legalProcedureRes),
-        apiUrl: '/api/web/getAllLegalProcedure',
-        token: 'a81a3a18b6d52abb4b6c38132e1198da',
-        count: (legalProcedureRes.status === 'fulfilled' && legalProcedureRes.value.data?.count) || 0,
-        paras: legalProcedureRes.status === 'fulfilled' && legalProcedureRes.value.data ? legalProcedureRes.value.data.paras : undefined,
-      },
-    ];
-
-    const failedApis = [
-      workTeamRes,
-      workPlanRes,
-      managementRes,
-      sealManagementRes,
-      legalProcedureRes,
-    ].filter((res) => res.status === 'rejected').length;
-
-    if (failedApis > 0) {
-      ElMessage.warning(`${failedApis}个API调用失败，使用默认数据`);
-    }
+    const promises = taskConfig.map((config) => fetchTaskData(config));
+    const results = await Promise.allSettled(promises);
+    tasks.value = results
+      .map((result) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          console.error('任务加载失败:', result.reason);
+          return null;
+        }
+      })
+      .filter(Boolean);
   } catch (error) {
-    console.error('加载任务数据失败:', error);
-    ElMessage.error('加载任务数据失败');
+    console.error('加载任务失败:', error);
+    ElMessage.error('加载任务失败');
   } finally {
     loading.value = false;
   }
 };
 
+const getTaskStatus = (task: any) => {
+  if (task.data && task.data.length > 0) {
+    const completedCount = task.data.filter(
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+    ).length;
+    if (completedCount === task.data.length) {
+      return 1;
+    } else if (completedCount > 0) {
+      return 0;
+    }
+  }
+  return 0;
+};
+
+const getTaskProgress = (task: any) => {
+  if (task.data && task.data.length > 0) {
+    const completedCount = task.data.filter(
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+    ).length;
+    return Math.round((completedCount / task.data.length) * 100);
+  }
+  return 0;
+};
+
+const getTaskStatusInfo = (task: any) => {
+  const status = getTaskStatus(task);
+  return (
+    taskStatusMap[status as keyof typeof taskStatusMap] || taskStatusMap[0]
+  );
+};
+
+const formatTaskDate = (dateStr: string) => {
+  if (!dateStr || dateStr === '1900-01-01T00:00:00') {
+    return '-';
+  }
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN');
+};
+
+const getStatusInfo = (status: number | string) => {
+  const statusNum =
+    typeof status === 'string' ? Number.parseInt(status, 10) : status;
+  return (
+    taskStatusMap[statusNum as keyof typeof taskStatusMap] || taskStatusMap[0]
+  );
+};
+
+const handleAdd = (task: any) => {
+  currentTask.value = null;
+  currentTaskType.value = task.key;
+  currentMode.value = 'add';
+  showTaskEdit.value = true;
+};
+
+const handleEdit = (task: any, item: any) => {
+  currentTask.value = item;
+  currentTaskType.value = task.key;
+  currentMode.value = 'edit';
+  showTaskEdit.value = true;
+};
+
+const handleView = (task: any, item: any) => {
+  currentTask.value = item;
+  currentTaskType.value = task.key;
+  currentMode.value = 'view';
+  showTaskEdit.value = true;
+};
+
+const handleComplete = async (task: any, item: any) => {
+  currentTask.value = item;
+  currentTaskType.value = task.key;
+  currentMode.value = 'complete';
+  showTaskEdit.value = true;
+};
+
+const handleSkip = async (task: any, item: any) => {
+  currentTask.value = item;
+  currentTaskType.value = task.key;
+  currentMode.value = 'skip';
+  showTaskEdit.value = true;
+};
+
+const handleRevoke = (task: any, item: any) => {
+  currentTask.value = item;
+  currentTaskType.value = task.key;
+  currentMode.value = 'revoke';
+  showTaskEdit.value = true;
+};
+
+const handleTaskEditClose = () => {
+  showTaskEdit.value = false;
+  currentTask.value = null;
+  currentTaskType.value = '';
+};
+
+const handleTaskSaved = () => {
+  loadAllTasks();
+  handleTaskEditClose();
+};
+
 onMounted(() => {
-  loadTaskData();
+  loadAllTasks();
 });
 </script>
 
 <template>
-  <ElCard class="stage-one-process" v-loading="loading">
-    <template #header>
-      <div class="stage-header">
-        <div class="stage-title">
-          <Icon icon="lucide:workflow" class="mr-2" />
-          <span>第一阶段：法院指定管理人至管理人接管破产企业前的工作</span>
-        </div>
-        <div class="stage-progress">
-          <span class="progress-text">完成进度：{{ progress }}%</span>
-          <ElProgress
-            :percentage="progress"
-            :status="progress === 100 ? 'success' : undefined"
-            :stroke-width="8"
-            style="width: 200px; margin-left: 12px"
-          />
-        </div>
-      </div>
-    </template>
-
-    <div class="tasks-container">
-      <div class="task-list">
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="task-item"
-          :class="getStatusClass(task.status)"
-        >
-          <div class="task-info">
-            <div class="task-main">
-              <div class="task-name">
-                {{ task.name }}
-                <span
-                  v-if="task.count !== undefined && task.count > 0"
-                  class="task-count"
-                >
-                  ({{ task.count }}个)
-                </span>
-              </div>
-              <div class="task-status">
-                <ElTag :type="getStatusType(task.status)" size="small">
-                  {{ task.status }}
-                </ElTag>
-              </div>
-            </div>
-            <div class="task-description">
-              当前状态：
-              {{ 
-                task.status === '完成'
-                  ? '已完成确认'
-                  : task.status === '跳过'
-                    ? '已跳过'
-                    : `待确认（${task.paras?.zt0_count || '0'}个），确认（${task.paras?.zt1_count || '0'}个）`
-              }}
+  <div class="stage-one-container">
+    <ElCard shadow="hover">
+      <template #header>
+        <div class="stage-header">
+          <div class="stage-info">
+            <Icon icon="lucide:target" class="stage-icon" />
+            <div>
+              <h2 class="stage-title">
+                阶段一：法院指定管理人至管理人接管破产企业前的工作
+              </h2>
+              <p class="stage-description">
+                完成工作团队组建、工作计划制定、管理制度建立、印章管理和法律程序启动等基础工作
+              </p>
             </div>
           </div>
-          <div class="task-actions">
-            <template v-if="task.count === 0">
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleAddWorkTeam"
-                v-if="task.id === 'workTeam'"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleAddWorkPlan"
-                v-if="task.id === 'workPlan'"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleAddManagement"
-                v-if="task.id === 'management'"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleAddSealManagement"
-                v-if="task.id === 'sealManagement'"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleAddLegalProcedure"
-                v-if="task.id === 'legalProcedure'"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                新增
-              </ElButton>
-              <ElButton
-                type="warning"
-                size="small"
-                @click="handleSkipTask(task.id)"
-              >
-                <Icon icon="lucide:skip-forward" class="mr-1" />
-                跳过
-              </ElButton>
-            </template>
-
-            <template v-else>
-              <ElButton
-                type="info"
-                size="small"
-                @click="handleViewWorkTeam"
-                v-if="task.id === 'workTeam'"
-              >
-                <Icon icon="lucide:eye" class="mr-1" />
-                查看
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleEditWorkTeam"
-                v-if="task.id === 'workTeam'"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                type="success"
-                size="small"
-                @click="handleCompleteTask(task.id)"
-                v-if="task.id === 'workTeam'"
-              >
-                <Icon icon="lucide:check" class="mr-1" />
-                完成
-              </ElButton>
-
-              <ElButton
-                type="info"
-                size="small"
-                @click="handleViewWorkPlan"
-                v-if="task.id === 'workPlan'"
-              >
-                <Icon icon="lucide:eye" class="mr-1" />
-                查看
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleEditWorkPlan"
-                v-if="task.id === 'workPlan'"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                type="success"
-                size="small"
-                @click="handleCompleteTask(task.id)"
-                v-if="task.id === 'workPlan' && task.status !== '完成'"
-              >
-                <Icon icon="lucide:check" class="mr-1" />
-                完成
-              </ElButton>
-
-              <ElButton
-                type="danger"
-                size="small"
-                @click="handleSkipTask(task.id)"
-                v-if="task.id === 'workPlan' && task.status === '完成'"
-              >
-                <Icon icon="lucide:undo" class="mr-1" />
-                撤回
-              </ElButton>
-
-              <ElButton
-                type="info"
-                size="small"
-                @click="handleViewManagement"
-                v-if="task.id === 'management'"
-              >
-                <Icon icon="lucide:eye" class="mr-1" />
-                查看
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleEditManagement"
-                v-if="task.id === 'management'"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                type="success"
-                size="small"
-                @click="handleCompleteTask(task.id)"
-                v-if="task.id === 'management'"
-              >
-                <Icon icon="lucide:check" class="mr-1" />
-                完成
-              </ElButton>
-              <ElButton
-                type="warning"
-                size="small"
-                @click="handleSkipTask(task.id)"
-                v-if="task.id === 'management'"
-              >
-                <Icon icon="lucide:skip-forward" class="mr-1" />
-                跳过
-              </ElButton>
-
-              <ElButton
-                type="info"
-                size="small"
-                @click="handleViewSealManagement"
-                v-if="task.id === 'sealManagement'"
-              >
-                <Icon icon="lucide:eye" class="mr-1" />
-                查看
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleEditSealManagement"
-                v-if="task.id === 'sealManagement'"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                type="success"
-                size="small"
-                @click="handleCompleteTask(task.id)"
-                v-if="task.id === 'sealManagement'"
-              >
-                <Icon icon="lucide:check" class="mr-1" />
-                完成
-              </ElButton>
-              <ElButton
-                type="warning"
-                size="small"
-                @click="handleSkipTask(task.id)"
-                v-if="task.id === 'sealManagement'"
-              >
-                <Icon icon="lucide:skip-forward" class="mr-1" />
-                跳过
-              </ElButton>
-
-              <ElButton
-                type="info"
-                size="small"
-                @click="handleViewLegalProcedure"
-                v-if="task.id === 'legalProcedure'"
-              >
-                <Icon icon="lucide:eye" class="mr-1" />
-                查看
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="handleEditLegalProcedure"
-                v-if="task.id === 'legalProcedure'"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                type="success"
-                size="small"
-                @click="handleCompleteTask(task.id)"
-                v-if="task.id === 'legalProcedure'"
-              >
-                <Icon icon="lucide:check" class="mr-1" />
-                完成
-              </ElButton>
-              <ElButton
-                type="warning"
-                size="small"
-                @click="handleSkipTask(task.id)"
-                v-if="task.id === 'legalProcedure'"
-              >
-                <Icon icon="lucide:skip-forward" class="mr-1" />
-                跳过
-              </ElButton>
-            </template>
-          </div>
         </div>
+      </template>
+
+      <div v-if="loading" class="loading-container">
+        <ElSkeleton :rows="5" animated />
       </div>
-    </div>
-  </ElCard>
+
+      <div v-else class="tasks-container">
+        <ElRow :gutter="20">
+          <ElCol
+            v-for="task in tasks"
+            :key="task.key"
+            :xs="24"
+            :sm="24"
+            :lg="24"
+            class="task-col"
+          >
+            <ElCard class="task-card" shadow="hover">
+              <template #header>
+                <div class="task-card-header">
+                  <div class="task-title">
+                    <Icon :icon="task.icon" class="task-icon" />
+                    <span>{{ task.name }}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px">
+                    <ElTag :type="getTaskStatusInfo(task).type" size="small">
+                      {{ getTaskStatusInfo(task).label }}
+                    </ElTag>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="handleAdd(task)"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      新增
+                    </ElButton>
+                  </div>
+                </div>
+              </template>
+
+              <div class="task-content">
+                <div class="task-progress mb-4">
+                  <div class="progress-info">
+                    <span>完成进度</span>
+                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                  </div>
+                  <ElProgress
+                    :percentage="getTaskProgress(task)"
+                    :color="getTaskStatusInfo(task).color"
+                    :stroke-width="8"
+                  />
+                  <div class="task-count">
+                    <span>
+                      <span style="color: #67c23a">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                          ).length || 0
+                        }}
+                      </span>
+                      <span style="margin: 0 4px">+</span>
+                      <span style="color: #e6a23c">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                          ).length || 0
+                        }}
+                      </span>
+                    </span>
+                    <span>/</span>
+                    <span>{{ task.count || 0 }}</span>
+                    <span>项已完成</span>
+                    <span
+                      style="margin-left: 8px; font-size: 11px; color: #999"
+                    >
+                      ({{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                        ).length || 0
+                      }}完成,
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                        ).length || 0
+                      }}跳过)
+                    </span>
+                  </div>
+                </div>
+
+                <div v-if="task.data && task.data.length > 0" class="task-list">
+                  <ElTable
+                    :data="task.data"
+                    size="small"
+                    :show-header="true"
+                    class="task-table"
+                  >
+                    <ElTableColumn
+                      v-for="field in task.fields"
+                      :key="field.prop"
+                      :prop="field.prop"
+                      :label="field.label"
+                      min-width="150"
+                      show-overflow-tooltip
+                    >
+                      <template #default="scope">
+                        <span v-if="field.isDate">{{
+                          formatTaskDate(scope.row[field.prop])
+                        }}</span>
+                        <ElTag
+                          v-else-if="field.isStatus"
+                          :type="getStatusInfo(scope.row[field.prop]).type"
+                          size="small"
+                        >
+                          {{ getStatusInfo(scope.row[field.prop]).label }}
+                        </ElTag>
+                        <span v-else>{{ scope.row[field.prop] || '-' }}</span>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn width="350" fixed="right">
+                      <template #default="scope">
+                        <div class="action-buttons">
+                          <!-- 查看按钮 - 所有状态都显示 -->
+                          <ElButton
+                            type="primary"
+                            size="small"
+                            @click="handleView(task, scope.row)"
+                          >
+                            <Icon icon="lucide:eye" class="mr-1" />
+                            查看
+                          </ElButton>
+
+                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
+                          <template
+                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
+                          >
+                            <!-- 编辑按钮 -->
+                            <ElButton
+                              type="primary"
+                              size="small"
+                              @click="handleEdit(task, scope.row)"
+                            >
+                              <Icon icon="lucide:pencil" class="mr-1" />
+                              编辑
+                            </ElButton>
+
+                            <!-- 完成按钮 -->
+                            <ElButton
+                              type="success"
+                              size="small"
+                              @click="handleComplete(task, scope.row)"
+                            >
+                              <Icon icon="lucide:check" class="mr-1" />
+                              完成
+                            </ElButton>
+
+                            <!-- 跳过按钮 -->
+                            <ElButton
+                              type="warning"
+                              size="small"
+                              @click="handleSkip(task, scope.row)"
+                            >
+                              <Icon icon="lucide:skip-forward" class="mr-1" />
+                              跳过
+                            </ElButton>
+                          </template>
+
+                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
+                          <ElButton
+                            v-else-if="
+                              scope.row.ZT === '1' ||
+                              scope.row.ZT === 1 ||
+                              scope.row.ZT === '2' ||
+                              scope.row.ZT === 2
+                            "
+                            type="danger"
+                            size="small"
+                            @click="handleRevoke(task, scope.row)"
+                          >
+                            <Icon icon="lucide:rotate-ccw" class="mr-1" />
+                            撤回
+                          </ElButton>
+                        </div>
+                      </template>
+                    </ElTableColumn>
+                  </ElTable>
+                </div>
+
+                <div v-else class="empty-task">
+                  <ElEmpty description="暂无数据" :image-size="60" />
+                  <ElButton type="primary" @click="handleAdd(task)">
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    新增
+                  </ElButton>
+                </div>
+              </div>
+            </ElCard>
+          </ElCol>
+        </ElRow>
+      </div>
+    </ElCard>
+
+    <TaskEdit
+      v-if="showTaskEdit"
+      :case-id="props.caseId"
+      :task-type="currentTaskType"
+      :task-data="currentTask"
+      :mode="currentMode"
+      @close="handleTaskEditClose"
+      @saved="handleTaskSaved"
+    />
+  </div>
 </template>
 
 <style scoped>
-.stage-one-process {
-  margin: 0;
-  padding: 0;
-  border-radius: 8px;
+.stage-one-container {
+  padding: 20px;
 }
 
 .stage-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+}
+
+.stage-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.stage-icon {
+  width: 48px;
+  height: 48px;
+  color: #409eff;
+  flex-shrink: 0;
 }
 
 .stage-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  display: flex;
-  align-items: center;
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
-.stage-progress {
-  display: flex;
-  align-items: center;
-}
-
-.progress-text {
+.stage-description {
+  margin: 0;
   font-size: 14px;
-  color: #666;
+  color: #6b7280;
+}
+
+.loading-container {
+  padding: 40px 20px;
 }
 
 .tasks-container {
-  margin-top: 20px;
+  min-height: 400px;
 }
 
-.task-list {
+.task-col {
+  margin-bottom: 20px;
+}
+
+.task-card {
+  height: 100%;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.task-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.task-icon {
+  width: 20px;
+  height: 20px;
+  color: #409eff;
+}
+
+.task-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.task-item {
-  background-color: #f9fafb;
+.task-progress {
+  padding: 12px;
+  background: #f9fafb;
   border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s ease;
 }
 
-.task-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.status-completed {
-  background-color: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.status-skipped {
-  background-color: #fffbeb;
-  border-color: #fde68a;
-}
-
-.status-pending {
-  background-color: #f9fafb;
-  border-color: #e5e7eb;
-}
-
-.task-info {
-  margin-bottom: 12px;
-}
-
-.task-main {
+.progress-info {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.task-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #374151;
-  display: flex;
-  align-items: center;
-}
-
-.task-count {
-  font-size: 13px;
-  color: #6b7280;
-  margin-left: 8px;
-  background-color: #e5e7eb;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.task-status {
-  display: flex;
-  align-items: center;
-}
-
-.task-description {
+  margin-bottom: 8px;
   font-size: 14px;
   color: #6b7280;
 }
 
-.task-actions {
+.progress-text {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.task-count {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.task-count span {
+  margin: 0 2px;
+}
+
+.task-count span:first-child {
+  font-weight: 600;
+  color: #67c23a;
+}
+
+.task-list {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.task-table {
+  font-size: 13px;
+  min-width: 800px;
+}
+
+.action-buttons {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons .el-button {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.empty-task {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+}
+
+@media (max-width: 768px) {
+  .stage-info {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stage-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .task-col {
+    margin-bottom: 16px;
+  }
 }
 </style>

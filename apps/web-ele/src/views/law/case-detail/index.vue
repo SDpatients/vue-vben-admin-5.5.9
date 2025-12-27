@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -7,21 +7,45 @@ import {
   ElButton,
   ElCard,
   ElCol,
+  ElDatePicker,
+  ElDialog,
   ElEmpty,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
+  ElOption,
+  ElPagination,
+  ElPopconfirm,
+  ElRadioButton,
+  ElRadioGroup,
   ElRow,
+  ElScrollbar,
+  ElSelect,
   ElSkeleton,
+  ElSwitch,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  ElUpload,
 } from 'element-plus';
 
-import { getCaseDetailApi, updateCaseApi } from '#/api/core/case';
+import {
+  downloadCaseFileApi,
+  getCaseDetailApi,
+  updateCaseApi,
+} from '#/api/core/case';
 import {
   deleteAnnouncementApi,
+  getAnnouncementDetailApi,
   getAnnouncementListApi,
+  getAnnouncementViewsApi,
   publishAnnouncementApi,
+  recordAnnouncementViewApi,
   revokeAnnouncementApi,
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
+import { downloadFileApi, uploadFileApi } from '#/api/core/file';
 
 import FileUploader from '../../../components/FileUploader.vue';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
@@ -44,17 +68,42 @@ const isEditing = ref(false);
 const editedData = reactive<any>({});
 const saveLoading = ref(false);
 
-// 当前选中的阶段索引
-const currentStageIndex = ref(0);
+const currentStage = ref(1);
+const stages = [
+  {
+    id: 1,
+    name: '阶段一',
+    description: '法院指定管理人至管理人接管破产企业前的工作',
+  },
+  {
+    id: 2,
+    name: '阶段二',
+    description: '管理人接管破产企业至调查审查破产企业前的工作',
+  },
+  {
+    id: 3,
+    name: '阶段三',
+    description: '管理人调查审查破产企业至第一次债权人会议前工作',
+  },
+  {
+    id: 4,
+    name: '阶段四',
+    description: '第一次债权人会议至第二次债权人会议前工作',
+  },
+  { id: 5, name: '阶段五', description: '第二次债权人会议至破产程序终结工作' },
+  { id: 6, name: '阶段六', description: '破产财产分配方案等相关工作' },
+  { id: 7, name: '阶段七', description: '债权人会议决议等相关工作' },
+];
 
 // 页面内容类型切换
-const activeTab = ref('caseInfo'); // caseInfo: 案件基本信息, process: 流程处理, announcement: 公告管理
+const activeTab = ref('caseInfo');
 
 // 公告管理相关
 const announcementData = reactive({
   title: '',
   content: '',
   announcement_type: 'NORMAL',
+  status: 'PUBLISHED',
   is_top: false,
   top_expire_time: '',
   attachments: [],
@@ -64,11 +113,119 @@ const announcements = ref<any[]>([]);
 const totalAnnouncements = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
+const statusFilter = ref('');
 const loadingAnnouncements = ref(false);
 const showAnnouncementDialog = ref(false);
 const isEditingAnnouncement = ref(false);
 const currentAnnouncementId = ref<null | string>(null);
 const dialogTitle = ref('发布新公告');
+
+const showRevokeDialog = ref(false);
+const revokeReason = ref('');
+const currentRevokeAnnouncementId = ref<null | string>(null);
+
+const showDetailDialog = ref(false);
+const currentAnnouncementDetail = ref<any>(null);
+const detailLoading = ref(false);
+
+const showViewsDialog = ref(false);
+const viewsList = ref<any[]>([]);
+const viewsTotal = ref(0);
+const viewsCurrentPage = ref(1);
+const viewsPageSize = ref(10);
+const viewsLoading = ref(false);
+
+// 文件预览相关
+const showPreviewDialog = ref(false);
+const previewAttachment = ref<any>(null);
+const previewUrl = ref('');
+const previewType = ref('');
+const isImage = ref(false);
+const isPdf = ref(false);
+const isText = ref(false);
+const textContent = ref('');
+const previewLoading = ref(false);
+
+// 预览附件
+const viewAttachment = async (attachment: any) => {
+  try {
+    previewLoading.value = true;
+    previewAttachment.value = attachment;
+
+    // 确定文件类型
+    const fileName = attachment.file_name || '';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+    const mimeType = attachment.type || '';
+
+    // 设置预览类型
+    isImage.value =
+      ['bmp', 'gif', 'jpeg', 'jpg', 'png'].includes(fileExtension) ||
+      mimeType.startsWith('image/');
+    isPdf.value = fileExtension === 'pdf' || mimeType === 'application/pdf';
+    isText.value =
+      ['css', 'html', 'js', 'json', 'log', 'md', 'ts', 'txt', 'xml'].includes(
+        fileExtension,
+      ) || mimeType.startsWith('text/');
+
+    // 根据文件类型生成预览URL或内容
+    if (isImage.value || isPdf.value) {
+      // 对于图片和PDF，下载文件内容并生成本地预览URL
+      const response = await downloadFileApi(attachment.file_id);
+      const blob = new Blob([response], { type: mimeType });
+      previewUrl.value = URL.createObjectURL(blob);
+      showPreviewDialog.value = true;
+      previewLoading.value = false;
+    } else if (isText.value) {
+      // 对于文本文件，下载并显示内容
+      const response = await downloadFileApi(attachment.file_id);
+      const blob = new Blob([response], { type: 'text/plain' });
+      const text = await blob.text();
+      textContent.value = text;
+      showPreviewDialog.value = true;
+      previewLoading.value = false;
+    } else {
+      // 对于其他类型，提示无法预览，建议下载
+      ElMessage.info('该文件类型不支持在线预览，建议下载后查看');
+      previewLoading.value = false;
+    }
+  } catch (error) {
+    console.error('预览附件失败:', error);
+    ElMessage.error('文件预览失败');
+    previewLoading.value = false;
+  }
+};
+
+// 关闭预览对话框
+const closePreviewDialog = () => {
+  showPreviewDialog.value = false;
+  previewUrl.value = '';
+  textContent.value = '';
+  isImage.value = false;
+  isPdf.value = false;
+  isText.value = false;
+};
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatDateOnly = (dateStr: string) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+};
 
 // 从后端获取公告列表
 const fetchAnnouncements = async () => {
@@ -78,9 +235,44 @@ const fetchAnnouncements = async () => {
       caseId.value,
       currentPage.value,
       pageSize.value,
+      statusFilter.value || undefined,
     );
     if (response.status === '1') {
-      announcements.value = response.data.records || [];
+      let records = response.data.records || [];
+
+      // 解析每个公告的attachments字段，将JSON字符串转换为数组
+      records = records.map((announcement: any) => {
+        const processed = { ...announcement };
+        if (
+          processed.attachments &&
+          typeof processed.attachments === 'string'
+        ) {
+          try {
+            processed.attachments = JSON.parse(processed.attachments);
+          } catch (error) {
+            console.error('解析attachments失败:', error);
+            processed.attachments = [];
+          }
+        } else if (!processed.attachments) {
+          processed.attachments = [];
+        }
+
+        // 处理附件数据，确保file_url是完整的可访问URL
+        if (processed.attachments && Array.isArray(processed.attachments)) {
+          processed.attachments = processed.attachments.map((att: any) => ({
+            ...att,
+            file_url: att.file_url?.startsWith('http')
+              ? att.file_url
+              : att.file_url?.startsWith('/')
+                ? `http://192.168.0.120:8080${att.file_url}`
+                : att.file_url,
+          }));
+        }
+
+        return processed;
+      });
+
+      announcements.value = records;
       totalAnnouncements.value = response.data.count || 0;
     } else {
       ElMessage.error(`获取公告列表失败：${response.error || '未知错误'}`);
@@ -119,6 +311,76 @@ const saveAnnouncement = async () => {
 
     console.log('3. 条件判断结果:');
     console.log('   isEditing && announcementId:', isEditing && announcementId);
+
+    // 处理附件上传
+    const uploadedAttachments = [];
+    // 过滤出需要上传的文件（status为ready的文件）
+    const filesToUpload = announcementData.attachments.filter(
+      (file: any) => file.status === 'ready',
+    );
+
+    if (filesToUpload.length > 0) {
+      ElMessage.info(`正在上传${filesToUpload.length}个文件...`);
+
+      // 逐个上传文件
+      for (const file of filesToUpload) {
+        try {
+          // 公告附件使用统一文件上传接口，bizType为notice
+          const uploadResponse = await uploadFileApi(
+            file.raw,
+            'notice',
+            Number(caseId.value),
+          );
+          if (uploadResponse.status === '1') {
+            // 上传成功，将返回的文件信息添加到已上传列表
+            uploadedAttachments.push({
+              file_id: uploadResponse.data.id,
+              file_name: uploadResponse.data.originalFileName,
+              file_url: `http://192.168.0.120:8080/api/file/view/${uploadResponse.data.id}?token=${localStorage.getItem('token') || ''}`,
+            });
+            ElMessage.success(`文件${file.name}上传成功`);
+          } else {
+            ElMessage.error(
+              `文件${file.name}上传失败：${uploadResponse.msg || '未知错误'}`,
+            );
+            return; // 中断执行
+          }
+        } catch (error) {
+          console.error(`上传文件${file.name}失败:`, error);
+          ElMessage.error(`文件${file.name}上传失败`);
+          return; // 中断执行
+        }
+      }
+
+      // 过滤出已存在的文件（非ready状态）
+      const existingAttachments = announcementData.attachments.filter(
+        (file: any) => file.status !== 'ready',
+      );
+
+      // 将已存在的文件转换为后端需要的格式
+      const formattedExistingAttachments = existingAttachments.map(
+        (file: any) => ({
+          file_id: file.file_id || file.uid,
+          file_name: file.file_name || file.name,
+          file_url: file.file_url || file.url,
+        }),
+      );
+
+      // 更新公告数据中的附件，使用上传成功后的文件信息
+      announcementData.attachments = [
+        ...formattedExistingAttachments,
+        ...uploadedAttachments,
+      ];
+    } else {
+      // 没有需要上传的文件，将现有的附件转换为后端需要的格式
+      announcementData.attachments = announcementData.attachments.map(
+        (file: any) => ({
+          file_id: file.file_id || file.uid,
+          file_name: file.file_name || file.name,
+          file_url: file.file_url || file.url,
+        }),
+      );
+    }
 
     if (isEditing && announcementId) {
       console.log('4. 进入更新公告分支');
@@ -165,11 +427,25 @@ const publishAnnouncement = async (announcementId: string) => {
 
 // 撤销公告
 const revokeAnnouncement = async (announcementId: string) => {
+  currentRevokeAnnouncementId.value = announcementId;
+  revokeReason.value = '';
+  showRevokeDialog.value = true;
+};
+
+const confirmRevokeAnnouncement = async () => {
+  if (!currentRevokeAnnouncementId.value) return;
+
   try {
-    const response = await revokeAnnouncementApi(announcementId);
+    const response = await revokeAnnouncementApi(
+      currentRevokeAnnouncementId.value,
+      revokeReason.value,
+    );
     if (response.status === '1') {
       ElMessage.success('公告撤销成功');
       await fetchAnnouncements();
+      showRevokeDialog.value = false;
+      revokeReason.value = '';
+      currentRevokeAnnouncementId.value = null;
     } else {
       ElMessage.error(`公告撤销失败：${response.error || '未知错误'}`);
     }
@@ -215,10 +491,120 @@ const editAnnouncement = (announcement: any) => {
   announcementData.content = announcement.content;
   announcementData.announcement_type =
     announcement.announcement_type || 'NORMAL';
+  announcementData.status = announcement.status || 'PUBLISHED';
   announcementData.is_top = Boolean(announcement.is_top);
   announcementData.top_expire_time = announcement.top_expire_time || '';
-  announcementData.attachments = announcement.attachments || [];
+
+  // 处理attachments字段，确保是数组格式
+  let attachments = announcement.attachments || [];
+  if (typeof attachments === 'string') {
+    try {
+      attachments = JSON.parse(attachments);
+    } catch (error) {
+      console.error('解析attachments失败:', error);
+      attachments = [];
+    }
+  }
+  announcementData.attachments = attachments;
+
   showAnnouncementDialog.value = true;
+};
+
+const viewAnnouncementDetail = async (announcement: any) => {
+  detailLoading.value = true;
+  showDetailDialog.value = true;
+
+  try {
+    const announcementId =
+      announcement.id ||
+      announcement.announcement_id ||
+      announcement.announcementId;
+
+    // 从localStorage获取用户信息
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    let viewerId = '';
+    let viewerName = '';
+
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        viewerId = userInfo.user?.uPid || '';
+        viewerName = userInfo.user?.uName || '';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+    }
+
+    // 调用浏览记录接口，传入ajid、viewer_id、viewer_name
+    await recordAnnouncementViewApi(
+      announcementId,
+      caseId.value,
+      viewerId,
+      viewerName,
+    );
+
+    const response = await getAnnouncementDetailApi(announcementId);
+    if (response.status === '1') {
+      let detail = response.data;
+
+      // 解析attachments字段，将JSON字符串转换为数组
+      if (detail.attachments && typeof detail.attachments === 'string') {
+        try {
+          detail = {
+            ...detail,
+            attachments: JSON.parse(detail.attachments),
+          };
+        } catch (error) {
+          console.error('解析attachments失败:', error);
+          detail = {
+            ...detail,
+            attachments: [],
+          };
+        }
+      } else if (!detail.attachments) {
+        detail = {
+          ...detail,
+          attachments: [],
+        };
+      }
+
+      // 确保浏览次数字段存在
+      if (detail.view_count === undefined && detail.viewCount === undefined) {
+        detail.view_count = 0;
+        detail.viewCount = 0;
+      } else if (
+        detail.view_count !== undefined &&
+        detail.viewCount === undefined
+      ) {
+        detail.viewCount = detail.view_count;
+      } else if (
+        detail.viewCount !== undefined &&
+        detail.view_count === undefined
+      ) {
+        detail.view_count = detail.viewCount;
+      }
+
+      // 处理附件数据，确保file_url是完整的可访问URL
+      if (detail.attachments && Array.isArray(detail.attachments)) {
+        detail.attachments = detail.attachments.map((att: any) => ({
+          ...att,
+          file_url: att.file_url?.startsWith('http')
+            ? att.file_url
+            : att.file_url?.startsWith('/')
+              ? `http://192.168.0.120:8080${att.file_url}`
+              : att.file_url,
+        }));
+      }
+
+      currentAnnouncementDetail.value = detail;
+      ElMessage.success('公告详情加载成功');
+    }
+  } catch (error) {
+    console.error('获取公告详情失败:', error);
+    ElMessage.error('获取公告详情失败');
+  } finally {
+    detailLoading.value = false;
+  }
 };
 
 // 打开新增公告对话框
@@ -242,12 +628,147 @@ const resetAnnouncement = () => {
   announcementData.title = '';
   announcementData.content = '';
   announcementData.announcement_type = 'NORMAL';
+  announcementData.status = 'PUBLISHED';
   announcementData.is_top = false;
   announcementData.top_expire_time = '';
   announcementData.attachments = [];
   // 重置编辑状态
   isEditingAnnouncement.value = false;
   currentAnnouncementId.value = null;
+};
+
+/**
+ * 公告附件上传前的验证
+ */
+const handleAnnouncementFileBeforeUpload = (file: any) => {
+  // 验证文件大小，限制为50MB
+  const maxSize = 50 * 1024 * 1024; // 50MB
+  if (file.size > maxSize) {
+    ElMessage.error(`单个文件大小不能超过50MB`);
+    return false;
+  }
+  return true;
+};
+
+const handleAttachmentChange = (file: any, fileList: any[]) => {
+  console.log('附件变化:', file, fileList);
+};
+
+const handleAttachmentRemove = async (file: any, fileList: any[]) => {
+  console.log('附件删除:', file, fileList);
+
+  // 如果文件已经上传到服务器，调用后端删除接口
+  if (file.file_id) {
+    try {
+      const response = await deleteFileApi(file.file_id);
+      if (response.status === '1') {
+        ElMessage.success('文件删除成功');
+      } else {
+        ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('删除文件失败:', error);
+      ElMessage.error('文件删除失败');
+    }
+  }
+
+  // 更新公告数据中的附件列表
+  announcementData.attachments = fileList;
+};
+
+const downloadAttachment = async (attachment: any) => {
+  try {
+    // 使用后端提供的下载接口
+    const downloadResponse = await downloadCaseFileApi(attachment.file_id);
+
+    // 创建下载链接
+    const blob = new Blob([downloadResponse], {
+      type: attachment.type || 'application/octet-stream',
+    });
+    const link = document.createElement('a');
+    const url = window.URL.createObjectURL(blob);
+    link.href = url;
+    link.download = attachment.file_name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success('文件下载开始');
+  } catch (error: any) {
+    ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
+  }
+};
+
+const viewAnnouncementViews = async (announcement: any) => {
+  viewsLoading.value = true;
+  showViewsDialog.value = true;
+  viewsCurrentPage.value = 1;
+
+  try {
+    const announcementId =
+      announcement.id ||
+      announcement.announcement_id ||
+      announcement.announcementId;
+
+    if (!announcementId) {
+      ElMessage.error('无效的公告ID');
+      viewsLoading.value = false;
+      return;
+    }
+
+    console.log('调用 getAnnouncementViewsApi，公告ID:', announcementId);
+    const response = await getAnnouncementViewsApi(
+      announcementId,
+      viewsCurrentPage.value,
+      viewsPageSize.value,
+    );
+
+    console.log('getAnnouncementViewsApi 响应:', response);
+
+    if (response.status === '1') {
+      // 处理浏览记录数据，将驼峰命名转换为下划线命名，以匹配表格组件的预期
+      let records = response.data.records || [];
+
+      records = records.map((record: any) => {
+        // 将驼峰命名转换为下划线命名
+        return {
+          id: record.id,
+          viewer_name: record.viewerName || record.viewer_name || '',
+          view_time: record.viewTime || record.view_time || '',
+          ip_address: record.ipAddress || record.ip_address || '',
+          // 保留原始字段，确保数据完整性
+          ...record,
+        };
+      });
+
+      viewsList.value = records;
+      viewsTotal.value = response.data.count || 0;
+      console.log('处理后的浏览记录数据:', records);
+    } else {
+      ElMessage.error(`获取浏览记录失败：${response.error || '未知错误'}`);
+      viewsList.value = [];
+      viewsTotal.value = 0;
+    }
+  } catch (error) {
+    console.error('获取浏览记录失败:', error);
+    ElMessage.error('获取浏览记录失败');
+    viewsList.value = [];
+    viewsTotal.value = 0;
+  } finally {
+    viewsLoading.value = false;
+  }
+};
+
+const handleViewsPageChange = (page: number) => {
+  viewsCurrentPage.value = page;
+  viewAnnouncementViews(currentAnnouncementDetail.value);
+};
+
+const handleViewsPageSizeChange = (size: number) => {
+  viewsPageSize.value = size;
+  viewsCurrentPage.value = 1;
+  viewAnnouncementViews(currentAnnouncementDetail.value);
 };
 
 // 监听分页变化
@@ -263,6 +784,11 @@ const handlePageSizeChange = (size: number) => {
   fetchAnnouncements();
 };
 
+const handleStatusFilterChange = () => {
+  currentPage.value = 1;
+  fetchAnnouncements();
+};
+
 // 当切换到公告管理标签页时，自动加载公告列表
 watch(activeTab, (newTab) => {
   if (newTab === 'announcement') {
@@ -271,340 +797,8 @@ watch(activeTab, (newTab) => {
 });
 
 // 破产流程阶段数据
-const processStages = ref([
-  {
-    id: 1,
-    title: '法院指定管理人至管理人接管破产企业前的工作',
-    description: '阶段一',
-    component: 'StageOneProcess',
-    tasks: [
-      {
-        id: 'workTeam',
-        name: '工作团队确认',
-        completed: false,
-        dueDate: '2023-01-20',
-        apiId: 'workTeam',
-      },
-      {
-        id: 'workPlan',
-        name: '工作计划确认',
-        completed: false,
-        dueDate: '2023-01-25',
-        apiId: 'workPlan',
-      },
-      {
-        id: 'management',
-        name: '管理制度确认',
-        completed: false,
-        dueDate: '2023-02-01',
-        apiId: 'management',
-      },
-      {
-        id: 'sealManagement',
-        name: '印章确认',
-        completed: false,
-        dueDate: '2023-02-05',
-        apiId: 'sealManagement',
-      },
-      {
-        id: 'legalProcedure',
-        name: '法律程序确认',
-        completed: false,
-        dueDate: '2023-01-30',
-        apiId: 'legalProcedure',
-      },
-    ],
-  },
-  {
-    id: 2,
-    title: '管理人接管破产企业至调查审查破产企业前的工作',
-    description: '阶段二',
-    component: 'StageTwoProcess',
-    tasks: [
-      {
-        id: 'propertyReceipt',
-        name: '企业资产接管',
-        completed: false,
-        dueDate: '2023-02-10',
-        apiId: 'propertyReceipt',
-      },
-      {
-        id: 'emergency',
-        name: '应急事项处理',
-        completed: false,
-        dueDate: '2023-02-15',
-        apiId: 'emergency',
-      },
-      {
-        id: 'propertyPlan',
-        name: '财产管理方案',
-        completed: false,
-        dueDate: '2023-02-20',
-        apiId: 'propertyPlan',
-      },
-      {
-        id: 'personnelEmp',
-        name: '员工安置方案',
-        completed: false,
-        dueDate: '2023-02-25',
-        apiId: 'personnelEmp',
-      },
-      {
-        id: 'internalAffairs',
-        name: '内部事务管理',
-        completed: false,
-        dueDate: '2023-03-01',
-        apiId: 'internalAffairs',
-      },
-      {
-        id: 'businessManagement',
-        name: '业务经营管理',
-        completed: false,
-        dueDate: '2023-03-05',
-        apiId: 'businessManagement',
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: '管理人调查审查破产企业至第一次债权人会议前工作',
-    description: '阶段三',
-    component: 'StageThreeProcess',
-    tasks: [
-      {
-        id: 9,
-        name: '财产调查',
-        completed: false,
-        dueDate: '2023-03-01',
-        apiId: 'propertyInvestigation',
-      },
-      {
-        id: 10,
-        name: '银行费用',
-        completed: false,
-        dueDate: '2023-03-05',
-        apiId: 'bankExpenses',
-      },
-      {
-        id: 11,
-        name: '权利主张',
-        completed: false,
-        dueDate: '2023-03-10',
-        apiId: 'rightsClaim',
-      },
-      {
-        id: 12,
-        name: '回收审核',
-        completed: false,
-        dueDate: '2023-03-15',
-        apiId: 'reclaimReview',
-      },
-      {
-        id: 13,
-        name: '诉讼仲裁',
-        completed: false,
-        dueDate: '2023-03-20',
-        apiId: 'litigationArbitration',
-      },
-      {
-        id: 14,
-        name: '债权人申报',
-        completed: false,
-        dueDate: '2023-03-25',
-        apiId: 'creditorClaim',
-      },
-      {
-        id: 15,
-        name: '职工债权',
-        completed: false,
-        dueDate: '2023-03-30',
-        apiId: 'employeeClaims',
-      },
-      {
-        id: 16,
-        name: '社保费用表',
-        completed: false,
-        dueDate: '2023-04-05',
-        apiId: 'socialSF',
-      },
-      {
-        id: 17,
-        name: '税收核定表',
-        completed: false,
-        dueDate: '2023-04-10',
-        apiId: 'taxVerification',
-      },
-    ],
-  },
-  {
-    id: 4,
-    title: '第一次债权人会议至第二次债权人会议前工作',
-    description: '阶段四',
-    component: 'StageFourProcess',
-    tasks: [
-      {
-        id: 18,
-        name: '第一次债权人会议',
-        completed: false,
-        dueDate: '2023-03-20',
-        apiId: 'session',
-      },
-      {
-        id: 19,
-        name: '会议文件',
-        completed: false,
-        dueDate: '2023-03-25',
-        apiId: 'meetingDocuments',
-      },
-      {
-        id: 20,
-        name: '债权确认',
-        completed: false,
-        dueDate: '2023-03-30',
-        apiId: 'claimConfirmation',
-      },
-      {
-        id: 21,
-        name: '重要行为',
-        completed: false,
-        dueDate: '2023-04-05',
-        apiId: 'importantActions',
-      },
-      {
-        id: 22,
-        name: '抵销审核',
-        completed: false,
-        dueDate: '2023-04-10',
-        apiId: 'setoffReview',
-      },
-      {
-        id: 23,
-        name: '审计报告',
-        completed: false,
-        dueDate: '2023-04-15',
-        apiId: 'auditReport',
-      },
-    ],
-  },
-  {
-    id: 5,
-    title: '第二次债权人会议至破产程序终结工作',
-    description: '阶段五',
-    component: 'StageFiveProcess',
-    tasks: [
-      {
-        id: 24,
-        name: '资产价值评估',
-        completed: false,
-        dueDate: '2023-04-20',
-        apiId: 'assetValuation',
-      },
-      {
-        id: 25,
-        name: '财产变价方案',
-        completed: false,
-        dueDate: '2023-04-25',
-        apiId: 'propertyVPlan',
-      },
-      {
-        id: 26,
-        name: '破产宣告',
-        completed: false,
-        dueDate: '2023-04-30',
-        apiId: 'bankruptcyDeclaration',
-      },
-      {
-        id: 27,
-        name: '财产分配方案',
-        completed: false,
-        dueDate: '2023-05-05',
-        apiId: 'propertyVIM',
-      },
-    ],
-  },
-  {
-    id: 6,
-    title: '破产财产分配方案等相关工作',
-    description: '阶段六',
-    component: 'StageSixProcess',
-    tasks: [
-      {
-        id: 18,
-        name: '破产财产分配方案',
-        completed: false,
-        dueDate: '2023-04-20',
-        apiId: 'bankruptcyDistPlan',
-      },
-      {
-        id: 19,
-        name: '员工安置方案',
-        completed: false,
-        dueDate: '2023-04-25',
-        apiId: 'employeeSPlan',
-      },
-      {
-        id: 20,
-        name: '优先受偿权',
-        completed: false,
-        dueDate: '2023-04-30',
-        apiId: 'priorityPayment',
-      },
-      {
-        id: 21,
-        name: '财产状况说明',
-        completed: false,
-        dueDate: '2023-05-05',
-        apiId: 'propertyDEC',
-      },
-      {
-        id: 22,
-        name: '存款管理',
-        completed: false,
-        dueDate: '2023-05-10',
-        apiId: 'depositManagement',
-      },
-    ],
-  },
-  {
-    id: 7,
-    title: '债权人会议决议等相关工作',
-    description: '阶段七',
-    component: 'StageSevenProcess',
-    tasks: [
-      {
-        id: 23,
-        name: '债权人会议决议',
-        completed: false,
-        dueDate: '2023-05-15',
-        apiId: 'canRR',
-      },
-      {
-        id: 24,
-        name: '终止诉讼',
-        completed: false,
-        dueDate: '2023-05-20',
-        apiId: 'terminationLiti',
-      },
-      {
-        id: 25,
-        name: '追加分配',
-        completed: false,
-        dueDate: '2023-05-25',
-        apiId: 'additionalDisiribution',
-      },
-    ],
-  },
-]);
 
 // 计算属性
-const currentStage = computed(() => {
-  const stage = processStages.value[currentStageIndex.value];
-  if (!stage) {
-    console.warn(`阶段索引 ${currentStageIndex.value} 无效`);
-    return processStages.value[0]; // 默认返回第一个阶段
-  }
-  return stage;
-});
 
 // 方法
 const getCaseStatusStyle = (status: string) => {
@@ -619,721 +813,6 @@ const getCaseStatusStyle = (status: string) => {
     已结案: { backgroundColor: '#13C2C2', color: '#000000' },
   };
   return colorMap[status] || { backgroundColor: '#909399', color: '#000000' };
-};
-
-// 同步StageTwoProcess组件中的任务状态
-const syncTaskStatusFromStageTwo = async () => {
-  try {
-    // 导入StageTwoProcess组件使用的API
-    const {
-      getPropertyReceiptApi,
-      getEmergencyApi,
-      getPropertyPlanApi,
-      getPersonnelEmpApi,
-      getInternalAffairsApi,
-      getBusinessManagementApi,
-    } = await import('#/api/core/case-process');
-
-    // 调用所有API获取任务状态
-    const [
-      propertyReceiptRes,
-      emergencyRes,
-      propertyPlanRes,
-      personnelEmpRes,
-      internalAffairsRes,
-      businessManagementRes,
-    ] = await Promise.allSettled([
-      getPropertyReceiptApi(caseId.value),
-      getEmergencyApi(caseId.value),
-      getPropertyPlanApi(caseId.value),
-      getPersonnelEmpApi(caseId.value),
-      getInternalAffairsApi(caseId.value),
-      getBusinessManagementApi(caseId.value),
-    ]);
-
-    // 更新阶段二的任务状态
-    const stageTwo = processStages.value[1];
-    if (stageTwo && stageTwo.tasks) {
-      stageTwo.tasks.forEach((task) => {
-        let apiResponse: any = null;
-
-        // 根据任务ID获取对应的API响应
-        switch ((task as any).apiId) {
-          case 'businessManagement': {
-            apiResponse =
-              businessManagementRes.status === 'fulfilled'
-                ? businessManagementRes.value
-                : null;
-            break;
-          }
-          case 'emergency': {
-            apiResponse =
-              emergencyRes.status === 'fulfilled' ? emergencyRes.value : null;
-            break;
-          }
-          case 'internalAffairs': {
-            apiResponse =
-              internalAffairsRes.status === 'fulfilled'
-                ? internalAffairsRes.value
-                : null;
-            break;
-          }
-          case 'personnelEmp': {
-            apiResponse =
-              personnelEmpRes.status === 'fulfilled'
-                ? personnelEmpRes.value
-                : null;
-            break;
-          }
-          case 'propertyPlan': {
-            apiResponse =
-              propertyPlanRes.status === 'fulfilled'
-                ? propertyPlanRes.value
-                : null;
-            break;
-          }
-          case 'propertyReceipt': {
-            apiResponse =
-              propertyReceiptRes.status === 'fulfilled'
-                ? propertyReceiptRes.value
-                : null;
-            break;
-          }
-        }
-
-        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const paras = apiResponse.data.paras;
-          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
-          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
-          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
-
-          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
-            task.completed = true;
-          } else if (zt0Count === 0 && zt2Count > 0) {
-            task.completed = true;
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('同步第二阶段任务状态失败:', error);
-  }
-};
-
-// 同步StageOneProcess组件中的任务状态
-const syncTaskStatusFromStageOne = async () => {
-  try {
-    // 导入StageOneProcess组件使用的API
-    const {
-      getWorkTeamApi,
-      getWorkPlanApi,
-      getManagementApi,
-      getSealManagementApi,
-      getLegalProcedureApi,
-    } = await import('#/api/core/case-process');
-
-    // 调用所有API获取任务状态，传递page和size参数
-    const [
-      workTeamRes,
-      workPlanRes,
-      managementRes,
-      sealManagementRes,
-      legalProcedureRes,
-    ] = await Promise.allSettled([
-      getWorkTeamApi(caseId.value, 1, 10),
-      getWorkPlanApi(caseId.value, 1, 10),
-      getManagementApi(caseId.value, 1, 10),
-      getSealManagementApi(caseId.value, 1, 10),
-      getLegalProcedureApi(caseId.value, 1, 10),
-    ]);
-
-    // 更新阶段一的任务状态
-    const stageOne = processStages.value[0];
-    if (stageOne && stageOne.tasks) {
-      stageOne.tasks.forEach((task) => {
-        let apiResponse: any = null;
-
-        // 根据任务ID获取对应的API响应
-        switch ((task as any).apiId) {
-          case 'legalProcedure': {
-            apiResponse =
-              legalProcedureRes.status === 'fulfilled'
-                ? legalProcedureRes.value
-                : null;
-            break;
-          }
-          case 'management': {
-            apiResponse =
-              managementRes.status === 'fulfilled' ? managementRes.value : null;
-            break;
-          }
-          case 'sealManagement': {
-            apiResponse =
-              sealManagementRes.status === 'fulfilled'
-                ? sealManagementRes.value
-                : null;
-            break;
-          }
-          case 'workPlan': {
-            apiResponse =
-              workPlanRes.status === 'fulfilled' ? workPlanRes.value : null;
-            break;
-          }
-          case 'workTeam': {
-            apiResponse =
-              workTeamRes.status === 'fulfilled' ? workTeamRes.value : null;
-            break;
-          }
-        }
-
-        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const paras = apiResponse.data.paras;
-          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
-          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
-          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
-
-          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
-            task.completed = true;
-          } else if (zt0Count === 0 && zt2Count > 0) {
-            task.completed = true;
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('同步任务状态失败:', error);
-  }
-};
-
-// 同步StageThreeProcess组件中的任务状态
-const syncTaskStatusFromStageThree = async () => {
-  try {
-    // 定义API调用函数
-    const callApi = async (apiUrl: string, token: string, caseId: string) => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_GLOB_API_URL}${apiUrl}?token=${token}&SEP_ID=${caseId}&page=1&size=10`,
-        );
-        const data = await response.json();
-        return data;
-      } catch (error) {
-        console.error(`API调用失败 ${apiUrl}:`, error);
-        return null;
-      }
-    };
-
-    // 调用所有API获取任务状态
-    const [
-      propertyInvestigationRes,
-      bankExpensesRes,
-      rightsClaimRes,
-      reclaimReviewRes,
-      litigationArbitrationRes,
-      creditorClaimRes,
-      employeeClaimsRes,
-      socialSFRes,
-      taxVerificationRes,
-    ] = await Promise.allSettled([
-      callApi(
-        '/api/web/getAllPropertyInvestigation',
-        '17fce65ebabe3088ab45b97f77f91b5a',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllBankExpenses',
-        'ff7185ba1adffaa6630ec57062ae6473',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllRightsClaim',
-        '0ce8909084c3cd60a2e2f8ba450df13a',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllReclaimReview',
-        'dcdc3c95faccd88d495c94923f8e2148',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllLitigationArbitration',
-        '7adbf35a9986045cb55ce9e1d8d8b90c',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllCreditorClaim',
-        '7fb219c01b0107dc5cb58d173ce87664',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllEmployeeClaims',
-        '328c37a28705fdbc976bea5b128e68b4',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllSociaSF',
-        'a8990ffa15ebbd2bff6aed37db08cadf',
-        caseId.value,
-      ),
-      callApi(
-        '/api/web/getAllTaxVerification',
-        '59a21e973cc5a522c63b11c19a988d0b',
-        caseId.value,
-      ),
-    ]);
-
-    // 更新阶段三的任务状态
-    const stageThree = processStages.value[2];
-    if (stageThree && stageThree.tasks) {
-      stageThree.tasks.forEach((task) => {
-        let apiResponse: any = null;
-
-        // 根据任务ID获取对应的API响应
-        switch ((task as any).apiId) {
-          case 'bankExpenses': {
-            apiResponse =
-              bankExpensesRes.status === 'fulfilled'
-                ? bankExpensesRes.value
-                : null;
-            break;
-          }
-          case 'creditorClaim': {
-            apiResponse =
-              creditorClaimRes.status === 'fulfilled'
-                ? creditorClaimRes.value
-                : null;
-            break;
-          }
-          case 'employeeClaims': {
-            apiResponse =
-              employeeClaimsRes.status === 'fulfilled'
-                ? employeeClaimsRes.value
-                : null;
-            break;
-          }
-          case 'litigationArbitration': {
-            apiResponse =
-              litigationArbitrationRes.status === 'fulfilled'
-                ? litigationArbitrationRes.value
-                : null;
-            break;
-          }
-          case 'propertyInvestigation': {
-            apiResponse =
-              propertyInvestigationRes.status === 'fulfilled'
-                ? propertyInvestigationRes.value
-                : null;
-            break;
-          }
-          case 'reclaimReview': {
-            apiResponse =
-              reclaimReviewRes.status === 'fulfilled'
-                ? reclaimReviewRes.value
-                : null;
-            break;
-          }
-          case 'rightsClaim': {
-            apiResponse =
-              rightsClaimRes.status === 'fulfilled'
-                ? rightsClaimRes.value
-                : null;
-            break;
-          }
-          case 'socialSF': {
-            apiResponse =
-              socialSFRes.status === 'fulfilled' ? socialSFRes.value : null;
-            break;
-          }
-          case 'taxVerification': {
-            apiResponse =
-              taxVerificationRes.status === 'fulfilled'
-                ? taxVerificationRes.value
-                : null;
-            break;
-          }
-        }
-
-        if (
-          apiResponse &&
-          apiResponse.status === '1' &&
-          apiResponse.data?.records?.length > 0
-        ) {
-          const paras = apiResponse.data.paras;
-          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
-          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
-          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
-
-          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
-            task.completed = true;
-          } else if (zt0Count === 0 && zt2Count > 0) {
-            task.completed = true;
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('同步第三阶段任务状态失败:', error);
-  }
-};
-
-// 处理StageOneProcess和StageTwoProcess组件状态变更事件
-const handleTaskStatusChanged = (taskId: number | string, status: string) => {
-  // 检查阶段一的任务
-  const stageOne = processStages.value[0];
-  if (stageOne && stageOne.tasks) {
-    const taskOne = stageOne.tasks.find((t) => (t as any).apiId === taskId);
-    if (taskOne) {
-      // 根据状态更新完成状态
-      taskOne.completed = status === '完成' || status === '跳过';
-
-      // 显示状态变更提示
-      const statusText = status === '跳过' ? '已跳过' : '已重置';
-      ElMessage.success(`任务"${taskOne.name}"${statusText}`);
-      return;
-    }
-  }
-
-  // 检查阶段二的任务
-  const stageTwo = processStages.value[1];
-  if (stageTwo && stageTwo.tasks) {
-    const taskTwo = stageTwo.tasks.find((t) => (t as any).apiId === taskId);
-    if (taskTwo) {
-      // 根据状态更新完成状态
-      taskTwo.completed = status === '完成' || status === '跳过';
-
-      // 显示状态变更提示
-      const statusText = status === '跳过' ? '已跳过' : '已重置';
-      ElMessage.success(`任务"${taskTwo.name}"${statusText}`);
-      return;
-    }
-  }
-
-  // 检查阶段三的任务
-  const stageThree = processStages.value[2];
-  if (stageThree && stageThree.tasks) {
-    const taskThree = stageThree.tasks.find((t) => (t as any).apiId === taskId);
-    if (taskThree) {
-      // 根据状态更新完成状态
-      taskThree.completed = status === '完成' || status === '跳过';
-
-      // 显示状态变更提示
-      let statusText = '已重置';
-      if (status === '跳过') {
-        statusText = '已跳过';
-      } else if (status === '完成') {
-        statusText = '已完成';
-      }
-      ElMessage.success(`任务"${taskThree.name}"${statusText}`);
-      return;
-    }
-  }
-
-  // 检查阶段四的任务
-  const stageFour = processStages.value[3];
-  if (stageFour && stageFour.tasks) {
-    const taskFour = stageFour.tasks.find((t) => (t as any).apiId === taskId);
-    if (taskFour) {
-      // 根据状态更新完成状态
-      taskFour.completed = status === '完成' || status === '跳过';
-
-      // 显示状态变更提示
-      let statusText = '已重置';
-      if (status === '跳过') {
-        statusText = '已跳过';
-      } else if (status === '完成') {
-        statusText = '已完成';
-      }
-      ElMessage.success(`任务"${taskFour.name}"${statusText}`);
-      return;
-    }
-  }
-
-  // 检查阶段五的任务
-  const stageFive = processStages.value[4];
-  if (stageFive && stageFive.tasks) {
-    const taskFive = stageFive.tasks.find((t) => (t as any).apiId === taskId);
-    if (taskFive) {
-      // 根据状态更新完成状态
-      taskFive.completed = status === '完成' || status === '跳过';
-
-      // 显示状态变更提示
-      let statusText = '已重置';
-      if (status === '跳过') {
-        statusText = '已跳过';
-      } else if (status === '完成') {
-        statusText = '已完成';
-      }
-      ElMessage.success(`任务"${taskFive.name}"${statusText}`);
-    }
-  }
-};
-
-// 阶段二到阶段七的任务状态同步方法
-const syncStageTasks = (stageIndex: number) => {
-  const stage = processStages.value[stageIndex];
-  if (!stage || !stage.tasks) return;
-
-  // 对于阶段二到阶段七，使用本地存储来同步状态
-  const storageKey = `case_${caseId.value}_stage_${stageIndex}_tasks`;
-
-  try {
-    // 尝试从localStorage读取已保存的任务状态
-    const savedTasks = localStorage.getItem(storageKey);
-    if (savedTasks) {
-      const parsedTasks = JSON.parse(savedTasks);
-
-      // 更新任务状态
-      stage.tasks.forEach((task, index) => {
-        if (parsedTasks[index]) {
-          task.completed = parsedTasks[index].completed;
-        }
-      });
-    }
-  } catch (error) {
-    console.warn(`读取阶段${stageIndex + 1}任务状态失败:`, error);
-  }
-};
-
-// 保存阶段二到阶段七的任务状态
-const saveStageTasks = (stageIndex: number) => {
-  const stage = processStages.value[stageIndex];
-  if (!stage || !stage.tasks) return;
-
-  const storageKey = `case_${caseId.value}_stage_${stageIndex}_tasks`;
-
-  try {
-    // 保存任务状态到localStorage
-    const tasksToSave = stage.tasks.map((task) => ({
-      id: task.id,
-      name: task.name,
-      completed: task.completed,
-      dueDate: task.dueDate,
-    }));
-
-    localStorage.setItem(storageKey, JSON.stringify(tasksToSave));
-  } catch (error) {
-    console.warn(`保存阶段${stageIndex + 1}任务状态失败:`, error);
-  }
-};
-
-const switchStage = async (index: number) => {
-  currentStageIndex.value = index;
-
-  // 根据不同的阶段调用相应的同步函数
-  switch (index) {
-    case 0: {
-      // 切换到阶段一，同步任务状态
-      await syncTaskStatusFromStageOne();
-
-      break;
-    }
-    case 1: {
-      // 切换到阶段二，同步任务状态
-      await syncTaskStatusFromStageTwo();
-
-      break;
-    }
-    case 2: {
-      // 切换到阶段三，同步任务状态
-      await syncTaskStatusFromStageThree();
-
-      break;
-    }
-    case 5: {
-      // 切换到阶段六，同步任务状态
-      await syncTaskStatusFromStageSix();
-
-      break;
-    }
-    case 6: {
-      // 切换到阶段七，同步任务状态
-      await syncTaskStatusFromStageSeven();
-
-      break;
-    }
-    default: {
-      // 如果切换到阶段四到阶段五，同步本地存储的任务状态
-      syncStageTasks(index);
-    }
-  }
-};
-
-// 删除未使用的updateTaskProgress函数
-// const updateTaskProgress = (task: any) => {
-//   if (!task) {
-//     console.warn('任务对象为空');
-//     return;
-//   }
-//
-//   ElMessage.success(`任务"${task.name || '未知任务'}"状态已更新`);
-// };
-
-// 删除未使用的handleCheckboxChange函数
-// const handleCheckboxChange = (task: any) => {
-//   if (!task) {
-//     console.warn('任务对象为空');
-//     return;
-//   }
-//
-//   // 切换任务完成状态
-//   task.completed = !task.completed;
-//   updateTaskProgress(task);
-// };
-
-// 同步StageSixProcess组件中的任务状态
-const syncTaskStatusFromStageSix = async () => {
-  try {
-    // 导入StageSixProcess组件使用的API
-    const {
-      getBankruptcyDistPlanApi,
-      getEmployeeSPlanApi,
-      getPriorityPaymentApi,
-      getPropertyDECApi,
-      getDepositManagementApi,
-    } = await import('#/api/core/case-process');
-
-    // 调用所有API获取任务状态
-    const [
-      bankruptcyDistPlanRes,
-      employeeSPlanRes,
-      priorityPaymentRes,
-      propertyDECRes,
-      depositManagementRes,
-    ] = await Promise.allSettled([
-      getBankruptcyDistPlanApi(caseId.value),
-      getEmployeeSPlanApi(caseId.value),
-      getPriorityPaymentApi(caseId.value),
-      getPropertyDECApi(caseId.value),
-      getDepositManagementApi(caseId.value),
-    ]);
-
-    // 更新阶段六的任务状态
-    const stageSix = processStages.value[5];
-    if (stageSix && stageSix.tasks) {
-      stageSix.tasks.forEach((task) => {
-        let apiResponse: any = null;
-
-        // 根据任务ID获取对应的API响应
-        switch ((task as any).apiId) {
-          case 'bankruptcyDistPlan': {
-            apiResponse =
-              bankruptcyDistPlanRes.status === 'fulfilled'
-                ? bankruptcyDistPlanRes.value
-                : null;
-            break;
-          }
-          case 'depositManagement': {
-            apiResponse =
-              depositManagementRes.status === 'fulfilled'
-                ? depositManagementRes.value
-                : null;
-            break;
-          }
-          case 'employeeSPlan': {
-            apiResponse =
-              employeeSPlanRes.status === 'fulfilled'
-                ? employeeSPlanRes.value
-                : null;
-            break;
-          }
-          case 'priorityPayment': {
-            apiResponse =
-              priorityPaymentRes.status === 'fulfilled'
-                ? priorityPaymentRes.value
-                : null;
-            break;
-          }
-          case 'propertyDEC': {
-            apiResponse =
-              propertyDECRes.status === 'fulfilled'
-                ? propertyDECRes.value
-                : null;
-            break;
-          }
-        }
-
-        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const paras = apiResponse.data.paras;
-          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
-          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
-          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
-
-          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
-            task.completed = true;
-          } else if (zt0Count === 0 && zt2Count > 0) {
-            task.completed = true;
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('同步第六阶段任务状态失败:', error);
-  }
-};
-
-// 同步StageSevenProcess组件中的任务状态
-const syncTaskStatusFromStageSeven = async () => {
-  try {
-    // 导入StageSevenProcess组件使用的API
-    const {
-      getCanRRInfoApi,
-      getTerminationLitiApi,
-      getAdditionalDisiributionApi,
-    } = await import('#/api/core/case-process');
-
-    // 调用所有API获取任务状态
-    const [canRRRes, terminationLitiRes, additionalDisiributionRes] =
-      await Promise.allSettled([
-        getCanRRInfoApi(caseId.value),
-        getTerminationLitiApi(caseId.value),
-        getAdditionalDisiributionApi(caseId.value),
-      ]);
-
-    // 更新阶段七的任务状态
-    const stageSeven = processStages.value[6];
-    if (stageSeven && stageSeven.tasks) {
-      stageSeven.tasks.forEach((task) => {
-        let apiResponse: any = null;
-
-        // 根据任务ID获取对应的API响应
-        switch ((task as any).apiId) {
-          case 'additionalDisiribution': {
-            apiResponse =
-              additionalDisiributionRes.status === 'fulfilled'
-                ? additionalDisiributionRes.value
-                : null;
-            break;
-          }
-          case 'canRR': {
-            apiResponse =
-              canRRRes.status === 'fulfilled' ? canRRRes.value : null;
-            break;
-          }
-          case 'terminationLiti': {
-            apiResponse =
-              terminationLitiRes.status === 'fulfilled'
-                ? terminationLitiRes.value
-                : null;
-            break;
-          }
-        }
-
-        if (apiResponse && apiResponse.status === '1' && apiResponse.data) {
-          const paras = apiResponse.data.paras;
-          const zt0Count = Number.parseInt(paras?.zt0_count || '0', 10);
-          const zt1Count = Number.parseInt(paras?.zt1_count || '0', 10);
-          const zt2Count = Number.parseInt(paras?.zt2_count || '0', 10);
-
-          if (zt0Count === 0 && zt1Count > 0 && zt2Count === 0) {
-            task.completed = true;
-          } else if (zt0Count === 0 && zt2Count > 0) {
-            task.completed = true;
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('同步第七阶段任务状态失败:', error);
-  }
 };
 
 const goBack = () => {
@@ -1357,7 +836,7 @@ const saveEditing = async () => {
       AJID: caseId.value,
       AH: editedData.案号 || '',
       AJMC: editedData.案件名称 || '',
-      SLRQ: formatDate(editedData.受理日期),
+      SLRQ: formatDateForApi(editedData.受理日期),
       AJLY: editedData.案件来源 || '',
       SLFY: editedData.受理法院 || '',
       ZDJG: editedData.指定机构 || '',
@@ -1365,16 +844,16 @@ const saveEditing = async () => {
       SFJHS: editedData.是否简化审 || '',
       AY: editedData.案由 || '',
       AJJD: editedData.案件进度 || '',
-      ZQSBJZSJ: formatDate(editedData.债权申报截止时间),
-      LARQ: formatDate(editedData.立案日期),
-      JARQ: formatDate(editedData.结案日期),
-      PCSJ: formatDate(editedData.破产时间),
-      ZJSJ: formatDate(editedData.终结时间),
-      ZXSJ: formatDate(editedData.注销时间),
-      GDSJ: formatDate(editedData.归档时间),
+      ZQSBJZSJ: formatDateForApi(editedData.债权申报截止时间),
+      LARQ: formatDateForApi(editedData.立案日期),
+      JARQ: formatDateForApi(editedData.结案日期),
+      PCSJ: formatDateForApi(editedData.破产时间),
+      ZJSJ: formatDateForApi(editedData.终结时间),
+      ZXSJ: formatDateForApi(editedData.注销时间),
+      GDSJ: formatDateForApi(editedData.归档时间),
       BEIZHU: editedData.备注 || '',
       SEP_EUSER: editedData.修改者 || '',
-      SEP_EDATE: formatDate(editedData.修改时间) || currentDate,
+      SEP_EDATE: formatDateForApi(editedData.修改时间) || currentDate,
       GLRID: caseId.value,
       GLRLX: editedData.管理人类型 || '',
       FZRID: editedData.负责人 || '',
@@ -1390,7 +869,7 @@ const saveEditing = async () => {
       ZCDZ: editedData.注册地址 || '',
       JYFWQY: editedData.经营范围 || '',
       HYFL: editedData.行业分类 || '',
-      CLRQQY: formatDate(editedData.成立日期),
+      CLRQQY: formatDateForApi(editedData.成立日期),
       ZCZBQY: editedData.注册资本 || '',
       ZQSBID: caseId.value,
       ZQRMC: editedData.申报债权人名称 || '',
@@ -1401,7 +880,7 @@ const saveEditing = async () => {
       SBLX: editedData.申报类型 || '',
       BZ: editedData.申报备注 || '',
       ZQQRID: caseId.value,
-      FYCDRQ: formatDate(editedData.法院裁定日期),
+      FYCDRQ: formatDateForApi(editedData.法院裁定日期),
       CDWH: editedData.裁定文号 || '',
       ZZJE: editedData.最终金额 || '',
     };
@@ -1423,7 +902,7 @@ const saveEditing = async () => {
   }
 };
 
-const formatDate = (date: any): string | undefined => {
+const formatDateForApi = (date: any): string | undefined => {
   if (!date) return undefined;
   if (typeof date === 'string') return date;
   if (date instanceof Date) return date.toISOString().split('T')[0];
@@ -1543,11 +1022,6 @@ onMounted(async () => {
     };
   } finally {
     loading.value = false;
-
-    // 加载完成后同步阶段一的任务状态
-    if (currentStageIndex.value === 0) {
-      await syncTaskStatusFromStageOne();
-    }
   }
 });
 </script>
@@ -2264,7 +1738,80 @@ onMounted(async () => {
       </ElCard>
 
       <!-- 文件上传组件 -->
-      <FileUploader :case-id="caseId" multiple />
+      <FileUploader :biz-id="Number(caseId)" biz-type="case" multiple />
+    </div>
+
+    <!-- 流程处理 -->
+    <div v-if="activeTab === 'process'">
+      <ElCard shadow="hover">
+        <template #header>
+          <div class="process-header">
+            <h2 class="process-title">案件流程处理</h2>
+            <p class="process-description">管理破产案件的七个阶段流程</p>
+          </div>
+        </template>
+
+        <div class="process-content">
+          <div class="stage-navigation">
+            <div class="stage-indicators">
+              <div
+                v-for="stage in stages"
+                :key="stage.id"
+                class="stage-dot"
+                :class="[{ active: currentStage === stage.id }]"
+                @click="currentStage = stage.id"
+              >
+                <span class="stage-number">{{ stage.id }}</span>
+                <div class="stage-tooltip">
+                  <div class="stage-tooltip-name">{{ stage.name }}</div>
+                  <div class="stage-tooltip-desc">{{ stage.description }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="stage-controls">
+              <ElButton
+                :disabled="currentStage === 1"
+                @click="currentStage--"
+                size="small"
+              >
+                <Icon icon="lucide:chevron-left" class="mr-1" />
+                上一阶段
+              </ElButton>
+              <ElButton
+                :disabled="currentStage === 7"
+                @click="currentStage++"
+                type="primary"
+                size="small"
+              >
+                下一阶段
+                <Icon icon="lucide:chevron-right" class="ml-1" />
+              </ElButton>
+            </div>
+          </div>
+
+          <div class="stage-content">
+            <StageOneProcess v-if="currentStage === 1" :case-id="caseId" />
+            <StageTwoProcess v-else-if="currentStage === 2" :case-id="caseId" />
+            <StageThreeProcess
+              v-else-if="currentStage === 3"
+              :case-id="caseId"
+            />
+            <StageFourProcess
+              v-else-if="currentStage === 4"
+              :case-id="caseId"
+            />
+            <StageFiveProcess
+              v-else-if="currentStage === 5"
+              :case-id="caseId"
+            />
+            <StageSixProcess v-else-if="currentStage === 6" :case-id="caseId" />
+            <StageSevenProcess
+              v-else-if="currentStage === 7"
+              :case-id="caseId"
+            />
+          </div>
+        </div>
+      </ElCard>
     </div>
 
     <!-- 公告管理 -->
@@ -2276,7 +1823,20 @@ onMounted(async () => {
               <Icon icon="lucide:bullhorn" class="mr-2 text-blue-500" />
               <span class="text-lg font-semibold">公告管理</span>
             </div>
-            <div class="flex space-x-2">
+            <div class="flex items-center space-x-2">
+              <ElSelect
+                v-model="statusFilter"
+                placeholder="筛选状态"
+                clearable
+                size="default"
+                @change="handleStatusFilterChange"
+                style="width: 150px"
+              >
+                <ElOption label="全部" value="" />
+                <ElOption label="草稿" value="DRAFT" />
+                <ElOption label="已发布" value="PUBLISHED" />
+                <ElOption label="已撤回" value="RETRACTED" />
+              </ElSelect>
               <ElButton type="primary" @click="openNewAnnouncementDialog">
                 <Icon icon="lucide:plus" class="mr-1" />
                 发布新公告
@@ -2295,35 +1855,120 @@ onMounted(async () => {
             style="width: 100%"
             class="mb-4"
           >
-            <ElTableColumn prop="title" label="公告标题" min-width="200" />
-            <ElTableColumn prop="publishDate" label="发布日期" width="180" />
-            <ElTableColumn prop="author" label="发布人" width="120" />
+            <ElTableColumn prop="title" label="公告标题" min-width="200">
+              <template #default="scope">
+                <div class="title-cell">
+                  <Icon
+                    v-if="scope.row.is_top === 1"
+                    icon="lucide:pin"
+                    class="top-icon"
+                  />
+                  <span>{{ scope.row.title }}</span>
+                </div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn
+              prop="announcement_type"
+              label="公告类型"
+              width="100"
+            >
+              <template #default="scope">
+                <ElTag
+                  :type="
+                    scope.row.announcement_type === 'URGENT'
+                      ? 'danger'
+                      : scope.row.announcement_type === 'IMPORTANT'
+                        ? 'warning'
+                        : 'info'
+                  "
+                  size="small"
+                >
+                  {{
+                    scope.row.announcement_type === 'URGENT'
+                      ? '紧急'
+                      : scope.row.announcement_type === 'IMPORTANT'
+                        ? '重要'
+                        : '普通'
+                  }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="publishTime" label="发布时间" width="180">
+              <template #default="scope">
+                {{ formatDateOnly(scope.row.publishTime) }}
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="publisherName" label="发布人" width="120" />
+            <ElTableColumn prop="ah" label="案号" min-width="150" />
+            <ElTableColumn prop="glyfrz" label="主要负责人" width="150" />
+            <ElTableColumn prop="viewCount" label="浏览次数" width="100">
+              <template #default="scope">
+                <div class="view-count-cell">
+                  <Icon icon="lucide:eye" class="eye-icon" />
+                  <span>{{ scope.row.viewCount || 0 }}</span>
+                </div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="附件" width="100">
+              <template #default="scope">
+                <div
+                  v-if="
+                    scope.row.attachments && scope.row.attachments.length > 0
+                  "
+                  class="attachment-count-cell"
+                >
+                  <Icon icon="lucide:paperclip" class="attachment-icon" />
+                  <span>{{ scope.row.attachments.length }}</span>
+                </div>
+                <span v-else class="no-attachment">无</span>
+              </template>
+            </ElTableColumn>
             <ElTableColumn prop="status" label="状态" width="120">
               <template #default="scope">
                 <ElTag
                   :type="
-                    scope.row.status === 'published' ? 'success' : 'warning'
+                    scope.row.status === 'PUBLISHED'
+                      ? 'success'
+                      : scope.row.status === 'RETRACTED'
+                        ? 'info'
+                        : 'warning'
                   "
+                  class="status-tag"
                 >
-                  {{ scope.row.status === 'published' ? '已发布' : '草稿' }}
+                  {{
+                    scope.row.status === 'PUBLISHED'
+                      ? '已发布'
+                      : scope.row.status === 'RETRACTED'
+                        ? '已撤回'
+                        : '草稿'
+                  }}
                 </ElTag>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="操作" width="250" fixed="right">
+            <ElTableColumn label="操作" width="350" fixed="right">
               <template #default="scope">
                 <ElButton
-                  v-if="scope.row.status === 'draft'"
+                  type="success"
+                  size="small"
+                  @click="viewAnnouncementDetail(scope.row)"
+                >
+                  查看详情
+                </ElButton>
+                <ElButton
+                  v-if="scope.row.status === 'DRAFT'"
                   type="primary"
                   size="small"
                   @click="publishAnnouncement(scope.row.id)"
+                  style="margin-left: 8px"
                 >
                   发布
                 </ElButton>
                 <ElButton
-                  v-else
+                  v-else-if="scope.row.status === 'PUBLISHED'"
                   type="warning"
                   size="small"
                   @click="revokeAnnouncement(scope.row.id)"
+                  style="margin-left: 8px"
                 >
                   撤销
                 </ElButton>
@@ -2396,6 +2041,13 @@ onMounted(async () => {
                   <ElOption label="重要" value="IMPORTANT" />
                 </ElSelect>
               </ElFormItem>
+              <ElFormItem label="公告状态">
+                <ElSelect v-model="announcementData.status" size="large">
+                  <ElOption label="草稿" value="DRAFT" />
+                  <ElOption label="已发布" value="PUBLISHED" />
+                  <ElOption label="已撤回" value="RETRACTED" />
+                </ElSelect>
+              </ElFormItem>
               <ElRow :gutter="20">
                 <ElCol :span="12">
                   <ElFormItem label="是否置顶">
@@ -2417,6 +2069,28 @@ onMounted(async () => {
                   </ElFormItem>
                 </ElCol>
               </ElRow>
+              <ElFormItem label="公告附件">
+                <ElUpload
+                  v-model:file-list="announcementData.attachments"
+                  :auto-upload="false"
+                  :on-change="handleAttachmentChange"
+                  :on-remove="handleAttachmentRemove"
+                  :before-upload="handleAnnouncementFileBeforeUpload"
+                  :limit="10"
+                  multiple
+                  class="attachment-upload"
+                >
+                  <ElButton type="primary" size="small">
+                    <Icon icon="lucide:paperclip" class="mr-1" />
+                    添加附件
+                  </ElButton>
+                  <template #tip>
+                    <div class="el-upload__tip">
+                      支持上传文档、图片等文件，单个文件不超过50MB
+                    </div>
+                  </template>
+                </ElUpload>
+              </ElFormItem>
             </ElForm>
           </div>
         </div>
@@ -2427,147 +2101,288 @@ onMounted(async () => {
           </span>
         </template>
       </ElDialog>
-    </div>
 
-    <!-- 破产流程阶段视图 -->
-    <div v-if="activeTab === 'process'">
-      <ElCard class="process-stage-card" shadow="never">
-        <template #header>
-          <div class="card-header">
-            <Icon icon="lucide:workflow" class="mr-2" />
-            <span>破产流程阶段</span>
-          </div>
-        </template>
-
-        <!-- 阶段导航 -->
-        <div class="stage-navigation mb-6">
-          <!-- 阶段标题和进度 -->
-          <div class="stage-header mb-4">
-            <h3 class="mb-2 text-xl font-semibold text-gray-800">
-              {{ currentStage?.description }}：{{ currentStage?.title }}
-            </h3>
-            <div class="stage-progress-info flex items-center justify-between">
-              <span class="text-sm text-gray-600">
-                当前阶段：{{ currentStageIndex + 1 }}/{{ processStages.length }}
-              </span>
-              <span class="text-sm text-gray-600">
-                任务完成：{{
-                  currentStage?.tasks?.filter((t) => t.completed).length || 0
-                }}/{{ currentStage?.tasks?.length || 0 }}
-              </span>
-            </div>
-          </div>
-
-          <!-- 导航控制 -->
-          <div class="navigation-controls flex items-center justify-between">
-            <ElButton
-              :disabled="currentStageIndex === 0"
-              @click="switchStage(currentStageIndex - 1)"
-              type="primary"
-            >
-              <Icon icon="lucide:chevron-left" class="mr-1" />
-              上一阶段
-            </ElButton>
-
-            <!-- 阶段指示器 -->
-            <div class="stage-indicators flex space-x-3">
-              <div
-                v-for="(stage, index) in processStages"
-                :key="stage.id"
-                @click="switchStage(index)"
-                class="stage-indicator-item cursor-pointer text-center transition-all"
-                :class="[
-                  index === currentStageIndex
-                    ? 'font-semibold text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700',
-                ]"
-              >
-                <div
-                  class="stage-dot mx-auto mb-1 h-3 w-3 rounded-full transition-all"
-                  :class="[
-                    index === currentStageIndex
-                      ? 'scale-125 bg-blue-500'
-                      : 'bg-gray-300 hover:bg-gray-400',
-                  ]"
-                ></div>
-                <span class="text-xs">{{ stage.description }}</span>
-              </div>
-            </div>
-
-            <ElButton
-              :disabled="currentStageIndex === processStages.length - 1"
-              @click="switchStage(currentStageIndex + 1)"
-              type="primary"
-            >
-              下一阶段
-              <Icon icon="lucide:chevron-right" class="ml-1" />
-            </ElButton>
-          </div>
-        </div>
-
-        <!-- 动态阶段流程组件 -->
-        <StageOneProcess
-          :case-id="caseId"
-          v-if="currentStageIndex === 0"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageTwoProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 1"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageThreeProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 2"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageFourProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 3"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageFiveProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 4"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageSixProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 5"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <StageSevenProcess
-          :case-id="caseId"
-          v-else-if="currentStageIndex === 6"
-          @task-status-changed="handleTaskStatusChanged"
-        />
-
-        <!-- 其他阶段占位组件（待创建） -->
-        <div v-else class="stage-placeholder">
-          <ElCard shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <Icon icon="lucide:construction" class="mr-2" />
-                <span>{{ currentStage?.title || '未知阶段' }}</span>
-              </div>
-            </template>
-            <div class="placeholder-content py-8 text-center">
-              <Icon
-                icon="lucide:file-text"
-                class="mb-3 text-4xl text-gray-300"
+      <!-- 撤回公告对话框 -->
+      <ElDialog
+        v-model="showRevokeDialog"
+        title="撤回公告"
+        width="500px"
+        destroy-on-close
+      >
+        <div class="revoke-dialog-container">
+          <ElForm label-width="80px">
+            <ElFormItem label="撤回原因">
+              <ElInput
+                v-model="revokeReason"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入撤回原因（可选）"
               />
-              <p class="mb-4 text-gray-500">该阶段流程组件尚未创建</p>
-              <ElButton type="primary" disabled> 组件开发中 </ElButton>
-            </div>
-          </ElCard>
+            </ElFormItem>
+          </ElForm>
         </div>
-      </ElCard>
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="showRevokeDialog = false">取消</ElButton>
+            <ElButton type="danger" @click="confirmRevokeAnnouncement">
+              确认撤回
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
+
+      <!-- 公告详情对话框 -->
+      <ElDialog
+        v-model="showDetailDialog"
+        :title="currentAnnouncementDetail?.title"
+        width="70%"
+        destroy-on-close
+      >
+        <div v-loading="detailLoading" class="announcement-detail-container">
+          <div v-if="currentAnnouncementDetail" class="detail-content">
+            <div class="detail-meta">
+              <div class="meta-row">
+                <span class="label">公告类型：</span>
+                <ElTag
+                  :type="
+                    currentAnnouncementDetail.announcement_type === 'URGENT'
+                      ? 'danger'
+                      : currentAnnouncementDetail.announcement_type ===
+                          'IMPORTANT'
+                        ? 'warning'
+                        : 'info'
+                  "
+                  size="small"
+                >
+                  {{
+                    currentAnnouncementDetail.announcement_type === 'URGENT'
+                      ? '紧急'
+                      : currentAnnouncementDetail.announcement_type ===
+                          'IMPORTANT'
+                        ? '重要'
+                        : '普通'
+                  }}
+                </ElTag>
+              </div>
+              <div class="meta-row">
+                <span class="label">状态：</span>
+                <ElTag
+                  :type="
+                    currentAnnouncementDetail.status === 'PUBLISHED'
+                      ? 'success'
+                      : currentAnnouncementDetail.status === 'RETRACTED'
+                        ? 'info'
+                        : 'warning'
+                  "
+                  size="small"
+                >
+                  {{
+                    currentAnnouncementDetail.status === 'PUBLISHED'
+                      ? '已发布'
+                      : currentAnnouncementDetail.status === 'RETRACTED'
+                        ? '已撤回'
+                        : '草稿'
+                  }}
+                </ElTag>
+              </div>
+              <div class="meta-row">
+                <span class="label">发布人：</span>
+                <span>{{ currentAnnouncementDetail.publisher_name }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="label">发布时间：</span>
+                <span>{{
+                  formatDateOnly(currentAnnouncementDetail.publish_time)
+                }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="label">案号：</span>
+                <span>{{ currentAnnouncementDetail.ah }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="label">主要负责人：</span>
+                <span>{{ currentAnnouncementDetail.glyfrz }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="label">浏览次数：</span>
+                <span>{{
+                  currentAnnouncementDetail.viewCount ||
+                  currentAnnouncementDetail.view_count ||
+                  0
+                }}</span>
+                <ElButton
+                  link
+                  type="primary"
+                  size="small"
+                  @click="viewAnnouncementViews(currentAnnouncementDetail)"
+                  style="margin-left: 12px"
+                >
+                  查看浏览记录
+                </ElButton>
+              </div>
+              <div class="meta-row">
+                <span class="label">是否置顶：</span>
+                <ElTag
+                  :type="
+                    currentAnnouncementDetail.is_top === 1 ? 'danger' : 'info'
+                  "
+                  size="small"
+                >
+                  {{
+                    currentAnnouncementDetail.is_top === 1 ? '已置顶' : '未置顶'
+                  }}
+                </ElTag>
+              </div>
+              <div
+                v-if="
+                  currentAnnouncementDetail.is_top === 1 &&
+                  currentAnnouncementDetail.top_expire_time
+                "
+                class="meta-row"
+              >
+                <span class="label">置顶过期时间：</span>
+                <span>{{
+                  formatDate(currentAnnouncementDetail.top_expire_time)
+                }}</span>
+              </div>
+            </div>
+
+            <div class="detail-body">
+              <h4 class="section-title">公告内容</h4>
+              <div
+                class="content-html"
+                v-html="currentAnnouncementDetail.content"
+              ></div>
+            </div>
+
+            <div
+              v-if="
+                currentAnnouncementDetail.attachments &&
+                currentAnnouncementDetail.attachments.length > 0
+              "
+              class="detail-attachments"
+            >
+              <h4 class="section-title">附件</h4>
+              <div class="attachment-list">
+                <div
+                  v-for="(
+                    attachment, index
+                  ) in currentAnnouncementDetail.attachments"
+                  :key="index"
+                  class="attachment-item"
+                >
+                  <Icon icon="lucide:paperclip" class="attachment-icon" />
+                  <span class="attachment-name">{{
+                    attachment.file_name
+                  }}</span>
+                  <ElButton
+                    link
+                    type="primary"
+                    size="small"
+                    @click="viewAttachment(attachment)"
+                    style="margin-right: 8px"
+                  >
+                    查看
+                  </ElButton>
+                  <ElButton
+                    link
+                    type="primary"
+                    size="small"
+                    @click="downloadAttachment(attachment)"
+                  >
+                    下载
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ElDialog>
+
+      <!-- 文件预览对话框 -->
+      <ElDialog
+        v-model="showPreviewDialog"
+        :title="previewAttachment?.file_name || '文件预览'"
+        width="90%"
+        destroy-on-close
+      >
+        <div
+          v-loading="previewLoading"
+          class="file-preview-container"
+          v-if="previewAttachment"
+        >
+          <!-- 图片预览 -->
+          <div v-if="isImage" class="image-preview">
+            <img :src="previewUrl" alt="文件预览" />
+          </div>
+
+          <!-- PDF预览 -->
+          <div v-else-if="isPdf" class="pdf-preview">
+            <iframe :src="previewUrl" frameborder="0"></iframe>
+          </div>
+
+          <!-- 文本预览 -->
+          <div v-else-if="isText" class="text-preview">
+            <ElScrollbar height="600px">
+              <pre>{{ textContent }}</pre>
+            </ElScrollbar>
+          </div>
+
+          <!-- 不支持的文件类型 -->
+          <div v-else class="unsupported-preview">
+            <Icon icon="lucide:file-question" class="unsupported-icon" />
+            <h3>不支持的文件类型</h3>
+            <p>该文件类型不支持在线预览，建议下载后查看</p>
+            <ElButton
+              type="primary"
+              @click="downloadAttachment(previewAttachment)"
+              style="margin-top: 16px"
+            >
+              <Icon icon="lucide:download" class="mr-1" />
+              下载文件
+            </ElButton>
+          </div>
+        </div>
+      </ElDialog>
+
+      <!-- 浏览记录对话框 -->
+      <ElDialog
+        v-model="showViewsDialog"
+        title="浏览记录"
+        width="70%"
+        destroy-on-close
+      >
+        <div v-loading="viewsLoading" class="views-container">
+          <ElTable :data="viewsList" border stripe style="width: 100%">
+            <ElTableColumn prop="viewer_name" label="浏览人" width="150" />
+            <ElTableColumn prop="view_time" label="浏览时间" width="180">
+              <template #default="scope">
+                {{ formatDate(scope.row.view_time) }}
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="ip_address" label="IP地址" width="150" />
+          </ElTable>
+
+          <div v-if="viewsTotal > 0" class="pagination-container">
+            <ElPagination
+              v-model:current-page="viewsCurrentPage"
+              v-model:page-size="viewsPageSize"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              :total="viewsTotal"
+              @size-change="handleViewsPageSizeChange"
+              @current-change="handleViewsPageChange"
+            />
+          </div>
+
+          <div
+            v-if="viewsList.length === 0 && !viewsLoading"
+            class="empty-state"
+          >
+            <ElEmpty description="暂无浏览记录" />
+          </div>
+        </div>
+      </ElDialog>
     </div>
   </div>
 </template>
@@ -2612,8 +2427,7 @@ onMounted(async () => {
   min-width: 120px;
 }
 
-.case-info-card,
-.process-stage-card {
+.case-info-card {
   margin-bottom: 24px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -2693,168 +2507,6 @@ onMounted(async () => {
   background: #ffffff;
 }
 
-.stage-navigation {
-  margin-bottom: 32px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.stage-header {
-  border-bottom: 1px solid #f3f4f6;
-  padding-bottom: 16px;
-}
-
-.navigation-controls {
-  margin-top: 16px;
-}
-
-.stage-indicators {
-  flex: 1;
-  justify-content: center;
-  margin: 0 20px;
-}
-
-.stage-indicator-item {
-  min-width: 60px;
-  transition: all 0.3s ease;
-}
-
-.stage-indicator-item:hover {
-  transform: translateY(-2px);
-}
-
-.stage-dot {
-  transition: all 0.3s ease;
-}
-
-.current-stage-progress {
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 24px;
-  border: 1px solid #e5e7eb;
-}
-
-.progress-header {
-  margin-bottom: 24px;
-}
-
-.progress-header h3 {
-  margin: 0 0 16px 0;
-  color: #1f2937;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.progress-text {
-  text-align: center;
-  margin-top: 8px;
-  color: #4b5563;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.stage-tasks h4 {
-  margin: 0 0 16px 0;
-  color: #1f2937;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.task-table {
-  background: transparent;
-}
-
-.task-table :deep(.el-table__row) {
-  background: transparent;
-}
-
-.task-table :deep(.el-table__cell) {
-  background: transparent;
-  color: #1f2937;
-}
-
-.task-due-date {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-/* 简化版阶段任务样式 */
-.stage-tasks-simple {
-  margin-top: 16px;
-}
-
-.task-list-simple {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.task-item-simple {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-radius: 6px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s ease;
-}
-
-.task-item-simple:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.task-item-simple.completed {
-  background: #f0fdf4;
-  border-color: #10b981;
-}
-
-.task-item-simple.pending {
-  background: #f8fafc;
-}
-
-.task-checkbox {
-  margin-right: 12px;
-  display: flex;
-  align-items: center;
-}
-
-.task-info-simple {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.task-name-simple {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.task-status-simple {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* 阶段占位组件样式 */
-.stage-placeholder {
-  margin-top: 24px;
-}
-
-.stage-placeholder .placeholder-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-}
-
 /* 确保所有文本都有足够的对比度 */
 :deep(.el-card__body) {
   color: #1f2937;
@@ -2866,6 +2518,10 @@ onMounted(async () => {
 
 :deep(.el-tag) {
   color: #ffffff;
+}
+
+.status-tag {
+  color: #000000 !important;
 }
 
 @media (max-width: 768px) {
@@ -2882,5 +2538,349 @@ onMounted(async () => {
   .page-title {
     font-size: 20px;
   }
+}
+
+.process-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.process-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.process-description {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.process-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stage-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.stage-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stage-dot {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #d1d5db;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stage-dot:hover {
+  background: #9ca3af;
+  transform: scale(1.1);
+}
+
+.stage-dot.active {
+  background: #409eff;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.2);
+}
+
+.stage-number {
+  z-index: 1;
+}
+
+.stage-tooltip {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 10;
+  min-width: 150px;
+}
+
+.stage-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.stage-dot:hover .stage-tooltip {
+  opacity: 1;
+  visibility: visible;
+  bottom: 55px;
+}
+
+.stage-tooltip-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.stage-tooltip-desc {
+  color: #d1d5db;
+  font-size: 11px;
+}
+
+.stage-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.stage-content {
+  min-height: 400px;
+}
+
+.title-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-icon {
+  color: #ef4444;
+  font-size: 16px;
+}
+
+.view-count-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.eye-icon {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.attachment-count-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attachment-count-cell .attachment-icon {
+  font-size: 14px;
+  color: #6b7280;
+  margin-right: 4px;
+}
+
+.no-attachment {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.revoke-dialog-container {
+  padding: 10px 0;
+}
+
+.attachment-upload {
+  width: 100%;
+}
+
+.attachment-upload :deep(.el-upload-list) {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.attachment-upload :deep(.el-upload__tip) {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.announcement-detail-container {
+  padding: 10px 0;
+}
+
+.detail-content {
+  padding: 10px 0;
+}
+
+.detail-meta {
+  padding: 16px;
+  margin-bottom: 20px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.meta-row .label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 100px;
+}
+
+.detail-body {
+  padding: 20px;
+}
+
+.section-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.content-html {
+  line-height: 1.8;
+  color: #374151;
+}
+
+.content-html :deep(p) {
+  margin-bottom: 12px;
+}
+
+.content-html :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.detail-attachments {
+  padding: 20px;
+  margin-top: 20px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.attachment-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.attachment-icon {
+  margin-right: 12px;
+  font-size: 18px;
+  color: #6b7280;
+}
+
+.attachment-name {
+  flex: 1;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.views-container {
+  padding: 10px 0;
+}
+
+.empty-state {
+  padding: 60px 0;
+}
+/* 文件预览对话框样式 */
+.file-preview-container {
+  padding: 20px;
+  max-height: 700px;
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+}
+
+.pdf-preview iframe {
+  width: 100%;
+  height: 600px;
+}
+
+.text-preview pre {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 10px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.unsupported-preview {
+  text-align: center;
+  padding: 40px;
+  color: #909399;
+}
+
+.unsupported-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  color: #e6a23c;
+}
+
+.unsupported-preview h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #606266;
+}
+
+.unsupported-preview p {
+  margin-bottom: 20px;
+  color: #909399;
 }
 </style>
