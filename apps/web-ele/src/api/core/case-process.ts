@@ -6,8 +6,10 @@ import {
   uploadFileApi,
 } from '#/api/core/file';
 
+import { requestClient8085 } from '../request';
+
 const API_BASE_URL =
-  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8085';
+  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8080';
 
 export namespace CaseProcessApi {
   /** 工作团队信息 */
@@ -283,16 +285,13 @@ export const getWorkTeamApi = async (
   >
 > => {
   try {
-    const token = '7ba2baf1d1cb6e041aecd4ab4873123b';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllWorkTeam?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllWorkTeam', {
+      params: {
+        SEP_ID,
+        page,
+        size,
+      },
+    });
   } catch (error) {
     console.error('获取工作团队数据失败:', error);
     throw error;
@@ -309,16 +308,13 @@ export const getWorkPlanApi = async (
   >
 > => {
   try {
-    const token = '56a1d909737fb6a21f88b62c4276e27e';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllWorkPlan?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllWorkPlan', {
+      params: {
+        SEP_ID,
+        page,
+        size,
+      },
+    });
   } catch (error) {
     console.error('获取工作计划数据失败:', error);
     throw error;
@@ -335,16 +331,13 @@ export const getManagementApi = async (
   >
 > => {
   try {
-    const token = 'a94316548f03cbfbca9da1a9630457e1';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllManagement?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllManagement', {
+      params: {
+        SEP_ID,
+        page,
+        size,
+      },
+    });
   } catch (error) {
     console.error('获取管理制度数据失败:', error);
     throw error;
@@ -361,16 +354,13 @@ export const getSealManagementApi = async (
   >
 > => {
   try {
-    const token = '71d075a40d95b86e5db9ade8101adcef';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllSealManagement?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllSealManagement', {
+      params: {
+        SEP_ID,
+        page,
+        size,
+      },
+    });
   } catch (error) {
     console.error('获取印章管理数据失败:', error);
     throw error;
@@ -387,16 +377,13 @@ export const getLegalProcedureApi = async (
   >
 > => {
   try {
-    const token = '837a960fabfb5ebb5a3d84e097ffe08f';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllLegalProcedure?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllLegalProcedure', {
+      params: {
+        SEP_ID,
+        page,
+        size,
+      },
+    });
   } catch (error) {
     console.error('获取法律程序数据失败:', error);
     throw error;
@@ -569,11 +556,6 @@ export const unifiedTaskOperationApi = async (data: {
   ZT: string;
 }): Promise<{ error: string; status: string }> => {
   try {
-    const API_BASE_URL =
-      import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8085';
-    const token = 'ca7a4a6e97592b260932a5cd896a39ff';
-    const url = `${API_BASE_URL}/api/web/update1?token=${token}`;
-
     const chatUserInfo = localStorage.getItem('chat_user_info');
     let SEP_EUSER = 'admin';
     try {
@@ -621,19 +603,7 @@ export const unifiedTaskOperationApi = async (data: {
       ...(data.ZHRQ && { ZHRQ: data.ZHRQ }),
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/update1', requestData);
   } catch (error) {
     console.error('统一任务操作失败:', error);
     throw error;

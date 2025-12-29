@@ -1,3 +1,5 @@
+export * from './activity';
+export * from './approval';
 export * from './auth';
 export * from './bank-account';
 export * from './case';
@@ -8,5 +10,7 @@ export * from './debtor';
 export * from './document-service';
 export * from './file';
 export * from './menu';
+export * from './notification';
+export * from './todo';
 export * from './user';
 export * from './work-team';
