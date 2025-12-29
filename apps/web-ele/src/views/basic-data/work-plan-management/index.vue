@@ -464,10 +464,10 @@ const handleEditSubmit = async () => {
               size="large"
             />
           </ElFormItem>
-          <ElFormItem label="状态" prop="plan_status">
+          <ElFormItem label="计划状态" prop="plan_status">
             <ElSelect
               v-model="editFormData.plan_status"
-              placeholder="请选择状态"
+              placeholder="请选择计划状态"
               style="width: 100%"
               size="large"
             >

@@ -4,9 +4,9 @@ import type { CaseApi } from '#/api/core/case';
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElLoading } from 'element-plus';
 
-import { addOneCaseApi } from '#/api/core/case';
+import { addOneCaseApi, uploadCaseFileApi } from '#/api/core/case';
 
 const router = useRouter();
 
@@ -32,9 +32,7 @@ const form = reactive<CaseApi.AddCaseRequest>({
   larq: undefined,
   jarq: undefined,
   pcsj: undefined,
-  zjsj: undefined,
-  zxsj: undefined,
-  gdsj: undefined,
+  cbry: undefined,
   beizhu: undefined,
   wjsc: undefined,
   sepLd: undefined,
@@ -82,43 +80,22 @@ const validateFile = (file: File) => {
 };
 
 // 处理文件选择
-const handleFileChange = async (event: Event) => {
+const handleFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
     const file = input.files[0];
     if (validateFile(file)) {
-      try {
-        // 上传文件到服务器
-        const loading = ElMessage.loading({
-          message: '文件上传中...',
-          duration: 0,
-        });
+      // 将文件添加到本地列表，暂不上传
+      uploadedFiles.value.push({
+        name: file.name,
+        url: '',
+        file,
+        fileId: 0,
+      });
+      // 更新表单的文件上传字段
+      form.wjsc = uploadedFiles.value.map((f) => f.name).join(';');
 
-        // 调用上传API
-        // 注意：案件添加时还没有SEP_ID，这里暂时传递空字符串
-        // 建议优化：先创建案件获取SEP_ID后再上传文件
-        const response = await uploadCaseFileApi(file, '', 'key');
-
-        loading.close();
-
-        if (response.status === '1') {
-          // 上传成功，将文件信息添加到列表，兼容不同的API响应格式
-          uploadedFiles.value.push({
-            name: file.name,
-            url: response.data?.filePath || '',
-            file,
-            fileId: response.data?.id || 0,
-          });
-          // 更新表单的文件上传字段
-          form.wjsc = uploadedFiles.value.map((f) => f.name).join(';');
-
-          ElMessage.success('文件上传成功');
-        } else {
-          ElMessage.error(`文件上传失败：${response.msg || '未知错误'}`);
-        }
-      } catch (error: any) {
-        ElMessage.error(`文件上传失败：${error.message || '网络错误'}`);
-      }
+      ElMessage.success('文件已添加到待上传列表');
     }
   }
   // 清空input值，允许选择相同文件
@@ -192,6 +169,41 @@ const submitForm = async () => {
     await formRef.value.validate();
     loading.value = true;
 
+    // 从localStorage获取chat_user_info
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    let sepAuser = '';
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        sepAuser = chatUserInfo.user?.uName || '';
+      } catch (e) {
+        console.error('解析chat_user_info失败:', e);
+      }
+    }
+
+    // 获取当前北京时间
+    const now = new Date();
+    const sepAdate = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    // 准备提交数据，添加默认参数
+    const submitData = {
+      ...form,
+      sep_auser: sepAuser,
+      sep_adate: sepAdate,
+    };
+
+    // 处理空值：日期类型传递null，其他类型传递空字符串
+    const dateFields = ['slrq', 'zqsbjzsj', 'larq', 'jarq', 'pcsj', 'sep_adate'];
+    Object.keys(submitData).forEach(key => {
+      if (submitData[key] === undefined) {
+        if (dateFields.includes(key)) {
+          submitData[key] = null;
+        } else {
+          submitData[key] = '';
+        }
+      }
+    });
+
     // 设置3秒超时
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
@@ -199,15 +211,45 @@ const submitForm = async () => {
       }, 3000);
     });
 
+<<<<<<< Updated upstream
     // 调用API，使用Promise.race实现超时控制
     const result = await Promise.race([addOneCaseApi(form), timeoutPromise]);
+=======
+    // 1. 先提交案件基本信息
+    const caseResult = await Promise.race([
+      addOneCaseApi(submitData),
+      timeoutPromise,
+    ]);
+>>>>>>> Stashed changes
 
-    // 处理响应
-    if (result.status === '1') {
-      ElMessage.success(result.data || '案件添加成功');
+    // 处理案件创建响应
+    if (caseResult.status === '1') {
+      const caseId = caseResult.data || '';
+      
+      // 2. 如果有文件需要上传，使用获取到的caseId上传文件
+      if (uploadedFiles.value.length > 0) {
+        const fileLoading = ElLoading.service({
+          message: '文件上传中...',
+          lock: true,
+        });
+        
+        try {
+          // 逐个上传文件
+          for (const fileInfo of uploadedFiles.value) {
+            await uploadCaseFileApi(fileInfo.file, caseId, 'key');
+          }
+          
+          fileLoading.close();
+        } catch (fileError: any) {
+          fileLoading.close();
+          ElMessage.warning(`案件创建成功，但文件上传失败：${fileError.message || '网络错误'}`);
+        }
+      }
+      
+      ElMessage.success('案件添加成功');
       router.push('/case-management');
     } else {
-      ElMessage.error(result.error || '案件添加失败');
+      ElMessage.error(caseResult.error || '案件添加失败');
     }
   } catch (error: any) {
     if (error.message === '后端请求超时') {
@@ -413,41 +455,14 @@ const submitForm = async () => {
             </el-form-item>
           </el-col>
 
-          <!-- 终结时间 -->
+          <!-- 承办人员 -->
           <el-col :span="12">
-            <el-form-item label="终结时间">
-              <el-date-picker
-                v-model="form.zjsj"
-                type="datetime"
-                placeholder="请选择终结时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-
-          <!-- 注销时间 -->
-          <el-col :span="12">
-            <el-form-item label="注销时间">
-              <el-date-picker
-                v-model="form.zxsj"
-                type="datetime"
-                placeholder="请选择注销时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-
-          <!-- 归档时间 -->
-          <el-col :span="12">
-            <el-form-item label="归档时间">
-              <el-date-picker
-                v-model="form.gdsj"
-                type="datetime"
-                placeholder="请选择归档时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%"
+            <el-form-item label="承办人员">
+              <el-input
+                v-model="form.cbry"
+                placeholder="请输入承办人员"
+                maxlength="50"
+                show-word-limit
               />
             </el-form-item>
           </el-col>

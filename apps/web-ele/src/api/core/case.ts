@@ -78,14 +78,14 @@ export namespace CaseApi {
     larq?: string;
     jarq?: string;
     pcsj?: string;
-    zjsj?: string;
-    zxsj?: string;
-    gdsj?: string;
+    cbry?: string;
     beizhu?: string;
     wjsc?: string;
     sepLd?: number;
     sepMd?: number;
     sepNd?: string;
+    sep_auser?: string;
+    sep_adate?: string;
   }
 
   /** 添加案件响应 */
@@ -112,10 +112,10 @@ export namespace CaseApi {
     LARQ?: string;
     JARQ?: string;
     PCSJ?: string;
-    ZJSJ?: string;
-    ZXSJ?: string;
-    GDSJ?: string;
+    CBRY?: string;
     BEIZHU?: string;
+    SEP_AUSER?: string;
+    SEP_ADATE?: string;
     SEP_EUSER?: string;
     SEP_EDATE?: string;
     GLRID?: string;
