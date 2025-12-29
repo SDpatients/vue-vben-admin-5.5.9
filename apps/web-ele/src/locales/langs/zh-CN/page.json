@@ -31,7 +31,8 @@
     "bankAccountManagement": "银行账户管理",
     "workPlanManagement": "工作计划管理",
     "workTeamManagement": "工作团队管理",
-    "workTeamEdit": "编辑工作团队"
+    "workTeamEdit": "编辑工作团队",
+    "managerManagement": "管理人信息"
   },
   "chat": {
     "title": "通信功能",

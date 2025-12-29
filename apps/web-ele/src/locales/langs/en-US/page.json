@@ -30,6 +30,7 @@
     "bankAccountManagement": "Bank Account Management",
     "workPlanManagement": "Work Plan Management",
     "workTeamManagement": "Work Team Management",
-    "workTeamEdit": "Edit Work Team"
+    "workTeamEdit": "Edit Work Team",
+    "managerManagement": "Manager Information"
   }
 }

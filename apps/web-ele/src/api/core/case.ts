@@ -289,27 +289,25 @@ export async function uploadCaseFileApi(
  */
 export async function batchUploadCaseFilesApi(
   files: File[],
-  SEP_ID: string,
-  moduleType: string = 'task',
+  bizId: string,
+  bizType: string = 'case',
 ) {
-  const token =
+  const token = 
     localStorage.getItem('token') ||
     'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
   });
+  formData.append('bizType', bizType);
+  formData.append('bizId', bizId);
   return fileUploadRequestClient.post<any>(
-    '/api/web/batchUploadCaseFiles',
+    '/api/file/batchUpload',
     formData,
     {
-      params: {
-        token,
-        SEP_ID,
-        moduleType,
-      },
       headers: {
         'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`,
       },
     },
   );

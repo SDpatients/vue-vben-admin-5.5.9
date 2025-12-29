@@ -96,6 +96,18 @@ const routes: RouteRecordRaw[] = [
           },
         ],
       },
+
+      {
+        name: 'BasicDataManagerManagement',
+        path: 'manager-management',
+        component: () =>
+          import('#/views/basic-data/manager-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:user-tie',
+          title: $t('page.basicData.managerManagement'),
+        },
+      },
     ],
   },
 ];
