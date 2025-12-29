@@ -1,5 +1,5 @@
 // AxiosResponse 类型未使用，已移除
-import { requestClient } from '../request';
+import { requestClient8085 } from '../request';
 
 declare namespace CreditorApi {
   /** 债权人查询参数 */
@@ -118,7 +118,7 @@ declare namespace CreditorApi {
     /** 注册资本（企业） */
     ZCZBQY: number;
     /** 状态，默认为null */
-    ZT: string | null;
+    ZT: null | string;
   }
 
   /** 编辑债权人响应 */
@@ -146,7 +146,7 @@ declare namespace CreditorApi {
 export async function getCreditorListApi(
   params: CreditorApi.CreditorQueryParams,
 ) {
-  return requestClient.get<CreditorApi.CreditorListResponse>(
+  return requestClient8085.get<CreditorApi.CreditorListResponse>(
     '/api/web/getAllCreditor',
     { params },
   );
@@ -156,7 +156,7 @@ export async function getCreditorListApi(
  * 获取债权人详情
  */
 export async function getCreditorDetailApi(creditorId: string, token: string) {
-  return requestClient.get<CreditorApi.CreditorDetailResponse>(
+  return requestClient8085.get<CreditorApi.CreditorDetailResponse>(
     '/api/web/selectOneCreditor',
     { params: { creditorId, token } },
   );
@@ -167,7 +167,7 @@ export async function getCreditorDetailApi(creditorId: string, token: string) {
  */
 export async function addCreditorApi(data: CreditorApi.AddCreditorRequest) {
   // 将数据包装为数组格式，符合后端要求的[{}]格式
-  return requestClient.post<CreditorApi.AddCreditorResponse>(
+  return requestClient8085.post<CreditorApi.AddCreditorResponse>(
     '/api/web/addCreditor',
     [data],
     {
@@ -185,7 +185,7 @@ export async function editCreditorApi(
   data: CreditorApi.EditCreditorRequest,
   token: string,
 ) {
-  return requestClient.post<CreditorApi.EditCreditorResponse>(
+  return requestClient8085.post<CreditorApi.EditCreditorResponse>(
     '/api/web/updateCreditor',
     data,
     {
@@ -204,7 +204,7 @@ export async function deleteCreditorApi(
   data: CreditorApi.DeleteCreditorRequest,
   token: string,
 ) {
-  return requestClient.post<CreditorApi.DeleteCreditorResponse>(
+  return requestClient8085.post<CreditorApi.DeleteCreditorResponse>(
     '/api/web/deleteCreditor',
     data,
     {

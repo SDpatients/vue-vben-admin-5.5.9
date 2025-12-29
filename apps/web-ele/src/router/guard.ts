@@ -86,8 +86,42 @@ function setupAccessGuard(router: Router) {
       return to;
     }
 
+    // 检查token是否过期
+    const accessTokenExpire = localStorage.getItem('accessTokenExpire');
+    if (accessTokenExpire) {
+      const expireTime = parseInt(accessTokenExpire, 10);
+      const currentTime = Date.now();
+      // 如果token已过期，尝试刷新
+      if (currentTime >= expireTime) {
+        try {
+          await authStore.fetchPermissions();
+        } catch (error) {
+          console.error('刷新token失败:', error);
+          // 刷新失败，跳转登录页
+          await authStore.logout(false);
+          return {
+            path: LOGIN_PATH,
+            query: { redirect: encodeURIComponent(to.fullPath) },
+            replace: true,
+          };
+        }
+      }
+    }
+
     // 是否已经生成过动态路由
     if (accessStore.isAccessChecked) {
+      // 检查路由权限
+      const requiredPermission = to.meta.permission as string;
+      if (requiredPermission) {
+        const permissions = accessStore.accessCodes || [];
+        if (!permissions.includes(requiredPermission)) {
+          // 没有权限，跳转到403页面
+          return {
+            path: '/403',
+            replace: true,
+          };
+        }
+      }
       return true;
     }
 
@@ -108,6 +142,10 @@ function setupAccessGuard(router: Router) {
     accessStore.setAccessMenus(accessibleMenus);
     accessStore.setAccessRoutes(accessibleRoutes);
     accessStore.setIsAccessChecked(true);
+
+    // 获取用户权限
+    await authStore.fetchPermissions();
+
     const redirectPath = (from.query.redirect ??
       (to.path === preferences.app.defaultHomePath
         ? userInfo.homePath || preferences.app.defaultHomePath

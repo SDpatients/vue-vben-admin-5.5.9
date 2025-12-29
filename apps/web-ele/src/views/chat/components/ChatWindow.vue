@@ -451,18 +451,18 @@ watch(
 /* 聊天头部样式 */
 .chat-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 20px;
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .header-left {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .contact-info {
@@ -471,12 +471,12 @@ watch(
 }
 
 .contact-name {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   font-size: 16px;
   font-weight: 600;
   color: #303133;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .contact-status {
@@ -491,18 +491,18 @@ watch(
 
 /* 消息列表样式 */
 .message-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .message-item {
   display: flex;
-  align-items: flex-end;
   gap: 12px;
+  align-items: flex-end;
 }
 
 .message-sent {
@@ -524,20 +524,20 @@ watch(
 .message-bubble {
   position: relative;
   padding: 12px 16px;
-  border-radius: 12px;
   word-wrap: break-word;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .message-sent .message-bubble {
-  background-color: #408aed;
   color: #fff;
+  background-color: #408aed;
   border-bottom-right-radius: 4px;
 }
 
 .message-received .message-bubble {
-  background-color: #fff;
   color: #303133;
+  background-color: #fff;
   border-bottom-left-radius: 4px;
 }
 
@@ -548,9 +548,9 @@ watch(
 
 .message-status {
   display: flex;
+  gap: 4px;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
   font-size: 11px;
   opacity: 0.8;
 }
@@ -582,9 +582,9 @@ watch(
 
 /* 消息输入区域样式 */
 .message-input-area {
+  padding: 12px 20px;
   background-color: #fff;
   border-top: 1px solid #e4e7ed;
-  padding: 12px 20px;
 }
 
 .input-tools {
@@ -605,10 +605,10 @@ watch(
 }
 
 .input-container :deep(.el-textarea__inner) {
-  border-radius: 16px;
-  resize: none;
   min-height: 60px;
   max-height: 120px;
+  resize: none;
+  border-radius: 16px;
 }
 
 /* 表情选择器样式 */
@@ -616,12 +616,12 @@ watch(
   position: absolute;
   bottom: 120px;
   left: 20px;
+  z-index: 100;
+  padding: 12px;
   background-color: #fff;
   border: 1px solid #e4e7ed;
   border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .emoji-grid {
@@ -633,10 +633,10 @@ watch(
 }
 
 .emoji-item {
-  font-size: 20px;
-  cursor: pointer;
-  text-align: center;
   padding: 4px;
+  font-size: 20px;
+  text-align: center;
+  cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.2s;
 }

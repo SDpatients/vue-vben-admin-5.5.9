@@ -18,10 +18,17 @@ export default defineConfig(async (): Promise<any> => {
         proxy: {
           '/api': {
             changeOrigin: true,
-            // 指向自定义后端服务地址
-            target: 'http://192.168.0.120:8081',
+            // 指向自定义后端服务地址（8080端口，需要Token校验）
+            target: 'http://192.168.0.120:8080',
             ws: true,
             rewrite: (path: string) => path.replace(/^\/api/, '/api'),
+          },
+          '/api-8085': {
+            changeOrigin: true,
+            // 指向后端服务地址（8085端口，放行Token校验）
+            target: 'http://192.168.0.120:8085',
+            ws: true,
+            rewrite: (path: string) => path.replace(/^\/api-8085/, ''),
           },
         },
       },

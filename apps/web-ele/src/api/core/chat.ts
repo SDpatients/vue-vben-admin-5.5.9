@@ -159,11 +159,11 @@ export namespace ChatApi {
  * 获取联系人列表
  */
 export async function getContactsApi(params?: {
-  userId?: number;
   groupId?: number;
   keyword?: string;
   page?: number;
   page_size?: number;
+  userId?: number;
 }) {
   const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ContactResponse>
@@ -203,22 +203,22 @@ export async function getContactsApi(params?: {
  * 新增联系人
  */
 export async function addContactApi(data: {
-  userId: number;
+  avatar?: null | string;
   contactUserId: number;
+  description?: null | string;
+  email: string;
+  groupId: number;
+  idCard?: null | string;
+  isPinned?: boolean;
+  isSystemUser?: boolean | null;
   name: string;
   phone: string;
-  email: string;
-  idCard?: string | null;
-  avatar?: string | null;
-  description?: string | null;
-  isSystemUser?: boolean | null;
-  groupId: number;
-  isPinned?: boolean;
+  userId: number;
 }) {
   const response = await chatRequestClient.post<{
-    status: string;
     data: number;
     error: string;
+    status: string;
   }>('/api/web/contact', {
     params: {
       token: '7a7bad27c7be5cced8fd12b796ab2a49',
@@ -236,23 +236,26 @@ export async function addContactApi(data: {
 /**
  * 修改联系人
  */
-export async function updateContactApi(id: number, data: {
-  userId: number;
-  contactUserId: number;
-  name: string;
-  phone: string;
-  email: string;
-  idCard?: string | null;
-  avatar?: string | null;
-  description?: string | null;
-  isSystemUser?: boolean | null;
-  groupId: number;
-  isPinned?: boolean;
-}) {
+export async function updateContactApi(
+  id: number,
+  data: {
+    avatar?: null | string;
+    contactUserId: number;
+    description?: null | string;
+    email: string;
+    groupId: number;
+    idCard?: null | string;
+    isPinned?: boolean;
+    isSystemUser?: boolean | null;
+    name: string;
+    phone: string;
+    userId: number;
+  },
+) {
   const response = await chatRequestClient.put<{
-    status: string;
     data: number;
     error: string;
+    status: string;
   }>(`/api/web/contact/${id}`, {
     params: {
       token: '7a7bad27c7be5cced8fd12b796ab2a49',
@@ -272,9 +275,9 @@ export async function updateContactApi(id: number, data: {
  */
 export async function deleteContactApi(id: number) {
   const response = await chatRequestClient.delete<{
-    status: string;
     data: string;
     error: string;
+    status: string;
   }>(`/api/web/contact/${id}`, {
     params: {
       token: '7a7bad27c7be5cced8fd12b796ab2a49',
@@ -320,15 +323,15 @@ export async function getContactGroupsApi(userId?: number) {
  * 新增联系人分组
  */
 export async function addContactGroupApi(data: {
-  userId: number;
+  color: string;
   name: string;
   sortOrder: number;
-  color: string;
+  userId: number;
 }) {
   const response = await chatRequestClient.post<{
-    status: string;
     data: number;
     error: string;
+    status: string;
   }>('/api/web/contact-groups', {
     params: {
       token: 'e94e143c594a7c829223c342c3b37bcb',
@@ -346,16 +349,19 @@ export async function addContactGroupApi(data: {
 /**
  * 修改联系人分组
  */
-export async function updateContactGroupApi(id: number, data: {
-  userId: number;
-  name: string;
-  sortOrder: number;
-  color: string;
-}) {
+export async function updateContactGroupApi(
+  id: number,
+  data: {
+    color: string;
+    name: string;
+    sortOrder: number;
+    userId: number;
+  },
+) {
   const response = await chatRequestClient.put<{
-    status: string;
     data: number;
     error: string;
+    status: string;
   }>(`/api/web/contact-groups/${id}`, {
     params: {
       token: 'e94e143c594a7c829223c342c3b37bcb',
@@ -375,9 +381,9 @@ export async function updateContactGroupApi(id: number, data: {
  */
 export async function deleteContactGroupApi(id: number) {
   const response = await chatRequestClient.delete<{
-    status: string;
     data: string;
     error: string;
+    status: string;
   }>(`/api/web/contact-groups/${id}`, {
     params: {
       token: 'e94e143c594a7c829223c342c3b37bcb',
@@ -424,10 +430,10 @@ export async function getChatSessionsApi(userId?: number) {
  * 获取聊天记录
  */
 export async function getChatMessagesApi(params: {
-  userId: number;
   contactId: number;
   page?: number;
   page_size?: number;
+  userId: number;
 }) {
   const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
@@ -466,19 +472,19 @@ export async function getChatMessagesApi(params: {
  * 发送消息（HTTP备用）
  */
 export async function sendMessageApi(data: {
-  senderId: number;
-  receiverId: number;
-  messageType: number;
   content: string;
-  fileUrl?: string | null;
-  fileName?: string | null;
-  fileSize?: number | null;
-  thumbnailUrl?: string | null;
+  fileName?: null | string;
+  fileSize?: null | number;
+  fileUrl?: null | string;
+  messageType: number;
+  receiverId: number;
+  senderId: number;
+  thumbnailUrl?: null | string;
 }) {
   const response = await chatRequestClient.post<{
-    status: string;
     data: number;
     error: string;
+    status: string;
   }>('/api/web/messages', {
     params: {
       token: '7aa41b18fd545a069fe1b53ae01df1c4',
@@ -498,9 +504,9 @@ export async function sendMessageApi(data: {
  */
 export async function recallMessageApi(id: number) {
   const response = await chatRequestClient.put<{
-    status: string;
     data: string;
     error: string;
+    status: string;
   }>(`/api/web/messages/${id}/recall`, {
     params: {
       token: '7aa41b18fd545a069fe1b53ae01df1c4',
@@ -519,13 +525,13 @@ export async function recallMessageApi(id: number) {
  */
 export async function markMessagesAsReadApi(data: {
   contactId: number;
-  receiverId: number;
   messageIds?: number[];
+  receiverId: number;
 }) {
   const response = await chatRequestClient.put<{
-    status: string;
     data: string;
     error: string;
+    status: string;
   }>('/api/web/messages/read', {
     params: {
       token: '7aa41b18fd545a069fe1b53ae01df1c4',
@@ -544,12 +550,12 @@ export async function markMessagesAsReadApi(data: {
  * 搜索聊天记录
  */
 export async function searchChatMessagesApi(params: {
-  userId: number;
-  keyword: string;
-  start_time?: string;
   end_time?: string;
+  keyword: string;
   page?: number;
   page_size?: number;
+  start_time?: string;
+  userId: number;
 }) {
   const response = await chatRequestClient.get<
     ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
@@ -587,11 +593,14 @@ export async function searchChatMessagesApi(params: {
 /**
  * 更新联系人在线状态
  */
-export async function updateContactStatusApi(contactUserId: number, status: string) {
+export async function updateContactStatusApi(
+  contactUserId: number,
+  status: string,
+) {
   const response = await chatRequestClient.get<{
-    status: string;
     data: any;
     error: string;
+    status: string;
   }>('/api/web/updatestatus', {
     params: {
       token: '37433bd455313db96e6cc8f8302f7196',

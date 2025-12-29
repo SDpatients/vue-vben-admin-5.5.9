@@ -263,9 +263,9 @@ const fetchAnnouncements = async () => {
             ...att,
             file_url: att.file_url?.startsWith('http')
               ? att.file_url
-              : att.file_url?.startsWith('/')
+              : (att.file_url?.startsWith('/')
                 ? `http://192.168.0.120:8080${att.file_url}`
-                : att.file_url,
+                : att.file_url),
           }));
         }
 
@@ -590,9 +590,9 @@ const viewAnnouncementDetail = async (announcement: any) => {
           ...att,
           file_url: att.file_url?.startsWith('http')
             ? att.file_url
-            : att.file_url?.startsWith('/')
+            : (att.file_url?.startsWith('/')
               ? `http://192.168.0.120:8080${att.file_url}`
-              : att.file_url,
+              : att.file_url),
         }));
       }
 
@@ -1174,9 +1174,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件名称：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件名称"
@@ -1196,9 +1194,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >受理日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.受理日期"
@@ -1219,9 +1215,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件来源：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件来源"
@@ -1241,9 +1235,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >受理法院：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.受理法院"
@@ -1263,9 +1255,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案由：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案由"
@@ -1285,9 +1275,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件进度：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件进度"
@@ -1307,9 +1295,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >是否简化审：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.是否简化审"
@@ -1343,9 +1329,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >立案日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.立案日期"
@@ -1366,9 +1350,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >结案日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.结案日期"
@@ -1389,9 +1371,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >破产时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.破产时间"
@@ -1412,9 +1392,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >终结时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.终结时间"
@@ -1435,9 +1413,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >注销时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.注销时间"
@@ -1458,9 +1434,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >归档时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.归档时间"
@@ -1481,9 +1455,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权申报截止时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.债权申报截止时间"
@@ -1518,9 +1490,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人负责人：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人负责人"
@@ -1540,9 +1510,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人类型：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人类型"
@@ -1562,9 +1530,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人状态：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人状态"
@@ -1584,9 +1550,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >律师事务所：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.律师事务所"
@@ -1620,9 +1584,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权人名称：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人名称"
@@ -1642,9 +1604,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权人类型：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人类型"
@@ -1664,9 +1624,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >联系电话：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系电话"
@@ -1686,9 +1644,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >联系邮箱：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系邮箱"
@@ -1708,9 +1664,7 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >办公地址：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.办公地址"
@@ -2388,25 +2342,41 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+@media (max-width: 768px) {
+  .case-detail-container {
+    padding: 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+}
+
 .case-detail-container {
-  padding: 20px;
   max-width: 1200px;
+  padding: 20px;
   margin: 0 auto;
-  background: #ffffff;
+  background: #fff;
 }
 
 .page-header {
   display: flex;
+  gap: 16px;
   align-items: center;
   margin-bottom: 20px;
-  gap: 16px;
 }
 
 .page-title {
+  margin: 0;
   font-size: 24px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0;
 }
 
 .content-tabs {
@@ -2415,8 +2385,8 @@ onMounted(async () => {
 
 .tabs-container {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
 }
 
 .tabs-container :deep(.el-radio-button) {
@@ -2429,18 +2399,18 @@ onMounted(async () => {
 
 .case-info-card {
   margin-bottom: 24px;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #ffffff;
 }
 
 .card-header {
   display: flex;
   align-items: center;
+  padding: 16px 20px;
   font-weight: 600;
   color: #374151;
   background: #f9fafb;
-  padding: 16px 20px;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -2449,27 +2419,27 @@ onMounted(async () => {
 }
 
 .key-info-item {
-  transition: all 0.3s ease;
+  background: #fff;
   border: 1px solid transparent;
-  background: #ffffff;
+  transition: all 0.3s ease;
 }
 
 .key-info-item:hover {
+  background: #f9fafb;
   border-color: #d1d5db;
   transform: translateY(-2px);
-  background: #f9fafb;
 }
 
 .detail-info-grid {
+  overflow: hidden;
+  background: #fff;
   border: 1px solid #f3f4f6;
   border-radius: 8px;
-  overflow: hidden;
-  background: #ffffff;
 }
 
 .detail-info-item {
+  background: #fff;
   transition: background-color 0.2s ease;
-  background: #ffffff;
 }
 
 .detail-info-item:hover {
@@ -2478,20 +2448,20 @@ onMounted(async () => {
 
 .detail-info-label {
   min-width: 120px;
-  color: #6b7280;
   font-weight: 500;
+  color: #6b7280;
 }
 
 .detail-info-value {
+  font-weight: 400;
+  color: #1f2937;
   text-align: right;
   word-break: break-all;
-  color: #1f2937;
-  font-weight: 400;
 }
 
 .loading-container {
   padding: 20px;
-  background: #ffffff;
+  background: #fff;
 }
 
 .announcement-editor-container {
@@ -2504,7 +2474,7 @@ onMounted(async () => {
 
 .error-container {
   padding: 40px 20px;
-  background: #ffffff;
+  background: #fff;
 }
 
 /* 确保所有文本都有足够的对比度 */
@@ -2517,27 +2487,11 @@ onMounted(async () => {
 }
 
 :deep(.el-tag) {
-  color: #ffffff;
+  color: #fff;
 }
 
 .status-tag {
-  color: #000000 !important;
-}
-
-@media (max-width: 768px) {
-  .case-detail-container {
-    padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .page-title {
-    font-size: 20px;
-  }
+  color: #000 !important;
 }
 
 .process-header {
@@ -2576,26 +2530,26 @@ onMounted(async () => {
 
 .stage-indicators {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
 }
 
 .stage-dot {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #d1d5db;
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: 600;
+  width: 40px;
+  height: 40px;
   font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  background: #d1d5db;
+  border-radius: 50%;
+  transition: all 0.3s ease;
 }
 
 .stage-dot:hover {
@@ -2605,8 +2559,8 @@ onMounted(async () => {
 
 .stage-dot.active {
   background: #409eff;
+  box-shadow: 0 0 0 4px rgb(64 158 255 / 20%);
   transform: scale(1.2);
-  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.2);
 }
 
 .stage-number {
@@ -2617,50 +2571,50 @@ onMounted(async () => {
   position: absolute;
   bottom: 50px;
   left: 50%;
-  transform: translateX(-50%);
-  background: #1f2937;
-  color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
   z-index: 10;
+  visibility: hidden;
   min-width: 150px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #fff;
+  white-space: nowrap;
+  background: #1f2937;
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: all 0.3s ease;
 }
 
 .stage-tooltip::after {
-  content: '';
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  content: '';
   border: 6px solid transparent;
   border-top-color: #1f2937;
+  transform: translateX(-50%);
 }
 
 .stage-dot:hover .stage-tooltip {
-  opacity: 1;
-  visibility: visible;
   bottom: 55px;
+  visibility: visible;
+  opacity: 1;
 }
 
 .stage-tooltip-name {
-  font-weight: 600;
   margin-bottom: 4px;
+  font-weight: 600;
 }
 
 .stage-tooltip-desc {
-  color: #d1d5db;
   font-size: 11px;
+  color: #d1d5db;
 }
 
 .stage-controls {
   display: flex;
-  justify-content: center;
   gap: 12px;
+  justify-content: center;
 }
 
 .stage-content {
@@ -2669,19 +2623,19 @@ onMounted(async () => {
 
 .title-cell {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .top-icon {
-  color: #ef4444;
   font-size: 16px;
+  color: #ef4444;
 }
 
 .view-count-cell {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
 
 .eye-icon {
@@ -2691,19 +2645,19 @@ onMounted(async () => {
 
 .attachment-count-cell {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
 }
 
 .attachment-count-cell .attachment-icon {
+  margin-right: 4px;
   font-size: 14px;
   color: #6b7280;
-  margin-right: 4px;
 }
 
 .no-attachment {
-  color: #9ca3af;
   font-size: 13px;
+  color: #9ca3af;
 }
 
 .revoke-dialog-container {
@@ -2720,9 +2674,9 @@ onMounted(async () => {
 }
 
 .attachment-upload :deep(.el-upload__tip) {
-  color: #909399;
-  font-size: 12px;
   margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .announcement-detail-container {
@@ -2752,9 +2706,9 @@ onMounted(async () => {
 }
 
 .meta-row .label {
+  min-width: 100px;
   font-weight: 600;
   color: #374151;
-  min-width: 100px;
 }
 
 .detail-body {
@@ -2762,11 +2716,11 @@ onMounted(async () => {
 }
 
 .section-title {
-  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
-  padding-bottom: 8px;
   border-bottom: 2px solid #e5e7eb;
 }
 
@@ -2802,7 +2756,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 12px;
-  background-color: #ffffff;
+  background-color: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   transition: all 0.3s;
@@ -2810,7 +2764,7 @@ onMounted(async () => {
 
 .attachment-item:hover {
   border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 2px 8px rgb(59 130 246 / 10%);
 }
 
 .attachment-icon {
@@ -2832,10 +2786,11 @@ onMounted(async () => {
 .empty-state {
   padding: 60px 0;
 }
+
 /* 文件预览对话框样式 */
 .file-preview-container {
-  padding: 20px;
   max-height: 700px;
+  padding: 20px;
 }
 
 .image-preview img {
@@ -2850,32 +2805,32 @@ onMounted(async () => {
 }
 
 .text-preview pre {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  padding: 10px;
+  margin: 0;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.5;
-  margin: 0;
-  padding: 10px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
   background-color: #f5f7fa;
   border-radius: 4px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .unsupported-preview {
-  text-align: center;
   padding: 40px;
   color: #909399;
+  text-align: center;
 }
 
 .unsupported-icon {
-  font-size: 64px;
   margin-bottom: 20px;
+  font-size: 64px;
   color: #e6a23c;
 }
 
 .unsupported-preview h3 {
-  font-size: 18px;
   margin-bottom: 10px;
+  font-size: 18px;
   color: #606266;
 }
 

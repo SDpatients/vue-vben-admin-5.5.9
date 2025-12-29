@@ -200,10 +200,7 @@ const submitForm = async () => {
     });
 
     // 调用API，使用Promise.race实现超时控制
-    const result = await Promise.race([
-      addOneCaseApi(form),
-      timeoutPromise,
-    ]);
+    const result = await Promise.race([addOneCaseApi(form), timeoutPromise]);
 
     // 处理响应
     if (result.status === '1') {
@@ -604,8 +601,8 @@ const submitForm = async () => {
 }
 
 .uploaded-file-item:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .file-info {
@@ -630,11 +627,11 @@ const submitForm = async () => {
 }
 
 .upload-tip {
-  margin-top: 12px;
   padding: 12px;
+  margin-top: 12px;
   background-color: #f5f7fa;
-  border-radius: 4px;
   border-left: 4px solid #409eff;
+  border-radius: 4px;
 }
 
 .upload-tip p {

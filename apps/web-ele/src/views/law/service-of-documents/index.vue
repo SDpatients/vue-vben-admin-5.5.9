@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
 import { ElMessage } from 'element-plus';
 
-import { $t } from '#/locales';
 import { getDocumentListApi } from '#/api/core';
+import { $t } from '#/locales';
 
 const router = useRouter();
 
@@ -116,8 +117,8 @@ onMounted(() => {
     </h1>
 
     <!-- 搜索区域 -->
-    <div class="bg-white rounded-lg shadow-md p-4 mb-5">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+    <div class="mb-5 rounded-lg bg-white p-4 shadow-md">
+      <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5">
         <el-input
           v-model="searchForm.caseId"
           placeholder="案件编号"
@@ -128,11 +129,7 @@ onMounted(() => {
           placeholder="文书名称"
           clearable
         />
-        <el-select
-          v-model="searchForm.status"
-          placeholder="送达状态"
-          clearable
-        >
+        <el-select v-model="searchForm.status" placeholder="送达状态" clearable>
           <el-option
             v-for="option in statusOptions"
             :key="option.value"
@@ -177,16 +174,26 @@ onMounted(() => {
           />
         </el-select>
       </div>
-      <div class="flex justify-end mt-4 gap-2">
+      <div class="mt-4 flex justify-end gap-2">
         <el-button @click="handleReset" type="default">重置</el-button>
         <el-button @click="handleSearch" type="primary">搜索</el-button>
-        <el-button type="success" @click="$router.push('/service-of-documents/add')">新增送达</el-button>
+        <el-button
+          type="success"
+          @click="$router.push('/service-of-documents/add')"
+        >
+          新增送达
+        </el-button>
       </div>
     </div>
 
     <!-- 文书列表 -->
     <div class="rounded-lg bg-white shadow-md">
-      <el-table :data="documentList" stripe style="width: 100%" :loading="loading">
+      <el-table
+        :data="documentList"
+        stripe
+        style="width: 100%"
+        :loading="loading"
+      >
         <el-table-column prop="caseId" label="案件编号" />
         <el-table-column prop="caseName" label="案件名称" />
         <el-table-column prop="documentName" label="文书名称" />
@@ -214,10 +221,21 @@ onMounted(() => {
         <el-table-column prop="deliverer" label="送达人" />
         <el-table-column label="操作" width="150">
           <template #default="scope">
-            <el-button type="primary" size="small" @click="$router.push('/service-of-documents/' + scope.row.id)" class="mr-2">
+            <el-button
+              type="primary"
+              size="small"
+              @click="$router.push(`/service-of-documents/${scope.row.id}`)"
+              class="mr-2"
+            >
               查看详情
             </el-button>
-            <el-button type="success" size="small" @click="$router.push('/service-of-documents/' + scope.row.id + '/records')">
+            <el-button
+              type="success"
+              size="small"
+              @click="
+                $router.push(`/service-of-documents/${scope.row.id}/records`)
+              "
+            >
               送达记录
             </el-button>
           </template>

@@ -464,19 +464,19 @@ onMounted(() => {
 
 .stage-info {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
+  align-items: flex-start;
 }
 
 .stage-icon {
+  flex-shrink: 0;
   width: 48px;
   height: 48px;
   color: #e6a23c;
-  flex-shrink: 0;
 }
 
 .stage-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
   color: #1f2937;
@@ -507,8 +507,8 @@ onMounted(() => {
 }
 
 .task-card:hover {
+  box-shadow: 0 8px 16px rgb(0 0 0 / 10%);
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .task-card-header {
@@ -519,8 +519,8 @@ onMounted(() => {
 
 .task-title {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   font-weight: 600;
   color: #1f2937;
 }
@@ -578,15 +578,15 @@ onMounted(() => {
 }
 
 .task-table {
-  font-size: 13px;
   min-width: 800px;
+  font-size: 13px;
 }
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .action-buttons .el-button {
@@ -595,8 +595,8 @@ onMounted(() => {
 }
 
 .empty-task {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
   min-height: 100px;

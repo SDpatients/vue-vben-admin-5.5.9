@@ -155,7 +155,7 @@ onMounted(() => {
 
       <!-- 分页组件 -->
       <div v-if="!loading && pagination.total > 0" class="pagination-container">
-        <el-pagination
+        <ElPagination
           v-model:current-page="pagination.currentPage"
           v-model:page-size="pagination.pageSize"
           :page-sizes="[10, 20, 50, 100]"
@@ -223,13 +223,13 @@ onMounted(() => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .total-text {
-  color: #666;
   font-size: 14px;
+  color: #666;
 }
 
 .api-info {
@@ -237,27 +237,27 @@ onMounted(() => {
 }
 
 .api-info p {
-  margin: 0;
   padding: 4px 0;
+  margin: 0;
 }
 
 .empty-state {
-  text-align: center;
   padding: 40px 0;
   color: #999;
+  text-align: center;
 }
 
 .loading-state {
-  text-align: center;
   padding: 40px 0;
   color: #666;
+  text-align: center;
 }
 
 .pagination-container {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
   padding-top: 20px;
+  margin-top: 20px;
   border-top: 1px solid #f0f0f0;
 }
 

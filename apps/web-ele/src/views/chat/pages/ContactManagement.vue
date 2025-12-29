@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -16,18 +16,18 @@ const showAddGroupDialog = ref(false);
 const newGroupName = ref('');
 
 // 从store中解构状态和方法
-const { 
-  contacts, 
-  groups, 
-  filteredContacts, 
-  searchKeyword, 
-  selectedGroup, 
-  loading, 
-  fetchContacts, 
+const {
+  contacts,
+  groups,
+  filteredContacts,
+  searchKeyword,
+  selectedGroup,
+  loading,
+  fetchContacts,
   fetchContactGroups,
   deleteContact,
   addGroup,
-  setSelectedGroup 
+  setSelectedGroup,
 } = contactStore;
 
 // 方法
@@ -71,7 +71,7 @@ function handleAddGroup() {
     name: newGroupName.value.trim(),
     sortOrder: groups.length + 1,
     userId: Number(localStorage.getItem('chat_user_id') || '0'),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   });
   newGroupName.value = '';
   showAddGroupDialog.value = false;
@@ -103,7 +103,7 @@ function handleBatchDelete() {
   )
     .then(() => {
       // 实际项目中这里应该调用API批量删除联系人
-      selectedContacts.value.forEach(id => deleteContact(id));
+      selectedContacts.value.forEach((id) => deleteContact(id));
       selectedContacts.value = [];
       ElMessage.success('联系人批量删除成功');
     })
@@ -195,7 +195,9 @@ onMounted(() => {
               @click="handleGroupClick(group.id)"
             >
               <span class="group-name">{{ group.name }}</span>
-              <span class="group-count">{{ contacts.filter(c => c.groupId === group.id).length }}</span>
+              <span class="group-count">{{
+                contacts.filter((c) => c.groupId === group.id).length
+              }}</span>
             </div>
           </div>
         </aside>
@@ -211,7 +213,13 @@ onMounted(() => {
             <el-table-column type="selection" width="55" />
             <el-table-column prop="avatar" label="头像" width="80">
               <template #default="scope">
-                <el-avatar :src="scope.row.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" size="small" />
+                <el-avatar
+                  :src="
+                    scope.row.avatar ||
+                    'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+                  "
+                  size="small"
+                />
               </template>
             </el-table-column>
             <el-table-column prop="name" label="姓名" min-width="120">
@@ -228,7 +236,7 @@ onMounted(() => {
             <el-table-column prop="email" label="邮箱" min-width="200" />
             <el-table-column prop="groupId" label="分组" min-width="100">
               <template #default="scope">
-                {{ 
+                {{
                   groups.find((g) => g.id === scope.row.groupId)?.name ||
                   '默认分组'
                 }}
@@ -295,12 +303,12 @@ onMounted(() => {
 /* 顶部操作栏样式 */
 .management-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px 24px;
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .management-header h2 {
@@ -317,8 +325,8 @@ onMounted(() => {
 
 /* 主内容区样式 */
 .management-main {
-  flex: 1;
   display: grid;
+  flex: 1;
   grid-template-columns: 240px 1fr;
   gap: 16px;
   padding: 16px;
@@ -327,18 +335,18 @@ onMounted(() => {
 
 /* 分组列表样式 */
 .group-list {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .group-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px;
   border-bottom: 1px solid #e4e7ed;
 }
@@ -352,19 +360,19 @@ onMounted(() => {
 
 .group-items {
   flex: 1;
-  overflow-y: auto;
   padding: 8px 0;
+  overflow-y: auto;
 }
 
 .group-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 4px;
   margin: 0 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .group-item:hover {
@@ -372,8 +380,8 @@ onMounted(() => {
 }
 
 .group-item.active {
-  background-color: #ecf5ff;
   color: #408aed;
+  background-color: #ecf5ff;
 }
 
 .group-name {
@@ -382,25 +390,25 @@ onMounted(() => {
 }
 
 .group-count {
-  font-size: 12px;
-  opacity: 0.6;
-  background-color: rgba(0, 0, 0, 0.05);
   padding: 2px 8px;
+  font-size: 12px;
+  background-color: rgb(0 0 0 / 5%);
   border-radius: 10px;
+  opacity: 0.6;
 }
 
 .group-item.active .group-count {
-  background-color: rgba(64, 138, 237, 0.1);
+  background-color: rgb(64 138 237 / 10%);
 }
 
 /* 联系人列表样式 */
 .contact-list {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .contact-list :deep(.el-table) {
@@ -412,9 +420,9 @@ onMounted(() => {
 }
 
 .contact-list :deep(.el-table__header-wrapper th) {
-  background-color: #fafafa;
   font-weight: 600;
   color: #303133;
+  background-color: #fafafa;
 }
 
 .contact-list :deep(.el-table__body-wrapper) {
@@ -423,8 +431,8 @@ onMounted(() => {
 
 .contact-name {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 /* 滚动条样式 */

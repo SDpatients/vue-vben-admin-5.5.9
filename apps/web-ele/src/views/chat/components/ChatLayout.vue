@@ -146,19 +146,19 @@ onUnmounted(() => {
 
 .chat-layout-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  justify-content: space-between;
   height: 60px;
+  padding: 0 20px;
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .header-left {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
 }
 
 .header-title {
@@ -198,17 +198,17 @@ onUnmounted(() => {
 }
 
 .chat-layout-sidebar {
-  background-color: #fff;
-  border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: #fff;
+  border-right: 1px solid #e4e7ed;
 }
 
 .sidebar-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #e4e7ed;
 }
@@ -222,15 +222,15 @@ onUnmounted(() => {
 
 .sidebar-content {
   flex: 1;
-  overflow-y: auto;
   padding: 10px;
+  overflow-y: auto;
 }
 
 .chat-layout-content {
-  background-color: #f5f7fa;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: #f5f7fa;
 }
 
 /* 滚动条样式 */

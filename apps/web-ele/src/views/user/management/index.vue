@@ -130,8 +130,8 @@ onMounted(() => {
 <style scoped>
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .header-actions {
@@ -140,9 +140,9 @@ onMounted(() => {
 }
 
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .box-card {

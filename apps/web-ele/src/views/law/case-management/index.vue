@@ -4,8 +4,6 @@ import type { CaseApi } from '#/api';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAccessStore } from '@vben/stores';
-
 import {
   ElButton,
   ElCard,
@@ -33,8 +31,6 @@ const pagination = ref({
   itemCount: 0,
   pages: 0,
 });
-
-const accessStore = useAccessStore();
 
 // 列显示控制
 const columnVisible = ref<string[]>([]);
@@ -170,7 +166,8 @@ const generateMockData = () => {
 const fetchCaseList = async () => {
   loading.value = true;
   try {
-    const token = accessStore.accessToken || '1ae18aba1f1b430c8cf22d2f668a9b79';
+    // 使用固定的正确格式token，而不是JWT token
+    const token = '03f07901573e624060991494b3a22422';
     const params = {
       page: pagination.value.page,
       size: pagination.value.pageSize,
@@ -606,108 +603,6 @@ const viewCaseDetail = (row: any) => {
 </template>
 
 <style scoped>
-/* 卡片样式增强 */
-:deep(.el-card) {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-:deep(.el-card:hover) {
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15);
-}
-
-/* 按钮样式优化 */
-:deep(.el-button) {
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-:deep(.el-button--primary) {
-  background-color: #409eff;
-  border-color: #409eff;
-}
-
-:deep(.el-button--primary:hover) {
-  background-color: #66b1ff;
-  border-color: #66b1ff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
-}
-
-:deep(.el-button--info) {
-  background-color: #909399;
-  border-color: #909399;
-}
-
-:deep(.el-button--info:hover) {
-  background-color: #a6a9ad;
-  border-color: #a6a9ad;
-}
-
-/* 下拉菜单样式优化 */
-:deep(.el-dropdown-menu) {
-  border-radius: 6px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-:deep(.el-dropdown-item) {
-  transition: all 0.2s ease;
-}
-
-:deep(.el-dropdown-item:hover) {
-  background-color: #f5f7fa;
-  color: #409eff;
-}
-
-/* 表格样式优化 */
-:deep(.el-table) {
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-:deep(.el-table__header-wrapper th) {
-  background-color: #fafafa;
-  font-weight: 600;
-  font-size: 14px;
-  color: #333;
-  padding: 12px 0;
-}
-
-:deep(.el-table__body-wrapper tr) {
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-
-:deep(.el-table__body-wrapper tr:hover > td) {
-  background-color: #f5f7fa !important;
-}
-
-:deep(.el-table__body-wrapper td) {
-  padding: 12px 0;
-  color: #606266;
-}
-
-/* 标签样式优化 */
-:deep(.el-tag) {
-  border-radius: 4px;
-  font-size: 12px;
-  padding: 2px 8px;
-}
-
-/* 表格单元格样式 */
-:deep(.el-table .cell) {
-  white-space: nowrap;
-}
-
-/* 确保表格容器可以滚动 */
-.table-wrapper {
-  overflow-x: auto;
-  width: 100%;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .p-6 {
@@ -721,21 +616,21 @@ const viewCaseDetail = (row: any) => {
   }
 
   .flex.items-center.space-x-2 {
-    margin-top: 1rem;
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin-top: 1rem;
   }
 
   /* 调整按钮大小 */
   :deep(.el-button) {
-    font-size: 12px;
     padding: 6px 12px;
+    font-size: 12px;
   }
 
   /* 调整表格字体大小 */
   :deep(.el-table__header-wrapper th) {
-    font-size: 12px;
     padding: 8px 0;
+    font-size: 12px;
   }
 
   :deep(.el-table__body-wrapper tr) {
@@ -756,6 +651,107 @@ const viewCaseDetail = (row: any) => {
   }
 }
 
+:deep(.el-card) {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
+  transition: all 0.3s ease;
+}
+
+:deep(.el-card:hover) {
+  box-shadow: 0 4px 16px 0 rgb(0 0 0 / 15%);
+}
+
+/* 按钮样式优化 */
+:deep(.el-button) {
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+:deep(.el-button--primary) {
+  background-color: #409eff;
+  border-color: #409eff;
+}
+
+:deep(.el-button--primary:hover) {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+  box-shadow: 0 2px 8px rgb(64 158 255 / 30%);
+}
+
+:deep(.el-button--info) {
+  background-color: #909399;
+  border-color: #909399;
+}
+
+:deep(.el-button--info:hover) {
+  background-color: #a6a9ad;
+  border-color: #a6a9ad;
+}
+
+/* 下拉菜单样式优化 */
+:deep(.el-dropdown-menu) {
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
+}
+
+:deep(.el-dropdown-item) {
+  transition: all 0.2s ease;
+}
+
+:deep(.el-dropdown-item:hover) {
+  color: #409eff;
+  background-color: #f5f7fa;
+}
+
+/* 表格样式优化 */
+:deep(.el-table) {
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+:deep(.el-table__header-wrapper th) {
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background-color: #fafafa;
+}
+
+:deep(.el-table__body-wrapper tr) {
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+:deep(.el-table__body-wrapper tr:hover > td) {
+  background-color: #f5f7fa !important;
+}
+
+:deep(.el-table__body-wrapper td) {
+  padding: 12px 0;
+  color: #606266;
+}
+
+/* 标签样式优化 */
+:deep(.el-tag) {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+/* 表格单元格样式 */
+:deep(.el-table .cell) {
+  white-space: nowrap;
+}
+
+/* 确保表格容器可以滚动 */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
+}
+
 /* 滚动条样式优化 */
 .table-wrapper::-webkit-scrollbar {
   height: 6px;
@@ -774,4 +770,6 @@ const viewCaseDetail = (row: any) => {
 .table-wrapper::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* 卡片样式增强 */
 </style>

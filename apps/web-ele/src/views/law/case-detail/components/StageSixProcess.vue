@@ -32,7 +32,12 @@ const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
 // 模拟API调用，因为阶段六可能还没有实际的API
-const mockApiCall = async (taskType: string, caseId: string, page: number, size: number) => {
+const mockApiCall = async (
+  taskType: string,
+  caseId: string,
+  page: number,
+  size: number,
+) => {
   return {
     status: '1',
     error: '',
@@ -110,7 +115,12 @@ const taskStatusMap = {
 
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
-    const response = await taskConfigItem.api(taskConfigItem.key, props.caseId, 1, 10);
+    const response = await taskConfigItem.api(
+      taskConfigItem.key,
+      props.caseId,
+      1,
+      10,
+    );
     if (response.status === '1') {
       return {
         ...taskConfigItem,
@@ -274,7 +284,9 @@ onMounted(() => {
             <Icon icon="lucide:pie-chart" class="stage-icon" />
             <div>
               <h2 class="stage-title">阶段六：破产财产分配方案等相关工作</h2>
-              <p class="stage-description">完成破产财产分配方案制定、员工安置方案、优先受偿权确认等工作</p>
+              <p class="stage-description">
+                完成破产财产分配方案制定、员工安置方案、优先受偿权确认等工作
+              </p>
             </div>
           </div>
         </div>
@@ -311,7 +323,9 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                    <span class="progress-text"
+                      >{{ getTaskProgress(task) }}%</span
+                    >
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -450,19 +464,19 @@ onMounted(() => {
 
 .stage-info {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
+  align-items: flex-start;
 }
 
 .stage-icon {
+  flex-shrink: 0;
   width: 48px;
   height: 48px;
-  color: #722ED1;
-  flex-shrink: 0;
+  color: #722ed1;
 }
 
 .stage-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
   color: #1f2937;
@@ -498,15 +512,15 @@ onMounted(() => {
 
 .task-title {
   display: flex;
-  align-items: center;
   gap: 8px;
-  font-weight: 600;
+  align-items: center;
   font-size: 16px;
+  font-weight: 600;
 }
 
 .task-icon {
   font-size: 20px;
-  color: #722ED1;
+  color: #722ed1;
 }
 
 .task-content {
@@ -526,13 +540,13 @@ onMounted(() => {
 
 .progress-text {
   font-weight: 600;
-  color: #722ED1;
+  color: #722ed1;
 }
 
 .task-count {
   display: flex;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   margin-top: 8px;
   font-size: 12px;
   color: #6b7280;
@@ -540,22 +554,21 @@ onMounted(() => {
 
 .task-list {
   max-height: 400px;
-  overflow-y: auto;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 .task-table {
-  border-radius: 8px;
+  min-width: 800px;
   overflow: hidden;
   font-size: 13px;
-  min-width: 800px;
+  border-radius: 8px;
 }
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .action-buttons .el-button {
@@ -566,8 +579,8 @@ onMounted(() => {
 .empty-task {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 16px;
+  align-items: center;
   padding: 40px 0;
 }
 </style>

@@ -23,13 +23,17 @@ import {
   ElPopover,
   ElRow,
   ElSelect,
-  ElSpace,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus';
 
-import { addDebtorApi, getDebtorListApi, editDebtorApi, deleteDebtorApi } from '#/api/core/debtor';
+import {
+  addDebtorApi,
+  deleteDebtorApi,
+  editDebtorApi,
+  getDebtorListApi,
+} from '#/api/core/debtor';
 
 // 响应式数据
 const debtorList = ref<DebtorApi.DebtorInfo[]>([]);
@@ -250,7 +254,9 @@ const statusOptions = [
 // 表单验证规则
 const rules = ref({
   QYMC: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  TYSHXYDM: [{ required: true, message: '请输入统一社会信用代码', trigger: 'blur' }],
+  TYSHXYDM: [
+    { required: true, message: '请输入统一社会信用代码', trigger: 'blur' },
+  ],
   FDDBR: [{ required: true, message: '请输入法定代表人', trigger: 'blur' }],
 });
 
@@ -271,13 +277,13 @@ const handleCloseDialog = () => {
 // 提交新增债务人表单
 const handleSubmit = () => {
   if (!formRef.value) return;
-  
+
   formRef.value.validate((valid: boolean) => {
     if (!valid) {
       ElMessage.error('表单验证失败，请检查必填项');
       return;
     }
-    
+
     // 表单验证通过，提交数据
     submitFormData();
   });
@@ -288,19 +294,24 @@ const submitFormData = async () => {
   try {
     // 获取当前登录用户信息
     const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
-    const username = userInfo.U_NAME || 'admin';
-    
+    const username = userInfo.user?.uName || 'admin';
+
     // 获取当前北京时间
     const now = new Date();
     const sep_adate = now.toISOString().slice(0, 19).replace('T', ' ');
-    
+
     // 转换数据格式，将大写属性名转换为小写，并添加必要的字段
     const requestData = {
       qymc: formData.value.QYMC,
       tyshxydm: formData.value.TYSHXYDM,
       fddbr: formData.value.FDDBR,
       djjg: formData.value.DJJG,
-      clrq: formData.value.CLRQ ? new Date(formData.value.CLRQ).toISOString().slice(0, 19).replace('T', ' ') : null,
+      clrq: formData.value.CLRQ
+        ? new Date(formData.value.CLRQ)
+            .toISOString()
+            .slice(0, 19)
+            .replace('T', ' ')
+        : null,
       zczb: formData.value.ZCZB,
       jyfw: formData.value.JYFW,
       qylx: formData.value.QYLX,
@@ -310,11 +321,11 @@ const submitFormData = async () => {
       lxr: formData.value.LXR,
       zt: formData.value.ZT,
       sep_auser: username,
-      sep_adate: sep_adate,
+      sep_adate,
     };
-    
+
     const response = await addDebtorApi(requestData);
-    
+
     if (response.status === '1') {
       ElMessage.success('债务人添加成功');
       dialogVisible.value = false;
@@ -357,7 +368,24 @@ const editFormData = ref({
   LXDH: '',
   LXR: '',
   ZT: '',
-} as { row: number; AJID: string; SEP_ID?: string; QYMC: string; TYSHXYDM: string; FDDBR: string; DJJG: string; CLRQ: string; ZCZB: string; JYFW: string; QYLX: string; SSHY: string; ZCDZ: string; LXDH: string; LXR: string; ZT: string; });
+} as {
+  AJID: string;
+  CLRQ: string;
+  DJJG: string;
+  FDDBR: string;
+  JYFW: string;
+  LXDH: string;
+  LXR: string;
+  QYLX: string;
+  QYMC: string;
+  row: number;
+  SEP_ID?: string;
+  SSHY: string;
+  TYSHXYDM: string;
+  ZCDZ: string;
+  ZCZB: string;
+  ZT: string;
+});
 
 // 打开编辑债务人弹窗
 const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
@@ -381,13 +409,13 @@ const handleCloseEditDialog = () => {
 // 提交编辑债务人表单
 const handleEditSubmit = () => {
   if (!editFormRef.value) return;
-  
+
   editFormRef.value.validate((valid: boolean) => {
     if (!valid) {
       ElMessage.error('表单验证失败，请检查必填项');
       return;
     }
-    
+
     // 表单验证通过，提交数据
     submitEditFormData();
   });
@@ -397,15 +425,15 @@ const handleEditSubmit = () => {
 const submitEditFormData = async () => {
   try {
     const token = '6ee6373b2fa95f552a4710a001aff052'; // 使用固定token
-    
+
     // 获取当前登录用户信息
     const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
-    const username = userInfo.U_NAME || 'admin';
-    
+    const username = userInfo.user?.uName || 'admin';
+
     // 获取当前北京时间
     const now = new Date();
     const sep_edate = now.toISOString().slice(0, 19).replace('T', ' ');
-    
+
     // 构建请求数据
     const requestData = {
       SEP_EUSER: username,
@@ -415,7 +443,12 @@ const submitEditFormData = async () => {
       TYSHXYDM: editFormData.value.TYSHXYDM,
       FDDBR: editFormData.value.FDDBR,
       DJJG: editFormData.value.DJJG,
-      CLRQ: editFormData.value.CLRQ ? new Date(editFormData.value.CLRQ).toISOString().slice(0, 19).replace('T', ' ') : null,
+      CLRQ: editFormData.value.CLRQ
+        ? new Date(editFormData.value.CLRQ)
+            .toISOString()
+            .slice(0, 19)
+            .replace('T', ' ')
+        : null,
       ZCZB: editFormData.value.ZCZB,
       JYFW: editFormData.value.JYFW,
       QYLX: editFormData.value.QYLX,
@@ -425,10 +458,10 @@ const submitEditFormData = async () => {
       LXR: editFormData.value.LXR,
       ZT: editFormData.value.ZT,
     };
-    
+
     // 调用编辑接口
     const response = await editDebtorApi(requestData, token);
-    
+
     if (response.status === '1') {
       ElMessage.success('债务人修改成功');
       editDialogVisible.value = false;
@@ -456,13 +489,14 @@ const handleDeleteDebtor = (row: DebtorApi.DebtorInfo) => {
 // 提交删除请求
 const handleDeleteSubmit = async () => {
   if (!currentDeleteItem.value) return;
-  
+
   try {
     const token = '7b45265f3ca3eefeaad42615d995e8c5'; // 使用删除接口指定的token
-    const sepId = currentDeleteItem.value.SEP_ID ?? currentDeleteItem.value.AJID ?? '';
-    
+    const sepId =
+      currentDeleteItem.value.SEP_ID ?? currentDeleteItem.value.AJID ?? '';
+
     const response = await deleteDebtorApi({ SEP_ID: sepId }, token);
-    
+
     if (response.status === '1') {
       ElMessage.success('债务人删除成功');
       deleteDialogVisible.value = false;
@@ -651,12 +685,7 @@ const handleDeleteSubmit = async () => {
           width="120"
           show-overflow-tooltip
         />
-        <ElTableColumn
-          prop="CLRQ"
-          label="成立日期"
-          width="120"
-          align="center"
-        >
+        <ElTableColumn prop="CLRQ" label="成立日期" width="120" align="center">
           <template #default="{ row }">
             {{ formatDate(row.CLRQ) }}
           </template>
@@ -691,18 +720,8 @@ const handleDeleteSubmit = async () => {
           width="130"
           align="center"
         />
-        <ElTableColumn
-          prop="LXR"
-          label="联系人"
-          width="120"
-          align="center"
-        />
-        <ElTableColumn
-          prop="ZT"
-          label="状态"
-          width="100"
-          align="center"
-        >
+        <ElTableColumn prop="LXR" label="联系人" width="120" align="center" />
+        <ElTableColumn prop="ZT" label="状态" width="100" align="center">
           <template #default="{ row }">
             <ElTag :type="getStatusType(row.ZT)" size="small">
               {{ row.ZT }}
@@ -769,15 +788,21 @@ const handleDeleteSubmit = async () => {
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="统一社会信用代码" prop="TYSHXYDM">
-                <ElInput v-model="formData.TYSHXYDM" placeholder="请输入统一社会信用代码" />
+                <ElInput
+                  v-model="formData.TYSHXYDM"
+                  placeholder="请输入统一社会信用代码"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="法定代表人" prop="FDDBR">
-                <ElInput v-model="formData.FDDBR" placeholder="请输入法定代表人" />
+                <ElInput
+                  v-model="formData.FDDBR"
+                  placeholder="请输入法定代表人"
+                />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第二行 -->
             <ElCol :span="8">
               <ElFormItem label="登记机关">
@@ -801,7 +826,7 @@ const handleDeleteSubmit = async () => {
                 <ElInput v-model="formData.ZCZB" placeholder="请输入注册资本" />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第三行 -->
             <ElCol :span="8">
               <ElFormItem label="经营范围">
@@ -818,7 +843,7 @@ const handleDeleteSubmit = async () => {
                 <ElInput v-model="formData.SSHY" placeholder="请输入所属行业" />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第四行 -->
             <ElCol :span="8">
               <ElFormItem label="注册地址">
@@ -835,7 +860,7 @@ const handleDeleteSubmit = async () => {
                 <ElInput v-model="formData.LXR" placeholder="请输入联系人" />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第五行 -->
             <ElCol :span="8">
               <ElFormItem label="状态">
@@ -851,7 +876,7 @@ const handleDeleteSubmit = async () => {
             </ElCol>
           </ElRow>
         </ElForm>
-        
+
         <template #footer>
           <div class="flex justify-end gap-2">
             <ElButton @click="handleCloseDialog">取消</ElButton>
@@ -859,7 +884,7 @@ const handleDeleteSubmit = async () => {
           </div>
         </template>
       </ElDialog>
-      
+
       <!-- 编辑债务人弹窗 -->
       <ElDialog
         v-model="editDialogVisible"
@@ -880,24 +905,36 @@ const handleDeleteSubmit = async () => {
             <!-- 第一行 -->
             <ElCol :span="8">
               <ElFormItem label="企业名称" prop="QYMC">
-                <ElInput v-model="editFormData.QYMC" placeholder="请输入企业名称" />
+                <ElInput
+                  v-model="editFormData.QYMC"
+                  placeholder="请输入企业名称"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="统一社会信用代码" prop="TYSHXYDM">
-                <ElInput v-model="editFormData.TYSHXYDM" placeholder="请输入统一社会信用代码" />
+                <ElInput
+                  v-model="editFormData.TYSHXYDM"
+                  placeholder="请输入统一社会信用代码"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="法定代表人" prop="FDDBR">
-                <ElInput v-model="editFormData.FDDBR" placeholder="请输入法定代表人" />
+                <ElInput
+                  v-model="editFormData.FDDBR"
+                  placeholder="请输入法定代表人"
+                />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第二行 -->
             <ElCol :span="8">
               <ElFormItem label="登记机关">
-                <ElInput v-model="editFormData.DJJG" placeholder="请输入登记机关" />
+                <ElInput
+                  v-model="editFormData.DJJG"
+                  placeholder="请输入登记机关"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
@@ -914,44 +951,65 @@ const handleDeleteSubmit = async () => {
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="注册资本">
-                <ElInput v-model="editFormData.ZCZB" placeholder="请输入注册资本" />
+                <ElInput
+                  v-model="editFormData.ZCZB"
+                  placeholder="请输入注册资本"
+                />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第三行 -->
             <ElCol :span="8">
               <ElFormItem label="经营范围">
-                <ElInput v-model="editFormData.JYFW" placeholder="请输入经营范围" />
+                <ElInput
+                  v-model="editFormData.JYFW"
+                  placeholder="请输入经营范围"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="企业类型">
-                <ElInput v-model="editFormData.QYLX" placeholder="请输入企业类型" />
+                <ElInput
+                  v-model="editFormData.QYLX"
+                  placeholder="请输入企业类型"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="所属行业">
-                <ElInput v-model="editFormData.SSHY" placeholder="请输入所属行业" />
+                <ElInput
+                  v-model="editFormData.SSHY"
+                  placeholder="请输入所属行业"
+                />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第四行 -->
             <ElCol :span="8">
               <ElFormItem label="注册地址">
-                <ElInput v-model="editFormData.ZCDZ" placeholder="请输入注册地址" />
+                <ElInput
+                  v-model="editFormData.ZCDZ"
+                  placeholder="请输入注册地址"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="联系电话">
-                <ElInput v-model="editFormData.LXDH" placeholder="请输入联系电话" />
+                <ElInput
+                  v-model="editFormData.LXDH"
+                  placeholder="请输入联系电话"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="联系人">
-                <ElInput v-model="editFormData.LXR" placeholder="请输入联系人" />
+                <ElInput
+                  v-model="editFormData.LXR"
+                  placeholder="请输入联系人"
+                />
               </ElFormItem>
             </ElCol>
-            
+
             <!-- 第五行 -->
             <ElCol :span="8">
               <ElFormItem label="状态">
@@ -967,7 +1025,7 @@ const handleDeleteSubmit = async () => {
             </ElCol>
           </ElRow>
         </ElForm>
-        
+
         <template #footer>
           <div class="flex justify-end gap-2">
             <ElButton @click="handleCloseEditDialog">取消</ElButton>
@@ -975,7 +1033,7 @@ const handleDeleteSubmit = async () => {
           </div>
         </template>
       </ElDialog>
-      
+
       <!-- 删除确认弹窗 -->
       <ElDialog
         v-model="deleteDialogVisible"
@@ -983,14 +1041,20 @@ const handleDeleteSubmit = async () => {
         width="400px"
         custom-class="delete-dialog"
       >
-        <div class="text-center py-4">
-          <div class="text-lg font-medium mb-2">确定要删除债务人 "{{ currentDeleteItem?.QYMC }}" 吗？</div>
-          <div class="text-sm text-gray-500">删除后将无法恢复，请谨慎操作。</div>
+        <div class="py-4 text-center">
+          <div class="mb-2 text-lg font-medium">
+            确定要删除债务人 "{{ currentDeleteItem?.QYMC }}" 吗？
+          </div>
+          <div class="text-sm text-gray-500">
+            删除后将无法恢复，请谨慎操作。
+          </div>
         </div>
         <template #footer>
           <div class="flex justify-end gap-2">
             <ElButton @click="deleteDialogVisible = false">取消</ElButton>
-            <ElButton type="danger" @click="handleDeleteSubmit">确定删除</ElButton>
+            <ElButton type="danger" @click="handleDeleteSubmit">
+              确定删除
+            </ElButton>
           </div>
         </template>
       </ElDialog>
@@ -999,18 +1063,29 @@ const handleDeleteSubmit = async () => {
 </template>
 
 <style scoped>
+/* 响应式表格样式 */
+@media (max-width: 1200px) {
+  :deep(.el-table) {
+    font-size: 11px;
+  }
+
+  :deep(.el-table .cell) {
+    padding: 2px 4px;
+  }
+}
+
 :deep(.vben-card) {
   border-radius: 8px;
 }
 
 :deep(.el-table) {
-  border-radius: 8px;
   font-size: 12px;
+  border-radius: 8px;
 }
 
 :deep(.el-table .cell) {
-  line-height: 1.4;
   padding: 4px 8px;
+  line-height: 1.4;
 }
 
 :deep(.el-table__header-wrapper) {
@@ -1026,24 +1101,13 @@ const handleDeleteSubmit = async () => {
   overflow-y: auto;
 }
 
-/* 响应式表格样式 */
-@media (max-width: 1200px) {
-  :deep(.el-table) {
-    font-size: 11px;
-  }
-
-  :deep(.el-table .cell) {
-    padding: 2px 4px;
-  }
-}
-
 .stat-card {
   transition: all 0.3s ease;
 }
 
 .stat-card:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .number-value {
@@ -1057,68 +1121,68 @@ const handleDeleteSubmit = async () => {
     align-items: center;
     justify-content: center;
   }
-  
+
   .el-dialog {
-    height: 1000px;
-    margin: 0;
     display: flex;
     flex-direction: column;
+    height: 1000px;
+    margin: 0;
   }
-  
+
   .el-dialog__body {
     flex: 1;
-    overflow-y: auto;
     padding: 30px;
+    overflow-y: auto;
   }
-  
+
   .el-dialog__header {
     padding: 30px;
     border-bottom: 1px solid #eee;
   }
-  
+
   .el-dialog__title {
     font-size: 20px;
     font-weight: bold;
   }
-  
+
   .el-dialog__footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
     padding: 30px;
     border-top: 1px solid #eee;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
   }
-  
+
   /* 表单样式优化 */
   .el-form {
     max-width: 100%;
   }
-  
+
   .el-form-item {
     margin-bottom: 20px;
   }
-  
+
   .el-form-item__label {
     font-weight: bold;
   }
-  
+
   .el-input__wrapper,
   .el-select__wrapper {
     border-radius: 4px;
   }
-  
+
   /* 按钮样式优化 */
   .el-button {
-    border-radius: 4px;
     padding: 8px 16px;
     font-size: 14px;
+    border-radius: 4px;
   }
-  
+
   .el-button--primary {
     background-color: #409eff;
     border-color: #409eff;
   }
-  
+
   .el-button--primary:hover {
     background-color: #66b1ff;
     border-color: #66b1ff;

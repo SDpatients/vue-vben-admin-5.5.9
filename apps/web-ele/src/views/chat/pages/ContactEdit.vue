@@ -213,12 +213,12 @@ onMounted(() => {
 /* 顶部操作栏样式 */
 .edit-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px 24px;
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .edit-header h2 {
@@ -230,8 +230,8 @@ onMounted(() => {
 
 .header-left {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
 
 .header-right {
@@ -247,56 +247,56 @@ onMounted(() => {
 }
 
 .contact-form {
-  background-color: #fff;
-  padding: 32px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   max-width: 800px;
+  padding: 32px;
   margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 /* 头像上传样式 */
 .avatar-uploader {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .avatar {
   width: 120px;
   height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
   cursor: pointer;
+  object-fit: cover;
   border: 2px solid #e4e7ed;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
 .avatar:hover {
   border-color: #408aed;
-  box-shadow: 0 0 0 4px rgba(64, 138, 237, 0.1);
+  box-shadow: 0 0 0 4px rgb(64 138 237 / 10%);
 }
 
 .avatar-uploader-icon {
-  font-size: 48px;
-  color: #c0c4cc;
-  background-color: #f5f7fa;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 120px;
+  height: 120px;
+  font-size: 48px;
+  color: #c0c4cc;
   cursor: pointer;
+  background-color: #f5f7fa;
   border: 2px dashed #dcdfe6;
+  border-radius: 50%;
   transition: all 0.3s;
 }
 
 .avatar-uploader-icon:hover {
-  border-color: #408aed;
   color: #408aed;
   background-color: #ecf5ff;
+  border-color: #408aed;
 }
 
 .avatar-tip {
@@ -320,7 +320,7 @@ onMounted(() => {
 .contact-form :deep(.el-textarea__inner:focus),
 .contact-form :deep(.el-select__wrapper.is-focus) {
   border-color: #408aed;
-  box-shadow: 0 0 0 2px rgba(64, 138, 237, 0.2);
+  box-shadow: 0 0 0 2px rgb(64 138 237 / 20%);
 }
 
 /* 滚动条样式 */

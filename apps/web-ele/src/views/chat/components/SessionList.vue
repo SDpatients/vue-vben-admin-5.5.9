@@ -215,8 +215,8 @@ function togglePin(sessionId: number) {
 /* 头部样式 */
 .session-list-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 16px;
   border-bottom: 1px solid #e4e7ed;
 }
@@ -237,19 +237,19 @@ function togglePin(sessionId: number) {
 /* 会话列表样式 */
 .session-items {
   flex: 1;
-  overflow-y: auto;
   padding: 8px 0;
+  overflow-y: auto;
 }
 
 .session-item {
+  position: relative;
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 4px;
   margin: 0 8px;
-  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .session-item:hover {
@@ -263,14 +263,14 @@ function togglePin(sessionId: number) {
 /* 会话头像样式 */
 .session-avatar {
   position: relative;
-  margin-right: 12px;
   flex-shrink: 0;
+  margin-right: 12px;
 }
 
 .online-indicator {
   position: absolute;
-  bottom: 0;
   right: 0;
+  bottom: 0;
   width: 10px;
   height: 10px;
   background-color: #67c23a;
@@ -286,8 +286,8 @@ function togglePin(sessionId: number) {
 
 .session-name-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 4px;
 }
 
@@ -304,17 +304,17 @@ function togglePin(sessionId: number) {
 
 .session-last-message-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .session-last-message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: #909399;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
 }
 
 /* 会话操作样式 */
@@ -338,13 +338,13 @@ function togglePin(sessionId: number) {
 }
 
 .empty-icon {
-  font-size: 48px;
   margin-bottom: 8px;
+  font-size: 48px;
   opacity: 0.5;
 }
 
 .session-empty p {
-  margin: 0 0 16px 0;
+  margin: 0 0 16px;
 }
 
 /* 滚动条样式 */

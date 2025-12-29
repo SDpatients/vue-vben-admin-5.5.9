@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import type {
+  IDomEditor,
+  IEditorConfig,
+  IToolbarConfig,
+} from '@wangeditor/editor';
+
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 
-import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor';
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 
 import '@wangeditor/editor/dist/css/style.css';
@@ -30,9 +35,7 @@ const editorRef = shallowRef<IDomEditor>();
 const valueHtml = ref(props.modelValue);
 
 const toolbarConfig: Partial<IToolbarConfig> = {
-  excludeKeys: [
-    'group-video',
-  ],
+  excludeKeys: ['group-video'],
 };
 
 const editorConfig: Partial<IEditorConfig> = {
@@ -102,17 +105,17 @@ onBeforeUnmount(() => {
   <div class="rich-text-editor-wrapper">
     <Toolbar
       :editor="editorRef"
-      :defaultConfig="toolbarConfig"
+      :default-config="toolbarConfig"
       mode="default"
       style="border-bottom: 1px solid #ccc"
     />
     <Editor
-      :defaultConfig="editorConfig"
-      :defaultHtml="valueHtml"
+      :default-config="editorConfig"
+      :default-html="valueHtml"
       :style="editorStyle"
       mode="default"
-      @onCreated="handleCreated"
-      @onChange="handleChange"
+      @on-created="handleCreated"
+      @on-change="handleChange"
     />
   </div>
 </template>

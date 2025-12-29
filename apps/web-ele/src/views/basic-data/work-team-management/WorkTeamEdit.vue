@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElForm, ElFormItem, ElInput, ElButton, ElCard, ElRow, ElCol } from 'element-plus';
+
+import {
+  ElButton,
+  ElCard,
+  ElCol,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElRow,
+} from 'element-plus';
+
 import { update1 } from '#/api/core/work-team';
 
 const route = useRoute();
@@ -31,7 +42,7 @@ const saveData = async () => {
   try {
     // 从本地存储获取操作人信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
-    const sepeuser = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
+    const sepeuser = chatUserInfo ? JSON.parse(chatUserInfo).user?.uUser : 'admin';
 
     // 准备API参数
     const updateParams = {
@@ -39,7 +50,7 @@ const saveData = async () => {
       SEP_EUSER: sepeuser,
       SEP_EDATE: new Date().toISOString(),
       OperateType: '0',
-      
+
       // 其他参数
       SEP_ID: sepId.value,
       SEP_LD: sepId.value,
@@ -100,46 +111,65 @@ onMounted(() => {
         <ElRow :gutter="20">
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="团队负责人">
-              <ElInput v-model="formData.tdfzr" placeholder="请输入团队负责人" />
+              <ElInput
+                v-model="formData.tdfzr"
+                placeholder="请输入团队负责人"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="综合组成员">
-              <ElInput v-model="formData.zhzcy" placeholder="请输入综合组成员" />
+              <ElInput
+                v-model="formData.zhzcy"
+                placeholder="请输入综合组成员"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="程序组成员">
-              <ElInput v-model="formData.cxzcy" placeholder="请输入程序组成员" />
+              <ElInput
+                v-model="formData.cxzcy"
+                placeholder="请输入程序组成员"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="财产管理组成员">
-              <ElInput v-model="formData.ccglzcy" placeholder="请输入财产管理组成员" />
+              <ElInput
+                v-model="formData.ccglzcy"
+                placeholder="请输入财产管理组成员"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="债权审核组成员">
-              <ElInput v-model="formData.zqshzcy" placeholder="请输入债权审核组成员" />
+              <ElInput
+                v-model="formData.zqshzcy"
+                placeholder="请输入债权审核组成员"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="劳动人事组成员">
-              <ElInput v-model="formData.ldrszcy" placeholder="请输入劳动人事组成员" />
+              <ElInput
+                v-model="formData.ldrszcy"
+                placeholder="请输入劳动人事组成员"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :sm="12" :md="8">
             <ElFormItem label="资产清理组成员">
-              <ElInput v-model="formData.zzqlzcy" placeholder="请输入资产清理组成员" />
+              <ElInput
+                v-model="formData.zzqlzcy"
+                placeholder="请输入资产清理组成员"
+              />
             </ElFormItem>
           </ElCol>
         </ElRow>
 
         <!-- 操作按钮 -->
         <div class="mt-6 flex justify-end gap-2">
-          <ElButton @click="cancelEdit" :disabled="saving">
-            取消
-          </ElButton>
+          <ElButton @click="cancelEdit" :disabled="saving"> 取消 </ElButton>
           <ElButton type="primary" @click="saveData" :loading="saving">
             保存
           </ElButton>

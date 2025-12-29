@@ -2,39 +2,37 @@
 import type { BankAccountApi } from '#/api/core/bank-account';
 import type { ExportColumnConfig } from '#/utils/export-excel';
 
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
 
 import {
   ElButton,
   ElCard,
-  ElCheckbox,
-  ElCheckboxGroup,
   ElCol,
   ElDatePicker,
   ElDialog,
-  ElDropdown,
-  ElDropdownItem,
-  ElDropdownMenu,
   ElForm,
   ElFormItem,
   ElInput,
   ElInputNumber,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
-  ElPopover,
   ElRow,
   ElSelect,
-  ElOption,
-  ElSpace,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus';
 
-import { addBankAccountApi, getBankAccountListApi, updateBankAccountApi, deleteBankAccountApi } from '#/api/core/bank-account';
+import {
+  addBankAccountApi,
+  deleteBankAccountApi,
+  getBankAccountListApi,
+  updateBankAccountApi,
+} from '#/api/core/bank-account';
 import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
@@ -276,7 +274,11 @@ const handleEditSubmit = async () => {
     if (chatUserInfoStr) {
       try {
         const chatUserInfo = JSON.parse(chatUserInfoStr);
-        editFormData.SEP_EUSER = chatUserInfo.user?.uName || chatUserInfo.uName || chatUserInfo.U_NAME || '';
+        editFormData.SEP_EUSER =
+          chatUserInfo.user?.uName ||
+          chatUserInfo.uName ||
+          chatUserInfo.U_NAME ||
+          '';
       } catch (error) {
         console.error('解析chat_user_info失败:', error);
       }
@@ -423,13 +425,15 @@ const formData = reactive({
   currency: '',
   balance: 0,
   khrq: '',
-  xhrq: null as string | null,
+  xhrq: null as null | string,
   zt: '启用',
 });
 
 // 表单验证规则
 const rules = {
-  account_name: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
+  account_name: [
+    { required: true, message: '请输入账户名称', trigger: 'blur' },
+  ],
   account_number: [{ required: true, message: '请输入账号', trigger: 'blur' }],
 };
 
@@ -451,8 +455,8 @@ const editFormData = reactive({
   currency: '',
   balance: 0,
   KHRQ: '',
-  XHRQ: null as string | null,
-  ZT: null as string | null,
+  XHRQ: null as null | string,
+  ZT: null as null | string,
 });
 
 // 账户类型选项
@@ -485,12 +489,12 @@ const defaultCurrencyOptions = [
 
 // 保存自定义币种到本地存储
 const saveCustomCurrency = (value) => {
-  if (!value || defaultCurrencyOptions.some(opt => opt.value === value)) {
+  if (!value || defaultCurrencyOptions.some((opt) => opt.value === value)) {
     return;
   }
-  
+
   const savedOptions = getSavedCurrencyOptions();
-  if (!savedOptions.some(opt => opt.value === value)) {
+  if (!savedOptions.some((opt) => opt.value === value)) {
     savedOptions.push({ label: value, value });
     localStorage.setItem('customCurrencyOptions', JSON.stringify(savedOptions));
     // 更新币种选项
@@ -501,18 +505,18 @@ const saveCustomCurrency = (value) => {
 // 删除自定义币种
 const deleteCustomCurrency = (value) => {
   // 不能删除默认币种
-  if (defaultCurrencyOptions.some(opt => opt.value === value)) {
+  if (defaultCurrencyOptions.some((opt) => opt.value === value)) {
     return;
   }
-  
+
   // 更新本地存储
   const savedOptions = getSavedCurrencyOptions();
-  const updatedOptions = savedOptions.filter(opt => opt.value !== value);
+  const updatedOptions = savedOptions.filter((opt) => opt.value !== value);
   localStorage.setItem('customCurrencyOptions', JSON.stringify(updatedOptions));
-  
+
   // 更新币种选项
   currencyOptions.value = [...defaultCurrencyOptions, ...updatedOptions];
-  
+
   // 如果当前选中的是被删除的币种，清空选择
   if (formData.currency === value) {
     formData.currency = '';
@@ -520,7 +524,10 @@ const deleteCustomCurrency = (value) => {
 };
 
 // 响应式币种选项
-const currencyOptions = ref([...defaultCurrencyOptions, ...getSavedCurrencyOptions()]);
+const currencyOptions = ref([
+  ...defaultCurrencyOptions,
+  ...getSavedCurrencyOptions(),
+]);
 
 // 打开新增账户弹窗
 const handleAddBankAccount = () => {
@@ -546,7 +553,11 @@ const handleSubmit = async () => {
     if (chatUserInfoStr) {
       try {
         const chatUserInfo = JSON.parse(chatUserInfoStr);
-        formData.sep_auser = chatUserInfo.user?.uName || chatUserInfo.uName || chatUserInfo.U_NAME || '';
+        formData.sep_auser =
+          chatUserInfo.user?.uName ||
+          chatUserInfo.uName ||
+          chatUserInfo.U_NAME ||
+          '';
       } catch (error) {
         console.error('解析chat_user_info失败:', error);
       }
@@ -611,469 +622,457 @@ const handleSubmit = async () => {
         </div>
       </template>
 
-        <!-- 数据表格 -->
-        <ElTable
-          v-loading="loading"
-          :data="bankAccountList"
-          :border="true"
-          :stripe="true"
-          :style="{ width: '100%' }"
+      <!-- 数据表格 -->
+      <ElTable
+        v-loading="loading"
+        :data="bankAccountList"
+        :border="true"
+        :stripe="true"
+        :style="{ width: '100%' }"
+      >
+        <!-- 行号列 -->
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+
+        <!-- 账户名称列 -->
+        <ElTableColumn
+          prop="account_name"
+          label="账户名称"
+          width="150"
+          show-overflow-tooltip
+        />
+
+        <!-- 银行名称列 -->
+        <ElTableColumn
+          prop="bank_name"
+          label="银行名称"
+          width="120"
+          show-overflow-tooltip
+        />
+
+        <!-- 账户号码列 -->
+        <ElTableColumn
+          prop="account_number"
+          label="账户号码"
+          width="180"
+          show-overflow-tooltip
+        />
+
+        <!-- 账户类型列 -->
+        <ElTableColumn
+          prop="account_type"
+          label="账户类型"
+          width="100"
+          align="center"
         >
-            <!-- 行号列 -->
-            <ElTableColumn type="index" label="序号" width="60" align="center" />
+          <template #default="{ row }">
+            <ElTag :type="getAccountType(row.account_type)" size="small">
+              {{ row.account_type }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
 
-            <!-- 账户名称列 -->
-            <ElTableColumn
-              prop="account_name"
-              label="账户名称"
-              width="150"
-              show-overflow-tooltip
-            />
+        <!-- 币种列 -->
+        <ElTableColumn
+          prop="currency"
+          label="币种"
+          width="120"
+          align="center"
+        />
 
-            <!-- 银行名称列 -->
-            <ElTableColumn
-              prop="bank_name"
-              label="银行名称"
-              width="120"
-              show-overflow-tooltip
-            />
+        <!-- 余额列 -->
+        <ElTableColumn prop="balance" label="余额" width="150" align="right">
+          <template #default="{ row }">
+            {{ formatCurrency(row.balance) }}
+          </template>
+        </ElTableColumn>
 
-            <!-- 账户号码列 -->
-            <ElTableColumn
-              prop="account_number"
-              label="账户号码"
-              width="180"
-              show-overflow-tooltip
-            />
+        <!-- 开户日期列 -->
+        <ElTableColumn prop="KHRQ" label="开户日期" width="120" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.KHRQ) }}
+          </template>
+        </ElTableColumn>
 
-            <!-- 账户类型列 -->
-            <ElTableColumn
-              prop="account_type"
-              label="账户类型"
-              width="100"
-              align="center"
+        <!-- 销户日期列 -->
+        <ElTableColumn prop="XHRQ" label="销户日期" width="120" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.XHRQ) }}
+          </template>
+        </ElTableColumn>
+
+        <!-- 状态列 -->
+        <ElTableColumn prop="ZT" label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <ElTag :type="getStatusType(row.ZT)" size="small">
+              {{ row.ZT }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+
+        <!-- 操作列 -->
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <ElButton
+              type="primary"
+              size="small"
+              @click="() => handleEditBankAccount(row)"
+              class="mr-2"
             >
-              <template #default="{ row }">
-                <ElTag :type="getAccountType(row.account_type)" size="small">
-                  {{ row.account_type }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 币种列 -->
-            <ElTableColumn
-              prop="currency"
-              label="币种"
-              width="120"
-              align="center"
-            />
-
-            <!-- 余额列 -->
-            <ElTableColumn
-              prop="balance"
-              label="余额"
-              width="150"
-              align="right"
+              <i class="i-lucide-edit mr-1"></i>
+              编辑
+            </ElButton>
+            <ElButton
+              type="danger"
+              size="small"
+              @click="() => handleDeleteBankAccount(row)"
             >
-              <template #default="{ row }">
-                {{ formatCurrency(row.balance) }}
-              </template>
-            </ElTableColumn>
+              <i class="i-lucide-trash-2 mr-1"></i>
+              删除
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
 
-            <!-- 开户日期列 -->
-            <ElTableColumn
-              prop="KHRQ"
-              label="开户日期"
-              width="120"
-              align="center"
-            >
-              <template #default="{ row }">
-                {{ formatDate(row.KHRQ) }}
-              </template>
-            </ElTableColumn>
+      <!-- 分页组件 -->
+      <div class="mt-4 flex justify-end">
+        <ElPagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.itemCount"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
 
-            <!-- 销户日期列 -->
-            <ElTableColumn
-              prop="XHRQ"
-              label="销户日期"
-              width="120"
-              align="center"
-            >
-              <template #default="{ row }">
-                {{ formatDate(row.XHRQ) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 状态列 -->
-            <ElTableColumn
-              prop="ZT"
-              label="状态"
-              width="100"
-              align="center"
-            >
-              <template #default="{ row }">
-                <ElTag :type="getStatusType(row.ZT)" size="small">
-                  {{ row.ZT }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 操作列 -->
-            <ElTableColumn label="操作" width="150" align="center" fixed="right">
-              <template #default="{ row }">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  @click="() => handleEditBankAccount(row)"
-                  class="mr-2"
+      <!-- 新增银行账户模态框 -->
+      <ElDialog
+        v-model="dialogVisible"
+        title="新增银行账户"
+        width="800px"
+        :before-close="handleCloseDialog"
+        class="bank-account-dialog"
+      >
+        <ElForm
+          ref="formRef"
+          :model="formData"
+          :rules="rules"
+          label-width="120px"
+          label-position="top"
+          class="bank-account-form"
+        >
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账户名称" prop="account_name">
+                <ElInput
+                  v-model="formData.account_name"
+                  placeholder="请输入账户名称"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="银行名称" prop="bank_name">
+                <ElInput
+                  v-model="formData.bank_name"
+                  placeholder="请输入银行名称"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账号" prop="account_number">
+                <ElInput
+                  v-model="formData.account_number"
+                  placeholder="请输入账号"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="账户类型" prop="account_type">
+                <ElSelect
+                  v-model="formData.account_type"
+                  placeholder="请选择账户类型"
+                  style="width: 100%"
+                  size="large"
                 >
-                  <i class="i-lucide-edit mr-1"></i>
-                  编辑
-                </ElButton>
-                <ElButton
-                  type="danger"
-                  size="small"
-                  @click="() => handleDeleteBankAccount(row)"
+                  <ElOption
+                    v-for="option in accountTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="币种" prop="currency">
+                <ElSelect
+                  v-model="formData.currency"
+                  placeholder="请选择或输入币种"
+                  style="width: 100%"
+                  size="large"
+                  filterable
+                  allow-create
+                  @change="(value) => saveCustomCurrency(value)"
                 >
-                  <i class="i-lucide-trash-2 mr-1"></i>
-                  删除
-                </ElButton>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-
-          <!-- 分页组件 -->
-          <div class="mt-4 flex justify-end">
-            <ElPagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="pagination.itemCount"
-              layout="total, sizes, prev, pager, next, jumper"
-              @size-change="handleSizeChange"
-              @current-change="handlePageChange"
-            />
-          </div>
-
-          <!-- 新增银行账户模态框 -->
-          <ElDialog
-            v-model="dialogVisible"
-            title="新增银行账户"
-            width="800px"
-            :before-close="handleCloseDialog"
-            class="bank-account-dialog"
-          >
-            <ElForm
-              ref="formRef"
-              :model="formData"
-              :rules="rules"
-              label-width="120px"
-              label-position="top"
-              class="bank-account-form"
-            >
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="账户名称" prop="account_name">
-                    <ElInput
-                      v-model="formData.account_name"
-                      placeholder="请输入账户名称"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="银行名称" prop="bank_name">
-                    <ElInput
-                      v-model="formData.bank_name"
-                      placeholder="请输入银行名称"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="账号" prop="account_number">
-                    <ElInput
-                      v-model="formData.account_number"
-                      placeholder="请输入账号"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="账户类型" prop="account_type">
-                    <ElSelect
-                      v-model="formData.account_type"
-                      placeholder="请选择账户类型"
-                      style="width: 100%"
-                      size="large"
-                    >
-                      <ElOption
-                        v-for="option in accountTypeOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="币种" prop="currency">
-                    <ElSelect
-                      v-model="formData.currency"
-                      placeholder="请选择或输入币种"
-                      style="width: 100%"
-                      size="large"
-                      filterable
-                      allow-create
-                      @change="(value) => saveCustomCurrency(value)"
-                    >
-                      <ElOption
-                        v-for="option in currencyOptions"
-                        :key="option.value"
-                        :value="option.value"
+                  <ElOption
+                    v-for="option in currencyOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>{{ option.label }}</span>
+                      <!-- 只有自定义币种才显示删除按钮 -->
+                      <ElButton
+                        v-if="
+                          !defaultCurrencyOptions.some(
+                            (opt) => opt.value === option.value,
+                          )
+                        "
+                        type="text"
+                        size="small"
+                        @click.stop="deleteCustomCurrency(option.value)"
+                        class="text-red-500 hover:text-red-700"
                       >
-                        <div class="flex items-center justify-between">
-                          <span>{{ option.label }}</span>
-                          <!-- 只有自定义币种才显示删除按钮 -->
-                          <ElButton
-                            v-if="!defaultCurrencyOptions.some(opt => opt.value === option.value)"
-                            type="text"
-                            size="small"
-                            @click.stop="deleteCustomCurrency(option.value)"
-                            class="text-red-500 hover:text-red-700"
-                          >
-                            <i class="i-lucide-x"></i>
-                          </ElButton>
-                        </div>
-                      </ElOption>
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="当前余额" prop="balance">
-                    <ElInputNumber
-                      v-model="formData.balance"
-                      :min="0"
-                      :precision="2"
-                      placeholder="请输入当前余额"
-                      size="large"
-                      style="width: 100%"
-                      :controls="false"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="开户日期" prop="khrq">
-                    <ElDatePicker
-                      v-model="formData.khrq"
-                      type="datetime"
-                      placeholder="请选择开户日期"
-                      style="width: 100%"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="销户日期">
-                    <ElDatePicker
-                      v-model="formData.xhrq"
-                      type="datetime"
-                      placeholder="请选择销户日期"
-                      style="width: 100%"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-            </ElForm>
+                        <i class="i-lucide-x"></i>
+                      </ElButton>
+                    </div>
+                  </ElOption>
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="当前余额" prop="balance">
+                <ElInputNumber
+                  v-model="formData.balance"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入当前余额"
+                  size="large"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="开户日期" prop="khrq">
+                <ElDatePicker
+                  v-model="formData.khrq"
+                  type="datetime"
+                  placeholder="请选择开户日期"
+                  style="width: 100%"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="销户日期">
+                <ElDatePicker
+                  v-model="formData.xhrq"
+                  type="datetime"
+                  placeholder="请选择销户日期"
+                  style="width: 100%"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
 
-            <template #footer>
-              <span class="dialog-footer">
-                <ElButton @click="handleCloseDialog">取消</ElButton>
-                <ElButton
-                  type="primary"
-                  @click="handleSubmit"
-                  :loading="formLoading"
-                >
-                  确定
-                </ElButton>
-              </span>
-            </template>
-          </ElDialog>
-
-          <!-- 编辑银行账户模态框 -->
-          <ElDialog
-            v-model="editDialogVisible"
-            title="编辑银行账户"
-            width="800px"
-            :before-close="handleCloseEditDialog"
-            class="bank-account-dialog"
-          >
-            <ElForm
-              ref="editFormRef"
-              :model="editFormData"
-              :rules="rules"
-              label-width="120px"
-              label-position="top"
-              class="bank-account-form"
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleSubmit"
+              :loading="formLoading"
             >
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="账户名称" prop="account_name">
-                    <ElInput
-                      v-model="editFormData.account_name"
-                      placeholder="请输入账户名称"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="银行名称" prop="bank_name">
-                    <ElInput
-                      v-model="editFormData.bank_name"
-                      placeholder="请输入银行名称"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="账号" prop="account_number">
-                    <ElInput
-                      v-model="editFormData.account_number"
-                      placeholder="请输入账号"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="账户类型" prop="account_type">
-                    <ElSelect
-                      v-model="editFormData.account_type"
-                      placeholder="请选择账户类型"
-                      style="width: 100%"
-                      size="large"
-                    >
-                      <ElOption
-                        v-for="option in accountTypeOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="币种" prop="currency">
-                    <ElSelect
-                      v-model="editFormData.currency"
-                      placeholder="请选择或输入币种"
-                      style="width: 100%"
-                      size="large"
-                      filterable
-                      allow-create
-                      @change="(value) => saveCustomCurrency(value)"
-                    >
-                      <ElOption
-                        v-for="option in currencyOptions"
-                        :key="option.value"
-                        :value="option.value"
-                      >
-                        <div class="flex items-center justify-between">
-                          <span>{{ option.label }}</span>
-                          <!-- 只有自定义币种才显示删除按钮 -->
-                          <ElButton
-                            v-if="!defaultCurrencyOptions.some(opt => opt.value === option.value)"
-                            type="text"
-                            size="small"
-                            @click.stop="deleteCustomCurrency(option.value)"
-                            class="text-red-500 hover:text-red-700"
-                          >
-                            <i class="i-lucide-x"></i>
-                          </ElButton>
-                        </div>
-                      </ElOption>
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="当前余额" prop="balance">
-                    <ElInputNumber
-                      v-model="editFormData.balance"
-                      :min="0"
-                      :precision="2"
-                      placeholder="请输入当前余额"
-                      size="large"
-                      style="width: 100%"
-                      :controls="false"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="开户日期">
-                    <ElDatePicker
-                      v-model="editFormData.KHRQ"
-                      type="datetime"
-                      placeholder="请选择开户日期"
-                      style="width: 100%"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :span="12">
-                  <ElFormItem label="销户日期">
-                    <ElDatePicker
-                      v-model="editFormData.XHRQ"
-                      type="datetime"
-                      placeholder="请选择销户日期"
-                      style="width: 100%"
-                      size="large"
-                    />
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-              <ElRow :gutter="30">
-                <ElCol :span="12">
-                  <ElFormItem label="状态">
-                    <ElSelect
-                      v-model="editFormData.ZT"
-                      placeholder="请选择状态"
-                      style="width: 100%"
-                      size="large"
-                    >
-                      <ElOption label="启用" value="启用" />
-                      <ElOption label="冻结" value="冻结" />
-                      <ElOption label="销户" value="销户" />
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-              </ElRow>
-            </ElForm>
+              确定
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
 
-            <template #footer>
-              <span class="dialog-footer">
-                <ElButton @click="handleCloseEditDialog">取消</ElButton>
-                <ElButton
-                  type="primary"
-                  @click="handleEditSubmit"
-                  :loading="editFormLoading"
+      <!-- 编辑银行账户模态框 -->
+      <ElDialog
+        v-model="editDialogVisible"
+        title="编辑银行账户"
+        width="800px"
+        :before-close="handleCloseEditDialog"
+        class="bank-account-dialog"
+      >
+        <ElForm
+          ref="editFormRef"
+          :model="editFormData"
+          :rules="rules"
+          label-width="120px"
+          label-position="top"
+          class="bank-account-form"
+        >
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账户名称" prop="account_name">
+                <ElInput
+                  v-model="editFormData.account_name"
+                  placeholder="请输入账户名称"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="银行名称" prop="bank_name">
+                <ElInput
+                  v-model="editFormData.bank_name"
+                  placeholder="请输入银行名称"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账号" prop="account_number">
+                <ElInput
+                  v-model="editFormData.account_number"
+                  placeholder="请输入账号"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="账户类型" prop="account_type">
+                <ElSelect
+                  v-model="editFormData.account_type"
+                  placeholder="请选择账户类型"
+                  style="width: 100%"
+                  size="large"
                 >
-                  确定
-                </ElButton>
-              </span>
-            </template>
-          </ElDialog>
+                  <ElOption
+                    v-for="option in accountTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="币种" prop="currency">
+                <ElSelect
+                  v-model="editFormData.currency"
+                  placeholder="请选择或输入币种"
+                  style="width: 100%"
+                  size="large"
+                  filterable
+                  allow-create
+                  @change="(value) => saveCustomCurrency(value)"
+                >
+                  <ElOption
+                    v-for="option in currencyOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>{{ option.label }}</span>
+                      <!-- 只有自定义币种才显示删除按钮 -->
+                      <ElButton
+                        v-if="
+                          !defaultCurrencyOptions.some(
+                            (opt) => opt.value === option.value,
+                          )
+                        "
+                        type="text"
+                        size="small"
+                        @click.stop="deleteCustomCurrency(option.value)"
+                        class="text-red-500 hover:text-red-700"
+                      >
+                        <i class="i-lucide-x"></i>
+                      </ElButton>
+                    </div>
+                  </ElOption>
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="当前余额" prop="balance">
+                <ElInputNumber
+                  v-model="editFormData.balance"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入当前余额"
+                  size="large"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="开户日期">
+                <ElDatePicker
+                  v-model="editFormData.KHRQ"
+                  type="datetime"
+                  placeholder="请选择开户日期"
+                  style="width: 100%"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="销户日期">
+                <ElDatePicker
+                  v-model="editFormData.XHRQ"
+                  type="datetime"
+                  placeholder="请选择销户日期"
+                  style="width: 100%"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="状态">
+                <ElSelect
+                  v-model="editFormData.ZT"
+                  placeholder="请选择状态"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption label="启用" value="启用" />
+                  <ElOption label="冻结" value="冻结" />
+                  <ElOption label="销户" value="销户" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseEditDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleEditSubmit"
+              :loading="editFormLoading"
+            >
+              确定
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>

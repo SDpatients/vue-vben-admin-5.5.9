@@ -446,15 +446,15 @@ onMounted(() => {
 .announcement-item {
   padding: 20px;
   margin-bottom: 16px;
+  background-color: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.3s;
-  background-color: #fff;
 }
 
 .announcement-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 .announcement-header {
@@ -466,14 +466,14 @@ onMounted(() => {
 
 .title-section {
   display: flex;
-  align-items: center;
   flex: 1;
+  align-items: center;
 }
 
 .top-icon {
   margin-right: 8px;
-  color: #ef4444;
   font-size: 18px;
+  color: #ef4444;
 }
 
 .announcement-title {
@@ -486,8 +486,8 @@ onMounted(() => {
 .announcement-meta {
   display: flex;
   gap: 24px;
-  color: #6b7280;
   font-size: 14px;
+  color: #6b7280;
 }
 
 .meta-item {
@@ -501,9 +501,9 @@ onMounted(() => {
 }
 
 .pagination-container {
-  margin-top: 24px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 24px;
 }
 
 .announcement-detail {
@@ -529,9 +529,9 @@ onMounted(() => {
 }
 
 .meta-row .label {
+  min-width: 80px;
   font-weight: 600;
   color: #374151;
-  min-width: 80px;
 }
 
 .detail-body {
@@ -539,11 +539,11 @@ onMounted(() => {
 }
 
 .section-title {
-  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
-  padding-bottom: 8px;
   border-bottom: 2px solid #e5e7eb;
 }
 
@@ -563,7 +563,7 @@ onMounted(() => {
 }
 
 .status-tag {
-  color: #000000 !important;
+  color: #000 !important;
 }
 
 /* 附件列表样式 */
@@ -577,21 +577,21 @@ onMounted(() => {
   justify-content: space-between;
   padding: 12px 16px;
   margin-bottom: 12px;
+  background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background-color: #f9fafb;
   transition: all 0.3s;
 }
 
 .attachment-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .attachment-info {
   display: flex;
-  align-items: center;
   flex: 1;
+  align-items: center;
 }
 
 .file-icon {

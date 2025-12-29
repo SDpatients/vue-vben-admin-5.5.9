@@ -211,7 +211,7 @@ onMounted(() => {
           <el-radio-group
             v-model="selectedPayMethod"
             class="payment-method-list"
-            >
+          >
             <el-radio-button value="alipay" class="payment-method-item">
               <div class="method-content">
                 <el-icon><Money /></el-icon>
@@ -326,23 +326,23 @@ onMounted(() => {
 
 <style scoped>
 .payment-detail-page {
+  min-height: 100vh;
   padding: 20px;
   background-color: #f5f7fa;
-  min-height: 100vh;
 }
 
 .page-header {
-  margin-bottom: 20px;
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .page-header h1 {
+  margin: 0;
   font-size: 24px;
   font-weight: 600;
   color: #333;
-  margin: 0;
 }
 
 .payment-detail-content {
@@ -358,14 +358,14 @@ onMounted(() => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .card-header h2 {
+  margin: 0;
   font-size: 18px;
   font-weight: 500;
-  margin: 0;
   color: #333;
 }
 
@@ -392,9 +392,9 @@ onMounted(() => {
 }
 
 .amount {
-  color: #f56c6c;
-  font-weight: 600;
   font-size: 16px;
+  font-weight: 600;
+  color: #f56c6c;
 }
 
 .payment-methods {
@@ -407,18 +407,18 @@ onMounted(() => {
 }
 
 .payment-method-item {
-  flex: 1;
-  height: 80px;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
+  height: 80px;
 }
 
 .method-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   font-size: 14px;
 }
 
@@ -429,8 +429,8 @@ onMounted(() => {
 .payment-action {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
   padding-top: 20px;
+  margin-top: 20px;
   border-top: 1px solid #ebeef5;
 }
 
@@ -453,16 +453,16 @@ onMounted(() => {
 }
 
 .payment-success-info h3 {
+  margin-bottom: 30px;
   font-size: 20px;
   color: #303133;
-  margin-bottom: 30px;
 }
 
 .success-detail {
-  margin-bottom: 30px;
-  text-align: left;
   max-width: 300px;
   margin: 0 auto 30px;
+  margin-bottom: 30px;
+  text-align: left;
 }
 
 .detail-row {
@@ -477,8 +477,8 @@ onMounted(() => {
 }
 
 .detail-value {
-  color: #303133;
   font-weight: 500;
+  color: #303133;
 }
 
 .back-button {
@@ -492,26 +492,26 @@ onMounted(() => {
 }
 
 .qr-code-info {
-  text-align: center;
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .qr-code-info h3 {
-  font-size: 18px;
   margin-bottom: 10px;
+  font-size: 18px;
   color: #303133;
 }
 
 .qr-code-info p {
-  color: #606266;
   margin-bottom: 10px;
+  color: #606266;
 }
 
 .qr-code-amount {
+  margin-top: 10px;
   font-size: 16px;
   font-weight: 600;
   color: #f56c6c;
-  margin-top: 10px;
 }
 
 .qr-code {
@@ -521,15 +521,15 @@ onMounted(() => {
 }
 
 .mock-qr-code {
-  width: 200px;
-  height: 200px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 200px;
+  height: 200px;
   font-size: 14px;
   color: #666;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
 }
 
 .mock-qr-content {
@@ -538,9 +538,9 @@ onMounted(() => {
 }
 
 .qr-code-tip {
-  text-align: center;
-  color: #909399;
   font-size: 12px;
+  color: #909399;
+  text-align: center;
 }
 
 .dialog-footer {

@@ -10,7 +10,13 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { ElNotification } from 'element-plus';
 import { defineStore } from 'pinia';
 
-import { getUserInfoApi, loginApi, logoutApi } from '#/api';
+import {
+  getCurrentUserApi,
+  getPermissionsApi,
+  getUserInfoApi,
+  loginApi,
+  logoutApi,
+} from '#/api';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -42,23 +48,28 @@ export const useAuthStore = defineStore('auth', () => {
 
         // 将用户信息转换为系统需要的格式
         userInfo = {
-          userId: backendUserInfo.U_USER,
-          username: backendUserInfo.U_USER,
-          realName: backendUserInfo.U_NAME,
+          userId: backendUserInfo.user.uUser,
+          username: backendUserInfo.user.uUser,
+          realName: backendUserInfo.user.uName,
           homePath: preferences.app.defaultHomePath,
           avatar: '', // 默认头像
           desc: '', // 用户描述
-          token: backendUserInfo.token, // 使用后端返回的accessToken
-          // 其他必要字段
+          token: backendUserInfo.accessToken, // 使用后端返回的accessToken
+          refreshToken: backendUserInfo.refreshToken, // 使用后端返回的refreshToken
+          accessTokenExpire: backendUserInfo.accessTokenExpire,
+          refreshTokenExpire: backendUserInfo.refreshTokenExpire,
+          roles: [],
+          permissions: [],
         };
 
-        // 设置从后端获取的accessToken
-        accessStore.setAccessToken(backendUserInfo.token);
+        // 设置从后端获取的accessToken和refreshToken
+        accessStore.setAccessToken(backendUserInfo.accessToken);
+        accessStore.setRefreshToken(backendUserInfo.refreshToken);
 
         // 设置用户信息
         userStore.setUserInfo(userInfo);
 
-        // 设置模拟权限码
+        // 设置权限码
         accessStore.setAccessCodes(['admin']);
 
         if (accessStore.loginExpired) {
@@ -82,9 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
       } else {
         // 登录失败，显示错误信息
-        const errorMsg =
-          result?.error ||
-          $t('authentication.passwordErrorTip');
+        const errorMsg = result?.error || $t('authentication.passwordErrorTip');
         ElNotification({
           message: errorMsg,
           title: '登录失败',
@@ -129,9 +138,59 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchUserInfo() {
     let userInfo: null | UserInfo = null;
-    userInfo = await getUserInfoApi();
-    userStore.setUserInfo(userInfo);
+    try {
+      userInfo = await getUserInfoApi();
+      userStore.setUserInfo(userInfo);
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+    }
     return userInfo;
+  }
+
+  /**
+   * 获取当前用户信息（从后端API）
+   */
+  async function fetchCurrentUser() {
+    try {
+      const result = await getCurrentUserApi();
+      if (result && result.status === '1' && result.data) {
+        const backendUserInfo = result.data;
+        const userInfo: UserInfo = {
+          userId: backendUserInfo.uUser,
+          username: backendUserInfo.uUser,
+          realName: backendUserInfo.uName,
+          homePath: preferences.app.defaultHomePath,
+          avatar: '',
+          desc: '',
+          token: accessStore.accessToken || '',
+          refreshToken: accessStore.refreshToken || '',
+          roles: [],
+          permissions: [],
+        };
+        userStore.setUserInfo(userInfo);
+        return userInfo;
+      }
+    } catch (error) {
+      console.error('获取当前用户信息失败:', error);
+    }
+    return null;
+  }
+
+  /**
+   * 获取用户权限信息
+   */
+  async function fetchPermissions() {
+    try {
+      const result = await getPermissionsApi();
+      if (result && result.status === '1' && result.data) {
+        const { permissions, menus } = result.data;
+        accessStore.setAccessCodes(permissions || []);
+        return { permissions, menus };
+      }
+    } catch (error) {
+      console.error('获取权限信息失败:', error);
+    }
+    return null;
   }
 
   function $reset() {
@@ -141,6 +200,8 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     $reset,
     authLogin,
+    fetchCurrentUser,
+    fetchPermissions,
     fetchUserInfo,
     loginLoading,
     logout,

@@ -32,7 +32,12 @@ const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
 // 模拟API调用函数
-const mockApiCall = async (taskType: string, caseId: string, page: number, size: number) => {
+const mockApiCall = async (
+  taskType: string,
+  caseId: string,
+  page: number,
+  size: number,
+) => {
   // 模拟API响应
   return {
     status: '1',
@@ -49,7 +54,8 @@ const taskConfig = [
     key: 'claimFiling',
     name: '债权申报',
     icon: 'lucide:file-text',
-    api: (caseId: string, page: number, size: number) => mockApiCall('claimFiling', caseId, page, size),
+    api: (caseId: string, page: number, size: number) =>
+      mockApiCall('claimFiling', caseId, page, size),
     fields: [
       { label: '申报人', prop: '申报人' },
       { label: '申报金额', prop: '申报金额' },
@@ -62,7 +68,8 @@ const taskConfig = [
     key: 'assetInvestigation',
     name: '资产调查',
     icon: 'lucide:search',
-    api: (caseId: string, page: number, size: number) => mockApiCall('assetInvestigation', caseId, page, size),
+    api: (caseId: string, page: number, size: number) =>
+      mockApiCall('assetInvestigation', caseId, page, size),
     fields: [
       { label: '资产类型', prop: '资产类型' },
       { label: '资产名称', prop: '资产名称' },
@@ -75,7 +82,8 @@ const taskConfig = [
     key: 'claimReview',
     name: '债权审核',
     icon: 'lucide:check-circle',
-    api: (caseId: string, page: number, size: number) => mockApiCall('claimReview', caseId, page, size),
+    api: (caseId: string, page: number, size: number) =>
+      mockApiCall('claimReview', caseId, page, size),
     fields: [
       { label: '申报人', prop: '申报人' },
       { label: '申报金额', prop: '申报金额' },
@@ -88,7 +96,8 @@ const taskConfig = [
     key: 'meetingPreparation',
     name: '债权人会议准备',
     icon: 'lucide:calendar',
-    api: (caseId: string, page: number, size: number) => mockApiCall('meetingPreparation', caseId, page, size),
+    api: (caseId: string, page: number, size: number) =>
+      mockApiCall('meetingPreparation', caseId, page, size),
     fields: [
       { label: '准备事项', prop: '准备事项' },
       { label: '负责人', prop: '负责人' },
@@ -269,8 +278,12 @@ onMounted(() => {
           <div class="stage-info">
             <Icon icon="lucide:search" class="stage-icon" />
             <div>
-              <h2 class="stage-title">阶段三：管理人调查审查破产企业至第一次债权人会议前工作</h2>
-              <p class="stage-description">完成债权申报、资产调查、债权审核和第一次债权人会议准备等工作</p>
+              <h2 class="stage-title">
+                阶段三：管理人调查审查破产企业至第一次债权人会议前工作
+              </h2>
+              <p class="stage-description">
+                完成债权申报、资产调查、债权审核和第一次债权人会议准备等工作
+              </p>
             </div>
           </div>
         </div>
@@ -307,7 +320,9 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                    <span class="progress-text"
+                      >{{ getTaskProgress(task) }}%</span
+                    >
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -446,19 +461,19 @@ onMounted(() => {
 
 .stage-info {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
+  align-items: flex-start;
 }
 
 .stage-icon {
+  flex-shrink: 0;
   width: 48px;
   height: 48px;
   color: #909399;
-  flex-shrink: 0;
 }
 
 .stage-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
   color: #1f2937;
@@ -489,8 +504,8 @@ onMounted(() => {
 }
 
 .task-card:hover {
+  box-shadow: 0 8px 16px rgb(0 0 0 / 10%);
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .task-card-header {
@@ -501,8 +516,8 @@ onMounted(() => {
 
 .task-title {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   font-weight: 600;
   color: #1f2937;
 }
@@ -560,15 +575,15 @@ onMounted(() => {
 }
 
 .task-table {
-  font-size: 13px;
   min-width: 800px;
+  font-size: 13px;
 }
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .action-buttons .el-button {
@@ -577,8 +592,8 @@ onMounted(() => {
 }
 
 .empty-task {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
   min-height: 100px;

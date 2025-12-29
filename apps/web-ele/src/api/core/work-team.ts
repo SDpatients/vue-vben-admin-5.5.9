@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export namespace WorkTeamApi {
   /** 工作团队查询参数 */
@@ -55,8 +55,8 @@ export namespace WorkTeamApi {
     // 必须的参数
     SEP_EUSER: string;
     SEP_EDATE: string;
-    OperateType: string | number;
-    
+    OperateType: number | string;
+
     // 可选参数
     SEP_ID?: string;
     SEP_LD?: string;
@@ -67,7 +67,7 @@ export namespace WorkTeamApi {
     ZQSHZCY?: string;
     LDRSZCY?: string;
     ZZQLZCY?: string;
-    ZT?: string | number;
+    ZT?: number | string;
     JHLX?: string;
     JHNR?: string;
     KSRQ?: string;
@@ -111,7 +111,7 @@ export async function getWorkTeamListApi(
   const apiUrl = params.TDFZR
     ? '/api/web/getAllWorkTeam'
     : '/api/web/getWorkTeamBaseView';
-  return requestClient.get<WorkTeamApi.WorkTeamListResponse>(apiUrl, {
+  return requestClient8085.get<WorkTeamApi.WorkTeamListResponse>(apiUrl, {
     params: {
       ...params,
       token,
@@ -124,7 +124,7 @@ export async function getWorkTeamListApi(
  */
 export async function addWorkTeamApi(data: WorkTeamApi.AddWorkTeamRequest) {
   const token = 'f438aa4e6ec2436a8b6adf70f0062670';
-  return requestClient.post<WorkTeamApi.AddWorkTeamResponse>(
+  return requestClient8085.post<WorkTeamApi.AddWorkTeamResponse>(
     '/api/web/addWorkTeam',
     [data],
     {
@@ -140,14 +140,14 @@ export async function addWorkTeamApi(data: WorkTeamApi.AddWorkTeamRequest) {
  */
 export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
   const token = 'f438aa4e6ec2436a8b6adf70f0062670';
-  
+
   // 确保只传递后端需要的参数
   const filteredData = {
     // 必须的参数
     SEP_EUSER: data.SEP_EUSER,
     SEP_EDATE: data.SEP_EDATE,
     OperateType: data.OperateType,
-    
+
     // 可选参数，只传递存在的值
     ...(data.SEP_ID && { SEP_ID: data.SEP_ID }),
     ...(data.SEP_LD && { SEP_LD: data.SEP_LD }),
@@ -177,8 +177,8 @@ export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
     ...(data.CXNR && { CXNR: data.CXNR }),
     ...(data.ZHRQ && { ZHRQ: data.ZHRQ }),
   };
-  
-  return requestClient.post<WorkTeamApi.UpdateWorkTeamResponse>(
+
+  return requestClient8085.post<WorkTeamApi.UpdateWorkTeamResponse>(
     '/api/web/update1',
     filteredData,
     {

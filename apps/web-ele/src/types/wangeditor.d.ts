@@ -1,21 +1,26 @@
 declare module '@wangeditor/editor-for-vue' {
+  import type {
+    IDomEditor,
+    IEditorConfig,
+    IToolbarConfig,
+  } from '@wangeditor/editor';
+
   import type { DefineComponent } from 'vue';
-  import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor';
 
   export const Editor: DefineComponent<{
     defaultConfig?: Partial<IEditorConfig>;
     defaultHtml?: string;
-    mode?: 'default' | 'simple';
-    style?: Record<string, any>;
-    readonly?: boolean;
     disabled?: boolean;
-    value?: string;
+    mode?: 'default' | 'simple';
     modelValue?: string;
+    readonly?: boolean;
+    style?: Record<string, any>;
+    value?: string;
   }>;
 
   export const Toolbar: DefineComponent<{
-    editor?: IDomEditor;
     defaultConfig?: Partial<IToolbarConfig>;
+    editor?: IDomEditor;
     mode?: 'default' | 'simple';
     style?: Record<string, any>;
   }>;

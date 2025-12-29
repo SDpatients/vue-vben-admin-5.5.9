@@ -52,9 +52,13 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   async function doRefreshToken() {
     const accessStore = useAccessStore();
     const resp = await refreshTokenApi();
-    const newToken = resp.data;
-    accessStore.setAccessToken(newToken);
-    return newToken;
+    if (resp && resp.status === '1' && resp.data) {
+      const newTokens = resp.data;
+      accessStore.setAccessToken(newTokens.accessToken);
+      accessStore.setRefreshToken(newTokens.refreshToken);
+      return newTokens.accessToken;
+    }
+    throw new Error('Failed to refresh token');
   }
 
   function formatToken(token: null | string) {
@@ -72,6 +76,11 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   client.addRequestInterceptor({
     fulfilled: async (config) => {
       config.headers['Accept-Language'] = preferences.app.locale;
+      // 添加JWT令牌到请求头
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
       return config;
     },
   });
@@ -128,21 +137,52 @@ export const chatRequestClient = createRequestClient(
   },
 );
 
-// 文件上传API客户端，使用独立的配置
-export const fileUploadRequestClient = createRequestClient(
-  'http://192.168.0.120:8080',
-  {
-    responseReturn: 'body',
+// 8085端口API客户端（不进行Token校验）
+export const requestClient8085 = new RequestClient({
+  baseURL: 'http://192.168.0.120:8085',
+  responseReturn: 'body',
+});
+
+// 为8085端口客户端添加简单的请求头处理（不包含Token）
+requestClient8085.addRequestInterceptor({
+  fulfilled: async (config) => {
+    config.headers['Accept-Language'] = preferences.app.locale;
+    return config;
   },
+});
+
+// 处理返回的响应数据格式（8085端口）
+requestClient8085.addResponseInterceptor(
+  defaultResponseInterceptor({
+    codeField: 'status',
+    dataField: 'data',
+    successCode: '1',
+  }),
 );
 
+// 8085端口的错误处理（不包含Token过期处理）
+requestClient8085.addResponseInterceptor(
+  errorMessageResponseInterceptor((msg: string, error) => {
+    const responseData = error?.response?.data ?? {};
+    const errorMessage = responseData?.error ?? responseData?.message ?? '';
+    ElMessage.error(errorMessage || msg);
+  }),
+);
+
+// 文件上传API客户端，使用环境变量中的API URL，通过Vite代理
+export const fileUploadRequestClient = createRequestClient(apiURL, {
+  responseReturn: 'body',
+});
+
 // 为文件上传API客户端添加JWT请求拦截器
-// 固定的JWT令牌值
-const JWT_TOKEN = 'lawchatsecretkey';
 fileUploadRequestClient.addRequestInterceptor({
   fulfilled: (config) => {
+    // 从localStorage获取动态的JWT令牌
+    const token = localStorage.getItem('token');
     // 将JWT令牌添加到请求头
-    config.headers.Authorization = `Bearer ${JWT_TOKEN}`;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
 });

@@ -473,9 +473,9 @@ const handleDownload = async (file: UploadFile) => {
 }
 
 .file-list-title {
-  margin-bottom: 1rem;
   display: flex;
   align-items: center;
+  margin-bottom: 1rem;
 }
 
 .file-list {
@@ -504,10 +504,10 @@ const handleDownload = async (file: UploadFile) => {
 
 .file-preview-dialog {
   .file-viewer {
-    min-height: 60vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 60vh;
   }
 
   .preview-iframe {
@@ -523,16 +523,16 @@ const handleDownload = async (file: UploadFile) => {
   }
 
   .preview-unsupported {
-    color: #909399;
     font-size: 14px;
+    color: #909399;
     text-align: center;
   }
 
   .preview-error {
-    color: #f56c6c;
-    font-size: 14px;
-    text-align: center;
     margin-top: 10px;
+    font-size: 14px;
+    color: #f56c6c;
+    text-align: center;
   }
 }
 </style>

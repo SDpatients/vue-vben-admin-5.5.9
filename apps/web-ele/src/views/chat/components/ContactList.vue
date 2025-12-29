@@ -235,18 +235,18 @@ function handleGroupClick(groupId: number) {
 /* 联系人列表样式 */
 .contact-items {
   flex: 1;
-  overflow-y: auto;
   padding: 8px 0;
+  overflow-y: auto;
 }
 
 .contact-item {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  border-radius: 4px;
   margin: 0 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
 }
 
 .contact-item:hover {
@@ -261,8 +261,8 @@ function handleGroupClick(groupId: number) {
 
 .online-indicator {
   position: absolute;
-  bottom: 0;
   right: 0;
+  bottom: 0;
   width: 10px;
   height: 10px;
   background-color: #67c23a;
@@ -277,25 +277,25 @@ function handleGroupClick(groupId: number) {
 }
 
 .contact-name {
+  margin-bottom: 4px;
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  margin-bottom: 4px;
 }
 
 .contact-last-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: #909399;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* 时间样式 */
 .contact-time {
+  margin-left: 8px;
   font-size: 12px;
   color: #c0c4cc;
-  margin-left: 8px;
 }
 
 /* 空状态样式 */
@@ -309,8 +309,8 @@ function handleGroupClick(groupId: number) {
 }
 
 .empty-icon {
-  font-size: 48px;
   margin-bottom: 8px;
+  font-size: 48px;
   opacity: 0.5;
 }
 

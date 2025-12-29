@@ -1,5 +1,5 @@
 import { downloadFileApi } from '#/api/core/file';
-import { fileUploadRequestClient, requestClient } from '#/api/request';
+import { fileUploadRequestClient, requestClient8085 } from '#/api/request';
 
 export namespace CaseApi {
   /** 案件查询参数 */
@@ -218,9 +218,12 @@ export interface CaseDetailResponse {
  * 获取案件列表
  */
 export async function getCaseListApi(params: CaseApi.CaseQueryParams) {
-  return requestClient.get<CaseApi.CaseListResponse>('/api/web/selectAllCase', {
-    params,
-  });
+  return requestClient8085.get<CaseApi.CaseListResponse>(
+    '/api/web/selectAllCase',
+    {
+      params,
+    },
+  );
 }
 
 /**
@@ -228,7 +231,7 @@ export async function getCaseListApi(params: CaseApi.CaseQueryParams) {
  */
 export async function getCaseDetailApi(serialNumber: string) {
   const token = '2855cad9ddb695a4ce1210e79a14b66e';
-  return requestClient.get<CaseDetailResponse>('/api/web/selectOneCase', {
+  return requestClient8085.get<CaseDetailResponse>('/api/web/selectOneCase', {
     params: {
       token,
       SEP_ID: serialNumber,
@@ -241,7 +244,7 @@ export async function getCaseDetailApi(serialNumber: string) {
  */
 export async function addOneCaseApi(data: CaseApi.AddCaseRequest) {
   // 将数据包装为数组格式，符合后端要求的[{}]格式
-  return requestClient.post<CaseApi.AddCaseResponse>(
+  return requestClient8085.post<CaseApi.AddCaseResponse>(
     '/api/web/AddOneCase',
     [data],
     {
@@ -364,10 +367,8 @@ export async function downloadCaseFileApi(fileId: number) {
  * 获取案件处理进度数据
  */
 export async function getCaseProgressApi() {
-  const token =
-    localStorage.getItem('token') ||
-    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
-  return requestClient.get<CaseApi.CaseProgressResponse>(
+  const token = '03f07901573e624060991494b3a22422';
+  return requestClient8085.get<CaseApi.CaseProgressResponse>(
     '/api/web/selectAllCaseFor',
     {
       params: {
@@ -381,9 +382,8 @@ export async function getCaseProgressApi() {
  * 更新案件信息
  */
 export async function updateCaseApi(data: CaseApi.UpdateCaseRequest) {
-  const token =
-    localStorage.getItem('token') || 'a3316d20162a989af32e03994a662ca9';
-  return requestClient.post<CaseApi.UpdateCaseResponse>(
+  const token = '03f07901573e624060991494b3a22422';
+  return requestClient8085.post<CaseApi.UpdateCaseResponse>(
     '/api/web/updateBCase',
     data,
     {

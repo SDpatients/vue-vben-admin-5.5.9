@@ -15,6 +15,31 @@ interface UserInfo extends BasicUserInfo {
    * accessToken
    */
   token: string;
+
+  /**
+   * refreshToken
+   */
+  refreshToken?: string;
+
+  /**
+   * accessToken过期时间
+   */
+  accessTokenExpire?: number;
+
+  /**
+   * refreshToken过期时间
+   */
+  refreshTokenExpire?: number;
+
+  /**
+   * 权限列表
+   */
+  permissions?: string[];
+
+  /**
+   * 角色列表
+   */
+  roles?: string[];
 }
 
 export type { UserInfo };

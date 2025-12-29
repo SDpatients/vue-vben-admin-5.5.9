@@ -241,7 +241,16 @@ function formatTime(dateString: string) {
 </template>
 
 <style scoped>
-/* 联系人列表样式 */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .contact-list-container {
   display: flex;
   flex-direction: column;
@@ -262,11 +271,11 @@ function formatTime(dateString: string) {
 }
 
 .group-item h4 {
-  margin: 0 0 8px 0;
+  padding: 0 8px;
+  margin: 0 0 8px;
   font-size: 14px;
   font-weight: 600;
   color: #606266;
-  padding: 0 8px;
 }
 
 .contact-items {
@@ -279,8 +288,8 @@ function formatTime(dateString: string) {
   display: flex;
   align-items: center;
   padding: 12px 8px;
-  border-radius: 8px;
   cursor: pointer;
+  border-radius: 8px;
   transition: background-color 0.2s;
 }
 
@@ -299,26 +308,26 @@ function formatTime(dateString: string) {
 
 .contact-name {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  margin-bottom: 4px;
 }
 
 .contact-last-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: #909399;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .contact-time {
+  margin-left: 8px;
   font-size: 12px;
   color: #c0c4cc;
-  margin-left: 8px;
 }
 
 /* 会话列表样式 */
@@ -330,8 +339,8 @@ function formatTime(dateString: string) {
 
 .session-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
@@ -343,11 +352,11 @@ function formatTime(dateString: string) {
 }
 
 .session-items {
-  flex: 1;
-  overflow-y: auto;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
 }
 
 /* 状态样式 */
@@ -365,8 +374,8 @@ function formatTime(dateString: string) {
 .loading-icon,
 .error-icon,
 .empty-icon {
-  font-size: 48px;
   margin-bottom: 16px;
+  font-size: 48px;
 }
 
 .loading-icon {
@@ -377,23 +386,14 @@ function formatTime(dateString: string) {
   color: #f56c6c;
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .session-item {
   display: flex;
   align-items: center;
   padding: 12px 8px;
-  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
   background-color: #fff;
+  border-radius: 8px;
+  transition: background-color 0.2s;
 }
 
 .session-item:hover {
@@ -415,8 +415,8 @@ function formatTime(dateString: string) {
 
 .session-name-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 4px;
 }
 
@@ -433,51 +433,51 @@ function formatTime(dateString: string) {
 
 .session-last-message-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .session-last-message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: #909399;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
 }
 
 /* 欢迎页面样式 */
 .welcome-container {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   height: 100%;
   background-color: #f5f7fa;
 }
 
 .welcome-content {
-  text-align: center;
   padding: 40px;
+  text-align: center;
   background-color: #fff;
   border-radius: 16px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
 }
 
 .welcome-icon {
+  margin-bottom: 16px;
   font-size: 64px;
   color: #408aed;
-  margin-bottom: 16px;
 }
 
 .welcome-content h2 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 24px;
   font-weight: 600;
   color: #303133;
 }
 
 .welcome-content p {
-  margin: 0 0 24px 0;
+  margin: 0 0 24px;
   font-size: 16px;
   color: #606266;
 }
@@ -487,4 +487,6 @@ function formatTime(dateString: string) {
   gap: 12px;
   justify-content: center;
 }
+
+/* 联系人列表样式 */
 </style>

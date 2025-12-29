@@ -14,9 +14,9 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
   ElSelect,
-  ElOption,
   ElTable,
   ElTableColumn,
   ElTag,
@@ -38,7 +38,7 @@ const pagination = ref({
 const editDialogVisible = ref(false);
 const editFormRef = ref();
 const editFormLoading = ref(false);
-const editingRow = ref<WorkPlanApi.WorkPlanInfo | null>(null);
+const editingRow = ref<null | WorkPlanApi.WorkPlanInfo>(null);
 
 // 编辑表单数据
 const editFormData = ref({
@@ -47,19 +47,23 @@ const editFormData = ref({
   SEP_EDATE: '',
   plan_type: '',
   plan_content: '',
-  start_date: null as string | null,
-  end_date: null as string | null,
+  start_date: null as null | string,
+  end_date: null as null | string,
   responsible_person: '',
   plan_status: '',
-  case_number: null as string | null,
-  case_name: null as string | null,
+  case_number: null as null | string,
+  case_name: null as null | string,
 });
 
 // 表单验证规则
 const rules = {
   plan_type: [{ required: true, message: '请输入计划类型', trigger: 'blur' }],
-  plan_content: [{ required: true, message: '请输入计划内容', trigger: 'blur' }],
-  responsible_person: [{ required: true, message: '请输入负责人', trigger: 'blur' }],
+  plan_content: [
+    { required: true, message: '请输入计划内容', trigger: 'blur' },
+  ],
+  responsible_person: [
+    { required: true, message: '请输入负责人', trigger: 'blur' },
+  ],
   plan_status: [{ required: true, message: '请选择状态', trigger: 'blur' }],
 };
 
@@ -76,7 +80,12 @@ const getCurrentUserName = () => {
   if (chatUserInfoStr) {
     try {
       const chatUserInfo = JSON.parse(chatUserInfoStr);
-      return chatUserInfo.user?.uName || chatUserInfo.uName || chatUserInfo.U_NAME || '';
+      return (
+        chatUserInfo.user?.uName ||
+        chatUserInfo.uName ||
+        chatUserInfo.U_NAME ||
+        ''
+      );
     } catch (error) {
       console.error('解析chat_user_info失败:', error);
     }
@@ -154,14 +163,18 @@ const formatDate = (dateString: null | string) => {
 // 根据状态值获取状态文本
 const getStatusText = (status: string) => {
   switch (status) {
-    case '0':
+    case '0': {
       return '待执行';
-    case '1':
+    }
+    case '1': {
       return '已执行';
-    case '2':
+    }
+    case '2': {
       return '完成';
-    default:
+    }
+    default: {
       return '待执行';
+    }
   }
 };
 
@@ -325,7 +338,9 @@ const handleEditSubmit = async () => {
           align="center"
         >
           <template #default="{ row }">
-            <span v-if="row.responsible_person">{{ row.responsible_person }}</span>
+            <span v-if="row.responsible_person">{{
+              row.responsible_person
+            }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>
@@ -482,5 +497,3 @@ const handleEditSubmit = async () => {
     </ElCard>
   </div>
 </template>
-
-

@@ -1,5 +1,5 @@
 // 操作记录数据结构
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export interface OperationRecord {
   id: string;
@@ -84,7 +84,8 @@ class OperationTracker {
     records: any[];
   }> {
     const token = '46f6aecb8e27d95780f18459be9c4807';
-    const response = await requestClient.get('/api/web/SelectAllAFollow', {
+    // 使用requestClient8085客户端，因为所有案件相关API都使用8085端口
+    const response = await requestClient8085.get('/api/web/SelectAllAFollow', {
       params: {
         token,
         page,

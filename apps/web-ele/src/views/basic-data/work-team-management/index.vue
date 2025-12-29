@@ -12,13 +12,13 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
   ElSelect,
-  ElOption,
-  ElTabs,
-  ElTabPane,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
 } from 'element-plus';
 
 import { getWorkTeamListApi } from '#/api/core';
@@ -160,7 +160,9 @@ const addFormData = reactive({
 
 // 表单验证规则
 const addFormRules = {
-  teamLeader: [{ required: true, message: '请输入团队负责人', trigger: 'blur' }],
+  teamLeader: [
+    { required: true, message: '请输入团队负责人', trigger: 'blur' },
+  ],
 };
 
 // 案件列表数据
@@ -414,13 +416,18 @@ onMounted(() => {
         <ElTabs v-model="activeTab" class="mb-4">
           <ElTabPane label="上传文件" name="uploadFile">
             <div class="upload-file-section">
-              <p class="text-sm text-gray-500 mb-4">支持多文件上传，单个文件大小不超过50MB</p>
+              <p class="mb-4 text-sm text-gray-500">
+                支持多文件上传，单个文件大小不超过50MB
+              </p>
               <ElButton type="primary" @click="handleFileSelect" class="mb-4">
                 <i class="i-lucide-upload mr-1"></i>
                 选择文件
               </ElButton>
               <div class="file-list">
-                <p v-if="uploadFileList.length === 0" class="text-center text-gray-400 py-8">
+                <p
+                  v-if="uploadFileList.length === 0"
+                  class="py-8 text-center text-gray-400"
+                >
                   暂无上传文件
                 </p>
                 <!-- 这里可以添加文件列表展示 -->
@@ -428,7 +435,11 @@ onMounted(() => {
             </div>
           </ElTabPane>
           <ElTabPane label="自定义数据" name="customData">
-            <ElForm :model="addFormData" :rules="addFormRules" label-width="120px">
+            <ElForm
+              :model="addFormData"
+              :rules="addFormRules"
+              label-width="120px"
+            >
               <ElFormItem label="案件" prop="caseId">
                 <ElSelect
                   v-model="addFormData.caseId"
@@ -492,7 +503,9 @@ onMounted(() => {
         <template #footer>
           <div class="flex justify-end space-x-2">
             <ElButton @click="handleCloseAddDialog">取消</ElButton>
-            <ElButton type="primary" @click="handleSaveAddWorkTeam">保存</ElButton>
+            <ElButton type="primary" @click="handleSaveAddWorkTeam">
+              保存
+            </ElButton>
           </div>
         </template>
       </ElDialog>
@@ -510,9 +523,9 @@ onMounted(() => {
 }
 
 .file-list {
-  border: 1px dashed #dcdfe6;
-  border-radius: 4px;
   padding: 20px;
   background-color: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
 }
 </style>

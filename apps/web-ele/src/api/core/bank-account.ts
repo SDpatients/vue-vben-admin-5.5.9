@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export namespace BankAccountApi {
   /** 银行账户查询参数 */
@@ -56,7 +56,7 @@ export namespace BankAccountApi {
     /** 开户日期 */
     khrq: string;
     /** 销户日期 */
-    xhrq: string | null;
+    xhrq: null | string;
     /** 状态 */
     zt: string;
   }
@@ -86,13 +86,13 @@ export namespace BankAccountApi {
     /** 币种 */
     currency: string;
     /** 余额 */
-    balance: string | number;
+    balance: number | string;
     /** 开户日期 */
-    KHRQ: string | null;
+    KHRQ: null | string;
     /** 销户日期 */
-    XHRQ: string | null;
+    XHRQ: null | string;
     /** 状态 */
-    ZT: string | null;
+    ZT: null | string;
   }
 
   /** 更新银行账户响应 */
@@ -121,7 +121,7 @@ export async function getBankAccountListApi(
   params: BankAccountApi.BankAccountQueryParams,
 ) {
   const token = 'fefd6e9ec409dae4290d2386001ff028';
-  return requestClient.get<BankAccountApi.BankAccountListResponse>(
+  return requestClient8085.get<BankAccountApi.BankAccountListResponse>(
     '/api/web/getAllBankAccounts',
     {
       params: {
@@ -139,7 +139,7 @@ export async function addBankAccountApi(
   data: BankAccountApi.AddBankAccountRequest[],
 ) {
   const token = '170b18cfd8f829e2ecf9bfb0a78019d4';
-  return requestClient.post<BankAccountApi.AddBankAccountResponse>(
+  return requestClient8085.post<BankAccountApi.AddBankAccountResponse>(
     '/api/web/addBankAccounts',
     data,
     {
@@ -160,7 +160,7 @@ export async function updateBankAccountApi(
   data: BankAccountApi.UpdateBankAccountRequest,
 ) {
   const token = '74df58d5a0ff35a6bf1a5f341ab0b509';
-  return requestClient.post<BankAccountApi.UpdateBankAccountResponse>(
+  return requestClient8085.post<BankAccountApi.UpdateBankAccountResponse>(
     '/api/web/updateBankAccounts',
     data,
     {
@@ -181,7 +181,7 @@ export async function deleteBankAccountApi(
   data: BankAccountApi.DeleteBankAccountRequest,
 ) {
   const token = '46646a032ae30bd8734b8056642bf27e';
-  return requestClient.post<BankAccountApi.DeleteBankAccountResponse>(
+  return requestClient8085.post<BankAccountApi.DeleteBankAccountResponse>(
     '/api/web/deleteBankAccounts',
     data,
     {

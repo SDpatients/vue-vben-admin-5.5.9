@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export namespace WorkPlanApi {
   /** 工作计划查询参数 */
@@ -48,9 +48,9 @@ export namespace WorkPlanApi {
     /** 计划内容 */
     plan_content: string;
     /** 开始日期 */
-    start_date: string | null;
+    start_date: null | string;
     /** 结束日期 */
-    end_date: string | null;
+    end_date: null | string;
     /** 负责人 */
     responsible_person: string;
     /** 状态 */
@@ -71,12 +71,15 @@ export async function getWorkPlanListApi(
   params: WorkPlanApi.WorkPlanQueryParams,
 ) {
   const token = '3a4ba2bad1d89f5483940004de8bc922';
-  return requestClient.get<WorkPlanApi.WorkPlanListResponse>('/api/web/getWorkPlanBCVIEW', {
-    params: {
-      ...params,
-      token,
+  return requestClient8085.get<WorkPlanApi.WorkPlanListResponse>(
+    '/api/web/getWorkPlanBCVIEW',
+    {
+      params: {
+        ...params,
+        token,
+      },
     },
-  });
+  );
 }
 
 /**
@@ -86,7 +89,7 @@ export async function updateWorkPlanApi(
   data: WorkPlanApi.UpdateWorkPlanRequest,
 ) {
   const token = 'bfcb667e437fa21701351b7d607f229a';
-  return requestClient.post<WorkPlanApi.UpdateWorkPlanResponse>(
+  return requestClient8085.post<WorkPlanApi.UpdateWorkPlanResponse>(
     '/api/web/updateWorkPlan',
     data,
     {

@@ -1,4 +1,4 @@
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export namespace CourtApi {
   /** 法院查询参数 */
@@ -41,12 +41,15 @@ export namespace CourtApi {
  */
 export async function getCourtListApi(params: CourtApi.CourtQueryParams) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient.get<CourtApi.CourtListResponse>('/api/web/getAllCourt', {
-    params: {
-      ...params,
-      token,
+  return requestClient8085.get<CourtApi.CourtListResponse>(
+    '/api/web/getAllCourt',
+    {
+      params: {
+        ...params,
+        token,
+      },
     },
-  });
+  );
 }
 
 /** 添加法院请求 */
@@ -74,7 +77,7 @@ export interface AddCourtResponse {
  */
 export async function addCourtApi(data: AddCourtRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient.post<AddCourtResponse>('/api/web/addCourt', [data], {
+  return requestClient8085.post<AddCourtResponse>('/api/web/addCourt', [data], {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -109,14 +112,18 @@ export interface UpdateCourtResponse {
  */
 export async function updateCourtApi(data: UpdateCourtRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient.post<UpdateCourtResponse>('/api/web/updateCourt', data, {
-    headers: {
-      'Content-Type': 'application/json',
+  return requestClient8085.post<UpdateCourtResponse>(
+    '/api/web/updateCourt',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      params: {
+        token,
+      },
     },
-    params: {
-      token,
-    },
-  });
+  );
 }
 
 /** 删除法院请求 */
@@ -135,12 +142,16 @@ export interface DeleteCourtResponse {
  */
 export async function deleteCourtApi(data: DeleteCourtRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient.post<DeleteCourtResponse>('/api/web/deleteCourt', data, {
-    headers: {
-      'Content-Type': 'application/json',
+  return requestClient8085.post<DeleteCourtResponse>(
+    '/api/web/deleteCourt',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      params: {
+        token,
+      },
     },
-    params: {
-      token,
-    },
-  });
+  );
 }

@@ -1,6 +1,6 @@
 // AxiosResponse 类型未使用，已移除
 
-import { requestClient } from '../request';
+import { requestClient8085 } from '../request';
 
 declare namespace DebtorApi {
   /** 债务人查询参数 */
@@ -25,7 +25,7 @@ declare namespace DebtorApi {
     /** 登记机关 */
     DJJG: string;
     /** 成立日期 */
-    CLRQ: string | null;
+    CLRQ: null | string;
     /** 注册资本 */
     ZCZB: string;
     /** 经营范围 */
@@ -73,7 +73,7 @@ declare namespace DebtorApi {
     tyshxydm: string;
     fddbr?: string;
     djjg?: string;
-    clrq?: string | null;
+    clrq?: null | string;
     zczb?: string;
     jyfw?: string;
     qylx?: string;
@@ -99,7 +99,7 @@ declare namespace DebtorApi {
  * 获取债务人列表
  */
 export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams) {
-  return requestClient.get<DebtorApi.DebtorListResponse>(
+  return requestClient8085.get<DebtorApi.DebtorListResponse>(
     '/api/web/selectAllDebtor',
     { params },
   );
@@ -109,7 +109,7 @@ export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams) {
  * 获取债务人详情
  */
 export async function getDebtorDetailApi(debtorId: string, token: string) {
-  return requestClient.get<DebtorApi.DebtorDetailResponse>(
+  return requestClient8085.get<DebtorApi.DebtorDetailResponse>(
     '/api/web/selectDebtorById',
     { params: { debtorId, token } },
   );
@@ -118,25 +118,24 @@ export async function getDebtorDetailApi(debtorId: string, token: string) {
 /**
  * 添加债务人企业信息
  */
-export async function addDebtorApi(
-  data: DebtorApi.AddDebtorRequest,
-) {
+export async function addDebtorApi(data: DebtorApi.AddDebtorRequest) {
   // 将数据包装为数组格式，符合后端要求的[{}]格式
-  return requestClient.post<DebtorApi.AddDebtorResponse>('/api/web/addDebtor', [data], {
-    headers: {
-      'Content-Type': 'application/json',
+  return requestClient8085.post<DebtorApi.AddDebtorResponse>(
+    '/api/web/addDebtor',
+    [data],
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
     },
-  });
+  );
 }
 
 /**
  * 编辑债务人信息
  */
-export async function editDebtorApi(
-  data: any,
-  token: string,
-) {
-  return requestClient.post('/api/web/updateDebtor', data, {
+export async function editDebtorApi(data: any, token: string) {
+  return requestClient8085.post('/api/web/updateDebtor', data, {
     params: { token },
     headers: {
       'Content-Type': 'application/json',
@@ -147,11 +146,8 @@ export async function editDebtorApi(
 /**
  * 删除债务人信息
  */
-export async function deleteDebtorApi(
-  data: { SEP_ID: string },
-  token: string,
-) {
-  return requestClient.post('/api/web/deleteDebtor', data, {
+export async function deleteDebtorApi(data: { SEP_ID: string }, token: string) {
+  return requestClient8085.post('/api/web/deleteDebtor', data, {
     params: { token },
     headers: {
       'Content-Type': 'application/json',

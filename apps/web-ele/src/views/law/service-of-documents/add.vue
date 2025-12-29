@@ -201,16 +201,16 @@ const submitForm = async () => {
         // 获取用户信息
         const chatUserInfoStr = localStorage.getItem('chat_user_info');
         const chatUserInfo = chatUserInfoStr ? JSON.parse(chatUserInfoStr) : {};
-        
+
         // 调试信息
         console.log('chatUserInfo:', chatUserInfo);
-        
+
         // 从chatUserInfo中提取用户信息，考虑嵌套结构
         const userName = chatUserInfo.uName || chatUserInfo.user?.uName || '';
         const userTel = chatUserInfo.uTel || chatUserInfo.user?.uTel || '';
-        
+
         console.log('提取的用户信息:', { userName, userTel });
-        
+
         // 1. 创建文书
         const documentResponse = await createDocumentApi({
           caseId: form.caseId,

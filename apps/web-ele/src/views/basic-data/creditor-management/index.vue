@@ -8,27 +8,25 @@ import { useAccessStore } from '@vben/stores';
 import {
   ElButton,
   ElCard,
-  ElCheckbox,
-  ElCheckboxGroup,
   ElCol,
-  ElDropdown,
-  ElDropdownItem,
-  ElDropdownMenu,
   ElInput,
   ElMessage,
   ElMessageBox,
   ElOption,
   ElPagination,
-  ElPopover,
   ElRow,
   ElSelect,
-  ElSpace,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus';
 
-import { addCreditorApi, deleteCreditorApi, editCreditorApi, getCreditorListApi } from '#/api/core/creditor';
+import {
+  addCreditorApi,
+  deleteCreditorApi,
+  editCreditorApi,
+  getCreditorListApi,
+} from '#/api/core/creditor';
 
 // 响应式数据
 const creditorList = ref<CreditorApi.CreditorInfo[]>([]);
@@ -81,7 +79,11 @@ const addRules = {
   zjhm: [{ required: true, message: '请输入证件号码', trigger: 'blur' }],
   fddbrqy: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证法定代表人
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入法定代表人'));
@@ -94,7 +96,11 @@ const addRules = {
   ],
   zcdz: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证注册地址
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入注册地址'));
@@ -107,7 +113,11 @@ const addRules = {
   ],
   jyfwqy: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证经营范围
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入经营范围'));
@@ -120,7 +130,11 @@ const addRules = {
   ],
   hyfl: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证行业分类
         if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入行业分类'));
@@ -133,7 +147,11 @@ const addRules = {
   ],
   clrqqy: [
     {
-      validator: (_rule: any, value: string | null, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: null | string,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证成立日期
         if (formData.zqrfl !== '个人' && value === '') {
           callback(new Error('请选择成立日期'));
@@ -146,7 +164,11 @@ const addRules = {
   ],
   zczbqy: [
     {
-      validator: (_rule: any, value: number, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: any,
+        value: number,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证注册资本
         if (formData.zqrfl === '个人') {
           callback();
@@ -195,7 +217,7 @@ const resetSearch = () => {
 };
 
 // 格式化日期显示
-const formatDate = (dateString: string | null) => {
+const formatDate = (dateString: null | string) => {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('zh-CN');
 };
@@ -314,12 +336,12 @@ const handleSubmit = async () => {
   if (!formRef.value) return;
 
   try {
-    // 自动填写sep_auser：从本地存储获取chat_user_info中的U_USER
+    // 自动填写sep_auser：从本地存储获取chat_user_info中的uUser
     const chatUserInfoStr = localStorage.getItem('chat_user_info');
     if (chatUserInfoStr) {
       try {
         const chatUserInfo = JSON.parse(chatUserInfoStr);
-        formData.sep_auser = chatUserInfo.U_USER || '';
+        formData.sep_auser = chatUserInfo.user?.uUser || '';
       } catch (error) {
         console.error('解析chat_user_info失败:', error);
       }
@@ -377,9 +399,9 @@ const editFormData = reactive({
   ZCDZ: '',
   JYFWQY: '',
   HYFL: '',
-  CLRQQY: null as string | null,
+  CLRQQY: null as null | string,
   ZCZBQY: 0,
-  ZT: null as string | null,
+  ZT: null as null | string,
 });
 const editFormLoading = ref(false);
 
@@ -423,7 +445,8 @@ const handleEditSubmit = async () => {
           editFormData.SEP_EUSER = chatUserInfo.user.uName;
         } else {
           // 兼容旧格式
-          editFormData.SEP_EUSER = chatUserInfo.uName || chatUserInfo.U_NAME || '';
+          editFormData.SEP_EUSER =
+            chatUserInfo.uName || chatUserInfo.U_NAME || '';
         }
       } catch (error) {
         console.error('解析chat_user_info失败:', error);
@@ -431,7 +454,10 @@ const handleEditSubmit = async () => {
     }
 
     // 自动填写SEP_EDATE：使用ISO格式的日期时间字符串
-    editFormData.SEP_EDATE = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    editFormData.SEP_EDATE = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
 
     await editFormRef.value.validate();
     editFormLoading.value = true;
@@ -623,12 +649,7 @@ const handleDeleteSubmit = async (sepId: string) => {
             {{ formatDate(row.CLRQQY) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="ZCZBQY"
-          label="注册资本"
-          width="120"
-          align="right"
-        >
+        <ElTableColumn prop="ZCZBQY" label="注册资本" width="120" align="right">
           <template #default="{ row }">
             {{ formatCurrency(row.ZCZBQY) }}
           </template>
@@ -871,16 +892,14 @@ const handleDeleteSubmit = async (sepId: string) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">证件号码：</span>
-                <span class="detail-value">{{
-                  currentCreditor.ZJHM || '-'}}
+                <span class="detail-value">{{ currentCreditor.ZJHM || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">法定代表人（企业）：</span>
-                <span class="detail-value">{{
-                  currentCreditor.FDDBRQY || '-'}}
+                <span class="detail-value">{{ currentCreditor.FDDBRQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -889,16 +908,14 @@ const handleDeleteSubmit = async (sepId: string) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册地址：</span>
-                <span class="detail-value">{{
-                  currentCreditor.ZCDZ || '-'}}
+                <span class="detail-value">{{ currentCreditor.ZCDZ || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">经营范围（企业）：</span>
-                <span class="detail-value">{{
-                  currentCreditor.JYFWQY || '-'}}
+                <span class="detail-value">{{ currentCreditor.JYFWQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -907,16 +924,14 @@ const handleDeleteSubmit = async (sepId: string) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">行业分类：</span>
-                <span class="detail-value">{{
-                  currentCreditor.HYFL || '-'}}
+                <span class="detail-value">{{ currentCreditor.HYFL || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">成立日期：</span>
-                <span class="detail-value">{{
-                  formatDate(currentCreditor.CLRQQY)}}
+                <span class="detail-value">{{ formatDate(currentCreditor.CLRQQY) }}
                 </span>
               </div>
             </ElCol>
@@ -925,16 +940,14 @@ const handleDeleteSubmit = async (sepId: string) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册资本：</span>
-                <span class="detail-value">{{
-                  formatCurrency(currentCreditor.ZCZBQY)}}
+                <span class="detail-value">{{ formatCurrency(currentCreditor.ZCZBQY) }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">关联案件ID：</span>
-                <span class="detail-value">{{
-                  currentCreditor.GLAJID || '-'}}
+                <span class="detail-value">{{ currentCreditor.GLAJID || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -943,8 +956,7 @@ const handleDeleteSubmit = async (sepId: string) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">案号：</span>
-                <span class="detail-value">{{
-                  currentCreditor.AH || '-'}}
+                <span class="detail-value">{{ currentCreditor.AH || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -1114,18 +1126,29 @@ const handleDeleteSubmit = async (sepId: string) => {
 </template>
 
 <style scoped>
+/* 响应式表格样式 */
+@media (max-width: 1200px) {
+  :deep(.el-table) {
+    font-size: 11px;
+  }
+
+  :deep(.el-table .cell) {
+    padding: 2px 4px;
+  }
+}
+
 :deep(.vben-card) {
   border-radius: 8px;
 }
 
 :deep(.el-table) {
-  border-radius: 8px;
   font-size: 12px;
+  border-radius: 8px;
 }
 
 :deep(.el-table .cell) {
-  line-height: 1.4;
   padding: 4px 8px;
+  line-height: 1.4;
 }
 
 :deep(.el-table__header-wrapper) {
@@ -1141,24 +1164,13 @@ const handleDeleteSubmit = async (sepId: string) => {
   overflow-y: auto;
 }
 
-/* 响应式表格样式 */
-@media (max-width: 1200px) {
-  :deep(.el-table) {
-    font-size: 11px;
-  }
-
-  :deep(.el-table .cell) {
-    padding: 2px 4px;
-  }
-}
-
 .stat-card {
   transition: all 0.3s ease;
 }
 
 .stat-card:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .number-value {
@@ -1174,8 +1186,8 @@ const handleDeleteSubmit = async (sepId: string) => {
   }
 
   :deep(.el-dialog__header) {
+    background-color: #fff;
     border-bottom: 1px solid #e9ecef;
-    background-color: #ffffff;
     border-radius: 8px 8px 0 0;
   }
 
@@ -1186,19 +1198,19 @@ const handleDeleteSubmit = async (sepId: string) => {
   }
 
   :deep(.el-dialog__footer) {
-    border-top: 1px solid #e9ecef;
-    background-color: #ffffff;
-    border-radius: 0 0 8px 8px;
     padding: 15px 20px;
+    background-color: #fff;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 8px 8px;
   }
 }
 
 /* 表单样式 */
 .creditor-form {
   :deep(.el-form-item__label) {
+    margin-bottom: 8px;
     font-weight: 600;
     color: #555;
-    margin-bottom: 8px;
   }
 
   :deep(.el-input__wrapper) {
@@ -1212,20 +1224,20 @@ const handleDeleteSubmit = async (sepId: string) => {
 
 /* 表单区块样式 */
 .form-section {
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 5%);
   transition: all 0.3s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   }
 
   :deep(.el-card__header) {
+    padding: 12px 16px;
     background-color: #f0f9ff;
     border-bottom: 1px solid #e0f2fe;
     border-radius: 8px 8px 0 0;
-    padding: 12px 16px;
   }
 
   :deep(.el-card__body) {
@@ -1236,20 +1248,20 @@ const handleDeleteSubmit = async (sepId: string) => {
 /* 详情模态框样式 */
 .creditor-detail {
   .detail-item {
-    margin-bottom: 12px;
     display: flex;
     align-items: center;
+    margin-bottom: 12px;
   }
 
   .detail-label {
+    min-width: 120px;
     font-weight: 600;
     color: #555;
-    min-width: 120px;
   }
 
   .detail-value {
-    color: #333;
     flex: 1;
+    color: #333;
   }
 }
 </style>

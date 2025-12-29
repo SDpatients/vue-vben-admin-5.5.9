@@ -372,7 +372,11 @@ const handleUpload = async (options: any) => {
     }
   } catch (error: any) {
     console.error('文件上传失败:', error);
-    const errorMsg = error?.response?.data?.error || error?.error || error?.msg || '文件上传失败';
+    const errorMsg =
+      error?.response?.data?.error ||
+      error?.error ||
+      error?.msg ||
+      '文件上传失败';
     ElMessage.error(errorMsg);
     return false;
   } finally {
@@ -736,8 +740,12 @@ const formRules = computed(() => {
               <div class="file-details">
                 <div class="file-name">{{ file.name }}</div>
                 <div class="file-meta">
-                  <span class="file-size">{{ (file.fileSize / 1024 / 1024).toFixed(2) }} MB</span>
-                  <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
+                  <span class="file-size"
+                    >{{ (file.fileSize / 1024 / 1024).toFixed(2) }} MB</span
+                  >
+                  <span class="file-uploader"
+                    >上传者: {{ file.uploadUser }}</span
+                  >
                   <span class="file-date">{{
                     new Date(file.uploadDate).toLocaleString('zh-CN')
                   }}</span>
@@ -905,10 +913,10 @@ const formRules = computed(() => {
 }
 
 .tab-group :deep(.el-radio-button__inner) {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .upload-section {
@@ -923,7 +931,7 @@ const formRules = computed(() => {
 }
 
 .upload-header h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
@@ -947,7 +955,7 @@ const formRules = computed(() => {
 }
 
 .file-list h4 {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
@@ -958,30 +966,30 @@ const formRules = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px;
+  margin-bottom: 8px;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  margin-bottom: 8px;
   transition: all 0.2s ease;
 }
 
 .file-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .file-info {
   display: flex;
-  align-items: center;
-  gap: 12px;
   flex: 1;
+  gap: 12px;
+  align-items: center;
 }
 
 .file-icon {
+  flex-shrink: 0;
   width: 24px;
   height: 24px;
   color: #3b82f6;
-  flex-shrink: 0;
 }
 
 .file-details {
@@ -990,22 +998,22 @@ const formRules = computed(() => {
 }
 
 .file-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
   white-space: nowrap;
 }
 
 .file-meta {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
+  align-items: center;
   font-size: 12px;
   color: #6b7280;
-  flex-wrap: wrap;
 }
 
 .file-size,
@@ -1032,7 +1040,7 @@ const formRules = computed(() => {
 
 .dialog-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
+  justify-content: flex-end;
 }
 </style>

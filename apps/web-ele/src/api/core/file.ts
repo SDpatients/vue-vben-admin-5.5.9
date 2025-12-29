@@ -55,16 +55,6 @@ export namespace FileApi {
 }
 
 /**
- * 获取认证token
- */
-const getToken = () => {
-  return (
-    localStorage.getItem('token') ||
-    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA'
-  );
-};
-
-/**
  * 单文件上传
  * @param file 文件对象
  * @param bizType 业务类型 (case, process, notice等)
@@ -84,9 +74,6 @@ export async function uploadFileApi(
     '/api/file/upload',
     formData,
     {
-      params: {
-        token: getToken(),
-      },
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -116,9 +103,6 @@ export async function batchUploadFilesApi(
     '/api/file/batchUpload',
     formData,
     {
-      params: {
-        token: getToken(),
-      },
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -139,7 +123,6 @@ export async function getFileListApi(
     '/api/file/list',
     {
       params: {
-        token: getToken(),
         bizType,
         bizId,
       },
@@ -153,9 +136,6 @@ export async function getFileListApi(
  */
 export async function downloadFileApi(fileId: number): Promise<Blob> {
   return fileUploadRequestClient.get<Blob>(`/api/file/download/${fileId}`, {
-    params: {
-      token: getToken(),
-    },
     responseType: 'blob',
   });
 }
@@ -165,7 +145,8 @@ export async function downloadFileApi(fileId: number): Promise<Blob> {
  * @param fileId 文件记录ID
  */
 export function getFilePreviewUrl(fileId: number): string {
-  return `http://192.168.0.120:8080/api/file/view/${fileId}?token=${getToken()}`;
+  const token = localStorage.getItem('token') || '';
+  return `http://192.168.0.120:8080/api/file/view/${fileId}?token=${token}`;
 }
 
 /**
@@ -177,11 +158,6 @@ export async function deleteFileApi(
 ): Promise<FileApi.DeleteResponse> {
   return fileUploadRequestClient.delete<FileApi.DeleteResponse>(
     `/api/file/${fileId}`,
-    {
-      params: {
-        token: getToken(),
-      },
-    },
   );
 }
 
@@ -198,7 +174,6 @@ export async function deleteFilesByBizApi(
     '/api/file/byBiz',
     {
       params: {
-        token: getToken(),
         bizType,
         bizId,
       },

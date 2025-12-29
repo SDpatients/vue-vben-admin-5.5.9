@@ -8,13 +8,16 @@ const announcementRequestClient = createRequestClient(
   },
 );
 
-// 获取token，用于查询参数
-const getToken = () => {
-  return (
-    localStorage.getItem('token') ||
-    'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA'
-  );
-};
+// 为案件公告客户端添加JWT令牌请求拦截器
+announcementRequestClient.addRequestInterceptor({
+  fulfilled: async (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+});
 
 export namespace CaseAnnouncementApi {
   /** 公告附件 */
@@ -128,7 +131,6 @@ export async function getAnnouncementListApi(
     '/api/web/getCaseAnnouncements',
     {
       params: {
-        token: getToken(),
         sep_id: sepId,
         page,
         size,
@@ -146,7 +148,6 @@ export async function getAnnouncementDetailApi(announcementId: string) {
     '/api/web/getAnnouncementDetail',
     {
       params: {
-        token: getToken(),
         announcement_id: announcementId,
       },
     },
@@ -163,7 +164,7 @@ export async function publishAnnouncementApi(
   const chatUserInfo = localStorage.getItem('chat_user_info');
   let publisherId = '';
   let publisherName = '';
-  
+
   try {
     if (chatUserInfo) {
       const userInfo = JSON.parse(chatUserInfo);
@@ -181,11 +182,6 @@ export async function publishAnnouncementApi(
       sep_id: sepId,
       publisher_id: publisherId,
       publisher_name: publisherName,
-    },
-    {
-      params: {
-        token: getToken(),
-      },
     },
   );
 }
@@ -205,7 +201,7 @@ export async function updateAnnouncementApi(
     },
     {
       params: {
-        token: getToken(),
+        token: localStorage.getItem('token'),
       },
     },
   );
@@ -219,7 +215,7 @@ export async function deleteAnnouncementApi(announcementId: string) {
     `/api/web/deleteAnnouncement/${announcementId}`,
     {
       params: {
-        token: getToken(),
+        token: localStorage.getItem('token'),
       },
     },
   );
@@ -240,7 +236,7 @@ export async function revokeAnnouncementApi(
     },
     {
       params: {
-        token: getToken(),
+        token: localStorage.getItem('token'),
       },
     },
   );
@@ -249,18 +245,23 @@ export async function revokeAnnouncementApi(
 /**
  * 记录公告浏览
  */
-export async function recordAnnouncementViewApi(announcementId: string, ajid: string, viewerId: string, viewerName: string) {
+export async function recordAnnouncementViewApi(
+  announcementId: string,
+  ajid: string,
+  viewerId: string,
+  viewerName: string,
+) {
   return announcementRequestClient.post<{ error: string; status: string }>(
     '/api/web/recordAnnouncementView',
     {
       announcement_id: announcementId,
-      ajid: ajid,
+      ajid,
       viewer_id: viewerId,
       viewer_name: viewerName,
     },
     {
       params: {
-        token: getToken(),
+        token: localStorage.getItem('token'),
       },
     },
   );
@@ -278,7 +279,7 @@ export async function getAnnouncementViewsApi(
     '/api/web/getAnnouncementViews',
     {
       params: {
-        token: getToken(),
+        token: localStorage.getItem('token'),
         announcement_id: announcementId,
         page,
         size,

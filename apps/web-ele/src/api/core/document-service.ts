@@ -6,12 +6,12 @@ const documentRequestClient = createRequestClient('http://192.168.0.120:8080', {
 });
 
 // 为文书服务API客户端添加JWT请求拦截器
-const JWT_TOKEN =
-  localStorage.getItem('token') ||
-  'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
 documentRequestClient.addRequestInterceptor({
   fulfilled: (config) => {
-    config.headers.Authorization = `Bearer ${JWT_TOKEN}`;
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
 });
