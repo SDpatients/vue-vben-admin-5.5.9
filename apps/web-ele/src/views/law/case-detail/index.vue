@@ -1085,7 +1085,6 @@ onMounted(async () => {
               <ElButton
                 link
                 @click="isInfoCollapsed = !isInfoCollapsed"
-                :icon="Icon"
               >
                 <Icon
                   :icon="

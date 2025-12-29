@@ -137,36 +137,12 @@ export const chatRequestClient = createRequestClient(
   },
 );
 
-// 8085端口API客户端（不进行Token校验）
-export const requestClient8085 = new RequestClient({
-  baseURL: 'http://192.168.0.120:8085',
-  responseReturn: 'body',
-});
-
-// 为8085端口客户端添加简单的请求头处理（不包含Token）
-requestClient8085.addRequestInterceptor({
-  fulfilled: async (config) => {
-    config.headers['Accept-Language'] = preferences.app.locale;
-    return config;
+// 8085端口API客户端（现在使用8080端口，需要Token校验）
+export const requestClient8085 = createRequestClient(
+  'http://192.168.0.120:8080',
+  {
+    responseReturn: 'body',
   },
-});
-
-// 处理返回的响应数据格式（8085端口）
-requestClient8085.addResponseInterceptor(
-  defaultResponseInterceptor({
-    codeField: 'status',
-    dataField: 'data',
-    successCode: '1',
-  }),
-);
-
-// 8085端口的错误处理（不包含Token过期处理）
-requestClient8085.addResponseInterceptor(
-  errorMessageResponseInterceptor((msg: string, error) => {
-    const responseData = error?.response?.data ?? {};
-    const errorMessage = responseData?.error ?? responseData?.message ?? '';
-    ElMessage.error(errorMessage || msg);
-  }),
 );
 
 // 文件上传API客户端，使用环境变量中的API URL，通过Vite代理

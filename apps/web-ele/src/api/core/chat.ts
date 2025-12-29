@@ -176,6 +176,10 @@ export async function getContactsApi(params?: {
 
   // 转换为前端使用的格式
   if (response.status === '1') {
+    if (!response.data?.records) {
+      console.warn('API返回数据缺少records字段:', response.data);
+      return [] as ChatApi.Contact[];
+    }
     return response.data.records.map((record) => ({
       id: record['单据号'],
       userId: Number.parseInt(record.userId),
@@ -306,6 +310,10 @@ export async function getContactGroupsApi(userId?: number) {
 
   // 转换为前端使用的格式
   if (response.status === '1') {
+    if (!response.data?.records) {
+      console.warn('API返回数据缺少records字段:', response.data);
+      return [] as ChatApi.ContactGroup[];
+    }
     return response.data.records.map((record) => ({
       id: record['单据号'],
       userId: Number.parseInt(record.userId),
@@ -412,6 +420,10 @@ export async function getChatSessionsApi(userId?: number) {
 
   // 转换为前端使用的格式
   if (response.status === '1') {
+    if (!response.data?.records) {
+      console.warn('API返回数据缺少records字段:', response.data);
+      return [] as ChatApi.ChatSession[];
+    }
     return response.data.records.map((record) => ({
       id: record['单据号'],
       contactId: Number.parseInt(record.contactId),
@@ -446,6 +458,10 @@ export async function getChatMessagesApi(params: {
 
   // 转换为前端使用的格式
   if (response.status === '1') {
+    if (!response.data?.records) {
+      console.warn('API返回数据缺少records字段:', response.data);
+      return [] as ChatApi.ChatMessage[];
+    }
     return response.data.records.map((record) => ({
       id: record['单据号'],
       senderId: Number.parseInt(record.senderId),
@@ -568,6 +584,10 @@ export async function searchChatMessagesApi(params: {
 
   // 转换为前端使用的格式
   if (response.status === '1') {
+    if (!response.data?.records) {
+      console.warn('API返回数据缺少records字段:', response.data);
+      return [] as ChatApi.ChatMessage[];
+    }
     return response.data.records.map((record) => ({
       id: record['单据号'],
       senderId: Number.parseInt(record.senderId),
