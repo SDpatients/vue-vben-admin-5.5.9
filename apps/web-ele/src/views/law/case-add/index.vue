@@ -4,10 +4,19 @@ import type { CaseApi } from '#/api/core/case';
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { ElMessage, ElLoading } from 'element-plus';
+import { useAccessStore } from '@vben/stores';
+
+import { ElMessage, ElLoading, ElResult } from 'element-plus';
 
 import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
+
+const accessStore = useAccessStore();
+const permissions = accessStore.accessCodes || [];
+
+const hasPermission = (perm: string) => {
+  return permissions.includes(perm);
+};
 
 const router = useRouter();
 
@@ -282,40 +291,52 @@ const submitForm = async () => {
 
 <template>
   <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-bold">新增破产案件</h1>
-      <button
-        class="text-gray-500 transition-colors hover:text-gray-700"
-        @click="router.back()"
+    <div v-if="!hasPermission('case:add')" class="no-permission">
+      <ElResult
+        icon="warning"
+        title="无权访问"
+        sub-title="您没有创建案件的权限"
       >
-        <i class="i-lucide-x text-xl"></i>
-      </button>
+        <template #extra>
+          <el-button type="primary" @click="router.back()">返回</el-button>
+        </template>
+      </ElResult>
     </div>
+    <div v-else>
+      <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold">新增破产案件</h1>
+        <button
+          class="text-gray-500 transition-colors hover:text-gray-700"
+          @click="router.back()"
+        >
+          <i class="i-lucide-x text-xl"></i>
+        </button>
+      </div>
 
-    <el-card shadow="hover" class="case-add-card">
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="140px"
-        class="case-form"
-      >
+      <el-card shadow="hover" class="case-add-card">
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-width="140px"
+          class="case-form"
+        >
         <!-- 案件基本信息分组 -->
         <div class="form-section mb-6">
           <h3 class="section-title mb-4">案件基本信息</h3>
           <div class="section-content p-4 bg-gray-50 rounded-lg">
-            <el-row :gutter="20">
-              <!-- 案号 -->
-              <el-col :span="8">
-                <el-form-item label="案号" prop="ah">
-                  <el-input
-                    v-model="form.ah"
-                    placeholder="请输入案号"
-                    maxlength="50"
-                    show-word-limit
-                  />
-                </el-form-item>
-              </el-col>
+              <el-row :gutter="20">
+                <!-- 案号 -->
+                <el-col :span="8">
+                  <el-form-item label="案号" prop="ah">
+                    <el-input
+                      v-model="form.ah"
+                      placeholder="请输入案号"
+                      maxlength="50"
+                      show-word-limit
+                    />
+                  </el-form-item>
+                </el-col>
 
               <!-- 案件名称 -->
               <el-col :span="8">
@@ -601,19 +622,35 @@ const submitForm = async () => {
           </div>
         </div>
 
-        <!-- 表单操作按钮 -->
-        <div class="form-actions mt-6 flex justify-end gap-3">
-          <el-button @click="resetForm">重置</el-button>
-          <el-button type="primary" @click="submitForm" :loading="loading">
-            提交案件
-          </el-button>
-        </div>
+          <!-- 表单操作按钮 -->
+          <div class="form-actions mt-6 flex justify-end gap-3">
+            <ElButton @click="resetForm">重置</ElButton>
+            <ElButton
+              v-permission="'case:add'"
+              type="primary"
+              @click="submitForm"
+              :loading="loading"
+            >
+              提交案件
+            </ElButton>
+          </div>
+        </el-form>
+</el-card>
+</div>
       </el-form>
     </el-card>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.no-permission {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
 .case-add-card {
   max-width: calc(100% - 15px);
   margin: 0 15px 0 auto;

@@ -16,6 +16,13 @@ import {
   ElTag,
 } from 'element-plus';
 
+import {
+  getAllAssetValuationApi,
+  getAllBankruptcyDeclarationApi,
+  getAllPropertyVIMApi,
+  getAllPropertyVPlanApi,
+} from '#/api/core/case-process';
+
 import TaskEdit from '../TaskEdit.vue';
 
 interface Props {
@@ -31,77 +38,81 @@ const currentTask = ref<any>(null);
 const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
-// 模拟API调用，因为阶段五可能还没有实际的API
-const mockApiCall = async (
-  taskType: string,
-  caseId: string,
-  page: number,
-  size: number,
-) => {
-  return {
-    status: '1',
-    error: '',
-    data: {
-      records: [],
-      count: 0,
-    },
-  };
-};
-
 const taskConfig = [
   {
-    key: 'propertyDistribution',
-    name: '破产财产分配',
-    icon: 'lucide:pie-chart',
-    api: mockApiCall,
+    key: 'assetValuation',
+    name: '资产评估',
+    icon: 'lucide:scale',
+    api: getAllAssetValuationApi,
     fields: [
-      { label: '分配类型', prop: 'FPLX' },
-      { label: '分配金额', prop: 'FPJE' },
-      { label: '分配日期', prop: 'FPRQ', isDate: true },
-      { label: '分配对象', prop: 'FPDB' },
-      { label: '分配比例', prop: 'FPBL' },
+      { label: '评估机构', prop: 'PGJG' },
+      { label: '评估日期', prop: 'PGRQ', isDate: true },
+      { label: '评估内容', prop: 'PGNR' },
+      { label: '评估总值', prop: 'PGZZ' },
+      { label: '评估报告路径', prop: 'PGBGLJ' },
+      { label: '审批状态', prop: 'SPZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'staffPlacement',
-    name: '员工安置',
-    icon: 'lucide:users',
-    api: mockApiCall,
-    fields: [
-      { label: '安置类型', prop: 'AZLX' },
-      { label: '安置人数', prop: 'AZRS' },
-      { label: '安置金额', prop: 'AZJE' },
-      { label: '安置日期', prop: 'AZRQ', isDate: true },
-      { label: '负责人', prop: 'FZR' },
-      { label: '状态', prop: 'ZT', isStatus: true },
-    ],
-  },
-  {
-    key: 'taxSettlement',
-    name: '税费结算',
+    key: 'propertyVPlan',
+    name: '财产变价方案',
     icon: 'lucide:file-text',
-    api: mockApiCall,
+    api: getAllPropertyVPlanApi,
     fields: [
-      { label: '税费类型', prop: 'SFLX' },
-      { label: '应缴金额', prop: 'YJJE' },
-      { label: '实缴金额', prop: 'SJJE' },
-      { label: '结算日期', prop: 'JSRQ', isDate: true },
-      { label: '结算结果', prop: 'JSJG' },
+      { label: '方案名称', prop: 'FAMC' },
+      { label: '方案内容', prop: 'FANR' },
+      { label: '变价方式', prop: 'BJFS' },
+      { label: '预期金额', prop: 'YQJE' },
+      { label: '会议表决结果', prop: 'HYBJJG' },
+      { label: '法院批准日期', prop: 'FYPZRQ', isDate: true },
+      { label: '方案状态', prop: 'FAZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'procedureTermination',
-    name: '程序终结',
-    icon: 'lucide:check-circle',
-    api: mockApiCall,
+    key: 'auctionAgency',
+    name: '拍卖机构',
+    icon: 'lucide:gavel',
+    api: getAllAuctionAgencyApi,
     fields: [
-      { label: '终结类型', prop: 'ZJLX' },
-      { label: '终结日期', prop: 'ZJRQ', isDate: true },
-      { label: '终结原因', prop: 'ZJYY' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '备注', prop: 'BZ' },
+      { label: '机构名称', prop: 'JGMC' },
+      { label: '机构类型', prop: 'JGLX' },
+      { label: '合同签订日期', prop: 'HTQDRQ', isDate: true },
+      { label: '合同内容', prop: 'HTNR' },
+      { label: '佣金比例', prop: 'YJBL' },
+      { label: '合作状态', prop: 'HZZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'bankruptcyDeclaration',
+    name: '破产宣告',
+    icon: 'lucide:alert-circle',
+    api: getAllBankruptcyDeclarationApi,
+    fields: [
+      { label: '宣告日期', prop: 'XGRQ', isDate: true },
+      { label: '法院裁定文号', prop: 'FYCDWH' },
+      { label: '宣告依据', prop: 'XGYJ' },
+      { label: '财产核查记录', prop: 'CCHCJL' },
+      { label: '破产费用总额', prop: 'PCFYZE' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'propertyVImpl',
+    name: '财产变价实施',
+    icon: 'lucide:check-circle',
+    api: getAllPropertyVIMApi,
+    fields: [
+      { label: '财产名称', prop: 'CCMC' },
+      { label: '财产类型', prop: 'CCLX' },
+      { label: '变价金额', prop: 'BJJE' },
+      { label: '实施日期', prop: 'SSRQ', isDate: true },
+      { label: '实施方式', prop: 'SSFS' },
+      { label: '买方信息', prop: 'MFXX' },
+      { label: '实施状态', prop: 'SSZT' },
+      { label: '参考方案', prop: 'CKFA' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
@@ -115,12 +126,7 @@ const taskStatusMap = {
 
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
-    const response = await taskConfigItem.api(
-      taskConfigItem.key,
-      props.caseId,
-      1,
-      10,
-    );
+    const response = await taskConfigItem.api(props.caseId, 1, 10);
     if (response.status === '1') {
       return {
         ...taskConfigItem,
@@ -325,9 +331,7 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text"
-                      >{{ getTaskProgress(task) }}%</span
-                    >
+                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"

@@ -103,64 +103,151 @@ export namespace CaseProcessApi {
     SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：财产接管信息 */
+  /** 第二阶段：财产接收信息 */
   export interface PropertyReceiptInfo {
-    SEP_ID: string;
-    JCMC: string;
-    JCNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+    row: number;
+    SEP_ID: number;
+    JJHYRQ: null | string;
+    CHRY: null | string;
+    CCZKSM: null | string;
+    JJRQ: null | string;
+    JJR: null | string;
+    JSR: null | string;
+    JSZT: null | string;
+    CCLX: null | string;
+    CCMC: null | string;
+    CCJE: null | number;
+    CFDD: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：应急预案信息 */
-  export interface EmergencyInfo {
-    SEP_ID: string;
-    YJMC: string;
-    YJNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+  /** 第二阶段：应急管理信息 */
+  export interface EmergencyManagementInfo {
+    row: number;
+    SEP_ID: number;
+    FZR: null | string;
+    ABCS: null | string;
+    BXXX: null | string;
+    BZCCCL: null | string;
+    QLSXYQJ: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：财产处置计划信息 */
-  export interface PropertyPlanInfo {
-    SEP_ID: string;
-    CZMC: string;
-    CZNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+  /** 第二阶段：财产方案管理信息 */
+  export interface PropertyManagementPlanInfo {
+    row: number;
+    SEP_ID: number;
+    FAMC: null | string;
+    BDCGLCS: null | string;
+    DCGLCS: null | string;
+    HBCCGLCS: null | string;
+    WXCCGLCS: null | string;
+    DWTZGLCS: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：人事管理信息 */
-  export interface PersonnelEmpInfo {
-    SEP_ID: string;
-    RSMC: string;
-    RSNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+  /** 第二阶段：人员聘用信息 */
+  export interface PersonnelEmploymentInfo {
+    row: number;
+    SEP_ID: number;
+    YGXM: null | string;
+    YGLX: null | string;
+    ZW: null | string;
+    PYRQ: null | string;
+    XCXX: null | string;
+    FYPZQK: null | string;
+    PYZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：内部事务信息 */
+  /** 第二阶段：内部事务管理信息 */
   export interface InternalAffairsInfo {
-    SEP_ID: string;
-    NBMC: string;
-    NBNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+    row: number;
+    SEP_ID: number;
+    SWLX: null | string;
+    SWNR: null | string;
+    JDRQ: null | string;
+    JDR: null | string;
+    KZJE: null | number;
+    KZSM: null | string;
+    CLZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
-  /** 第二阶段：经营管理信息 */
+  /** 第二阶段：合同管理信息 */
+  export interface ContractManagementInfo {
+    row: number;
+    SEP_ID: number;
+    HTLX: null | string;
+    HTMC: null | string;
+    HTXDF: null | string;
+    HTNR: null | string;
+    LHZT: null | string;
+    SCRQ: null | string;
+    SCR: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第二阶段：营业管理信息 */
   export interface BusinessManagementInfo {
-    SEP_ID: string;
-    JYMC: string;
-    JYNR: string;
-    FZR: string;
-    ZT: string;
-    DQZT: string;
+    row: number;
+    SEP_ID: number;
+    YYQKTC: null | string;
+    FXLZBG: null | string;
+    JDNR: null | string;
+    FYPZRQ: null | string;
+    SSZT: null | string;
+    FZR: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 第六阶段：破产财产分配方案信息 */
@@ -243,6 +330,166 @@ export namespace CaseProcessApi {
     row: number;
     SEP_ID: number;
     [key: string]: any;
+  }
+
+  /** 第三阶段：财产调查表信息 */
+  export interface PropertyInvestigationInfo {
+    row: number;
+    SEP_ID: number;
+    TCLX: null | string;
+    TCNR: null | string;
+    TCRQ: null | string;
+    TCR: null | string;
+    TCFX: null | string;
+    TCZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：破产费用管理信息 */
+  export interface BankExpensesInfo {
+    row: number;
+    SEP_ID: number;
+    FYLX: null | string;
+    FYMC: null | string;
+    JE: null | number;
+    ZFRQ: null | string;
+    ZFZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：权利主张表信息 */
+  export interface RightsClaimInfo {
+    row: number;
+    SEP_ID: number;
+    ZZLXCX: null | string;
+    ZZNR: null | string;
+    ZZRQ: null | string;
+    ZZR: null | string;
+    FYHY: null | string;
+    ZZZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：取回权审查表信息 */
+  export interface ReclaimReviewInfo {
+    row: number;
+    SEP_ID: number;
+    QLRMC: null | string;
+    QHQJC: null | string;
+    CCSFCZ: null | string;
+    DDGFYW: null | string;
+    SCRQ: null | string;
+    SCR: null | string;
+    SCJD: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：诉讼仲裁表信息 */
+  export interface LitigationArbitrationInfo {
+    row: number;
+    SEP_ID: number;
+    LX: null | string;
+    XDF: null | string;
+    FY: null | string;
+    SSNR: null | string;
+    SSZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：债权申报表信息 */
+  export interface CreditorClaimInfo {
+    row: number;
+    SEP_ID: number;
+    ZQRMC: null | string;
+    ZQRLX: null | string;
+    SBJE: null | number;
+    SBYJ: null | string;
+    JSR: null | string;
+    SBLX: null | string;
+    BZ: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：社保费用表信息 */
+  export interface SocialSecurityFeesInfo {
+    row: number;
+    SEP_ID: number;
+    FYLX: null | string;
+    FYJE: null | number;
+    SBJG: null | string;
+    HDRQ: null | string;
+    HDR: null | string;
+    HDZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
+  /** 第三阶段：税收核定表信息 */
+  export interface TaxVerificationInfo {
+    row: number;
+    SEP_ID: number;
+    SZ: null | string;
+    SKJE: null | number;
+    SWJG: null | string;
+    HDRQ: null | string;
+    HDR: null | string;
+    HDZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: string;
+    SEP_ADATE: string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
   }
 
   /** 任务状态类型 */
@@ -391,7 +638,7 @@ export const getLegalProcedureApi = async (
 };
 
 /** 第二阶段API函数 */
-export const getPropertyReceiptApi = async (
+export const getAllPropertyReceiptApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
@@ -401,101 +648,73 @@ export const getPropertyReceiptApi = async (
   >
 > => {
   try {
-    const token = '699a11d9338b983ce9eafc5e75f1833f';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllPropertyReceipt?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllPropertyReceipt', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取财产接管数据失败:', error);
+    console.error('获取财产接收数据失败:', error);
     throw error;
   }
 };
 
-export const getEmergencyApi = async (
+export const getAllEmergencyApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
   CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.EmergencyInfo>
+    CaseProcessApi.PageResponse<CaseProcessApi.EmergencyManagementInfo>
   >
 > => {
   try {
-    const token = 'c6c85c5e695fec908ded4f05f9e9bfc9';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllEmergency?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllEmergency', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取应急预案数据失败:', error);
+    console.error('获取应急管理数据失败:', error);
     throw error;
   }
 };
 
-export const getPropertyPlanApi = async (
+export const getAllPropertyPlanApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
   CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.PropertyPlanInfo>
+    CaseProcessApi.PageResponse<CaseProcessApi.PropertyManagementPlanInfo>
   >
 > => {
   try {
-    const token = '924180f974b81f375d6625ab0fd59f60';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllPropertyPlan?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllPropertyPlan', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取财产处置计划数据失败:', error);
+    console.error('获取财产方案管理数据失败:', error);
     throw error;
   }
 };
 
-export const getPersonnelEmpApi = async (
+export const getAllPersonnelEmpApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
   CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.PersonnelEmpInfo>
+    CaseProcessApi.PageResponse<CaseProcessApi.PersonnelEmploymentInfo>
   >
 > => {
   try {
-    const token = 'ae3987ea39249e94edb9bdccf1c859d7';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllPersonnelEmp?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllPersonnelEmp', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取人事管理数据失败:', error);
+    console.error('获取人员聘用数据失败:', error);
     throw error;
   }
 };
 
-export const getInternalAffairsApi = async (
+export const getAllInternalAffairsApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
@@ -505,23 +724,35 @@ export const getInternalAffairsApi = async (
   >
 > => {
   try {
-    const token = 'ba251b8fffee8a47a71b3429ab9cccb5';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllInternalAffairs?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllInternalAffairs', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取内部事务数据失败:', error);
+    console.error('获取内部事务管理数据失败:', error);
     throw error;
   }
 };
 
-export const getBusinessManagementApi = async (
+export const getAllContractManagementApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.ContractManagementInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllContractManagement', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取合同管理数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllBManagementApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
@@ -531,18 +762,11 @@ export const getBusinessManagementApi = async (
   >
 > => {
   try {
-    const token = '0611b92b9a4bd76e5fc315d145a90fc2';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllBusinessManagement?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllBManagement', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
-    console.error('获取经营管理数据失败:', error);
+    console.error('获取营业管理数据失败:', error);
     throw error;
   }
 };
@@ -606,6 +830,74 @@ export const unifiedTaskOperationApi = async (data: {
     return await requestClient8085.post('/api/web/update1', requestData);
   } catch (error) {
     console.error('统一任务操作失败:', error);
+    throw error;
+  }
+};
+
+/** 第二阶段统一更新API（update2） */
+export const update2Api = async (data: {
+  [key: string]: any;
+  OperateType: number;
+  SEP_ID?: string;
+  SEP_LD: string;
+  ZT: string;
+}): Promise<{ error: string; status: string }> => {
+  try {
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    let SEP_EUSER = 'admin';
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        SEP_EUSER =
+          userInfo.user?.uName || userInfo.U_USER || userInfo.U_NAME || 'admin';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+      SEP_EUSER = 'admin';
+    }
+    const SEP_EDATE = new Date().toISOString();
+
+    return await requestClient8085.post('/api/web/update2', {
+      ...data,
+      SEP_EUSER,
+      SEP_EDATE,
+    });
+  } catch (error) {
+    console.error('第二阶段更新失败:', error);
+    throw error;
+  }
+};
+
+/** 第三阶段统一更新API（update3） */
+export const update3Api = async (data: {
+  [key: string]: any;
+  OperateType: number;
+  SEP_ID?: string;
+  SEP_LD: string;
+  ZT: string;
+}): Promise<{ error: string; status: string }> => {
+  try {
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    let SEP_EUSER = 'admin';
+    try {
+      if (chatUserInfo) {
+        const userInfo = JSON.parse(chatUserInfo);
+        SEP_EUSER =
+          userInfo.user?.uName || userInfo.U_USER || userInfo.U_NAME || 'admin';
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+      SEP_EUSER = 'admin';
+    }
+    const SEP_EDATE = new Date().toISOString();
+
+    return await requestClient8085.post('/api/web/update3', {
+      ...data,
+      SEP_EUSER,
+      SEP_EDATE,
+    });
+  } catch (error) {
+    console.error('第三阶段更新失败:', error);
     throw error;
   }
 };
@@ -790,132 +1082,55 @@ export const addLegalProcedureApi = async (data: any) => {
   }
 };
 
-/** 财产接管新增API */
+/** 财产接收新增API */
 export const addPropertyReceiptApi = async (data: any) => {
   try {
-    const token = '699a11d9338b983ce9eafc5e75f1833f';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addPropertyReceipt?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addPropertyReceipt', data);
   } catch (error) {
-    console.error('添加财产接管失败:', error);
+    console.error('添加财产接收失败:', error);
     throw error;
   }
 };
 
-/** 应急预案新增API */
+/** 应急管理新增API */
 export const addEmergencyApi = async (data: any) => {
   try {
-    const token = 'c6c85c5e695fec908ded4f05f9e9bfc9';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addEmergency?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addEmergency', data);
   } catch (error) {
-    console.error('添加应急预案失败:', error);
+    console.error('添加应急管理失败:', error);
     throw error;
   }
 };
 
-/** 财产处置计划新增API */
+/** 财产方案管理新增API */
 export const addPropertyPlanApi = async (data: any) => {
   try {
-    const token = '924180f974b81f375d6625ab0fd59f60';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addPropertyPlan?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addPropertyPlan', data);
   } catch (error) {
-    console.error('添加财产处置计划失败:', error);
+    console.error('添加财产方案管理失败:', error);
     throw error;
   }
 };
 
-/** 人事管理新增API */
+/** 人员聘用新增API */
 export const addPersonnelEmploymentApi = async (data: any) => {
   try {
-    const token = 'ae3987ea39249e94edb9bdccf1c859d7';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addPersonnelEmployment?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
+    return await requestClient8085.post(
+      '/api/web/addPersonnelEmployment',
+      data,
     );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
   } catch (error) {
-    console.error('添加人事管理失败:', error);
+    console.error('添加人员聘用失败:', error);
     throw error;
   }
 };
 
-/** 内部事务新增API */
+/** 内部事务管理新增API */
 export const addInternalAffairsApi = async (data: any) => {
   try {
-    const token = 'ba251b8fffee8a47a71b3429ab9cccb5';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addInternalAffairs?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addInternalAffairs', data);
   } catch (error) {
-    console.error('添加内部事务失败:', error);
+    console.error('添加内部事务管理失败:', error);
     throw error;
   }
 };
@@ -923,51 +1138,126 @@ export const addInternalAffairsApi = async (data: any) => {
 /** 合同管理新增API */
 export const addContractManagementApi = async (data: any) => {
   try {
-    const token = '0611b92b9a4bd76e5fc315d145a90fc2';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addContractManagement?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addContractManagement', data);
   } catch (error) {
     console.error('添加合同管理失败:', error);
     throw error;
   }
 };
 
-/** 经营管理新增API */
+/** 营业管理新增API */
 export const addBusinessManagementApi = async (data: any) => {
   try {
-    const token = '0611b92b9a4bd76e5fc315d145a90fc2';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/addBusinessManagement?token=${token}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([data]),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.post('/api/web/addBusinessManagement', data);
   } catch (error) {
-    console.error('添加经营管理失败:', error);
+    console.error('添加营业管理失败:', error);
+    throw error;
+  }
+};
+
+/** 第三阶段新增API */
+export const addPropertyInvestigationApi = async (data: any) => {
+  try {
+    return await requestClient8085.post(
+      '/api/web/addPropertyInvestigation',
+      data,
+    );
+  } catch (error) {
+    console.error('添加财产调查失败:', error);
+    throw error;
+  }
+};
+
+export const addBankExpensesApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addBankpuptcyExpenes', data);
+  } catch (error) {
+    console.error('添加破产费用失败:', error);
+    throw error;
+  }
+};
+
+export const addRightsClaimApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addRightsClaim', data);
+  } catch (error) {
+    console.error('添加权利主张失败:', error);
+    throw error;
+  }
+};
+
+export const addReclaimReviewApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addReclaimReview', data);
+  } catch (error) {
+    console.error('添加取回权审查失败:', error);
+    throw error;
+  }
+};
+
+export const addLitigationArbitrationApi = async (data: any) => {
+  try {
+    return await requestClient8085.post(
+      '/api/web/addLitigationArbitration',
+      data,
+    );
+  } catch (error) {
+    console.error('添加诉讼仲裁失败:', error);
+    throw error;
+  }
+};
+
+export const addCreditorClaimApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addCreditorClaim', data);
+  } catch (error) {
+    console.error('添加债权申报失败:', error);
+    throw error;
+  }
+};
+
+export const addSocialSecurtyFeesApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addSocialSecurtyFees', data);
+  } catch (error) {
+    console.error('添加社保费用失败:', error);
+    throw error;
+  }
+};
+
+export const addTaxVerificationApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addTaxVerification', data);
+  } catch (error) {
+    console.error('添加税款核定失败:', error);
+    throw error;
+  }
+};
+
+/** 第四阶段新增API */
+export const addSessionApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addSession', data);
+  } catch (error) {
+    console.error('添加债权人会议失败:', error);
+    throw error;
+  }
+};
+
+export const addMeetingDocumentsApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addMeetingDocuments', data);
+  } catch (error) {
+    console.error('添加债权人会议文件失败:', error);
+    throw error;
+  }
+};
+
+export const addClaimConfirmationApi = async (data: any) => {
+  try {
+    return await requestClient8085.post('/api/web/addClaimConfirmation', data);
+  } catch (error) {
+    console.error('添加债权确认失败:', error);
     throw error;
   }
 };
@@ -1103,25 +1393,171 @@ export const getDepositManagementApi = async (
   }
 };
 
-/** 第四阶段API函数 - 债权确认 */
+/** 第四阶段API函数 */
 export const getClaimConfirmationApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    const token = 'de323eee29dc56312ccd17a02571d460';
-    const response = await fetch(
-      `${API_BASE_URL}/api/web/getAllClaimConfirmation?token=${token}&SEP_ID=${SEP_ID}&page=${page}&size=${size}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    return await requestClient8085.get('/api/web/getAllClaimConfirmation', {
+      params: { SEP_ID, page, size },
+    });
   } catch (error) {
     console.error('获取债权确认数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllClaimConfirmationApi = getClaimConfirmationApi;
+
+export const getAllAuditReportApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllAuditReport', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取审计报告数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllImportantActionsApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllImportantActions', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取重要行为数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllMeetingDocumentsApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllMeetingDocuments', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取会议文件数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllRemunerationPlanApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllRemunerationPlan', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取报酬方案数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllSessionApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllSession', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取会议数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllSetoffReviewApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllSetoffReview', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取抵销审查数据失败:', error);
+    throw error;
+  }
+};
+
+/** 第五阶段API函数 */
+export const getAllAssetValuationApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllAssetValuation', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取资产评估数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllBankruptcyDeclarationApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllBankruptcyDeclaration', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取破产申报数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllPropertyVIMApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllPropertyVIM', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取财产管理方案数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllPropertyVPlanApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllPropertyVPlan', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取财产变价方案数据失败:', error);
     throw error;
   }
 };
@@ -1289,4 +1725,157 @@ export const deleteProcessFileApi = async (params: {
 export const previewProcessFileApi = async (fileId: number) => {
   const { getFilePreviewUrl } = await import('#/api/core/file');
   return getFilePreviewUrl(fileId);
+};
+
+/** 第三阶段API函数 */
+export const getAllPropertyInvestigationApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.PropertyInvestigationInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllPropertyInvestigation', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取财产调查数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllBankExpensesApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.BankExpensesInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllBankExpenses', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取破产费用数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllRightsClaimApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.RightsClaimInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllRightsClaim', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取权利主张数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllReclaimReviewApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.ReclaimReviewInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllReclaimReview', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取取回权审查数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllLitigationArbitrationApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.LitigationArbitrationInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllLitigationArbitration', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取诉讼仲裁数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllCreditorClaimApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.CreditorClaimInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllCreditorClaim', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取债权申报数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllSociaSFApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.SocialSecurityFeesInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllSociaSF', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取社保费用数据失败:', error);
+    throw error;
+  }
+};
+
+export const getAllTaxVerificationApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.TaxVerificationInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllTaxVerification', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取税收核定数据失败:', error);
+    throw error;
+  }
 };

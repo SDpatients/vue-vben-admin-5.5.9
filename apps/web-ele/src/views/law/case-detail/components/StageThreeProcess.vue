@@ -16,6 +16,25 @@ import {
   ElTag,
 } from 'element-plus';
 
+import {
+  addBankExpensesApi,
+  addCreditorClaimApi,
+  addLitigationArbitrationApi,
+  addPropertyInvestigationApi,
+  addReclaimReviewApi,
+  addRightsClaimApi,
+  addSocialSecurtyFeesApi,
+  addTaxVerificationApi,
+  getAllBankExpensesApi,
+  getAllCreditorClaimApi,
+  getAllLitigationArbitrationApi,
+  getAllPropertyInvestigationApi,
+  getAllReclaimReviewApi,
+  getAllRightsClaimApi,
+  getAllSociaSFApi,
+  getAllTaxVerificationApi,
+} from '#/api/core/case-process';
+
 import TaskEdit from '../TaskEdit.vue';
 
 interface Props {
@@ -31,77 +50,140 @@ const currentTask = ref<any>(null);
 const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
-// 模拟API调用函数
-const mockApiCall = async (
-  taskType: string,
-  caseId: string,
-  page: number,
-  size: number,
-) => {
-  // 模拟API响应
-  return {
-    status: '1',
-    error: '',
-    data: {
-      records: [],
-      count: 0,
-    },
-  };
-};
-
 const taskConfig = [
   {
-    key: 'claimFiling',
+    key: 'propertyInvestigation',
+    name: '财产调查',
+    icon: 'lucide:search',
+    api: getAllPropertyInvestigationApi,
+    addApi: addPropertyInvestigationApi,
+    operateType: 0,
+    fields: [
+      { label: '调查类型', prop: 'TCLX' },
+      { label: '调查内容', prop: 'TCNR' },
+      { label: '调查日期', prop: 'TCRQ', isDate: true },
+      { label: '调查人', prop: 'TCR' },
+      { label: '调查发现', prop: 'TCFX' },
+      { label: '调查状态', prop: 'TCZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'bankExpenses',
+    name: '破产费用管理',
+    icon: 'lucide:dollar-sign',
+    api: getAllBankExpensesApi,
+    addApi: addBankExpensesApi,
+    operateType: 1,
+    fields: [
+      { label: '费用类型', prop: 'FYLX' },
+      { label: '费用名称', prop: 'FYMC' },
+      { label: '金额', prop: 'JE', isNumber: true },
+      { label: '支付日期', prop: 'ZFRQ', isDate: true },
+      { label: '支付状态', prop: 'ZFZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'rightsClaim',
+    name: '权利主张',
+    icon: 'lucide:scale',
+    api: getAllRightsClaimApi,
+    addApi: addRightsClaimApi,
+    operateType: 2,
+    fields: [
+      { label: '主张类型', prop: 'ZZLXCX' },
+      { label: '主张内容', prop: 'ZZNR' },
+      { label: '主张日期', prop: 'ZZRQ', isDate: true },
+      { label: '主张人', prop: 'ZZR' },
+      { label: '法院回应', prop: 'FYHY' },
+      { label: '主张状态', prop: 'ZZZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'reclaimReview',
+    name: '取回权审查',
+    icon: 'lucide:arrow-left-circle',
+    api: getAllReclaimReviewApi,
+    addApi: addReclaimReviewApi,
+    operateType: 3,
+    fields: [
+      { label: '权利人名称', prop: 'QLRMC' },
+      { label: '取回权基础', prop: 'QHQJC' },
+      { label: '财产是否存在', prop: 'CCSFCZ' },
+      { label: '对待给付义务', prop: 'DDGFYW' },
+      { label: '审查日期', prop: 'SCRQ', isDate: true },
+      { label: '审查人', prop: 'SCR' },
+      { label: '审查决定', prop: 'SCJD' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'litigationArbitration',
+    name: '诉讼仲裁',
+    icon: 'lucide:gavel',
+    api: getAllLitigationArbitrationApi,
+    addApi: addLitigationArbitrationApi,
+    operateType: 4,
+    fields: [
+      { label: '类型', prop: 'LX' },
+      { label: '相对方', prop: 'XDF' },
+      { label: '法院', prop: 'FY' },
+      { label: '诉讼内容', prop: 'SSNR' },
+      { label: '诉讼状态', prop: 'SSZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'creditorClaim',
     name: '债权申报',
     icon: 'lucide:file-text',
-    api: (caseId: string, page: number, size: number) =>
-      mockApiCall('claimFiling', caseId, page, size),
+    api: getAllCreditorClaimApi,
+    addApi: addCreditorClaimApi,
+    operateType: 5,
     fields: [
-      { label: '申报人', prop: '申报人' },
-      { label: '申报金额', prop: '申报金额' },
-      { label: '债权类型', prop: '债权类型' },
-      { label: '申报日期', prop: '申报日期', isDate: true },
+      { label: '债权人名称', prop: 'ZQRMC' },
+      { label: '债权人类型', prop: 'ZQRLX' },
+      { label: '申报金额', prop: 'SBJE', isNumber: true },
+      { label: '申报依据', prop: 'SBYJ' },
+      { label: '接收人', prop: 'JSR' },
+      { label: '申报类型', prop: 'SBLX' },
+      { label: '备注', prop: 'BZ' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'assetInvestigation',
-    name: '资产调查',
-    icon: 'lucide:search',
-    api: (caseId: string, page: number, size: number) =>
-      mockApiCall('assetInvestigation', caseId, page, size),
+    key: 'socialSecurityFees',
+    name: '社保费用',
+    icon: 'lucide:users',
+    api: getAllSociaSFApi,
+    addApi: addSocialSecurtyFeesApi,
+    operateType: 6,
     fields: [
-      { label: '资产类型', prop: '资产类型' },
-      { label: '资产名称', prop: '资产名称' },
-      { label: '评估价值', prop: '评估价值' },
-      { label: '调查人', prop: '调查人' },
+      { label: '费用类型', prop: 'FYLX' },
+      { label: '费用金额', prop: 'FYJE', isNumber: true },
+      { label: '社保机构', prop: 'SBJG' },
+      { label: '核定日期', prop: 'HDRQ', isDate: true },
+      { label: '核定人', prop: 'HDR' },
+      { label: '核定状态', prop: 'HDZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'claimReview',
-    name: '债权审核',
-    icon: 'lucide:check-circle',
-    api: (caseId: string, page: number, size: number) =>
-      mockApiCall('claimReview', caseId, page, size),
+    key: 'taxVerification',
+    name: '税收核定',
+    icon: 'lucide:calculator',
+    api: getAllTaxVerificationApi,
+    addApi: addTaxVerificationApi,
+    operateType: 7,
     fields: [
-      { label: '申报人', prop: '申报人' },
-      { label: '申报金额', prop: '申报金额' },
-      { label: '确认金额', prop: '确认金额' },
-      { label: '审核人', prop: '审核人' },
-      { label: '状态', prop: 'ZT', isStatus: true },
-    ],
-  },
-  {
-    key: 'meetingPreparation',
-    name: '债权人会议准备',
-    icon: 'lucide:calendar',
-    api: (caseId: string, page: number, size: number) =>
-      mockApiCall('meetingPreparation', caseId, page, size),
-    fields: [
-      { label: '准备事项', prop: '准备事项' },
-      { label: '负责人', prop: '负责人' },
-      { label: '完成日期', prop: '完成日期', isDate: true },
+      { label: '税种', prop: 'SZ' },
+      { label: '税款金额', prop: 'SKJE', isNumber: true },
+      { label: '税务机关', prop: 'SWJG' },
+      { label: '核定日期', prop: 'HDRQ', isDate: true },
+      { label: '核定人', prop: 'HDR' },
+      { label: '核定状态', prop: 'HDZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
@@ -169,7 +251,8 @@ const loadAllTasks = async () => {
 const getTaskStatus = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
-      (item: any) => item.ZT === '1',
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
     ).length;
     if (completedCount === task.data.length) {
       return 1;
@@ -183,7 +266,8 @@ const getTaskStatus = (task: any) => {
 const getTaskProgress = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
-      (item: any) => item.ZT === '1',
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
     ).length;
     return Math.round((completedCount / task.data.length) * 100);
   }
@@ -282,7 +366,7 @@ onMounted(() => {
                 阶段三：管理人调查审查破产企业至第一次债权人会议前工作
               </h2>
               <p class="stage-description">
-                完成债权申报、资产调查、债权审核和第一次债权人会议准备等工作
+                完成财产调查、破产费用管理、权利主张、取回权审查、诉讼仲裁、债权申报、社保费用和税收核定等工作
               </p>
             </div>
           </div>
@@ -330,13 +414,40 @@ onMounted(() => {
                     :stroke-width="8"
                   />
                   <div class="task-count">
-                    <span>{{
-                      task.data?.filter((item: any) => item.ZT === '1')
-                        .length || 0
-                    }}</span>
+                    <span>
+                      <span style="color: #67c23a">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                          ).length || 0
+                        }}
+                      </span>
+                      <span style="margin: 0 4px">+</span>
+                      <span style="color: #e6a23c">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                          ).length || 0
+                        }}
+                      </span>
+                    </span>
                     <span>/</span>
                     <span>{{ task.count || 0 }}</span>
                     <span>项已完成</span>
+                    <span
+                      style="margin-left: 8px; font-size: 11px; color: #999"
+                    >
+                      ({{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                        ).length || 0
+                      }}完成,
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                        ).length || 0
+                      }}跳过)
+                    </span>
                   </div>
                 </div>
 
@@ -369,9 +480,10 @@ onMounted(() => {
                         <span v-else>{{ scope.row[field.prop] || '-' }}</span>
                       </template>
                     </ElTableColumn>
-                    <ElTableColumn width="280" fixed="right">
+                    <ElTableColumn width="350" fixed="right">
                       <template #default="scope">
                         <div class="action-buttons">
+                          <!-- 查看按钮 - 所有状态都显示 -->
                           <ElButton
                             type="primary"
                             size="small"
@@ -380,35 +492,50 @@ onMounted(() => {
                             <Icon icon="lucide:eye" class="mr-1" />
                             查看
                           </ElButton>
-                          <ElButton
-                            v-if="scope.row.ZT === '0'"
-                            type="primary"
-                            size="small"
-                            @click="handleEdit(task, scope.row)"
+
+                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
+                          <template
+                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
                           >
-                            <Icon icon="lucide:pencil" class="mr-1" />
-                            编辑
-                          </ElButton>
+                            <!-- 编辑按钮 -->
+                            <ElButton
+                              type="primary"
+                              size="small"
+                              @click="handleEdit(task, scope.row)"
+                            >
+                              <Icon icon="lucide:pencil" class="mr-1" />
+                              编辑
+                            </ElButton>
+
+                            <!-- 完成按钮 -->
+                            <ElButton
+                              type="success"
+                              size="small"
+                              @click="handleComplete(task, scope.row)"
+                            >
+                              <Icon icon="lucide:check" class="mr-1" />
+                              完成
+                            </ElButton>
+
+                            <!-- 跳过按钮 -->
+                            <ElButton
+                              type="warning"
+                              size="small"
+                              @click="handleSkip(task, scope.row)"
+                            >
+                              <Icon icon="lucide:skip-forward" class="mr-1" />
+                              跳过
+                            </ElButton>
+                          </template>
+
+                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
                           <ElButton
-                            v-if="scope.row.ZT === '0'"
-                            type="success"
-                            size="small"
-                            @click="handleComplete(task, scope.row)"
-                          >
-                            <Icon icon="lucide:check" class="mr-1" />
-                            完成
-                          </ElButton>
-                          <ElButton
-                            v-if="scope.row.ZT === '0'"
-                            type="warning"
-                            size="small"
-                            @click="handleSkip(task, scope.row)"
-                          >
-                            <Icon icon="lucide:skip-forward" class="mr-1" />
-                            跳过
-                          </ElButton>
-                          <ElButton
-                            v-if="scope.row.ZT === '1' || scope.row.ZT === '2'"
+                            v-else-if="
+                              scope.row.ZT === '1' ||
+                              scope.row.ZT === 1 ||
+                              scope.row.ZT === '2' ||
+                              scope.row.ZT === 2
+                            "
                             type="danger"
                             size="small"
                             @click="handleRevoke(task, scope.row)"

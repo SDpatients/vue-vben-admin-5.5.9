@@ -155,6 +155,45 @@ export namespace CaseApi {
     error: string;
     data: string;
   }
+
+  /** 审核日志 */
+  export interface CaseReviewLog {
+    logId: number;
+    caseId: number;
+    reviewerId: number;
+    reviewerName: string;
+    action: string;
+    opinion?: string;
+    operateTime: string;
+    remark?: string;
+  }
+
+  /** 审核日志响应 */
+  export interface ReviewLogsResponse {
+    status: string;
+    error: string;
+    data: CaseReviewLog[];
+  }
+
+  /** 审核请求 */
+  export interface ReviewRequest {
+    caseId: number;
+    opinion: string;
+  }
+
+  /** 审核响应 */
+  export interface ReviewResponse {
+    status: string;
+    error: string;
+    data: string;
+  }
+
+  /** 删除案件响应 */
+  export interface DeleteCaseResponse {
+    status: string;
+    error: string;
+    data: string;
+  }
 }
 
 /** 案件详情响应 */
@@ -390,6 +429,67 @@ export async function updateCaseApi(data: CaseApi.UpdateCaseRequest) {
       },
       headers: {
         'Content-Type': 'application/json',
+      },
+    },
+  );
+}
+
+/**
+ * 审核通过案件
+ */
+export async function approveCaseApi(caseId: number, opinion: string) {
+  return requestClient8085.post<CaseApi.ReviewResponse>(
+    '/api/web/approveCase',
+    null,
+    {
+      params: {
+        caseId,
+        opinion,
+      },
+    },
+  );
+}
+
+/**
+ * 驳回案件
+ */
+export async function rejectCaseApi(caseId: number, opinion: string) {
+  return requestClient8085.post<CaseApi.ReviewResponse>(
+    '/api/web/rejectCase',
+    null,
+    {
+      params: {
+        caseId,
+        opinion,
+      },
+    },
+  );
+}
+
+/**
+ * 获取审核日志
+ */
+export async function getReviewLogsApi(caseId: number) {
+  return requestClient8085.get<CaseApi.ReviewLogsResponse>(
+    '/api/web/getReviewLogs',
+    {
+      params: {
+        caseId,
+      },
+    },
+  );
+}
+
+/**
+ * 删除案件
+ */
+export async function deleteCaseApi(caseId: number) {
+  return requestClient8085.post<CaseApi.DeleteCaseResponse>(
+    '/api/web/deleteCase',
+    null,
+    {
+      params: {
+        caseId,
       },
     },
   );

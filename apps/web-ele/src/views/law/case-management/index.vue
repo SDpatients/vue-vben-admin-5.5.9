@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import type { CaseApi } from '#/api';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { useAccessStore } from '@vben/stores';
 
 import {
   ElButton,
@@ -20,11 +22,18 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCaseListApi } from '#/api/core/case';
+import { deleteCaseApi, getCaseListApi } from '#/api/core/case';
+
+import ReviewModal from './components/ReviewModal.vue';
+
+const accessStore = useAccessStore();
+const permissions = computed(() => accessStore.accessCodes || []);
 
 // 响应式数据
 const caseList = ref<CaseApi.CaseInfo[]>([]);
 const loading = ref(false);
+const reviewModalVisible = ref(false);
+const currentCase = ref<CaseApi.CaseInfo | null>(null);
 const pagination = ref({
   page: 1,
   pageSize: 10,
@@ -282,6 +291,53 @@ const viewCaseDetail = (row: any) => {
     ElMessage.warning('案件序号不存在，无法查看详情');
   }
 };
+
+// 显示审核弹窗
+const showReviewModal = (row: CaseApi.CaseInfo) => {
+  currentCase.value = row;
+  reviewModalVisible.value = true;
+};
+
+// 删除案件
+const deleteCase = async (row: CaseApi.CaseInfo) => {
+  try {
+    await ElMessageBox.confirm(`确认删除案件"${row.案号}"吗？`, '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
+    const response = await deleteCaseApi(row.序号);
+    if (response.status === '1') {
+      ElMessage.success('删除成功');
+      fetchCaseList();
+    } else {
+      ElMessage.error(response.error || '删除失败');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败');
+    }
+  }
+};
+
+// 检查是否有权限
+const hasPermission = (perm: string | string[]) => {
+  if (Array.isArray(perm)) {
+    return perm.some((p) => permissions.value.includes(p));
+  }
+  return permissions.value.includes(perm);
+};
+
+// 检查是否可以审核
+const canReview = (row: CaseApi.CaseInfo) => {
+  return hasPermission('case:review');
+};
+
+// 检查是否可以删除
+const canDelete = () => {
+  return hasPermission('case:delete');
+};
 </script>
 
 <template>
@@ -291,7 +347,11 @@ const viewCaseDetail = (row: any) => {
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">案件管理</span>
           <div class="flex items-center space-x-2">
-            <ElButton type="primary" @click="router.push('/case-add')">
+            <ElButton
+              v-permission="'case:add'"
+              type="primary"
+              @click="router.push('/case-add')"
+            >
               <i class="i-lucide-plus mr-1"></i>
               新增案件
             </ElButton>
@@ -571,15 +631,33 @@ const viewCaseDetail = (row: any) => {
             />
 
             <!-- 操作列 -->
-            <ElTableColumn label="操作" min-width="100">
+            <ElTableColumn label="操作" min-width="200" fixed="right">
               <template #default="{ row }">
-                <ElButton
-                  type="primary"
-                  @click="viewCaseDetail(row)"
-                  style="color: black"
-                >
-                  查看
-                </ElButton>
+                <div class="action-buttons">
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    @click="viewCaseDetail(row)"
+                  >
+                    查看
+                  </ElButton>
+                  <ElButton
+                    v-if="canReview(row)"
+                    type="success"
+                    size="small"
+                    @click="showReviewModal(row)"
+                  >
+                    审核
+                  </ElButton>
+                  <ElButton
+                    v-if="canDelete()"
+                    type="danger"
+                    size="small"
+                    @click="deleteCase(row)"
+                  >
+                    删除
+                  </ElButton>
+                </div>
               </template>
             </ElTableColumn>
           </ElTable>
@@ -599,6 +677,13 @@ const viewCaseDetail = (row: any) => {
         </div>
       </ElCard>
     </ElCard>
+
+    <!-- 审核弹窗 -->
+    <ReviewModal
+      v-model:visible="reviewModalVisible"
+      :case-data="currentCase"
+      @success="fetchCaseList"
+    />
   </div>
 </template>
 
@@ -772,4 +857,15 @@ const viewCaseDetail = (row: any) => {
 }
 
 /* 卡片样式增强 */
+
+/* 操作按钮样式 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+}
 </style>

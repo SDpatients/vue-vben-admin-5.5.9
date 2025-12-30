@@ -17,12 +17,20 @@ import {
 } from 'element-plus';
 
 import {
-  getBusinessManagementApi,
-  getEmergencyApi,
-  getInternalAffairsApi,
-  getPersonnelEmpApi,
-  getPropertyPlanApi,
-  getPropertyReceiptApi,
+  addBusinessManagementApi,
+  addContractManagementApi,
+  addEmergencyApi,
+  addInternalAffairsApi,
+  addPersonnelEmploymentApi,
+  addPropertyPlanApi,
+  addPropertyReceiptApi,
+  getAllBManagementApi,
+  getAllContractManagementApi,
+  getAllEmergencyApi,
+  getAllInternalAffairsApi,
+  getAllPersonnelEmpApi,
+  getAllPropertyPlanApi,
+  getAllPropertyReceiptApi,
 } from '#/api/core/case-process';
 
 import TaskEdit from '../TaskEdit.vue';
@@ -43,80 +51,128 @@ const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 const taskConfig = [
   {
     key: 'propertyReceipt',
-    name: '财产接管',
+    name: '财产接收',
     icon: 'lucide:handshake',
-    api: getPropertyReceiptApi,
+    api: getAllPropertyReceiptApi,
+    addApi: addPropertyReceiptApi,
+    operateType: 0,
     fields: [
-      { label: '接管名称', prop: 'JCMC' },
-      { label: '接管内容', prop: 'JCNR' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '交接会议日期', prop: 'JJHYRQ', isDate: true },
+      { label: '参会人员', prop: 'CHRY' },
+      { label: '财产状况说明', prop: 'CCZKSM' },
+      { label: '交接日期', prop: 'JJRQ', isDate: true },
+      { label: '交接人', prop: 'JJR' },
+      { label: '接收人', prop: 'JSR' },
+      { label: '接收状态', prop: 'JSZT' },
+      { label: '财产类型', prop: 'CCLX' },
+      { label: '财产名称', prop: 'CCMC' },
+      { label: '财产金额', prop: 'CCJE', isNumber: true },
+      { label: '存放地点', prop: 'CFDD' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
     key: 'emergency',
-    name: '应急预案',
+    name: '应急管理',
     icon: 'lucide:alert-triangle',
-    api: getEmergencyApi,
+    api: getAllEmergencyApi,
+    addApi: addEmergencyApi,
+    operateType: 1,
     fields: [
-      { label: '预案名称', prop: 'YJMC' },
-      { label: '预案内容', prop: 'YJNR' },
       { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '安保措施', prop: 'ABCS' },
+      { label: '保险信息', prop: 'BXXX' },
+      { label: '贬值财产处理', prop: 'BZCCCL' },
+      { label: '权利时效与期间', prop: 'QLSXYQJ' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
     key: 'propertyPlan',
-    name: '财产处置计划',
+    name: '财产方案管理',
     icon: 'lucide:clipboard-list',
-    api: getPropertyPlanApi,
+    api: getAllPropertyPlanApi,
+    addApi: addPropertyPlanApi,
+    operateType: 2,
     fields: [
-      { label: '处置名称', prop: 'CZMC' },
-      { label: '处置内容', prop: 'CZNR' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '方案名称', prop: 'FAMC' },
+      { label: '不动产管理措施', prop: 'BDCGLCS' },
+      { label: '动产管理措施', prop: 'DCGLCS' },
+      { label: '货币财产管理措施', prop: 'HBCCGLCS' },
+      { label: '无形财产管理措施', prop: 'WXCCGLCS' },
+      { label: '对外投资管理措施', prop: 'DWTZGLCS' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
     key: 'personnelEmp',
-    name: '人事管理',
+    name: '人员聘用',
     icon: 'lucide:user',
-    api: getPersonnelEmpApi,
+    api: getAllPersonnelEmpApi,
+    addApi: addPersonnelEmploymentApi,
+    operateType: 3,
     fields: [
-      { label: '人事名称', prop: 'RSMC' },
-      { label: '人事内容', prop: 'RSNR' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '员工姓名', prop: 'YGXM' },
+      { label: '员工类型', prop: 'YGLX' },
+      { label: '职位', prop: 'ZW' },
+      { label: '聘用日期', prop: 'PYRQ', isDate: true },
+      { label: '薪酬信息', prop: 'XCXX' },
+      { label: '法院批准情况', prop: 'FYPZQK' },
+      { label: '聘用状态', prop: 'PYZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
     key: 'internalAffairs',
-    name: '内部事务',
+    name: '内部事务管理',
     icon: 'lucide:building',
-    api: getInternalAffairsApi,
+    api: getAllInternalAffairsApi,
+    addApi: addInternalAffairsApi,
+    operateType: 4,
     fields: [
-      { label: '事务名称', prop: 'NBMC' },
-      { label: '事务内容', prop: 'NBNR' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '事务类型', prop: 'SWLX' },
+      { label: '事务内容', prop: 'SWNR' },
+      { label: '决定日期', prop: 'JDRQ', isDate: true },
+      { label: '决定人', prop: 'JDR' },
+      { label: '开支金额', prop: 'KZJE', isNumber: true },
+      { label: '开支说明', prop: 'KZSM' },
+      { label: '处理状态', prop: 'CLZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'contractManagement',
+    name: '合同管理',
+    icon: 'lucide:file-text',
+    api: getAllContractManagementApi,
+    addApi: addContractManagementApi,
+    operateType: 5,
+    fields: [
+      { label: '合同类型', prop: 'HTLX' },
+      { label: '合同名称', prop: 'HTMC' },
+      { label: '合同相对方', prop: 'HTXDF' },
+      { label: '合同内容', prop: 'HTNR' },
+      { label: '履行状态', prop: 'LHZT' },
+      { label: '审查日期', prop: 'SCRQ', isDate: true },
+      { label: '审查人', prop: 'SCR' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
     key: 'businessManagement',
-    name: '经营管理',
+    name: '营业管理',
     icon: 'lucide:briefcase',
-    api: getBusinessManagementApi,
+    api: getAllBManagementApi,
+    addApi: addBusinessManagementApi,
+    operateType: 6,
     fields: [
-      { label: '经营名称', prop: 'JYMC' },
-      { label: '经营内容', prop: 'JYNR' },
+      { label: '营业情况调查', prop: 'YYQKTC' },
+      { label: '分析论证报告', prop: 'FXLZBG' },
+      { label: '决定内容', prop: 'JDNR' },
+      { label: '法院批准日期', prop: 'FYPZRQ', isDate: true },
+      { label: '实施状态', prop: 'SSZT' },
       { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-      { label: '当前状态', prop: 'DQZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
 ];
@@ -326,9 +382,7 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text"
-                      >{{ getTaskProgress(task) }}%</span
-                    >
+                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -384,7 +438,7 @@ onMounted(() => {
                             查看
                           </ElButton>
                           <ElButton
-                            v-if="scope.row.ZT === '0'"
+                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
                             type="primary"
                             size="small"
                             @click="handleEdit(task, scope.row)"
@@ -393,7 +447,7 @@ onMounted(() => {
                             编辑
                           </ElButton>
                           <ElButton
-                            v-if="scope.row.ZT === '0'"
+                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
                             type="success"
                             size="small"
                             @click="handleComplete(task, scope.row)"
@@ -402,7 +456,7 @@ onMounted(() => {
                             完成
                           </ElButton>
                           <ElButton
-                            v-if="scope.row.ZT === '0'"
+                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
                             type="warning"
                             size="small"
                             @click="handleSkip(task, scope.row)"
@@ -411,7 +465,12 @@ onMounted(() => {
                             跳过
                           </ElButton>
                           <ElButton
-                            v-if="scope.row.ZT === '1' || scope.row.ZT === '2'"
+                            v-if="
+                              scope.row.ZT === 1 ||
+                              scope.row.ZT === '1' ||
+                              scope.row.ZT === 2 ||
+                              scope.row.ZT === '2'
+                            "
                             type="danger"
                             size="small"
                             @click="handleRevoke(task, scope.row)"
