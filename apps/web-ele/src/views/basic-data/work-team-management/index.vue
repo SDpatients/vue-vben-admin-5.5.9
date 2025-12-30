@@ -225,7 +225,6 @@ const handleRefresh = () => {
   fetchWorkTeamList();
 };
 
-<<<<<<< Updated upstream
 // 新增工作团队弹窗相关
 const addDialogVisible = ref(false);
 const activeTab = ref('customData'); // customData, uploadFile
@@ -260,9 +259,6 @@ const caseList = ref([
 const uploadFileList = ref([]);
 
 // 打开新增工作团队弹窗
-=======
-// 新增工作团队
->>>>>>> Stashed changes
 const handleAddWorkTeam = () => {
   // 重置表单数据
   Object.assign(newTeamFormData, {
@@ -533,7 +529,6 @@ onMounted(() => {
         width="800px"
         :before-close="handleCloseNewTeamDialog"
       >
-<<<<<<< Updated upstream
         <ElTabs v-model="activeTab" class="mb-4">
           <ElTabPane label="上传文件" name="uploadFile">
             <div class="upload-file-section">
@@ -618,151 +613,16 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElForm>
-=======
-        <ElTabs v-model="activeTab">
-          <!-- 上传文件标签页 -->
-          <ElTabPane label="上传文件" name="upload">
-            <div class="p-4 bg-gray-50 rounded-lg">
-              <h3 class="mb-2 text-sm font-semibold">上传文件</h3>
-              <p class="mb-4 text-sm text-gray-600">支持多文件上传，单个文件大小不超过50MB</p>
-              
-              <!-- 隐藏的文件输入框 -->
-              <input
-                ref="uploadInputRef"
-                type="file"
-                multiple
-                accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"
-                class="hidden"
-                @change="handleFileSelect"
-              />
-              
-              <div class="flex gap-2 mb-4">
-                <ElButton type="primary" @click="triggerFileSelect">
-                  <i class="i-lucide-folder-input mr-1"></i>
-                  选择文件
-                </ElButton>
-                <ElButton 
-                  type="success" 
-                  @click="uploadFiles"
-                  :loading="uploadLoading"
-                  :disabled="fileList.length === 0"
-                >
-                  <i class="i-lucide-upload mr-1"></i>
-                  上传文件
-                </ElButton>
-              </div>
-              
-              <p class="text-sm text-gray-500 mb-4">支持上传 doc, docx, pdf, txt, jpg, jpeg, png, gif 等格式文件</p>
-              
-              <!-- 已选择文件列表 -->
-              <div v-if="fileList.length > 0" class="mb-4">
-                <h4 class="text-sm font-medium mb-2">已选择文件</h4>
-                <div class="space-y-2">
-                  <div 
-                    v-for="(file, index) in fileList" 
-                    :key="index"
-                    class="flex items-center justify-between p-2 bg-white border rounded-lg"
-                  >
-                    <div class="flex items-center">
-                      <i class="i-lucide-file mr-2 text-gray-400"></i>
-                      <span class="text-sm truncate">{{ file.name }}</span>
-                      <span class="ml-2 text-xs text-gray-500">({{ (file.size / 1024 / 1024).toFixed(2) }} MB)</span>
-                    </div>
-                    <ElButton 
-                      type="danger" 
-                      size="small" 
-                      @click="removeFile(index)"
-                      circle
-                    >
-                      <i class="i-lucide-trash-2"></i>
-                    </ElButton>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 拖拽上传区域 -->
-              <div 
-                class="mt-4 flex items-center justify-center h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer"
-                @click="triggerFileSelect"
-              >
-                <div class="text-center">
-                  <i class="i-lucide-file-document text-4xl text-gray-400 mb-2"></i>
-                  <p class="text-sm text-gray-500">
-                    {{ fileList.length > 0 ? '点击继续选择文件' : '点击或拖拽文件到此处上传' }}
-                  </p>
-                  <p class="text-xs text-gray-400 mt-1">支持多文件上传</p>
-                </div>
-              </div>
-            </div>
-          </ElTabPane>
-
-          <!-- 自定义数据标签页 -->
-          <ElTabPane label="自定义数据" name="custom">
-            <div class="p-4 bg-gray-50 rounded-lg">
-              <h3 class="mb-4 text-sm font-semibold">自定义数据</h3>
-              <ElForm
-                ref="newTeamFormRef"
-                :model="newTeamFormData"
-                label-width="120px"
-                class="new-team-form"
-              >
-                <ElFormItem label="案件" required>
-                  <ElSelect
-                    v-model="newTeamFormData.caseId"
-                    placeholder="请选择案件"
-                    style="width: 100%"
-                  >
-                    <ElOption
-                      v-for="option in caseOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </ElSelect>
-                </ElFormItem>
-                <ElFormItem label="团队负责人" required>
-                  <ElInput v-model="newTeamFormData.tdfzr" placeholder="请输入团队负责人" />
-                </ElFormItem>
-                <ElFormItem label="综合组成员">
-                  <ElInput v-model="newTeamFormData.zhzcy" placeholder="请输入综合组成员" />
-                </ElFormItem>
-                <ElFormItem label="程序组成员">
-                  <ElInput v-model="newTeamFormData.cxzcy" placeholder="请输入程序组成员" />
-                </ElFormItem>
-                <ElFormItem label="财产管理组成员">
-                  <ElInput v-model="newTeamFormData.ccglzcy" placeholder="请输入财产管理组成员" />
-                </ElFormItem>
-                <ElFormItem label="债权审核组成员">
-                  <ElInput v-model="newTeamFormData.zqshzcy" placeholder="请输入债权审核组成员" />
-                </ElFormItem>
-                <ElFormItem label="劳动人事组成员">
-                  <ElInput v-model="newTeamFormData.ldrszcy" placeholder="请输入劳动人事组成员" />
-                </ElFormItem>
-                <ElFormItem label="资产清理组成员">
-                  <ElInput v-model="newTeamFormData.zzqlzcy" placeholder="请输入资产清理组成员" />
-                </ElFormItem>
-              </ElForm>
-            </div>
->>>>>>> Stashed changes
           </ElTabPane>
         </ElTabs>
 
         <template #footer>
-<<<<<<< Updated upstream
           <div class="flex justify-end space-x-2">
             <ElButton @click="handleCloseAddDialog">取消</ElButton>
             <ElButton type="primary" @click="handleSaveAddWorkTeam">
               保存
             </ElButton>
           </div>
-=======
-          <span class="dialog-footer">
-            <ElButton @click="handleCloseNewTeamDialog">取消</ElButton>
-            <ElButton type="primary" @click="saveNewTeam" :loading="newTeamFormLoading">
-              保存
-            </ElButton>
-          </span>
->>>>>>> Stashed changes
         </template>
       </ElDialog>
     </ElCard>
@@ -773,7 +633,6 @@ onMounted(() => {
 :deep(.el-table .cell) {
   white-space: nowrap;
 }
-<<<<<<< Updated upstream
 
 .upload-file-section {
   padding: 20px 0;
@@ -785,6 +644,4 @@ onMounted(() => {
   border: 1px dashed #dcdfe6;
   border-radius: 4px;
 }
-=======
->>>>>>> Stashed changes
 </style>
