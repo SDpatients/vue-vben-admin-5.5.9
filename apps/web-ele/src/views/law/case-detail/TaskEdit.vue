@@ -23,12 +23,29 @@ import {
   deleteProcessFileApi,
   downloadProcessFileApi,
   getProcessFileListApi,
+  update2Api,
+  update3Api,
   uploadProcessFileApi,
 } from '#/api/core/case-process';
 import {
+  addBankExpensesApi,
+  addBusinessManagementApi,
+  addContractManagementApi,
+  addCreditorClaimApi,
+  addEmergencyApi,
+  addInternalAffairsApi,
   addLegalProcedureApi,
+  addLitigationArbitrationApi,
   addManagementApi,
+  addPersonnelEmploymentApi,
+  addPropertyInvestigationApi,
+  addPropertyPlanApi,
+  addPropertyReceiptApi,
+  addReclaimReviewApi,
+  addRightsClaimApi,
   addSealManagementApi,
+  addSocialSecurtyFeesApi,
+  addTaxVerificationApi,
   addWorkPlanApi,
   addWorkTeamApi,
   unifiedTaskOperationApi,
@@ -155,6 +172,415 @@ const taskFormConfig: Record<string, any> = {
       { label: '负责人', prop: 'fzr', type: 'input', required: true },
     ],
   },
+  propertyReceipt: {
+    title: '财产接收',
+    operateType: 0,
+    addApi: addPropertyReceiptApi,
+    fields: [
+      { label: '交接会议日期', prop: 'JJHYRQ', type: 'date' },
+      { label: '参会人员', prop: 'CHRY', type: 'input' },
+      { label: '财产状况说明', prop: 'CCZKSM', type: 'textarea' },
+      { label: '交接日期', prop: 'JJRQ', type: 'date' },
+      { label: '交接人', prop: 'JJR', type: 'input' },
+      { label: '接收人', prop: 'JSR', type: 'input' },
+      { label: '接收状态', prop: 'JSZT', type: 'input' },
+      { label: '财产类型', prop: 'CCLX', type: 'input' },
+      { label: '财产名称', prop: 'CCMC', type: 'input' },
+      { label: '财产金额', prop: 'CCJE', type: 'input' },
+      { label: '存放地点', prop: 'CFDD', type: 'input' },
+    ],
+  },
+  emergency: {
+    title: '应急管理',
+    operateType: 1,
+    addApi: addEmergencyApi,
+    fields: [
+      { label: '负责人', prop: 'FZR', type: 'input' },
+      { label: '安保措施', prop: 'ABCS', type: 'textarea' },
+      { label: '保险信息', prop: 'BXXX', type: 'textarea' },
+      { label: '贬值财产处理', prop: 'BZCCCL', type: 'textarea' },
+      { label: '权利时效与期间', prop: 'QLSXYQJ', type: 'textarea' },
+    ],
+  },
+  propertyPlan: {
+    title: '财产方案管理',
+    operateType: 2,
+    addApi: addPropertyPlanApi,
+    fields: [
+      { label: '方案名称', prop: 'FAMC', type: 'input' },
+      { label: '不动产管理措施', prop: 'BDCGLCS', type: 'textarea' },
+      { label: '动产管理措施', prop: 'DCGLCS', type: 'textarea' },
+      { label: '货币财产管理措施', prop: 'HBCCGLCS', type: 'textarea' },
+      { label: '无形财产管理措施', prop: 'WXCCGLCS', type: 'textarea' },
+      { label: '对外投资管理措施', prop: 'DWTZGLCS', type: 'textarea' },
+    ],
+  },
+  personnelEmp: {
+    title: '人员聘用',
+    operateType: 3,
+    addApi: addPersonnelEmploymentApi,
+    fields: [
+      { label: '员工姓名', prop: 'YGXM', type: 'input', required: true },
+      { label: '员工类型', prop: 'YGLX', type: 'input' },
+      { label: '职位', prop: 'ZW', type: 'input' },
+      { label: '聘用日期', prop: 'PYRQ', type: 'date' },
+      { label: '薪酬信息', prop: 'XCXX', type: 'textarea' },
+      { label: '法院批准情况', prop: 'FYPZQK', type: 'textarea' },
+      { label: '聘用状态', prop: 'PYZT', type: 'input' },
+    ],
+  },
+  internalAffairs: {
+    title: '内部事务管理',
+    operateType: 4,
+    addApi: addInternalAffairsApi,
+    fields: [
+      { label: '事务类型', prop: 'SWLX', type: 'input', required: true },
+      { label: '事务内容', prop: 'SWNR', type: 'textarea', required: true },
+      { label: '决定日期', prop: 'JDRQ', type: 'date' },
+      { label: '决定人', prop: 'JDR', type: 'input' },
+      { label: '开支金额', prop: 'KZJE', type: 'input' },
+      { label: '开支说明', prop: 'KZSM', type: 'textarea' },
+      { label: '处理状态', prop: 'CLZT', type: 'input' },
+    ],
+  },
+  contractManagement: {
+    title: '合同管理',
+    operateType: 5,
+    addApi: addContractManagementApi,
+    fields: [
+      { label: '合同类型', prop: 'HTLX', type: 'input', required: true },
+      { label: '合同名称', prop: 'HTMC', type: 'input', required: true },
+      { label: '合同相对方', prop: 'HTXDF', type: 'input' },
+      { label: '合同内容', prop: 'HTNR', type: 'textarea' },
+      { label: '履行状态', prop: 'LHZT', type: 'input' },
+      { label: '审查日期', prop: 'SCRQ', type: 'date' },
+      { label: '审查人', prop: 'SCR', type: 'input' },
+    ],
+  },
+  businessManagement: {
+    title: '营业管理',
+    operateType: 6,
+    addApi: addBusinessManagementApi,
+    fields: [
+      {
+        label: '营业情况调查',
+        prop: 'YYQKTC',
+        type: 'textarea',
+        required: true,
+      },
+      { label: '分析论证报告', prop: 'FXLZBG', type: 'textarea' },
+      { label: '决定内容', prop: 'JDNR', type: 'textarea', required: true },
+      { label: '法院批准日期', prop: 'FYPZRQ', type: 'date' },
+      { label: '实施状态', prop: 'SSZT', type: 'input' },
+      { label: '负责人', prop: 'FZR', type: 'input', required: true },
+    ],
+  },
+  propertyInvestigation: {
+    title: '财产调查',
+    operateType: 0,
+    addApi: addPropertyInvestigationApi,
+    fields: [
+      { label: '调查类型', prop: 'tclx', type: 'input', required: true },
+      { label: '调查内容', prop: 'tcnr', type: 'textarea', required: true },
+      { label: '调查日期', prop: 'tcrq', type: 'date', required: true },
+      { label: '调查人', prop: 'tcr', type: 'input', required: true },
+      { label: '调查发现', prop: 'tcfx', type: 'textarea' },
+      { label: '调查状态', prop: 'tczt', type: 'input' },
+    ],
+  },
+  bankExpenses: {
+    title: '破产费用管理',
+    operateType: 1,
+    addApi: addBankExpensesApi,
+    fields: [
+      { label: '费用类型', prop: 'fylx', type: 'input', required: true },
+      { label: '费用名称', prop: 'fymc', type: 'input', required: true },
+      { label: '金额', prop: 'je', type: 'input', required: true },
+      { label: '支付日期', prop: 'zfrq', type: 'date' },
+      { label: '支付状态', prop: 'zfzt', type: 'input' },
+    ],
+  },
+  rightsClaim: {
+    title: '权利主张',
+    operateType: 2,
+    addApi: addRightsClaimApi,
+    fields: [
+      { label: '主张类型', prop: 'zzlxcx', type: 'input', required: true },
+      { label: '主张内容', prop: 'zznr', type: 'textarea', required: true },
+      { label: '主张日期', prop: 'zzrq', type: 'date', required: true },
+      { label: '主张人', prop: 'zzr', type: 'input', required: true },
+      { label: '法院回应', prop: 'fyhy', type: 'textarea' },
+      { label: '主张状态', prop: 'zzzt', type: 'input' },
+    ],
+  },
+  reclaimReview: {
+    title: '取回权审查',
+    operateType: 3,
+    addApi: addReclaimReviewApi,
+    fields: [
+      { label: '权利人名称', prop: 'qlrmc', type: 'input', required: true },
+      { label: '取回权基础', prop: 'qhqjc', type: 'textarea', required: true },
+      { label: '财产是否存在', prop: 'ccsfcz', type: 'input' },
+      { label: '对待给付义务', prop: 'ddgfyw', type: 'textarea' },
+      { label: '审查日期', prop: 'scrq', type: 'date' },
+      { label: '审查人', prop: 'scr', type: 'input' },
+      { label: '审查决定', prop: 'scjd', type: 'input' },
+    ],
+  },
+  litigationArbitration: {
+    title: '诉讼仲裁',
+    operateType: 4,
+    addApi: addLitigationArbitrationApi,
+    fields: [
+      { label: '类型', prop: 'lx', type: 'input', required: true },
+      { label: '相对方', prop: 'xdf', type: 'input' },
+      { label: '法院', prop: 'fy', type: 'input' },
+      { label: '诉讼内容', prop: 'ssnr', type: 'textarea', required: true },
+      { label: '诉讼状态', prop: 'sszt', type: 'input' },
+    ],
+  },
+  creditorClaim: {
+    title: '债权申报',
+    operateType: 5,
+    addApi: addCreditorClaimApi,
+    fields: [
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '债权人类型', prop: 'zqrlx', type: 'input' },
+      { label: '申报金额', prop: 'sbje', type: 'input', required: true },
+      { label: '申报依据', prop: 'sbyj', type: 'textarea' },
+      { label: '接收人', prop: 'jsr', type: 'input' },
+      { label: '申报类型', prop: 'sblx', type: 'input' },
+      { label: '备注', prop: 'bz', type: 'textarea' },
+    ],
+  },
+  socialSecurityFees: {
+    title: '社保费用',
+    operateType: 6,
+    addApi: addSocialSecurtyFeesApi,
+    fields: [
+      { label: '费用类型', prop: 'fylx', type: 'input', required: true },
+      { label: '费用金额', prop: 'fyje', type: 'input', required: true },
+      { label: '社保机构', prop: 'sbjg', type: 'input' },
+      { label: '核定日期', prop: 'hdrq', type: 'date' },
+      { label: '核定人', prop: 'hdr', type: 'input' },
+      { label: '核定状态', prop: 'hdzt', type: 'input' },
+    ],
+  },
+  taxVerification: {
+    title: '税收核定',
+    operateType: 7,
+    addApi: addTaxVerificationApi,
+    fields: [
+      { label: '税种', prop: 'sz', type: 'input', required: true },
+      { label: '税款金额', prop: 'skje', type: 'input', required: true },
+      { label: '税务机关', prop: 'swjg', type: 'input' },
+      { label: '核定日期', prop: 'hdrq', type: 'date' },
+      { label: '核定人', prop: 'hdr', type: 'input' },
+      { label: '核定状态', prop: 'hdzt', type: 'input' },
+    ],
+  },
+  session: {
+    title: '债权人会议',
+    operateType: 0,
+    addApi: async (data: any) => {
+      const { addSessionApi } = await import('#/api/core/case-process');
+      return addSessionApi(data);
+    },
+    fields: [
+      { label: '会议名称', prop: 'hymc', type: 'input', required: true },
+      { label: '会议开始时间', prop: 'hykssj', type: 'date', required: true },
+      { label: '会议主题', prop: 'hyzt', type: 'input' },
+      { label: '会议地点', prop: 'hydd', type: 'input' },
+      { label: '参会人员', prop: 'chry', type: 'input' },
+      { label: '会议议程', prop: 'hycj', type: 'textarea' },
+      { label: '会议结果', prop: 'hyjg', type: 'textarea' },
+    ],
+  },
+  meetingDocuments: {
+    title: '债权人会议文件管理',
+    operateType: 1,
+    addApi: async (data: any) => {
+      const { addMeetingDocumentsApi } =
+        await import('#/api/core/case-process');
+      return addMeetingDocumentsApi(data);
+    },
+    fields: [
+      { label: '文件类型', prop: 'wjlx', type: 'input', required: true },
+      { label: '文件名称', prop: 'wjmc', type: 'input', required: true },
+      { label: '文件内容', prop: 'wjnr', type: 'textarea' },
+      { label: '提交日期', prop: 'tjrq', type: 'date' },
+      { label: '审批状态', prop: 'spzt', type: 'input' },
+      { label: '会议名称', prop: 'hymc', type: 'input' },
+    ],
+  },
+  claimConfirmation: {
+    title: '债权确认',
+    operateType: 2,
+    addApi: async (data: any) => {
+      const { addClaimConfirmationApi } =
+        await import('#/api/core/case-process');
+      return addClaimConfirmationApi(data);
+    },
+    fields: [
+      { label: '法院裁定日期', prop: 'fycdrq', type: 'date' },
+      { label: '裁定文号', prop: 'cdwh', type: 'input' },
+      { label: '最终金额', prop: 'zzje', type: 'input' },
+      { label: '申报金额', prop: 'sbje', type: 'input' },
+      { label: '申报ID', prop: 'sbid', type: 'input' },
+    ],
+  },
+  remunerationPlan: {
+    title: '报酬方案',
+    operateType: 3,
+    addApi: async (data: any) => {
+      const { addRemunerationPlanApi } =
+        await import('#/api/core/case-process');
+      return addRemunerationPlanApi(data);
+    },
+    fields: [
+      { label: '方案内容', prop: 'fanr', type: 'textarea', required: true },
+      { label: '报酬金额', prop: 'bcje', type: 'input' },
+      { label: '计算依据', prop: 'jsyj', type: 'textarea' },
+      { label: '会议表决结果', prop: 'hybjjg', type: 'input' },
+      { label: '异议处理情况', prop: 'yyclqk', type: 'textarea' },
+      { label: '法院批准日期', prop: 'fypzrq', type: 'date' },
+      { label: '方案状态', prop: 'fazt', type: 'input' },
+    ],
+  },
+  importantActions: {
+    title: '重要行为报告',
+    operateType: 4,
+    addApi: async (data: any) => {
+      const { addImporantActionsApi } = await import('#/api/core/case-process');
+      return addImporantActionsApi(data);
+    },
+    fields: [
+      { label: '行为类型', prop: 'hwlx', type: 'input', required: true },
+      { label: '行为内容', prop: 'hwnr', type: 'textarea', required: true },
+      { label: '行为日期', prop: 'hwrq', type: 'date' },
+      { label: '报告日期', prop: 'bgrq', type: 'date' },
+      { label: '报告接收方', prop: 'bgjsf', type: 'input' },
+      { label: '批准状态', prop: 'pzzt', type: 'input' },
+      { label: '影响评估', prop: 'yxpg', type: 'textarea' },
+    ],
+  },
+  setoffReview: {
+    title: '抵消权审查',
+    operateType: 5,
+    addApi: async (data: any) => {
+      const { addSetoffReviewApi } = await import('#/api/core/case-process');
+      return addSetoffReviewApi(data);
+    },
+    fields: [
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '抵消金额', prop: 'dxje', type: 'input' },
+      { label: '抵消依据', prop: 'dxyj', type: 'textarea' },
+      { label: '审查日期', prop: 'scrq', type: 'date' },
+      { label: '审查人', prop: 'scr', type: 'input' },
+      { label: '审查决定', prop: 'scjd', type: 'input' },
+      { label: '差额金额', prop: 'ceje', type: 'input' },
+    ],
+  },
+  auditReport: {
+    title: '审计报告',
+    operateType: 6,
+    addApi: async (data: any) => {
+      const { addAuditReportApi } = await import('#/api/core/case-process');
+      return addAuditReportApi(data);
+    },
+    fields: [
+      { label: '审计机构', prop: 'sjjg', type: 'input', required: true },
+      { label: '审计日期', prop: 'sjrq', type: 'date' },
+      { label: '审计内容', prop: 'sjnr', type: 'textarea' },
+      { label: '破产条件认定', prop: 'pctjrd', type: 'textarea' },
+      { label: '提交日期', prop: 'tjrq', type: 'date' },
+      { label: '提交人', prop: 'tjr', type: 'input' },
+      { label: '法院回应', prop: 'fyhy', type: 'textarea' },
+    ],
+  },
+  assetValuation: {
+    title: '资产评估',
+    operateType: 7,
+    addApi: async (data: any) => {
+      const { addAssetValuationApi } = await import('#/api/core/case-process');
+      return addAssetValuationApi(data);
+    },
+    fields: [
+      { label: '评估机构', prop: 'pgjg', type: 'input', required: true },
+      { label: '评估日期', prop: 'pgrq', type: 'date' },
+      { label: '评估内容', prop: 'pgnr', type: 'textarea' },
+      { label: '评估总值', prop: 'pgzz', type: 'input' },
+      { label: '评估报告路径', prop: 'pgbglj', type: 'input' },
+      { label: '审批状态', prop: 'spzt', type: 'input' },
+    ],
+  },
+  propertyVPlan: {
+    title: '财产变价方案',
+    operateType: 8,
+    addApi: async (data: any) => {
+      const { addPropertyVPlanApi } = await import('#/api/core/case-process');
+      return addPropertyVPlanApi(data);
+    },
+    fields: [
+      { label: '方案名称', prop: 'famc', type: 'input', required: true },
+      { label: '方案内容', prop: 'fanr', type: 'textarea', required: true },
+      { label: '变价方式', prop: 'bjfs', type: 'input' },
+      { label: '预期金额', prop: 'yqje', type: 'input' },
+      { label: '会议表决结果', prop: 'hybjjg', type: 'input' },
+      { label: '法院批准日期', prop: 'fypzrq', type: 'date' },
+      { label: '方案状态', prop: 'fazt', type: 'input' },
+    ],
+  },
+  auctionAgency: {
+    title: '拍卖机构',
+    operateType: 9,
+    addApi: async (data: any) => {
+      const { addAuctionAgencyApi } = await import('#/api/core/case-process');
+      return addAuctionAgencyApi(data);
+    },
+    fields: [
+      { label: '机构名称', prop: 'jgmc', type: 'input', required: true },
+      { label: '机构类型', prop: 'jglx', type: 'input' },
+      { label: '合同签订日期', prop: 'htqdrq', type: 'date' },
+      { label: '合同内容', prop: 'htnr', type: 'textarea' },
+      { label: '佣金比例', prop: 'yjbl', type: 'input' },
+      { label: '合作状态', prop: 'hzzt', type: 'input' },
+    ],
+  },
+  bankruptcyDeclaration: {
+    title: '破产宣告',
+    operateType: 10,
+    addApi: async (data: any) => {
+      const { addBankruptcyDeclarationApi } =
+        await import('#/api/core/case-process');
+      return addBankruptcyDeclarationApi(data);
+    },
+    fields: [
+      { label: '宣告日期', prop: 'xgrq', type: 'date', required: true },
+      { label: '法院裁定文号', prop: 'fycdwh', type: 'input' },
+      { label: '宣告依据', prop: 'xgyj', type: 'textarea' },
+      { label: '财产核查记录', prop: 'cchcjl', type: 'textarea' },
+      { label: '破产费用总额', prop: 'pcfyze', type: 'input' },
+    ],
+  },
+  propertyVImpl: {
+    title: '财产变价实施',
+    operateType: 11,
+    addApi: async (data: any) => {
+      const { addPropertyVImplApi } = await import('#/api/core/case-process');
+      return addPropertyVImplApi(data);
+    },
+    fields: [
+      { label: '财产名称', prop: 'ccmc', type: 'input', required: true },
+      { label: '财产类型', prop: 'cclx', type: 'input' },
+      { label: '变价金额', prop: 'bjje', type: 'input' },
+      { label: '实施日期', prop: 'ssrq', type: 'date' },
+      { label: '实施方式', prop: 'ssfs', type: 'input' },
+      { label: '买方信息', prop: 'mfxx', type: 'textarea' },
+      { label: '实施状态', prop: 'sszt', type: 'input' },
+      { label: '参考方案', prop: 'ckfa', type: 'input' },
+    ],
+  },
 };
 
 const currentConfig = computed(
@@ -208,6 +634,133 @@ const fieldNameMap: Record<string, Record<string, string>> = {
     CXNR: 'cxnr',
     ZHRQ: 'zhrq',
     FZR: 'fzr',
+  },
+  propertyReceipt: {
+    JJHYRQ: 'JJHYRQ',
+    CHRY: 'CHRY',
+    CCZKSM: 'CCZKSM',
+    JJRQ: 'JJRQ',
+    JJR: 'JJR',
+    JSR: 'JSR',
+    JSZT: 'JSZT',
+    CCLX: 'CCLX',
+    CCMC: 'CCMC',
+    CCJE: 'CCJE',
+    CFDD: 'CFDD',
+  },
+  emergency: {
+    FZR: 'FZR',
+    ABCS: 'ABCS',
+    BXXX: 'BXXX',
+    BZCCCL: 'BZCCCL',
+    QLSXYQJ: 'QLSXYQJ',
+  },
+  propertyPlan: {
+    FAMC: 'FAMC',
+    BDCGLCS: 'BDCGLCS',
+    DCGLCS: 'DCGLCS',
+    HBCCGLCS: 'HBCCGLCS',
+    WXCCGLCS: 'WXCCGLCS',
+    DWTZGLCS: 'DWTZGLCS',
+  },
+  personnelEmp: {
+    YGXM: 'YGXM',
+    YGLX: 'YGLX',
+    ZW: 'ZW',
+    PYRQ: 'PYRQ',
+    XCXX: 'XCXX',
+    FYPZQK: 'FYPZQK',
+    PYZT: 'PYZT',
+  },
+  internalAffairs: {
+    SWLX: 'SWLX',
+    SWNR: 'SWNR',
+    JDRQ: 'JDRQ',
+    JDR: 'JDR',
+    KZJE: 'KZJE',
+    KZSM: 'KZSM',
+    CLZT: 'CLZT',
+  },
+  contractManagement: {
+    HTLX: 'HTLX',
+    HTMC: 'HTMC',
+    HTXDF: 'HTXDF',
+    HTNR: 'HTNR',
+    LHZT: 'LHZT',
+    SCRQ: 'SCRQ',
+    SCR: 'SCR',
+  },
+  businessManagement: {
+    YYQKTC: 'YYQKTC',
+    FXLZBG: 'FXLZBG',
+    JDNR: 'JDNR',
+    FYPZRQ: 'FYPZRQ',
+    SSZT: 'SSZT',
+    FZR: 'FZR',
+  },
+  propertyInvestigation: {
+    TCLX: 'tclx',
+    TCNR: 'tcnr',
+    TCRQ: 'tcrq',
+    TCR: 'tcr',
+    TCFX: 'tcfx',
+    TCZT: 'tczt',
+  },
+  bankExpenses: {
+    FYLX: 'fylx',
+    FYMC: 'fymc',
+    JE: 'je',
+    ZFRQ: 'zfrq',
+    ZFZT: 'zfzt',
+  },
+  rightsClaim: {
+    ZZLXCX: 'zzlxcx',
+    ZZNR: 'zznr',
+    ZZRQ: 'zzrq',
+    ZZR: 'zzr',
+    FYHY: 'fyhy',
+    ZZZT: 'zzzt',
+  },
+  reclaimReview: {
+    QLRMC: 'qlrmc',
+    QHQJC: 'qhqjc',
+    CCSFCZ: 'ccsfcz',
+    DDGFYW: 'ddgfyw',
+    SCRQ: 'scrq',
+    SCR: 'scr',
+    SCJD: 'scjd',
+  },
+  litigationArbitration: {
+    LX: 'lx',
+    XDF: 'xdf',
+    FY: 'fy',
+    SSNR: 'ssnr',
+    SSZT: 'sszt',
+  },
+  creditorClaim: {
+    ZQRMC: 'zqrmc',
+    ZQRLX: 'zqrlx',
+    SBJE: 'sbje',
+    SBYJ: 'sbyj',
+    JSR: 'jsr',
+    SBLX: 'sblx',
+    BZ: 'bz',
+  },
+  socialSecurityFees: {
+    FYLX: 'fylx',
+    FYJE: 'fyje',
+    SBJG: 'sbjg',
+    HDRQ: 'hdrq',
+    HDR: 'hdr',
+    HDZT: 'hdzt',
+  },
+  taxVerification: {
+    SZ: 'sz',
+    SKJE: 'skje',
+    SWJG: 'swjg',
+    HDRQ: 'hdrq',
+    HDR: 'hdr',
+    HDZT: 'hdzt',
   },
 };
 
@@ -482,50 +1035,115 @@ const handleSave = async () => {
 
     const sep_adate = new Date().toISOString().split('T')[0];
 
+    const isSecondStage = [
+      'businessManagement',
+      'contractManagement',
+      'emergency',
+      'internalAffairs',
+      'personnelEmp',
+      'propertyPlan',
+      'propertyReceipt',
+    ].includes(props.taskType);
+
+    const isThirdStage = [
+      'bankExpenses',
+      'creditorClaim',
+      'litigationArbitration',
+      'propertyInvestigation',
+      'reclaimReview',
+      'rightsClaim',
+      'socialSecurityFees',
+      'taxVerification',
+    ].includes(props.taskType);
+
+    const isFourthFifthStage = [
+      'assetValuation',
+      'auctionAgency',
+      'auditReport',
+      'bankruptcyDeclaration',
+      'claimConfirmation',
+      'importantActions',
+      'meetingDocuments',
+      'propertyVImpl',
+      'propertyVPlan',
+      'remunerationPlan',
+      'session',
+      'setoffReview',
+    ].includes(props.taskType);
+
     switch (props.mode) {
       case 'add': {
         console.log('[保存] 开始新增任务...');
-        // 确保所有字段都被包含，即使是空值
-        const allFields: any = {
-          sep_ld: props.caseId,
-          sep_auser,
-          sep_adate,
-          zt: '0',
-        };
+        if (
+          (isSecondStage || isThirdStage || isFourthFifthStage) &&
+          typeof currentConfig.value.addApi === 'function'
+        ) {
+          const allFields: any = {
+            sep_ld: props.caseId,
+            SEP_AUSER: sep_auser,
+            SEP_ADATE: sep_adate,
+            ZT: '0',
+          };
 
-        // 添加所有配置的字段，确保即使没填写也会传递给后端
-        currentConfig.value.fields.forEach((field: any) => {
-          // 如果formData中有该字段的值，则使用formData中的值，否则使用空字符串
-          allFields[field.prop] = formData[field.prop] || '';
-        });
+          currentConfig.value.fields.forEach((field: any) => {
+            const value = formData[field.prop];
+            if (value === '' || value === null || value === undefined) {
+              allFields[field.prop] = ['CCJE', 'KZJE'].includes(field.prop)
+                ? '0'
+                : '';
+            } else {
+              allFields[field.prop] = value;
+            }
+          });
 
-        // 确保即使没有填写任何字段，也会传递所有必要的空字符串给后端
-        // 遍历所有可能的字段映射，确保都包含在内
-        const reverseFieldMap = Object.entries(
-          fieldNameMap[props.taskType] || {},
-        ).reduce(
-          (acc, [backendField, frontendField]) => {
-            acc[frontendField] = backendField;
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
-
-        // 添加所有映射的字段，确保都包含在内
-        Object.keys(reverseFieldMap).forEach((frontendField) => {
-          if (!(frontendField in allFields)) {
-            allFields[frontendField] = '';
+          console.log('[保存] 调用第二/三/四/五阶段新增API，参数:', [
+            allFields,
+          ]);
+          const response = await currentConfig.value.addApi([allFields]);
+          console.log('[保存] 第二/三/四/五阶段新增API响应:', response);
+          if (response.status === '1') {
+            console.log('[保存] 新增成功');
+            emit('saved');
+          } else {
+            ElMessage.error(`添加失败：${response.error}`);
           }
-        });
-
-        console.log('[保存] 调用新增API，参数:', allFields);
-        const response = await currentConfig.value.addApi(allFields);
-        console.log('[保存] 新增API响应:', response);
-        if (response.status === '1') {
-          console.log('[保存] 新增成功');
-          emit('saved');
         } else {
-          ElMessage.error(`添加失败：${response.error}`);
+          const allFields: any = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            zt: '0',
+          };
+
+          currentConfig.value.fields.forEach((field: any) => {
+            allFields[field.prop] = formData[field.prop] || '';
+          });
+
+          const reverseFieldMap = Object.entries(
+            fieldNameMap[props.taskType] || {},
+          ).reduce(
+            (acc, [backendField, frontendField]) => {
+              acc[frontendField] = backendField;
+              return acc;
+            },
+            {} as Record<string, string>,
+          );
+
+          Object.keys(reverseFieldMap).forEach((frontendField) => {
+            if (!(frontendField in allFields)) {
+              allFields[frontendField] = '';
+            }
+          });
+
+          console.log('[保存] 调用第一阶段新增API，参数:', allFields);
+          const response = await currentConfig.value.addApi(allFields);
+          console.log('[保存] 第一阶段新增API响应:', response);
+          if (response.status === '1') {
+            console.log('[保存] 新增成功');
+            emit('saved');
+          } else {
+            ElMessage.error(`添加失败：${response.error}`);
+          }
         }
 
         break;
@@ -541,8 +1159,14 @@ const handleSave = async () => {
           ZT: '1',
         };
 
-        console.log('[保存] 调用完成任务API，参数:', updateData);
-        const response = await unifiedTaskOperationApi(updateData);
+        console.log('[保存] 调用完成API，参数:', updateData);
+        const response = isFourthFifthStage
+          ? await update4Api(updateData)
+          : isThirdStage
+            ? await update3Api(updateData)
+            : isSecondStage
+              ? await update2Api(updateData)
+              : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 完成任务API响应:', response);
         if (response.status === '1') {
           ElMessage.success('标记完成成功');
@@ -566,7 +1190,13 @@ const handleSave = async () => {
         };
 
         console.log('[保存] 调用编辑API，参数:', updateData);
-        const response = await unifiedTaskOperationApi(updateData);
+        const response = isFourthFifthStage
+          ? await update4Api(updateData)
+          : isThirdStage
+            ? await update3Api(updateData)
+            : isSecondStage
+              ? await update2Api(updateData)
+              : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 编辑API响应:', response);
         if (response.status === '1') {
           ElMessage.success('更新成功');
@@ -589,7 +1219,13 @@ const handleSave = async () => {
         };
 
         console.log('[保存] 调用跳过API，参数:', updateData);
-        const response = await unifiedTaskOperationApi(updateData);
+        const response = isFourthFifthStage
+          ? await update4Api(updateData)
+          : isThirdStage
+            ? await update3Api(updateData)
+            : isSecondStage
+              ? await update2Api(updateData)
+              : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 跳过API响应:', response);
         if (response.status === '1') {
           ElMessage.success('标记跳过成功');
@@ -600,7 +1236,6 @@ const handleSave = async () => {
 
         break;
       }
-      // No default
     }
     console.log('========== 任务保存结束 ==========');
   } catch (error) {
@@ -740,12 +1375,8 @@ const formRules = computed(() => {
               <div class="file-details">
                 <div class="file-name">{{ file.name }}</div>
                 <div class="file-meta">
-                  <span class="file-size"
-                    >{{ (file.fileSize / 1024 / 1024).toFixed(2) }} MB</span
-                  >
-                  <span class="file-uploader"
-                    >上传者: {{ file.uploadUser }}</span
-                  >
+                  <span class="file-size">{{ (file.fileSize / 1024 / 1024).toFixed(2) }} MB</span>
+                  <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
                   <span class="file-date">{{
                     new Date(file.uploadDate).toLocaleString('zh-CN')
                   }}</span>

@@ -45,5 +45,9 @@
     "title": "支付管理",
     "list": "支付列表",
     "detail": "支付详情"
+  },
+  "permission": {
+    "title": "权限管理",
+    "index": "权限管理"
   }
 }
