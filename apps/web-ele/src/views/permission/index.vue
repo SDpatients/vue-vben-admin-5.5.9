@@ -26,7 +26,9 @@ import {
 import {
   checkUserRoleApi,
   getAllRolesApi,
+  getUserRoleIdsApi,
   getUsersByRoleCodeApi,
+  removeRoleApi,
   updateTBUserRoleApi,
 } from '#/api/core/permission';
 
@@ -112,21 +114,50 @@ const handleCheckRole = async () => {
   }
 };
 
-const handleEditPermission = (user: any) => {
-  // 填充表单数据
+const handleEditPermission = async (user: any) => {
+  // 填充基本用户信息
   editPermissionForm.value = {
     u_pid: user.uPid,
     u_user: user.uUser,
     u_name: user.uName,
-    role_id: 0, // 默认值，需要根据用户当前角色设置
+    role_id: 0, // 默认值，将通过API获取
   };
+
+  try {
+    // 调用API获取用户当前角色ID
+    const response = await getUserRoleIdsApi(user.uPid);
+    if (response.status === '1') {
+      // 将获取到的角色ID设置到表单中
+      editPermissionForm.value.role_id = Number(response.data) || 0;
+    }
+  } catch (error) {
+    ElMessage.error('获取用户角色ID失败');
+  }
+
   // 打开弹窗
   editPermissionDialogVisible.value = true;
 };
 
-const handleDeleteUser = async (user: any) => {
-  // 这里可以添加删除用户的逻辑，例如调用API删除用户
-  ElMessage.info(`删除用户 ${user.uUser}`);
+const handleRemoveUser = async (user: any) => {
+  try {
+    // 从角色列表中找到当前角色对应的roleId
+    const currentRole = roles.value.find(role => role.roleCode === currentRoleCode.value);
+    if (!currentRole) {
+      ElMessage.error('未找到当前角色信息');
+      return;
+    }
+
+    // 调用移除角色接口
+    const response = await removeRoleApi(user.uPid, currentRole.roleId);
+    if (response.status === '1') {
+      ElMessage.success('角色移除成功');
+      loadRoleUsers(); // 刷新角色用户列表
+    } else {
+      ElMessage.error(response.error || '角色移除失败');
+    }
+  } catch (error) {
+    ElMessage.error('角色移除失败');
+  }
 };
 
 const handleUpdatePermission = async () => {
@@ -152,8 +183,8 @@ const handleUpdatePermission = async () => {
   }
 };
 
-const getRoleTagType = (roleCode: string) => {
-  const typeMap: Record<string, string> = {
+const getRoleTagType = (roleCode: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  const typeMap: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
     ADMIN: 'danger',
     REVIEWER: 'warning',
     LAWYER: 'success',
@@ -282,9 +313,9 @@ onMounted(() => {
                     <span
                       class="cursor-pointer"
                       style="color: red;"
-                      @click="handleDeleteUser(scope.row)"
+                      @click="handleRemoveUser(scope.row)"
                     >
-                      删除
+                      移除
                     </span>
                   </template>
                 </ElTableColumn>

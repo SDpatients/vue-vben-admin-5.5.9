@@ -460,8 +460,7 @@ const cancel = () => {
               选择文件
             </el-button>
             <span class="ml-2 text-sm text-gray-500">
-              支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
-              格式文件，单个文件大小不超过 10MB
+              支持上传文档、图片等文件，单个文件不超过10MB
             </span>
           </div>
 
@@ -532,3 +531,4 @@ const cancel = () => {
   display: none;
 }
 </style>
+

@@ -1562,6 +1562,21 @@ export const getAllPropertyVPlanApi = async (
   }
 };
 
+export const getAllAuctionAgencyApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllAuctionAgency', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取拍卖机构数据失败:', error);
+    throw error;
+  }
+};
+
 /** 第七阶段API函数 */
 export const getCanRRInfoApi = async (
   SEP_ID: string,

@@ -33,8 +33,18 @@ export const todoApi = {
     });
   },
 
+  getUserTodoList: (targetUserId: number, status?: string, priority?: string, page: number = 1, pageSize: number = 20) => {
+    return requestClient.get(`/api/todo/user/${targetUserId}`, {
+      params: { status, priority, page, pageSize },
+    });
+  },
+
   createTodo: (data: TodoDTO) => {
     return requestClient.post('/api/todo', data);
+  },
+
+  createTodoForUser: (targetUserId: number, data: TodoDTO) => {
+    return requestClient.post(`/api/todo/user/${targetUserId}`, data);
   },
 
   updateTodo: (id: number, data: Partial<TodoDTO>) => {

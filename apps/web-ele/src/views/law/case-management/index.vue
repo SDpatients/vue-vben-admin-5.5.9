@@ -59,16 +59,16 @@ const availableColumns = [
   '银行账户数',
   '银行账户总余额',
   '有效账户数',
+  '案件进度',
 ];
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '会计账簿',
   '债权人数',
   '债权总额',
   '案号',
-  '案由',
   '财产金额',
+  '案件进度',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -111,6 +111,7 @@ const generateMockData = () => {
       银行账户数: 3,
       银行账户总余额: 1_200_000,
       有效账户数: 2,
+      案件进度: '审理中',
     } as CaseApi.CaseInfo,
     {
       row: 2,
@@ -137,6 +138,7 @@ const generateMockData = () => {
       银行账户数: 5,
       银行账户总余额: 3_500_000,
       有效账户数: 4,
+      案件进度: '审理中',
     } as CaseApi.CaseInfo,
     {
       row: 3,
@@ -163,6 +165,7 @@ const generateMockData = () => {
       银行账户数: 2,
       银行账户总余额: 850_000,
       有效账户数: 1,
+      案件进度: '已结案',
     } as CaseApi.CaseInfo,
   ];
 
@@ -278,6 +281,27 @@ const getAccountBookType = (status: string) => {
     }
     default: {
       return 'danger';
+    }
+  }
+};
+
+// 获取案件进度标签类型
+const getCaseProgressType = (progress: string) => {
+  switch (progress) {
+    case '审理中': {
+      return 'primary';
+    }
+    case '已结案': {
+      return 'success';
+    }
+    case '已终结': {
+      return 'info';
+    }
+    case '已注销': {
+      return 'warning';
+    }
+    default: {
+      return 'info';
     }
   }
 };
@@ -448,6 +472,9 @@ const canDelete = () => {
                             </ElCheckbox>
                             <ElCheckbox value="有效账户数" name="有效账户数">
                               有效账户
+                            </ElCheckbox>
+                            <ElCheckbox value="案件进度" name="案件进度">
+                              案件进度
                             </ElCheckbox>
                           </div>
                         </ElCheckboxGroup>
@@ -629,6 +656,21 @@ const canDelete = () => {
               min-width="80"
               align="center"
             />
+
+            <!-- 案件进度 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案件进度')"
+              prop="案件进度"
+              label="案件进度"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag :type="getCaseProgressType(row['案件进度'])" size="small">
+                  {{ row['案件进度'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
 
             <!-- 操作列 -->
             <ElTableColumn label="操作" min-width="200" fixed="right">
@@ -869,3 +911,4 @@ const canDelete = () => {
   margin: 0;
 }
 </style>
+

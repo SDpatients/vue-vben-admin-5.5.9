@@ -22,6 +22,10 @@
     "title": "User Management",
     "management": "User List"
   },
+  "notification": {
+    "title": "Notification",
+    "center": "Notification Center"
+  },
   "basicData": {
     "title": "Basic Data",
     "creditorManagement": "Creditor Management",

@@ -49,6 +49,7 @@ export namespace CaseApi {
     银行账户数: number;
     银行账户总余额: number;
     有效账户数: number;
+    案件进度: string;
   }
 
   /** 案件列表响应 */
@@ -78,14 +79,14 @@ export namespace CaseApi {
     larq?: string;
     jarq?: string;
     pcsj?: string;
-    cbry?: string;
+    zjsj?: string;
+    zxsj?: string;
+    gdsj?: string;
     beizhu?: string;
     wjsc?: string;
     sepLd?: number;
     sepMd?: number;
     sepNd?: string;
-    sep_auser?: string;
-    sep_adate?: string;
   }
 
   /** 添加案件响应 */
@@ -112,10 +113,10 @@ export namespace CaseApi {
     LARQ?: string;
     JARQ?: string;
     PCSJ?: string;
-    CBRY?: string;
+    ZJSJ?: string;
+    ZXSJ?: string;
+    GDSJ?: string;
     BEIZHU?: string;
-    SEP_AUSER?: string;
-    SEP_ADATE?: string;
     SEP_EUSER?: string;
     SEP_EDATE?: string;
     GLRID?: string;
@@ -328,25 +329,27 @@ export async function uploadCaseFileApi(
  */
 export async function batchUploadCaseFilesApi(
   files: File[],
-  bizId: string,
-  bizType: string = 'case',
+  SEP_ID: string,
+  moduleType: string = 'task',
 ) {
-  const token = 
+  const token =
     localStorage.getItem('token') ||
     'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwiaWF0IjoxNzY2MzgyNzczLCJleHAiOjE3NjY0NjkxNzN9.qky_uzMPfWbUhrYDlS_qlghkKOWAHVojWAkw84SHqhRg4PlEWplLv8ph1H21-tKhBorfb3sVpL0xfj20rhBxnA';
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
   });
-  formData.append('bizType', bizType);
-  formData.append('bizId', bizId);
   return fileUploadRequestClient.post<any>(
-    '/api/file/batchUpload',
+    '/api/web/batchUploadCaseFiles',
     formData,
     {
+      params: {
+        token,
+        SEP_ID,
+        moduleType,
+      },
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`,
       },
     },
   );
@@ -494,3 +497,4 @@ export async function deleteCaseApi(caseId: number) {
     },
   );
 }
+
