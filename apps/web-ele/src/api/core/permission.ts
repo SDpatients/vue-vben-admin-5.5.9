@@ -149,3 +149,35 @@ export async function checkUserRoleApi(userId: number, roleCode: string) {
     },
   );
 }
+
+/**
+ * 获取用户角色ID
+ */
+export async function getUserRoleIdsApi(userId: number) {
+  return requestClient8085.get<PermissionApi.CommonResponse>(
+    '/api/web/userRole/getUserRoleIds',
+    {
+      params: { userId },
+    },
+  );
+}
+
+/**
+ * 更新用户角色
+ */
+export async function updateTBUserRoleApi(data: {
+  u_pid: number;
+  u_user: string;
+  u_name: string;
+  role_id: number;
+}) {
+  return requestClient8085.post<PermissionApi.CommonResponse>(
+    '/api/web/userRole/updateTBUserRole',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}

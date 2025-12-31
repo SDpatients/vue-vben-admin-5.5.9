@@ -21,12 +21,6 @@ import {
   ElTabs,
 } from 'element-plus';
 
-import { getWorkTeamListApi } from '#/api/core';
-
-// 路由
-const router = useRouter();
-
-// 工作团队列表数据
 const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
 
 // 加载状态
