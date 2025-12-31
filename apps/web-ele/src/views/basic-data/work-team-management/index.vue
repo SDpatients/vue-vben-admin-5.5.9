@@ -7,34 +7,20 @@ import { useRouter } from 'vue-router';
 import {
   ElButton,
   ElCard,
+  ElDialog,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElOption,
   ElPagination,
-  ElTable,
-  ElTableColumn,
-  ElDialog,
-  ElForm,
-  ElFormItem,
   ElSelect,
-<<<<<<< Updated upstream
   ElTable,
   ElTableColumn,
   ElTabPane,
   ElTabs,
-=======
-  ElOption,
-  ElTabs,
-  ElTabPane,
->>>>>>> Stashed changes
 } from 'element-plus';
 
-import { addWorkTeamApi, getWorkTeamListApi } from '#/api/core';
-
-// 路由
-const router = useRouter();
-
-// 工作团队列表数据
 const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
 
 // 加载状态
@@ -52,81 +38,6 @@ const pagination = reactive({
   itemCount: 0,
   pages: 0,
 });
-
-// 新增团队弹窗
-const newTeamDialogVisible = ref(false);
-const newTeamFormRef = ref();
-const newTeamFormLoading = ref(false);
-
-// 标签页当前激活项
-const activeTab = ref('upload');
-
-// 新增团队表单数据
-const newTeamFormData = reactive({
-  tdfzr: '',
-  zhzcy: '',
-  cxzcy: '',
-  ccglzcy: '',
-  zqshzcy: '',
-  ldrszcy: '',
-  zzqlzcy: '',
-  caseId: '', // 新增案件字段
-});
-
-// 案件选项
-const caseOptions = ref([
-  { label: '案件1', value: '1' },
-  { label: '案件2', value: '2' },
-  { label: '案件3', value: '3' },
-]);
-
-// 文件上传相关
-const fileList = ref<File[]>([]);
-const uploadLoading = ref(false);
-const uploadInputRef = ref<HTMLInputElement | null>(null);
-
-// 选择文件
-const handleFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    for (let i = 0; i < target.files.length; i++) {
-      fileList.value.push(target.files[i]);
-    }
-  }
-};
-
-// 触发文件选择对话框
-const triggerFileSelect = () => {
-  uploadInputRef.value?.click();
-};
-
-// 删除文件
-const removeFile = (index: number) => {
-  fileList.value.splice(index, 1);
-};
-
-// 上传文件
-const uploadFiles = async () => {
-  if (fileList.value.length === 0) {
-    ElMessage.warning('请先选择文件');
-    return;
-  }
-
-  uploadLoading.value = true;
-  try {
-    // 模拟文件上传
-    // 实际项目中，这里应该调用真实的文件上传API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    ElMessage.success(`成功上传 ${fileList.value.length} 个文件`);
-    fileList.value = []; // 清空已上传文件
-  } catch (error) {
-    console.error('文件上传失败:', error);
-    ElMessage.error('文件上传失败，请稍后重试');
-  } finally {
-    uploadLoading.value = false;
-  }
-};
 
 // 获取工作团队列表
 const fetchWorkTeamList = async () => {
@@ -260,73 +171,40 @@ const uploadFileList = ref([]);
 
 // 打开新增工作团队弹窗
 const handleAddWorkTeam = () => {
-  // 重置表单数据
-  Object.assign(newTeamFormData, {
-    tdfzr: '',
-    zhzcy: '',
-    cxzcy: '',
-    ccglzcy: '',
-    zqshzcy: '',
-    ldrszcy: '',
-    zzqlzcy: '',
+  addDialogVisible.value = true;
+  activeTab.value = 'customData';
+  // 重置表单
+  Object.assign(addFormData, {
+    teamLeader: '',
+    comprehensiveMembers: '',
+    procedureMembers: '',
+    propertyMembers: '',
+    creditorMembers: '',
+    laborMembers: '',
+    claimMembers: '',
     caseId: '',
   });
-  // 显示新增弹窗
-  newTeamDialogVisible.value = true;
+  uploadFileList.value = [];
 };
 
-// 关闭新增弹窗
-const handleCloseNewTeamDialog = () => {
-  newTeamDialogVisible.value = false;
-  // 重置表单
-  if (newTeamFormRef.value) {
-    newTeamFormRef.value.resetFields();
-  }
+// 关闭新增工作团队弹窗
+const handleCloseAddDialog = () => {
+  addDialogVisible.value = false;
 };
 
-// 保存新增团队
-const saveNewTeam = async () => {
-  if (!newTeamFormRef.value) return;
-  
-  try {
-    await newTeamFormRef.value.validate();
-    newTeamFormLoading.value = true;
-    
-    // 从本地存储获取操作人信息
-    const chatUserInfo = localStorage.getItem('chat_user_info');
-    const sepauser = chatUserInfo ? JSON.parse(chatUserInfo).U_USER : 'admin';
-    
-    // 准备API请求数据
-    const workTeamData = {
-      sep_ld: newTeamFormData.caseId, // 案件ID映射到sep_ld
-      tdfzr: newTeamFormData.tdfzr,
-      zhzcy: newTeamFormData.zhzcy,
-      cxzcy: newTeamFormData.cxzcy,
-      ccglzcy: newTeamFormData.ccglzcy,
-      zqshzcy: newTeamFormData.zqshzcy,
-      ldrszcy: newTeamFormData.ldrszcy,
-      zzqlzcy: newTeamFormData.zzqlzcy,
-      sepauser: sepauser, // 操作人
-      sepadate: new Date().toISOString(), // 操作日期
-      ZT: "0" // 状态，默认为0
-    };
-    
-    // 调用实际的API保存数据
-    const result = await addWorkTeamApi(workTeamData);
-    
-    if (result.status === '1') {
-      ElMessage.success('新增工作团队成功');
-      newTeamDialogVisible.value = false;
-      fetchWorkTeamList(); // 刷新列表
-    } else {
-      ElMessage.error(result.error || '新增工作团队失败');
-    }
-  } catch (error) {
-    console.error('保存失败:', error);
-    ElMessage.error('网络错误，请稍后重试');
-  } finally {
-    newTeamFormLoading.value = false;
-  }
+// 保存新增工作团队
+const handleSaveAddWorkTeam = () => {
+  // 这里可以添加表单验证和保存逻辑
+  ElMessage.success('工作团队保存成功');
+  handleCloseAddDialog();
+  // 刷新工作团队列表
+  fetchWorkTeamList();
+};
+
+// 选择文件
+const handleFileSelect = () => {
+  // 这里可以添加文件选择逻辑
+  ElMessage.info('文件选择功能开发中...');
 };
 
 // 编辑工作团队
@@ -524,10 +402,10 @@ onMounted(() => {
 
       <!-- 新增工作团队弹窗 -->
       <ElDialog
-        v-model="newTeamDialogVisible"
+        v-model="addDialogVisible"
         title="新增工作团队"
-        width="800px"
-        :before-close="handleCloseNewTeamDialog"
+        width="600px"
+        :before-close="handleCloseAddDialog"
       >
         <ElTabs v-model="activeTab" class="mb-4">
           <ElTabPane label="上传文件" name="uploadFile">

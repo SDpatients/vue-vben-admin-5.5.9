@@ -24,35 +24,28 @@ import {
 } from 'element-plus';
 
 import {
-  assignRoleApi,
   checkUserRoleApi,
   getAllRolesApi,
-  getRolesByUserIdApi,
   getUsersByRoleCodeApi,
-  removeRoleApi,
-  setUserRolesApi,
+  updateTBUserRoleApi,
 } from '#/api/core/permission';
 
-const activeTab = ref('userRoles');
+const activeTab = ref('roles');
 
 const loading = ref(false);
 const roles = ref<PermissionApi.Role[]>([]);
 const userRoles = ref<PermissionApi.UserRole[]>([]);
-const roleUsers = ref<Array<{ userId: number; username: string; realName?: string }>>([]);
+const roleUsers = ref<Array<any>>([]);
 
-const currentUserId = ref<number>(1);
 const currentRoleCode = ref<string>('LAWYER');
 
-const assignDialogVisible = ref(false);
-const assignForm = ref({
-  userId: 1,
-  roleId: 0,
-});
-
-const setUserRolesDialogVisible = ref(false);
-const setUserRolesForm = ref({
-  userId: 1,
-  roleIds: [] as number[],
+// 修改权限弹窗相关
+const editPermissionDialogVisible = ref(false);
+const editPermissionForm = ref({
+  u_pid: 0,
+  u_user: '',
+  u_name: '',
+  role_id: 0,
 });
 
 const checkRoleDialogVisible = ref(false);
@@ -79,22 +72,7 @@ const loadRoles = async () => {
   }
 };
 
-const loadUserRoles = async () => {
-  loading.value = true;
-  try {
-    const response = await getRolesByUserIdApi(currentUserId.value);
-    if (response.status === '1') {
-      userRoles.value = response.data || [];
-      ElMessage.success('用户角色加载成功');
-    } else {
-      ElMessage.error(response.error || '加载用户角色失败');
-    }
-  } catch (error) {
-    ElMessage.error('加载用户角色失败');
-  } finally {
-    loading.value = false;
-  }
-};
+
 
 const loadRoleUsers = async () => {
   loading.value = true;
@@ -113,65 +91,9 @@ const loadRoleUsers = async () => {
   }
 };
 
-const handleAssignRole = async () => {
-  if (!assignForm.value.roleId) {
-    ElMessage.warning('请选择角色');
-    return;
-  }
 
-  loading.value = true;
-  try {
-    const response = await assignRoleApi(assignForm.value.userId, assignForm.value.roleId);
-    if (response.status === '1') {
-      ElMessage.success('角色分配成功');
-      assignDialogVisible.value = false;
-      loadUserRoles();
-    } else {
-      ElMessage.error(response.error || '角色分配失败');
-    }
-  } catch (error) {
-    ElMessage.error('角色分配失败');
-  } finally {
-    loading.value = false;
-  }
-};
 
-const handleRemoveRole = async (roleId: number) => {
-  try {
-    const response = await removeRoleApi(currentUserId.value, roleId);
-    if (response.status === '1') {
-      ElMessage.success('角色移除成功');
-      loadUserRoles();
-    } else {
-      ElMessage.error(response.error || '角色移除失败');
-    }
-  } catch (error) {
-    ElMessage.error('角色移除失败');
-  }
-};
 
-const handleSetUserRoles = async () => {
-  if (setUserRolesForm.value.roleIds.length === 0) {
-    ElMessage.warning('请至少选择一个角色');
-    return;
-  }
-
-  loading.value = true;
-  try {
-    const response = await setUserRolesApi(setUserRolesForm.value.userId, setUserRolesForm.value.roleIds);
-    if (response.status === '1') {
-      ElMessage.success('用户角色设置成功');
-      setUserRolesDialogVisible.value = false;
-      loadUserRoles();
-    } else {
-      ElMessage.error(response.error || '用户角色设置失败');
-    }
-  } catch (error) {
-    ElMessage.error('用户角色设置失败');
-  } finally {
-    loading.value = false;
-  }
-};
 
 const handleCheckRole = async () => {
   loading.value = true;
@@ -190,6 +112,46 @@ const handleCheckRole = async () => {
   }
 };
 
+const handleEditPermission = (user: any) => {
+  // 填充表单数据
+  editPermissionForm.value = {
+    u_pid: user.uPid,
+    u_user: user.uUser,
+    u_name: user.uName,
+    role_id: 0, // 默认值，需要根据用户当前角色设置
+  };
+  // 打开弹窗
+  editPermissionDialogVisible.value = true;
+};
+
+const handleDeleteUser = async (user: any) => {
+  // 这里可以添加删除用户的逻辑，例如调用API删除用户
+  ElMessage.info(`删除用户 ${user.uUser}`);
+};
+
+const handleUpdatePermission = async () => {
+  if (!editPermissionForm.value.role_id) {
+    ElMessage.warning('请选择角色');
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const response = await updateTBUserRoleApi(editPermissionForm.value);
+    if (response.status === '1') {
+      ElMessage.success('权限修改成功');
+      editPermissionDialogVisible.value = false;
+      loadRoleUsers(); // 刷新角色用户列表
+    } else {
+      ElMessage.error(response.error || '权限修改失败');
+    }
+  } catch (error) {
+    ElMessage.error('权限修改失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
 const getRoleTagType = (roleCode: string) => {
   const typeMap: Record<string, string> = {
     ADMIN: 'danger',
@@ -200,17 +162,25 @@ const getRoleTagType = (roleCode: string) => {
 };
 
 const getRoleName = (roleCode: string) => {
+  // 先从roles数组中查找角色名称
+  const role = roles.value.find(r => r.roleCode === roleCode);
+  if (role && role.roleName) {
+    return role.roleName;
+  }
+  
+  // 保留原有映射作为 fallback
   const nameMap: Record<string, string> = {
     ADMIN: '管理员',
     REVIEWER: '审核员',
     LAWYER: '律师',
+    SUPER_ADMIN: '超级管理员',
+    VIEWER: '只读用户'
   };
   return nameMap[roleCode] || roleCode;
 };
 
 onMounted(() => {
   loadRoles();
-  loadUserRoles();
   loadRoleUsers();
 });
 </script>
@@ -229,62 +199,7 @@ onMounted(() => {
       </template>
 
       <ElTabs v-model="activeTab">
-        <ElTabPane label="用户角色管理" name="userRoles">
-          <div class="tab-content">
-            <div class="mb-4 flex items-center gap-4">
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-600">用户ID：</span>
-                <ElInput
-                  v-model.number="currentUserId"
-                  type="number"
-                  placeholder="输入用户ID"
-                  style="width: 150px"
-                />
-              </div>
-              <ElButton type="primary" @click="loadUserRoles">
-                查询用户角色
-              </ElButton>
-              <ElButton type="success" @click="setUserRolesDialogVisible = true">
-                <i class="i-lucide-settings mr-1"></i>
-                设置用户角色
-              </ElButton>
-              <ElButton type="warning" @click="assignDialogVisible = true">
-                <i class="i-lucide-plus mr-1"></i>
-                分配角色
-              </ElButton>
-            </div>
 
-            <ElCard>
-              <template #header>
-                <span>用户 {{ currentUserId }} 的角色列表</span>
-              </template>
-              <div v-if="userRoles.length > 0" class="role-list">
-                <div
-                  v-for="role in userRoles"
-                  :key="role.roleId"
-                  class="role-item"
-                >
-                  <div class="role-info">
-                    <ElTag :type="getRoleTagType(role.roleCode)" size="large">
-                      {{ getRoleName(role.roleCode) }}
-                    </ElTag>
-                    <span class="ml-2 text-sm text-gray-600">
-                      {{ role.roleName }}
-                    </span>
-                  </div>
-                  <ElButton
-                    type="danger"
-                    size="small"
-                    @click="handleRemoveRole(role.roleId)"
-                  >
-                    移除
-                  </ElButton>
-                </div>
-              </div>
-              <ElEmpty v-else description="该用户暂无角色" />
-            </ElCard>
-          </div>
-        </ElTabPane>
 
         <ElTabPane label="角色列表" name="roles">
           <div class="tab-content">
@@ -295,7 +210,7 @@ onMounted(() => {
               border
             >
               <ElTableColumn prop="roleId" label="角色ID" width="100" />
-              <ElTableColumn prop="roleCode" label="角色编码" width="150" />
+              <ElTableColumn prop="roleCode" label="角色" width="150" />
               <ElTableColumn prop="roleName" label="角色名称" width="150" />
               <ElTableColumn prop="roleDesc" label="角色描述" />
               <ElTableColumn label="角色类型" width="120">
@@ -320,28 +235,28 @@ onMounted(() => {
           <div class="tab-content">
             <div class="mb-4 flex items-center gap-4">
               <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-600">角色编码：</span>
-                <ElSelect
-                  v-model="currentRoleCode"
-                  placeholder="选择角色"
-                  style="width: 200px"
-                  @change="loadRoleUsers"
-                >
-                  <ElOption
-                    v-for="role in roles"
-                    :key="role.roleId"
-                    :label="role.roleCode"
-                    :value="role.roleCode"
+                  <span class="text-sm text-gray-600">角色：</span>
+                  <ElSelect
+                    v-model="currentRoleCode"
+                    placeholder="选择角色"
+                    style="width: 200px"
+                    @change="loadRoleUsers"
                   >
-                    {{ role.roleName }} ({{ role.roleCode }})
-                  </ElOption>
-                </ElSelect>
-              </div>
+                    <ElOption
+                      v-for="role in roles"
+                      :key="role.roleId"
+                      :label="role.roleName"
+                      :value="role.roleCode"
+                    >
+                      {{ role.roleName }}
+                    </ElOption>
+                  </ElSelect>
+                </div>
             </div>
 
             <ElCard>
               <template #header>
-                <span>角色 {{ getRoleName(currentRoleCode) }} 的用户列表</span>
+                <span>{{ getRoleName(currentRoleCode) }} 列表</span>
               </template>
               <ElTable
                 :data="roleUsers"
@@ -349,9 +264,30 @@ onMounted(() => {
                 stripe
                 border
               >
-                <ElTableColumn prop="userId" label="用户ID" width="100" />
-                <ElTableColumn prop="username" label="用户名" width="200" />
-                <ElTableColumn prop="realName" label="真实姓名" />
+                <ElTableColumn label="序号" width="100">
+                  <template #default="scope">
+                    {{ scope.$index + 1 }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="uUser" label="用户名" width="200" />
+                <ElTableColumn prop="uName" label="真实姓名" />
+                <ElTableColumn label="操作" width="200">
+                  <template #default="scope">
+                    <span
+                      class="cursor-pointer text-primary mr-4"
+                      @click="handleEditPermission(scope.row)"
+                    >
+                      修改权限
+                    </span>
+                    <span
+                      class="cursor-pointer"
+                      style="color: red;"
+                      @click="handleDeleteUser(scope.row)"
+                    >
+                      删除
+                    </span>
+                  </template>
+                </ElTableColumn>
               </ElTable>
             </ElCard>
           </div>
@@ -371,20 +307,20 @@ onMounted(() => {
                     placeholder="输入用户ID"
                   />
                 </ElFormItem>
-                <ElFormItem label="角色编码">
+                <ElFormItem label="角色">
                   <ElSelect
                     v-model="checkRoleForm.roleCode"
                     placeholder="选择角色"
                     style="width: 100%"
                   >
                     <ElOption
-                      v-for="role in roles"
-                      :key="role.roleId"
-                      :label="role.roleCode"
-                      :value="role.roleCode"
-                    >
-                      {{ role.roleName }} ({{ role.roleCode }})
-                    </ElOption>
+                    v-for="role in roles"
+                    :key="role.roleId"
+                    :label="role.roleName"
+                    :value="role.roleCode"
+                  >
+                    {{ role.roleName }}
+                  </ElOption>
                   </ElSelect>
                 </ElFormItem>
                 <ElFormItem>
@@ -404,7 +340,7 @@ onMounted(() => {
                     <span class="value">{{ checkResult.userId }}</span>
                   </div>
                   <div class="result-item">
-                    <span class="label">角色编码：</span>
+                    <span class="label">角色：</span>
                     <span class="value">{{ checkResult.roleCode }}</span>
                   </div>
                   <div class="result-item">
@@ -424,68 +360,44 @@ onMounted(() => {
       </ElTabs>
     </ElCard>
 
+    <!-- 修改权限弹窗 -->
     <ElDialog
-      v-model="assignDialogVisible"
-      title="分配角色"
+      v-model="editPermissionDialogVisible"
+      title="修改权限"
       width="500px"
     >
-      <ElForm :model="assignForm" label-width="100px">
-        <ElFormItem label="用户ID">
-          <ElInput v-model.number="assignForm.userId" type="number" disabled />
+      <ElForm :model="editPermissionForm" label-width="120px">
+        <ElFormItem label="用户名">
+          <ElInput v-model="editPermissionForm.u_user" disabled />
         </ElFormItem>
-        <ElFormItem label="选择角色">
-          <ElSelect v-model="assignForm.roleId" placeholder="请选择角色" style="width: 100%">
+        <ElFormItem label="真实姓名">
+          <ElInput v-model="editPermissionForm.u_name" disabled />
+        </ElFormItem>
+        <ElFormItem label="角色">
+          <ElSelect
+            v-model="editPermissionForm.role_id"
+            placeholder="选择角色"
+            style="width: 100%"
+          >
             <ElOption
               v-for="role in roles"
               :key="role.roleId"
-              :label="role.roleId"
+              :label="role.roleName"
               :value="role.roleId"
             >
-              {{ role.roleName }} ({{ role.roleCode }})
+              {{ role.roleName }}
             </ElOption>
           </ElSelect>
         </ElFormItem>
       </ElForm>
       <template #footer>
-        <ElButton @click="assignDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" @click="handleAssignRole" :loading="loading">
+        <ElButton @click="editPermissionDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="handleUpdatePermission" :loading="loading">
           确定
         </ElButton>
       </template>
     </ElDialog>
 
-    <ElDialog
-      v-model="setUserRolesDialogVisible"
-      title="设置用户角色（覆盖模式）"
-      width="500px"
-    >
-      <ElForm :model="setUserRolesForm" label-width="100px">
-        <ElFormItem label="用户ID">
-          <ElInput v-model.number="setUserRolesForm.userId" type="number" />
-        </ElFormItem>
-        <ElFormItem label="选择角色">
-          <ElCheckboxGroup v-model="setUserRolesForm.roleIds">
-            <div class="checkbox-group">
-              <ElCheckbox
-                v-for="role in roles"
-                :key="role.roleId"
-                :label="role.roleId"
-              >
-                <ElTag :type="getRoleTagType(role.roleCode)" size="small">
-                  {{ role.roleName }}
-                </ElTag>
-              </ElCheckbox>
-            </div>
-          </ElCheckboxGroup>
-        </ElFormItem>
-      </ElForm>
-      <template #footer>
-        <ElButton @click="setUserRolesDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" @click="handleSetUserRoles" :loading="loading">
-          确定
-        </ElButton>
-      </template>
-    </ElDialog>
   </div>
 </template>
 

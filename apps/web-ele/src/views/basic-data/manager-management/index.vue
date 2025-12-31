@@ -38,9 +38,9 @@ const loading = ref(false);
 
 // 搜索表单
 const searchForm = reactive({
-  LSWS: '',
-  GLRType: '',
-  FZR: '',
+  LSSWSID: '',
+  GLRLX: '',
+  FZRID: '',
 });
 
 // 分页配置
@@ -58,9 +58,9 @@ const fetchManagerList = async () => {
     const params: ManagerApi.ManagerQueryParams = {
       page: pagination.page,
       size: pagination.pageSize,
-      LSWS: searchForm.LSWS,
-      GLRType: searchForm.GLRType,
-      FZR: searchForm.FZR,
+      LSSWSID: searchForm.LSSWSID,
+      GLRLX: searchForm.GLRLX,
+      FZRID: searchForm.FZRID,
     };
 
     const response = await getManagerListApi(params);
@@ -109,9 +109,9 @@ const handleSearch = () => {
 
 // 重置搜索
 const handleReset = () => {
-  searchForm.LSWS = '';
-  searchForm.GLRType = '';
-  searchForm.FZR = '';
+  searchForm.LSSWSID = '';
+  searchForm.GLRLX = '';
+  searchForm.FZRID = '';
   pagination.page = 1;
   fetchManagerList();
 };
@@ -125,14 +125,21 @@ const handleRefresh = () => {
 // 新增管理人弹窗状态
 const dialogVisible = ref(false);
 
+// 管理人类型选项
+const managerTypeOptions = [
+  { label: '律师事务所', value: '律师事务所' },
+  { label: '法人', value: '法人' },
+  { label: '自然人', value: '自然人' },
+];
+
 // 新增管理人表单数据
 const addManagerForm = reactive({
-  lsws: '',
-  glrtype: '',
-  fzr: '',
+  lsswsid: '',
+  glrlx: '律师事务所',
+  fzrid: '',
   lxdh: '',
-  lxemail: '',
-  bgaddress: '',
+  lxyx: '',
+  bgdz: '',
   zt: '1',
 });
 
@@ -142,62 +149,29 @@ const editDialogVisible = ref(false);
 // 编辑管理人表单数据
 const editManagerForm = reactive({
   SEP_ID: '',
-  LSWS: '',
-  GLRType: '',
-  FZR: '',
+  LSSWSID: '',
+  GLRLX: '',
+  FZRID: '',
   LXDH: '',
-  LXEmail: '',
-  BGAddress: '',
+  LXYX: '',
+  BGDZ: '',
   ZT: '',
 });
 
 // 表单验证规则
 const rules = reactive({
-  lsws: [
+  lsswsid: [
     {
       required: true,
-      message: '请输入律师事务所',
+      message: '请输入管理人',
       trigger: 'blur',
     },
   ],
-  glrtype: [
+  glrlx: [
     {
       required: true,
-      message: '请输入管理人类型',
-      trigger: 'blur',
-    },
-  ],
-  fzr: [
-    {
-      required: true,
-      message: '请输入负责人',
-      trigger: 'blur',
-    },
-  ],
-  lxdh: [
-    {
-      required: true,
-      message: '请输入联系电话',
-      trigger: 'blur',
-    },
-  ],
-  lxemail: [
-    {
-      required: true,
-      message: '请输入联系邮箱',
-      trigger: 'blur',
-    },
-    {
-      type: 'email',
-      message: '请输入正确的邮箱格式',
-      trigger: 'blur',
-    },
-  ],
-  bgaddress: [
-    {
-      required: true,
-      message: '请输入办公地址',
-      trigger: 'blur',
+      message: '请选择管理人类型',
+      trigger: 'change',
     },
   ],
 });
@@ -211,12 +185,12 @@ const handleAdd = () => {
 const handleCloseDialog = () => {
   // 重置表单
   Object.assign(addManagerForm, {
-    lsws: '',
-    glrtype: '',
-    fzr: '',
+    lsswsid: '',
+    glrlx: '',
+    fzrid: '',
     lxdh: '',
-    lxemail: '',
-    bgaddress: '',
+    lxyx: '',
+    bgdz: '',
     zt: '1',
   });
 };
@@ -226,12 +200,12 @@ const handleAddSubmit = async () => {
   loading.value = true;
   try {
     const data = {
-      sep_auser: userStore.userInfo?.username || 'admin',
-      sep_adate: new Date().toISOString(),
-      ...addManagerForm,
-    };
+    sep_auser: userStore.userInfo?.username || 'admin',
+    sep_adate: new Date().toISOString(),
+    ...addManagerForm,
+  };
 
-    const response = await addManagerApi(data);
+  const response = await addManagerApi([data]);
     if (response.status === '1') {
       ElMessage.success('添加管理人成功');
       dialogVisible.value = false;
@@ -257,12 +231,12 @@ const handleCloseEditDialog = () => {
   // 重置表单
   Object.assign(editManagerForm, {
     SEP_ID: '',
-    LSWS: '',
-    GLRType: '',
-    FZR: '',
+    LSSWSID: '',
+    GLRLX: '',
+    FZRID: '',
     LXDH: '',
-    LXEmail: '',
-    BGAddress: '',
+    LXYX: '',
+    BGDZ: '',
     ZT: '',
   });
 };
@@ -318,6 +292,20 @@ const handleDelete = async (row: ManagerApi.ManagerInfo) => {
   }
 };
 
+// 格式化日期时间
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+};
+
 // 状态选项
 const statusOptions = [
   { label: '启用', value: '1' },
@@ -353,21 +341,28 @@ onMounted(() => {
       <div class="mb-4 rounded-lg bg-gray-50 p-4">
         <div class="flex flex-wrap gap-4">
           <ElInput
-            v-model="searchForm.LSWS"
-            placeholder="律师事务所"
+            v-model="searchForm.LSSWSID"
+            placeholder="管理人"
             clearable
             style="width: 200px"
             @keyup.enter="handleSearch"
           />
-          <ElInput
-            v-model="searchForm.GLRType"
+          <ElSelect
+            v-model="searchForm.GLRLX"
             placeholder="管理人类型"
             clearable
             style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
+            @change="handleSearch"
+          >
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
           <ElInput
-            v-model="searchForm.FZR"
+            v-model="searchForm.FZRID"
             placeholder="负责人"
             clearable
             style="width: 200px"
@@ -394,19 +389,19 @@ onMounted(() => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="LSWS"
-          label="律师事务所"
-          min-width="180"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="GLRType"
+          prop="GLRLX"
           label="管理人类型"
           width="140"
           align="center"
         />
         <ElTableColumn
-          prop="FZR"
+          prop="LSSWSID"
+          label="管理人"
+          min-width="180"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="FZRID"
           label="负责人"
           width="100"
           align="center"
@@ -418,13 +413,13 @@ onMounted(() => {
           align="center"
         />
         <ElTableColumn
-          prop="LXEmail"
+          prop="LXYX"
           label="联系邮箱"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="BGAddress"
+          prop="BGDZ"
           label="办公地址"
           min-width="200"
           show-overflow-tooltip
@@ -436,8 +431,8 @@ onMounted(() => {
           align="center"
         >
           <template #default="{ row }">
-            <span :class="row.ZT === '1' ? 'text-green-600' : 'text-red-600'">
-              {{ row.ZT === '1' ? '启用' : '禁用' }}
+            <span :class="row.ZT === '正常' ? 'text-green-600' : 'text-red-600'">
+              {{ row.ZT }}
             </span>
           </template>
         </ElTableColumn>
@@ -452,25 +447,13 @@ onMounted(() => {
           label="创建时间"
           width="180"
           align="center"
-        />
-        <ElTableColumn
-          prop="SEP_EUSER"
-          label="修改者"
-          width="120"
-          align="center"
-        />
-        <ElTableColumn
-          prop="SEP_EDATE"
-          label="修改时间"
-          width="180"
-          align="center"
-        />
-        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+        >
           <template #default="{ row }">
-            <ElButton type="primary" size="small" @click="handleEdit(row)">
-              <i class="i-lucide-edit mr-1"></i>
-              编辑
-            </ElButton>
+            {{ formatDateTime(row.SEP_ADATE) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
             <ElButton type="danger" size="small" @click="handleDelete(row)">
               <i class="i-lucide-trash-2 mr-1"></i>
               删除
@@ -501,23 +484,30 @@ onMounted(() => {
       @close="handleCloseDialog"
     >
       <ElForm :model="addManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="律师事务所" prop="lsws">
-          <ElInput v-model="addManagerForm.lsws" placeholder="请输入律师事务所" />
+        <ElFormItem label="管理人类型" prop="glrlx">
+          <ElSelect v-model="addManagerForm.glrlx" placeholder="请选择管理人类型">
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
         </ElFormItem>
-        <ElFormItem label="管理人类型" prop="glrtype">
-          <ElInput v-model="addManagerForm.glrtype" placeholder="请输入管理人类型" />
+        <ElFormItem label="管理人" prop="lsswsid">
+          <ElInput v-model="addManagerForm.lsswsid" placeholder="请输入管理人" />
         </ElFormItem>
-        <ElFormItem label="负责人" prop="fzr">
-          <ElInput v-model="addManagerForm.fzr" placeholder="请输入负责人" />
+        <ElFormItem label="负责人">
+          <ElInput v-model="addManagerForm.fzrid" placeholder="请输入负责人" />
         </ElFormItem>
-        <ElFormItem label="联系电话" prop="lxdh">
+        <ElFormItem label="联系电话">
           <ElInput v-model="addManagerForm.lxdh" placeholder="请输入联系电话" />
         </ElFormItem>
-        <ElFormItem label="联系邮箱" prop="lxemail">
-          <ElInput v-model="addManagerForm.lxemail" placeholder="请输入联系邮箱" />
+        <ElFormItem label="联系邮箱">
+          <ElInput v-model="addManagerForm.lxyx" placeholder="请输入联系邮箱" />
         </ElFormItem>
-        <ElFormItem label="办公地址" prop="bgaddress">
-          <ElInput v-model="addManagerForm.bgaddress" placeholder="请输入办公地址" />
+        <ElFormItem label="办公地址">
+          <ElInput v-model="addManagerForm.bgdz" placeholder="请输入办公地址" />
         </ElFormItem>
         <ElFormItem label="状态">
           <ElSelect v-model="addManagerForm.zt" placeholder="请选择状态">
@@ -546,23 +536,23 @@ onMounted(() => {
       @close="handleCloseEditDialog"
     >
       <ElForm :model="editManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="律师事务所" prop="lsws">
-          <ElInput v-model="editManagerForm.LSWS" placeholder="请输入律师事务所" />
+        <ElFormItem label="管理人" prop="lsws">
+          <ElInput v-model="editManagerForm.LSSWSID" placeholder="请输入管理人" />
         </ElFormItem>
         <ElFormItem label="管理人类型" prop="glrtype">
-          <ElInput v-model="editManagerForm.GLRType" placeholder="请输入管理人类型" />
+          <ElInput v-model="editManagerForm.GLRLX" placeholder="请输入管理人类型" />
         </ElFormItem>
         <ElFormItem label="负责人" prop="fzr">
-          <ElInput v-model="editManagerForm.FZR" placeholder="请输入负责人" />
+          <ElInput v-model="editManagerForm.FZRID" placeholder="请输入负责人" />
         </ElFormItem>
         <ElFormItem label="联系电话" prop="lxdh">
           <ElInput v-model="editManagerForm.LXDH" placeholder="请输入联系电话" />
         </ElFormItem>
         <ElFormItem label="联系邮箱" prop="lxemail">
-          <ElInput v-model="editManagerForm.LXEmail" placeholder="请输入联系邮箱" />
+          <ElInput v-model="editManagerForm.LXYX" placeholder="请输入联系邮箱" />
         </ElFormItem>
         <ElFormItem label="办公地址" prop="bgaddress">
-          <ElInput v-model="editManagerForm.BGAddress" placeholder="请输入办公地址" />
+          <ElInput v-model="editManagerForm.BGDZ" placeholder="请输入办公地址" />
         </ElFormItem>
         <ElFormItem label="状态">
           <ElSelect v-model="editManagerForm.ZT" placeholder="请选择状态">

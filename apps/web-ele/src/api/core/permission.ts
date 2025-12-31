@@ -149,3 +149,23 @@ export async function checkUserRoleApi(userId: number, roleCode: string) {
     },
   );
 }
+
+/**
+ * 更新用户角色
+ */
+export async function updateTBUserRoleApi(data: {
+  u_pid: number;
+  u_user: string;
+  u_name: string;
+  role_id: number;
+}) {
+  return requestClient8085.post<PermissionApi.CommonResponse>(
+    '/api/web/userRole/updateTBUserRole',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}

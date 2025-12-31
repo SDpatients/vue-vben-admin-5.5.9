@@ -46,7 +46,7 @@ export namespace ManagerApi {
 export async function getManagerListApi(params: ManagerApi.ManagerQueryParams) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
   return requestClient8085.get<ManagerApi.ManagerListResponse>(
-    '/api/web/getAllManager',
+    '/api/web/getAllAdministrator',
     {
       params: {
         ...params,
@@ -141,7 +141,7 @@ export interface DeleteManagerResponse {
  */
 export async function deleteManagerApi(data: DeleteManagerRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<DeleteManagerResponse>('/api/web/deleteManager', [data], {
+  return requestClient8085.post<DeleteManagerResponse>('/api/web/deleteAdministrator', data, {
     headers: {
       'Content-Type': 'application/json',
     },

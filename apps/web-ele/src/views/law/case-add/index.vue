@@ -635,10 +635,7 @@ const submitForm = async () => {
             </ElButton>
           </div>
         </el-form>
-</el-card>
-</div>
-      </el-form>
-    </el-card>
+      </el-card>
     </div>
   </div>
 </template>
