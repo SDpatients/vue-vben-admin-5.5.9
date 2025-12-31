@@ -46,6 +46,10 @@
     "list": "支付列表",
     "detail": "支付详情"
   },
+  "notification": {
+    "title": "通知中心",
+    "center": "通知中心"
+  },
   "permission": {
     "title": "权限管理",
     "index": "权限管理"

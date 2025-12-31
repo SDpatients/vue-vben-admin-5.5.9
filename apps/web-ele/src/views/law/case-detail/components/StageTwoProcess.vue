@@ -239,7 +239,8 @@ const loadAllTasks = async () => {
 const getTaskStatus = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
-      (item: any) => item.ZT === '1',
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
     ).length;
     if (completedCount === task.data.length) {
       return 1;
@@ -253,7 +254,8 @@ const getTaskStatus = (task: any) => {
 const getTaskProgress = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
-      (item: any) => item.ZT === '1',
+      (item: any) =>
+        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
     ).length;
     return Math.round((completedCount / task.data.length) * 100);
   }
@@ -426,9 +428,10 @@ onMounted(() => {
                         <span v-else>{{ scope.row[field.prop] || '-' }}</span>
                       </template>
                     </ElTableColumn>
-                    <ElTableColumn width="280" fixed="right">
+                    <ElTableColumn width="350" fixed="right">
                       <template #default="scope">
                         <div class="action-buttons">
+                          <!-- 查看按钮 - 所有状态都显示 -->
                           <ElButton
                             type="primary"
                             size="small"
@@ -437,39 +440,49 @@ onMounted(() => {
                             <Icon icon="lucide:eye" class="mr-1" />
                             查看
                           </ElButton>
-                          <ElButton
-                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
-                            type="primary"
-                            size="small"
-                            @click="handleEdit(task, scope.row)"
+
+                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
+                          <template
+                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
                           >
-                            <Icon icon="lucide:pencil" class="mr-1" />
-                            编辑
-                          </ElButton>
+                            <!-- 编辑按钮 -->
+                            <ElButton
+                              type="primary"
+                              size="small"
+                              @click="handleEdit(task, scope.row)"
+                            >
+                              <Icon icon="lucide:pencil" class="mr-1" />
+                              编辑
+                            </ElButton>
+
+                            <!-- 完成按钮 -->
+                            <ElButton
+                              type="success"
+                              size="small"
+                              @click="handleComplete(task, scope.row)"
+                            >
+                              <Icon icon="lucide:check" class="mr-1" />
+                              完成
+                            </ElButton>
+
+                            <!-- 跳过按钮 -->
+                            <ElButton
+                              type="warning"
+                              size="small"
+                              @click="handleSkip(task, scope.row)"
+                            >
+                              <Icon icon="lucide:skip-forward" class="mr-1" />
+                              跳过
+                            </ElButton>
+                          </template>
+
+                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
                           <ElButton
-                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
-                            type="success"
-                            size="small"
-                            @click="handleComplete(task, scope.row)"
-                          >
-                            <Icon icon="lucide:check" class="mr-1" />
-                            完成
-                          </ElButton>
-                          <ElButton
-                            v-if="scope.row.ZT === 0 || scope.row.ZT === '0'"
-                            type="warning"
-                            size="small"
-                            @click="handleSkip(task, scope.row)"
-                          >
-                            <Icon icon="lucide:skip-forward" class="mr-1" />
-                            跳过
-                          </ElButton>
-                          <ElButton
-                            v-if="
-                              scope.row.ZT === 1 ||
+                            v-else-if="
                               scope.row.ZT === '1' ||
-                              scope.row.ZT === 2 ||
-                              scope.row.ZT === '2'
+                              scope.row.ZT === 1 ||
+                              scope.row.ZT === '2' ||
+                              scope.row.ZT === 2
                             "
                             type="danger"
                             size="small"

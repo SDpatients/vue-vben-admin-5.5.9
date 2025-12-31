@@ -120,31 +120,30 @@ onUnmounted(() => {
 
 <template>
   <div class="notification-badge">
-    <ElBadge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
-      <div class="notification-icon-wrapper" @click="toggleDropdown">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="lucide lucide-bell"
-        >
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
-      </div>
-    </ElBadge>
-
     <ElDropdown
       v-model:visible="dropdownVisible"
       trigger="click"
       placement="bottom-end"
     >
+      <ElBadge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+        <div class="notification-icon-wrapper" @click="toggleDropdown">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-bell"
+          >
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+        </div>
+      </ElBadge>
       <template #dropdown>
         <ElDropdownMenu class="notification-dropdown">
           <div class="notification-header">

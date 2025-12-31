@@ -1323,7 +1323,7 @@ const formRules = computed(() => {
       <div v-if="activeTab === 'upload'" class="upload-section">
         <div class="upload-header">
           <h3>上传文件</h3>
-          <span class="tip-text">支持多文件上传，单个文件大小不超过50MB</span>
+          <span class="tip-text">支持上传文档、图片等文件，单个文件不超过50MB</span>
         </div>
 
         <ElUpload
@@ -1675,3 +1675,4 @@ const formRules = computed(() => {
   justify-content: flex-end;
 }
 </style>
+

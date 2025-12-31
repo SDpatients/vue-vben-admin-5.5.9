@@ -23,4 +23,10 @@ export const activityApi = {
       params: { page, pageSize },
     });
   },
+
+  getUserActivityList: (targetUserId: number, page: number = 1, pageSize: number = 20) => {
+    return requestClient.get(`/api/activity/user/${targetUserId}`, {
+      params: { page, pageSize },
+    });
+  },
 };

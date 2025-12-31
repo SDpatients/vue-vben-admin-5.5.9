@@ -2,7 +2,11 @@
 import type {
   WorkbenchProjectItem,
   WorkbenchQuickNavItem,
+  WorkbenchTodoItem,
 } from '@vben/common-ui';
+
+import type { Approval } from '#/api/core/approval';
+import type { Todo } from '#/api/core/todo';
 
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -12,22 +16,29 @@ import {
   WorkbenchHeader,
   WorkbenchProject,
   WorkbenchQuickNav,
+  WorkbenchTodo,
 } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
-import AnalyticsVisitsSource from '../analytics/analytics-visits-source.vue';
-import NotificationBadge from '#/components/NotificationBadge.vue';
+import { approvalApi } from '#/api/core/approval';
+import { getCaseListApi } from '#/api/core/case';
+import { todoApi } from '#/api/core/todo';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
-import TodoList from '#/components/TodoList.vue';
 import ApprovalCard from '#/components/ApprovalCard.vue';
-import { approvalApi, type Approval } from '#/api/core/approval';
+import NotificationBadge from '#/components/NotificationBadge.vue';
+import TodoList from '#/components/TodoList.vue';
+
+import AnalyticsVisitsSource from '../analytics/analytics-visits-source.vue';
 
 const userStore = useUserStore();
 const router = useRouter();
 
 const pendingApprovals = ref<Approval[]>([]);
+const todoItems = ref<WorkbenchTodoItem[]>([]);
+const projectItems = ref<WorkbenchProjectItem[]>([]);
+const loading = ref(false);
 
 const loadPendingApprovals = async () => {
   try {
@@ -50,62 +61,58 @@ const goToApprovalDetail = (id: number) => {
   router.push(`/approval/detail/${id}`);
 };
 
-const projectItems: WorkbenchProjectItem[] = [
-  {
-    color: '',
-    content: '不要等待机会，而要创造机会。',
-    date: '2021-04-01',
-    group: '开源组',
-    icon: 'carbon:logo-github',
-    title: 'Github',
-    url: 'https://github.com',
-  },
-  {
-    color: '#3fb27f',
-    content: '现在的你决定将来的你。',
-    date: '2021-04-01',
-    group: '算法组',
-    icon: 'ion:logo-vue',
-    title: 'Vue',
-    url: 'https://vuejs.org',
-  },
-  {
-    color: '#e18525',
-    content: '没有什么才能比努力更重要。',
-    date: '2021-04-01',
-    group: '上班摸鱼',
-    icon: 'ion:logo-html5',
-    title: 'Html5',
-    url: 'https://developer.mozilla.org/zh-CN/docs/Web/HTML',
-  },
-  {
-    color: '#bf0c2c',
-    content: '热情和欲望可以突破一切难关。',
-    date: '2021-04-01',
-    group: 'UI',
-    icon: 'ion:logo-angular',
-    title: 'Angular',
-    url: 'https://angular.io',
-  },
-  {
-    color: '#00d8ff',
-    content: '健康的身体是实现目标的基石。',
-    date: '2021-04-01',
-    group: '技术牛',
-    icon: 'bx:bxl-react',
-    title: 'React',
-    url: 'https://reactjs.org',
-  },
-  {
-    color: '#EBD94E',
-    content: '路是走出来的，而不是空想出来的。',
-    date: '2021-04-01',
-    group: '架构组',
-    icon: 'ion:logo-javascript',
-    title: 'Js',
-    url: 'https://developer.mozilla.org/zh-CN/docs/Web/JavaScript',
-  },
-];
+const loadTodoItems = async () => {
+  try {
+    const res = await todoApi.getTodoList('PENDING', undefined, 1, 5);
+    const todos: Todo[] = res.data || [];
+    todoItems.value = todos.map((item: Todo) => ({
+      title: item.title,
+      content: item.description || '暂无描述',
+      date: item.deadline
+        ? new Date(item.deadline).toLocaleDateString('zh-CN')
+        : new Date().toLocaleDateString('zh-CN'),
+      completed: item.status === 'COMPLETED',
+    }));
+  } catch (error) {
+    console.error('加载待办事项失败:', error);
+  }
+};
+
+const loadProjectItems = async () => {
+  loading.value = true;
+  try {
+    const res = await getCaseListApi({ page: 1, size: 100 });
+    const caseList = res.data?.records || [];
+    const totalCount = caseList.length;
+
+    projectItems.value = [
+      {
+        color: '#1890ff',
+        content: `${totalCount} 个案件`,
+        date: new Date().toLocaleDateString('zh-CN'),
+        group: '管理',
+        icon: 'ion:folder-open',
+        title: '受理案件',
+        url: '/case-management',
+      },
+    ];
+  } catch (error) {
+    console.error('加载案件数据失败:', error);
+    projectItems.value = [
+      {
+        color: '#1890ff',
+        content: '0 个案件',
+        date: new Date().toLocaleDateString('zh-CN'),
+        group: '管理',
+        icon: 'ion:folder-open',
+        title: '受理案件',
+        url: '/case-management',
+      },
+    ];
+  } finally {
+    loading.value = false;
+  }
+};
 
 const quickNavItems: WorkbenchQuickNavItem[] = [
   {
@@ -161,6 +168,8 @@ function navTo(nav: WorkbenchProjectItem | WorkbenchQuickNavItem) {
 }
 
 loadPendingApprovals();
+loadTodoItems();
+loadProjectItems();
 </script>
 
 <template>
@@ -170,7 +179,8 @@ loadPendingApprovals();
     >
       <template #title>
         <div class="flex items-center justify-between">
-          <span>早安, {{ userStore.userInfo?.realName }}, 开始您一天的工作吧！</span>
+          <span>早安, {{ userStore.userInfo?.realName }},
+            开始您一天的工作吧！</span>
           <NotificationBadge />
         </div>
       </template>
@@ -179,7 +189,11 @@ loadPendingApprovals();
 
     <div class="mt-5 flex flex-col lg:flex-row">
       <div class="mr-4 w-full lg:w-3/5">
-        <WorkbenchProject :items="projectItems" title="项目" @click="navTo" />
+        <WorkbenchProject
+          :items="projectItems"
+          title="受理案件"
+          @click="navTo"
+        />
         <ActivityTimeline class="mt-5" title="最新动态" />
       </div>
       <div class="w-full lg:w-2/5">
@@ -189,7 +203,8 @@ loadPendingApprovals();
           title="快捷导航"
           @click="navTo"
         />
-        <TodoList class="mt-5" title="待办事项" />
+        <WorkbenchTodo :items="todoItems" class="mt-5" title="待办事项" />
+        <TodoList class="mt-5" title="待办事项管理" />
         <div class="mt-5">
           <AnalysisChartCard title="待审核">
             <div v-if="pendingApprovals.length > 0" class="pending-approvals">

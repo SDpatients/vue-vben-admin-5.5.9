@@ -40,6 +40,24 @@ const routes: RouteRecordRaw[] = [
           title: '操作记录',
         },
       },
+      {
+        name: 'ActivityTodo',
+        path: '/activity-todo',
+        component: () => import('#/views/dashboard/activity-todo/index.vue'),
+        meta: {
+          icon: 'lucide:activity',
+          title: '动态与待办',
+        },
+      },
+      {
+        name: 'PermissionDoc',
+        path: '/permission-doc',
+        component: () => import('#/views/dashboard/permission-doc/index.vue'),
+        meta: {
+          icon: 'lucide:shield-check',
+          title: '权限说明',
+        },
+      },
     ],
   },
 ];

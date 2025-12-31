@@ -49,6 +49,7 @@ export namespace CaseApi {
     银行账户数: number;
     银行账户总余额: number;
     有效账户数: number;
+    案件进度: string;
   }
 
   /** 案件列表响应 */
@@ -496,3 +497,4 @@ export async function deleteCaseApi(caseId: number) {
     },
   );
 }
+

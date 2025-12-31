@@ -60,6 +60,7 @@ const allowedTypes = new Set([
   '.jpg',
   '.pdf',
   '.png',
+  '.txt',
   '.xls',
   '.xlsx',
 ]);
@@ -564,15 +565,24 @@ const submitForm = async () => {
 
                   <!-- 上传说明 -->
                   <div class="upload-tip mt-3 text-sm text-gray-500">
-                    <p>
-                      支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
-                      格式文件，单个文件大小不超过 10MB
+                    <p class="font-semibold text-gray-700 mb-2">支持的文件类型：</p>
+                    <ul class="file-type-list mb-3">
+                      <li><span class="file-type-badge doc">doc</span> - Word文档</li>
+                      <li><span class="file-type-badge docx">docx</span> - Word文档（新格式）</li>
+                      <li><span class="file-type-badge jpg">jpg</span> - JPEG图片</li>
+                      <li><span class="file-type-badge pdf">pdf</span> - PDF文档</li>
+                      <li><span class="file-type-badge png">png</span> - PNG图片</li>
+                      <li><span class="file-type-badge xls">xls</span> - Excel表格</li>
+                      <li><span class="file-type-badge xlsx">xlsx</span> - Excel表格（新格式）</li>
+                      <li><span class="file-type-badge txt">txt</span> - 文本文件</li>
+                    </ul>
+                    <p class="file-size-tip">
+                      <i class="i-lucide-info mr-1"></i>
+                      默认最大文件大小为 10MB
                     </p>
-                    <p class="mt-1">
+                    <p class="mt-2 text-blue-500">
+                      <i class="i-lucide-folder mr-1"></i>
                       文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
-                    </p>
-                    <p class="mt-1 text-blue-500">
-                      服务器存储路径：C:\Users\Lenovo\Desktop\yzz\Release\律师\Service\ServiceWin\wwwroot\Upload\File
                     </p>
                   </div>
                 </div>
@@ -678,4 +688,70 @@ const submitForm = async () => {
   margin: 0;
   line-height: 1.5;
 }
+
+.file-type-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-type-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: #606266;
+}
+
+.file-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+  color: white;
+  min-width: 45px;
+  text-align: center;
+}
+
+.file-type-badge.doc {
+  background-color: #2b579a;
+}
+
+.file-type-badge.docx {
+  background-color: #2b579a;
+}
+
+.file-type-badge.jpg {
+  background-color: #f59e0b;
+}
+
+.file-type-badge.pdf {
+  background-color: #ef4444;
+}
+
+.file-type-badge.png {
+  background-color: #10b981;
+}
+
+.file-type-badge.xls {
+  background-color: #217346;
+}
+
+.file-type-badge.xlsx {
+  background-color: #217346;
+}
+
+.file-type-badge.txt {
+  background-color: #6b7280;
+}
+
+.file-size-tip {
+  color: #f59e0b;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
 </style>
+
