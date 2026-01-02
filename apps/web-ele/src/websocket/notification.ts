@@ -2,51 +2,93 @@ import { ref, onUnmounted } from 'vue';
 
 let ws: WebSocket | null = null;
 const messageHandlers: Array<(data: any) => void> = [];
+let reconnectTimer: null | number = null;
+const RECONNECT_DELAY = 5000;
+const MAX_RECONNECT_ATTEMPTS = 5;
+let reconnectAttempts = 0;
 
 export function useWebSocket() {
   const connected = ref(false);
+  const connecting = ref(false);
 
   const connect = () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
+    if (connecting.value) {
+      return;
+    }
+
+    connecting.value = true;
+
     const token = localStorage.getItem('token');
-    ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
-    ws.onopen = () => {
-      console.log('WebSocket连接成功');
-      connected.value = true;
-    };
+    try {
+      ws = new WebSocket(`${wsUrl}?token=${token}`);
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        messageHandlers.forEach((handler) => handler(data));
-      } catch (error) {
-        console.error('解析WebSocket消息失败:', error);
-      }
-    };
+      ws.onopen = () => {
+        console.log('WebSocket连接成功');
+        connected.value = true;
+        connecting.value = false;
+        reconnectAttempts = 0;
+      };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket错误:', error);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          messageHandlers.forEach((handler) => {
+            try {
+              handler(data);
+            } catch (error) {
+              console.error('消息处理器执行失败:', error);
+            }
+          });
+        } catch (error) {
+          console.error('解析WebSocket消息失败:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket错误:', error);
+        connected.value = false;
+        connecting.value = false;
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket连接关闭');
+        connected.value = false;
+        connecting.value = false;
+
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          console.log(`尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+          reconnectTimer = window.setTimeout(() => {
+            connect();
+          }, RECONNECT_DELAY);
+        } else {
+          console.error('达到最大重连次数，停止重连');
+        }
+      };
+    } catch (error) {
+      console.error('WebSocket连接失败:', error);
       connected.value = false;
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket连接关闭');
-      connected.value = false;
-      setTimeout(() => {
-        connect();
-      }, 5000);
-    };
+      connecting.value = false;
+    }
   };
 
   const disconnect = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
     if (ws) {
       ws.close();
       ws = null;
       connected.value = false;
+      connecting.value = false;
     }
   };
 
@@ -61,15 +103,22 @@ export function useWebSocket() {
     }
   };
 
+  const clearMessageHandlers = () => {
+    messageHandlers.length = 0;
+  };
+
   onUnmounted(() => {
     disconnect();
+    clearMessageHandlers();
   });
 
   return {
     connected,
+    connecting,
     connect,
     disconnect,
     onMessage,
     offMessage,
+    clearMessageHandlers,
   };
 }

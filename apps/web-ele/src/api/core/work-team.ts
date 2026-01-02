@@ -98,6 +98,133 @@ export namespace WorkTeamApi {
     status: string;
     error: string;
   }
+
+  /** 团队成员信息 */
+  export interface TeamMemberInfo {
+    id: number;
+    caseId: number;
+    userId: number;
+    userName: string;
+    userCode: string;
+    teamRole: string;
+    teamRoleName: string;
+    permissionLevel: string;
+    isActive: boolean;
+  }
+
+  /** 团队成员列表响应 */
+  export interface TeamMemberListResponse {
+    code: number;
+    message: string;
+    data: TeamMemberInfo[];
+  }
+
+  /** 设置团队成员请求 */
+  export interface SetTeamMembersRequest {
+    caseId: number;
+    members: {
+      userId: number;
+      teamRole: string;
+      permissionLevel: string;
+    }[];
+  }
+
+  /** 添加团队成员请求 */
+  export interface AddTeamMemberRequest {
+    caseId: number;
+    userId: number;
+    teamRole: string;
+    permissionLevel: string;
+  }
+
+  /** 更新团队成员请求 */
+  export interface UpdateTeamMemberRequest {
+    id: number;
+    caseId: number;
+    userId: number;
+    teamRole: string;
+    permissionLevel: string;
+  }
+
+  /** 团队角色信息 */
+  export interface TeamRoleInfo {
+    roleCode: string;
+    roleName: string;
+    roleDesc: string;
+    sortOrder: number;
+    status: string;
+  }
+
+  /** 团队角色列表响应 */
+  export interface TeamRoleListResponse {
+    code: number;
+    message: string;
+    data: TeamRoleInfo[];
+  }
+
+  /** 成员权限信息 */
+  export interface MemberPermissionInfo {
+    id: number;
+    teamMemberId: number;
+    moduleType: string;
+    permissionType: string;
+    isAllowed: boolean;
+  }
+
+  /** 保存成员权限请求 */
+  export interface SaveMemberPermissionsRequest {
+    memberId: number;
+    permissions: {
+      moduleType: string;
+      permissionType: string;
+      isAllowed: boolean;
+    }[];
+  }
+
+  /** 成员权限列表响应 */
+  export interface MemberPermissionListResponse {
+    code: number;
+    message: string;
+    data: MemberPermissionInfo[];
+  }
+
+  /** 可访问案件信息 */
+  export interface AccessibleCaseInfo {
+    sepId: number;
+    ah: string;
+    ajmc: string;
+    creatorId: number;
+    slfy: string;
+  }
+
+  /** 可访问案件列表响应 */
+  export interface AccessibleCaseListResponse {
+    code: number;
+    message: string;
+    data: AccessibleCaseInfo[];
+  }
+
+  /** 我的团队成员信息响应 */
+  export interface MyTeamMemberInfoResponse {
+    code: number;
+    message: string;
+    data: {
+      id: number;
+      caseId: number;
+      userId: number;
+      teamRole: string;
+      teamRoleName: string;
+      permissionLevel: string;
+      isActive: boolean;
+    };
+  }
+
+  /** 权限检查响应 */
+  export interface PermissionCheckResponse {
+    code: number;
+    message: string;
+    data: boolean;
+  }
 }
 
 /**
@@ -187,4 +314,172 @@ export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
       },
     },
   );
+}
+
+/**
+ * 设置团队成员（批量）
+ */
+export async function setTeamMembersApi(
+  data: WorkTeamApi.SetTeamMembersRequest,
+) {
+  return requestClient8085.post('/api/web/workteam/setTeamMembers', data);
+}
+
+/**
+ * 获取团队成员列表
+ */
+export async function getTeamMembersApi(caseId: number) {
+  return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(
+    '/api/web/workteam/getTeamMembers',
+    {
+      params: { caseId },
+    },
+  );
+}
+
+/**
+ * 获取激活的团队成员
+ */
+export async function getActiveTeamMembersApi(caseId: number) {
+  return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(
+    '/api/web/workteam/getActiveTeamMembers',
+    {
+      params: { caseId },
+    },
+  );
+}
+
+/**
+ * 添加团队成员
+ */
+export async function addTeamMemberApi(
+  data: WorkTeamApi.AddTeamMemberRequest,
+) {
+  return requestClient8085.post('/api/web/workteam/addTeamMember', data);
+}
+
+/**
+ * 更新团队成员
+ */
+export async function updateTeamMemberApi(
+  data: WorkTeamApi.UpdateTeamMemberRequest,
+) {
+  return requestClient8085.post('/api/web/workteam/updateTeamMember', data);
+}
+
+/**
+ * 移除团队成员
+ */
+export async function removeTeamMemberApi(memberId: number) {
+  return requestClient8085.post('/api/web/workteam/removeTeamMember', null, {
+    params: { memberId },
+  });
+}
+
+/**
+ * 获取可访问的案件列表
+ */
+export async function getMyAccessibleCasesApi() {
+  return requestClient8085.get<WorkTeamApi.AccessibleCaseListResponse>(
+    '/api/web/workteam/getMyAccessibleCases',
+  );
+}
+
+/**
+ * 获取所有团队角色
+ */
+export async function getAllTeamRolesApi() {
+  return requestClient8085.get<WorkTeamApi.TeamRoleListResponse>(
+    '/api/web/workteam/getAllTeamRoles',
+  );
+}
+
+/**
+ * 获取激活的团队角色
+ */
+export async function getActiveTeamRolesApi() {
+  return requestClient8085.get<WorkTeamApi.TeamRoleListResponse>(
+    '/api/web/workteam/getActiveTeamRoles',
+  );
+}
+
+/**
+ * 保存成员权限（细粒度）
+ */
+export async function saveMemberPermissionsApi(
+  data: WorkTeamApi.SaveMemberPermissionsRequest,
+) {
+  return requestClient8085.post('/api/web/workteam/saveMemberPermissions', data);
+}
+
+/**
+ * 获取成员权限
+ */
+export async function getMemberPermissionsApi(memberId: number) {
+  return requestClient8085.get<WorkTeamApi.MemberPermissionListResponse>(
+    '/api/web/workteam/getMemberPermissions',
+    {
+      params: { memberId },
+    },
+  );
+}
+
+/**
+ * 检查案件访问权限
+ */
+export async function canAccessCaseApi(
+  caseId: number,
+  permission: string = 'VIEW',
+) {
+  return requestClient8085.get<WorkTeamApi.PermissionCheckResponse>(
+    '/api/web/workteam/canAccessCase',
+    {
+      params: { caseId, permission },
+    },
+  );
+}
+
+/**
+ * 获取我的团队成员信息
+ */
+export async function getMyTeamMemberInfoApi(caseId: number) {
+  return requestClient8085.get<WorkTeamApi.MyTeamMemberInfoResponse>(
+    '/api/web/getMyTeamMemberInfo',
+    {
+      params: { caseId },
+    },
+  );
+}
+
+/**
+ * 检查案件权限
+ */
+export async function checkCasePermissionApi(
+  caseId: number,
+  permission: string = 'VIEW',
+) {
+  return requestClient8085.get<WorkTeamApi.PermissionCheckResponse>(
+    '/api/web/checkCasePermission',
+    {
+      params: { caseId, permission },
+    },
+  );
+}
+
+/**
+ * 查询我的案件
+ */
+export async function selectMyCasesApi(page: number = 1, size: number = 10) {
+  return requestClient8085.get('/api/web/selectMyCases', {
+    params: { page, size },
+  });
+}
+
+/**
+ * 查询团队案件
+ */
+export async function selectTeamCasesApi(page: number = 1, size: number = 10) {
+  return requestClient8085.get('/api/web/selectTeamCases', {
+    params: { page, size },
+  });
 }

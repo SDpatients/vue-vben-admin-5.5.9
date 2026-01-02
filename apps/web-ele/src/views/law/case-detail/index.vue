@@ -46,9 +46,20 @@ import {
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi, uploadFileApi } from '#/api/core/file';
+import {
+  addTeamMemberApi,
+  canAccessCaseApi,
+  getActiveTeamRolesApi,
+  getMyTeamMemberInfoApi,
+  getTeamMembersApi,
+  removeTeamMemberApi,
+  updateTeamMemberApi,
+} from '#/api/core/work-team';
 
 import FileUploader from '../../../components/FileUploader.vue';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
+import ClaimRegistration from './components/ClaimRegistration.vue';
+import CreditorInfo from './components/CreditorInfo.vue';
 import StageFiveProcess from './components/StageFiveProcess.vue';
 import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
@@ -56,6 +67,7 @@ import StageSevenProcess from './components/StageSevenProcess.vue';
 import StageSixProcess from './components/StageSixProcess.vue';
 import StageThreeProcess from './components/StageThreeProcess.vue';
 import StageTwoProcess from './components/StageTwoProcess.vue';
+import TeamMemberManage from './components/TeamMemberManage.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -67,6 +79,26 @@ const isInfoCollapsed = ref(true);
 const isEditing = ref(false);
 const editedData = reactive<any>({});
 const saveLoading = ref(false);
+
+// 权限控制相关
+const canEdit = ref(false);
+const canDelete = ref(false);
+const isCreator = ref(false);
+const teamMemberInfo = ref<any>(null);
+
+// 工作团队相关
+const teamMembers = ref<any[]>([]);
+const teamRoles = ref<any[]>([]);
+const availableUsers = ref<any[]>([]);
+const workTeamLoading = ref(false);
+const memberDialogVisible = ref(false);
+const memberDialogTitle = ref('添加成员');
+const memberForm = ref<any>({
+  id: null,
+  userId: null,
+  teamRole: '',
+  permissionLevel: 'VIEW',
+});
 
 const currentStage = ref(1);
 const stages = [
@@ -263,9 +295,9 @@ const fetchAnnouncements = async () => {
             ...att,
             file_url: att.file_url?.startsWith('http')
               ? att.file_url
-              : (att.file_url?.startsWith('/')
+              : att.file_url?.startsWith('/')
                 ? `http://192.168.0.120:8080${att.file_url}`
-                : att.file_url),
+                : att.file_url,
           }));
         }
 
@@ -590,9 +622,9 @@ const viewAnnouncementDetail = async (announcement: any) => {
           ...att,
           file_url: att.file_url?.startsWith('http')
             ? att.file_url
-            : (att.file_url?.startsWith('/')
+            : att.file_url?.startsWith('/')
               ? `http://192.168.0.120:8080${att.file_url}`
-              : att.file_url),
+              : att.file_url,
         }));
       }
 
@@ -793,6 +825,10 @@ const handleStatusFilterChange = () => {
 watch(activeTab, (newTab) => {
   if (newTab === 'announcement') {
     fetchAnnouncements();
+  } else if (newTab === 'workTeam') {
+    fetchTeamMembers();
+    fetchTeamRoles();
+    fetchAvailableUsers();
   }
 });
 
@@ -1023,7 +1059,185 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
+  // 检查权限
+  await checkPermissions();
 });
+
+// 获取工作团队成员列表
+const fetchTeamMembers = async () => {
+  console.log('开始获取工作团队成员列表');
+  workTeamLoading.value = true;
+  try {
+    const response = await getTeamMembersApi(Number(caseId.value));
+    console.log('getTeamMembersApi响应:', response);
+    if (response.code === 200) {
+      teamMembers.value = response.data || [];
+      console.log('工作团队成员列表:', teamMembers.value);
+    } else {
+      teamMembers.value = [];
+      console.log('没有工作团队成员数据');
+    }
+  } catch (error) {
+    console.error('获取工作团队成员列表失败:', error);
+    ElMessage.error('获取工作团队成员列表失败');
+    teamMembers.value = [];
+  } finally {
+    workTeamLoading.value = false;
+    console.log('获取工作团队成员列表结束，loading:', workTeamLoading.value);
+  }
+};
+
+// 获取团队角色列表
+const fetchTeamRoles = async () => {
+  try {
+    const response = await getActiveTeamRolesApi();
+    console.log('getActiveTeamRolesApi响应:', response);
+    if (response.code === 200) {
+      teamRoles.value = response.data || [];
+      console.log('团队角色列表:', teamRoles.value);
+    } else {
+      teamRoles.value = [];
+    }
+  } catch (error) {
+    console.error('获取团队角色列表失败:', error);
+    teamRoles.value = [];
+  }
+};
+
+// 获取可用用户列表
+const fetchAvailableUsers = async () => {
+  try {
+    const chatUserInfo = localStorage.getItem('chat_user_info');
+    const userInfo = chatUserInfo ? JSON.parse(chatUserInfo) : null;
+
+    availableUsers.value =
+      userInfo && userInfo.user && userInfo.user.uPid ? [userInfo.user] : [];
+  } catch (error) {
+    console.error('获取可用用户列表失败:', error);
+    availableUsers.value = [];
+  }
+};
+
+// 添加成员
+const handleAddMember = () => {
+  memberDialogTitle.value = '添加成员';
+  memberForm.value = {
+    id: null,
+    userId: null,
+    teamRole: '',
+    permissionLevel: 'VIEW',
+  };
+  memberDialogVisible.value = true;
+};
+
+// 编辑成员
+const handleEditMember = (row: any) => {
+  memberDialogTitle.value = '编辑成员';
+  memberForm.value = {
+    id: row.id,
+    userId: row.userId,
+    teamRole: row.teamRole,
+    permissionLevel: row.permissionLevel,
+  };
+  memberDialogVisible.value = true;
+};
+
+// 保存成员
+const handleSaveMember = async () => {
+  try {
+    if (
+      !memberForm.value.userId ||
+      !memberForm.value.teamRole ||
+      !memberForm.value.permissionLevel
+    ) {
+      ElMessage.error('请填写完整信息');
+      return;
+    }
+
+    const data = {
+      caseId: Number(caseId.value),
+      userId: memberForm.value.userId,
+      teamRole: memberForm.value.teamRole,
+      permissionLevel: memberForm.value.permissionLevel,
+    };
+
+    if (memberForm.value.id) {
+      await updateTeamMemberApi({
+        id: memberForm.value.id,
+        ...data,
+      });
+      ElMessage.success('更新团队成员成功');
+    } else {
+      await addTeamMemberApi(data);
+      ElMessage.success('添加团队成员成功');
+    }
+
+    memberDialogVisible.value = false;
+    await fetchTeamMembers();
+  } catch (error) {
+    console.error('保存团队成员失败:', error);
+    ElMessage.error('保存团队成员失败');
+  }
+};
+
+// 移除成员
+const handleRemoveMember = async (row: any) => {
+  try {
+    await removeTeamMemberApi(row.id);
+    ElMessage.success('移除团队成员成功');
+    await fetchTeamMembers();
+  } catch (error) {
+    console.error('移除团队成员失败:', error);
+    ElMessage.error('移除团队成员失败');
+  }
+};
+
+// 获取权限标签类型
+const getPermissionTagType = (level: string) => {
+  const types: Record<string, any> = {
+    VIEW: 'info',
+    EDIT: 'warning',
+    FULL: 'danger',
+  };
+  return types[level] || 'info';
+};
+
+// 获取权限标签文本
+const getPermissionLabel = (level: string) => {
+  const labels: Record<string, string> = {
+    VIEW: '查看',
+    EDIT: '编辑',
+    FULL: '完全控制',
+  };
+  return labels[level] || level;
+};
+
+// 检查权限
+const checkPermissions = async () => {
+  try {
+    // 检查编辑权限
+    const editResponse = await canAccessCaseApi(Number(caseId.value), 'EDIT');
+    canEdit.value = editResponse.code === 200 && editResponse.data;
+
+    // 检查删除权限
+    const deleteResponse = await canAccessCaseApi(
+      Number(caseId.value),
+      'DELETE',
+    );
+    canDelete.value = deleteResponse.code === 200 && deleteResponse.data;
+
+    // 获取我的团队成员信息
+    const memberResponse = await getMyTeamMemberInfoApi(Number(caseId.value));
+    if (memberResponse.code === 200 && memberResponse.data) {
+      teamMemberInfo.value = memberResponse.data;
+      // 判断是否是创建者（通过权限级别判断）
+      isCreator.value = memberResponse.data.permissionLevel === 'FULL';
+    }
+  } catch (error) {
+    console.error('检查权限失败:', error);
+  }
+};
 </script>
 
 <template>
@@ -1046,8 +1260,20 @@ onMounted(async () => {
         <ElRadioButton value="process" class="tab-button">
           流程处理
         </ElRadioButton>
+        <ElRadioButton value="creditorInfo" class="tab-button">
+          债权人信息
+        </ElRadioButton>
+        <ElRadioButton value="claimRegistration" class="tab-button">
+          债权登记表
+        </ElRadioButton>
         <ElRadioButton value="announcement" class="tab-button">
           公告管理
+        </ElRadioButton>
+        <ElRadioButton value="teamManage" class="tab-button" v-if="isCreator">
+          团队管理
+        </ElRadioButton>
+        <ElRadioButton value="workTeam" class="tab-button">
+          工作团队
         </ElRadioButton>
       </ElRadioGroup>
     </div>
@@ -1062,13 +1288,13 @@ onMounted(async () => {
               <span class="text-lg font-semibold">案件基本信息</span>
             </div>
             <div class="flex space-x-2">
-              <template v-if="!isEditing">
+              <template v-if="!isEditing && canEdit">
                 <ElButton type="primary" @click="startEditing">
                   <Icon icon="lucide:pencil" class="mr-1" />
                   编辑
                 </ElButton>
               </template>
-              <template v-else>
+              <template v-else-if="isEditing && canEdit">
                 <ElButton
                   type="success"
                   @click="saveEditing"
@@ -1082,10 +1308,7 @@ onMounted(async () => {
                   取消
                 </ElButton>
               </template>
-              <ElButton
-                link
-                @click="isInfoCollapsed = !isInfoCollapsed"
-              >
+              <ElButton link @click="isInfoCollapsed = !isInfoCollapsed">
                 <Icon
                   :icon="
                     isInfoCollapsed
@@ -1173,7 +1396,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件名称"
@@ -1193,7 +1418,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.受理日期"
@@ -1214,7 +1441,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件来源：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件来源"
@@ -1234,7 +1463,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理法院：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.受理法院"
@@ -1254,7 +1485,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案由：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案由"
@@ -1274,7 +1507,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件进度：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件进度"
@@ -1294,7 +1529,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >是否简化审：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.是否简化审"
@@ -1328,7 +1565,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >立案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.立案日期"
@@ -1349,7 +1588,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >结案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.结案日期"
@@ -1370,7 +1611,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >破产时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.破产时间"
@@ -1391,7 +1634,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >终结时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.终结时间"
@@ -1412,7 +1657,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >注销时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.注销时间"
@@ -1433,7 +1680,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >归档时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.归档时间"
@@ -1454,7 +1703,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权申报截止时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.债权申报截止时间"
@@ -1489,7 +1740,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人负责人：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人负责人"
@@ -1509,7 +1762,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人类型"
@@ -1529,7 +1784,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人状态：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人状态"
@@ -1549,7 +1806,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >律师事务所：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.律师事务所"
@@ -1583,7 +1842,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人名称"
@@ -1603,7 +1864,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人类型"
@@ -1623,7 +1886,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系电话：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系电话"
@@ -1643,7 +1908,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系邮箱：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系邮箱"
@@ -1663,7 +1930,9 @@ onMounted(async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >办公地址：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.办公地址"
@@ -1765,6 +2034,16 @@ onMounted(async () => {
           </div>
         </div>
       </ElCard>
+    </div>
+
+    <!-- 债权人信息 -->
+    <div v-if="activeTab === 'creditorInfo'">
+      <CreditorInfo :case-id="caseId" />
+    </div>
+
+    <!-- 债权登记表 -->
+    <div v-if="activeTab === 'claimRegistration'">
+      <ClaimRegistration :case-id="caseId" />
     </div>
 
     <!-- 公告管理 -->
@@ -1959,6 +2238,182 @@ onMounted(async () => {
           </div>
         </div>
       </ElCard>
+    </div>
+
+    <!-- 团队管理卡片 -->
+    <div v-if="activeTab === 'teamManage'">
+      <TeamMemberManage :case-id="Number(caseId)" :is-creator="isCreator" />
+    </div>
+
+    <!-- 工作团队卡片 -->
+    <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
+      <div
+        style="
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        "
+      >
+        <!-- 标题和操作按钮 -->
+        <div
+          style="
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h2 style="color: #333; margin: 0; font-size: 18px">
+              工作团队成员管理
+            </h2>
+            <div style="display: flex; gap: 10px">
+              <ElButton
+                type="primary"
+                @click="handleAddMember"
+                v-if="isCreator"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                添加成员
+              </ElButton>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="workTeamLoading" class="loading-container">
+          <ElSkeleton :rows="5" animated />
+        </div>
+
+        <div v-else class="case-info-content">
+          <ElCard class="category-card mb-4" shadow="hover">
+            <template #header>
+              <div class="category-header">
+                <Icon icon="lucide:users" class="mr-2 text-blue-500" />
+                <span class="text-md font-semibold">团队成员列表</span>
+              </div>
+            </template>
+            <div class="category-content">
+              <ElTable :data="teamMembers" style="width: 100%">
+                <ElTableColumn prop="userName" label="成员姓名" width="150" />
+                <ElTableColumn prop="userCode" label="用户编码" width="150" />
+                <ElTableColumn
+                  prop="teamRoleName"
+                  label="团队角色"
+                  width="150"
+                />
+                <ElTableColumn
+                  prop="permissionLevel"
+                  label="权限级别"
+                  width="120"
+                >
+                  <template #default="{ row }">
+                    <ElTag :type="getPermissionTagType(row.permissionLevel)">
+                      {{ getPermissionLabel(row.permissionLevel) }}
+                    </ElTag>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="isActive" label="状态" width="100">
+                  <template #default="{ row }">
+                    <ElTag :type="row.isActive ? 'success' : 'danger'">
+                      {{ row.isActive ? '激活' : '禁用' }}
+                    </ElTag>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="操作" width="200" v-if="isCreator">
+                  <template #default="{ row }">
+                    <ElButton size="small" @click="handleEditMember(row)">
+                      <Icon icon="lucide:pencil" class="mr-1" />
+                      编辑
+                    </ElButton>
+                    <ElPopconfirm
+                      title="确定要移除该成员吗？"
+                      @confirm="handleRemoveMember(row)"
+                    >
+                      <ElButton
+                        size="small"
+                        type="danger"
+                        style="margin-left: 8px"
+                      >
+                        <Icon icon="lucide:trash-2" class="mr-1" />
+                        移除
+                      </ElButton>
+                    </ElPopconfirm>
+                  </template>
+                </ElTableColumn>
+              </ElTable>
+
+              <div
+                v-if="teamMembers.length === 0"
+                class="empty-state"
+                style="padding: 40px; text-align: center"
+              >
+                <ElEmpty description="暂无团队成员" />
+              </div>
+            </div>
+          </ElCard>
+        </div>
+      </div>
+
+      <!-- 添加/编辑成员对话框 -->
+      <ElDialog
+        v-model="memberDialogVisible"
+        :title="memberDialogTitle"
+        width="600px"
+        destroy-on-close
+      >
+        <ElForm :model="memberForm" label-width="100px">
+          <ElFormItem label="成员" required>
+            <ElSelect
+              v-model="memberForm.userId"
+              filterable
+              placeholder="选择成员"
+              style="width: 100%"
+            >
+              <ElOption
+                v-for="user in availableUsers"
+                :key="user.uPid"
+                :label="user.uName"
+                :value="user.uPid"
+              />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="团队角色" required>
+            <ElSelect
+              v-model="memberForm.teamRole"
+              placeholder="选择角色"
+              style="width: 100%"
+            >
+              <ElOption
+                v-for="role in teamRoles"
+                :key="role.roleCode"
+                :label="role.roleName"
+                :value="role.roleCode"
+              />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="权限级别" required>
+            <ElSelect
+              v-model="memberForm.permissionLevel"
+              placeholder="选择权限"
+              style="width: 100%"
+            >
+              <ElOption label="查看" value="VIEW" />
+              <ElOption label="编辑" value="EDIT" />
+              <ElOption label="完全控制" value="FULL" />
+            </ElSelect>
+          </ElFormItem>
+        </ElForm>
+        <template #footer>
+          <ElButton @click="memberDialogVisible = false">取消</ElButton>
+          <ElButton type="primary" @click="handleSaveMember">确定</ElButton>
+        </template>
+      </ElDialog>
 
       <!-- 公告编辑对话框 -->
       <ElDialog

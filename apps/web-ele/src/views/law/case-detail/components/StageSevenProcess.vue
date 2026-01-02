@@ -17,6 +17,17 @@ import {
 } from 'element-plus';
 
 import TaskEdit from '../TaskEdit.vue';
+import {
+  getCancellationRegistrationApi,
+  getTerminationLitiApi,
+  getAdditionalDisiributionApi,
+  getAccountSealManagementApi,
+  getDutyReportApi,
+  getDocumentTransferApi,
+  getArchivingManagementApi,
+  getSealDestructionApi,
+  getAccountClosingApi,
+} from '#/api/core/case-process';
 
 interface Props {
   caseId: string;
@@ -31,49 +42,37 @@ const currentTask = ref<any>(null);
 const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
-// 模拟API调用，因为阶段七可能还没有实际的API
-const mockApiCall = async (
-  taskType: string,
-  caseId: string,
-  page: number,
-  size: number,
-) => {
-  return {
-    status: '1',
-    error: '',
-    data: {
-      records: [],
-      count: 0,
-    },
-  };
-};
-
 const taskConfig = [
   {
-    key: 'creditorResolution',
-    name: '债权人会议决议',
-    icon: 'lucide:users-round',
-    api: mockApiCall,
+    key: 'cancellationRegistration',
+    name: '注销登记',
+    icon: 'lucide:file-x',
+    api: getCancellationRegistrationApi,
     fields: [
-      { label: '决议名称', prop: 'JYMCM' },
-      { label: '会议日期', prop: 'HYRQ', isDate: true },
-      { label: '通过票数', prop: 'TGPF' },
-      { label: '反对票数', prop: 'FDPS' },
-      { label: '决议内容', prop: 'JYNR' },
+      { label: '注销类型', prop: 'ZXLX' },
+      { label: '登记机关', prop: 'DJJG' },
+      { label: '申请日期', prop: 'SQRQ', isDate: true },
+      { label: '注销日期', prop: 'ZXRQ', isDate: true },
+      { label: '注销文号', prop: 'ZXWH' },
+      { label: '注销状态', prop: 'ZXZT' },
+      { label: '登记事项', prop: 'DJSX' },
+      { label: '登记号码', prop: 'DJHM' },
+      { label: '注销原因', prop: 'ZXYY' },
+      { label: '处理人', prop: 'CLR' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'terminateLawsuit',
-    name: '终止诉讼',
+    key: 'terminationLitigation',
+    name: '终结诉讼仲裁',
     icon: 'lucide:gavel',
-    api: mockApiCall,
+    api: getTerminationLitiApi,
     fields: [
-      { label: '案件名称', prop: 'AJMC' },
-      { label: '法院名称', prop: 'FYMC' },
-      { label: '案件编号', prop: 'AJBH' },
-      { label: '终止日期', prop: 'ZZRQ', isDate: true },
-      { label: '终止原因', prop: 'ZZYY' },
+      { label: '诉讼类型', prop: 'SSLX' },
+      { label: '相对方', prop: 'XDF' },
+      { label: '法院/仲裁机构', prop: 'FYZCJG' },
+      { label: '诉讼状态', prop: 'SSZT' },
+      { label: '处理结果', prop: 'CLJG' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
@@ -81,27 +80,105 @@ const taskConfig = [
     key: 'additionalDistribution',
     name: '追加分配',
     icon: 'lucide:pie-chart',
-    api: mockApiCall,
+    api: getAdditionalDisiributionApi,
     fields: [
+      { label: '分配类型', prop: 'FPLX' },
       { label: '分配金额', prop: 'FPJE' },
       { label: '分配日期', prop: 'FPRQ', isDate: true },
-      { label: '分配对象', prop: 'FPDB' },
-      { label: '分配原因', prop: 'FPYY' },
+      { label: '债权人名称', prop: 'ZQRMC' },
+      { label: '分配依据', prop: 'FPYJ' },
+      { label: '分配状态', prop: 'FPZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'accountSealManagement',
+    name: '账户印章管理',
+    icon: 'lucide:key',
+    api: getAccountSealManagementApi,
+    fields: [
+      { label: '管理类型', prop: 'GLLX' },
+      { label: '项目名称', prop: 'XMMC' },
+      { label: '处理日期', prop: 'CLRQ', isDate: true },
+      { label: '处理方式', prop: 'CLFS' },
+      { label: '处理结果', prop: 'CLJG' },
+      { label: '证明文件路径', prop: 'ZMWJLJ' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'dutyReport',
+    name: '职务报告',
+    icon: 'lucide:file-text',
+    api: getDutyReportApi,
+    fields: [
+      { label: '报告类型', prop: 'BGLX' },
+      { label: '报告内容', prop: 'BGNR' },
+      { label: '提交日期', prop: 'TJRQ', isDate: true },
+      { label: '提交人', prop: 'TJR' },
+      { label: '接收方', prop: 'JSF' },
       { label: '审批状态', prop: 'SPZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'closingWork',
-    name: '收尾工作',
-    icon: 'lucide:check-circle',
-    api: mockApiCall,
+    key: 'documentTransfer',
+    name: '资料移交',
+    icon: 'lucide:folder-open',
+    api: getDocumentTransferApi,
     fields: [
-      { label: '工作内容', prop: 'GZNR' },
-      { label: '完成日期', prop: 'WCRQ', isDate: true },
+      { label: '移交类型', prop: 'YJLX' },
+      { label: '资料名称', prop: 'ZLMC' },
+      { label: '移交日期', prop: 'YJRQ', isDate: true },
+      { label: '移交方', prop: 'YJF' },
+      { label: '接收方', prop: 'JSF' },
+      { label: '移交内容', prop: 'YJNR' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'archivingManagement',
+    name: '归档管理',
+    icon: 'lucide:archive',
+    api: getArchivingManagementApi,
+    fields: [
+      { label: '归档类型', prop: 'GDLX' },
+      { label: '归档内容', prop: 'GDNR' },
+      { label: '归档日期', prop: 'GDRQ', isDate: true },
+      { label: '归档位置', prop: 'GDWZ' },
       { label: '负责人', prop: 'FZR' },
-      { label: '备注', prop: 'BZ' },
       { label: '归档状态', prop: 'GDZT' },
+      { label: '档案号', prop: 'DAH' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'sealDestruction',
+    name: '印章销毁',
+    icon: 'lucide:trash-2',
+    api: getSealDestructionApi,
+    fields: [
+      { label: '印章类型', prop: 'YZLX' },
+      { label: '印章编号', prop: 'YZBH' },
+      { label: '销毁日期', prop: 'XHRQ', isDate: true },
+      { label: '销毁方式', prop: 'XHFS' },
+      { label: '销毁见证人', prop: 'XHJZR' },
+      { label: '证明文件', prop: 'ZMWJ' },
+      { label: '印章', prop: 'YZ' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'accountClosing',
+    name: '账户销户',
+    icon: 'lucide:credit-card',
+    api: getAccountClosingApi,
+    fields: [
+      { label: '账户', prop: 'ZH' },
+      { label: '销户日期', prop: 'XHRQ', isDate: true },
+      { label: '销户原因', prop: 'XHYY' },
+      { label: '余额金额', prop: 'YEJE' },
+      { label: '销户状态', prop: 'XHZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
@@ -280,9 +357,9 @@ onMounted(() => {
           <div class="stage-info">
             <Icon icon="lucide:check-circle" class="stage-icon" />
             <div>
-              <h2 class="stage-title">阶段七：债权人会议决议等相关工作</h2>
+              <h2 class="stage-title">阶段七：收尾工作</h2>
               <p class="stage-description">
-                完成债权人会议决议、终止诉讼、追加分配等收尾工作
+                完成注销登记、终结诉讼仲裁、追加分配、账户印章管理、职务报告、资料移交、归档管理、印章销毁、账户销户等收尾工作
               </p>
             </div>
           </div>

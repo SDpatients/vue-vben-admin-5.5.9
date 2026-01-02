@@ -19,10 +19,13 @@ import {
   ElPopover,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
   ElTag,
 } from 'element-plus';
 
 import { deleteCaseApi, getCaseListApi } from '#/api/core/case';
+import { selectMyCasesApi, selectTeamCasesApi } from '#/api/core/work-team';
 
 import ReviewModal from './components/ReviewModal.vue';
 
@@ -40,6 +43,9 @@ const pagination = ref({
   itemCount: 0,
   pages: 0,
 });
+
+// 标签页控制
+const activeTab = ref('allCases');
 
 // 列显示控制
 const columnVisible = ref<string[]>([]);
@@ -66,9 +72,9 @@ const availableColumns = [
 const defaultColumns = new Set([
   '债权人数',
   '债权总额',
+  '案件进度',
   '案号',
   '财产金额',
-  '案件进度',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -178,15 +184,30 @@ const generateMockData = () => {
 const fetchCaseList = async () => {
   loading.value = true;
   try {
-    // 使用固定的正确格式token，而不是JWT token
-    const token = '03f07901573e624060991494b3a22422';
-    const params = {
-      page: pagination.value.page,
-      size: pagination.value.pageSize,
-      token,
-    };
+    let response;
 
-    const response = await getCaseListApi(params);
+    if (activeTab.value === 'myCases') {
+      // 获取我的案件
+      response = await selectMyCasesApi(
+        pagination.value.page,
+        pagination.value.pageSize,
+      );
+    } else if (activeTab.value === 'teamCases') {
+      // 获取团队案件
+      response = await selectTeamCasesApi(
+        pagination.value.page,
+        pagination.value.pageSize,
+      );
+    } else {
+      // 获取全部案件（有权限的）
+      const token = '03f07901573e624060991494b3a22422';
+      const params = {
+        page: pagination.value.page,
+        size: pagination.value.pageSize,
+        token,
+      };
+      response = await getCaseListApi(params);
+    }
 
     if (response.status === '1' && response.data) {
       caseList.value = response.data.records || [];
@@ -195,18 +216,21 @@ const fetchCaseList = async () => {
       ElMessage.success('案件列表加载成功');
     } else {
       ElMessage.error(response.error || '获取案件列表失败，已使用模拟数据');
-      // API请求失败，响应状态: response.status
-      // 使用模拟数据作为后备
       generateMockData();
     }
   } catch {
-    // 显示错误提示
     ElMessage.error('后端API暂时不可用，请稍后再试');
-    // 使用模拟数据作为后备
     generateMockData();
   } finally {
     loading.value = false;
   }
+};
+
+// 处理标签页切换
+const handleTabChange = (tabName: string) => {
+  activeTab.value = tabName;
+  pagination.value.page = 1;
+  fetchCaseList();
 };
 
 // 处理分页变化
@@ -291,14 +315,14 @@ const getCaseProgressType = (progress: string) => {
     case '审理中': {
       return 'primary';
     }
-    case '已结案': {
-      return 'success';
+    case '已注销': {
+      return 'warning';
     }
     case '已终结': {
       return 'info';
     }
-    case '已注销': {
-      return 'warning';
+    case '已结案': {
+      return 'success';
     }
     default: {
       return 'info';
@@ -495,6 +519,19 @@ const canDelete = () => {
         </div>
       </template>
 
+      <!-- 标签页切换 -->
+      <ElTabs v-model="activeTab" @tab-change="handleTabChange" class="mb-4">
+        <ElTabPane label="我的案件" name="myCases">
+          <span class="text-sm text-gray-500">仅显示您创建的案件</span>
+        </ElTabPane>
+        <ElTabPane label="团队案件" name="teamCases">
+          <span class="text-sm text-gray-500">显示您作为团队成员的案件</span>
+        </ElTabPane>
+        <ElTabPane label="全部案件" name="allCases">
+          <span class="text-sm text-gray-500">显示所有有权限访问的案件</span>
+        </ElTabPane>
+      </ElTabs>
+
       <!-- 案件列表表格 -->
       <ElCard header="案件列表" size="small">
         <div class="table-wrapper">
@@ -666,7 +703,10 @@ const canDelete = () => {
               show-overflow-tooltip
             >
               <template #default="{ row }">
-                <ElTag :type="getCaseProgressType(row['案件进度'])" size="small">
+                <ElTag
+                  :type="getCaseProgressType(row['案件进度'])"
+                  size="small"
+                >
                   {{ row['案件进度'] || '未设置' }}
                 </ElTag>
               </template>
@@ -911,4 +951,3 @@ const canDelete = () => {
   margin: 0;
 }
 </style>
-

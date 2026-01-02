@@ -1,11 +1,9 @@
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-// 导入API函数
 import { getContactGroupsApi, getContactsApi } from '#/api/core/chat';
 
-// 定义类型
 interface Contact {
   avatar: null | string;
   contactUserId: number;
@@ -35,7 +33,6 @@ interface ContactGroup {
 }
 
 export const useContactStore = defineStore('contact', () => {
-  // 状态
   const contacts = ref<Contact[]>([]);
   const groups = ref<ContactGroup[]>([]);
   const searchKeyword = ref('');
@@ -44,18 +41,15 @@ export const useContactStore = defineStore('contact', () => {
   const loading = ref(false);
   const error = ref<null | string>(null);
 
-  // 计算属性
   const filteredContacts = computed(() => {
     let result = [...contacts.value];
 
-    // 按分组筛选
     if (selectedGroup.value !== null) {
       result = result.filter(
         (contact) => contact.groupId === selectedGroup.value,
       );
     }
 
-    // 按关键词搜索
     if (searchKeyword.value) {
       const keyword = searchKeyword.value.toLowerCase();
       result = result.filter(
@@ -66,22 +60,17 @@ export const useContactStore = defineStore('contact', () => {
       );
     }
 
-    // 按是否置顶和在线状态排序
     result.sort((a, b) => {
-      // 置顶联系人排在前面
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      // 在线联系人排在前面
       if (a.isOnline && !b.isOnline) return -1;
       if (!a.isOnline && b.isOnline) return 1;
-      // 按姓名排序
       return a.name.localeCompare(b.name);
     });
 
     return result;
   });
 
-  // 方法
   function setContacts(data: Contact[]) {
     contacts.value = data;
   }
@@ -120,15 +109,13 @@ export const useContactStore = defineStore('contact', () => {
   }
 
   function deleteGroup(id: number) {
-    // 删除分组
     const index = groups.value.findIndex((g) => g.id === id);
     if (index !== -1) {
       groups.value.splice(index, 1);
     }
-    // 将该分组下的联系人移到默认分组
     contacts.value.forEach((contact) => {
       if (contact.groupId === id) {
-        contact.groupId = 1; // 使用默认分组ID 1 代替 undefined
+        contact.groupId = 1;
       }
     });
   }
@@ -151,7 +138,7 @@ export const useContactStore = defineStore('contact', () => {
     );
     if (contact) {
       contact.isOnline = isOnline;
-      contact.lastOnlineTime = new Date().toISOString(); // 将Date转换为ISO字符串
+      contact.lastOnlineTime = new Date().toISOString();
     }
   }
 
@@ -162,17 +149,13 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // 从API获取联系人列表
   async function fetchContacts() {
     loading.value = true;
     error.value = null;
     try {
       const data = await getContactsApi();
-
-      // 获取当前登录用户ID
       const currentUserId = localStorage.getItem('chat_user_id');
 
-      // 如果有当前用户ID，只展示该用户的联系人
       if (currentUserId) {
         const userId = Number.parseInt(currentUserId);
         const filteredContacts = data.filter(
@@ -180,7 +163,6 @@ export const useContactStore = defineStore('contact', () => {
         );
         setContacts(filteredContacts);
       } else {
-        // 没有用户ID，展示全部
         setContacts(data);
       }
     } catch (error_) {
@@ -192,23 +174,18 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // 从API获取联系人分组列表
   async function fetchContactGroups() {
     loading.value = true;
     error.value = null;
     try {
       const data = await getContactGroupsApi();
-
-      // 获取当前登录用户ID
       const currentUserId = localStorage.getItem('chat_user_id');
 
-      // 如果有当前用户ID，只展示该用户的分组
       if (currentUserId) {
         const userId = Number.parseInt(currentUserId);
         const filteredGroups = data.filter((group) => group.userId === userId);
         setGroups(filteredGroups);
       } else {
-        // 没有用户ID，展示全部
         setGroups(data);
       }
     } catch (error_) {
@@ -220,7 +197,6 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  // 初始化数据
   async function initializeData() {
     await Promise.all([fetchContacts(), fetchContactGroups()]);
   }
@@ -235,13 +211,7 @@ export const useContactStore = defineStore('contact', () => {
     error.value = null;
   }
 
-  // 组件挂载时初始化数据
-  onMounted(() => {
-    initializeData();
-  });
-
   return {
-    // 状态
     contacts,
     groups,
     searchKeyword,
@@ -249,9 +219,7 @@ export const useContactStore = defineStore('contact', () => {
     currentContact,
     loading,
     error,
-    // 计算属性
     filteredContacts,
-    // 方法
     setContacts,
     addContact,
     updateContact,
