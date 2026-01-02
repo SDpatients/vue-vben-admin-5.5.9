@@ -138,17 +138,15 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 
 export { createRequestClient };
 
-// 聊天API客户端，使用独立的配置
 export const chatRequestClient = createRequestClient(
-  'http://192.168.0.120:8080',
+  import.meta.env.VITE_CHAT_API_URL || 'http://192.168.0.120:8080',
   {
     responseReturn: 'body',
   },
 );
 
-// 8085端口API客户端（现在使用8080端口，需要Token校验）
 export const requestClient8085 = createRequestClient(
-  'http://192.168.0.120:8080',
+  import.meta.env.VITE_API_URL_8085 || 'http://192.168.0.120:8080',
   {
     responseReturn: 'body',
   },

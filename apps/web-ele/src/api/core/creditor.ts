@@ -216,4 +216,30 @@ export async function deleteCreditorApi(
   );
 }
 
+export async function getCreditorsApi(
+  caseId: string,
+  page: number,
+  size: number,
+) {
+  return requestClient8085.get<CreditorApi.CreditorListResponse>(
+    '/api/web/getCreditorsByCase',
+    { params: { caseId, page, size } },
+  );
+}
+
+export async function batchAddCreditorsApi(
+  caseId: string,
+  creditorsList: any[],
+) {
+  return requestClient8085.post<CreditorApi.AddCreditorResponse>(
+    '/api/web/batchAddCreditors',
+    { caseId, creditorsList },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+}
+
 export type { CreditorApi };

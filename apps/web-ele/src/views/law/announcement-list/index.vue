@@ -241,7 +241,7 @@ onMounted(() => {
                 size="small"
                 class="ml-2"
               >
-                {{
+                {{ 
                   announcementTypeMap[item.announcementType]?.label || '普通'
                 }}
               </ElTag>
@@ -297,6 +297,8 @@ onMounted(() => {
             @current-change="handlePageChange"
           />
         </div>
+        <!-- 添加一个空的占位元素，确保v-loading指令的目标元素始终有子节点 -->
+        <div v-if="false" class="loading-placeholder"></div>
       </div>
     </ElCard>
 
@@ -318,7 +320,7 @@ onMounted(() => {
                 "
                 size="small"
               >
-                {{
+                {{ 
                   announcementTypeMap[currentAnnouncement.announcementType]
                     ?.label || '普通'
                 }}
@@ -403,6 +405,8 @@ onMounted(() => {
             </div>
           </div>
         </div>
+        <!-- 添加一个空的占位元素，确保v-loading指令的目标元素始终有子节点 -->
+        <div v-if="false" class="loading-placeholder"></div>
       </div>
     </ElDialog>
     <ElDialog

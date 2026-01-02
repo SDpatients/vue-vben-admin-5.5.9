@@ -71,7 +71,7 @@ export namespace CaseApi {
     ajly?: string;
     slfy?: string;
     zdjg?: string;
-    glrfzr?: string;
+    glrfzr?: number;
     sfjhs?: string;
     ay?: string;
     ajjd?: string;
@@ -87,6 +87,8 @@ export namespace CaseApi {
     sepLd?: number;
     sepMd?: number;
     sepNd?: string;
+    selectedManagers?: string[];
+    cbry?: number[];
   }
 
   /** 添加案件响应 */

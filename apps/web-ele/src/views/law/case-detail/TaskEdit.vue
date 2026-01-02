@@ -25,27 +25,45 @@ import {
   getProcessFileListApi,
   update2Api,
   update3Api,
+  update4Api,
+  update6Api,
+  update7Api,
   uploadProcessFileApi,
 } from '#/api/core/case-process';
 import {
+  addAccountClosingApi,
+  addAccountSealManagementApi,
+  addAdditionalDistributionApi,
+  addArchivingManagementApi,
   addBankExpensesApi,
+  addBankruptcyDistPlanApi,
+  addBankruptcyProcedureTerminationApi,
   addBusinessManagementApi,
+  addCancellationRegistrationApi,
   addContractManagementApi,
   addCreditorClaimApi,
+  addDepositManagementApi,
+  addDocumentTransferApi,
+  addDutyReportApi,
   addEmergencyApi,
+  addEmployeeSettlementPlanApi,
   addInternalAffairsApi,
   addLegalProcedureApi,
   addLitigationArbitrationApi,
   addManagementApi,
   addPersonnelEmploymentApi,
+  addPriorityPaymentApi,
+  addPropertyDistributionExecutionApi,
   addPropertyInvestigationApi,
   addPropertyPlanApi,
   addPropertyReceiptApi,
   addReclaimReviewApi,
   addRightsClaimApi,
+  addSealDestructionApi,
   addSealManagementApi,
   addSocialSecurtyFeesApi,
   addTaxVerificationApi,
+  addTerminationLitigationApi,
   addWorkPlanApi,
   addWorkTeamApi,
   unifiedTaskOperationApi,
@@ -581,6 +599,217 @@ const taskFormConfig: Record<string, any> = {
       { label: '参考方案', prop: 'ckfa', type: 'input' },
     ],
   },
+  bankruptcyDistPlan: {
+    title: '破产财产分配方案',
+    operateType: 0,
+    addApi: addBankruptcyDistPlanApi,
+    fields: [
+      { label: '方案名称', prop: 'famc', type: 'input', required: true },
+      { label: '方案内容', prop: 'fanr', type: 'textarea', required: true },
+      { label: '可分配总额', prop: 'kfpze', type: 'input', required: true },
+      { label: '会议表决结果', prop: 'hybjjg', type: 'input' },
+      { label: '法院批准日期', prop: 'fypzrq', type: 'date' },
+      { label: '实施日期', prop: 'ssrq', type: 'date' },
+      { label: '方案状态', prop: 'fazt', type: 'input' },
+    ],
+  },
+  employeeSettlementPlan: {
+    title: '职工安置方案',
+    operateType: 1,
+    addApi: addEmployeeSettlementPlanApi,
+    fields: [
+      {
+        label: '安置方案内容',
+        prop: 'azfanr',
+        type: 'textarea',
+        required: true,
+      },
+      { label: '安置总金额', prop: 'azzje', type: 'input', required: true },
+      { label: '涉及职工人数', prop: 'sjzgrs', type: 'input' },
+      { label: '批准日期', prop: 'pzrq', type: 'date' },
+      { label: '实施状态', prop: 'sszt', type: 'input' },
+      { label: '负责人', prop: 'fzr', type: 'input' },
+      { label: '安置类型', prop: 'azlx', type: 'input' },
+    ],
+  },
+  priorityPayment: {
+    title: '优先受偿管理',
+    operateType: 2,
+    addApi: addPriorityPaymentApi,
+    fields: [
+      { label: '债权人类型', prop: 'zqrlx', type: 'input', required: true },
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '支付金额', prop: 'zfje', type: 'input', required: true },
+      { label: '支付日期', prop: 'zfrq', type: 'date' },
+      { label: '支付方式', prop: 'zffs', type: 'input' },
+      { label: '支付依据', prop: 'zfyj', type: 'textarea' },
+      { label: '支付状态', prop: 'zfzt', type: 'input' },
+    ],
+  },
+  propertyDistributionExecution: {
+    title: '财产分配执行',
+    operateType: 3,
+    addApi: addPropertyDistributionExecutionApi,
+    fields: [
+      { label: '分配类型', prop: 'fplx', type: 'input', required: true },
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '分配金额', prop: 'fpje', type: 'input', required: true },
+      { label: '分配日期', prop: 'fprq', type: 'date' },
+      { label: '分配方式', prop: 'fpfs', type: 'input' },
+      { label: '收据确认', prop: 'sjqr', type: 'input' },
+      { label: '执行状态', prop: 'zhzt', type: 'input' },
+      { label: '优先级别', prop: 'yxjb', type: 'input' },
+    ],
+  },
+  depositManagement: {
+    title: '提存管理',
+    operateType: 4,
+    addApi: addDepositManagementApi,
+    fields: [
+      { label: '提存类型', prop: 'tclx', type: 'input', required: true },
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '提存金额', prop: 'tcje', type: 'input', required: true },
+      { label: '提存日期', prop: 'tcrq', type: 'date' },
+      { label: '提存机构', prop: 'tcjg', type: 'input' },
+      { label: '提存原因', prop: 'tcyy', type: 'textarea' },
+      { label: '提存状态', prop: 'tczt', type: 'input' },
+    ],
+  },
+  bankruptcyProcedureTermination: {
+    title: '破产程序终结',
+    operateType: 5,
+    addApi: addBankruptcyProcedureTerminationApi,
+    fields: [
+      { label: '终结原因', prop: 'zjyy', type: 'textarea', required: true },
+      { label: '终结日期', prop: 'zjrq', type: 'date' },
+      { label: '法院裁定文号', prop: 'fycdwh', type: 'input' },
+      { label: '分配报告', prop: 'fpbg', type: 'textarea' },
+      { label: '提交日期', prop: 'tjrq', type: 'date' },
+      { label: '法院批准日期', prop: 'fypzrq', type: 'date' },
+      { label: '终结状态', prop: 'zjzt', type: 'input' },
+    ],
+  },
+  cancellationRegistration: {
+    title: '注销登记',
+    operateType: 0,
+    addApi: addCancellationRegistrationApi,
+    fields: [
+      { label: '注销类型', prop: 'zxlx', type: 'input', required: true },
+      { label: '登记机关', prop: 'djjg', type: 'input' },
+      { label: '申请日期', prop: 'sqrq', type: 'date' },
+      { label: '注销日期', prop: 'zxrq', type: 'date' },
+      { label: '注销文号', prop: 'zxwh', type: 'input' },
+      { label: '注销状态', prop: 'zxzt', type: 'input' },
+      { label: '登记事项', prop: 'djsx', type: 'input' },
+      { label: '登记号码', prop: 'djhm', type: 'input' },
+      { label: '注销原因', prop: 'zxyy', type: 'textarea' },
+      { label: '处理人', prop: 'clr', type: 'input' },
+    ],
+  },
+  terminationLitigation: {
+    title: '终结诉讼仲裁',
+    operateType: 1,
+    addApi: addTerminationLitigationApi,
+    fields: [
+      { label: '诉讼类型', prop: 'sslx', type: 'input', required: true },
+      { label: '相对方', prop: 'xdf', type: 'input', required: true },
+      { label: '法院/仲裁机构', prop: 'fyzcjg', type: 'input' },
+      { label: '诉讼状态', prop: 'sszt', type: 'input' },
+      { label: '处理结果', prop: 'cljg', type: 'textarea' },
+    ],
+  },
+  additionalDistribution: {
+    title: '追加分配',
+    operateType: 2,
+    addApi: addAdditionalDistributionApi,
+    fields: [
+      { label: '分配类型', prop: 'fplx', type: 'input', required: true },
+      { label: '分配金额', prop: 'fpje', type: 'input', required: true },
+      { label: '分配日期', prop: 'fprq', type: 'date' },
+      { label: '债权人名称', prop: 'zqrmc', type: 'input', required: true },
+      { label: '分配依据', prop: 'fpyj', type: 'textarea' },
+      { label: '分配状态', prop: 'fpzt', type: 'input' },
+    ],
+  },
+  accountSealManagement: {
+    title: '账户印章管理',
+    operateType: 3,
+    addApi: addAccountSealManagementApi,
+    fields: [
+      { label: '管理类型', prop: 'gllx', type: 'input', required: true },
+      { label: '项目名称', prop: 'xmmc', type: 'input', required: true },
+      { label: '处理日期', prop: 'clrq', type: 'date' },
+      { label: '处理方式', prop: 'clfs', type: 'input' },
+      { label: '处理结果', prop: 'cljg', type: 'textarea' },
+      { label: '证明文件路径', prop: 'zmwlj', type: 'input' },
+    ],
+  },
+  dutyReport: {
+    title: '职务报告',
+    operateType: 4,
+    addApi: addDutyReportApi,
+    fields: [
+      { label: '报告类型', prop: 'bglx', type: 'input', required: true },
+      { label: '报告内容', prop: 'bgnr', type: 'textarea', required: true },
+      { label: '提交日期', prop: 'tjrq', type: 'date' },
+      { label: '提交人', prop: 'tjr', type: 'input' },
+      { label: '接收方', prop: 'jsf', type: 'input' },
+      { label: '审批状态', prop: 'spzt', type: 'input' },
+    ],
+  },
+  documentTransfer: {
+    title: '资料移交',
+    operateType: 5,
+    addApi: addDocumentTransferApi,
+    fields: [
+      { label: '移交类型', prop: 'yjlx', type: 'input', required: true },
+      { label: '资料名称', prop: 'zlmc', type: 'input', required: true },
+      { label: '移交日期', prop: 'yjrq', type: 'date' },
+      { label: '移交方', prop: 'yjf', type: 'input' },
+      { label: '接收方', prop: 'jsf', type: 'input' },
+      { label: '移交内容', prop: 'yjnr', type: 'textarea' },
+    ],
+  },
+  archivingManagement: {
+    title: '归档管理',
+    operateType: 6,
+    addApi: addArchivingManagementApi,
+    fields: [
+      { label: '归档类型', prop: 'gdlx', type: 'input', required: true },
+      { label: '归档内容', prop: 'gdnr', type: 'textarea', required: true },
+      { label: '归档日期', prop: 'gdrq', type: 'date' },
+      { label: '归档位置', prop: 'gdwz', type: 'input' },
+      { label: '负责人', prop: 'fzr', type: 'input' },
+      { label: '归档状态', prop: 'gdzt', type: 'input' },
+      { label: '档案号', prop: 'dah', type: 'input' },
+    ],
+  },
+  sealDestruction: {
+    title: '印章销毁',
+    operateType: 7,
+    addApi: addSealDestructionApi,
+    fields: [
+      { label: '印章类型', prop: 'yzlx', type: 'input', required: true },
+      { label: '印章编号', prop: 'yzbh', type: 'input', required: true },
+      { label: '销毁日期', prop: 'xhrq', type: 'date' },
+      { label: '销毁方式', prop: 'xhfs', type: 'input' },
+      { label: '销毁见证人', prop: 'xhjzr', type: 'input' },
+      { label: '证明文件', prop: 'zmwj', type: 'input' },
+      { label: '印章', prop: 'yz', type: 'input' },
+    ],
+  },
+  accountClosing: {
+    title: '账户销户',
+    operateType: 8,
+    addApi: addAccountClosingApi,
+    fields: [
+      { label: '账户', prop: 'zh', type: 'input', required: true },
+      { label: '销户日期', prop: 'xhrq', type: 'date' },
+      { label: '销户原因', prop: 'xhyy', type: 'textarea' },
+      { label: '余额金额', prop: 'yeje', type: 'input' },
+      { label: '销户状态', prop: 'xhzt', type: 'input' },
+    ],
+  },
 };
 
 const currentConfig = computed(
@@ -761,6 +990,152 @@ const fieldNameMap: Record<string, Record<string, string>> = {
     HDRQ: 'hdrq',
     HDR: 'hdr',
     HDZT: 'hdzt',
+  },
+  bankruptcyDistPlan: {
+    FAMC: 'famc',
+    FANR: 'fanr',
+    KFPZE: 'kfpze',
+    HYBJJG: 'hybjjg',
+    FYPZRQ: 'fypzrq',
+    SSRQ: 'ssrq',
+    FAZT: 'fazt',
+    ZT: 'zt',
+  },
+  employeeSettlementPlan: {
+    AZFANR: 'azfanr',
+    AZZJE: 'azzje',
+    SJZGRS: 'sjzgrs',
+    PZRQ: 'pzrq',
+    SSZT: 'sszt',
+    FZR: 'fzr',
+    AZLX: 'azlx',
+    ZT: 'zt',
+  },
+  priorityPayment: {
+    ZQRLX: 'zqrlx',
+    ZQRMC: 'zqrmc',
+    ZFJE: 'zfje',
+    ZFRQ: 'zfrq',
+    ZFFS: 'zffs',
+    ZFYJ: 'zfyj',
+    ZFZT: 'zfzt',
+    ZT: 'zt',
+  },
+  propertyDistributionExecution: {
+    FPLX: 'fplx',
+    ZQRMC: 'zqrmc',
+    FPJE: 'fpje',
+    FPRQ: 'fprq',
+    FPFS: 'fpfs',
+    SJQR: 'sjqr',
+    ZHZT: 'zhzt',
+    YXJB: 'yxjb',
+    ZT: 'zt',
+  },
+  depositManagement: {
+    TCLX: 'tclx',
+    ZQRMC: 'zqrmc',
+    TCJE: 'tcje',
+    TCRQ: 'tcrq',
+    TCJG: 'tcjg',
+    TCYY: 'tcyy',
+    TCZT: 'tclzt',
+    ZT: 'zt',
+  },
+  bankruptcyProcedureTermination: {
+    ZJYY: 'zjyy',
+    ZJRQ: 'zjrq',
+    FYCDWH: 'fycdwh',
+    FPBG: 'fpbg',
+    TJRQ: 'tjrq',
+    FYPZRQ: 'fypzrq',
+    ZJZT: 'zjzt',
+    ZT: 'zt',
+  },
+  cancellationRegistration: {
+    ZXLX: 'zxlx',
+    DJJG: 'djjg',
+    SQRQ: 'sqrq',
+    ZXRQ: 'zxrq',
+    ZXWH: 'zxwh',
+    ZXZT: 'zxzt',
+    DJSX: 'djsx',
+    DJHM: 'djhm',
+    ZXYY: 'zxyy',
+    CLR: 'clr',
+    ZT: 'zt',
+  },
+  terminationLitigation: {
+    SSLX: 'sslx',
+    XDF: 'xdf',
+    FYZCJG: 'fyzcjg',
+    SSZT: 'sszt',
+    CLJG: 'cljg',
+    ZT: 'zt',
+  },
+  additionalDistribution: {
+    FPLX: 'fplx',
+    FPJE: 'fpje',
+    FPRQ: 'fprq',
+    ZQRMC: 'zqrmc',
+    FPYJ: 'fpyj',
+    FPZT: 'fpzt',
+    ZT: 'zt',
+  },
+  accountSealManagement: {
+    GLLX: 'gllx',
+    XMMC: 'xmmc',
+    CLRQ: 'clrq',
+    CLFS: 'clfs',
+    CLJG: 'cljg',
+    ZMWJLJ: 'zmwlj',
+    ZT: 'zt',
+  },
+  dutyReport: {
+    BGLX: 'bglx',
+    BGNR: 'bgnr',
+    TJRQ: 'tjrq',
+    TJR: 'tjr',
+    JSF: 'jsf',
+    SPZT: 'spzt',
+    ZT: 'zt',
+  },
+  documentTransfer: {
+    YJLX: 'yjlx',
+    ZLMC: 'zlmc',
+    YJRQ: 'yjrq',
+    YJF: 'yjf',
+    JSF: 'jsf',
+    YJNR: 'yjnr',
+    ZT: 'zt',
+  },
+  archivingManagement: {
+    GDLX: 'gdlx',
+    GDNR: 'gdnr',
+    GDRQ: 'gdrq',
+    GDWZ: 'gdwz',
+    FZR: 'fzr',
+    GDZT: 'gdzt',
+    DAH: 'dah',
+    ZT: 'zt',
+  },
+  sealDestruction: {
+    YZLX: 'yzlx',
+    YZBH: 'yzbh',
+    XHRQ: 'xhrq',
+    XHFS: 'xhfs',
+    XHJZR: 'xhjzr',
+    ZMWJ: 'zmwj',
+    YZ: 'yz',
+    ZT: 'zt',
+  },
+  accountClosing: {
+    ZH: 'zh',
+    XHRQ: 'xhrq',
+    XHYY: 'xhyy',
+    YEJE: 'yeje',
+    XHZT: 'xhzt',
+    ZT: 'zt',
   },
 };
 
@@ -1071,11 +1446,36 @@ const handleSave = async () => {
       'setoffReview',
     ].includes(props.taskType);
 
+    const isSixthStage = [
+      'bankruptcyDistPlan',
+      'bankruptcyProcedureTermination',
+      'depositManagement',
+      'employeeSettlementPlan',
+      'priorityPayment',
+      'propertyDistributionExecution',
+    ].includes(props.taskType);
+
+    const isSeventhStage = [
+      'accountClosing',
+      'accountSealManagement',
+      'additionalDistribution',
+      'archivingManagement',
+      'cancellationRegistration',
+      'documentTransfer',
+      'dutyReport',
+      'sealDestruction',
+      'terminationLitigation',
+    ].includes(props.taskType);
+
     switch (props.mode) {
       case 'add': {
         console.log('[保存] 开始新增任务...');
         if (
-          (isSecondStage || isThirdStage || isFourthFifthStage) &&
+          (isSecondStage ||
+            isThirdStage ||
+            isFourthFifthStage ||
+            isSixthStage ||
+            isSeventhStage) &&
           typeof currentConfig.value.addApi === 'function'
         ) {
           const allFields: any = {
@@ -1088,7 +1488,17 @@ const handleSave = async () => {
           currentConfig.value.fields.forEach((field: any) => {
             const value = formData[field.prop];
             if (value === '' || value === null || value === undefined) {
-              allFields[field.prop] = ['CCJE', 'KZJE'].includes(field.prop)
+              allFields[field.prop] = [
+                'AZZJE',
+                'CCJE',
+                'FPJE',
+                'FPJE',
+                'KFPZE',
+                'KZJE',
+                'TCJE',
+                'YEJE',
+                'ZFJE',
+              ].includes(field.prop)
                 ? '0'
                 : '';
             } else {
@@ -1096,11 +1506,11 @@ const handleSave = async () => {
             }
           });
 
-          console.log('[保存] 调用第二/三/四/五阶段新增API，参数:', [
+          console.log('[保存] 调用第二/三/四/五/六/七阶段新增API，参数:', [
             allFields,
           ]);
           const response = await currentConfig.value.addApi([allFields]);
-          console.log('[保存] 第二/三/四/五阶段新增API响应:', response);
+          console.log('[保存] 第二/三/四/五/六/七阶段新增API响应:', response);
           if (response.status === '1') {
             console.log('[保存] 新增成功');
             emit('saved');
@@ -1160,13 +1570,17 @@ const handleSave = async () => {
         };
 
         console.log('[保存] 调用完成API，参数:', updateData);
-        const response = isFourthFifthStage
-          ? await update4Api(updateData)
-          : isThirdStage
-            ? await update3Api(updateData)
-            : isSecondStage
-              ? await update2Api(updateData)
-              : await unifiedTaskOperationApi(updateData);
+        const response = isSeventhStage
+          ? await update7Api(updateData)
+          : isSixthStage
+            ? await update6Api(updateData)
+            : isFourthFifthStage
+              ? await update4Api(updateData)
+              : isThirdStage
+                ? await update3Api(updateData)
+                : isSecondStage
+                  ? await update2Api(updateData)
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 完成任务API响应:', response);
         if (response.status === '1') {
           ElMessage.success('标记完成成功');
@@ -1190,13 +1604,17 @@ const handleSave = async () => {
         };
 
         console.log('[保存] 调用编辑API，参数:', updateData);
-        const response = isFourthFifthStage
-          ? await update4Api(updateData)
-          : isThirdStage
-            ? await update3Api(updateData)
-            : isSecondStage
-              ? await update2Api(updateData)
-              : await unifiedTaskOperationApi(updateData);
+        const response = isSeventhStage
+          ? await update7Api(updateData)
+          : isSixthStage
+            ? await update6Api(updateData)
+            : isFourthFifthStage
+              ? await update4Api(updateData)
+              : isThirdStage
+                ? await update3Api(updateData)
+                : isSecondStage
+                  ? await update2Api(updateData)
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 编辑API响应:', response);
         if (response.status === '1') {
           ElMessage.success('更新成功');
@@ -1219,13 +1637,17 @@ const handleSave = async () => {
         };
 
         console.log('[保存] 调用跳过API，参数:', updateData);
-        const response = isFourthFifthStage
-          ? await update4Api(updateData)
-          : isThirdStage
-            ? await update3Api(updateData)
-            : isSecondStage
-              ? await update2Api(updateData)
-              : await unifiedTaskOperationApi(updateData);
+        const response = isSeventhStage
+          ? await update7Api(updateData)
+          : isSixthStage
+            ? await update6Api(updateData)
+            : isFourthFifthStage
+              ? await update4Api(updateData)
+              : isThirdStage
+                ? await update3Api(updateData)
+                : isSecondStage
+                  ? await update2Api(updateData)
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 跳过API响应:', response);
         if (response.status === '1') {
           ElMessage.success('标记跳过成功');
@@ -1675,4 +2097,3 @@ const formRules = computed(() => {
   justify-content: flex-end;
 }
 </style>
-

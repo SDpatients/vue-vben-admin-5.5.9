@@ -17,6 +17,14 @@ import {
 } from 'element-plus';
 
 import TaskEdit from '../TaskEdit.vue';
+import {
+  getBankruptcyDistPlanApi,
+  getEmployeeSPlanApi,
+  getPriorityPaymentApi,
+  getPropertyDistributionExecutionApi,
+  getDepositManagementApi,
+  getBankruptcyProcedureTerminationApi,
+} from '#/api/core/case-process';
 
 interface Props {
   caseId: string;
@@ -31,77 +39,101 @@ const currentTask = ref<any>(null);
 const currentTaskType = ref('');
 const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
-// 模拟API调用，因为阶段六可能还没有实际的API
-const mockApiCall = async (
-  taskType: string,
-  caseId: string,
-  page: number,
-  size: number,
-) => {
-  return {
-    status: '1',
-    error: '',
-    data: {
-      records: [],
-      count: 0,
-    },
-  };
-};
-
 const taskConfig = [
   {
-    key: 'distributionPlan',
+    key: 'bankruptcyDistPlan',
     name: '破产财产分配方案',
     icon: 'lucide:pie-chart',
-    api: mockApiCall,
+    api: getBankruptcyDistPlanApi,
     fields: [
       { label: '方案名称', prop: 'FAMC' },
-      { label: '制定日期', prop: 'ZDRQ', isDate: true },
-      { label: '审批状态', prop: 'SPZT' },
-      { label: '分配总额', prop: 'FPZE' },
-      { label: '分配方式', prop: 'FPFS' },
+      { label: '方案内容', prop: 'FANR' },
+      { label: '可分配总额', prop: 'KFPZE' },
+      { label: '会议表决结果', prop: 'HYBJJG' },
+      { label: '法院批准日期', prop: 'FYPZRQ', isDate: true },
+      { label: '实施日期', prop: 'SSRQ', isDate: true },
+      { label: '方案状态', prop: 'FAZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'staffPlacementPlan',
-    name: '员工安置方案',
+    key: 'employeeSettlementPlan',
+    name: '职工安置方案',
     icon: 'lucide:users',
-    api: mockApiCall,
+    api: getEmployeeSPlanApi,
     fields: [
-      { label: '方案名称', prop: 'FAMC' },
-      { label: '制定日期', prop: 'ZDRQ', isDate: true },
-      { label: '安置人数', prop: 'AZRS' },
-      { label: '安置总额', prop: 'AZZE' },
-      { label: '审批状态', prop: 'SPZT' },
+      { label: '安置方案内容', prop: 'AZFANR' },
+      { label: '安置总金额', prop: 'AZZJE' },
+      { label: '涉及职工人数', prop: 'SJZGRS' },
+      { label: '批准日期', prop: 'PZRQ', isDate: true },
+      { label: '实施状态', prop: 'SSZT' },
+      { label: '负责人', prop: 'FZR' },
+      { label: '安置类型', prop: 'AZLX' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'priorityConfirmation',
-    name: '优先受偿权确认',
+    key: 'priorityPayment',
+    name: '优先受偿管理',
     icon: 'lucide:shield-check',
-    api: mockApiCall,
+    api: getPriorityPaymentApi,
     fields: [
+      { label: '债权人类型', prop: 'ZQRLX' },
       { label: '债权人名称', prop: 'ZQRMC' },
-      { label: '债权金额', prop: 'ZQJE' },
-      { label: '受偿金额', prop: 'SCJE' },
-      { label: '确认日期', prop: 'QRRQ', isDate: true },
-      { label: '优先类型', prop: 'YXLX' },
+      { label: '支付金额', prop: 'ZFJE' },
+      { label: '支付日期', prop: 'ZFRQ', isDate: true },
+      { label: '支付方式', prop: 'ZFFS' },
+      { label: '支付依据', prop: 'ZFYJ' },
+      { label: '支付状态', prop: 'ZFZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
   {
-    key: 'taxSettlementPlan',
-    name: '税费结算方案',
+    key: 'propertyDistributionExecution',
+    name: '财产分配执行',
     icon: 'lucide:file-text',
-    api: mockApiCall,
+    api: getPropertyDistributionExecutionApi,
     fields: [
-      { label: '方案名称', prop: 'FAMC' },
-      { label: '制定日期', prop: 'ZDRQ', isDate: true },
-      { label: '应缴税费', prop: 'YJSF' },
-      { label: '实缴税费', prop: 'SJSF' },
-      { label: '审批状态', prop: 'SPZT' },
+      { label: '分配类型', prop: 'FPLX' },
+      { label: '债权人名称', prop: 'ZQRMC' },
+      { label: '分配金额', prop: 'FPJE' },
+      { label: '分配日期', prop: 'FPRQ', isDate: true },
+      { label: '分配方式', prop: 'FPFS' },
+      { label: '收据确认', prop: 'SJQR' },
+      { label: '执行状态', prop: 'ZHZT' },
+      { label: '优先级别', prop: 'YXJB' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'depositManagement',
+    name: '提存管理',
+    icon: 'lucide:archive',
+    api: getDepositManagementApi,
+    fields: [
+      { label: '提存类型', prop: 'TCLX' },
+      { label: '债权人名称', prop: 'ZQRMC' },
+      { label: '提存金额', prop: 'TCJE' },
+      { label: '提存日期', prop: 'TCRQ', isDate: true },
+      { label: '提存机构', prop: 'TCJG' },
+      { label: '提存原因', prop: 'TCYY' },
+      { label: '提存状态', prop: 'TCZT' },
+      { label: '状态', prop: 'ZT', isStatus: true },
+    ],
+  },
+  {
+    key: 'bankruptcyProcedureTermination',
+    name: '破产程序终结',
+    icon: 'lucide:check-circle',
+    api: getBankruptcyProcedureTerminationApi,
+    fields: [
+      { label: '终结原因', prop: 'ZJYY' },
+      { label: '终结日期', prop: 'ZJRQ', isDate: true },
+      { label: '法院裁定文号', prop: 'FYCDWH' },
+      { label: '分配报告', prop: 'FPBG' },
+      { label: '提交日期', prop: 'TJRQ', isDate: true },
+      { label: '法院批准日期', prop: 'FYPZRQ', isDate: true },
+      { label: '终结状态', prop: 'ZJZT' },
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
@@ -280,9 +312,9 @@ onMounted(() => {
           <div class="stage-info">
             <Icon icon="lucide:pie-chart" class="stage-icon" />
             <div>
-              <h2 class="stage-title">阶段六：破产财产分配方案等相关工作</h2>
+              <h2 class="stage-title">阶段六：破产财产分配与终结</h2>
               <p class="stage-description">
-                完成破产财产分配方案制定、员工安置方案、优先受偿权确认等工作
+                完成破产财产分配方案、职工安置方案、优先受偿、财产分配执行、提存管理、破产程序终结等工作
               </p>
             </div>
           </div>
@@ -597,4 +629,4 @@ onMounted(() => {
   padding: 40px 0;
 }
 </style>
-
+

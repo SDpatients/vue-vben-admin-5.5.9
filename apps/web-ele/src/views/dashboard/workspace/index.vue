@@ -1,9 +1,5 @@
 <script lang="ts" setup>
-import type {
-  WorkbenchProjectItem,
-  WorkbenchQuickNavItem,
-  WorkbenchTodoItem,
-} from '@vben/common-ui';
+import type { WorkbenchProjectItem, WorkbenchTodoItem } from '@vben/common-ui';
 
 import type { Approval } from '#/api/core/approval';
 import type { Todo } from '#/api/core/todo';
@@ -15,7 +11,6 @@ import {
   AnalysisChartCard,
   WorkbenchHeader,
   WorkbenchProject,
-  WorkbenchQuickNav,
   WorkbenchTodo,
 } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
@@ -114,45 +109,6 @@ const loadProjectItems = async () => {
   }
 };
 
-const quickNavItems: WorkbenchQuickNavItem[] = [
-  {
-    color: '#1fdaca',
-    icon: 'ion:home-outline',
-    title: '首页',
-    url: '/',
-  },
-  {
-    color: '#bf0c2c',
-    icon: 'ion:grid-outline',
-    title: '仪表盘',
-    url: '/dashboard',
-  },
-  {
-    color: '#e18525',
-    icon: 'ion:layers-outline',
-    title: '组件',
-    url: '/demos/features/icons',
-  },
-  {
-    color: '#3fb27f',
-    icon: 'ion:settings-outline',
-    title: '系统管理',
-    url: '/demos/features/login-expired',
-  },
-  {
-    color: '#4daf1bc9',
-    icon: 'ion:key-outline',
-    title: '权限管理',
-    url: '/demos/access/page-control',
-  },
-  {
-    color: '#00d8ff',
-    icon: 'ion:bar-chart-outline',
-    title: '图表',
-    url: '/analytics',
-  },
-];
-
 function navTo(nav: WorkbenchProjectItem | WorkbenchQuickNavItem) {
   if (nav.url?.startsWith('http')) {
     openWindow(nav.url);
@@ -197,12 +153,6 @@ loadProjectItems();
         <ActivityTimeline class="mt-5" title="最新动态" />
       </div>
       <div class="w-full lg:w-2/5">
-        <WorkbenchQuickNav
-          :items="quickNavItems"
-          class="mt-5 lg:mt-0"
-          title="快捷导航"
-          @click="navTo"
-        />
         <WorkbenchTodo :items="todoItems" class="mt-5" title="待办事项" />
         <TodoList class="mt-5" title="待办事项管理" />
         <div class="mt-5">

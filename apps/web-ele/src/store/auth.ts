@@ -184,7 +184,27 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await getPermissionsApi();
       if (result && result.status === '1' && result.data) {
         const { permissions, menus } = result.data;
-        accessStore.setAccessCodes(permissions || []);
+        
+        const accessCodes = permissions || [];
+        
+        if (menus && menus.length > 0) {
+          const extractPermCodes = (menuList: any[]): string[] => {
+            const codes: string[] = [];
+            menuList.forEach((menu) => {
+              if (menu.permCode) {
+                codes.push(menu.permCode);
+              }
+              if (menu.children && menu.children.length > 0) {
+                codes.push(...extractPermCodes(menu.children));
+              }
+            });
+            return codes;
+          };
+          
+          accessCodes.push(...extractPermCodes(menus));
+        }
+        
+        accessStore.setAccessCodes(accessCodes);
         return { permissions, menus };
       }
     } catch (error) {

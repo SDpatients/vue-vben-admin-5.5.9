@@ -1,11 +1,9 @@
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-// 导入API函数
 import { getChatMessagesApi, getChatSessionsApi } from '#/api/core/chat';
 
-// 定义类型
 interface Contact {
   avatar: null | string;
   contactUserId: number;
@@ -54,7 +52,6 @@ interface ChatSession {
 }
 
 export const useChatStore = defineStore('chat', () => {
-  // 状态
   const currentContact = ref<Contact | null>(null);
   const sessions = ref<ChatSession[]>([]);
   const messages = ref<ChatMessage[]>([]);
@@ -64,14 +61,19 @@ export const useChatStore = defineStore('chat', () => {
   const loading = ref(false);
   const error = ref<null | string>(null);
 
-  // 计算属性
+  const getCurrentUserId = (): number => {
+    const userId = localStorage.getItem('chat_user_id');
+    return userId ? Number.parseInt(userId) : 1;
+  };
+
   const currentMessages = computed(() => {
     if (!currentContact.value) return [];
+    const currentUserId = getCurrentUserId();
     return messages.value
       .filter(
         (msg) =>
-          (msg.senderId === currentContact.value?.id && msg.receiverId === 1) ||
-          (msg.senderId === 1 && msg.receiverId === currentContact.value?.id),
+          (msg.senderId === currentContact.value?.id && msg.receiverId === currentUserId) ||
+          (msg.senderId === currentUserId && msg.receiverId === currentContact.value?.id),
       )
       .sort(
         (a, b) =>
@@ -79,7 +81,6 @@ export const useChatStore = defineStore('chat', () => {
       );
   });
 
-  // 方法
   function setCurrentContact(contact: Contact | null) {
     currentContact.value = contact;
   }
@@ -93,7 +94,6 @@ export const useChatStore = defineStore('chat', () => {
     } else {
       sessions.value[existingIndex] = session;
     }
-    // 按最后活动时间排序
     sessions.value.sort(
       (a, b) =>
         new Date(b.lastActivityTime).getTime() -
@@ -103,31 +103,29 @@ export const useChatStore = defineStore('chat', () => {
 
   function addMessage(message: ChatMessage) {
     messages.value.push(message);
-    // 更新会话
+    const currentUserId = getCurrentUserId();
     const session: ChatSession = {
-      contactId: message.senderId === 1 ? message.receiverId : message.senderId,
+      contactId: message.senderId === currentUserId ? message.receiverId : message.senderId,
       lastMessage: message.content,
-      unreadCount: message.receiverId === 1 ? 1 : 0,
+      unreadCount: message.receiverId === currentUserId ? 1 : 0,
       isPinned: false,
       lastActivityTime: message.timestamp,
-      id: 0, // 添加默认id
-      createdAt: message.timestamp, // 添加默认createdAt
+      id: 0,
+      createdAt: message.timestamp,
     };
     addSession(session);
-    // 更新未读消息总数
-    if (message.receiverId === 1 && !message.readStatus) {
+    if (message.receiverId === currentUserId && !message.readStatus) {
       totalUnread.value++;
     }
   }
 
   function markAsRead(contactId: number) {
-    // 标记消息为已读
     messages.value.forEach((msg) => {
-      if (msg.receiverId === 1 && msg.senderId === contactId) {
+      const currentUserId = getCurrentUserId();
+      if (msg.receiverId === currentUserId && msg.senderId === contactId) {
         msg.readStatus = true;
       }
     });
-    // 更新会话未读计数
     const session = sessions.value.find((s) => s.contactId === contactId);
     if (session) {
       totalUnread.value -= session.unreadCount;
@@ -143,26 +141,16 @@ export const useChatStore = defineStore('chat', () => {
     typingStatus.value[contactId] = isTyping;
   }
 
-  // 从API获取聊天会话列表
   async function fetchChatSessions(contactId?: number) {
     loading.value = true;
     error.value = null;
     try {
       const data = await getChatSessionsApi(contactId);
-
-      // 获取当前登录用户ID
       const currentUserId = localStorage.getItem('chat_user_id');
-
-      // 如果有当前用户ID，只展示该用户的会话
       const filteredSessions = data;
       if (currentUserId) {
-        // 这里需要根据实际业务逻辑调整过滤条件
-        // 假设会话与用户ID的关联逻辑
-        // filteredSessions = data.filter(session => session.userId === parseInt(currentUserId));
       }
-
       sessions.value = filteredSessions;
-      // 更新未读消息总数
       totalUnread.value = filteredSessions.reduce(
         (sum, session) => sum + session.unreadCount,
         0,
@@ -176,12 +164,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 从API获取聊天消息列表
-  async function fetchChatMessages(senderId?: number) {
+  async function fetchChatMessages(params: {
+    contactId: number;
+    page?: number;
+    page_size?: number;
+    userId: number;
+  }) {
     loading.value = true;
     error.value = null;
     try {
-      const data = await getChatMessagesApi(senderId);
+      const data = await getChatMessagesApi(params);
       messages.value = data;
     } catch (error_) {
       error.value =
@@ -192,7 +184,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 初始化数据
   async function initializeData() {
     await fetchChatSessions();
   }
@@ -208,13 +199,7 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null;
   }
 
-  // 组件挂载时初始化数据
-  onMounted(() => {
-    initializeData();
-  });
-
   return {
-    // 状态
     currentContact,
     sessions,
     messages,
@@ -223,9 +208,7 @@ export const useChatStore = defineStore('chat', () => {
     typingStatus,
     loading,
     error,
-    // 计算属性
     currentMessages,
-    // 方法
     setCurrentContact,
     addSession,
     addMessage,
