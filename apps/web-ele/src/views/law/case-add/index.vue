@@ -49,10 +49,17 @@ const form = reactive<CaseApi.AddCaseRequest>({
   sepLd: undefined,
   sepMd: undefined,
   sepNd: undefined,
+  selectedManagers: [], // 选中的管理人列表
 });
 
 // 法院列表数据
 const courtList = ref<{ label: string; value: string }[]>([]);
+
+// 管理人列表数据
+const managerList = ref<{ label: string; sepId: string; value: string }[]>([]);
+
+// 用户列表数据
+const userList = ref<{ label: string; value: number }[]>([]);
 
 // 获取法院列表
 const fetchCourtList = async () => {
@@ -70,8 +77,63 @@ const fetchCourtList = async () => {
   }
 };
 
-// 组件挂载时获取法院列表
+// 获取管理人列表
+const fetchManagerList = async () => {
+  try {
+    const response = await getManagerListApi({ page: 1, size: 100 });
+    if (response.status === '1' && response.data?.records) {
+      managerList.value = response.data.records.map((manager: any) => ({
+        label: manager.LSWS, // 律师事务所
+        value: manager.SEP_ID, // 管理人ID
+        sepId: manager.SEP_ID,
+      }));
+    }
+  } catch (error) {
+    console.error('获取管理人列表失败:', error);
+    ElMessage.error('获取管理人列表失败');
+  }
+};
+
+// 根据管理人ID获取用户列表
+const fetchUserList = async (managerId: string) => {
+  try {
+    const response = await getUserByDeptIdApi(Number.parseInt(managerId));
+    if (response.status === '1' && response.data) {
+      userList.value = response.data.map((user: any) => ({
+        label: user.uName, // 用户姓名
+        value: user.uPid, // 用户ID
+      }));
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    ElMessage.error('获取用户列表失败');
+  }
+};
+
+// 组件挂载时获取法院列表和管理人列表
 fetchCourtList();
+fetchManagerList();
+
+// 监听管理人变化，加载对应的用户列表
+watch(
+  () => form.selectedManagers,
+  async (newVal) => {
+    if (newVal && newVal.length > 0) {
+      // 清空主要负责人和承办人员
+      form.glrfzr = undefined;
+      form.cbry = undefined;
+
+      // 加载第一个管理人的用户列表
+      await fetchUserList(newVal[0]);
+    } else {
+      // 清空用户列表
+      userList.value = [];
+      form.glrfzr = undefined;
+      form.cbry = undefined;
+    }
+  },
+  { deep: true },
+);
 
 // 文件上传相关状态
 const uploadedFiles = ref<{ file: File; name: string; url: string }[]>([]);
@@ -187,6 +249,47 @@ const rules = reactive({
       trigger: 'blur',
     },
   ],
+  selectedManagers: [
+    {
+      required: true,
+      message: '请选择管理人',
+      trigger: 'change',
+      type: 'array',
+      min: 1,
+    },
+  ],
+  glrfzr: [
+    {
+      required: true,
+      message: '请选择主要负责人',
+      trigger: 'change',
+      validator: (rule: any, value: any, callback: any) => {
+        if (!form.selectedManagers || form.selectedManagers.length === 0) {
+          callback(new Error('请先选择管理人'));
+        } else if (value) {
+          callback();
+        } else {
+          callback(new Error('请选择主要负责人'));
+        }
+      },
+    },
+  ],
+  cbry: [
+    {
+      required: true,
+      message: '请选择承办人员',
+      trigger: 'change',
+      validator: (rule: any, value: any, callback: any) => {
+        if (!form.selectedManagers || form.selectedManagers.length === 0) {
+          callback(new Error('请先选择管理人'));
+        } else if (!value || value.length === 0) {
+          callback(new Error('请选择承办人员'));
+        } else {
+          callback();
+        }
+      },
+    },
+  ],
 });
 
 // 重置表单
@@ -224,7 +327,16 @@ const submitForm = async () => {
       ...form,
       sep_auser: sepAuser,
       sep_adate: sepAdate,
+      // 将选中的管理人ID数组转换为字符串，用逗号分隔
+      glrid: form.selectedManagers?.join(',') || '',
+      // 将主要负责人ID转换为字符串
+      fzrid: form.glrfzr?.toString() || '',
+      // 将承办人员ID数组转换为字符串，用逗号分隔
+      cbry: form.cbry?.join(',') || '',
     };
+
+    // 移除不需要提交的字段
+    delete submitData.selectedManagers;
 
     // 处理空值：日期类型传递null，其他类型传递空字符串
     const dateFields = new Set([
@@ -404,25 +516,46 @@ const submitForm = async () => {
 
                 <!-- 管理人 -->
                 <el-col :span="8">
-                  <el-form-item label="管理人">
-                    <el-input
-                      v-model="form.zdjg"
-                      placeholder="请输入管理人"
-                      maxlength="100"
-                      show-word-limit
-                    />
+                  <el-form-item label="管理人" prop="selectedManagers">
+                    <el-select
+                      v-model="form.selectedManagers"
+                      placeholder="请选择管理人（可多选）"
+                      multiple
+                      filterable
+                      clearable
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="manager in managerList"
+                        :key="manager.value"
+                        :label="manager.label"
+                        :value="manager.value"
+                      />
+                    </el-select>
                   </el-form-item>
                 </el-col>
 
                 <!-- 主要负责人 -->
                 <el-col :span="8">
-                  <el-form-item label="主要负责人">
-                    <el-input
+                  <el-form-item label="主要负责人" prop="glrfzr">
+                    <el-select
                       v-model="form.glrfzr"
-                      placeholder="请输入主要负责人"
-                      maxlength="50"
-                      show-word-limit
-                    />
+                      placeholder="请先选择管理人"
+                      :disabled="
+                        !form.selectedManagers ||
+                        form.selectedManagers.length === 0
+                      "
+                      filterable
+                      clearable
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="user in userList"
+                        :key="user.value"
+                        :label="user.label"
+                        :value="user.value"
+                      />
+                    </el-select>
                   </el-form-item>
                 </el-col>
 
@@ -513,13 +646,26 @@ const submitForm = async () => {
 
                 <!-- 承办人员 -->
                 <el-col :span="8">
-                  <el-form-item label="承办人员">
-                    <el-input
+                  <el-form-item label="承办人员" prop="cbry">
+                    <el-select
                       v-model="form.cbry"
-                      placeholder="请输入承办人员"
-                      maxlength="50"
-                      show-word-limit
-                    />
+                      placeholder="请先选择管理人"
+                      :disabled="
+                        !form.selectedManagers ||
+                        form.selectedManagers.length === 0
+                      "
+                      multiple
+                      filterable
+                      clearable
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="user in userList"
+                        :key="user.value"
+                        :label="user.label"
+                        :value="user.value"
+                      />
+                    </el-select>
                   </el-form-item>
                 </el-col>
               </el-row>
