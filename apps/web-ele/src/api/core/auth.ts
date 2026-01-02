@@ -162,6 +162,7 @@ export async function refreshTokenApi() {
   // 获取设备信息
   const deviceId = DeviceUtils.getDeviceId();
   const deviceInfo = DeviceUtils.getDeviceInfoString();
+  const token = localStorage.getItem('token');
 
   const result = await baseRequestClient.post<{
     data: {
@@ -176,6 +177,8 @@ export async function refreshTokenApi() {
     refreshToken,
     deviceId,
     deviceInfo,
+  }, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   // 更新本地存储中的token信息
@@ -212,8 +215,11 @@ export async function refreshTokenApi() {
  */
 export async function logoutApi() {
   const refreshToken = localStorage.getItem('refreshToken');
+  const token = localStorage.getItem('token');
   const result = await baseRequestClient.post('/api/web/logout', {
     refreshToken,
+  }, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   // 清除本地存储中的聊天相关信息和token

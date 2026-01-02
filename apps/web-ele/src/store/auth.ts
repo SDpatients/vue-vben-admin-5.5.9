@@ -122,8 +122,32 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       // 不做任何处理
     }
+    
+    // 清除所有用户相关的localStorage信息，保留设备ID
+    localStorage.removeItem('chat_user_info');
+    localStorage.removeItem('chat_user_id');
+    localStorage.removeItem('chat_username');
+    localStorage.removeItem('chat_logintime');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('accessTokenExpire');
+    localStorage.removeItem('refreshTokenExpire');
+    
+    // 重置所有 store
     resetAllStores();
+    
+    // 确保 accessStore 中的状态被正确重置
     accessStore.setLoginExpired(false);
+    accessStore.setAccessToken(null);
+    accessStore.setRefreshToken(null);
+    accessStore.setAccessCodes([]);
+    accessStore.setIsAccessChecked(false);
+    accessStore.setAccessMenus([]);
+    accessStore.setAccessRoutes([]);
+    
+    // 确保 userStore 中的状态被正确重置
+    userStore.setUserInfo(null);
+    userStore.setUserRoles([]);
 
     // 回登录页带上当前路由地址
     await router.replace({
