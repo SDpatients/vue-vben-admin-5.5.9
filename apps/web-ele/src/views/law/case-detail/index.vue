@@ -2813,10 +2813,10 @@ const checkPermissions = async () => {
 }
 
 .case-detail-container {
-  max-width: 1200px;
-  padding: 20px;
-  margin: 0 auto;
+  padding: 20px 10px;
   background: #fff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -2984,10 +2984,9 @@ const checkPermissions = async () => {
 
 .stage-indicators {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .stage-dot {
@@ -3004,6 +3003,34 @@ const checkPermissions = async () => {
   background: #d1d5db;
   border-radius: 50%;
   transition: all 0.3s ease;
+  z-index: 2;
+  margin: 0 24px;
+}
+
+.stage-dot::before {
+  content: '';
+  position: absolute;
+  right: -48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: -1;
+}
+
+.stage-dot::after {
+  content: '';
+  position: absolute;
+  right: -48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid #d1d5db;
+  z-index: -1;
 }
 
 .stage-dot:hover {
@@ -3011,10 +3038,27 @@ const checkPermissions = async () => {
   transform: scale(1.1);
 }
 
+.stage-dot:hover::after {
+  border-left-color: #9ca3af;
+}
+
 .stage-dot.active {
   background: #409eff;
   box-shadow: 0 0 0 4px rgb(64 158 255 / 20%);
   transform: scale(1.2);
+}
+
+.stage-dot.active::before {
+  background: #409eff;
+}
+
+.stage-dot.active::after {
+  border-left-color: #409eff;
+}
+
+.stage-dot:last-child::before,
+.stage-dot:last-child::after {
+  display: none;
 }
 
 .stage-number {

@@ -1333,7 +1333,7 @@ export const updateTaskStatusApi = async (
 /** 工作团队新增API */
 export const addWorkTeamApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addWorkTeam', data);
+    return await requestClient8085.post('/api/web/addWorkTeam', [data]);
   } catch (error) {
     console.error('添加工作团队失败:', error);
     throw error;
@@ -1343,7 +1343,7 @@ export const addWorkTeamApi = async (data: any) => {
 /** 工作计划新增API */
 export const addWorkPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addWorkPlan', data);
+    return await requestClient8085.post('/api/web/addWorkPlan', [data]);
   } catch (error) {
     console.error('添加工作计划失败:', error);
     throw error;
@@ -1353,7 +1353,7 @@ export const addWorkPlanApi = async (data: any) => {
 /** 管理制度新增API */
 export const addManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addManagement', data);
+    return await requestClient8085.post('/api/web/addManagement', [data]);
   } catch (error) {
     console.error('添加管理制度失败:', error);
     throw error;
@@ -1363,7 +1363,7 @@ export const addManagementApi = async (data: any) => {
 /** 印章管理新增API */
 export const addSealManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addSealManagement', data);
+    return await requestClient8085.post('/api/web/addSealManagement', [data]);
   } catch (error) {
     console.error('添加印章管理失败:', error);
     throw error;
@@ -1373,7 +1373,7 @@ export const addSealManagementApi = async (data: any) => {
 /** 法律程序新增API */
 export const addLegalProcedureApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addLegalProcedure', data);
+    return await requestClient8085.post('/api/web/addLegalProcedure', [data]);
   } catch (error) {
     console.error('添加法律程序失败:', error);
     throw error;

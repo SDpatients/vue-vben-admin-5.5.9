@@ -7,6 +7,7 @@ import {
   addFundAccountApi,
   updateFundAccountApi,
   updateFundAccountStatusApi,
+  getAllCasesApi,
 } from '#/api/core/fund';
 
 // 状态管理
@@ -58,12 +59,9 @@ const statusOptions = [
   { label: '冻结', value: '冻结' },
 ];
 
-// 案件列表（模拟数据，实际应从API获取）
-const caseOptions = [
-  { caseNo: 'CASE2025001', caseName: 'XX公司破产清算案' },
-  { caseNo: 'CASE2025002', caseName: 'YY企业重整案' },
-  { caseNo: 'CASE2025003', caseName: 'ZZ集团破产和解案' },
-];
+// 案件列表（从API获取）
+const caseOptions = ref<any[]>([]);
+const caseLoading = ref(false);
 
 // 银行列表（模拟数据，实际应从API获取）
 const bankOptions = [
@@ -75,19 +73,35 @@ const bankOptions = [
   { label: '交通银行', value: '交通银行' },
 ];
 
+// 获取案件列表
+const fetchCases = async () => {
+  caseLoading.value = true;
+  try {
+    const response = await getAllCasesApi();
+    // 转换API返回的数据格式为下拉框所需格式
+    caseOptions.value = response.data || [];
+  } catch (error) {
+    ElMessage.error('获取案件列表失败');
+    console.error('获取案件列表失败:', error);
+    caseOptions.value = [];
+  } finally {
+    caseLoading.value = false;
+  }
+};
+
 // 监听案号变化，自动更新案件名称
 const handleCaseNoChange = (value: string) => {
-  const selectedCase = caseOptions.find(item => item.caseNo === value);
+  const selectedCase = caseOptions.value.find(item => item.ah === value);
   if (selectedCase) {
-    accountForm.caseName = selectedCase.caseName;
+    accountForm.caseName = selectedCase.ajmc;
   }
 };
 
 // 监听案件名称变化，自动更新案号
 const handleCaseNameChange = (value: string) => {
-  const selectedCase = caseOptions.find(item => item.caseName === value);
+  const selectedCase = caseOptions.value.find(item => item.ajmc === value);
   if (selectedCase) {
-    accountForm.caseNo = selectedCase.caseNo;
+    accountForm.caseNo = selectedCase.ah;
   }
 };
 
@@ -132,10 +146,14 @@ const handleReset = () => {
 };
 
 // 打开新增对话框
-const openAddDialog = () => {
+const openAddDialog = async () => {
   dialogTitle.value = '新增账户';
   editMode.value = false;
   resetForm();
+  // 确保案件列表已加载
+  if (caseOptions.value.length === 0) {
+    await fetchCases();
+  }
   dialogVisible.value = true;
 };
 
@@ -166,6 +184,13 @@ const resetForm = () => {
     createUser: 'admin',
     updateUser: 'admin',
   });
+};
+
+// 监听初始余额变化，自动更新当前余额
+const handleInitialBalanceChange = () => {
+  if (!editMode.value) {
+    accountForm.currentBalance = accountForm.initialBalance;
+  }
 };
 
 // 保存账户
@@ -241,6 +266,7 @@ const handleCurrentChange = (current: number) => {
 // 页面挂载时加载数据
 onMounted(() => {
   fetchFundAccounts();
+  fetchCases();
 });
 </script>
 
@@ -403,12 +429,13 @@ onMounted(() => {
             filterable
             allow-create
             @change="handleCaseNoChange"
+            :loading="caseLoading"
           >
             <el-option
               v-for="item in caseOptions"
-              :key="item.caseNo"
-              :label="item.caseNo"
-              :value="item.caseNo"
+              :key="item.sepId"
+              :label="item.ah"
+              :value="item.ah"
             />
           </el-select>
         </el-form-item>
@@ -419,12 +446,13 @@ onMounted(() => {
             filterable
             allow-create
             @change="handleCaseNameChange"
+            :loading="caseLoading"
           >
             <el-option
               v-for="item in caseOptions"
-              :key="item.caseName"
-              :label="item.caseName"
-              :value="item.caseName"
+              :key="item.sepId"
+              :label="item.ajmc"
+              :value="item.ajmc"
             />
           </el-select>
         </el-form-item>
@@ -448,14 +476,15 @@ onMounted(() => {
             :precision="2"
             placeholder="请输入初始余额"
             style="width: 100%"
+            @change="handleInitialBalanceChange"
           />
         </el-form-item>
-        <el-form-item label="当前余额" v-if="editMode">
+        <el-form-item label="当前余额">
           <el-input-number
             v-model="accountForm.currentBalance"
             :min="0"
             :precision="2"
-            placeholder="请输入当前余额"
+            placeholder="当前余额"
             style="width: 100%"
             :disabled="true"
           />
