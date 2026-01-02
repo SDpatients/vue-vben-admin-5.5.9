@@ -140,7 +140,7 @@ const addManagerForm = reactive({
   lxdh: '',
   lxyx: '',
   bgdz: '',
-  zt: '1',
+  zt: '正常',
 });
 
 // 编辑管理人弹窗状态
@@ -186,12 +186,12 @@ const handleCloseDialog = () => {
   // 重置表单
   Object.assign(addManagerForm, {
     lsswsid: '',
-    glrlx: '',
+    glrlx: '律师事务所',
     fzrid: '',
     lxdh: '',
     lxyx: '',
     bgdz: '',
-    zt: '1',
+    zt: '正常',
   });
 };
 
@@ -308,8 +308,8 @@ const formatDateTime = (dateString: string) => {
 
 // 状态选项
 const statusOptions = [
-  { label: '启用', value: '1' },
-  { label: '禁用', value: '0' },
+  { label: '正常', value: '正常' },
+  { label: '禁止', value: '禁止' },
 ];
 
 // 页面加载时获取数据

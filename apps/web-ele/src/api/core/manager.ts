@@ -78,9 +78,9 @@ export interface AddManagerResponse {
 /**
  * 添加管理人信息
  */
-export async function addManagerApi(data: AddManagerRequest) {
+export async function addManagerApi(data: AddManagerRequest[]) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<AddManagerResponse>('/api/web/addManager', [data], {
+  return requestClient8085.post<AddManagerResponse>('/api/web/addAdministrator', data, {
     headers: {
       'Content-Type': 'application/json',
     },

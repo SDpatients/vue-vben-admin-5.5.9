@@ -9,6 +9,7 @@ export * from './creditor';
 export * from './debtor';
 export * from './document-service';
 export * from './file';
+export * from './fund';
 export * from './manager';
 export * from './menu';
 export * from './notification';

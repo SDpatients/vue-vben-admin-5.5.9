@@ -22,6 +22,7 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
     IFrameView,
   };
 
+  // 直接使用前端路由配置，不从后端获取菜单
   return await generateAccessible(preferences.app.accessMode, {
     ...options,
     fetchMenuListAsync: async () => {
@@ -29,7 +30,7 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
         duration: 1500,
         message: `${$t('common.loadingMenu')}...`,
       });
-      return await getAllMenusApi();
+      return [];
     },
     // 可以指定没有权限跳转403页面
     forbiddenComponent,

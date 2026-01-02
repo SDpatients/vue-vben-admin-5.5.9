@@ -245,7 +245,7 @@ const fetchDocumentDetail = async () => {
         </el-table-column>
         <el-table-column label="文件大小" width="100">
           <template #default="scope">
-            {{ (scope.row.fileSize / 1024 / 1024).toFixed(2) }} MB
+            {{ ((scope.row.fileSize || 0) / 1024 / 1024).toFixed(2) }} MB
           </template>
         </el-table-column>
         <el-table-column prop="fileType" label="文件类型" width="100" />

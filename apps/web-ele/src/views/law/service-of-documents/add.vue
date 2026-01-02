@@ -93,7 +93,7 @@ const validateFile = (file: File) => {
   }
   if (file.size > maxFileSize) {
     ElMessage.error(
-      `文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`,
+      `文件大小超过限制：${(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)}MB，单个文件大小不超过10MB`,
     );
     return false;
   }
@@ -469,7 +469,7 @@ const cancel = () => {
               <el-table-column prop="name" label="文件名称" />
               <el-table-column prop="size" label="文件大小" width="120">
                 <template #default="scope">
-                  {{ (scope.row.file.size / 1024 / 1024).toFixed(2) }} MB
+                  {{ ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(2) }} MB
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="150">

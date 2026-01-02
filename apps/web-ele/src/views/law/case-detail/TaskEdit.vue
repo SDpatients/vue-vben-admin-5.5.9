@@ -1375,7 +1375,7 @@ const formRules = computed(() => {
               <div class="file-details">
                 <div class="file-name">{{ file.name }}</div>
                 <div class="file-meta">
-                  <span class="file-size">{{ (file.fileSize / 1024 / 1024).toFixed(2) }} MB</span>
+                  <span class="file-size">{{ ((file.fileSize || 0) / 1024 / 1024).toFixed(2) }} MB</span>
                   <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
                   <span class="file-date">{{
                     new Date(file.uploadDate).toLocaleString('zh-CN')

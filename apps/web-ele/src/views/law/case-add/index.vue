@@ -104,7 +104,7 @@ const validateFile = (file: File) => {
   }
   if (file.size > maxFileSize) {
     ElMessage.error(
-      `文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`,
+      `文件大小超过限制：${(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)}MB，单个文件大小不超过10MB`,
     );
     return false;
   }
@@ -572,7 +572,7 @@ const submitForm = async () => {
                             <div class="file-info">
                               <div class="file-name">{{ file.name }}</div>
                               <div class="file-size">
-                                {{ (file.file.size / 1024 / 1024).toFixed(2) }} MB
+                                {{ ((file.file?.size || 0) / 1024 / 1024).toFixed(2) }} MB
                               </div>
                             </div>
                           </div>
@@ -603,43 +603,28 @@ const submitForm = async () => {
                       暂无上传文件
                     </div>
 
-<<<<<<< HEAD
                     <!-- 上传说明 -->
                     <div class="upload-tip mt-3 text-sm text-gray-500">
-                      <p>
-                        支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
-                        格式文件，单个文件大小不超过 10MB
+                      <p class="font-semibold text-gray-700 mb-2">支持的文件类型：</p>
+                      <ul class="file-type-list mb-3">
+                        <li><span class="file-type-badge doc">doc</span> - Word文档</li>
+                        <li><span class="file-type-badge docx">docx</span> - Word文档（新格式）</li>
+                        <li><span class="file-type-badge jpg">jpg</span> - JPEG图片</li>
+                        <li><span class="file-type-badge pdf">pdf</span> - PDF文档</li>
+                        <li><span class="file-type-badge png">png</span> - PNG图片</li>
+                        <li><span class="file-type-badge xls">xls</span> - Excel表格</li>
+                        <li><span class="file-type-badge xlsx">xlsx</span> - Excel表格（新格式）</li>
+                        <li><span class="file-type-badge txt">txt</span> - 文本文件</li>
+                      </ul>
+                      <p class="file-size-tip">
+                        <i class="i-lucide-info mr-1"></i>
+                        默认最大文件大小为 10MB
                       </p>
-                      <p class="mt-1">
+                      <p class="mt-2 text-blue-500">
+                        <i class="i-lucide-folder mr-1"></i>
                         文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
                       </p>
-                      <p class="mt-1 text-blue-500">
-                        服务器存储路径：C:\Users\Lenovo\Desktop\yzz\Release\律师\Service\ServiceWin\wwwroot\Upload\File
-                      </p>
                     </div>
-=======
-                  <!-- 上传说明 -->
-                  <div class="upload-tip mt-3 text-sm text-gray-500">
-                    <p class="font-semibold text-gray-700 mb-2">支持的文件类型：</p>
-                    <ul class="file-type-list mb-3">
-                      <li><span class="file-type-badge doc">doc</span> - Word文档</li>
-                      <li><span class="file-type-badge docx">docx</span> - Word文档（新格式）</li>
-                      <li><span class="file-type-badge jpg">jpg</span> - JPEG图片</li>
-                      <li><span class="file-type-badge pdf">pdf</span> - PDF文档</li>
-                      <li><span class="file-type-badge png">png</span> - PNG图片</li>
-                      <li><span class="file-type-badge xls">xls</span> - Excel表格</li>
-                      <li><span class="file-type-badge xlsx">xlsx</span> - Excel表格（新格式）</li>
-                      <li><span class="file-type-badge txt">txt</span> - 文本文件</li>
-                    </ul>
-                    <p class="file-size-tip">
-                      <i class="i-lucide-info mr-1"></i>
-                      默认最大文件大小为 10MB
-                    </p>
-                    <p class="mt-2 text-blue-500">
-                      <i class="i-lucide-folder mr-1"></i>
-                      文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
-                    </p>
->>>>>>> bc37c2b04a69b132c75f461a2ab8b1d4c4d5501b
                   </div>
                 </el-form-item>
               </el-col>

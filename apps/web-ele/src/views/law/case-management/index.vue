@@ -264,7 +264,8 @@ const formatCurrency = (value: number) => {
 
 // 格式化百分比
 const formatPercentage = (value: number) => {
-  return `${(value * 100).toFixed(2)}%`;
+  const safeValue = value || 0;
+  return `${(safeValue * 100).toFixed(2)}%`;
 };
 
 // 获取会计账簿状态标签类型
@@ -911,4 +912,4 @@ const canDelete = () => {
   margin: 0;
 }
 </style>
-
+
