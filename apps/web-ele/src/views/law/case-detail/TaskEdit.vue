@@ -64,6 +64,8 @@ import {
   addSocialSecurtyFeesApi,
   addTaxVerificationApi,
   addTerminationLitigationApi,
+  addWorkPlanApi,
+  addWorkTeamApi,
   unifiedTaskOperationApi,
 } from '#/api/core/case-process';
 
@@ -103,18 +105,41 @@ const fileListLoading = ref(false);
 const uploadProgress = ref(0);
 
 const taskFormConfig: Record<string, any> = {
+  workTeam: {
+    title: '工作团队',
+    operateType: '0',
+    addApi: addWorkTeamApi,
+    fields: [
+      { label: '团队负责人', prop: 'tdfzr', type: 'input', required: true },
+      { label: '综合组成员', prop: 'zhzcy', type: 'input' },
+      { label: '程序组成员', prop: 'cxzcy', type: 'input' },
+      { label: '财产管理组成员', prop: 'ccglzcy', type: 'input' },
+      { label: '债权审核组成员', prop: 'zqshzcy', type: 'input' },
+      { label: '劳动人事组成员', prop: 'ldrszcy', type: 'input' },
+      { label: '主张权利组成员', prop: 'zzqlzcy', type: 'input' },
+    ],
+  },
+  workPlan: {
+    title: '工作计划',
+    operateType: '1',
+    addApi: addWorkPlanApi,
+    fields: [
+      {
+        label: '计划类型',
+        prop: 'jhlx',
+        type: 'select',
+        options: ['年度计划', '月度计划', '周计划', '专项计划'],
+      },
+      { label: '计划内容', prop: 'jhnr', type: 'textarea', required: true },
+      { label: '开始日期', prop: 'ksrq', type: 'date', required: true },
+      { label: '结束日期', prop: 'jsrq', type: 'date', required: true },
+      { label: '负责人', prop: 'fzr', type: 'input', required: true },
+    ],
+  },
   management: {
     title: '管理制度',
     operateType: '2',
     addApi: addManagementApi,
-    updateApi: async (data: any) => {
-      const { updateManagementApi } = await import('#/api/core/case-process');
-      return updateManagementApi(data);
-    },
-    deleteApi: async (id: number | string) => {
-      const { deleteManagementApi } = await import('#/api/core/case-process');
-      return deleteManagementApi(id);
-    },
     fields: [
       {
         label: '制度类型',
@@ -134,42 +159,25 @@ const taskFormConfig: Record<string, any> = {
     ],
   },
   sealManagement: {
-    title: '账户印章管理',
+    title: '印章管理',
     operateType: '3',
     addApi: addSealManagementApi,
-    updateApi: async (data: any) => {
-      const { updateSealManagementApi } =
-        await import('#/api/core/case-process');
-      return updateSealManagementApi(data);
-    },
     fields: [
       {
-        label: '管理类型',
-        prop: 'gllx',
+        label: '印章类型',
+        prop: 'yzlx',
         type: 'select',
-        options: ['账户管理', '印章管理'],
+        options: ['公章', '财务章', '合同章', '法人章', '其他'],
       },
-      { label: '项目名称', prop: 'xmmc', type: 'input', required: true },
-      { label: '处理日期', prop: 'clrq', type: 'date' },
-      { label: '处理方式', prop: 'clfs', type: 'input' },
-      { label: '处理结果', prop: 'cljg', type: 'textarea' },
-      { label: '证明文件路径', prop: 'zmwlj', type: 'input' },
+      { label: '印章编号', prop: 'yzbh', type: 'input', required: true },
+      { label: '印章名称', prop: 'yzmc', type: 'input', required: true },
+      { label: '备案日期', prop: 'barq', type: 'date' },
     ],
   },
   legalProcedure: {
     title: '法律程序',
     operateType: '4',
     addApi: addLegalProcedureApi,
-    updateApi: async (data: any) => {
-      const { updateLegalProcedureApi } =
-        await import('#/api/core/case-process');
-      return updateLegalProcedureApi(data);
-    },
-    deleteApi: async (id: number | string) => {
-      const { deleteLegalProcedureApi } =
-        await import('#/api/core/case-process');
-      return deleteLegalProcedureApi(id);
-    },
     fields: [
       {
         label: '程序类型',
@@ -823,6 +831,22 @@ const dialogTitle = computed(() => {
 const isReadOnly = computed(() => props.mode === 'view');
 
 const fieldNameMap: Record<string, Record<string, string>> = {
+  workTeam: {
+    TDFZR: 'tdfzr',
+    ZHZCY: 'zhzcy',
+    CXZCY: 'cxzcy',
+    CCGLZCY: 'ccglzcy',
+    ZQSHZCY: 'zqshzcy',
+    LDRSZCY: 'ldrszcy',
+    ZZQLZCY: 'zzqlzcy',
+  },
+  workPlan: {
+    JHLX: 'jhlx',
+    JHNR: 'jhnr',
+    KSRQ: 'ksrq',
+    JSRQ: 'jsrq',
+    FZR: 'fzr',
+  },
   management: {
     ZDLX: 'zdlx',
     ZDMC: 'zdmc',
@@ -1118,10 +1142,10 @@ const fieldNameMap: Record<string, Record<string, string>> = {
 const loadFileList = async () => {
   console.log('[文件列表] loadFileList开始执行');
   console.log('[文件列表] taskData:', props.taskData);
-  console.log('[文件列表] taskData?.sepId:', props.taskData?.sepId);
+  console.log('[文件列表] taskData?.SEP_ID:', props.taskData?.SEP_ID);
 
-  if (!props.taskData?.sepId) {
-    console.log('[文件列表] sepId不存在，跳过加载');
+  if (!props.taskData?.SEP_ID) {
+    console.log('[文件列表] SEP_ID不存在，跳过加载');
     return;
   }
 
@@ -1129,14 +1153,14 @@ const loadFileList = async () => {
   console.log('[文件列表] 调用getProcessFileListApi...');
   console.log('[文件列表] 参数:', {
     taskType: props.taskType,
-    taskId: props.taskData.sepId,
+    taskId: props.taskData.SEP_ID,
     caseId: props.caseId,
   });
 
   try {
     const response = await getProcessFileListApi({
       taskType: props.taskType,
-      taskId: props.taskData.sepId,
+      taskId: props.taskData.SEP_ID,
       caseId: props.caseId,
     });
     console.log('[文件列表] API响应:', response);
@@ -1174,10 +1198,10 @@ const loadFileList = async () => {
 const initFormData = () => {
   Object.keys(formData).forEach((key) => delete formData[key]);
   if (props.taskData) {
+    const map = fieldNameMap[props.taskType] || {};
     const mappedData: any = {};
     Object.keys(props.taskData).forEach((key) => {
-      // 直接使用小写字段名，不再需要映射
-      const mappedKey = key.toLowerCase();
+      const mappedKey = map[key] || key.toLowerCase();
       mappedData[mappedKey] = props.taskData[key];
     });
     Object.assign(formData, mappedData);
@@ -1186,7 +1210,7 @@ const initFormData = () => {
   activeTab.value = 'upload';
   fileList.value = [];
   console.log('[初始化] 弹窗已打开，任务数据:', props.taskData);
-  console.log('[初始化] 任务ID (sepId):', props.taskData?.sepId);
+  console.log('[初始化] 任务ID (SEP_ID):', props.taskData?.SEP_ID);
   console.log('[初始化] 业务类型 (taskType):', props.taskType);
   console.log('[初始化] 案件ID (caseId):', props.caseId);
 };
@@ -1233,9 +1257,9 @@ const handleUpload = async (options: any) => {
   uploadLoading.value = true;
   uploadProgress.value = 0;
   console.log('[上传] 开始上传文件:', fileName);
-  console.log('[上传] 任务ID (sepId):', props.taskData?.sepId);
+  console.log('[上传] 任务ID (SEP_ID):', props.taskData?.SEP_ID);
 
-  if (!props.taskData?.sepId) {
+  if (!props.taskData?.SEP_ID) {
     ElMessage.warning('请先保存任务信息，再上传文件');
     uploadLoading.value = false;
     return false;
@@ -1244,7 +1268,7 @@ const handleUpload = async (options: any) => {
   try {
     console.log('[上传] 调用上传API...');
     const response = await uploadProcessFileApi({
-      taskId: props.taskData.sepId,
+      taskId: props.taskData.SEP_ID,
       file: rawFile,
       caseId: props.caseId,
       taskType: props.taskType,
@@ -1386,13 +1410,6 @@ const handleSave = async () => {
 
     const sep_adate = new Date().toISOString().split('T')[0];
 
-    // 第一阶段任务类型
-    const isFirstStage = [
-      'legalProcedure',
-      'management',
-      'sealManagement',
-    ].includes(props.taskType);
-
     const isSecondStage = [
       'businessManagement',
       'contractManagement',
@@ -1453,47 +1470,90 @@ const handleSave = async () => {
     switch (props.mode) {
       case 'add': {
         console.log('[保存] 开始新增任务...');
+        if (
+          (isSecondStage ||
+            isThirdStage ||
+            isFourthFifthStage ||
+            isSixthStage ||
+            isSeventhStage) &&
+          typeof currentConfig.value.addApi === 'function'
+        ) {
+          const allFields: any = {
+            sep_ld: props.caseId,
+            SEP_AUSER: sep_auser,
+            SEP_ADATE: sep_adate,
+            ZT: '0',
+          };
 
-        // 准备所有字段数据
-        const allFields: any = {
-          sepLd: props.caseId,
-          sepMd: 1, // 模块ID
-          sepNd: new Date().getFullYear().toString(), // 年度
-          sepAuser: sep_auser,
-        };
+          currentConfig.value.fields.forEach((field: any) => {
+            const value = formData[field.prop];
+            if (value === '' || value === null || value === undefined) {
+              allFields[field.prop] = [
+                'AZZJE',
+                'CCJE',
+                'FPJE',
+                'FPJE',
+                'KFPZE',
+                'KZJE',
+                'TCJE',
+                'YEJE',
+                'ZFJE',
+              ].includes(field.prop)
+                ? '0'
+                : '';
+            } else {
+              allFields[field.prop] = value;
+            }
+          });
 
-        currentConfig.value.fields.forEach((field: any) => {
-          const value = formData[field.prop];
-          if (value === '' || value === null || value === undefined) {
-            allFields[field.prop] = [
-              'AZZJE',
-              'CCJE',
-              'FPJE',
-              'FPJE',
-              'KFPZE',
-              'KZJE',
-              'TCJE',
-              'YEJE',
-              'ZFJE',
-            ].includes(field.prop)
-              ? '0'
-              : '';
+          console.log('[保存] 调用第二/三/四/五/六/七阶段新增API，参数:', [
+            allFields,
+          ]);
+          const response = await currentConfig.value.addApi([allFields]);
+          console.log('[保存] 第二/三/四/五/六/七阶段新增API响应:', response);
+          if (response.status === '1') {
+            console.log('[保存] 新增成功');
+            emit('saved');
           } else {
-            allFields[field.prop] = value;
+            ElMessage.error(`添加失败：${response.error}`);
           }
-        });
-
-        console.log('[保存] 调用新增API，参数:', allFields);
-        const response = await currentConfig.value.addApi(allFields);
-        console.log('[保存] 新增API响应:', response);
-
-        // 适配新的API响应格式
-        const isSuccess = response.code === 200 || response.status === '1';
-        if (isSuccess) {
-          console.log('[保存] 新增成功');
-          emit('saved');
         } else {
-          ElMessage.error(`添加失败：${response.message || response.error}`);
+          const allFields: any = {
+            sep_ld: props.caseId,
+            sep_auser,
+            sep_adate,
+            zt: '0',
+          };
+
+          currentConfig.value.fields.forEach((field: any) => {
+            allFields[field.prop] = formData[field.prop] || '';
+          });
+
+          const reverseFieldMap = Object.entries(
+            fieldNameMap[props.taskType] || {},
+          ).reduce(
+            (acc, [backendField, frontendField]) => {
+              acc[frontendField] = backendField;
+              return acc;
+            },
+            {} as Record<string, string>,
+          );
+
+          Object.keys(reverseFieldMap).forEach((frontendField) => {
+            if (!(frontendField in allFields)) {
+              allFields[frontendField] = '';
+            }
+          });
+
+          console.log('[保存] 调用第一阶段新增API，参数:', allFields);
+          const response = await currentConfig.value.addApi(allFields);
+          console.log('[保存] 第一阶段新增API响应:', response);
+          if (response.status === '1') {
+            console.log('[保存] 新增成功');
+            emit('saved');
+          } else {
+            ElMessage.error(`添加失败：${response.error}`);
+          }
         }
 
         break;
@@ -1501,11 +1561,12 @@ const handleSave = async () => {
       case 'complete': {
         console.log('[保存] 开始标记完成...');
         const updateData = {
-          sepEuser: sep_auser,
-          sepEdate: sep_adate,
-          sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
-          sepLd: props.caseId,
-          zt: '1',
+          SEP_EUSER: sep_auser,
+          SEP_EDATE: sep_adate,
+          OperateType: currentConfig.value.operateType,
+          SEP_ID: props.taskData?.SEP_ID,
+          SEP_LD: props.caseId,
+          ZT: '1',
         };
 
         console.log('[保存] 调用完成API，参数:', updateData);
@@ -1519,17 +1580,13 @@ const handleSave = async () => {
                 ? await update3Api(updateData)
                 : isSecondStage
                   ? await update2Api(updateData)
-                  : isFirstStage && currentConfig.value.updateApi
-                    ? await currentConfig.value.updateApi(updateData)
-                    : await unifiedTaskOperationApi(updateData);
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 完成任务API响应:', response);
-
-        const isSuccess = response.code === 200 || response.status === '1';
-        if (isSuccess) {
+        if (response.status === '1') {
           ElMessage.success('标记完成成功');
           emit('saved');
         } else {
-          ElMessage.error(`操作失败：${response.message || response.error}`);
+          ElMessage.error(`操作失败：${response.error}`);
         }
 
         break;
@@ -1537,11 +1594,12 @@ const handleSave = async () => {
       case 'edit': {
         console.log('[保存] 开始编辑任务...');
         const updateData = {
-          sepEuser: sep_auser,
-          sepEdate: sep_adate,
-          sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
-          sepLd: props.caseId,
-          zt: props.taskData?.zt || props.taskData?.ZT || '0',
+          SEP_EUSER: sep_auser,
+          SEP_EDATE: sep_adate,
+          OperateType: currentConfig.value.operateType,
+          SEP_ID: props.taskData?.SEP_ID,
+          SEP_LD: props.caseId,
+          ZT: props.taskData?.ZT || '0',
           ...formData,
         };
 
@@ -1556,17 +1614,13 @@ const handleSave = async () => {
                 ? await update3Api(updateData)
                 : isSecondStage
                   ? await update2Api(updateData)
-                  : isFirstStage && currentConfig.value.updateApi
-                    ? await currentConfig.value.updateApi(updateData)
-                    : await unifiedTaskOperationApi(updateData);
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 编辑API响应:', response);
-
-        const isSuccess = response.code === 200 || response.status === '1';
-        if (isSuccess) {
+        if (response.status === '1') {
           ElMessage.success('更新成功');
           emit('saved');
         } else {
-          ElMessage.error(`更新失败：${response.message || response.error}`);
+          ElMessage.error(`更新失败：${response.error}`);
         }
 
         break;
@@ -1574,11 +1628,12 @@ const handleSave = async () => {
       case 'skip': {
         console.log('[保存] 开始标记跳过...');
         const updateData = {
-          sepEuser: sep_auser,
-          sepEdate: sep_adate,
-          sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
-          sepLd: props.caseId,
-          zt: '2',
+          SEP_EUSER: sep_auser,
+          SEP_EDATE: sep_adate,
+          OperateType: currentConfig.value.operateType,
+          SEP_ID: props.taskData?.SEP_ID,
+          SEP_LD: props.caseId,
+          ZT: '2',
         };
 
         console.log('[保存] 调用跳过API，参数:', updateData);
@@ -1592,17 +1647,13 @@ const handleSave = async () => {
                 ? await update3Api(updateData)
                 : isSecondStage
                   ? await update2Api(updateData)
-                  : isFirstStage && currentConfig.value.updateApi
-                    ? await currentConfig.value.updateApi(updateData)
-                    : await unifiedTaskOperationApi(updateData);
+                  : await unifiedTaskOperationApi(updateData);
         console.log('[保存] 跳过API响应:', response);
-
-        const isSuccess = response.code === 200 || response.status === '1';
-        if (isSuccess) {
+        if (response.status === '1') {
           ElMessage.success('标记跳过成功');
           emit('saved');
         } else {
-          ElMessage.error(`操作失败：${response.message || response.error}`);
+          ElMessage.error(`操作失败：${response.error}`);
         }
 
         break;
@@ -1635,97 +1686,20 @@ const handleRevoke = async () => {
     const sep_adate = new Date().toISOString().split('T')[0];
 
     const updateData = {
-      sepEuser: sep_auser,
-      sepEdate: sep_adate,
-      sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
-      sepLd: props.caseId,
-      zt: '0',
+      SEP_EUSER: sep_auser,
+      SEP_EDATE: sep_adate,
+      OperateType: currentConfig.value.operateType,
+      SEP_ID: props.taskData?.SEP_ID,
+      SEP_LD: props.caseId,
+      ZT: '0',
     };
 
-    // 第一阶段任务类型
-    const isFirstStage = [
-      'legalProcedure',
-      'management',
-      'sealManagement',
-    ].includes(props.taskType);
-
-    const isSecondStage = [
-      'businessManagement',
-      'contractManagement',
-      'emergency',
-      'internalAffairs',
-      'personnelEmp',
-      'propertyPlan',
-      'propertyReceipt',
-    ].includes(props.taskType);
-
-    const isThirdStage = [
-      'bankExpenses',
-      'creditorClaim',
-      'litigationArbitration',
-      'propertyInvestigation',
-      'reclaimReview',
-      'rightsClaim',
-      'socialSecurityFees',
-      'taxVerification',
-    ].includes(props.taskType);
-
-    const isFourthFifthStage = [
-      'assetValuation',
-      'auctionAgency',
-      'auditReport',
-      'bankruptcyDeclaration',
-      'claimConfirmation',
-      'importantActions',
-      'meetingDocuments',
-      'propertyVImpl',
-      'propertyVPlan',
-      'remunerationPlan',
-      'session',
-      'setoffReview',
-    ].includes(props.taskType);
-
-    const isSixthStage = [
-      'bankruptcyDistPlan',
-      'bankruptcyProcedureTermination',
-      'depositManagement',
-      'employeeSettlementPlan',
-      'priorityPayment',
-      'propertyDistributionExecution',
-    ].includes(props.taskType);
-
-    const isSeventhStage = [
-      'accountClosing',
-      'accountSealManagement',
-      'additionalDistribution',
-      'archivingManagement',
-      'cancellationRegistration',
-      'documentTransfer',
-      'dutyReport',
-      'sealDestruction',
-      'terminationLitigation',
-    ].includes(props.taskType);
-
-    const response = isSeventhStage
-      ? await update7Api(updateData)
-      : isSixthStage
-        ? await update6Api(updateData)
-        : isFourthFifthStage
-          ? await update4Api(updateData)
-          : isThirdStage
-            ? await update3Api(updateData)
-            : isSecondStage
-              ? await update2Api(updateData)
-              : isFirstStage && currentConfig.value.updateApi
-                ? await currentConfig.value.updateApi(updateData)
-                : await unifiedTaskOperationApi(updateData);
-
-    const isSuccess = response.code === 200 || response.status === '1';
-    if (isSuccess) {
+    const response = await unifiedTaskOperationApi(updateData);
+    if (response.status === '1') {
       ElMessage.success('撤回成功');
       emit('saved');
     } else {
-      ElMessage.error(`撤回失败：${response.message || response.error}`);
+      ElMessage.error(`撤回失败：${response.error}`);
     }
   } catch (error) {
     console.error('撤回失败:', error);
@@ -1823,10 +1797,7 @@ const formRules = computed(() => {
               <div class="file-details">
                 <div class="file-name">{{ file.name }}</div>
                 <div class="file-meta">
-                  <span class="file-size">{{
-                      ((file.fileSize || 0) / 1024 / 1024).toFixed(2)
-                    }}
-                    MB</span>
+                  <span class="file-size">{{ ((file.fileSize || 0) / 1024 / 1024).toFixed(2) }} MB</span>
                   <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
                   <span class="file-date">{{
                     new Date(file.uploadDate).toLocaleString('zh-CN')

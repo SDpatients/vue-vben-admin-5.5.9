@@ -56,42 +56,28 @@ const creditorTypeOptions = [
 ];
 
 // 新增债权人表单数据
-const formData = reactive<CreditorApi.SingleCreditorRequest>({
-  case_id: '', // 案件ID需要从上下文获取或设置
-  creditor_name: '',
-  creditor_type: '',
-  contact_phone: '',
-  contact_email: '',
-  address: '',
-  id_number: '',
-  legal_representative: '',
-  registered_capital: '',
-  status: 'ACTIVE',
-  created_by: 'admin', // 应该从登录信息中获取
+const formData = reactive<CreditorApi.AddCreditorRequest>({
+  sep_ld: '',
+  sep_auser: '',
+  sep_adate: new Date().toISOString().slice(0, 19),
+  zqr: '',
+  zqrfl: '',
+  zjhm: '',
+  fddbrqy: '',
+  zcdz: '',
+  jyfwqy: '',
+  hyfl: '',
+  clrqqy: null, // 成立日期初始值为null
+  zczbqy: 0, // 注册资本默认值为0，int类型
+  zt: '1', // 状态默认为1
 });
 
 // 新增表单验证规则
 const addRules = {
-  creditor_name: [
-    { required: true, message: '请输入债权人名称', trigger: 'blur' },
-  ],
-  creditor_type: [
-    { required: true, message: '请选择债权人分类', trigger: 'change' },
-  ],
-  id_number: [{ required: true, message: '请输入证件号码', trigger: 'blur' }],
-  contact_phone: [
-    { required: true, message: '请输入联系电话', trigger: 'blur' },
-  ],
-  contact_email: [
-    {
-      required: true,
-      type: 'email',
-      message: '请输入有效的邮箱地址',
-      trigger: 'blur',
-    },
-  ],
-  address: [{ required: true, message: '请输入地址', trigger: 'blur' }],
-  legal_representative: [
+  zqr: [{ required: true, message: '请输入债权人名称', trigger: 'blur' }],
+  zqrfl: [{ required: true, message: '请选择债权人分类', trigger: 'change' }],
+  zjhm: [{ required: true, message: '请输入证件号码', trigger: 'blur' }],
+  fddbrqy: [
     {
       validator: (
         _rule: any,
@@ -99,7 +85,7 @@ const addRules = {
         callback: (error?: Error) => void,
       ) => {
         // 只有当债权人分类不是个人时，才验证法定代表人
-        if (formData.creditor_type !== '个人' && !value) {
+        if (formData.zqrfl !== '个人' && !value) {
           callback(new Error('请输入法定代表人'));
         } else {
           callback();
@@ -108,21 +94,92 @@ const addRules = {
       trigger: 'blur',
     },
   ],
-  registered_capital: [
+  zcdz: [
     {
       validator: (
         _rule: any,
         value: string,
         callback: (error?: Error) => void,
       ) => {
+        // 只有当债权人分类不是个人时，才验证注册地址
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入注册地址'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  jyfwqy: [
+    {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
+        // 只有当债权人分类不是个人时，才验证经营范围
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入经营范围'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  hyfl: [
+    {
+      validator: (
+        _rule: any,
+        value: string,
+        callback: (error?: Error) => void,
+      ) => {
+        // 只有当债权人分类不是个人时，才验证行业分类
+        if (formData.zqrfl !== '个人' && !value) {
+          callback(new Error('请输入行业分类'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  clrqqy: [
+    {
+      validator: (
+        _rule: any,
+        value: null | string,
+        callback: (error?: Error) => void,
+      ) => {
+        // 只有当债权人分类不是个人时，才验证成立日期
+        if (formData.zqrfl !== '个人' && value === '') {
+          callback(new Error('请选择成立日期'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'change',
+    },
+  ],
+  zczbqy: [
+    {
+      validator: (
+        _rule: any,
+        value: number,
+        callback: (error?: Error) => void,
+      ) => {
         // 只有当债权人分类不是个人时，才验证注册资本
-        if (formData.creditor_type === '个人') {
+        if (formData.zqrfl === '个人') {
           callback();
         } else {
-          if (value) {
-            callback();
-          } else {
+          // 数字类型验证，允许0值
+          if (value === null || value === undefined) {
             callback(new Error('请输入注册资本'));
+          } else if (typeof value === 'number' && isNaN(value)) {
+            callback(new Error('注册资本必须是数字'));
+          } else {
+            callback();
           }
         }
       },
@@ -131,11 +188,9 @@ const addRules = {
   ],
 };
 
-// 编辑表单验证规则
+// 编辑表单验证规则（仅验证债权人名称）
 const editRules = {
-  creditor_name: [
-    { required: true, message: '请输入债权人名称', trigger: 'blur' },
-  ],
+  ZQR: [{ required: true, message: '请输入债权人名称', trigger: 'blur' }],
 };
 
 // 表单引用
@@ -218,20 +273,22 @@ const accessStore = useAccessStore();
 const fetchCreditorList = async () => {
   loading.value = true;
   try {
+    const token = accessStore.accessToken || 'ff60b33806869ab08153b1ef4fd75ea3';
     const params: CreditorApi.CreditorQueryParams = {
       page: pagination.value.page,
       size: pagination.value.pageSize,
-      creditor_name: searchZqr.value,
-      id_number: searchZjhm.value,
-      legal_representative: searchFddbr.value,
+      token,
+      ZQR: searchZqr.value,
+      ZJHM: searchZjhm.value,
+      FDDBRQY: searchFddbr.value,
     };
 
     const response = await getCreditorListApi(params);
 
     if (response.status === '1') {
-      creditorList.value = response.data;
-      pagination.value.itemCount = response.data.length;
-      pagination.value.pages = 1;
+      creditorList.value = response.data.records;
+      pagination.value.itemCount = response.data.count;
+      pagination.value.pages = response.data.pages;
       ElMessage.success(`成功加载 ${creditorList.value.length} 条债权人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.error}`);
@@ -279,18 +336,42 @@ const handleSubmit = async () => {
   if (!formRef.value) return;
 
   try {
+    // 自动填写sep_auser：从本地存储获取chat_user_info中的uUser
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        formData.sep_auser = chatUserInfo.user?.uUser || '';
+      } catch (error) {
+        console.error('解析chat_user_info失败:', error);
+      }
+    }
+
+    // 自动填写sep_adate：使用ISO格式的日期字符串，不替换T，让后端自行处理日期转换
+    formData.sep_adate = new Date().toISOString().slice(0, 19);
+
     await formRef.value.validate();
     formLoading.value = true;
 
-    const response = await addCreditorApi(formData);
+    // 处理成立日期，如果没有输入，设置为NULL
+    const submitData = { ...formData };
+    if (!submitData.clrqqy) {
+      submitData.clrqqy = null;
+    }
+    // 处理注册资本，如果没有输入，确保为0（int类型）
+    if (submitData.zczbqy === undefined) {
+      submitData.zczbqy = 0;
+    }
 
-    if (response.code === 200) {
+    const response = await addCreditorApi(submitData);
+
+    if (response.status === '1') {
       ElMessage.success('债权人添加成功');
       dialogVisible.value = false;
       // 刷新债权人列表
       fetchCreditorList();
     } else {
-      ElMessage.error(response.message || '债权人添加失败');
+      ElMessage.error(response.error || '债权人添加失败');
     }
   } catch (error: any) {
     if (error.name === 'ElValidationError') {
@@ -307,36 +388,37 @@ const handleSubmit = async () => {
 // 编辑债权人相关
 const editDialogVisible = ref(false);
 const editFormRef = ref();
-const editFormData = reactive<CreditorApi.UpdateCreditorRequest>({
-  id: 0,
-  case_id: '',
-  creditor_name: '',
-  creditor_type: '',
-  contact_phone: '',
-  contact_email: '',
-  address: '',
-  id_number: '',
-  legal_representative: '',
-  registered_capital: '',
-  status: 'ACTIVE',
-  updated_by: 'admin', // 应该从登录信息中获取
+const editFormData = reactive({
+  SEP_EUSER: '',
+  SEP_EDATE: '',
+  SEP_ID: '',
+  ZQR: '',
+  ZQRFL: '',
+  ZJHM: '',
+  FDDBRQY: '',
+  ZCDZ: '',
+  JYFWQY: '',
+  HYFL: '',
+  CLRQQY: null as null | string,
+  ZCZBQY: 0,
+  ZT: null as null | string,
 });
 const editFormLoading = ref(false);
 
 // 打开编辑债权人弹窗
 const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
   // 填充编辑表单数据
-  editFormData.id = row.id;
-  editFormData.case_id = row.case_id;
-  editFormData.creditor_name = row.creditor_name;
-  editFormData.creditor_type = row.creditor_type;
-  editFormData.contact_phone = row.contact_phone;
-  editFormData.contact_email = row.contact_email;
-  editFormData.address = row.address;
-  editFormData.id_number = row.id_number;
-  editFormData.legal_representative = row.legal_representative || '';
-  editFormData.registered_capital = row.registered_capital || '';
-  editFormData.status = row.status;
+  editFormData.SEP_ID = row.SEP_ID; // 使用债权人自身的SEP_ID
+  editFormData.ZQR = row.ZQR;
+  editFormData.ZQRFL = row.ZQRFL;
+  editFormData.ZJHM = row.ZJHM;
+  editFormData.FDDBRQY = row.FDDBRQY;
+  editFormData.ZCDZ = row.ZCDZ;
+  editFormData.JYFWQY = row.JYFWQY;
+  editFormData.HYFL = row.HYFL;
+  editFormData.CLRQQY = row.CLRQQY;
+  editFormData.ZCZBQY = row.ZCZBQY;
+  editFormData.ZT = row.ZT || '1'; // 使用行数据中的状态，默认1
   editDialogVisible.value = true;
 };
 
@@ -353,19 +435,44 @@ const handleEditSubmit = async () => {
   if (!editFormRef.value) return;
 
   try {
+    // 自动填写SEP_EUSER：从本地存储获取chat_user_info.user.uName
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        // 检查chat_user_info是否包含user对象
+        if (chatUserInfo.user && chatUserInfo.user.uName) {
+          editFormData.SEP_EUSER = chatUserInfo.user.uName;
+        } else {
+          // 兼容旧格式
+          editFormData.SEP_EUSER =
+            chatUserInfo.uName || chatUserInfo.U_NAME || '';
+        }
+      } catch (error) {
+        console.error('解析chat_user_info失败:', error);
+      }
+    }
+
+    // 自动填写SEP_EDATE：使用ISO格式的日期时间字符串
+    editFormData.SEP_EDATE = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+
     await editFormRef.value.validate();
     editFormLoading.value = true;
 
     // 调用编辑API
-    const response = await editCreditorApi(editFormData);
+    const token = 'ce4997c93716e0579a8d67bedb57e73e'; // 使用指定的token
+    const response = await editCreditorApi(editFormData, token);
 
-    if (response.code === 200) {
+    if (response.status === '1') {
       ElMessage.success('债权人编辑成功');
       editDialogVisible.value = false;
       // 刷新债权人列表
       fetchCreditorList();
     } else {
-      ElMessage.error(response.message || '债权人编辑失败');
+      ElMessage.error(response.error || '债权人编辑失败');
     }
   } catch (error: any) {
     if (error.name === 'ElValidationError') {
@@ -390,7 +497,7 @@ const handleDeleteCreditor = (row: CreditorApi.CreditorInfo) => {
     type: 'warning',
   })
     .then(() => {
-      handleDeleteSubmit(row.id);
+      handleDeleteSubmit(row.SEP_ID);
     })
     .catch(() => {
       // 用户取消删除
@@ -399,17 +506,18 @@ const handleDeleteCreditor = (row: CreditorApi.CreditorInfo) => {
 };
 
 // 提交删除债权人请求
-const handleDeleteSubmit = async (id: number) => {
+const handleDeleteSubmit = async (sepId: string) => {
   try {
     deleteFormLoading.value = true;
-    const response = await deleteCreditorApi({ id });
+    const token = '5c28d8c577a0508da5641c9995975f19'; // 使用指定的删除token
+    const response = await deleteCreditorApi({ SEP_ID: sepId }, token);
 
-    if (response.code === 200) {
+    if (response.status === '1') {
       ElMessage.success('债权人删除成功');
       // 刷新债权人列表
       fetchCreditorList();
     } else {
-      ElMessage.error(response.message || '债权人删除失败');
+      ElMessage.error(response.error || '债权人删除失败');
     }
   } catch (error: any) {
     ElMessage.error('债权人删除失败，请稍后重试');
@@ -484,58 +592,80 @@ const handleDeleteSubmit = async (id: number) => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="zqr"
+          prop="ZQR"
           label="债权人名称"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="zqrfl"
+          prop="ZQRFL"
           label="债权人分类"
           width="100"
           align="center"
         >
-          <template #default="scope">
-            <ElTag :type="getCreditorType(scope.row.zqrfl)" size="small">
-              {{ scope.row.zqrfl }}
+          <template #default="{ row }">
+            <ElTag :type="getCreditorType(row.ZQRFL)" size="small">
+              {{ row.ZQRFL }}
             </ElTag>
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="zjhm"
+          prop="ZJHM"
           label="证件号码"
           width="150"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="fddbrqy"
+          prop="FDDBRQY"
           label="法定代表人"
           width="150"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="zcdz"
+          prop="ZCDZ"
           label="注册地址"
           min-width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="jyfwqy"
+          prop="JYFWQY"
           label="经营范围"
-          width="150"
+          width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="hyfl"
+          prop="HYFL"
           label="行业分类"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="CLRQQY"
+          label="成立日期"
+          width="120"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatDate(row.CLRQQY) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn prop="ZCZBQY" label="注册资本" width="120" align="right">
+          <template #default="{ row }">
+            {{ formatCurrency(row.ZCZBQY) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="GLAJID"
+          label="关联案件ID"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="AH"
+          label="案号"
           width="150"
           show-overflow-tooltip
         />
-        <ElTableColumn prop="zczbqy" label="注册资本" width="120" align="right">
-          <template #default="scope">
-            {{ scope.row.zczbqy }}
-          </template>
-        </ElTableColumn>
         <ElTableColumn label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <ElButton
@@ -596,18 +726,18 @@ const handleDeleteSubmit = async (id: number) => {
             </template>
             <ElRow :gutter="30">
               <ElCol :span="12">
-                <ElFormItem label="债权人名称" prop="creditor_name">
+                <ElFormItem label="债权人名称" prop="zqr">
                   <ElInput
-                    v-model="formData.creditor_name"
+                    v-model="formData.zqr"
                     placeholder="请输入债权人名称"
                     size="large"
                   />
                 </ElFormItem>
               </ElCol>
               <ElCol :span="12">
-                <ElFormItem label="债权人分类" prop="creditor_type">
+                <ElFormItem label="债权人分类" prop="zqrfl">
                   <ElSelect
-                    v-model="formData.creditor_type"
+                    v-model="formData.zqrfl"
                     placeholder="请选择债权人分类"
                     style="width: 100%"
                     size="large"
@@ -624,68 +754,89 @@ const handleDeleteSubmit = async (id: number) => {
             </ElRow>
             <ElRow :gutter="30">
               <ElCol :span="12">
-                <ElFormItem label="证件号码" prop="id_number">
+                <ElFormItem label="证件号码" prop="zjhm">
                   <ElInput
-                    v-model="formData.id_number"
+                    v-model="formData.zjhm"
                     placeholder="请输入证件号码"
                     size="large"
                   />
                 </ElFormItem>
               </ElCol>
               <ElCol :span="12">
-                <ElFormItem label="联系电话" prop="contact_phone">
-                  <ElInput
-                    v-model="formData.contact_phone"
-                    placeholder="请输入联系电话"
-                    size="large"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="30">
-              <ElCol :span="12">
-                <ElFormItem label="联系邮箱" prop="contact_email">
-                  <ElInput
-                    v-model="formData.contact_email"
-                    placeholder="请输入联系邮箱"
-                    size="large"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="地址" prop="address">
-                  <ElInput
-                    v-model="formData.address"
-                    placeholder="请输入地址"
-                    size="large"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="30">
-              <ElCol :span="12">
                 <ElFormItem
                   label="法定代表人（企业）"
-                  prop="legal_representative"
-                  v-if="formData.creditor_type !== '个人'"
+                  prop="fddbrqy"
+                  v-if="formData.zqrfl !== '个人'"
                 >
                   <ElInput
-                    v-model="formData.legal_representative"
+                    v-model="formData.fddbrqy"
                     placeholder="请输入法定代表人"
                     size="large"
                   />
                 </ElFormItem>
               </ElCol>
+            </ElRow>
+          </ElCard>
+
+          <!-- 企业信息 -->
+          <ElCard
+            size="small"
+            class="form-section mt-4"
+            v-if="formData.zqrfl !== '个人'"
+          >
+            <template #header>
+              <div class="text-primary text-lg font-semibold">企业信息</div>
+            </template>
+            <ElRow :gutter="30">
               <ElCol :span="12">
-                <ElFormItem
-                  label="注册资本（企业）"
-                  prop="registered_capital"
-                  v-if="formData.creditor_type !== '个人'"
-                >
+                <ElFormItem label="注册地址" prop="zcdz">
                   <ElInput
-                    v-model="formData.registered_capital"
+                    v-model="formData.zcdz"
+                    placeholder="请输入注册地址"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="经营范围（企业）" prop="jyfwqy">
+                  <ElInput
+                    v-model="formData.jyfwqy"
+                    placeholder="请输入经营范围"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="行业分类" prop="hyfl">
+                  <ElInput
+                    v-model="formData.hyfl"
+                    placeholder="请输入行业分类"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="成立日期" prop="clrqqy">
+                  <ElDatePicker
+                    v-model="formData.clrqqy"
+                    type="datetime"
+                    placeholder="请选择成立日期"
+                    style="width: 100%"
+                    size="large"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="30">
+              <ElCol :span="12">
+                <ElFormItem label="注册资本" prop="zczbqy">
+                  <ElInput
+                    v-model.number="formData.zczbqy"
                     placeholder="请输入注册资本"
                     size="large"
+                    type="number"
                   />
                 </ElFormItem>
               </ElCol>
@@ -741,16 +892,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">证件号码：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.ZJHM || '-' }}
+                <span class="detail-value">{{ currentCreditor.ZJHM || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">法定代表人（企业）：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.FDDBRQY || '-' }}
+                <span class="detail-value">{{ currentCreditor.FDDBRQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -759,16 +908,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册地址：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.ZCDZ || '-' }}
+                <span class="detail-value">{{ currentCreditor.ZCDZ || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">经营范围（企业）：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.JYFWQY || '-' }}
+                <span class="detail-value">{{ currentCreditor.JYFWQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -777,16 +924,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">行业分类：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.HYFL || '-' }}
+                <span class="detail-value">{{ currentCreditor.HYFL || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">成立日期：</span>
-                <span class="detail-value"
-                  >{{ formatDate(currentCreditor.CLRQQY) }}
+                <span class="detail-value">{{ formatDate(currentCreditor.CLRQQY) }}
                 </span>
               </div>
             </ElCol>
@@ -795,16 +940,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册资本：</span>
-                <span class="detail-value"
-                  >{{ formatCurrency(currentCreditor.ZCZBQY) }}
+                <span class="detail-value">{{ formatCurrency(currentCreditor.ZCZBQY) }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">关联案件ID：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.GLAJID || '-' }}
+                <span class="detail-value">{{ currentCreditor.GLAJID || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -813,8 +956,7 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">案号：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.AH || '-' }}
+                <span class="detail-value">{{ currentCreditor.AH || '-' }}
                 </span>
               </div>
             </ElCol>

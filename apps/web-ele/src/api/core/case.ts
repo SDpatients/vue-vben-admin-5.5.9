@@ -26,23 +26,30 @@ export namespace CaseApi {
   /** 案件信息 */
   export interface CaseInfo {
     row: number;
-    案件单据号: number;
+    序号: number;
+    年度: null | string;
     案号: string;
+    申请人: null | string;
+    债务人: null | string;
     案由: string;
-    案件名称: string;
-    案件来源: string;
-    案件进度: string;
-    受理法院: string;
-    主要负责人: string;
-    创建者: string;
-    创建时间: number;
-    修改者?: string;
-    修改时间?: number;
+    立案时间: null | string;
+    破产时间: null | string;
+    终结时间: null | string;
+    注销时间: null | string;
+    归档时间: null | string;
+    会计账簿: string;
+    办理期限: null | string;
+    承办人: string;
+    法院: string;
     管理人: string;
-    是否简化审: string;
-    备注: string;
-    立案日期?: number;
-    文件上传?: string;
+    债权人数: number;
+    债权总额: number;
+    财产金额: number;
+    财产比例: number;
+    银行账户数: number;
+    银行账户总余额: number;
+    有效账户数: number;
+    案件进度: string;
   }
 
   /** 案件列表响应 */

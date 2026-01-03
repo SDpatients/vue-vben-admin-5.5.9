@@ -1249,10 +1249,6 @@ const checkPermissions = async () => {
         返回案件列表
       </ElButton>
       <h1 class="page-title">案件详情</h1>
-      <ElButton type="primary" @click="router.push('/basic-data/work-plan-management')">
-        <Icon icon="lucide:calendar" class="mr-2" />
-        工作计划
-      </ElButton>
     </div>
 
     <!-- 内容类型切换 -->

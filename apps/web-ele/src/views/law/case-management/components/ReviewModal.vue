@@ -40,10 +40,10 @@ watch(visible, (newVal) => {
 });
 
 const loadReviewLogs = async () => {
-  if (!props.caseData?.案件单据号) return;
+  if (!props.caseData?.序号) return;
 
   try {
-    const response = await getReviewLogsApi(props.caseData.案件单据号);
+    const response = await getReviewLogsApi(props.caseData.序号);
     if (response.status === '1') {
       reviewLogs.value = response.data || [];
     } else {
@@ -63,7 +63,7 @@ const handleApprove = async () => {
 
   loading.value = true;
   try {
-    const response = await approveCaseApi(props.caseData?.案件单据号 || 0, form.value.opinion);
+    const response = await approveCaseApi(props.caseData?.序号 || 0, form.value.opinion);
     if (response.status === '1') {
       ElMessage.success('审核通过');
       visible.value = false;
@@ -86,7 +86,7 @@ const handleReject = async () => {
 
   loading.value = true;
   try {
-    const response = await rejectCaseApi(props.caseData?.案件单据号 || 0, form.value.opinion);
+    const response = await rejectCaseApi(props.caseData?.序号 || 0, form.value.opinion);
     if (response.status === '1') {
       ElMessage.success('案件已驳回');
       visible.value = false;

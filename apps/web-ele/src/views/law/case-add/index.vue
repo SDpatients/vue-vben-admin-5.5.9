@@ -81,11 +81,11 @@ const fetchCourtList = async () => {
 const fetchManagerList = async () => {
   try {
     const response = await getManagerListApi({ page: 1, size: 100 });
-    if (response.status === '1' && response.data) {
-      managerList.value = response.data.map((manager: any) => ({
-        label: manager.lsswsid, // 律师事务所
-        value: manager.sepId.toString(), // 管理人ID
-        sepId: manager.sepId.toString(),
+    if (response.status === '1' && response.data?.records) {
+      managerList.value = response.data.records.map((manager: any) => ({
+        label: manager.LSWS, // 律师事务所
+        value: manager.SEP_ID, // 管理人ID
+        sepId: manager.SEP_ID,
       }));
     }
   } catch (error) {
@@ -95,32 +95,15 @@ const fetchManagerList = async () => {
 };
 
 // 根据管理人ID获取用户列表
-const fetchUserList = async (managerIds: string[]) => {
+const fetchUserList = async (managerId: string) => {
   try {
-    // 清空当前用户列表
-    userList.value = [];
-
-    // 存储所有用户的Map，用于去重
-    const userMap = new Map<number, { label: string; value: number }>();
-
-    // 遍历所有选中的管理员ID
-    for (const managerId of managerIds) {
-      const response = await getUserByDeptIdApi(Number.parseInt(managerId));
-      if (response.status === '1' && response.data) {
-        // 将当前管理员的用户添加到Map中，避免重复
-        response.data.forEach((user: any) => {
-          if (user.uPid && !userMap.has(user.uPid)) {
-            userMap.set(user.uPid, {
-              label: user.uName, // 用户姓名
-              value: user.uPid, // 用户ID
-            });
-          }
-        });
-      }
+    const response = await getUserByDeptIdApi(Number.parseInt(managerId));
+    if (response.status === '1' && response.data) {
+      userList.value = response.data.map((user: any) => ({
+        label: user.uName, // 用户姓名
+        value: user.uPid, // 用户ID
+      }));
     }
-
-    // 将Map转换为数组并赋值给userList
-    userList.value = [...userMap.values()];
   } catch (error) {
     console.error('获取用户列表失败:', error);
     ElMessage.error('获取用户列表失败');
@@ -140,8 +123,8 @@ watch(
       form.glrfzr = undefined;
       form.cbry = undefined;
 
-      // 加载所有选中管理人的用户列表
-      await fetchUserList(newVal);
+      // 加载第一个管理人的用户列表
+      await fetchUserList(newVal[0]);
     } else {
       // 清空用户列表
       userList.value = [];
@@ -185,7 +168,7 @@ const validateFile = (file: File) => {
   }
   if (file.size > maxFileSize) {
     ElMessage.error(
-      `文件大小超过限制：${(file.size > 0 ? file.size / 1024 / 1024 : 0).toFixed(2)}MB，单个文件大小不超过10MB`,
+      `文件大小超过限制：${(file.size ? file.size / 1024 / 1024 : 0).toFixed(2)}MB，单个文件大小不超过10MB`,
     );
     return false;
   }

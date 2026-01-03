@@ -100,11 +100,11 @@ const fetchClaims = async () => {
       currentPage.value,
       pageSize.value,
     );
-    if (response.code === 200) {
+    if (response.status === '1') {
       claims.value = response.data.records || [];
       total.value = response.data.count || 0;
     } else {
-      ElMessage.error(`获取债权登记表失败：${response.message || '未知错误'}`);
+      ElMessage.error(`获取债权登记表失败：${response.error || '未知错误'}`);
       claims.value = [];
       total.value = 0;
     }
@@ -184,53 +184,19 @@ const handleAddClaim = async () => {
 
   addLoading.value = true;
   try {
-    // 转换为下划线格式的字段名
     const formData = {
-      case_id: props.caseId,
-      case_name: claimForm.caseName,
-      debtor: claimForm.debtor,
-      polizi_account: claimForm.account,
-      creditor_name: claimForm.creditorName,
-      creditor_type: claimForm.creditorType,
-      credit_code: claimForm.creditCode,
-      legal_representative: claimForm.legalRepresentative,
-      service_address: claimForm.serviceAddress,
-      agent_name: claimForm.agentName,
-      agent_phone: claimForm.agentPhone,
-      agent_id_card: claimForm.agentIdCard,
-      agent_address: claimForm.agentAddress,
-      account_name: claimForm.accountName,
-      bank_account: claimForm.bankAccount,
-      bank_name: claimForm.bankName,
-      principal: Number.parseFloat(claimForm.principal) || 0,
-      interest: Number.parseFloat(claimForm.interest) || 0,
-      penalty: Number.parseFloat(claimForm.penalty) || 0,
-      other_losses: Number.parseFloat(claimForm.otherLosses) || 0,
-      total_amount: Number.parseFloat(totalAmount.value) || 0,
-      has_court_judgment: claimForm.hasCourtJudgment,
-      has_execution: claimForm.hasExecution,
-      has_collateral: claimForm.hasCollateral,
-      claim_nature: claimForm.claimNature,
-      claim_type: claimForm.claimType,
-      claim_facts: claimForm.claimFacts,
-      creditor_category: claimForm.creditorCategory,
-      claim_nature_manager: claimForm.claimNatureManager,
-      claim_identifier: claimForm.claimIdentifier,
-      evidence_list: claimForm.evidenceList,
-      evidence_materials: claimForm.evidenceMaterials,
-      evidence_attachments: JSON.stringify(claimForm.evidenceAttachments),
-      remarks: claimForm.remarks,
-      registration_status: claimForm.registrationStatus,
-      created_by: 'admin', // 这里应该从登录信息中获取
+      ...claimForm,
+      totalAmount: totalAmount.value,
+      caseId: props.caseId,
     };
 
     const response = await addClaimApi(formData);
-    if (response.code === 200) {
+    if (response.status === '1') {
       ElMessage.success('债权登记成功');
       await fetchClaims();
       closeAddDialog();
     } else {
-      ElMessage.error(`债权登记失败：${response.message || '未知错误'}`);
+      ElMessage.error(`债权登记失败：${response.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('债权登记失败:', error);
@@ -266,14 +232,12 @@ const handleImport = async () => {
     formData.append('caseId', props.caseId);
 
     const response = await batchImportClaimsApi(formData);
-    if (response.code === 200) {
-      ElMessage.success(
-        `成功导入${response.data?.successCount || 0}条债权记录`,
-      );
+    if (response.status === '1') {
+      ElMessage.success(`成功导入${response.data.count || 0}条债权记录`);
       await fetchClaims();
       closeImportDialog();
     } else {
-      ElMessage.error(`导入失败：${response.message || '未知错误'}`);
+      ElMessage.error(`导入失败：${response.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('导入失败:', error);
@@ -345,37 +309,37 @@ onMounted(() => {
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
-            <ElTableColumn
-              prop="creditor_name"
-              label="债权人姓名或名称"
-              min-width="180"
-            />
-            <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
-            <ElTableColumn
-              prop="credit_code"
-              label="统一社会信用代码"
-              width="180"
-            />
-            <ElTableColumn prop="principal" label="申报本金" width="120" />
-            <ElTableColumn prop="interest" label="申报利息" width="120" />
-            <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
-            <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
-            <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-            <ElTableColumn prop="registration_status" label="登记状态" width="100">
-              <template #default="scope">
-                <ElTag
-                  :type="
-                    getRegistrationStatusTag(scope.row.registration_status).type
-                  "
-                  size="small"
-                >
-                  {{ 
-                    getRegistrationStatusTag(scope.row.registration_status).text
-                  }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-          </ElTable>
+          <ElTableColumn
+            prop="creditorName"
+            label="债权人姓名或名称"
+            min-width="180"
+          />
+          <ElTableColumn prop="creditorType" label="债权人类型" width="120" />
+          <ElTableColumn
+            prop="creditCode"
+            label="统一社会信用代码"
+            width="180"
+          />
+          <ElTableColumn prop="principal" label="申报本金" width="120" />
+          <ElTableColumn prop="interest" label="申报利息" width="120" />
+          <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
+          <ElTableColumn prop="claimNature" label="债权性质" width="120" />
+          <ElTableColumn prop="claimType" label="债权种类" width="120" />
+          <ElTableColumn prop="registrationStatus" label="登记状态" width="100">
+            <template #default="scope">
+              <ElTag
+                :type="
+                  getRegistrationStatusTag(scope.row.registrationStatus).type
+                "
+                size="small"
+              >
+                {{
+                  getRegistrationStatusTag(scope.row.registrationStatus).text
+                }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+        </ElTable>
 
         <div v-if="total > 0" class="pagination-container flex justify-end">
           <ElPagination

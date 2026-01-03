@@ -124,9 +124,9 @@ const fetchDebtorList = async () => {
     const response = await getDebtorListApi(params);
 
     if (response.status === '1') {
-      debtorList.value = response.data;
-      pagination.value.itemCount = response.data.length;
-      pagination.value.pages = 1;
+      debtorList.value = response.data.records;
+      pagination.value.itemCount = response.data.count;
+      pagination.value.pages = response.data.pages;
       ElMessage.success(`成功加载 ${debtorList.value.length} 条债务人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.error}`);
@@ -662,69 +662,69 @@ const handleDeleteSubmit = async () => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="qymc"
+          prop="QYMC"
           label="企业名称"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="tyshxydm"
+          prop="TYSHXYDM"
           label="统一社会信用代码"
           width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="fddbr"
+          prop="FDDBR"
           label="法定代表人"
           width="150"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="djjg"
+          prop="DJJG"
           label="登记机关"
           width="120"
           show-overflow-tooltip
         />
-        <ElTableColumn prop="clrq" label="成立日期" width="120" align="center">
+        <ElTableColumn prop="CLRQ" label="成立日期" width="120" align="center">
           <template #default="{ row }">
-            {{ new Date(row.clrq).toLocaleDateString('zh-CN') }}
+            {{ formatDate(row.CLRQ) }}
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="zczb"
+          prop="ZCZB"
           label="注册资本"
           width="120"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="qylx"
+          prop="QYLX"
           label="企业类型"
           width="120"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="shhy"
+          prop="SSHY"
           label="所属行业"
           width="120"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="zcdz"
+          prop="ZCDZ"
           label="注册地址"
           min-width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="lxdh"
+          prop="LXDH"
           label="联系电话"
           width="130"
           align="center"
         />
-        <ElTableColumn prop="lxr" label="联系人" width="120" align="center" />
-        <ElTableColumn prop="zt" label="状态" width="100" align="center">
-          <template #default="scope">
-            <ElTag :type="getStatusType(scope.row.zt)" size="small">
-              {{ scope.row.zt }}
+        <ElTableColumn prop="LXR" label="联系人" width="120" align="center" />
+        <ElTableColumn prop="ZT" label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <ElTag :type="getStatusType(row.ZT)" size="small">
+              {{ row.ZT }}
             </ElTag>
           </template>
         </ElTableColumn>

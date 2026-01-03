@@ -5,134 +5,114 @@ declare namespace ClaimApi {
     caseId: string;
     page: number;
     size: number;
+    token?: string;
     creditorName?: string;
     registrationStatus?: string;
   }
 
   interface ClaimInfo {
-    id: number;
-    case_id: string;
-    case_name: string;
+    id: string;
+    caseId: string;
+    caseName: string;
     debtor: string;
-    polizi_account: string;
-    creditor_name: string;
-    creditor_type: string;
-    credit_code: string;
-    legal_representative: string;
-    service_address: string;
-    agent_name: string;
-    agent_phone: string;
-    agent_id_card: string;
-    agent_address: string;
-    account_name: string;
-    bank_account: string;
-    bank_name: string;
-    principal: number;
-    interest: number;
-    penalty: number;
-    other_losses: number;
-    total_amount: number;
-    has_court_judgment: boolean;
-    has_execution: boolean;
-    has_collateral: boolean;
-    claim_nature: string;
-    claim_type: string;
-    claim_facts: string;
-    creditor_category: string;
-    claim_nature_manager: string;
-    claim_identifier: string;
-    evidence_list: string;
-    evidence_materials: string;
-    evidence_attachments: string;
+    account: string;
+    creditorName: string;
+    creditorType: string;
+    creditCode: string;
+    legalRepresentative: string;
+    serviceAddress: string;
+    agentName: string;
+    agentPhone: string;
+    agentIdCard: string;
+    agentAddress: string;
+    accountName: string;
+    bankAccount: string;
+    bankName: string;
+    principal: string;
+    interest: string;
+    penalty: string;
+    otherLosses: string;
+    totalAmount: string;
+    hasCourtJudgment: boolean;
+    hasExecution: boolean;
+    hasCollateral: boolean;
+    claimNature: string;
+    claimType: string;
+    claimFacts: string;
+    creditorCategory: string;
+    claimNatureManager: string;
+    claimIdentifier: string;
+    evidenceList: string;
+    evidenceMaterials: string;
+    evidenceAttachments: any[];
     remarks: string;
-    registration_status: string;
-    created_by: string;
-    created_time: string;
-    updated_by: string;
-    updated_time: string;
+    registrationStatus: string;
+    createdAt: string;
+    updatedAt: string;
   }
 
   interface ClaimListResponse {
-    code: number;
-    message: string;
     data: {
       count: number;
       pages: number;
       records: ClaimInfo[];
     };
+    status: string;
+    error: string;
   }
 
   interface AddClaimRequest {
-    case_id: string;
-    case_name: string;
+    caseId: string;
+    caseName: string;
     debtor: string;
-    polizi_account: string;
-    creditor_name: string;
-    creditor_type: string;
-    credit_code: string;
-    legal_representative: string;
-    service_address: string;
-    agent_name: string;
-    agent_phone: string;
-    agent_id_card: string;
-    agent_address: string;
-    account_name: string;
-    bank_account: string;
-    bank_name: string;
-    principal: number;
-    interest: number;
-    penalty: number;
-    other_losses: number;
-    total_amount: number;
-    has_court_judgment: boolean;
-    has_execution: boolean;
-    has_collateral: boolean;
-    claim_nature: string;
-    claim_type: string;
-    claim_facts: string;
-    creditor_category: string;
-    claim_nature_manager: string;
-    claim_identifier: string;
-    evidence_list: string;
-    evidence_materials: string;
-    evidence_attachments: string;
+    account: string;
+    creditorName: string;
+    creditorType: string;
+    creditCode: string;
+    legalRepresentative: string;
+    serviceAddress: string;
+    agentName: string;
+    agentPhone: string;
+    agentIdCard: string;
+    agentAddress: string;
+    accountName: string;
+    bankAccount: string;
+    bankName: string;
+    principal: string;
+    interest: string;
+    penalty: string;
+    otherLosses: string;
+    totalAmount: string;
+    hasCourtJudgment: boolean;
+    hasExecution: boolean;
+    hasCollateral: boolean;
+    claimNature: string;
+    claimType: string;
+    claimFacts: string;
+    creditorCategory: string;
+    claimNatureManager: string;
+    claimIdentifier: string;
+    evidenceList: string;
+    evidenceMaterials: string;
+    evidenceAttachments: any[];
     remarks: string;
-    registration_status: string;
-    created_by: string;
+    registrationStatus: string;
   }
 
   interface AddClaimResponse {
-    code: number;
-    message: string;
-    data?: {
-      id: string;
-    };
+    status: string;
+    error: string;
+    data?: any;
   }
 
   interface BatchImportResponse {
-    code: number;
-    message: string;
+    status: string;
+    error: string;
     data?: {
       count: number;
       failedCount: number;
       successCount: number;
     };
-  }
-
-  interface UpdateClaimRequest {
-    case_name?: string;
-    debtor?: string;
-    creditor_name?: string;
-    principal?: number;
-    interest?: number;
-    total_amount?: number;
-    registration_status?: string;
-    updated_by: string;
-  }
-
-  interface CommonResponse {
-    code: number;
-    message: string;
   }
 }
 
@@ -187,17 +167,19 @@ export async function exportClaimsApi(caseId: string) {
   });
 }
 
-export async function getClaimDetailApi(claimId: number) {
-  return requestClient8085.get<ClaimApi.CommonResponse & {
+export async function getClaimDetailApi(claimId: string) {
+  return requestClient8085.get<{
     data: ClaimApi.ClaimInfo;
+    error: string;
+    status: string;
   }>(`/api/web/getClaimDetail/${claimId}`);
 }
 
 export async function updateClaimApi(
-  claimId: number,
-  data: ClaimApi.UpdateClaimRequest,
+  claimId: string,
+  data: Partial<ClaimApi.AddClaimRequest>,
 ) {
-  return requestClient8085.post<ClaimApi.CommonResponse>(
+  return requestClient8085.post<ClaimApi.AddClaimResponse>(
     `/api/web/updateClaim/${claimId}`,
     data,
     {
@@ -208,8 +190,8 @@ export async function updateClaimApi(
   );
 }
 
-export async function deleteClaimApi(claimId: number) {
-  return requestClient8085.post<ClaimApi.CommonResponse>(
+export async function deleteClaimApi(claimId: string) {
+  return requestClient8085.post<{ error: string; status: string }>(
     `/api/web/deleteClaim/${claimId}`,
     {},
   );
