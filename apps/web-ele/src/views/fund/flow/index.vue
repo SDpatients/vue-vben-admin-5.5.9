@@ -8,7 +8,6 @@ import {
   addFundOutflowApi,
   getFundCategoryListApi,
   getFundAccountListApi,
-  getAllCasesApi,
 } from '#/api/core/fund';
 
 // 状态管理
@@ -39,16 +38,12 @@ const caseNoOptions = ref<any[]>([]);
 // 分类列表（用于下拉选择）
 const categoryOptions = ref<any[]>([]);
 
-// 案件加载状态
-const caseLoading = ref(false);
-
 // 新增流水对话框
 const dialogVisible = ref(false);
 const dialogTitle = ref('新增资金流入');
 const formRef = ref();
 const flowForm = reactive({
   caseNo: '',
-  caseName: '',
   accountId: '',
   flowType: '收入',
   categoryId: '',
@@ -110,8 +105,17 @@ const fetchAccounts = async () => {
       caseNo: account.caseNo,
     }));
     
-    // 获取案件列表以获取案件名称
-    await fetchCases();
+    // 生成案号列表（去重）
+    const caseNoSet = new Set<string>();
+    allAccounts.value.forEach((account: any) => {
+      if (account.caseNo) {
+        caseNoSet.add(account.caseNo);
+      }
+    });
+    caseNoOptions.value = Array.from(caseNoSet).map(caseNo => ({
+      label: caseNo,
+      value: caseNo,
+    }));
   } catch (error) {
     ElMessage.error('获取账户列表失败');
     console.error('获取账户列表失败:', error);
@@ -146,26 +150,6 @@ const fetchCategories = async () => {
     ElMessage.error('获取分类列表失败');
     console.error('获取分类列表失败:', error);
     categoryOptions.value = [];
-  }
-};
-
-// 获取案件列表
-const fetchCases = async () => {
-  caseLoading.value = true;
-  try {
-    const response = await getAllCasesApi();
-    // 转换API返回的数据格式为下拉框所需格式
-    caseNoOptions.value = response.data.map((item: any) => ({
-      label: item.ah,
-      value: item.ah,
-      caseName: item.ajmc,
-    }));
-  } catch (error) {
-    ElMessage.error('获取案件列表失败');
-    console.error('获取案件列表失败:', error);
-    caseNoOptions.value = [];
-  } finally {
-    caseLoading.value = false;
   }
 };
 
@@ -210,14 +194,9 @@ const handleCaseNoChange = () => {
 // 处理账户选择变化（新增表单）
 const handleFlowAccountChange = () => {
   if (flowForm.accountId) {
-    const selectedAccount = allAccounts.value.find(account => account.accountId === flowForm.accountId);
+    const selectedAccount = accountOptions.value.find(option => option.value === flowForm.accountId);
     if (selectedAccount) {
       flowForm.caseNo = selectedAccount.caseNo;
-      // 如果是从账户选择获取的案号，尝试从案件列表中找到对应的案件名称
-      const selectedCase = caseNoOptions.value.find(option => option.value === selectedAccount.caseNo);
-      if (selectedCase) {
-        flowForm.caseName = selectedCase.caseName;
-      }
     }
   }
 };
@@ -226,16 +205,6 @@ const handleFlowAccountChange = () => {
 const handleFlowCaseNoChange = () => {
   // 清空账户选择，因为案号变化了，可用账户也会变化
   flowForm.accountId = '';
-  
-  // 填充案件名称
-  if (flowForm.caseNo) {
-    const selectedCase = caseNoOptions.value.find(option => option.value === flowForm.caseNo);
-    if (selectedCase) {
-      flowForm.caseName = selectedCase.caseName;
-    }
-  } else {
-    flowForm.caseName = '';
-  }
 };
 
 // 获取当前可用的账户选项（根据选中的案号过滤）
@@ -278,7 +247,6 @@ const resetForm = () => {
   }
   Object.assign(flowForm, {
     caseNo: '',
-    caseName: '',
     accountId: '',
     flowType: '收入',
     categoryId: '',
@@ -534,8 +502,7 @@ onMounted(() => {
         :model="flowForm"
         label-width="120px"
         :rules="{
-          caseNo: [{ required: true, message: '请选择案号', trigger: 'change' }],
-          caseName: [{ required: true, message: '案件名称不能为空', trigger: 'blur' }],
+          caseNo: [{ required: true, message: '请输入案号', trigger: 'blur' }],
           accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
           categoryId: [{ required: true, message: '请选择资金分类', trigger: 'change' }],
           amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
@@ -547,7 +514,6 @@ onMounted(() => {
             v-model="flowForm.caseNo" 
             placeholder="请选择案号"
             @change="handleFlowCaseNoChange"
-            :loading="caseLoading"
           >
             <el-option
               v-for="option in caseNoOptions"
@@ -556,13 +522,6 @@ onMounted(() => {
               :value="option.value"
             />
           </el-select>
-        </el-form-item>
-        <el-form-item label="案件名称" prop="caseName">
-          <el-input 
-            v-model="flowForm.caseName" 
-            placeholder="案件名称"
-            readonly
-          />
         </el-form-item>
         <el-form-item label="账户" prop="accountId">
           <el-select 
