@@ -37,13 +37,6 @@ function snakeToCamel(obj: any): any {
 }
 
 export namespace FundApi {
-  /** 案件信息 */
-  export interface CaseInfo {
-    sepId: string;
-    ah: string;
-    ajmc: string;
-  }
-
   /** 资金账户查询参数 */
   export interface FundAccountQueryParams {
     page?: number;
@@ -201,7 +194,6 @@ export namespace FundApi {
   /** 资金流入请求体 */
   export interface FundInflowRequest {
     caseNo: string;
-    caseName: string;
     accountId: number;
     categoryId: number;
     amount: number;
@@ -214,7 +206,6 @@ export namespace FundApi {
   /** 资金流出请求体 */
   export interface FundOutflowRequest {
     caseNo: string;
-    caseName: string;
     accountId: number;
     categoryId: number;
     amount: number;
@@ -277,13 +268,6 @@ export namespace FundApi {
       pages: number;
       records: FundLogInfo[];
     };
-    status: string;
-    error: string;
-  }
-
-  /** 案件列表响应 */
-  export interface CaseListResponse {
-    data: CaseInfo[];
     status: string;
     error: string;
   }
@@ -493,20 +477,4 @@ export async function getFundLogListApi(
     },
   );
   return snakeToCamel(response) as FundApi.FundLogListResponse;
-}
-
-/**
- * 获取所有案件列表
- */
-export async function getAllCasesApi() {
-  const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
-    '/api/web/getAllAHandAJMC',
-    {
-      params: {
-        token,
-      },
-    },
-  );
-  return snakeToCamel(response) as FundApi.CaseListResponse;
 }
