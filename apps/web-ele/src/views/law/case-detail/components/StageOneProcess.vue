@@ -20,8 +20,6 @@ import {
   getLegalProcedureApi,
   getManagementApi,
   getSealManagementApi,
-  getWorkPlanApi,
-  getWorkTeamApi,
 } from '#/api/core/case-process';
 
 import TaskEdit from '../TaskEdit.vue';
@@ -41,60 +39,31 @@ const currentMode = ref<'add' | 'complete' | 'edit' | 'skip' | 'view'>('add');
 
 const taskConfig = [
   {
-    key: 'workTeam',
-    name: '工作团队',
-    icon: 'lucide:users',
-    api: getWorkTeamApi,
-    fields: [
-      { label: '团队负责人', prop: 'TDFZR' },
-      { label: '综合组成员', prop: 'ZHZCY' },
-      { label: '程序组成员', prop: 'CXZCY' },
-      { label: '财产管理组成员', prop: 'CCGLZCY' },
-      { label: '债权审核组成员', prop: 'ZQSHZCY' },
-      { label: '劳动人事组成员', prop: 'LDRSZCY' },
-      { label: '主张权利组成员', prop: 'ZZQLZCY' },
-      { label: '状态', prop: 'ZT', isStatus: true },
-    ],
-  },
-  {
-    key: 'workPlan',
-    name: '工作计划',
-    icon: 'lucide:calendar',
-    api: getWorkPlanApi,
-    fields: [
-      { label: '计划类型', prop: 'JHLX' },
-      { label: '计划内容', prop: 'JHNR' },
-      { label: '开始日期', prop: 'KSRQ', isDate: true },
-      { label: '结束日期', prop: 'JSRQ', isDate: true },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
-    ],
-  },
-  {
     key: 'management',
     name: '管理制度',
     icon: 'lucide:file-text',
     api: getManagementApi,
     fields: [
-      { label: '制度类型', prop: 'ZDLX' },
-      { label: '制度名称', prop: 'ZDMC' },
-      { label: '制度内容', prop: 'ZDNR' },
-      { label: '生效日期', prop: 'SXRQ', isDate: true },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '制度类型', prop: 'zdlx' },
+      { label: '制度名称', prop: 'zdmc' },
+      { label: '制度内容', prop: 'zdnr' },
+      { label: '生效日期', prop: 'sxrq', isDate: true },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'sealManagement',
-    name: '印章管理',
+    name: '账户印章管理',
     icon: 'lucide:stamp',
     api: getSealManagementApi,
     fields: [
-      { label: '管理类型', prop: 'GLLX' },
-      { label: '项目名称', prop: 'XMMC' },
-      { label: '处理日期', prop: 'CLRQ', isDate: true },
-      { label: '处理方式', prop: 'CLFS' },
-      { label: '处理结果', prop: 'CLJG' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '管理类型', prop: 'gllx' },
+      { label: '项目名称', prop: 'xmmc' },
+      { label: '处理日期', prop: 'clrq', isDate: true },
+      { label: '处理方式', prop: 'clfs' },
+      { label: '处理结果', prop: 'cljg' },
+      { label: '证明文件路径', prop: 'zmwlj' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -103,11 +72,10 @@ const taskConfig = [
     icon: 'lucide:gavel',
     api: getLegalProcedureApi,
     fields: [
-      { label: '程序类型', prop: 'CXLX' },
-      { label: '程序内容', prop: 'CXNR' },
-      { label: '执行日期', prop: 'ZHRQ', isDate: true },
-      { label: '负责人', prop: 'FZR' },
-      { label: '执行状态', prop: 'ZT', isStatus: true },
+      { label: '程序类型', prop: 'cxlx' },
+      { label: '程序内容', prop: 'cxnr' },
+      { label: '执行日期', prop: 'zhrq', isDate: true },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
 ];
@@ -121,7 +89,17 @@ const taskStatusMap = {
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    if (response.status === '1') {
+    // 适配新的API响应格式
+    const isNewFormat = response.code === 200;
+    if (isNewFormat) {
+      return {
+        ...taskConfigItem,
+        data: response.data || [],
+        count: response.data?.length || 0,
+        status: 'loaded',
+      };
+    } else if (response.status === '1') {
+      // 兼容旧的API响应格式
       return {
         ...taskConfigItem,
         data: response.data.records || [],
@@ -129,7 +107,9 @@ const fetchTaskData = async (taskConfigItem: any) => {
         status: 'loaded',
       };
     } else {
-      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      ElMessage.error(
+        `获取${taskConfigItem.name}失败：${response.message || response.error}`,
+      );
       return {
         ...taskConfigItem,
         data: [],
@@ -175,7 +155,7 @@ const getTaskStatus = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     if (completedCount === task.data.length) {
       return 1;
@@ -190,7 +170,7 @@ const getTaskProgress = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     return Math.round((completedCount / task.data.length) * 100);
   }
@@ -350,7 +330,7 @@ onMounted(() => {
                       <span style="color: #67c23a">
                         {{
                           task.data?.filter(
-                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                            (item: any) => item.zt === '1' || item.zt === 1,
                           ).length || 0
                         }}
                       </span>
@@ -358,7 +338,7 @@ onMounted(() => {
                       <span style="color: #e6a23c">
                         {{
                           task.data?.filter(
-                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                            (item: any) => item.zt === '2' || item.zt === 2,
                           ).length || 0
                         }}
                       </span>
@@ -369,14 +349,15 @@ onMounted(() => {
                     <span
                       style="margin-left: 8px; font-size: 11px; color: #999"
                     >
-                      ({{
+                      (
+                      {{
                         task.data?.filter(
-                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                          (item: any) => item.zt === '1' || item.zt === 1,
                         ).length || 0
                       }}完成,
                       {{
                         task.data?.filter(
-                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                          (item: any) => item.zt === '2' || item.zt === 2,
                         ).length || 0
                       }}跳过)
                     </span>
@@ -425,9 +406,9 @@ onMounted(() => {
                             查看
                           </ElButton>
 
-                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
+                          <!-- 待确认状态 (zt=0) - 显示编辑、完成、跳过按钮 -->
                           <template
-                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
+                            v-if="scope.row.zt === '0' || scope.row.zt === 0"
                           >
                             <!-- 编辑按钮 -->
                             <ElButton
@@ -460,13 +441,13 @@ onMounted(() => {
                             </ElButton>
                           </template>
 
-                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
+                          <!-- 已完成或已跳过状态 (zt=1 或 zt=2) - 显示撤回按钮 -->
                           <ElButton
                             v-else-if="
-                              scope.row.ZT === '1' ||
-                              scope.row.ZT === 1 ||
-                              scope.row.ZT === '2' ||
-                              scope.row.ZT === 2
+                              scope.row.zt === '1' ||
+                              scope.row.zt === 1 ||
+                              scope.row.zt === '2' ||
+                              scope.row.zt === 2
                             "
                             type="danger"
                             size="small"

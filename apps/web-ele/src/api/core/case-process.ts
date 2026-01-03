@@ -764,54 +764,9 @@ export namespace CaseProcessApi {
 }
 
 /** API函数 */
-export const getWorkTeamApi = async (
-  SEP_ID: string,
-  page: number = 1,
-  size: number = 10,
-): Promise<
-  CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.WorkTeamInfo>
-  >
-> => {
-  try {
-    return await requestClient8085.get('/api/web/getAllWorkTeam', {
-      params: {
-        SEP_ID,
-        page,
-        size,
-      },
-    });
-  } catch (error) {
-    console.error('获取工作团队数据失败:', error);
-    throw error;
-  }
-};
-
-export const getWorkPlanApi = async (
-  SEP_ID: string,
-  page: number = 1,
-  size: number = 10,
-): Promise<
-  CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.WorkPlanInfo>
-  >
-> => {
-  try {
-    return await requestClient8085.get('/api/web/getAllWorkPlan', {
-      params: {
-        SEP_ID,
-        page,
-        size,
-      },
-    });
-  } catch (error) {
-    console.error('获取工作计划数据失败:', error);
-    throw error;
-  }
-};
 
 export const getManagementApi = async (
-  SEP_ID: string,
+  sepLd: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
@@ -820,13 +775,15 @@ export const getManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllManagement', {
-      params: {
-        SEP_ID,
-        page,
-        size,
+    return await requestClient8085.get(
+      `/api/case/phase1/managementSystem/listByCase/${sepLd}`,
+      {
+        params: {
+          page,
+          size,
+        },
       },
-    });
+    );
   } catch (error) {
     console.error('获取管理制度数据失败:', error);
     throw error;
@@ -834,7 +791,7 @@ export const getManagementApi = async (
 };
 
 export const getSealManagementApi = async (
-  SEP_ID: string,
+  sepLd: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
@@ -843,21 +800,23 @@ export const getSealManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllSealManagement', {
-      params: {
-        SEP_ID,
-        page,
-        size,
+    return await requestClient8085.get(
+      `/api/case/phase1/accountSeal/listByCase/${sepLd}`,
+      {
+        params: {
+          page,
+          size,
+        },
       },
-    });
+    );
   } catch (error) {
-    console.error('获取印章管理数据失败:', error);
+    console.error('获取账户印章管理数据失败:', error);
     throw error;
   }
 };
 
 export const getLegalProcedureApi = async (
-  SEP_ID: string,
+  sepLd: string,
   page: number = 1,
   size: number = 10,
 ): Promise<
@@ -866,13 +825,15 @@ export const getLegalProcedureApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllLegalProcedure', {
-      params: {
-        SEP_ID,
-        page,
-        size,
+    return await requestClient8085.get(
+      `/api/case/phase1/legalProcedure/listByCase/${sepLd}`,
+      {
+        params: {
+          page,
+          size,
+        },
       },
-    });
+    );
   } catch (error) {
     console.error('获取法律程序数据失败:', error);
     throw error;
@@ -1013,6 +974,25 @@ export const getAllBManagementApi = async (
   }
 };
 
+export const getAllWorkPlanApi = async (
+  SEP_ID: string,
+  page: number = 1,
+  size: number = 10,
+): Promise<
+  CaseProcessApi.TaskResponse<
+    CaseProcessApi.PageResponse<CaseProcessApi.WorkPlanInfo>
+  >
+> => {
+  try {
+    return await requestClient8085.get('/api/web/getAllWorkPlan', {
+      params: { SEP_ID, page, size },
+    });
+  } catch (error) {
+    console.error('获取工作计划数据失败:', error);
+    throw error;
+  }
+};
+
 /** 统一任务操作API */
 export const unifiedTaskOperationApi = async (data: {
   [key: string]: any;
@@ -1043,17 +1023,6 @@ export const unifiedTaskOperationApi = async (data: {
       SEP_LD: data.SEP_LD,
       ZT: data.ZT,
       ...(data.SEP_ID && { SEP_ID: data.SEP_ID }),
-      ...(data.TDFZR && { TDFZR: data.TDFZR }),
-      ...(data.ZHZCY && { ZHZCY: data.ZHZCY }),
-      ...(data.CXZCY && { CXZCY: data.CXZCY }),
-      ...(data.CCGLZCY && { CCGLZCY: data.CCGLZCY }),
-      ...(data.ZQSHZCY && { ZQSHZCY: data.ZQSHZCY }),
-      ...(data.LDRSZCY && { LDRSZCY: data.LDRSZCY }),
-      ...(data.ZZQLZCY && { ZZQLZCY: data.ZZQLZCY }),
-      ...(data.JHLX && { JHLX: data.JHLX }),
-      ...(data.JHNR && { JHNR: data.JHNR }),
-      ...(data.KSRQ && { KSRQ: data.KSRQ }),
-      ...(data.JSRQ && { JSRQ: data.JSRQ }),
       ...(data.FZR && { FZR: data.FZR }),
       ...(data.ZDLX && { ZDLX: data.ZDLX }),
       ...(data.ZDMC && { ZDMC: data.ZDMC }),
@@ -1290,8 +1259,6 @@ export const updateTaskStatusApi = async (
   try {
     // 任务类型映射到OperateType
     const taskTypeToOperateType: Record<string, string> = {
-      workTeam: '0',
-      workPlan: '1',
       management: '2',
       sealManagement: '3',
       legalProcedure: '4',
@@ -1330,42 +1297,100 @@ export const updateTaskStatusApi = async (
   }
 };
 
-/** 工作团队新增API */
-export const addWorkTeamApi = async (data: any) => {
-  try {
-    return await requestClient8085.post('/api/web/addWorkTeam', data);
-  } catch (error) {
-    console.error('添加工作团队失败:', error);
-    throw error;
-  }
-};
-
-/** 工作计划新增API */
-export const addWorkPlanApi = async (data: any) => {
-  try {
-    return await requestClient8085.post('/api/web/addWorkPlan', data);
-  } catch (error) {
-    console.error('添加工作计划失败:', error);
-    throw error;
-  }
-};
-
 /** 管理制度新增API */
 export const addManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addManagement', data);
+    return await requestClient8085.post(
+      '/api/case/phase1/managementSystem/add',
+      data,
+    );
   } catch (error) {
     console.error('添加管理制度失败:', error);
     throw error;
   }
 };
 
-/** 印章管理新增API */
+/** 管理制度修改API */
+export const updateManagementApi = async (data: any) => {
+  try {
+    return await requestClient8085.post(
+      '/api/case/phase1/managementSystem/update',
+      data,
+    );
+  } catch (error) {
+    console.error('修改管理制度失败:', error);
+    throw error;
+  }
+};
+
+/** 管理制度删除API */
+export const deleteManagementApi = async (sepId: number | string) => {
+  try {
+    return await requestClient8085.get(
+      `/api/case/phase1/managementSystem/delete/${sepId}`,
+    );
+  } catch (error) {
+    console.error('删除管理制度失败:', error);
+    throw error;
+  }
+};
+
+/** 根据ID获取管理制度API */
+export const getManagementByIdApi = async (sepId: number | string) => {
+  try {
+    return await requestClient8085.get(
+      `/api/case/phase1/managementSystem/${sepId}`,
+    );
+  } catch (error) {
+    console.error('获取管理制度详情失败:', error);
+    throw error;
+  }
+};
+
+/** 账户印章管理新增API */
 export const addSealManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addSealManagement', data);
+    return await requestClient8085.post(
+      '/api/case/phase1/accountSeal/add',
+      data,
+    );
   } catch (error) {
-    console.error('添加印章管理失败:', error);
+    console.error('添加账户印章管理失败:', error);
+    throw error;
+  }
+};
+
+/** 账户印章管理修改API */
+export const updateSealManagementApi = async (data: any) => {
+  try {
+    return await requestClient8085.post(
+      '/api/case/phase1/accountSeal/update',
+      data,
+    );
+  } catch (error) {
+    console.error('修改账户印章管理失败:', error);
+    throw error;
+  }
+};
+
+/** 账户印章管理删除API */
+export const deleteSealManagementApi = async (sepId: number | string) => {
+  try {
+    return await requestClient8085.get(
+      `/api/case/phase1/accountSeal/delete/${sepId}`,
+    );
+  } catch (error) {
+    console.error('删除账户印章管理失败:', error);
+    throw error;
+  }
+};
+
+/** 根据ID获取账户印章管理API */
+export const getSealManagementByIdApi = async (sepId: number | string) => {
+  try {
+    return await requestClient8085.get(`/api/case/phase1/accountSeal/${sepId}`);
+  } catch (error) {
+    console.error('获取账户印章管理详情失败:', error);
     throw error;
   }
 };
@@ -1373,9 +1398,49 @@ export const addSealManagementApi = async (data: any) => {
 /** 法律程序新增API */
 export const addLegalProcedureApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addLegalProcedure', data);
+    return await requestClient8085.post(
+      '/api/case/phase1/legalProcedure/add',
+      data,
+    );
   } catch (error) {
     console.error('添加法律程序失败:', error);
+    throw error;
+  }
+};
+
+/** 法律程序修改API */
+export const updateLegalProcedureApi = async (data: any) => {
+  try {
+    return await requestClient8085.post(
+      '/api/case/phase1/legalProcedure/update',
+      data,
+    );
+  } catch (error) {
+    console.error('修改法律程序失败:', error);
+    throw error;
+  }
+};
+
+/** 法律程序删除API */
+export const deleteLegalProcedureApi = async (sepId: string | number) => {
+  try {
+    return await requestClient8085.get(
+      `/api/case/phase1/legalProcedure/delete/${sepId}`,
+    );
+  } catch (error) {
+    console.error('删除法律程序失败:', error);
+    throw error;
+  }
+};
+
+/** 根据ID获取法律程序API */
+export const getLegalProcedureByIdApi = async (sepId: string | number) => {
+  try {
+    return await requestClient8085.get(
+      `/api/case/phase1/legalProcedure/${sepId}`,
+    );
+  } catch (error) {
+    console.error('获取法律程序详情失败:', error);
     throw error;
   }
 };

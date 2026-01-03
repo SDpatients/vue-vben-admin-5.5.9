@@ -15,6 +15,7 @@ import {
   ElDropdownItem,
   ElDropdownMenu,
   ElMessage,
+  ElMessageBox,
   ElPagination,
   ElPopover,
   ElTable,
@@ -36,7 +37,7 @@ const permissions = computed(() => accessStore.accessCodes || []);
 const caseList = ref<CaseApi.CaseInfo[]>([]);
 const loading = ref(false);
 const reviewModalVisible = ref(false);
-const currentCase = ref<CaseApi.CaseInfo | null>(null);
+const currentCase = ref<CaseApi.CaseInfo | undefined>(undefined);
 const pagination = ref({
   page: 1,
   pageSize: 10,
@@ -54,27 +55,30 @@ const columnVisible = ref<string[]>([]);
 const availableColumns = [
   '案号',
   '案由',
-  '承办人',
-  '法院',
-  '管理人',
-  '债权人数',
-  '债权总额',
-  '财产金额',
-  '财产比例',
-  '会计账簿',
-  '银行账户数',
-  '银行账户总余额',
-  '有效账户数',
+  '案件名称',
+  '案件来源',
   '案件进度',
+  '受理法院',
+  '主要负责人',
+  '创建者',
+  '创建时间',
+  '修改者',
+  '修改时间',
+  '管理人',
+  '是否简化审',
+  '立案日期',
+  '文件上传',
+  '备注',
 ];
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '债权人数',
-  '债权总额',
+  '创建时间',
+  '创建者',
+  '案件名称',
   '案件进度',
   '案号',
-  '财产金额',
+  '管理人',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -89,89 +93,74 @@ const initColumnVisibility = () => {
   );
 };
 
+// 格式化时间戳
+const formatTimestamp = (timestamp: number | undefined) => {
+  if (!timestamp) return '-';
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+};
+
 // 生成模拟数据
 const generateMockData = () => {
   const mockCases: CaseApi.CaseInfo[] = [
     {
       row: 1,
-      序号: 1,
-      年度: '2024',
-      案号: '(2024)沪01破1号',
-      申请人: '上海银行',
-      债务人: '上海某科技公司',
-      案由: '破产清算',
-      立案时间: '2024-01-15',
-      破产时间: '2024-01-20',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '已移交',
-      办理期限: '2024-12-31',
-      承办人: '张三',
-      法院: '上海市第一中级人民法院',
-      管理人: '李四律师事务所',
-      债权人数: 25,
-      债权总额: 15_000_000,
-      财产金额: 8_000_000,
-      财产比例: 0.53,
-      银行账户数: 3,
-      银行账户总余额: 1_200_000,
-      有效账户数: 2,
-      案件进度: '审理中',
+      案件单据号: 34,
+      案号: 'dddd',
+      案由: '',
+      案件来源: '',
+      创建者: '测试用户',
+      备注: '',
+      案件名称: '44124124',
+      管理人: '',
+      案件进度: '已结案',
+      创建时间: 1_766_943_984_000,
+      是否简化审: '',
+      主要负责人: '',
+      受理法院: '',
     } as CaseApi.CaseInfo,
     {
       row: 2,
-      序号: 2,
-      年度: '2024',
-      案号: '(2024)京02破5号',
-      申请人: '建设银行',
-      债务人: '北京某房地产公司',
-      案由: '破产重整',
-      立案时间: '2024-02-10',
-      破产时间: '2024-02-15',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '未移交',
-      办理期限: '2025-02-28',
-      承办人: '王五',
-      法院: '北京市第二中级人民法院',
-      管理人: '赵六会计师事务所',
-      债权人数: 48,
-      债权总额: 28_000_000,
-      财产金额: 15_000_000,
-      财产比例: 0.54,
-      银行账户数: 5,
-      银行账户总余额: 3_500_000,
-      有效账户数: 4,
-      案件进度: '审理中',
+      案件单据号: 33,
+      案号: 'fff',
+      案由: 'fffffffffff',
+      案件来源: '',
+      创建者: '测试用户',
+      备注: '',
+      案件名称: '333333333333333',
+      管理人: '',
+      修改时间: 1_766_937_600_000,
+      案件进度: '第五阶段',
+      创建时间: 1_766_943_057_000,
+      是否简化审: 'f',
+      修改者: '',
+      主要负责人: '',
+      受理法院: '',
     } as CaseApi.CaseInfo,
     {
       row: 3,
-      序号: 3,
-      年度: '2024',
-      案号: '(2024)深03破8号',
-      申请人: '招商银行',
-      债务人: '深圳某电子公司',
-      案由: '破产清算',
-      立案时间: '2024-03-05',
-      破产时间: '2024-03-10',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '部分移交',
-      办理期限: '2024-09-30',
-      承办人: '孙七',
-      法院: '深圳市中级人民法院',
-      管理人: '钱八律师事务所',
-      债权人数: 32,
-      债权总额: 9_500_000,
-      财产金额: 5_200_000,
-      财产比例: 0.55,
-      银行账户数: 2,
-      银行账户总余额: 850_000,
-      有效账户数: 1,
-      案件进度: '已结案',
+      案件单据号: 24,
+      案号: '123',
+      案由: '',
+      案件来源: '',
+      创建者: 'admin',
+      备注: '',
+      案件名称: '333',
+      管理人: '',
+      修改时间: 1_766_419_200_000,
+      案件进度: '第六阶段',
+      创建时间: 1_765_179_418_000,
+      是否简化审: '',
+      修改者: '2222',
+      文件上传: '1',
+      主要负责人: '',
+      受理法院: '',
     } as CaseApi.CaseInfo,
   ];
 
@@ -278,52 +267,20 @@ const hideNonCoreColumns = () => {
   ElMessage.success('已隐藏非核心列');
 };
 
-// 格式化金额显示
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-  }).format(value);
-};
-
-// 格式化百分比
-const formatPercentage = (value: number) => {
-  const safeValue = value || 0;
-  return `${(safeValue * 100).toFixed(2)}%`;
-};
-
-// 获取会计账簿状态标签类型
-const getAccountBookType = (status: string) => {
-  switch (status) {
-    case '已移交': {
-      return 'success';
-    }
-    case '未移交': {
-      return 'warning';
-    }
-    case '部分移交': {
-      return 'info';
-    }
-    default: {
-      return 'danger';
-    }
-  }
-};
-
 // 获取案件进度标签类型
 const getCaseProgressType = (progress: string) => {
   switch (progress) {
-    case '审理中': {
-      return 'primary';
-    }
-    case '已注销': {
-      return 'warning';
-    }
-    case '已终结': {
-      return 'info';
-    }
     case '已结案': {
       return 'success';
+    }
+    case '第一阶段':
+    case '第七阶段':
+    case '第三阶段':
+    case '第二阶段':
+    case '第五阶段':
+    case '第六阶段':
+    case '第四阶段': {
+      return 'primary';
     }
     default: {
       return 'info';
@@ -334,10 +291,10 @@ const getCaseProgressType = (progress: string) => {
 // 查看案件详情
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
-  if (row.序号) {
-    router.push(`/case-detail/${row.序号}`);
+  if (row.案件单据号) {
+    router.push(`/case-detail/${row.案件单据号}`);
   } else {
-    ElMessage.warning('案件序号不存在，无法查看详情');
+    ElMessage.warning('案件ID不存在，无法查看详情');
   }
 };
 
@@ -356,7 +313,7 @@ const deleteCase = async (row: CaseApi.CaseInfo) => {
       type: 'warning',
     });
 
-    const response = await deleteCaseApi(row.序号);
+    const response = await deleteCaseApi(row.案件单据号);
     if (response.status === '1') {
       ElMessage.success('删除成功');
       fetchCaseList();
@@ -562,137 +519,22 @@ const canDelete = () => {
               show-overflow-tooltip
             />
 
-            <!-- 承办人 -->
+            <!-- 案件名称 -->
             <ElTableColumn
-              v-if="isColumnVisible('承办人')"
-              prop="承办人"
-              label="承办人"
-              min-width="100"
+              v-if="isColumnVisible('案件名称')"
+              prop="案件名称"
+              label="案件名称"
+              min-width="180"
               show-overflow-tooltip
             />
 
-            <!-- 法院 -->
+            <!-- 案件来源 -->
             <ElTableColumn
-              v-if="isColumnVisible('法院')"
-              prop="法院"
-              label="法院"
-              min-width="200"
+              v-if="isColumnVisible('案件来源')"
+              prop="案件来源"
+              label="案件来源"
+              min-width="150"
               show-overflow-tooltip
-            />
-
-            <!-- 管理人 -->
-            <ElTableColumn
-              v-if="isColumnVisible('管理人')"
-              prop="管理人"
-              label="管理人"
-              min-width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 债权人数 -->
-            <ElTableColumn
-              v-if="isColumnVisible('债权人数')"
-              prop="债权人数"
-              label="债权人数"
-              min-width="100"
-              align="center"
-            />
-
-            <!-- 债权总额 -->
-            <ElTableColumn
-              v-if="isColumnVisible('债权总额')"
-              prop="债权总额"
-              label="债权总额"
-              min-width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row['债权总额']) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 财产金额 -->
-            <ElTableColumn
-              v-if="isColumnVisible('财产金额')"
-              prop="财产金额"
-              label="财产金额"
-              min-width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row['财产金额']) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 财产比例 -->
-            <ElTableColumn
-              v-if="isColumnVisible('财产比例')"
-              prop="财产比例"
-              label="财产比例"
-              min-width="200"
-              align="center"
-            >
-              <template #default="{ row }">
-                <div class="flex w-full flex-col items-center px-4">
-                  <div class="mb-1 w-full">
-                    <ElProgress
-                      :percentage="row['财产比例'] * 100"
-                      :stroke-width="8"
-                      :color="row['财产比例'] >= 0.5 ? '#67c23a' : '#e6a23c'"
-                      size="small"
-                    />
-                  </div>
-                  <span class="text-sm text-gray-600">
-                    {{ formatPercentage(row['财产比例']) }}
-                  </span>
-                </div>
-              </template>
-            </ElTableColumn>
-
-            <!-- 会计账簿 -->
-            <ElTableColumn
-              v-if="isColumnVisible('会计账簿')"
-              prop="会计账簿"
-              label="会计账簿"
-              min-width="100"
-              align="center"
-            >
-              <template #default="{ row }">
-                <ElTag :type="getAccountBookType(row['会计账簿'])" size="small">
-                  {{ row['会计账簿'] }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 银行账户数 -->
-            <ElTableColumn
-              v-if="isColumnVisible('银行账户数')"
-              prop="银行账户数"
-              label="账户数"
-              min-width="80"
-              align="center"
-            />
-
-            <!-- 银行账户总余额 -->
-            <ElTableColumn
-              v-if="isColumnVisible('银行账户总余额')"
-              prop="银行账户总余额"
-              label="账户余额"
-              min-width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row['银行账户总余额']) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 有效账户数 -->
-            <ElTableColumn
-              v-if="isColumnVisible('有效账户数')"
-              prop="有效账户数"
-              label="有效账户"
-              min-width="80"
-              align="center"
             />
 
             <!-- 案件进度 -->
@@ -712,6 +554,117 @@ const canDelete = () => {
                 </ElTag>
               </template>
             </ElTableColumn>
+
+            <!-- 受理法院 -->
+            <ElTableColumn
+              v-if="isColumnVisible('受理法院')"
+              prop="受理法院"
+              label="受理法院"
+              min-width="180"
+              show-overflow-tooltip
+            />
+
+            <!-- 主要负责人 -->
+            <ElTableColumn
+              v-if="isColumnVisible('主要负责人')"
+              prop="主要负责人"
+              label="主要负责人"
+              min-width="150"
+              show-overflow-tooltip
+            />
+
+            <!-- 创建者 -->
+            <ElTableColumn
+              v-if="isColumnVisible('创建者')"
+              prop="创建者"
+              label="创建者"
+              min-width="120"
+              show-overflow-tooltip
+            />
+
+            <!-- 创建时间 -->
+            <ElTableColumn
+              v-if="isColumnVisible('创建时间')"
+              prop="创建时间"
+              label="创建时间"
+              min-width="180"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['创建时间']) }}
+              </template>
+            </ElTableColumn>
+
+            <!-- 修改者 -->
+            <ElTableColumn
+              v-if="isColumnVisible('修改者')"
+              prop="修改者"
+              label="修改者"
+              min-width="120"
+              show-overflow-tooltip
+            />
+
+            <!-- 修改时间 -->
+            <ElTableColumn
+              v-if="isColumnVisible('修改时间')"
+              prop="修改时间"
+              label="修改时间"
+              min-width="180"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['修改时间']) }}
+              </template>
+            </ElTableColumn>
+
+            <!-- 管理人 -->
+            <ElTableColumn
+              v-if="isColumnVisible('管理人')"
+              prop="管理人"
+              label="管理人"
+              min-width="120"
+              show-overflow-tooltip
+            />
+
+            <!-- 是否简化审 -->
+            <ElTableColumn
+              v-if="isColumnVisible('是否简化审')"
+              prop="是否简化审"
+              label="是否简化审"
+              min-width="120"
+              show-overflow-tooltip
+            />
+
+            <!-- 立案日期 -->
+            <ElTableColumn
+              v-if="isColumnVisible('立案日期')"
+              prop="立案日期"
+              label="立案日期"
+              min-width="180"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['立案日期']) }}
+              </template>
+            </ElTableColumn>
+
+            <!-- 文件上传 -->
+            <ElTableColumn
+              v-if="isColumnVisible('文件上传')"
+              prop="文件上传"
+              label="文件上传"
+              min-width="100"
+              align="center"
+            />
+
+            <!-- 备注 -->
+            <ElTableColumn
+              v-if="isColumnVisible('备注')"
+              prop="备注"
+              label="备注"
+              min-width="200"
+              show-overflow-tooltip
+            />
 
             <!-- 操作列 -->
             <ElTableColumn label="操作" min-width="200" fixed="right">
