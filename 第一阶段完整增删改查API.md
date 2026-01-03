@@ -183,7 +183,7 @@
   "clrq": "2024-01-01",     // 处理日期
   "clfs": "银行办理",        // 处理方式
   "cljg": "已完成",          // 处理结果
-  "zmwlj": "/upload/files/123.pdf", // 证明文件路径
+  "zmwjlj": "/upload/files/123.pdf", // 证明文件路径
   "zt": "1",                // 状态
   "sepAuser": "admin"       // 创建者
 }
@@ -214,7 +214,7 @@
   "clrq": "2024-01-01",     // 处理日期
   "clfs": "银行办理",        // 处理方式
   "cljg": "已完成",          // 处理结果
-  "zmwlj": "/upload/files/123.pdf", // 证明文件路径
+  "zmwjlj": "/upload/files/123.pdf", // 证明文件路径
   "zt": "1",                // 状态
   "sepEuser": "admin"       // 修改者
 }
@@ -267,7 +267,7 @@
     "clrq": "2024-01-01T00:00:00",
     "clfs": "银行办理",
     "cljg": "已完成",
-    "zmwlj": "/upload/files/123.pdf",
+    "zmwjlj": "/upload/files/123.pdf",
     "zt": "1",
     "sepAuser": "admin",
     "sepAdate": "2024-01-01T10:00:00",
@@ -300,7 +300,7 @@
       "clrq": "2024-01-01T00:00:00",
       "clfs": "银行办理",
       "cljg": "已完成",
-      "zmwlj": "/upload/files/123.pdf",
+      "zmwjlj": "/upload/files/123.pdf",
       "zt": "1",
       "sepAuser": "admin",
       "sepAdate": "2024-01-01T10:00:00",
@@ -331,7 +331,7 @@
       "clrq": "2024-01-01T00:00:00",
       "clfs": "银行办理",
       "cljg": "已完成",
-      "zmwlj": "/upload/files/123.pdf",
+      "zmwjlj": "/upload/files/123.pdf",
       "zt": "1",
       "sepAuser": "admin",
       "sepAdate": "2024-01-01T10:00:00",
@@ -557,7 +557,7 @@
 | clrq | Date | 处理日期 |
 | clfs | String | 处理方式 |
 | cljg | String | 处理结果 |
-| zmwlj | String | 证明文件路径 |
+| zmwjlj | String | 证明文件路径 |
 | zt | String | 状态 |
 | sepAuser | String | 创建者 |
 | sepAdate | Date | 创建时间 |

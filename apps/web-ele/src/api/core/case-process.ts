@@ -851,9 +851,12 @@ export const getAllPropertyReceiptApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyReceipt', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/propertyReceipt/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取财产接收数据失败:', error);
     throw error;
@@ -870,9 +873,12 @@ export const getAllEmergencyApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllEmergency', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/emergency/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取应急管理数据失败:', error);
     throw error;
@@ -889,9 +895,12 @@ export const getAllPropertyPlanApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyPlan', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/propertyPlan/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取财产方案管理数据失败:', error);
     throw error;
@@ -908,9 +917,12 @@ export const getAllPersonnelEmpApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPersonnelEmp', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/personnelEmp/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取人员聘用数据失败:', error);
     throw error;
@@ -927,9 +939,12 @@ export const getAllInternalAffairsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllInternalAffairs', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/internalAffairs/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取内部事务管理数据失败:', error);
     throw error;
@@ -946,9 +961,12 @@ export const getAllContractManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllContractManagement', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/contractManagement/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取合同管理数据失败:', error);
     throw error;
@@ -965,9 +983,12 @@ export const getAllBManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllBManagement', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase2/businessManagement/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取营业管理数据失败:', error);
     throw error;
@@ -1068,7 +1089,26 @@ export const update2Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/web/update2', {
+    // 根据OperateType确定具体的模块名称
+    const operateTypeToModule: Record<number, string> = {
+      0: 'propertyReceipt', // 财产接收
+      1: 'emergency', // 应急管理
+      2: 'propertyPlan', // 财产方案管理
+      3: 'personnelEmp', // 人员聘用
+      4: 'internalAffairs', // 内部事务管理
+      5: 'contractManagement', // 合同管理
+      6: 'businessManagement', // 营业管理
+    };
+
+    const moduleName = operateTypeToModule[data.OperateType] || '';
+    if (!moduleName) {
+      throw new Error('无效的OperateType');
+    }
+
+    // 构建更新API路径
+    const apiPath = `/api/case/phase2/${moduleName}/update`;
+
+    return await requestClient8085.post(apiPath, {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1422,7 +1462,7 @@ export const updateLegalProcedureApi = async (data: any) => {
 };
 
 /** 法律程序删除API */
-export const deleteLegalProcedureApi = async (sepId: string | number) => {
+export const deleteLegalProcedureApi = async (sepId: number | string) => {
   try {
     return await requestClient8085.get(
       `/api/case/phase1/legalProcedure/delete/${sepId}`,
@@ -1434,7 +1474,7 @@ export const deleteLegalProcedureApi = async (sepId: string | number) => {
 };
 
 /** 根据ID获取法律程序API */
-export const getLegalProcedureByIdApi = async (sepId: string | number) => {
+export const getLegalProcedureByIdApi = async (sepId: number | string) => {
   try {
     return await requestClient8085.get(
       `/api/case/phase1/legalProcedure/${sepId}`,
@@ -1458,7 +1498,7 @@ export const addPropertyReceiptApi = async (data: any) => {
 /** 应急管理新增API */
 export const addEmergencyApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addEmergency', data);
+    return await requestClient8085.post('/api/case/phase2/emergency/add', data);
   } catch (error) {
     console.error('添加应急管理失败:', error);
     throw error;
@@ -1468,7 +1508,10 @@ export const addEmergencyApi = async (data: any) => {
 /** 财产方案管理新增API */
 export const addPropertyPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addPropertyPlan', data);
+    return await requestClient8085.post(
+      '/api/case/phase2/propertyPlan/add',
+      data,
+    );
   } catch (error) {
     console.error('添加财产方案管理失败:', error);
     throw error;
@@ -1479,7 +1522,7 @@ export const addPropertyPlanApi = async (data: any) => {
 export const addPersonnelEmploymentApi = async (data: any) => {
   try {
     return await requestClient8085.post(
-      '/api/web/addPersonnelEmployment',
+      '/api/case/phase2/personnelEmp/add',
       data,
     );
   } catch (error) {
@@ -1491,7 +1534,10 @@ export const addPersonnelEmploymentApi = async (data: any) => {
 /** 内部事务管理新增API */
 export const addInternalAffairsApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addInternalAffairs', data);
+    return await requestClient8085.post(
+      '/api/case/phase2/internalAffairs/add',
+      data,
+    );
   } catch (error) {
     console.error('添加内部事务管理失败:', error);
     throw error;
@@ -1501,7 +1547,10 @@ export const addInternalAffairsApi = async (data: any) => {
 /** 合同管理新增API */
 export const addContractManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addContractManagement', data);
+    return await requestClient8085.post(
+      '/api/case/phase2/contractManagement/add',
+      data,
+    );
   } catch (error) {
     console.error('添加合同管理失败:', error);
     throw error;
@@ -1511,7 +1560,10 @@ export const addContractManagementApi = async (data: any) => {
 /** 营业管理新增API */
 export const addBusinessManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addBusinessManagement', data);
+    return await requestClient8085.post(
+      '/api/case/phase2/businessManagement/add',
+      data,
+    );
   } catch (error) {
     console.error('添加营业管理失败:', error);
     throw error;
@@ -1522,7 +1574,7 @@ export const addBusinessManagementApi = async (data: any) => {
 export const addPropertyInvestigationApi = async (data: any) => {
   try {
     return await requestClient8085.post(
-      '/api/web/addPropertyInvestigation',
+      '/api/case/phase3/propertyInvestigation/add',
       data,
     );
   } catch (error) {
@@ -1533,7 +1585,10 @@ export const addPropertyInvestigationApi = async (data: any) => {
 
 export const addBankExpensesApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addBankpuptcyExpenes', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/bankruptcyExpenses/add',
+      data,
+    );
   } catch (error) {
     console.error('添加破产费用失败:', error);
     throw error;
@@ -1542,7 +1597,10 @@ export const addBankExpensesApi = async (data: any) => {
 
 export const addRightsClaimApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addRightsClaim', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/rightsClaim/add',
+      data,
+    );
   } catch (error) {
     console.error('添加权利主张失败:', error);
     throw error;
@@ -1551,7 +1609,10 @@ export const addRightsClaimApi = async (data: any) => {
 
 export const addReclaimReviewApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addReclaimReview', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/reclaimReview/add',
+      data,
+    );
   } catch (error) {
     console.error('添加取回权审查失败:', error);
     throw error;
@@ -1561,7 +1622,7 @@ export const addReclaimReviewApi = async (data: any) => {
 export const addLitigationArbitrationApi = async (data: any) => {
   try {
     return await requestClient8085.post(
-      '/api/web/addLitigationArbitration',
+      '/api/case/phase3/litigationArbitration/add',
       data,
     );
   } catch (error) {
@@ -1572,7 +1633,10 @@ export const addLitigationArbitrationApi = async (data: any) => {
 
 export const addCreditorClaimApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addCreditorClaim', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/creditorClaim/add',
+      data,
+    );
   } catch (error) {
     console.error('添加债权申报失败:', error);
     throw error;
@@ -1581,7 +1645,10 @@ export const addCreditorClaimApi = async (data: any) => {
 
 export const addSocialSecurtyFeesApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addSocialSecurtyFees', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/socialSecurityFees/add',
+      data,
+    );
   } catch (error) {
     console.error('添加社保费用失败:', error);
     throw error;
@@ -1590,7 +1657,10 @@ export const addSocialSecurtyFeesApi = async (data: any) => {
 
 export const addTaxVerificationApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addTaxVerification', data);
+    return await requestClient8085.post(
+      '/api/case/phase3/taxVerification/add',
+      data,
+    );
   } catch (error) {
     console.error('添加税款核定失败:', error);
     throw error;
@@ -1933,9 +2003,12 @@ export const getClaimConfirmationApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllClaimConfirmation', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/claimConfirmation/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取债权确认数据失败:', error);
     throw error;
@@ -1943,15 +2016,15 @@ export const getClaimConfirmationApi = async (
 };
 
 export const getAllClaimConfirmationApi = getClaimConfirmationApi;
-
+  
 export const getAllAuditReportApi = async (
   SEP_ID: string,
   page: number = 1,
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllAuditReport', {
-      params: { SEP_ID, page, size },
+    return await requestClient8085.get(`/api/case/phase4/auditReport/listByCase/${SEP_ID}`, {
+      params: { page, size },
     });
   } catch (error) {
     console.error('获取审计报告数据失败:', error);
@@ -1965,11 +2038,14 @@ export const getAllImportantActionsApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllImportantActions', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/importantActions/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取重要行为数据失败:', error);
+    console.error('获取重要行为报告数据失败:', error);
     throw error;
   }
 };
@@ -1980,11 +2056,14 @@ export const getAllMeetingDocumentsApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllMeetingDocuments', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/meetingDocuments/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取会议文件数据失败:', error);
+    console.error('获取债权人会议文件数据失败:', error);
     throw error;
   }
 };
@@ -1995,9 +2074,12 @@ export const getAllRemunerationPlanApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllRemunerationPlan', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/remunerationPlan/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取报酬方案数据失败:', error);
     throw error;
@@ -2010,11 +2092,14 @@ export const getAllSessionApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllSession', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/session/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取会议数据失败:', error);
+    console.error('获取债权人会议数据失败:', error);
     throw error;
   }
 };
@@ -2025,11 +2110,14 @@ export const getAllSetoffReviewApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllSetoffReview', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/setoffReview/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取抵销审查数据失败:', error);
+    console.error('获取抵消权审查数据失败:', error);
     throw error;
   }
 };
@@ -2041,9 +2129,12 @@ export const getAllAssetValuationApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllAssetValuation', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/assetValuation/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取资产评估数据失败:', error);
     throw error;
@@ -2056,11 +2147,14 @@ export const getAllBankruptcyDeclarationApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllBankruptcyDeclaration', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/bankruptcyDeclaration/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取破产申报数据失败:', error);
+    console.error('获取破产宣告数据失败:', error);
     throw error;
   }
 };
@@ -2071,11 +2165,14 @@ export const getAllPropertyVIMApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyVIM', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/propertyValuationImplementation/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
-    console.error('获取财产管理方案数据失败:', error);
+    console.error('获取财产变价实施数据失败:', error);
     throw error;
   }
 };
@@ -2086,9 +2183,12 @@ export const getAllPropertyVPlanApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyVPlan', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/propertyValuationPlan/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取财产变价方案数据失败:', error);
     throw error;
@@ -2101,9 +2201,12 @@ export const getAllAuctionAgencyApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get('/api/web/getAllAuctionAgency', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase4/auctionAgency/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取拍卖机构数据失败:', error);
     throw error;
@@ -2404,9 +2507,12 @@ export const getAllPropertyInvestigationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyInvestigation', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/propertyInvestigation/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取财产调查数据失败:', error);
     throw error;
@@ -2423,9 +2529,12 @@ export const getAllBankExpensesApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllBankExpenses', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/bankruptcyExpenses/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取破产费用数据失败:', error);
     throw error;
@@ -2442,9 +2551,12 @@ export const getAllRightsClaimApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllRightsClaim', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/rightsClaim/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取权利主张数据失败:', error);
     throw error;
@@ -2461,9 +2573,12 @@ export const getAllReclaimReviewApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllReclaimReview', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/reclaimReview/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取取回权审查数据失败:', error);
     throw error;
@@ -2480,9 +2595,12 @@ export const getAllLitigationArbitrationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllLitigationArbitration', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/litigationArbitration/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取诉讼仲裁数据失败:', error);
     throw error;
@@ -2499,9 +2617,12 @@ export const getAllCreditorClaimApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllCreditorClaim', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/creditorClaim/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取债权申报数据失败:', error);
     throw error;
@@ -2518,9 +2639,12 @@ export const getAllSociaSFApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllSociaSF', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/socialSecurityFees/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取社保费用数据失败:', error);
     throw error;
@@ -2537,9 +2661,12 @@ export const getAllTaxVerificationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllTaxVerification', {
-      params: { SEP_ID, page, size },
-    });
+    return await requestClient8085.get(
+      `/api/case/phase3/taxVerification/listByCase/${SEP_ID}`,
+      {
+        params: { page, size },
+      },
+    );
   } catch (error) {
     console.error('获取税收核定数据失败:', error);
     throw error;

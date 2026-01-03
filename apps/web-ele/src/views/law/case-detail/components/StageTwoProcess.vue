@@ -186,15 +186,20 @@ const taskStatusMap = {
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    if (response.status === '1') {
+    // 处理新的API响应格式：code字段表示成功（200），而不是旧的status字段
+    if (response.code === 200 || response.status === '1') {
+      // 兼容两种响应格式：新格式使用response.data，旧格式使用response.data.records
+      const records = response.data?.records || response.data || [];
+      const count = response.data?.count || records.length || 0;
       return {
         ...taskConfigItem,
-        data: response.data.records || [],
-        count: response.data.count || 0,
+        data: records,
+        count: count,
         status: 'loaded',
       };
     } else {
-      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      const errorMsg = response.msg || response.error || '未知错误';
+      ElMessage.error(`获取${taskConfigItem.name}失败：${errorMsg}`);
       return {
         ...taskConfigItem,
         data: [],
@@ -202,8 +207,9 @@ const fetchTaskData = async (taskConfigItem: any) => {
         status: 'error',
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`获取${taskConfigItem.name}失败:`, error);
+    ElMessage.error(`获取${taskConfigItem.name}失败：${error.message || '网络错误'}`);
     return {
       ...taskConfigItem,
       data: [],

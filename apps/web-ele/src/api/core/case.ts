@@ -56,6 +56,13 @@ export namespace CaseApi {
     error: string;
   }
 
+  /** 工作团队成员参数 */
+  export interface WorkTeamMember {
+    userId: number;
+    roleId: number;
+    permissions?: string[];
+  }
+
   /** 添加案件请求体 */
   export interface AddCaseRequest {
     ah: string;
@@ -82,6 +89,8 @@ export namespace CaseApi {
     sepNd?: string;
     selectedManagers?: string[];
     cbry?: number[];
+    reviewerId?: number;
+    teamMembers?: WorkTeamMember[];
   }
 
   /** 添加案件响应 */
@@ -278,10 +287,10 @@ export async function getCaseDetailApi(serialNumber: string) {
  * 添加单个破产案件
  */
 export async function addOneCaseApi(data: CaseApi.AddCaseRequest) {
-  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  // 直接发送数据对象，不需要数组包装
   return requestClient8085.post<CaseApi.AddCaseResponse>(
     '/api/web/AddOneCase',
-    [data],
+    data,
     {
       headers: {
         'Content-Type': 'application/json',

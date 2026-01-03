@@ -198,15 +198,28 @@ const taskStatusMap = {
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    if (response.status === '1') {
+    
+    // 添加调试日志
+    console.log(`=== ${taskConfigItem.name} API响应调试信息 ===`);
+    console.log('完整响应:', response);
+    console.log('响应状态码:', response.code || response.status);
+    console.log('响应数据:', response.data);
+    
+    // 检查响应结构，兼容不同的响应格式
+    const isSuccess = response.code === 200 || response.status === '1';
+    const responseData = response.data?.records || response.data || [];
+    
+    if (isSuccess) {
       return {
         ...taskConfigItem,
-        data: response.data.records || [],
-        count: response.data.count || 0,
+        data: responseData,
+        count: response.data?.count || responseData.length,
         status: 'loaded',
       };
     } else {
-      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      const errorMsg = response.message || response.error || '未知错误';
+      console.error(`获取${taskConfigItem.name}失败:`, errorMsg);
+      ElMessage.error(`获取${taskConfigItem.name}失败：${errorMsg}`);
       return {
         ...taskConfigItem,
         data: [],
@@ -214,8 +227,9 @@ const fetchTaskData = async (taskConfigItem: any) => {
         status: 'error',
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`获取${taskConfigItem.name}失败:`, error);
+    ElMessage.error(`获取${taskConfigItem.name}失败：${error.message || '网络异常'}`);
     return {
       ...taskConfigItem,
       data: [],

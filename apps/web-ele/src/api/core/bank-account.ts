@@ -10,27 +10,29 @@ export namespace BankAccountApi {
 
   /** 银行账户信息 */
   export interface BankAccountInfo {
-    row: number;
-    SEP_ID: string; // 银行账户ID
-    account_name: string; // 账户名称
-    bank_name: string; // 银行名称
-    account_number: string; // 账户号码
-    account_type: string; // 账户类型
+    sepId: number; // 银行账户ID
+    sepLd: string | null;
+    sepMd: string | null;
+    sepNd: string | null;
+    sepAuser: string;
+    sepAdate: number; // 创建时间戳
+    sepEuser: string;
+    sepEdate: number; // 修改时间戳
+    bankName: string; // 银行名称
+    accountNumber: string; // 账户号码
+    accountName: string; // 账户名称
+    accountType: string; // 账户类型
     currency: string; // 币种
     balance: number; // 余额
-    KHRQ: string; // 开户日期
-    XHRQ: string; // 销户日期
-    ZT: string; // 状态
-    MM: string; // 密码
+    mm: string | null; // 密码
+    khrq: number; // 开户日期时间戳
+    xhrq: number; // 销户日期时间戳
+    zt: string; // 状态
   }
 
   /** 银行账户列表响应 */
   export interface BankAccountListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: BankAccountInfo[];
-    };
+    data: BankAccountInfo[];
     status: string;
     error: string;
   }

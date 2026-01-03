@@ -62,7 +62,7 @@ const taskConfig = [
       { label: '处理日期', prop: 'clrq', isDate: true },
       { label: '处理方式', prop: 'clfs' },
       { label: '处理结果', prop: 'cljg' },
-      { label: '证明文件路径', prop: 'zmwlj' },
+      { label: '证明文件路径', prop: 'zmwjlj' },
       { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
@@ -100,10 +100,14 @@ const fetchTaskData = async (taskConfigItem: any) => {
       };
     } else if (response.status === '1') {
       // 兼容旧的API响应格式
+      // 检查response.data是否包含records数组，如果包含则使用records，否则直接使用response.data
+      const records =
+        response.data.records ||
+        (Array.isArray(response.data) ? response.data : []);
       return {
         ...taskConfigItem,
-        data: response.data.records || [],
-        count: response.data.count || 0,
+        data: records,
+        count: records.length || 0,
         status: 'loaded',
       };
     } else {
@@ -318,7 +322,9 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                    <span class="progress-text"
+                      >{{ getTaskProgress(task) }}%</span
+                    >
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"

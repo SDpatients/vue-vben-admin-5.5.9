@@ -153,7 +153,7 @@ const taskFormConfig: Record<string, any> = {
       { label: '处理日期', prop: 'clrq', type: 'date' },
       { label: '处理方式', prop: 'clfs', type: 'input' },
       { label: '处理结果', prop: 'cljg', type: 'textarea' },
-      { label: '证明文件路径', prop: 'zmwlj', type: 'input' },
+      { label: '证明文件路径', prop: 'zmwjlj', type: 'input' },
     ],
   },
   legalProcedure: {
@@ -733,7 +733,7 @@ const taskFormConfig: Record<string, any> = {
       { label: '处理日期', prop: 'clrq', type: 'date' },
       { label: '处理方式', prop: 'clfs', type: 'input' },
       { label: '处理结果', prop: 'cljg', type: 'textarea' },
-      { label: '证明文件路径', prop: 'zmwlj', type: 'input' },
+      { label: '证明文件路径', prop: 'zmwjlj', type: 'input' },
     ],
   },
   dutyReport: {
@@ -1064,7 +1064,7 @@ const fieldNameMap: Record<string, Record<string, string>> = {
     CLRQ: 'clrq',
     CLFS: 'clfs',
     CLJG: 'cljg',
-    ZMWJLJ: 'zmwlj',
+    ZMWJLJ: 'zmwjlj',
     ZT: 'zt',
   },
   dutyReport: {

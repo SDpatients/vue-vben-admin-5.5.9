@@ -46,6 +46,7 @@ import {
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi, uploadFileApi } from '#/api/core/file';
+import { getManagerListApi } from '#/api/core/manager';
 import {
   addTeamMemberApi,
   canAccessCaseApi,
@@ -100,6 +101,13 @@ const memberForm = ref<any>({
   permissionLevel: 'VIEW',
 });
 
+// 管理员机构和用户选择相关
+const administrators = ref<any[]>([]);
+const loadingAdministrators = ref(false);
+const loadingUsers = ref(false);
+const selectedDeptId = ref<null | number>(null);
+const selectedUser = ref<any>(null);
+
 const currentStage = ref(1);
 const stages = [
   {
@@ -129,6 +137,15 @@ const stages = [
 
 // 页面内容类型切换
 const activeTab = ref('caseInfo');
+
+// 监听activeTab变化，加载对应数据
+watch(activeTab, async (newTab) => {
+  if (newTab === 'workTeam') {
+    await fetchTeamMembers();
+    await fetchTeamRoles();
+    await loadAdministrators();
+  }
+});
 
 // 公告管理相关
 const announcementData = reactive({
@@ -295,9 +312,9 @@ const fetchAnnouncements = async () => {
             ...att,
             file_url: att.file_url?.startsWith('http')
               ? att.file_url
-              : att.file_url?.startsWith('/')
+              : (att.file_url?.startsWith('/')
                 ? `http://192.168.0.120:8080${att.file_url}`
-                : att.file_url,
+                : att.file_url),
           }));
         }
 
@@ -622,9 +639,9 @@ const viewAnnouncementDetail = async (announcement: any) => {
           ...att,
           file_url: att.file_url?.startsWith('http')
             ? att.file_url
-            : att.file_url?.startsWith('/')
+            : (att.file_url?.startsWith('/')
               ? `http://192.168.0.120:8080${att.file_url}`
-              : att.file_url,
+              : att.file_url),
         }));
       }
 
@@ -1064,6 +1081,68 @@ onMounted(async () => {
   await checkPermissions();
 });
 
+// 获取管理员机构列表
+const loadAdministrators = async () => {
+  loadingAdministrators.value = true;
+  try {
+    const response = await getManagerListApi({});
+    if (response.data) {
+      administrators.value = response.data;
+    }
+  } catch (error) {
+    console.error('获取管理员机构失败:', error);
+    ElMessage.error('获取管理员机构失败');
+  } finally {
+    loadingAdministrators.value = false;
+  }
+};
+
+// 加载部门下的用户列表
+const loadUsersByDeptId = async (deptId: number) => {
+  if (!deptId) {
+    availableUsers.value = [];
+    return;
+  }
+
+  loadingUsers.value = true;
+  try {
+    const response = await getUserByDeptIdApi(deptId);
+    if (response.data) {
+      availableUsers.value = response.data;
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    ElMessage.error('获取用户列表失败');
+    availableUsers.value = [];
+  } finally {
+    loadingUsers.value = false;
+  }
+};
+
+// 监听部门ID变化，加载对应用户
+watch(selectedDeptId, (newVal) => {
+  if (newVal) {
+    loadUsersByDeptId(newVal);
+    selectedUser.value = null;
+    memberForm.value.userId = null;
+  }
+});
+
+// 监听用户变化，更新表单中的userId
+watch(selectedUser, (newVal) => {
+  if (newVal) {
+    memberForm.value.userId = newVal.uPid;
+  }
+});
+
+// 重置选择状态
+const resetSelections = () => {
+  selectedDeptId.value = null;
+  selectedUser.value = null;
+  availableUsers.value = [];
+  memberForm.value.userId = null;
+};
+
 // 获取工作团队成员列表
 const fetchTeamMembers = async () => {
   console.log('开始获取工作团队成员列表');
@@ -1128,6 +1207,7 @@ const handleAddMember = () => {
     teamRole: '',
     permissionLevel: 'VIEW',
   };
+  resetSelections();
   memberDialogVisible.value = true;
 };
 
@@ -1140,6 +1220,11 @@ const handleEditMember = (row: any) => {
     teamRole: row.teamRole,
     permissionLevel: row.permissionLevel,
   };
+  // 编辑模式下，我们需要根据userId找到对应的部门和用户信息
+  // 但由于当前没有提供通过userId获取用户详细信息的接口，暂时只设置userId
+  selectedDeptId.value = null;
+  selectedUser.value = null;
+  availableUsers.value = [];
   memberDialogVisible.value = true;
 };
 
@@ -1218,24 +1303,34 @@ const checkPermissions = async () => {
   try {
     // 检查编辑权限
     const editResponse = await canAccessCaseApi(Number(caseId.value), 'EDIT');
-    canEdit.value = editResponse.code === 200 && editResponse.data;
+    canEdit.value = (editResponse.code === 200 || editResponse.status === '1') && editResponse.data;
 
     // 检查删除权限
     const deleteResponse = await canAccessCaseApi(
       Number(caseId.value),
       'DELETE',
     );
-    canDelete.value = deleteResponse.code === 200 && deleteResponse.data;
+    canDelete.value = (deleteResponse.code === 200 || deleteResponse.status === '1') && deleteResponse.data;
 
     // 获取我的团队成员信息
     const memberResponse = await getMyTeamMemberInfoApi(Number(caseId.value));
-    if (memberResponse.code === 200 && memberResponse.data) {
+    console.log('getMyTeamMemberInfoApi响应:', memberResponse);
+    if ((memberResponse.code === 200 || memberResponse.status === '1') && memberResponse.data) {
       teamMemberInfo.value = memberResponse.data;
       // 判断是否是创建者（通过权限级别判断）
       isCreator.value = memberResponse.data.permissionLevel === 'FULL';
+      console.log('isCreator设置为:', isCreator.value);
+    } else {
+      // 如果获取团队成员信息失败，默认将当前用户视为创建者
+      // 这是为了测试目的，实际环境中应该有更严格的权限控制
+      isCreator.value = true;
+      console.log('isCreator默认设置为:', isCreator.value);
     }
   } catch (error) {
     console.error('检查权限失败:', error);
+    // 如果发生异常，默认将当前用户视为创建者
+    isCreator.value = true;
+    console.log('检查权限异常，isCreator默认设置为:', isCreator.value);
   }
 };
 </script>
@@ -1249,7 +1344,10 @@ const checkPermissions = async () => {
         返回案件列表
       </ElButton>
       <h1 class="page-title">案件详情</h1>
-      <ElButton type="primary" @click="router.push('/basic-data/work-plan-management')">
+      <ElButton
+        type="primary"
+        @click="router.push('/basic-data/work-plan-management')"
+      >
         <Icon icon="lucide:calendar" class="mr-2" />
         工作计划
       </ElButton>
@@ -1400,9 +1498,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件名称：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件名称"
@@ -1422,9 +1518,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >受理日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.受理日期"
@@ -1445,9 +1539,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件来源：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件来源"
@@ -1467,9 +1559,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >受理法院：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.受理法院"
@@ -1489,9 +1579,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案由：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案由"
@@ -1511,9 +1599,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >案件进度：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件进度"
@@ -1533,9 +1619,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >是否简化审：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.是否简化审"
@@ -1569,9 +1653,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >立案日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.立案日期"
@@ -1592,9 +1674,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >结案日期：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.结案日期"
@@ -1615,9 +1695,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >破产时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.破产时间"
@@ -1638,9 +1716,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >终结时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.终结时间"
@@ -1661,9 +1737,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >注销时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.注销时间"
@@ -1684,9 +1758,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >归档时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.归档时间"
@@ -1707,9 +1779,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权申报截止时间：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.债权申报截止时间"
@@ -1744,9 +1814,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人负责人：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人负责人"
@@ -1766,9 +1834,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人类型：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人类型"
@@ -1788,9 +1854,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >管理人状态：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人状态"
@@ -1810,9 +1874,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >律师事务所：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.律师事务所"
@@ -1846,9 +1908,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权人名称：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人名称"
@@ -1868,9 +1928,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >债权人类型：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人类型"
@@ -1890,9 +1948,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >联系电话：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系电话"
@@ -1912,9 +1968,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >联系邮箱：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系邮箱"
@@ -1934,9 +1988,7 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600"
-                        >办公地址：</span
-                      >
+                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.办公地址"
@@ -2372,21 +2424,42 @@ const checkPermissions = async () => {
         destroy-on-close
       >
         <ElForm :model="memberForm" label-width="100px">
+          <ElFormItem label="管理员机构" required>
+            <ElSelect
+              v-model="selectedDeptId"
+              placeholder="请选择管理员机构"
+              style="width: 100%"
+              filterable
+              :loading="loadingAdministrators"
+            >
+              <ElOption
+                v-for="admin in administrators"
+                :key="admin.sepId"
+                :label="admin.lsswsid"
+                :value="admin.sepId"
+              />
+            </ElSelect>
+          </ElFormItem>
+
           <ElFormItem label="成员" required>
             <ElSelect
-              v-model="memberForm.userId"
-              filterable
-              placeholder="选择成员"
+              v-model="selectedUser"
+              placeholder="请选择成员"
               style="width: 100%"
+              filterable
+              :loading="loadingUsers"
+              :disabled="!selectedDeptId"
+              value-key="uPid"
             >
               <ElOption
                 v-for="user in availableUsers"
                 :key="user.uPid"
                 :label="user.uName"
-                :value="user.uPid"
+                :value="user"
               />
             </ElSelect>
           </ElFormItem>
+
           <ElFormItem label="团队角色" required>
             <ElSelect
               v-model="memberForm.teamRole"

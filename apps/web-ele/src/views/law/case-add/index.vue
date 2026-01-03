@@ -50,6 +50,7 @@ const form = reactive<CaseApi.AddCaseRequest>({
   sepMd: undefined,
   sepNd: undefined,
   selectedManagers: [], // 选中的管理人列表
+  teamMembers: [], // 工作团队成员列表
 });
 
 // 法院列表数据
@@ -60,6 +61,42 @@ const managerList = ref<{ label: string; sepId: string; value: string }[]>([]);
 
 // 用户列表数据
 const userList = ref<{ label: string; value: number }[]>([]);
+
+// 团队角色列表
+const teamRoles = ref<{ label: string; value: number }[]>([]);
+
+// 团队成员管理相关状态
+const teamMemberDialogVisible = ref(false);
+const currentTeamMemberIndex = ref(-1);
+const teamMemberForm = reactive({
+  userId: undefined as number | undefined,
+  roleId: undefined as number | undefined,
+  permissions: [] as string[],
+});
+
+// 权限选项
+const permissionOptions = [
+  { label: '查看案件', value: 'case:view' },
+  { label: '编辑案件', value: 'case:edit' },
+  { label: '管理团队', value: 'team:manage' },
+  { label: '案件审核', value: 'case:approve' },
+];
+
+// 获取团队角色列表
+const fetchTeamRoles = async () => {
+  try {
+    const response = await getActiveTeamRolesApi();
+    if (response.code === 200 && response.data) {
+      teamRoles.value = response.data.map((role: any) => ({
+        label: role.roleName,
+        value: Number(role.roleCode),
+      }));
+    }
+  } catch (error) {
+    console.error('获取团队角色列表失败:', error);
+    ElMessage.error('获取团队角色列表失败');
+  }
+};
 
 // 获取法院列表
 const fetchCourtList = async () => {
@@ -127,9 +164,10 @@ const fetchUserList = async (managerIds: string[]) => {
   }
 };
 
-// 组件挂载时获取法院列表和管理人列表
+// 组件挂载时获取法院列表、管理人和团队角色列表
 fetchCourtList();
 fetchManagerList();
+fetchTeamRoles();
 
 // 监听管理人变化，加载对应的用户列表
 watch(
@@ -249,6 +287,56 @@ const downloadFile = (file: any) => {
     a.remove();
     URL.revokeObjectURL(fileURL);
   }
+};
+
+// 团队成员管理方法
+const openAddTeamMemberDialog = () => {
+  currentTeamMemberIndex.value = -1;
+  teamMemberForm.userId = undefined;
+  teamMemberForm.roleId = undefined;
+  teamMemberForm.permissions = [];
+  teamMemberDialogVisible.value = true;
+};
+
+const openEditTeamMemberDialog = (index: number) => {
+  currentTeamMemberIndex.value = index;
+  const member = form.teamMembers![index];
+  teamMemberForm.userId = member.userId;
+  teamMemberForm.roleId = member.roleId;
+  teamMemberForm.permissions = member.permissions || [];
+  teamMemberDialogVisible.value = true;
+};
+
+const saveTeamMember = () => {
+  if (!teamMemberForm.userId || !teamMemberForm.roleId) {
+    ElMessage.warning('请选择成员和角色');
+    return;
+  }
+
+  const memberData = {
+    userId: teamMemberForm.userId,
+    roleId: teamMemberForm.roleId,
+    permissions: teamMemberForm.permissions,
+  };
+
+  if (currentTeamMemberIndex.value === -1) {
+    // 添加新成员
+    if (!form.teamMembers) {
+      form.teamMembers = [];
+    }
+    form.teamMembers.push(memberData);
+  } else {
+    // 编辑现有成员
+    form.teamMembers![currentTeamMemberIndex.value] = memberData;
+  }
+
+  teamMemberDialogVisible.value = false;
+  ElMessage.success('团队成员保存成功');
+};
+
+const deleteTeamMember = (index: number) => {
+  form.teamMembers!.splice(index, 1);
+  ElMessage.success('团队成员删除成功');
 };
 
 // 表单验证规则
@@ -864,6 +952,92 @@ const submitForm = async () => {
             </div>
           </div>
 
+          <!-- 工作团队成员分组 -->
+          <div class="form-section mb-6">
+            <h3 class="section-title mb-4">工作团队成员</h3>
+            <div class="section-content rounded-lg bg-gray-50 p-4">
+              <div class="mb-4 flex justify-end">
+                <el-button type="primary" @click="openAddTeamMemberDialog">
+                  <i class="i-lucide-plus mr-1"></i>
+                  添加团队成员
+                </el-button>
+              </div>
+
+              <!-- 团队成员列表 -->
+              <el-table
+                v-if="form.teamMembers && form.teamMembers.length > 0"
+                :data="form.teamMembers"
+                stripe
+                border
+                size="small"
+                style="width: 100%"
+              >
+                <el-table-column prop="userId" label="成员ID" min-width="80" />
+                <el-table-column label="成员姓名" min-width="120">
+                  <template #default="{ row }">
+                    {{
+                      userList.find((u) => u.value === row.userId)?.label ||
+                      '未知'
+                    }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="角色" min-width="120">
+                  <template #default="{ row }">
+                    {{
+                      teamRoles.find((r) => r.value === row.roleId)?.label ||
+                      '未知'
+                    }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="权限" min-width="180">
+                  <template #default="{ row }">
+                    <el-tag
+                      v-for="permission in row.permissions || []"
+                      :key="permission"
+                      size="small"
+                      class="mb-1 mr-1"
+                    >
+                      {{
+                        permissionOptions.find((p) => p.value === permission)
+                          ?.label || permission
+                      }}
+                    </el-tag>
+                    <span
+                      v-if="!(row.permissions && row.permissions.length > 0)"
+                      class="text-gray-400"
+                    >
+                      无
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" min-width="120" fixed="right">
+                  <template #default="{ $index }">
+                    <div class="flex gap-2">
+                      <el-button
+                        type="primary"
+                        size="small"
+                        @click="openEditTeamMemberDialog($index)"
+                      >
+                        编辑
+                      </el-button>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        @click="deleteTeamMember($index)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+
+              <div v-else class="py-8 text-center text-gray-500">
+                暂无团队成员，点击"添加团队成员"按钮添加
+              </div>
+            </div>
+          </div>
+
           <!-- 表单操作按钮 -->
           <div class="form-actions mt-6 flex justify-end gap-3">
             <ElButton @click="resetForm">重置</ElButton>
@@ -880,6 +1054,69 @@ const submitForm = async () => {
       </el-card>
     </div>
   </div>
+
+  <!-- 团队成员管理对话框 -->
+  <el-dialog
+    v-model="teamMemberDialogVisible"
+    title="添加/编辑团队成员"
+    width="500px"
+    :close-on-click-modal="false"
+  >
+    <el-form :model="teamMemberForm" label-width="80px">
+      <el-form-item label="成员">
+        <el-select
+          v-model="teamMemberForm.userId"
+          placeholder="请选择成员"
+          style="width: 100%"
+          filterable
+        >
+          <el-option
+            v-for="user in userList"
+            :key="user.value"
+            :label="user.label"
+            :value="user.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="角色">
+        <el-select
+          v-model="teamMemberForm.roleId"
+          placeholder="请选择角色"
+          style="width: 100%"
+          filterable
+        >
+          <el-option
+            v-for="role in teamRoles"
+            :key="role.value"
+            :label="role.label"
+            :value="role.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="权限">
+        <el-select
+          v-model="teamMemberForm.permissions"
+          placeholder="请选择权限"
+          style="width: 100%"
+          multiple
+          collapse-tags
+        >
+          <el-option
+            v-for="option in permissionOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <el-button @click="teamMemberDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveTeamMember">确定</el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>

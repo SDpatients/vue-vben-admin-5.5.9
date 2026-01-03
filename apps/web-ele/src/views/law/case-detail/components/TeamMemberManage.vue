@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import type { WorkTeamApi } from '#/api';
+import type { ManagerApi } from '#/api/core/manager';
+import type { UserApi } from '#/api/core/user';
+import type { WorkTeamApi } from '#/api/core/work-team';
 
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 import {
   ElButton,
@@ -9,7 +11,6 @@ import {
   ElDialog,
   ElForm,
   ElFormItem,
-  ElInput,
   ElMessage,
   ElMessageBox,
   ElOption,
@@ -19,6 +20,8 @@ import {
   ElTag,
 } from 'element-plus';
 
+import { getManagerListApi } from '#/api/core/manager';
+import { getUserByDeptIdApi } from '#/api/core/user';
 import {
   addTeamMemberApi,
   getActiveTeamRolesApi,
@@ -27,26 +30,91 @@ import {
   updateTeamMemberApi,
 } from '#/api/core/work-team';
 
+const props = defineProps<Props>();
+// 新增的响应式数据
+const administrators = ref<ManagerApi.ManagerInfo[]>([]);
+const users = ref<UserApi.UserInfo[]>([]);
+const loadingAdministrators = ref(false);
+const loadingUsers = ref(false);
+const selectedDeptId = ref<null | number>(null);
+const selectedUser = ref<null | UserApi.UserInfo>(null);
+
 interface Props {
   caseId: number;
   isCreator: boolean;
 }
-
-const props = defineProps<Props>();
 
 const teamMembers = ref<WorkTeamApi.TeamMemberInfo[]>([]);
 const teamRoles = ref<WorkTeamApi.TeamRoleInfo[]>([]);
 const dialogVisible = ref(false);
 const dialogTitle = ref('添加成员');
 const memberForm = ref({
-  id: null as number | null,
-  userId: null as number | null,
-  userName: '',
-  teamRole: '',
-  permissionLevel: 'VIEW',
+  id: null as null | number,
+  userId: null as null | number,
+  roleId: null as null | number,
 });
 
 const loading = ref(false);
+
+// 加载管理员机构列表
+const loadAdministrators = async () => {
+  loadingAdministrators.value = true;
+  try {
+    const response = await getManagerListApi({});
+    if (response.data) {
+      administrators.value = response.data;
+    }
+  } catch {
+    ElMessage.error('获取管理员机构失败');
+  } finally {
+    loadingAdministrators.value = false;
+  }
+};
+
+// 加载部门下的用户列表
+const loadUsersByDeptId = async (deptId: number) => {
+  if (!deptId) {
+    users.value = [];
+    return;
+  }
+
+  loadingUsers.value = true;
+  try {
+    const response = await getUserByDeptIdApi(deptId);
+    if (response.data) {
+      users.value = response.data;
+    }
+  } catch {
+    ElMessage.error('获取用户列表失败');
+    users.value = [];
+  } finally {
+    loadingUsers.value = false;
+  }
+};
+
+// 监听部门ID变化，加载对应用户
+watch(selectedDeptId, (newVal) => {
+  if (newVal) {
+    loadUsersByDeptId(newVal);
+    selectedUser.value = null;
+    memberForm.value.userId = null;
+  }
+});
+
+// 监听用户变化，更新表单中的userId
+watch(selectedUser, (newVal) => {
+  if (newVal) {
+    memberForm.value.userId = newVal.uPid;
+  }
+});
+
+// 重置选择状态
+const resetSelections = () => {
+  selectedDeptId.value = null;
+  selectedUser.value = null;
+  users.value = [];
+  memberForm.value.userId = null;
+};
 
 const loadTeamMembers = async () => {
   loading.value = true;
@@ -73,33 +141,14 @@ const loadTeamRoles = async () => {
   }
 };
 
-const getPermissionTagType = (level: string) => {
-  const types: Record<string, any> = {
-    VIEW: 'info',
-    EDIT: 'warning',
-    FULL: 'danger',
-  };
-  return types[level] || 'info';
-};
-
-const getPermissionLabel = (level: string) => {
-  const labels: Record<string, string> = {
-    VIEW: '查看',
-    EDIT: '编辑',
-    FULL: '完全控制',
-  };
-  return labels[level] || level;
-};
-
 const handleAddMember = () => {
   dialogTitle.value = '添加成员';
   memberForm.value = {
     id: null,
     userId: null,
-    userName: '',
-    teamRole: '',
-    permissionLevel: 'VIEW',
+    roleId: null,
   };
+  resetSelections();
   dialogVisible.value = true;
 };
 
@@ -108,24 +157,30 @@ const handleEditMember = (row: WorkTeamApi.TeamMemberInfo) => {
   memberForm.value = {
     id: row.id,
     userId: row.userId,
-    userName: row.userName,
-    teamRole: row.teamRole,
-    permissionLevel: row.permissionLevel,
+    roleId: Number(row.teamRole),
   };
+  // 编辑模式下，我们需要根据userId找到对应的部门和用户信息
+  // 但由于当前没有提供通过userId获取用户详细信息的接口，暂时只设置userId
+  selectedDeptId.value = null;
+  selectedUser.value = null;
+  users.value = [];
   dialogVisible.value = true;
 };
+
+// 在组件挂载时加载管理员机构列表
+onMounted(() => {
+  loadTeamMembers();
+  loadTeamRoles();
+  loadAdministrators();
+});
 
 const handleSaveMember = async () => {
   if (!memberForm.value.userId) {
     ElMessage.warning('请选择成员');
     return;
   }
-  if (!memberForm.value.teamRole) {
+  if (!memberForm.value.roleId) {
     ElMessage.warning('请选择团队角色');
-    return;
-  }
-  if (!memberForm.value.permissionLevel) {
-    ElMessage.warning('请选择权限级别');
     return;
   }
 
@@ -133,18 +188,15 @@ const handleSaveMember = async () => {
     const data = {
       caseId: props.caseId,
       userId: memberForm.value.userId,
-      teamRole: memberForm.value.teamRole,
-      permissionLevel: memberForm.value.permissionLevel,
+      roleId: memberForm.value.roleId,
     };
 
-    if (memberForm.value.id) {
-      await updateTeamMemberApi({
-        id: memberForm.value.id,
-        ...data,
-      });
-    } else {
-      await addTeamMemberApi(data);
-    }
+    await (memberForm.value.id
+      ? updateTeamMemberApi({
+          id: memberForm.value.id,
+          ...data,
+        })
+      : addTeamMemberApi(data));
 
     dialogVisible.value = false;
     loadTeamMembers();
@@ -170,15 +222,6 @@ const handleRemoveMember = async (row: WorkTeamApi.TeamMemberInfo) => {
     }
   }
 };
-
-const handleUserSearch = async (query: string) => {
-  if (!query) return;
-};
-
-onMounted(() => {
-  loadTeamMembers();
-  loadTeamRoles();
-});
 
 defineExpose({
   loadTeamMembers,
@@ -212,13 +255,6 @@ defineExpose({
       <ElTableColumn prop="userName" label="成员姓名" min-width="120" />
       <ElTableColumn prop="userCode" label="用户代码" min-width="120" />
       <ElTableColumn prop="teamRoleName" label="团队角色" min-width="120" />
-      <ElTableColumn prop="permissionLevel" label="权限级别" min-width="120">
-        <template #default="{ row }">
-          <ElTag :type="getPermissionTagType(row.permissionLevel)" size="small">
-            {{ getPermissionLabel(row.permissionLevel) }}
-          </ElTag>
-        </template>
-      </ElTableColumn>
       <ElTableColumn prop="isActive" label="状态" min-width="80" align="center">
         <template #default="{ row }">
           <ElTag :type="row.isActive ? 'success' : 'danger'" size="small">
@@ -226,7 +262,12 @@ defineExpose({
           </ElTag>
         </template>
       </ElTableColumn>
-      <ElTableColumn v-if="isCreator" label="操作" min-width="150" fixed="right">
+      <ElTableColumn
+        v-if="isCreator"
+        label="操作"
+        min-width="150"
+        fixed="right"
+      >
         <template #default="{ row }">
           <div class="flex gap-2">
             <ElButton size="small" @click="handleEditMember(row)">
@@ -252,16 +293,45 @@ defineExpose({
       :close-on-click-modal="false"
     >
       <ElForm :model="memberForm" label-width="100px">
-        <ElFormItem label="成员姓名" required>
-          <ElInput
-            v-model="memberForm.userName"
-            placeholder="请输入成员姓名"
-            @input="handleUserSearch"
-          />
+        <ElFormItem label="管理员机构" required>
+          <ElSelect
+            v-model="selectedDeptId"
+            placeholder="请选择管理员机构"
+            style="width: 100%"
+            filterable
+            :loading="loadingAdministrators"
+          >
+            <ElOption
+              v-for="admin in administrators"
+              :key="admin.sepId"
+              :label="admin.lsswsid"
+              :value="admin.sepId"
+            />
+          </ElSelect>
         </ElFormItem>
+
+        <ElFormItem label="成员" required>
+          <ElSelect
+            v-model="selectedUser"
+            placeholder="请选择成员"
+            style="width: 100%"
+            filterable
+            :loading="loadingUsers"
+            :disabled="!selectedDeptId"
+            value-key="uPid"
+          >
+            <ElOption
+              v-for="user in users"
+              :key="user.uPid"
+              :label="user.uName"
+              :value="user"
+            />
+          </ElSelect>
+        </ElFormItem>
+
         <ElFormItem label="团队角色" required>
           <ElSelect
-            v-model="memberForm.teamRole"
+            v-model="memberForm.roleId"
             placeholder="请选择角色"
             style="width: 100%"
           >
@@ -269,28 +339,15 @@ defineExpose({
               v-for="role in teamRoles"
               :key="role.roleCode"
               :label="role.roleName"
-              :value="role.roleCode"
+              :value="Number(role.roleCode)"
             />
-          </ElSelect>
-        </ElFormItem>
-        <ElFormItem label="权限级别" required>
-          <ElSelect
-            v-model="memberForm.permissionLevel"
-            placeholder="请选择权限"
-            style="width: 100%"
-          >
-            <ElOption label="查看" value="VIEW" />
-            <ElOption label="编辑" value="EDIT" />
-            <ElOption label="完全控制" value="FULL" />
           </ElSelect>
         </ElFormItem>
       </ElForm>
       <template #footer>
         <div class="flex justify-end gap-2">
           <ElButton @click="dialogVisible = false">取消</ElButton>
-          <ElButton type="primary" @click="handleSaveMember">
-            确定
-          </ElButton>
+          <ElButton type="primary" @click="handleSaveMember"> 确定 </ElButton>
         </div>
       </template>
     </ElDialog>

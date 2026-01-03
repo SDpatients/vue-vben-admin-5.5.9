@@ -108,9 +108,10 @@ const fetchBankAccountList = async () => {
     const response = await getBankAccountListApi(params);
 
     if (response.status === '1') {
-      bankAccountList.value = response.data.records;
-      pagination.value.itemCount = response.data.count;
-      pagination.value.pages = response.data.pages;
+      bankAccountList.value = response.data || [];
+      pagination.value.itemCount = response.data?.length || 0;
+      pagination.value.pages =
+        Math.ceil(pagination.value.itemCount / pagination.value.pageSize) || 0;
       ElMessage.success(
         `成功加载 ${bankAccountList.value.length} 条银行账户记录`,
       );
@@ -177,9 +178,10 @@ const hideNonCoreColumns = () => {
 };
 
 // 格式化日期显示
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('zh-CN');
+const formatDate = (timestamp: number) => {
+  // 特殊处理无效时间戳
+  if (!timestamp || timestamp === -2_209_017_600_000) return '-';
+  return new Date(timestamp).toLocaleDateString('zh-CN');
 };
 
 // 格式化货币显示
@@ -230,26 +232,33 @@ const getAccountType = (type: string) => {
 
 // 查看银行账户详情
 const viewBankAccountDetail = (row: BankAccountApi.BankAccountInfo) => {
-  ElMessage.info(`查看银行账户详情: ${row.account_name}`);
+  ElMessage.info(`查看银行账户详情: ${row.accountName}`);
   // 后续可添加路由跳转逻辑
   // const router = useRouter();
-  // router.push(`/basic-data/bank-account-management/detail/${row.row}`);
+  // router.push(`/basic-data/bank-account-management/detail/${row.sepId}`);
 };
 
 // 编辑银行账户
 const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editingRow.value = row;
   // 填充编辑表单数据
-  editFormData.SEP_ID = row.SEP_ID;
-  editFormData.account_name = row.account_name;
-  editFormData.bank_name = row.bank_name;
-  editFormData.account_number = row.account_number;
-  editFormData.account_type = row.account_type;
+  editFormData.SEP_ID = row.sepId.toString();
+  editFormData.account_name = row.accountName;
+  editFormData.bank_name = row.bankName;
+  editFormData.account_number = row.accountNumber;
+  editFormData.account_type = row.accountType;
   editFormData.currency = row.currency;
   editFormData.balance = row.balance;
-  editFormData.KHRQ = row.KHRQ;
-  editFormData.XHRQ = row.XHRQ;
-  editFormData.ZT = row.ZT;
+  // 注意：这里需要将时间戳转换为日期字符串，因为表单中使用的是日期选择器
+  editFormData.KHRQ =
+    row.khrq && row.khrq !== -2_209_017_600_000
+      ? new Date(row.khrq).toISOString().slice(0, 10)
+      : '';
+  editFormData.XHRQ =
+    row.xhrq && row.xhrq !== -2_209_017_600_000
+      ? new Date(row.xhrq).toISOString().slice(0, 10)
+      : '';
+  editFormData.ZT = row.zt;
   // 显示编辑弹窗
   editDialogVisible.value = true;
 };
@@ -332,7 +341,7 @@ const handleDeleteBankAccount = async (row: BankAccountApi.BankAccountInfo) => {
     });
 
     // 调用删除账户API
-    const response = await deleteBankAccountApi({ SEP_ID: row.SEP_ID });
+    const response = await deleteBankAccountApi({ SEP_ID: row.sepId.toString() });
 
     if (response.status === '1') {
       ElMessage.success('银行账户删除成功');
@@ -358,10 +367,10 @@ const exportBankAccountData = () => {
 
   // 定义导出列配置
   const exportColumns: ExportColumnConfig[] = [
-    { field: 'row', title: '行号', width: 8 },
-    { field: 'account_name', title: '账户名称', width: 15 },
-    { field: 'bank_name', title: '银行名称', width: 12 },
-    { field: 'account_number', title: '账户号码', width: 18 },
+    { field: 'sepId', title: '行号', width: 8 },
+    { field: 'accountName', title: '账户名称', width: 15 },
+    { field: 'bankName', title: '银行名称', width: 12 },
+    { field: 'accountNumber', title: '账户号码', width: 18 },
     {
       field: 'account_type',
       title: '账户类型',
@@ -635,7 +644,7 @@ const handleSubmit = async () => {
 
         <!-- 账户名称列 -->
         <ElTableColumn
-          prop="account_name"
+          prop="accountName"
           label="账户名称"
           width="150"
           show-overflow-tooltip
@@ -643,7 +652,7 @@ const handleSubmit = async () => {
 
         <!-- 银行名称列 -->
         <ElTableColumn
-          prop="bank_name"
+          prop="bankName"
           label="银行名称"
           width="120"
           show-overflow-tooltip
@@ -651,7 +660,7 @@ const handleSubmit = async () => {
 
         <!-- 账户号码列 -->
         <ElTableColumn
-          prop="account_number"
+          prop="accountNumber"
           label="账户号码"
           width="180"
           show-overflow-tooltip
@@ -659,14 +668,14 @@ const handleSubmit = async () => {
 
         <!-- 账户类型列 -->
         <ElTableColumn
-          prop="account_type"
+          prop="accountType"
           label="账户类型"
           width="100"
           align="center"
         >
           <template #default="{ row }">
-            <ElTag :type="getAccountType(row.account_type)" size="small">
-              {{ row.account_type }}
+            <ElTag :type="getAccountType(row.accountType)" size="small">
+              {{ row.accountType }}
             </ElTag>
           </template>
         </ElTableColumn>
@@ -687,24 +696,24 @@ const handleSubmit = async () => {
         </ElTableColumn>
 
         <!-- 开户日期列 -->
-        <ElTableColumn prop="KHRQ" label="开户日期" width="120" align="center">
+        <ElTableColumn prop="khrq" label="开户日期" width="120" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.KHRQ) }}
+            {{ formatDate(row.khrq) }}
           </template>
         </ElTableColumn>
 
         <!-- 销户日期列 -->
-        <ElTableColumn prop="XHRQ" label="销户日期" width="120" align="center">
+        <ElTableColumn prop="xhrq" label="销户日期" width="120" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.XHRQ) }}
+            {{ formatDate(row.xhrq) }}
           </template>
         </ElTableColumn>
 
         <!-- 状态列 -->
-        <ElTableColumn prop="ZT" label="状态" width="100" align="center">
+        <ElTableColumn prop="zt" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <ElTag :type="getStatusType(row.ZT)" size="small">
-              {{ row.ZT }}
+            <ElTag :type="getStatusType(row.zt)" size="small">
+              {{ row.zt }}
             </ElTag>
           </template>
         </ElTableColumn>

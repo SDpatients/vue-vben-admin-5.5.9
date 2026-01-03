@@ -124,8 +124,13 @@ export namespace WorkTeamApi {
     caseId: number;
     members: {
       userId: number;
-      teamRole: string;
-      permissionLevel: string;
+      roleId: number;
+    }[];
+    permissions?: {
+      memberId: number;
+      moduleType: string;
+      permissionType: string;
+      isAllowed: boolean;
     }[];
   }
 
@@ -133,8 +138,7 @@ export namespace WorkTeamApi {
   export interface AddTeamMemberRequest {
     caseId: number;
     userId: number;
-    teamRole: string;
-    permissionLevel: string;
+    roleId: number;
   }
 
   /** 更新团队成员请求 */
@@ -142,8 +146,7 @@ export namespace WorkTeamApi {
     id: number;
     caseId: number;
     userId: number;
-    teamRole: string;
-    permissionLevel: string;
+    roleId: number;
   }
 
   /** 团队角色信息 */
