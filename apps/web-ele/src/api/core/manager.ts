@@ -13,28 +13,29 @@ export namespace ManagerApi {
 
   /** 管理人信息 */
   export interface ManagerInfo {
-    row: number;
-    SEP_ID: string; // 管理人ID
-    LSWS: string; // 律师事务所
-    GLRType: string; // 管理人类型
-    FZR: string; // 负责人
-    LXDH: string; // 联系电话
-    LXEmail: string; // 联系邮箱
-    BGAddress: string; // 办公地址
-    ZT: string; // 状态
-    SEP_AUSER: string; // 创建者
-    SEP_ADATE: string; // 创建时间
-    SEP_EUSER: string; // 修改者
-    SEP_EDATE: string; // 修改时间
+    row?: number;
+    sepId: number; // 管理人ID
+    lsswsid: string; // 律师事务所
+    glrlx: string; // 管理人类型
+    fzrid: string; // 负责人
+    lxdh: string; // 联系电话
+    lxyx: string; // 联系邮箱
+    bgdz: string; // 办公地址
+    zt: string; // 状态
+    sepLd?: any;
+    sepMd?: any;
+    ccje?: any;
+    kzje?: any;
+    sepNd?: any;
+    sepAuser: string; // 创建者
+    sepAdate: number; // 创建时间
+    sepEuser?: any;
+    sepEdate?: any;
   }
 
   /** 管理人列表响应 */
   export interface ManagerListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: ManagerInfo[];
-    };
+    data: ManagerInfo[];
     status: string;
     error: string;
   }

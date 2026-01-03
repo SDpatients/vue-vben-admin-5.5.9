@@ -12,59 +12,62 @@ declare namespace DebtorApi {
 
   /** 债务人信息 */
   interface DebtorInfo {
-    /** 行号 */
-    row: number;
-    /** 案件ID */
-    AJID: string;
+    /** 债务人ID */
+    sepId: number;
     /** 企业名称 */
-    QYMC: string;
+    qymc: string;
     /** 统一社会信用代码 */
-    TYSHXYDM: string;
+    tyshxydm: string;
     /** 法定代表人 */
-    FDDBR: string;
+    fddbr: string;
     /** 登记机关 */
-    DJJG: string;
+    djjg: string;
     /** 成立日期 */
-    CLRQ: null | string;
+    clrq: number;
     /** 注册资本 */
-    ZCZB: string;
+    zczb: string;
     /** 经营范围 */
-    JYFW: string;
+    jyfw: string;
     /** 企业类型 */
-    QYLX: string;
+    qylx: string;
     /** 所属行业 */
-    SSHY: string;
+    shhy: string;
     /** 注册地址 */
-    ZCDZ: string;
+    zcdz: string;
     /** 联系电话 */
-    LXDH: string;
+    lxdh: string;
     /** 联系人 */
-    LXR: string;
+    lxr: string;
     /** 状态 */
-    ZT: string;
+    zt: string;
+    /** 创建用户 */
+    sepAuser: string;
+    /** 创建时间 */
+    sepAdate: number;
+    /** 修改用户 */
+    sepEuser: string;
+    /** 修改时间 */
+    sepEdate: number;
   }
 
   /** 债务人列表响应 */
   interface DebtorListResponse {
-    data: {
-      /** 总记录数 */
-      count: number;
-      /** 总页数 */
-      pages: number;
-      /** 债务人记录列表 */
-      records: DebtorInfo[];
-    };
     /** 状态码 */
     status: string;
     /** 错误信息 */
     error: string;
+    /** 债务人记录列表 */
+    data: DebtorInfo[];
   }
 
   /** 债务人详情响应 */
   interface DebtorDetailResponse {
-    data: DebtorInfo;
+    /** 状态码 */
     status: string;
+    /** 错误信息 */
     error: string;
+    /** 债务人信息 */
+    data: DebtorInfo;
   }
 
   /** 添加债务人请求体 */
