@@ -252,11 +252,20 @@ export interface CaseDetailResponse {
 /**
  * 获取案件列表
  */
-export async function getCaseListApi(params: CaseApi.CaseQueryParams) {
-  return requestClient8085.get<CaseApi.CaseListResponse>(
-    '/api/web/selectAllCase',
+export async function getCaseListApi(params: {
+  page: number;
+  size: number;
+  AJZT?: string;
+  AH?: string;
+  token?: string;
+}) {
+  return requestClient8085.post<CaseApi.CaseListResponse>(
+    '/api/web/getAllCaseAndFYandZWR',
+    params,
     {
-      params,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     },
   );
 }
