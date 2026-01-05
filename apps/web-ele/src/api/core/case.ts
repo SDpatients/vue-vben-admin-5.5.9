@@ -268,16 +268,25 @@ export async function getCaseListApi(params: {
   AH?: string;
   token?: string;
 }) {
-  return requestClient8085.post<CaseApi.CaseListResponse>(
-    '/api/web/getAllCaseAndFYandZWR',
+  return requestClient8085.get<CaseApi.CaseListResponse>('/api/web/selectAllCase', {
     params,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
+  });
 }
+
+/**
+ * 获取所有案件
+ */
+export async function getAllCasesApi(params: { page?: number; size?: number } = {}) {
+  const { page = 1, size = 10 } = params;
+  return requestClient8085.get('/api/web/selectAllCase', {
+    params: { page, size },
+  });
+}
+
+/**
+ * 获取所有案件（别名，兼容旧代码）
+ */
+export const getAllCases = getAllCasesApi;
 
 /**
  * 获取案件详情
