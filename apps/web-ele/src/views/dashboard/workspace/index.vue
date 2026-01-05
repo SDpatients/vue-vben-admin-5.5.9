@@ -114,7 +114,7 @@ const handlePageChange = (page: number) => {
 
 // 跳转到案件详情
 const goToCaseDetail = (caseId: number) => {
-  router.push(`/case-management/detail/${caseId}`);
+  router.push(`/case-detail/${caseId}`);
 };
 
 // 获取天气数据 - 固定使用安吉的经纬度
@@ -300,8 +300,8 @@ onMounted(() => {
                 </div>
                 
                 <!-- 当前节点 -->
-                <div class="case-progress flex justify-between items-center text-xs pt-2 border-t border-dashed border-gray-200">
-                  <span class="text-gray-500">当前节点：</span>
+                <div class="case-progress flex justify-start items-center text-xs pt-2 border-t border-dashed border-gray-200">
+                  <span class="text-gray-500">当前阶段：</span>
                   <span class="text-blue-500">{{ item.AJJD }}</span>
                 </div>
               </div>
@@ -321,6 +321,9 @@ onMounted(() => {
           <!-- 分页 -->
           <div v-if="totalCases > 0" class="case-pagination mt-4 flex justify-center">
             <div class="flex items-center">
+              <span class="pagination-text mr-4 text-sm text-gray-600">
+                共 {{ totalCases }} 条，第
+              </span>
               <button 
                 class="pagination-btn px-2 py-1 border border-gray-300 rounded-l"
                 @click="handlePageChange(currentPage - 1)"
@@ -328,7 +331,15 @@ onMounted(() => {
               >
                 &lt;
               </button>
-              <span class="pagination-info px-3 py-1 border-t border-b border-gray-300">{{ currentPage }}</span>
+              <input 
+                type="number" 
+                v-model.number="currentPage" 
+                min="1" 
+                :max="Math.ceil(totalCases / pageSize)" 
+                class="pagination-input px-3 py-1 border-t border-b border-gray-300 text-center w-12"
+                @keyup.enter="handlePageChange(currentPage)"
+                @change="handlePageChange(currentPage)"
+              />
               <button 
                 class="pagination-btn px-2 py-1 border border-gray-300 rounded-r"
                 @click="handlePageChange(currentPage + 1)"
@@ -336,6 +347,9 @@ onMounted(() => {
               >
                 &gt;
               </button>
+              <span class="pagination-text ml-4 text-sm text-gray-600">
+                /{{ Math.ceil(totalCases / pageSize) }} 页
+              </span>
             </div>
           </div>
         </AnalysisChartCard>
@@ -434,11 +448,13 @@ onMounted(() => {
 
 .case-card {
   transition: all 0.3s;
+  background-color: #f0f8ff;
 }
 
 .case-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #e6f7ff;
 }
 
 .case-title {
