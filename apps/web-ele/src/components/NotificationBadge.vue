@@ -2,7 +2,7 @@
 import type { Notification } from '#/api/core/notification';
 import type { Approval } from '#/api/core/approval';
 
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
@@ -19,6 +19,7 @@ import { approvalApi } from '#/api/core/approval';
 import { useWebSocket } from '#/websocket/notification';
 import ActivityTimeline from './ActivityTimeline.vue';
 import ApprovalCard from './ApprovalCard.vue';
+import { activityApi } from '#/api/core/activity';
 
 const router = useRouter();
 const dropdownVisible = ref(false);
@@ -26,6 +27,10 @@ const isHovering = ref(false);
 const loading = ref(false);
 const notifications = ref<Notification[]>([]);
 const unreadCount = ref(0);
+// 全部消息个数 = 最新动态个数 + 待审核个数
+const totalCount = computed(() => {
+  return dynamicCount.value + pendingApprovals.value.length;
+});
 const pendingApprovals = ref<Approval[]>([]);
 
 // 标签页配置
@@ -41,6 +46,18 @@ const showSettings = ref(false);
 const dynamicCount = ref(0);
 
 const { connect, disconnect, onMessage } = useWebSocket();
+
+// 加载最新动态数量
+const loadDynamicCount = async () => {
+  try {
+    // 获取所有最新动态，以便得到准确的总数
+    const res = await activityApi.getActivityList(undefined, 1, 100);
+    dynamicCount.value = res.data?.length || 0;
+  } catch (error) {
+    console.error('加载最新动态数量失败:', error);
+    dynamicCount.value = 0;
+  }
+};
 
 const formatTime = (time: string) => {
   const date = new Date(time);
@@ -262,6 +279,9 @@ watch(dropdownVisible, (newVal) => {
 
 onMounted(() => {
   loadUnreadCount();
+  loadNotifications(); // 加载通知数据
+  loadDynamicCount(); // 加载最新动态数量
+  loadPendingApprovals(); // 加载待审核数据
   connect();
   onMessage(handleWebSocketMessage);
 });
@@ -274,7 +294,7 @@ onUnmounted(() => {
 <template>
   <div class="notification-badge">
     <div class="notification-trigger" @click="dropdownVisible = !dropdownVisible">
-      <ElBadge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+      <ElBadge :value="totalCount" :hidden="totalCount === 0" :max="99">
         <div class="notification-icon-wrapper">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -336,7 +356,7 @@ onUnmounted(() => {
           </div>
         </div>
         
-        <ElScrollbar max-height="450px">
+        <ElScrollbar style="flex: 1; min-height: 0;">
           <!-- 全部通知 -->
           <div v-if="activeTab === 'all'" class="notification-content-section">
             <div v-loading="loading" class="notification-list">
@@ -439,6 +459,7 @@ onUnmounted(() => {
 .notification-badge {
   position: relative;
   z-index: 9999;
+  display: inline-block;
 }
 
 .notification-trigger {
@@ -462,21 +483,48 @@ onUnmounted(() => {
 }
 
 .notification-dropdown-container {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 8px;
-  z-index: 10000;
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  z-index: 9999999;
   pointer-events: auto;
+  width: 420px;
+  margin: 0;
 }
 
 .notification-dropdown {
-  width: 420px;
+  width: 100%;
   padding: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background-color: white;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
+  z-index: inherit;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 标签页固定 */
+.notification-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 内容区域滚动 */
+.notification-content-section {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 确保滚动条只在内容区域显示 */
+:deep(.el-scrollbar__wrap) {
+  overflow-y: auto;
+  max-height: calc(500px - 50px - 50px); /* 总高度 - 标签栏高度(减少10px) - 底部操作栏高度 */
 }
 
 .notification-overlay {
@@ -494,9 +542,10 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 6px 16px;
   border-bottom: 1px solid #f0f0f0;
   background-color: #fafafa;
+  height: 40px;
 }
 
 .notification-tab {
@@ -533,36 +582,36 @@ onUnmounted(() => {
 .tab-badge {
   background-color: #ff4d4f;
   color: white;
-  font-size: 12px;
-  padding: 0 6px;
-  border-radius: 10px;
-  min-width: 18px;
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: 6px;
+  min-width: 14px;
   text-align: center;
 }
 
 /* 圆形徽章样式 */
 .circle-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -4px;
+  right: -4px;
   background-color: #ff4d4f;
   color: white;
-  font-size: 10px;
-  width: 18px;
-  height: 18px;
+  font-size: 7px;
+  width: 14px;
+  height: 14px;
   padding: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: auto;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
   font-weight: bold;
 }
 
 /* 内容区域样式 */
 .notification-content-section {
-  padding: 0;
+  padding: 12px;
 }
 
 .notification-list {
@@ -594,6 +643,9 @@ onUnmounted(() => {
 .notification-content {
   flex: 1;
   min-width: 0;
+  overflow: visible;
+  height: auto;
+  min-height: 60px;
 }
 
 .notification-title {
@@ -611,6 +663,8 @@ onUnmounted(() => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  word-break: break-word;
+  min-height: 16px;
 }
 
 .notification-time {
@@ -668,5 +722,21 @@ onUnmounted(() => {
 .notification-actions {
   display: flex;
   gap: 4px;
+}
+/* 覆盖Element Plus徽章样式，确保数字居中 */
+:deep(.el-badge__content) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-sizing: border-box;
+}
+
+/* 确保圆形徽章中的数字居中 */
+:deep(.el-badge__content.is-dot) {
+  width: auto;
+  height: auto;
+  padding: 0 6px;
+  border-radius: 10px;
 }
 </style>

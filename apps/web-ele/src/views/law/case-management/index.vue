@@ -189,11 +189,9 @@ const fetchCaseList = async () => {
       );
     } else {
       // 获取全部案件（有权限的）
-      const token = '03f07901573e624060991494b3a22422';
       const params = {
         page: pagination.value.page,
         size: pagination.value.pageSize,
-        token,
       };
       response = await getCaseListApi(params);
     }

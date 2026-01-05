@@ -173,15 +173,16 @@ watch(activities, (newVal) => {
   emit('update:count', newVal.length);
 }, { immediate: true });
 
-onMounted(() => {
-  loadActivities();
+onMounted(async () => {
+  await loadActivities();
+  // 确保数据加载完成后，再次触发数量更新
+  emit('update:count', activities.value.length);
 });
 </script>
 
 <template>
   <div class="activity-timeline">
-    <div class="activity-header">
-      <h3>最新动态</h3>
+    <div class="activity-header fixed">
       <div class="activity-header-actions">
         <ElSelect
           v-model="selectedType"
@@ -196,11 +197,11 @@ onMounted(() => {
           <ElOption label="审核驳回" value="APPROVE_REJECT" />
           <ElOption label="完成待办" value="COMPLETE_TODO" />
         </ElSelect>
-        <ElButton size="small" @click="markAllAsKnown">全部知晓</ElButton>
+        <span class="mark-all-known" @click="markAllAsKnown">全部知晓</span>
       </div>
     </div>
     <div class="activity-list">
-      <ElScrollbar max-height="400px">
+      <ElScrollbar>
         <div v-loading="loading">
           <div
             v-for="(item, index) in activities"
@@ -215,7 +216,7 @@ onMounted(() => {
               <div class="activity-content">{{ item.content }}</div>
               <div class="activity-footer-row">
                 <div class="activity-time">{{ formatTime(item.createTime) }}</div>
-                <ElButton size="small" type="text" @click="markAsKnown(item.id)">我已知晓</ElButton>
+                <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
               </div>
             </div>
             <div v-if="index < activities.length - 1" class="activity-line" />
@@ -235,24 +236,44 @@ onMounted(() => {
   background: #fff;
   border-radius: 8px;
   padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 固定表头 */
 .activity-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-}
-
-.activity-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  margin-bottom: 0;
+  padding: 8px 0;
+  border-bottom: none;
+  position: sticky;
+  top: 0;
+  background-color: #fff;
+  z-index: 10;
+  height: 40px;
 }
 
 .activity-header-actions {
   display: flex;
   align-items: center;
+  width: 100%;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* 全部知晓文字样式 */
+.mark-all-known {
+  color: #ff4d4f;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mark-all-known:hover {
+  text-decoration: underline;
 }
 
 .activity-footer-row {
@@ -262,8 +283,18 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+/* 列表区域 */
 .activity-list {
   position: relative;
+  flex: 1;
+  overflow: hidden;
+  margin-top: -10px;
+}
+
+/* 确保滚动条只在内容区域显示 */
+:deep(.el-scrollbar__wrap) {
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
 }
 
 .activity-item {
@@ -275,6 +306,8 @@ onMounted(() => {
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  margin-top: 0;
+  padding-top: 10px;
 }
 
 .activity-icon {
@@ -310,6 +343,8 @@ onMounted(() => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  word-break: break-word;
+  min-height: 16px;
 }
 
 .activity-time {
@@ -331,5 +366,9 @@ onMounted(() => {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
+  position: sticky;
+  bottom: 0;
+  background-color: #fff;
+  z-index: 10;
 }
 </style>

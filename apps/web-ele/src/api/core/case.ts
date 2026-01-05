@@ -56,6 +56,13 @@ export namespace CaseApi {
     error: string;
   }
 
+  /** 工作团队成员参数 */
+  export interface WorkTeamMember {
+    userId: number;
+    roleId: number;
+    permissions?: string[];
+  }
+
   /** 添加案件请求体 */
   export interface AddCaseRequest {
     ah: string;
@@ -82,6 +89,8 @@ export namespace CaseApi {
     sepNd?: string;
     selectedManagers?: string[];
     cbry?: number[];
+    reviewerId?: number;
+    teamMembers?: WorkTeamMember[];
   }
 
   /** 添加案件响应 */
@@ -259,16 +268,25 @@ export async function getCaseListApi(params: {
   AH?: string;
   token?: string;
 }) {
-  return requestClient8085.post<CaseApi.CaseListResponse>(
-    '/api/web/getAllCaseAndFYandZWR',
+  return requestClient8085.get<CaseApi.CaseListResponse>('/api/web/selectAllCase', {
     params,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
+  });
 }
+
+/**
+ * 获取所有案件
+ */
+export async function getAllCasesApi(params: { page?: number; size?: number } = {}) {
+  const { page = 1, size = 10 } = params;
+  return requestClient8085.get('/api/web/selectAllCase', {
+    params: { page, size },
+  });
+}
+
+/**
+ * 获取所有案件（别名，兼容旧代码）
+ */
+export const getAllCases = getAllCasesApi;
 
 /**
  * 获取案件详情
@@ -287,10 +305,10 @@ export async function getCaseDetailApi(serialNumber: string) {
  * 添加单个破产案件
  */
 export async function addOneCaseApi(data: CaseApi.AddCaseRequest) {
-  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  // 直接发送数据对象，不需要数组包装
   return requestClient8085.post<CaseApi.AddCaseResponse>(
     '/api/web/AddOneCase',
-    [data],
+    data,
     {
       headers: {
         'Content-Type': 'application/json',
