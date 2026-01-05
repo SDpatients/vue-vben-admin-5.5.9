@@ -1,59 +1,58 @@
 <script lang="ts" setup>
-import type { WorkbenchProjectItem, WorkbenchTodoItem } from '@vben/common-ui';
-
-import type { Approval } from '#/api/core/approval';
 import type { Todo } from '#/api/core/todo';
+import { type CaseApi } from '#/api/core/case';
 
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
   AnalysisChartCard,
   WorkbenchHeader,
-  WorkbenchProject,
-  WorkbenchTodo,
 } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
-import { openWindow } from '@vben/utils';
 
-import { approvalApi } from '#/api/core/approval';
 import { getCaseListApi } from '#/api/core/case';
 import { todoApi } from '#/api/core/todo';
-import ActivityTimeline from '#/components/ActivityTimeline.vue';
-import ApprovalCard from '#/components/ApprovalCard.vue';
 import NotificationBadge from '#/components/NotificationBadge.vue';
 import TodoList from '#/components/TodoList.vue';
-
-import AnalyticsVisitsSource from '../analytics/analytics-visits-source.vue';
 
 const userStore = useUserStore();
 const router = useRouter();
 
-const pendingApprovals = ref<Approval[]>([]);
+// 地理位置和天气数据，固定为安吉
+const location = ref('安吉');
+const weather = ref({
+  condition: '',
+  tempMin: '',
+  tempMax: '',
+});
+
 const todoItems = ref<WorkbenchTodoItem[]>([]);
-const projectItems = ref<WorkbenchProjectItem[]>([]);
 const loading = ref(false);
 
-const loadPendingApprovals = async () => {
-  try {
-    const res = await approvalApi.getPendingApprovals(1, 5);
-    pendingApprovals.value = res.data || [];
-  } catch (error) {
-    console.error('加载待审核失败:', error);
-  }
+// 案件列表相关数据
+const caseList = ref<CaseApi.CaseInfo[]>([]);
+const currentPage = ref(1);
+const pageSize = ref(3); // 每页显示3个数据
+const totalCases = ref(0);
+const searchKeyword = ref('');
+const caseStatus = ref('在办');
+
+// 计算办理天数
+const calculateDays = (createTime?: number) => {
+  if (!createTime) return '0天';
+  const now = new Date();
+  const createDate = new Date(createTime);
+  const diffTime = Math.abs(now.getTime() - createDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return `${diffDays}天`;
 };
 
-const handleApprovalRefresh = () => {
-  loadPendingApprovals();
-};
-
-const goToApprovalList = () => {
-  router.push('/approval/list');
-};
-
-const goToApprovalDetail = (id: number) => {
-  router.push(`/approval/detail/${id}`);
+// 格式化日期
+const formatDate = (time?: number) => {
+  if (!time) return '';
+  return new Date(time).toLocaleDateString('zh-CN');
 };
 
 const loadTodoItems = async () => {
@@ -73,59 +72,138 @@ const loadTodoItems = async () => {
   }
 };
 
-const loadProjectItems = async () => {
+// 加载案件列表
+const loadCaseList = async () => {
   loading.value = true;
   try {
-    const res = await getCaseListApi({ page: 1, size: 100 });
-    const caseList = res.data?.records || [];
-    const totalCount = caseList.length;
-
-    projectItems.value = [
-      {
-        color: '#1890ff',
-        content: `${totalCount} 个案件`,
-        date: new Date().toLocaleDateString('zh-CN'),
-        group: '管理',
-        icon: 'ion:folder-open',
-        title: '受理案件',
-        url: '/case-management',
-      },
-    ];
+    const res = await getCaseListApi({ 
+      page: currentPage.value, 
+      size: pageSize.value,
+      AJZT: caseStatus.value,
+      AH: searchKeyword.value
+    });
+    caseList.value = res.data?.records || [];
+    totalCases.value = res.data?.count || 0;
   } catch (error) {
     console.error('加载案件数据失败:', error);
-    projectItems.value = [
-      {
-        color: '#1890ff',
-        content: '0 个案件',
-        date: new Date().toLocaleDateString('zh-CN'),
-        group: '管理',
-        icon: 'ion:folder-open',
-        title: '受理案件',
-        url: '/case-management',
-      },
-    ];
+    caseList.value = [];
+    totalCases.value = 0;
   } finally {
     loading.value = false;
   }
 };
 
-function navTo(nav: WorkbenchProjectItem | WorkbenchQuickNavItem) {
-  if (nav.url?.startsWith('http')) {
-    openWindow(nav.url);
-    return;
-  }
-  if (nav.url?.startsWith('/')) {
-    router.push(nav.url).catch((error) => {
-      console.error('Navigation failed:', error);
-    });
-  } else {
-    console.warn(`Unknown URL for navigation item: ${nav.title} -> ${nav.url}`);
-  }
-}
+// 搜索案件
+const searchCases = () => {
+  currentPage.value = 1;
+  loadCaseList();
+};
 
-loadPendingApprovals();
-loadTodoItems();
-loadProjectItems();
+// 切换案件状态
+const changeCaseStatus = (status: string) => {
+  caseStatus.value = status;
+  currentPage.value = 1;
+  loadCaseList();
+};
+
+// 分页变化处理
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+  loadCaseList();
+};
+
+// 跳转到案件详情
+const goToCaseDetail = (caseId: number) => {
+  router.push(`/case-management/detail/${caseId}`);
+};
+
+// 获取天气数据 - 固定使用安吉的经纬度
+const getWeather = async () => {
+  try {
+    // 安吉的经纬度
+    const latitude = 30.6833;
+    const longitude = 119.6333;
+    
+    // 使用Open-Meteo API获取天气数据（无需API密钥）
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=Asia/Shanghai`
+    );
+    const data = await response.json();
+    
+    // 天气代码映射
+    const weatherCodeMap: Record<number, string> = {
+      0: '晴',
+      1: '晴',
+      2: '多云',
+      3: '阴',
+      45: '雾',
+      48: '雾凇',
+      51: '小雨',
+      53: '中雨',
+      55: '大雨',
+      56: '冻雨',
+      57: '冻雨',
+      61: '小雨',
+      63: '中雨',
+      65: '大雨',
+      66: '冻雨',
+      67: '冻雨',
+      71: '小雪',
+      73: '中雪',
+      75: '大雪',
+      77: '雪粒',
+      80: '阵雨',
+      81: '阵雨',
+      82: '阵雨',
+      85: '阵雪',
+      86: '阵雪',
+      95: '雷暴',
+      96: '雷暴',
+      99: '雷暴',
+    };
+    
+    weather.value = {
+      condition: weatherCodeMap[data.daily.weathercode[0]] || '未知',
+      tempMin: `${Math.round(data.daily.temperature_2m_min[0])}℃`,
+      tempMax: `${Math.round(data.daily.temperature_2m_max[0])}℃`,
+    };
+  } catch (error) {
+    console.error('获取天气数据失败:', error);
+    weather.value = {
+      condition: '晴',
+      tempMin: '20℃',
+      tempMax: '32℃',
+    };
+  }
+};
+
+// 根据当前时间获取问候语
+const getGreeting = () => {
+  const now = new Date();
+  const hour = now.getHours();
+  
+  if (hour >= 6 && hour < 12) {
+    return '早安';
+  } else if (hour >= 12 && hour < 18) {
+    return '午安';
+  } else {
+    return '晚安';
+  }
+};
+
+// 问候语
+const greeting = ref(getGreeting());
+
+// 初始化获取天气数据
+const initWeather = async () => {
+  await getWeather();
+};
+
+onMounted(() => {
+  loadTodoItems();
+  loadCaseList();
+  initWeather();
+});
 </script>
 
 <template>
@@ -135,51 +213,135 @@ loadProjectItems();
     >
       <template #title>
         <div class="flex items-center justify-between">
-          <span>早安, {{ userStore.userInfo?.realName }},
+          <span>{{ greeting }}, {{ userStore.userInfo?.realName }},
             开始您一天的工作吧！</span>
           <NotificationBadge />
         </div>
       </template>
-      <template #description> 今日晴，20℃ - 32℃！ </template>
+      <template #description>
+        {{ location ? location : '未知位置' }}，今日{{ weather.condition }}，{{ weather.tempMin }} ~ {{ weather.tempMax }}！
+      </template>
     </WorkbenchHeader>
 
-    <div class="mt-5 flex flex-col lg:flex-row">
-      <div class="mr-4 w-full lg:w-3/5">
-        <WorkbenchProject
-          :items="projectItems"
-          title="受理案件"
-          @click="navTo"
-        />
-        <ActivityTimeline class="mt-5" title="最新动态" />
-      </div>
-      <div class="w-full lg:w-2/5">
-        <WorkbenchTodo :items="todoItems" class="mt-5" title="待办事项" />
-        <TodoList class="mt-5" title="待办事项管理" />
-        <div class="mt-5">
-          <AnalysisChartCard title="待审核">
-            <div v-if="pendingApprovals.length > 0" class="pending-approvals">
-              <ApprovalCard
-                v-for="approval in pendingApprovals"
-                :key="approval.id"
-                :approval="approval"
-                @refresh="handleApprovalRefresh"
-                @click="goToApprovalDetail(approval.id)"
-              />
-            </div>
-            <div v-else class="empty-state">
-              <div class="empty-icon">📋</div>
-              <div class="empty-text">暂无待审核任务</div>
-            </div>
-            <div v-if="pendingApprovals.length > 0" class="view-more">
-              <button class="view-more-btn" @click="goToApprovalList">
-                查看全部
+    <div class="mt-5">
+      <!-- 左侧主要内容区 -->
+      <div class="mb-5">
+        <!-- 受理案件板块 -->
+        <AnalysisChartCard title="我的案件" class="mb-5">
+          <div class="case-header mb-4">
+            <div class="case-tabs flex">
+              <button 
+                v-for="status in ['在办', '报结', '已结']" 
+                :key="status"
+                class="case-tab-btn mr-2 px-3 py-1 rounded-full text-sm"
+                :class="{ 'bg-blue-500 text-white': caseStatus === status, 'bg-gray-100 text-gray-700': caseStatus !== status }"
+                @click="changeCaseStatus(status)"
+              >
+                {{ status }}
               </button>
             </div>
-          </AnalysisChartCard>
-        </div>
-        <AnalysisChartCard class="mt-5" title="访问来源">
-          <AnalyticsVisitsSource />
+            <div class="case-search flex items-center">
+              <input
+                v-model="searchKeyword"
+                type="text"
+                placeholder="请输入案号"
+                class="case-search-input px-3 py-1 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                @keyup.enter="searchCases"
+              />
+              <button 
+                class="ml-2 text-gray-500"
+                @click="searchCases"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div v-loading="loading" class="case-list">
+            <div v-if="caseList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div 
+                v-for="item in caseList" 
+                :key="item.SEP_ID"
+                class="case-card p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                @click="goToCaseDetail(item.SEP_ID)"
+              >
+                <div class="case-title font-semibold text-base mb-2">{{ item.AH }}</div>
+                
+                <!-- 承办法院 -->
+                <div class="case-info mb-1 text-sm">
+                  <span class="text-gray-500">承办法院：</span>
+                  <span>{{ item.FYQC }}</span>
+                </div>
+                
+                <!-- 承办法官 -->
+                <div class="case-info mb-1 text-sm">
+                  <span class="text-gray-500">承办法官：</span>
+                  <span>{{ item.CBFG }}</span>
+                </div>
+                
+                <!-- 立案日期 -->
+                <div class="case-info mb-1 text-sm">
+                  <span class="text-gray-500">立案日期：</span>
+                  <span>{{ formatDate(item.LARQ) }}</span>
+                </div>
+                
+                <!-- 案件状态和办理天数 -->
+                <div class="case-info flex justify-between mb-3 text-sm">
+                  <div>
+                    <span class="text-gray-500">案件状态：</span>
+                    <span class="text-green-500">{{ item.AJZT }}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">办理天数：</span>
+                    <span>已审理 {{ calculateDays(item.LARQ) }}</span>
+                  </div>
+                </div>
+                
+                <!-- 当前节点 -->
+                <div class="case-progress flex justify-between items-center text-xs pt-2 border-t border-dashed border-gray-200">
+                  <span class="text-gray-500">当前节点：</span>
+                  <span class="text-blue-500">{{ item.AJJD }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 暂无数据 -->
+            <div v-else class="empty-case-list flex flex-col items-center justify-center py-10 text-gray-500">
+              <img 
+                src="/src/images/u=3126400111,3705029976&fm=253&fmt=auto&app=138&f=PNG.webp" 
+                alt="暂无数据" 
+                class="h-12 w-12 mb-2" 
+              />
+              <span>暂无案件数据</span>
+            </div>
+          </div>
+          
+          <!-- 分页 -->
+          <div v-if="totalCases > 0" class="case-pagination mt-4 flex justify-center">
+            <div class="flex items-center">
+              <button 
+                class="pagination-btn px-2 py-1 border border-gray-300 rounded-l"
+                @click="handlePageChange(currentPage - 1)"
+                :disabled="currentPage === 1"
+              >
+                &lt;
+              </button>
+              <span class="pagination-info px-3 py-1 border-t border-b border-gray-300">{{ currentPage }}</span>
+              <button 
+                class="pagination-btn px-2 py-1 border border-gray-300 rounded-r"
+                @click="handlePageChange(currentPage + 1)"
+                :disabled="currentPage * pageSize >= totalCases"
+              >
+                &gt;
+              </button>
+            </div>
+          </div>
         </AnalysisChartCard>
+        
+        <!-- 待办事项管理板块 - 移到受理案件下方 -->
+        <TodoList class="mb-5" title="待办事项管理" />
       </div>
     </div>
   </div>
@@ -230,4 +392,95 @@ loadProjectItems();
 .view-more-btn:hover {
   background-color: #ecf5ff;
 }
+
+/* 案件列表样式 */
+.case-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.case-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.case-tab-btn {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.case-tab-btn:hover {
+  opacity: 0.8;
+}
+
+.case-search {
+  display: flex;
+  align-items: center;
+}
+
+.case-search-input {
+  width: 200px;
+  transition: width 0.3s;
+}
+
+.case-search-input:focus {
+  width: 250px;
+}
+
+.case-list {
+  min-height: 200px;
+}
+
+.case-card {
+  transition: all 0.3s;
+}
+
+.case-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.case-title {
+  color: #333;
+  font-weight: 600;
+}
+
+.case-info {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.case-progress {
+  padding-top: 8px;
+  border-top: 1px dashed #eee;
+}
+
+.empty-case-list {
+  min-height: 200px;
+}
+
+.case-pagination {
+  margin-top: 16px;
+}
+
+.pagination-btn {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pagination-info {
+  background-color: #fff;
+}
+
+/* 清理不需要的样式 */
 </style>

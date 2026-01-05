@@ -29,4 +29,16 @@ export const activityApi = {
       params: { page, pageSize },
     });
   },
+
+  DeleteActivity: (id: number) => {
+    return requestClient.put(`/api/web/activity/UpdateActivityIsDelete`, {}, {
+      params: { id },
+    });
+  },
+
+  UpdateActivityIsDeleteByUserId: (userId: number) => {
+    return requestClient.put(`/api/web/activity/UpdateActivityIsDelete`, {}, {
+      params: { userId },
+    });
+  },
 };
