@@ -268,7 +268,7 @@ export async function getCaseListApi(params: {
   AH?: string;
   token?: string;
 }) {
-  return requestClient8085.get<CaseApi.CaseListResponse>('/api/web/getAllCaseAndFYandZWR', {
+  return requestClient8085.get<CaseApi.CaseListResponse>('/api/web/selectAllCase', {
     params,
   });
 }
@@ -278,7 +278,7 @@ export async function getCaseListApi(params: {
  */
 export async function getAllCasesApi(params: { page?: number; size?: number } = {}) {
   const { page = 1, size = 10 } = params;
-  return requestClient8085.get('/api/web/getAllCaseAndFYandZWR', {
+  return requestClient8085.get('/api/web/selectAllCase', {
     params: { page, size },
   });
 }
