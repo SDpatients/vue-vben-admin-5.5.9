@@ -14,14 +14,13 @@ import { useUserStore } from '@vben/stores';
 
 import { getCaseListApi } from '#/api/core/case';
 import { todoApi } from '#/api/core/todo';
-import NotificationBadge from '#/components/NotificationBadge.vue';
 import TodoList from '#/components/TodoList.vue';
 
 const userStore = useUserStore();
 const router = useRouter();
 
-// 地理位置和天气数据，固定为安吉
-const location = ref('安吉');
+// 固定显示"您好"，不展示实际位置
+const location = ref('您好');
 const weather = ref({
   condition: '',
   tempMin: '',
@@ -117,18 +116,22 @@ const goToCaseDetail = (caseId: number) => {
   router.push(`/case-detail/${caseId}`);
 };
 
-// 获取天气数据 - 固定使用安吉的经纬度
+// 获取天气数据 - 根据用户IP地址获取
 const getWeather = async () => {
   try {
-    // 安吉的经纬度
-    const latitude = 30.6833;
-    const longitude = 119.6333;
+    // 使用ip-api.com获取用户IP对应的经纬度（免费API，无需密钥）
+    const ipResponse = await fetch('https://ipapi.co/json/');
+    const ipData = await ipResponse.json();
+    
+    // 获取经纬度
+    const latitude = ipData.latitude || 30.6833; // 默认使用安吉经纬度
+    const longitude = ipData.longitude || 119.6333;
     
     // 使用Open-Meteo API获取天气数据（无需API密钥）
-    const response = await fetch(
+    const weatherResponse = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=Asia/Shanghai`
     );
-    const data = await response.json();
+    const weatherData = await weatherResponse.json();
     
     // 天气代码映射
     const weatherCodeMap: Record<number, string> = {
@@ -163,9 +166,9 @@ const getWeather = async () => {
     };
     
     weather.value = {
-      condition: weatherCodeMap[data.daily.weathercode[0]] || '未知',
-      tempMin: `${Math.round(data.daily.temperature_2m_min[0])}℃`,
-      tempMax: `${Math.round(data.daily.temperature_2m_max[0])}℃`,
+      condition: weatherCodeMap[weatherData.daily.weathercode[0]] || '未知',
+      tempMin: `${Math.round(weatherData.daily.temperature_2m_min[0])}℃`,
+      tempMax: `${Math.round(weatherData.daily.temperature_2m_max[0])}℃`,
     };
   } catch (error) {
     console.error('获取天气数据失败:', error);
@@ -215,7 +218,6 @@ onMounted(() => {
         <div class="flex items-center justify-between">
           <span>{{ greeting }}, {{ userStore.userInfo?.realName }},
             开始您一天的工作吧！</span>
-          <NotificationBadge />
         </div>
       </template>
       <template #description>

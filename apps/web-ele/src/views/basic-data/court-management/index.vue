@@ -54,8 +54,6 @@ const fetchCourtList = async () => {
   loading.value = true;
   try {
     const params: CourtApi.CourtQueryParams = {
-      page: pagination.page,
-      size: pagination.pageSize,
       FYQC: searchForm.FYQC,
       FYJC: searchForm.FYJC,
       FYJB: searchForm.FYJB,
@@ -64,9 +62,10 @@ const fetchCourtList = async () => {
     const response = await getCourtListApi(params);
 
     if (response.status === '1' && response.data) {
-      courtList.value = response.data.records || [];
-      pagination.itemCount = response.data.count || 0;
-      pagination.pages = response.data.pages || 0;
+      courtList.value = response.data || [];
+      // 由于新API直接返回数组，没有分页信息，我们设置固定的分页数据
+      pagination.itemCount = response.data.length || 0;
+      pagination.pages = Math.ceil((response.data.length || 0) / pagination.pageSize);
       ElMessage.success('法院列表加载成功');
     } else {
       ElMessage.error(response.error || '获取法院列表失败');
@@ -211,14 +210,14 @@ const submitAddCourt = async () => {
 // 编辑法院
 const handleEdit = (row: CourtApi.CourtInfo) => {
   // 填充编辑表单数据
-  editCourtForm.SEP_ID = row.SEP_ID;
-  editCourtForm.FYQC = row.FYQC;
-  editCourtForm.FYJC = row.FYJC;
-  editCourtForm.FYJB = row.FYJB;
-  editCourtForm.DZ = row.DZ;
-  editCourtForm.LXDH = row.LXDH;
-  editCourtForm.FZR = row.FZR;
-  editCourtForm.CBFG = row.CBFG;
+  editCourtForm.SEP_ID = row.sep_id; // 使用小写字段名
+  editCourtForm.FYQC = row.fyqc; // 使用小写字段名
+  editCourtForm.FYJC = row.fyjc; // 使用小写字段名
+  editCourtForm.FYJB = row.fyjb; // 使用小写字段名
+  editCourtForm.DZ = row.dz; // 使用小写字段名
+  editCourtForm.LXDH = row.lxdh; // 使用小写字段名
+  editCourtForm.FZR = row.fzr; // 使用小写字段名
+  editCourtForm.CBFG = row.cbfg; // 使用小写字段名
 
   // 打开编辑弹窗
   editDialogVisible.value = true;
@@ -269,7 +268,7 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
       type: 'warning',
     });
 
-    const response = await deleteCourtApi({ SEP_ID: row.SEP_ID });
+    const response = await deleteCourtApi({ SEP_ID: row.sep_id }); // 使用小写字段名
     if (response.status === '1') {
       ElMessage.success('法院删除成功');
       // 刷新列表
@@ -348,63 +347,63 @@ onMounted(() => {
 
       <!-- 数据表格 -->
       <ElTable
-        v-loading="loading"
-        :data="courtList"
-        :border="true"
-        :stripe="true"
-        :style="{ width: '100%' }"
-      >
-        <ElTableColumn type="index" label="序号" width="60" align="center" />
-        <ElTableColumn
-          prop="FYQC"
-          label="法院全称"
-          min-width="180"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="FYJC"
-          label="法院简称"
-          width="120"
-          align="center"
-        />
-        <ElTableColumn
-          prop="FYJB"
-          label="法院级别"
-          width="140"
-          align="center"
-        />
-        <ElTableColumn
-          prop="DZ"
-          label="地址"
-          min-width="200"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="LXDH"
-          label="联系电话"
-          width="130"
-          align="center"
-        />
-        <ElTableColumn prop="FZR" label="负责人" width="100" align="center" />
-        <ElTableColumn
-          prop="CBFG"
-          label="承办法官"
-          width="120"
-          align="center"
-        />
-        <ElTableColumn label="操作" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <ElButton type="primary" size="small" @click="handleEdit(row)">
-              <i class="i-lucide-edit mr-1"></i>
-              编辑
-            </ElButton>
-            <ElButton type="danger" size="small" @click="handleDelete(row)">
-              <i class="i-lucide-trash-2 mr-1"></i>
-              删除
-            </ElButton>
-          </template>
-        </ElTableColumn>
-      </ElTable>
+          v-loading="loading"
+          :data="courtList"
+          :border="true"
+          :stripe="true"
+          :style="{ width: '100%' }"
+        >
+          <ElTableColumn type="index" label="序号" width="60" align="center" />
+          <ElTableColumn
+            prop="fyqc"
+            label="法院全称"
+            min-width="180"
+            show-overflow-tooltip
+          />
+          <ElTableColumn
+            prop="fyjc"
+            label="法院简称"
+            width="120"
+            align="center"
+          />
+          <ElTableColumn
+            prop="fyjb"
+            label="法院级别"
+            width="140"
+            align="center"
+          />
+          <ElTableColumn
+            prop="dz"
+            label="地址"
+            min-width="200"
+            show-overflow-tooltip
+          />
+          <ElTableColumn
+            prop="lxdh"
+            label="联系电话"
+            width="130"
+            align="center"
+          />
+          <ElTableColumn prop="fzr" label="负责人" width="100" align="center" />
+          <ElTableColumn
+            prop="cbfg"
+            label="承办法官"
+            width="120"
+            align="center"
+          />
+          <ElTableColumn label="操作" width="150" align="center" fixed="right">
+            <template #default="{ row }">
+              <ElButton type="primary" size="small" @click="handleEdit(row)">
+                <i class="i-lucide-edit mr-1"></i>
+                编辑
+              </ElButton>
+              <ElButton type="danger" size="small" @click="handleDelete(row)">
+                <i class="i-lucide-trash-2 mr-1"></i>
+                删除
+              </ElButton>
+            </template>
+          </ElTableColumn>
+        </ElTable>
 
       <!-- 分页 -->
       <div class="mt-4 flex justify-end">

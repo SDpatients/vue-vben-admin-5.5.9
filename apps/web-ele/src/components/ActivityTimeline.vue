@@ -148,7 +148,15 @@ const getActivityColor = (type: string) => {
 // 我已知晓，删除活动
 const markAsKnown = async (id: number) => {
   try {
-    await activityApi.DeleteActivity(id);
+    // 获取认证令牌
+    const token = localStorage.getItem('token');
+    // 调用后端接口，改为PUT请求并添加认证令牌
+    await fetch(`http://192.168.0.120:8080/api/web/activity/UpdateActivityIsDelete?id=${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
     // 从活动列表中移除该活动
     activities.value = activities.value.filter(item => item.id !== id);
   } catch (error) {
@@ -159,8 +167,32 @@ const markAsKnown = async (id: number) => {
 // 全部知晓，删除所有活动
 const markAllAsKnown = async () => {
   try {
-    const userId = userStore.userInfo?.userId ? parseInt(userStore.userInfo.userId) : 1;
-    await activityApi.UpdateActivityIsDeleteByUserId(userId);
+    // 从本地存储空间获取用户信息和认证令牌
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    const token = localStorage.getItem('token');
+    let userId = 1; // 默认值
+    
+    if (chatUserInfoStr) {
+      try {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        // 取uPid作为userId
+        userId = chatUserInfo.user?.uPid || 1;
+      } catch (parseError) {
+        console.error('解析chat_user_info失败:', parseError);
+      }
+    }
+    
+    // 调用后端接口，改为PUT请求并添加认证令牌
+    await fetch('http://192.168.0.120:8080/api/web/activity/UpdateActivityIsDeleteByUserId', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify({
+        userId
+      })
+    });
     // 清空活动列表
     activities.value = [];
   } catch (error) {
@@ -262,6 +294,7 @@ onMounted(async () => {
   width: 100%;
   justify-content: space-between;
   height: 100%;
+  padding-bottom: 10px;
 }
 
 /* 全部知晓文字样式 */
