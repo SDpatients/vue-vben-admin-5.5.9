@@ -75,6 +75,17 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<Emits>();
 
+// 第二阶段任务类型到OperateType的映射
+const secondStageOperateTypeMap: Record<string, number> = {
+  propertyReceipt: 0,
+  emergency: 1,
+  propertyPlan: 2,
+  personnelEmp: 3,
+  internalAffairs: 4,
+  contractManagement: 5,
+  businessManagement: 6,
+};
+
 interface Props {
   caseId: string;
   taskType: string;
@@ -1450,6 +1461,47 @@ const handleSave = async () => {
       'terminationLitigation',
     ].includes(props.taskType);
 
+    // 第二阶段任务单独处理（非新增操作）
+    if (isSecondStage && props.mode !== 'add') {
+      let zt: string;
+      switch (props.mode) {
+        case 'complete':
+          zt = '1';
+          break;
+        case 'skip':
+          zt = '2';
+          break;
+        case 'revoke':
+          zt = '0';
+          break;
+        default:
+          zt = props.taskData?.zt || props.taskData?.ZT || '0';
+      }
+      
+      const secondStageData = {
+        SEP_ID: props.taskData?.sepId || props.taskData?.SEP_ID,
+        SEP_LD: props.caseId,
+        ZT: zt,
+        OperateType: secondStageOperateTypeMap[props.taskType] as number,
+        ...(props.mode === 'edit' && formData),
+      };
+      
+      console.log(`[保存] 第二阶段${props.mode}操作，参数:`, secondStageData);
+      const response = await update2Api(secondStageData);
+      console.log(`[保存] 第二阶段${props.mode}操作API响应:`, response);
+      
+      const isSuccess = response.code === 200 || response.status === '1';
+      if (isSuccess) {
+        ElMessage.success(`${props.mode === 'complete' ? '标记完成' : props.mode === 'skip' ? '标记跳过' : '更新'}成功`);
+        emit('saved');
+      } else {
+        ElMessage.error(`${props.mode === 'complete' ? '标记完成' : props.mode === 'skip' ? '标记跳过' : '更新'}失败：${response.message || response.error}`);
+      }
+      
+      loading.value = false;
+      return;
+    }
+
     switch (props.mode) {
       case 'add': {
         console.log('[保存] 开始新增任务...');
@@ -1506,6 +1558,13 @@ const handleSave = async () => {
           sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
           sepLd: props.caseId,
           zt: '1',
+          // 添加第二阶段所需的OperateType
+          ...(isSecondStage && {
+            OperateType: secondStageOperateTypeMap[props.taskType] as number,
+            SEP_ID: props.taskData?.sepId || props.taskData?.SEP_ID,
+            SEP_LD: props.caseId,
+            ZT: '1',
+          }),
         };
 
         console.log('[保存] 调用完成API，参数:', updateData);
@@ -1543,6 +1602,13 @@ const handleSave = async () => {
           sepLd: props.caseId,
           zt: props.taskData?.zt || props.taskData?.ZT || '0',
           ...formData,
+          // 添加第二阶段所需的OperateType
+          ...(isSecondStage && {
+            OperateType: secondStageOperateTypeMap[props.taskType] as number,
+            SEP_ID: props.taskData?.sepId || props.taskData?.SEP_ID,
+            SEP_LD: props.caseId,
+            ZT: props.taskData?.zt || props.taskData?.ZT || '0',
+          }),
         };
 
         console.log('[保存] 调用编辑API，参数:', updateData);
@@ -1579,6 +1645,13 @@ const handleSave = async () => {
           sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
           sepLd: props.caseId,
           zt: '2',
+          // 添加第二阶段所需的OperateType
+          ...(isSecondStage && {
+            OperateType: secondStageOperateTypeMap[props.taskType] as number,
+            SEP_ID: props.taskData?.sepId || props.taskData?.SEP_ID,
+            SEP_LD: props.caseId,
+            ZT: '2',
+          }),
         };
 
         console.log('[保存] 调用跳过API，参数:', updateData);
@@ -1634,15 +1707,7 @@ const handleRevoke = async () => {
 
     const sep_adate = new Date().toISOString().split('T')[0];
 
-    const updateData = {
-      sepEuser: sep_auser,
-      sepEdate: sep_adate,
-      sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
-      sepLd: props.caseId,
-      zt: '0',
-    };
-
-    // 第一阶段任务类型
+    // 先定义所有阶段判断变量
     const isFirstStage = [
       'legalProcedure',
       'management',
@@ -1705,6 +1770,21 @@ const handleRevoke = async () => {
       'sealDestruction',
       'terminationLitigation',
     ].includes(props.taskType);
+
+    const updateData = {
+      sepEuser: sep_auser,
+      sepEdate: sep_adate,
+      sepId: props.taskData?.sepId || props.taskData?.SEP_ID,
+      sepLd: props.caseId,
+      zt: '0',
+      // 添加第二阶段所需的OperateType
+      ...(isSecondStage && {
+        OperateType: secondStageOperateTypeMap[props.taskType] as number,
+        SEP_ID: props.taskData?.sepId || props.taskData?.SEP_ID,
+        SEP_LD: props.caseId,
+        ZT: '0',
+      }),
+    };
 
     const response = isSeventhStage
       ? await update7Api(updateData)

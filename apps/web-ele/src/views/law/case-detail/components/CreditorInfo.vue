@@ -17,7 +17,11 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { batchAddCreditorsApi, getCreditorsApi } from '#/api/core/creditor';
+import {
+  addCreditorApi,
+  batchAddCreditorsApi,
+  getCreditorsApi,
+} from '#/api/core/creditor';
 
 const props = defineProps<{
   caseId: string;
@@ -56,6 +60,24 @@ const creditorTypeOptions = [
   { label: '其他', value: '其他' },
 ];
 
+// 下划线转驼峰函数
+const toCamelCase = (obj: any) => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => toCamelCase(item));
+  }
+  const camelCaseObj: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      camelCaseObj[camelKey] = toCamelCase(obj[key]);
+    }
+  }
+  return camelCaseObj;
+};
+
 const fetchCreditors = async () => {
   loading.value = true;
   try {
@@ -65,8 +87,10 @@ const fetchCreditors = async () => {
       pageSize.value,
     );
     if (response.status === '1') {
-      creditors.value = response.data.records || [];
-      total.value = response.data.count || 0;
+      // 转换数据格式：下划线转驼峰
+      const camelCaseData = toCamelCase(response.data);
+      creditors.value = camelCaseData || [];
+      total.value = camelCaseData.length || 0;
     } else {
       ElMessage.error(`获取债权人列表失败：${response.error || '未知错误'}`);
       creditors.value = [];
@@ -143,26 +167,35 @@ const handleBatchAdd = async () => {
   const creditorsList = lines.map((line) => {
     const parts = line.split(/,|，/).map((p) => p.trim());
     return {
-      creditorName: parts[0] || '',
-      creditorType: parts[1] || '',
-      contactPhone: parts[2] || '',
-      contactEmail: parts[3] || '',
+      creditor_name: parts[0] || '',
+      creditor_type: parts[1] || '',
+      contact_phone: parts[2] || '',
+      contact_email: parts[3] || '',
       address: parts[4] || '',
-      idNumber: parts[5] || '',
-      legalRepresentative: parts[6] || '',
-      registeredCapital: parts[7] || '',
+      id_number: parts[5] || '',
+      legal_representative: parts[6] || '',
+      registered_capital: parts[7] || '',
+      status: '1',
+      created_by: '',
     };
   });
 
   addLoading.value = true;
   try {
-    const response = await batchAddCreditorsApi(props.caseId, creditorsList);
-    if (response.status === '1') {
-      ElMessage.success(`成功添加${creditorsList.length}个债权人`);
+    const response = await batchAddCreditorsApi({
+      caseId: props.caseId,
+      creditorsList,
+    });
+    if (response.code === 0 || response.status === '1') {
+      ElMessage.success(
+        `成功添加${response.data?.successCount || creditorsList.length}个债权人`,
+      );
       await fetchCreditors();
       closeBatchAddDialog();
     } else {
-      ElMessage.error(`批量添加失败：${response.error || '未知错误'}`);
+      ElMessage.error(
+        `批量添加失败：${response.message || response.error || '未知错误'}`,
+      );
     }
   } catch (error) {
     console.error('批量添加债权人失败:', error);
@@ -188,28 +221,28 @@ const handleSingleAdd = async () => {
   try {
     // 构造请求数据
     const requestData = {
-      sep_ld: '', // 可能需要从上下文获取，暂时留空
-      sep_auser: '', // 可能需要从上下文获取，暂时留空
-      sep_adate: new Date().toISOString(),
-      zqr: singleForm.creditorName,
-      zqrfl: singleForm.creditorType,
-      zjhm: singleForm.idNumber,
-      fddbrqy: singleForm.legalRepresentative,
-      zcdz: singleForm.address,
-      jyfwqy: '', // 经营范围，暂时留空
-      hyfl: '', // 行业分类，暂时留空
-      clrqqy: null, // 成立日期，暂时留空
-      zczbqy: Number.parseFloat(singleForm.registeredCapital) || 0, // 注册资本转换为数字
-      zt: '1', // 状态，默认为1
+      case_id: props.caseId,
+      creditor_name: singleForm.creditorName,
+      creditor_type: singleForm.creditorType,
+      contact_phone: singleForm.contactPhone,
+      contact_email: singleForm.contactEmail,
+      address: singleForm.address,
+      id_number: singleForm.idNumber,
+      legal_representative: singleForm.legalRepresentative,
+      registered_capital: singleForm.registeredCapital,
+      status: '1', // 状态，默认为1
+      created_by: '', // 可能需要从上下文获取，暂时留空
     };
 
     const response = await addCreditorApi(requestData);
-    if (response.status === '1') {
+    if (response.code === 0 || response.status === '1') {
       ElMessage.success('成功添加债权人');
       await fetchCreditors();
       closeSingleAddDialog();
     } else {
-      ElMessage.error(`添加失败：${response.error || '未知错误'}`);
+      ElMessage.error(
+        `添加失败：${response.message || response.error || '未知错误'}`,
+      );
     }
   } catch (error) {
     console.error('添加债权人失败:', error);
@@ -363,10 +396,10 @@ onMounted(() => {
     >
       <div class="add-dialog-container">
         <div class="template-description mb-4">
-          <p class="text-sm text-gray-600 mb-2">
+          <p class="mb-2 text-sm text-gray-600">
             请按以下格式输入债权人信息，每行一条：
           </p>
-          <div class="template-example bg-gray-50 p-3 rounded text-sm">
+          <div class="template-example rounded bg-gray-50 p-3 text-sm">
             <p class="mb-1 font-semibold">格式说明（逗号分隔）：</p>
             <p class="text-gray-700">
               债权人名称,债权人类型,联系电话,联系邮箱,地址,证件号码,法定代表人,注册资本
@@ -395,7 +428,11 @@ onMounted(() => {
       <template #footer>
         <span class="dialog-footer">
           <ElButton @click="closeBatchAddDialog">取消</ElButton>
-          <ElButton type="primary" @click="handleBatchAdd" :loading="addLoading">
+          <ElButton
+            type="primary"
+            @click="handleBatchAdd"
+            :loading="addLoading"
+          >
             确定
           </ElButton>
         </span>
@@ -412,10 +449,16 @@ onMounted(() => {
       <div class="single-add-dialog-container">
         <ElForm label-width="120px" :model="singleForm">
           <ElFormItem label="债权人名称" required>
-            <ElInput v-model="singleForm.creditorName" placeholder="请输入债权人名称" />
+            <ElInput
+              v-model="singleForm.creditorName"
+              placeholder="请输入债权人名称"
+            />
           </ElFormItem>
           <ElFormItem label="债权人类型" required>
-            <ElSelect v-model="singleForm.creditorType" placeholder="请选择债权人类型">
+            <ElSelect
+              v-model="singleForm.creditorType"
+              placeholder="请选择债权人类型"
+            >
               <ElOption
                 v-for="option in creditorTypeOptions"
                 :key="option.value"
@@ -425,29 +468,48 @@ onMounted(() => {
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="联系电话">
-            <ElInput v-model="singleForm.contactPhone" placeholder="请输入联系电话" />
+            <ElInput
+              v-model="singleForm.contactPhone"
+              placeholder="请输入联系电话"
+            />
           </ElFormItem>
           <ElFormItem label="联系邮箱">
-            <ElInput v-model="singleForm.contactEmail" placeholder="请输入联系邮箱" />
+            <ElInput
+              v-model="singleForm.contactEmail"
+              placeholder="请输入联系邮箱"
+            />
           </ElFormItem>
           <ElFormItem label="证件号码">
-            <ElInput v-model="singleForm.idNumber" placeholder="请输入证件号码" />
+            <ElInput
+              v-model="singleForm.idNumber"
+              placeholder="请输入证件号码"
+            />
           </ElFormItem>
           <ElFormItem label="法定代表人">
-            <ElInput v-model="singleForm.legalRepresentative" placeholder="请输入法定代表人" />
+            <ElInput
+              v-model="singleForm.legalRepresentative"
+              placeholder="请输入法定代表人"
+            />
           </ElFormItem>
           <ElFormItem label="地址">
             <ElInput v-model="singleForm.address" placeholder="请输入地址" />
           </ElFormItem>
           <ElFormItem label="注册资本">
-            <ElInput v-model="singleForm.registeredCapital" placeholder="请输入注册资本" />
+            <ElInput
+              v-model="singleForm.registeredCapital"
+              placeholder="请输入注册资本"
+            />
           </ElFormItem>
         </ElForm>
       </div>
       <template #footer>
         <span class="dialog-footer">
           <ElButton @click="closeSingleAddDialog">取消</ElButton>
-          <ElButton type="primary" @click="handleSingleAdd" :loading="singleAddLoading">
+          <ElButton
+            type="primary"
+            @click="handleSingleAdd"
+            :loading="singleAddLoading"
+          >
             确定
           </ElButton>
         </span>

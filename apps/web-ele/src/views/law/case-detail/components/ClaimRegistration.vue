@@ -100,11 +100,11 @@ const fetchClaims = async () => {
       currentPage.value,
       pageSize.value,
     );
-    if (response.code === 200) {
+    if (response.status === '1') {
       claims.value = response.data.records || [];
       total.value = response.data.count || 0;
     } else {
-      ElMessage.error(`获取债权登记表失败：${response.message || '未知错误'}`);
+      ElMessage.error(`获取债权登记表失败：${response.error || '未知错误'}`);
       claims.value = [];
       total.value = 0;
     }
@@ -225,12 +225,12 @@ const handleAddClaim = async () => {
     };
 
     const response = await addClaimApi(formData);
-    if (response.code === 200) {
+    if (response.status === '1') {
       ElMessage.success('债权登记成功');
       await fetchClaims();
       closeAddDialog();
     } else {
-      ElMessage.error(`债权登记失败：${response.message || '未知错误'}`);
+      ElMessage.error(`债权登记失败：${response.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('债权登记失败:', error);
@@ -266,14 +266,14 @@ const handleImport = async () => {
     formData.append('caseId', props.caseId);
 
     const response = await batchImportClaimsApi(formData);
-    if (response.code === 200) {
+    if (response.status === '1') {
       ElMessage.success(
         `成功导入${response.data?.successCount || 0}条债权记录`,
       );
       await fetchClaims();
       closeImportDialog();
     } else {
-      ElMessage.error(`导入失败：${response.message || '未知错误'}`);
+      ElMessage.error(`导入失败：${response.error || '未知错误'}`);
     }
   } catch (error) {
     console.error('导入失败:', error);
@@ -345,37 +345,41 @@ onMounted(() => {
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
-            <ElTableColumn
-              prop="creditor_name"
-              label="债权人姓名或名称"
-              min-width="180"
-            />
-            <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
-            <ElTableColumn
-              prop="credit_code"
-              label="统一社会信用代码"
-              width="180"
-            />
-            <ElTableColumn prop="principal" label="申报本金" width="120" />
-            <ElTableColumn prop="interest" label="申报利息" width="120" />
-            <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
-            <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
-            <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-            <ElTableColumn prop="registration_status" label="登记状态" width="100">
-              <template #default="scope">
-                <ElTag
-                  :type="
-                    getRegistrationStatusTag(scope.row.registration_status).type
-                  "
-                  size="small"
-                >
-                  {{ 
-                    getRegistrationStatusTag(scope.row.registration_status).text
-                  }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-          </ElTable>
+          <ElTableColumn
+            prop="creditor_name"
+            label="债权人姓名或名称"
+            min-width="180"
+          />
+          <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
+          <ElTableColumn
+            prop="credit_code"
+            label="统一社会信用代码"
+            width="180"
+          />
+          <ElTableColumn prop="principal" label="申报本金" width="120" />
+          <ElTableColumn prop="interest" label="申报利息" width="120" />
+          <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
+          <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
+          <ElTableColumn prop="claim_type" label="债权种类" width="120" />
+          <ElTableColumn
+            prop="registration_status"
+            label="登记状态"
+            width="100"
+          >
+            <template #default="scope">
+              <ElTag
+                :type="
+                  getRegistrationStatusTag(scope.row.registration_status).type
+                "
+                size="small"
+              >
+                {{
+                  getRegistrationStatusTag(scope.row.registration_status).text
+                }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+        </ElTable>
 
         <div v-if="total > 0" class="pagination-container flex justify-end">
           <ElPagination

@@ -12,6 +12,7 @@ import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi } from '#/api/core/user';
+import { getActiveTeamRolesApi } from '#/api/core/work-team';
 
 const accessStore = useAccessStore();
 const permissions = accessStore.accessCodes || [];
@@ -146,10 +147,13 @@ const fetchUserList = async (managerIds: string[]) => {
       if (response.status === '1' && response.data) {
         // 将当前管理员的用户添加到Map中，避免重复
         response.data.forEach((user: any) => {
-          if (user.uPid && !userMap.has(user.uPid)) {
-            userMap.set(user.uPid, {
-              label: user.uName, // 用户姓名
-              value: user.uPid, // 用户ID
+          // 转换 snake_case 到 camelCase
+          const uPid = user.u_pid;
+          const uName = user.u_name;
+          if (uPid && !userMap.has(uPid)) {
+            userMap.set(uPid, {
+              label: uName, // 用户姓名
+              value: uPid, // 用户ID
             });
           }
         });

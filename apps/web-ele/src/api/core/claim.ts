@@ -188,9 +188,11 @@ export async function exportClaimsApi(caseId: string) {
 }
 
 export async function getClaimDetailApi(claimId: number) {
-  return requestClient8085.get<ClaimApi.CommonResponse & {
-    data: ClaimApi.ClaimInfo;
-  }>(`/api/web/getClaimDetail/${claimId}`);
+  return requestClient8085.get<
+    ClaimApi.CommonResponse & {
+      data: ClaimApi.ClaimInfo;
+    }
+  >(`/api/web/getClaimDetail/${claimId}`);
 }
 
 export async function updateClaimApi(

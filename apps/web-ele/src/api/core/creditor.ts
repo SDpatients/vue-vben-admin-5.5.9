@@ -81,7 +81,18 @@ declare namespace CreditorApi {
   /** 批量添加债权人请求体 */
   interface BatchAddCreditorsRequest {
     caseId: string;
-    creditorsList: Omit<SingleCreditorRequest, 'case_id'>[];
+    creditorsList: Array<{
+      creditor_name: string;
+      creditor_type: string;
+      contact_phone: string;
+      contact_email: string;
+      address: string;
+      id_number: string;
+      legal_representative?: string;
+      registered_capital?: string;
+      status?: string;
+      created_by?: string;
+    }>;
   }
 
   /** 批量添加债权人响应 */

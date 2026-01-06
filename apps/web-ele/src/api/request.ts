@@ -112,13 +112,14 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       // 当前mock接口返回的错误字段是 error 或者 message
       const responseData = error?.response?.data ?? {};
       let errorMessage = responseData?.error ?? responseData?.message ?? '';
-      
+
       // 过滤掉类似 [0xc00764f9e0 0xc00764fa10 0xc00764fa40] 这样的无效日志
-      const memoryAddressPattern = /^\[0x[0-9a-f]+\s+0x[0-9a-f]+\s+0x[0-9a-f]+\]$/i;
+      const memoryAddressPattern =
+        /^\[0x[0-9a-f]+\s+0x[0-9a-f]+\s+0x[0-9a-f]+\]$/i;
       if (memoryAddressPattern.test(errorMessage)) {
         errorMessage = '';
       }
-      
+
       // 如果没有有效错误信息，则不显示提示
       if (errorMessage) {
         ElMessage.error(errorMessage || msg);

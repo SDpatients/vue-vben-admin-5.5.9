@@ -357,75 +357,77 @@ onUnmounted(() => {
         </div>
         
         <ElScrollbar style="flex: 1; min-height: 0;">
-          <!-- 全部通知 -->
-          <div v-if="activeTab === 'all'" class="notification-content-section">
-            <div v-loading="loading" class="notification-list">
-              <div
-                v-for="item in notifications"
-                :key="item.id"
-                class="notification-item"
-                :class="{ unread: !item.isRead }"
-                @click="handleNotificationClick(item)"
-              >
-                <div class="notification-content">
-                  <div class="notification-title">{{ item.title }}</div>
-                  <div class="notification-text">{{ item.content }}</div>
-                  <div class="notification-time">
-                    {{ formatTime(item.createTime) }}
+          <div class="notification-content-wrapper">
+            <!-- 全部通知 -->
+            <div v-if="activeTab === 'all'" class="notification-content-section">
+              <div v-loading="loading" class="notification-list">
+                <div
+                  v-for="item in notifications"
+                  :key="item.id"
+                  class="notification-item"
+                  :class="{ unread: !item.isRead }"
+                  @click="handleNotificationClick(item)"
+                >
+                  <div class="notification-content">
+                    <div class="notification-title">{{ item.title }}</div>
+                    <div class="notification-text">{{ item.content }}</div>
+                    <div class="notification-time">
+                      {{ formatTime(item.createTime) }}
+                    </div>
+                  </div>
+                  <div class="notification-actions">
+                    <ElButton
+                      circle
+                      size="small"
+                      @click.stop="deleteNotification(item.id)"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="lucide lucide-trash-2"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        <line x1="10" x2="10" y1="11" y2="17" />
+                        <line x1="14" x2="14" y1="11" y2="17" />
+                      </svg>
+                    </ElButton>
                   </div>
                 </div>
-                <div class="notification-actions">
-                  <ElButton
-                    circle
-                    size="small"
-                    @click.stop="deleteNotification(item.id)"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="lucide lucide-trash-2"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                      <line x1="10" x2="10" y1="11" y2="17" />
-                      <line x1="14" x2="14" y1="11" y2="17" />
-                    </svg>
-                  </ElButton>
+                <div v-if="notifications.length === 0" class="notification-empty">
+                  暂无通知
                 </div>
               </div>
-              <div v-if="notifications.length === 0" class="notification-empty">
-                暂无通知
+            </div>
+            
+            <!-- 最新动态 -->
+            <div v-else-if="activeTab === 'dynamic'" class="notification-content-section">
+              <ActivityTimeline @update:count="dynamicCount = $event" />
+            </div>
+            
+            <!-- 待审核 -->
+            <div v-else-if="activeTab === 'approval'" class="notification-content-section">
+              <div v-if="pendingApprovals.length > 0" class="pending-approvals">
+                <ApprovalCard
+                  v-for="approval in pendingApprovals"
+                  :key="approval.id"
+                  :approval="approval"
+                  @refresh="loadPendingApprovals"
+                  @click="handleApprovalClick(approval)"
+                />
               </div>
-            </div>
-          </div>
-          
-          <!-- 最新动态 -->
-          <div v-else-if="activeTab === 'dynamic'" class="notification-content-section">
-            <ActivityTimeline @update:count="dynamicCount = $event" />
-          </div>
-          
-          <!-- 待审核 -->
-          <div v-else-if="activeTab === 'approval'" class="notification-content-section">
-            <div v-if="pendingApprovals.length > 0" class="pending-approvals">
-              <ApprovalCard
-                v-for="approval in pendingApprovals"
-                :key="approval.id"
-                :approval="approval"
-                @refresh="loadPendingApprovals"
-                @click="handleApprovalClick(approval)"
-              />
-            </div>
-            <div v-else class="approval-empty">
-              <div class="empty-icon">📋</div>
-              <div class="empty-text">暂无待审核任务</div>
+              <div v-else class="approval-empty">
+                <div class="empty-icon">📋</div>
+                <div class="empty-text">暂无待审核任务</div>
+              </div>
             </div>
           </div>
         </ElScrollbar>
