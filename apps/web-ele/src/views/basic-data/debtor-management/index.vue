@@ -122,12 +122,38 @@ const fetchDebtorList = async () => {
     };
 
     const response = await getDebtorListApi(params);
+    console.log('API响应:', response);
 
     if (response.status === '1') {
-      debtorList.value = response.data;
-      pagination.value.itemCount = response.data.length;
+      // 处理API响应，确保字段名正确映射
+      const processedData = response.data.map((item: any) => {
+        // 统一字段名，支持多种格式（下划线、小驼峰、大写）
+        return {
+          sepId: item.sep_id || item.sepId || item.SEP_ID || item.id || '',
+          qymc: item.qymc || item.QYMC || '',
+          tyshxydm: item.tyshxydm || item.TYSHXYDM || '',
+          fddbr: item.fddbr || item.FDDBR || '',
+          djjg: item.djjg || item.DJJG || '',
+          clrq: item.clrq || item.CLRQ || '',
+          zczb: item.zczb || item.ZCZB || '',
+          jyfw: item.jyfw || item.JYFW || '',
+          qylx: item.qylx || item.QYLX || '',
+          shhy: item.shhy || item.SHHY || item.SSHY || '',
+          zcdz: item.zcdz || item.ZCDZ || '',
+          lxdh: item.lxdh || item.LXDH || '',
+          lxr: item.lxr || item.LXR || '',
+          zt: item.zt || item.ZT || '',
+          sepAuser: item.sep_auser || item.sepAuser || item.SEP_AUSER || '',
+          sepAdate: item.sep_adate || item.sepAdate || item.SEP_ADATE || '',
+          sepEuser: item.sep_euser || item.sepEuser || item.SEP_EUSER || '',
+          sepEdate: item.sep_edate || item.sepEdate || item.SEP_EDATE || '',
+        };
+      });
+      
+      debtorList.value = processedData;
+      pagination.value.itemCount = processedData.length;
       pagination.value.pages = 1;
-      ElMessage.success(`成功加载 ${debtorList.value.length} 条债务人记录`);
+      ElMessage.success(`成功加载 ${processedData.length} 条债务人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.error}`);
       debtorList.value = [];
@@ -191,9 +217,33 @@ const hideNonCoreColumns = () => {
 };
 
 // 格式化日期显示
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('zh-CN');
+const formatDate = (dateValue: any) => {
+  if (!dateValue) return '-';
+  
+  let date;
+  if (typeof dateValue === 'number') {
+    // 处理时间戳（毫秒或秒）
+    if (dateValue.toString().length === 10) {
+      // 秒级时间戳转换为毫秒
+      date = new Date(dateValue * 1000);
+    } else {
+      // 毫秒级时间戳
+      date = new Date(dateValue);
+    }
+  } else if (typeof dateValue === 'string') {
+    // 处理字符串日期
+    date = new Date(dateValue);
+  } else {
+    // 其他类型
+    date = new Date(dateValue);
+  }
+  
+  // 检查日期是否有效
+  if (isNaN(date.getTime())) {
+    return '-';
+  }
+  
+  return date.toLocaleDateString('zh-CN');
 };
 
 // 获取状态标签类型
@@ -388,12 +438,64 @@ const editFormData = ref({
 });
 
 // 打开编辑债务人弹窗
-const handleEditDebtor = (row: DebtorApi.DebtorInfo) => {
-  // 复制行数据到编辑表单，处理日期字段
+const handleEditDebtor = (row: any) => {
+  // 尝试从row中获取sep_id，优先使用下划线格式的sep_id
+  let debtorId = '';
+  
+  // 1. 先尝试从row中获取，优先使用下划线格式的sep_id
+  if (row.sep_id) {
+    debtorId = row.sep_id; // 优先使用下划线格式
+  } else if (row.sepId) {
+    debtorId = row.sepId; // 小驼峰格式
+  } else if (row.SEP_ID) {
+    debtorId = row.SEP_ID; // 大写格式
+  } else if (row.id) {
+    debtorId = row.id; // id字段
+  } else {
+    // 2. 如果row中没有，尝试从原始响应数据debtorList中查找
+    const matchingItem = debtorList.value.find(item => {
+      // 根据企业名称、统一社会信用代码等唯一字段匹配
+      return (
+        item.qymc === row.qymc || 
+        item.qymc === row.QYMC ||
+        item.tyshxydm === row.tyshxydm ||
+        item.tyshxydm === row.TYSHXYDM
+      );
+    });
+    
+    if (matchingItem) {
+      // 从匹配的数据中获取sep_id，同样优先使用下划线格式
+      debtorId = matchingItem.sep_id || matchingItem.sepId || matchingItem.SEP_ID || matchingItem.id || '';
+    }
+  }
+  
+  // 确保debtorId是字符串类型
+  const finalDebtorId = debtorId?.toString() || '';
+  
+  // 将小驼峰格式的字段转换为大写，并复制行数据到编辑表单，处理日期字段
   editFormData.value = {
-    ...row,
-    CLRQ: row.CLRQ ? new Date(row.CLRQ).toISOString().slice(0, 10) : '',
+    AJID: '',
+    SEP_ID: finalDebtorId, // 使用获取到的SEP_ID
+    QYMC: row.QYMC || row.qymc || '',
+    TYSHXYDM: row.TYSHXYDM || row.tyshxydm || '',
+    FDDBR: row.FDDBR || row.fddbr || '',
+    DJJG: row.DJJG || row.djjg || '',
+    CLRQ: row.CLRQ || row.clrq ? new Date(row.CLRQ || row.clrq).toISOString().slice(0, 10) : '',
+    ZCZB: row.ZCZB || row.zczb || '',
+    JYFW: row.JYFW || row.jyfw || '',
+    QYLX: row.QYLX || row.qylx || '',
+    SSHY: row.SSHY || row.shhy || '',
+    ZCDZ: row.ZCDZ || row.zcdz || '',
+    LXDH: row.LXDH || row.lxdh || '',
+    LXR: row.LXR || row.lxr || '',
+    ZT: row.ZT || row.zt || '',
+    row: 0,
   };
+  
+  // 调试信息，查看SEP_ID是否获取到
+  console.log('编辑债务人时获取的SEP_ID:', finalDebtorId);
+  console.log('原始行数据:', row);
+  
   editDialogVisible.value = true;
 };
 
@@ -481,7 +583,7 @@ const submitEditFormData = async () => {
 };
 
 // 打开删除确认弹窗
-const handleDeleteDebtor = (row: DebtorApi.DebtorInfo) => {
+const handleDeleteDebtor = (row: any) => {
   currentDeleteItem.value = row;
   deleteDialogVisible.value = true;
 };
@@ -492,10 +594,34 @@ const handleDeleteSubmit = async () => {
 
   try {
     const token = '7b45265f3ca3eefeaad42615d995e8c5'; // 使用删除接口指定的token
-    const sepId =
-      currentDeleteItem.value.SEP_ID ?? currentDeleteItem.value.AJID ?? '';
+    const row = currentDeleteItem.value;
+    
+    // 尝试从row中获取sep_id，支持多种格式
+    let sepId = '';
+    if (row.sep_id) {
+      // 优先使用下划线格式的sep_id
+      sepId = row.sep_id;
+    } else if (row.sepId) {
+      // 使用小驼峰格式的sepId
+      sepId = row.sepId;
+    } else if (row.SEP_ID) {
+      // 使用大写格式的SEP_ID
+      sepId = row.SEP_ID;
+    } else if (row.id) {
+      // 使用id字段
+      sepId = row.id;
+    } else if (row.AJID) {
+      // 最后尝试使用AJID
+      sepId = row.AJID;
+    }
 
-    const response = await deleteDebtorApi({ SEP_ID: sepId }, token);
+    // 确保sepId是字符串类型
+    const finalSepId = sepId?.toString() || '';
+    
+    console.log('删除债务人时使用的SEP_ID:', finalSepId);
+    console.log('原始删除数据:', row);
+
+    const response = await deleteDebtorApi({ SEP_ID: finalSepId }, token);
 
     if (response.status === '1') {
       ElMessage.success('债务人删除成功');
@@ -687,7 +813,7 @@ const handleDeleteSubmit = async () => {
         />
         <ElTableColumn prop="clrq" label="成立日期" width="120" align="center">
           <template #default="{ row }">
-            {{ new Date(row.clrq).toLocaleDateString('zh-CN') }}
+            {{ formatDate(row.clrq) }}
           </template>
         </ElTableColumn>
         <ElTableColumn
@@ -779,7 +905,7 @@ const handleDeleteSubmit = async () => {
           label-width="120px"
           class="w-full"
         >
-          <ElRow :gutter="20">
+          <ElRow :gutter="30">
             <!-- 第一行 -->
             <ElCol :span="8">
               <ElFormItem label="企业名称" prop="QYMC">
@@ -901,7 +1027,7 @@ const handleDeleteSubmit = async () => {
           label-width="120px"
           class="w-full"
         >
-          <ElRow :gutter="20">
+          <ElRow :gutter="30">
             <!-- 第一行 -->
             <ElCol :span="8">
               <ElFormItem label="企业名称" prop="QYMC">
@@ -916,6 +1042,7 @@ const handleDeleteSubmit = async () => {
                 <ElInput
                   v-model="editFormData.TYSHXYDM"
                   placeholder="请输入统一社会信用代码"
+                  style="white-space: nowrap;"
                 />
               </ElFormItem>
             </ElCol>

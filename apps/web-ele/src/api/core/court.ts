@@ -13,24 +13,27 @@ export namespace CourtApi {
 
   /** 法院信息 */
   export interface CourtInfo {
-    row: number;
-    SEP_ID: string; // 法院ID
-    FYQC: string; // 法院全称
-    FYJC: string; // 法院简称
-    FYJB: string; // 法院级别
-    DZ: string; // 地址
-    LXDH: string; // 联系电话
-    FZR: string; // 负责人
-    CBFG: string; // 承办法官
+    sep_id: string; // 法院ID（不需要展示）
+    sep_ld: string; // 不需要展示
+    sep_md: string; // 不需要展示
+    sep_nd: string; // 不需要展示
+    sep_auser: string; // 不需要展示
+    sep_adate: string; // 不需要展示
+    sep_euser: string; // 不需要展示
+    sep_edate: string; // 不需要展示
+    fyqc: string; // 法院全称（需要展示）
+    fyjc: string; // 法院简称（需要展示）
+    fyjb: string; // 法院级别（需要展示）
+    dz: string; // 地址（需要展示）
+    lxdh: string; // 联系电话（需要展示）
+    fzr: string; // 负责人（需要展示）
+    cbfg: string; // 承办法官（需要展示）
+    scbj: string; // 不需要展示
   }
 
   /** 法院列表响应 */
   export interface CourtListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: CourtInfo[];
-    };
+    data: CourtInfo[]; // 直接返回法院信息数组
     status: string;
     error: string;
   }
