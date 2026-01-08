@@ -16,18 +16,19 @@ import {
   ElTag,
 } from 'element-plus';
 
-import TaskEdit from '../TaskEdit.vue';
 import {
-  getCancellationRegistrationApi,
-  getTerminationLitiApi,
-  getAdditionalDisiributionApi,
-  getAccountSealManagementApi,
-  getDutyReportApi,
-  getDocumentTransferApi,
-  getArchivingManagementApi,
-  getSealDestructionApi,
-  getAccountClosingApi,
+  getAccountClosingsByCaseApi,
+  getArchivingManagementsByCaseApi,
+  getCancellationRegistrationsByCaseApi,
+  getDocumentTransfersByCaseApi,
+  getDutyReportsByCaseApi,
+  getSealDestructionsByCaseApi,
+  getTerminationLitigationsByCaseApi,
+  getAdditionalDistributionsByCaseApi,
+  getAccountSealManagementsPhase7ByCaseApi,
 } from '#/api/core/case-process';
+
+import TaskEdit from '../TaskEdit.vue';
 
 interface Props {
   caseId: string;
@@ -46,162 +47,181 @@ const taskConfig = [
   {
     key: 'cancellationRegistration',
     name: '注销登记',
-    icon: 'lucide:file-x',
-    api: getCancellationRegistrationApi,
+    icon: 'lucide:x-circle',
+    api: getCancellationRegistrationsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '注销类型', prop: 'ZXLX' },
-      { label: '登记机关', prop: 'DJJG' },
-      { label: '申请日期', prop: 'SQRQ', isDate: true },
-      { label: '注销日期', prop: 'ZXRQ', isDate: true },
-      { label: '注销文号', prop: 'ZXWH' },
-      { label: '注销状态', prop: 'ZXZT' },
-      { label: '登记事项', prop: 'DJSX' },
-      { label: '登记号码', prop: 'DJHM' },
-      { label: '注销原因', prop: 'ZXYY' },
-      { label: '处理人', prop: 'CLR' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '注销类型', prop: 'zxlx' },
+      { label: '登记机关', prop: 'djjg' },
+      { label: '申请日期', prop: 'sqrq', isDate: true },
+      { label: '注销日期', prop: 'zxrq', isDate: true },
+      { label: '注销文号', prop: 'zxwh' },
+      { label: '注销状态', prop: 'zxzt' },
+      { label: '处理人', prop: 'clr' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'terminationLitigation',
     name: '终结诉讼仲裁',
-    icon: 'lucide:gavel',
-    api: getTerminationLitiApi,
+    icon: 'lucide:scale',
+    api: getTerminationLitigationsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '诉讼类型', prop: 'SSLX' },
-      { label: '相对方', prop: 'XDF' },
-      { label: '法院/仲裁机构', prop: 'FYZCJG' },
-      { label: '诉讼状态', prop: 'SSZT' },
-      { label: '处理结果', prop: 'CLJG' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '诉讼类型', prop: 'sslx' },
+      { label: '相对方', prop: 'xdf' },
+      { label: '法院/仲裁机构', prop: 'fyzcjg' },
+      { label: '诉讼状态', prop: 'sszt' },
+      { label: '处理结果', prop: 'cljg' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'additionalDistribution',
     name: '追加分配',
-    icon: 'lucide:pie-chart',
-    api: getAdditionalDisiributionApi,
+    icon: 'lucide:trending-up',
+    api: getAdditionalDistributionsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '分配类型', prop: 'FPLX' },
-      { label: '分配金额', prop: 'FPJE' },
-      { label: '分配日期', prop: 'FPRQ', isDate: true },
-      { label: '债权人名称', prop: 'ZQRMC' },
-      { label: '分配依据', prop: 'FPYJ' },
-      { label: '分配状态', prop: 'FPZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '分配类型', prop: 'fplx' },
+      { label: '分配金额', prop: 'fpje' },
+      { label: '分配日期', prop: 'fprq', isDate: true },
+      { label: '债权人名称', prop: 'zqrmc' },
+      { label: '分配依据', prop: 'fpyj' },
+      { label: '分配状态', prop: 'fpzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'accountSealManagement',
     name: '账户印章管理',
-    icon: 'lucide:key',
-    api: getAccountSealManagementApi,
+    icon: 'lucide:stamp',
+    api: getAccountSealManagementsPhase7ByCaseApi,
+    addApi: null,
     fields: [
-      { label: '管理类型', prop: 'GLLX' },
-      { label: '项目名称', prop: 'XMMC' },
-      { label: '处理日期', prop: 'CLRQ', isDate: true },
-      { label: '处理方式', prop: 'CLFS' },
-      { label: '处理结果', prop: 'CLJG' },
-      { label: '证明文件路径', prop: 'ZMWJLJ' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '管理类型', prop: 'gllx' },
+      { label: '项目名称', prop: 'xmmc' },
+      { label: '处理日期', prop: 'clrq', isDate: true },
+      { label: '处理方式', prop: 'clfs' },
+      { label: '处理结果', prop: 'cljg' },
+      { label: '证明文件路径', prop: 'zmwjlj' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'dutyReport',
     name: '职务报告',
     icon: 'lucide:file-text',
-    api: getDutyReportApi,
+    api: getDutyReportsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '报告类型', prop: 'BGLX' },
-      { label: '报告内容', prop: 'BGNR' },
-      { label: '提交日期', prop: 'TJRQ', isDate: true },
-      { label: '提交人', prop: 'TJR' },
-      { label: '接收方', prop: 'JSF' },
-      { label: '审批状态', prop: 'SPZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '报告类型', prop: 'bglx' },
+      { label: '报告内容', prop: 'bgnr' },
+      { label: '提交日期', prop: 'tjrq', isDate: true },
+      { label: '提交人', prop: 'tjr' },
+      { label: '接收方', prop: 'jsf' },
+      { label: '审批状态', prop: 'spzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'documentTransfer',
     name: '资料移交',
-    icon: 'lucide:folder-open',
-    api: getDocumentTransferApi,
+    icon: 'lucide:folder-transfer',
+    api: getDocumentTransfersByCaseApi,
+    addApi: null,
     fields: [
-      { label: '移交类型', prop: 'YJLX' },
-      { label: '资料名称', prop: 'ZLMC' },
-      { label: '移交日期', prop: 'YJRQ', isDate: true },
-      { label: '移交方', prop: 'YJF' },
-      { label: '接收方', prop: 'JSF' },
-      { label: '移交内容', prop: 'YJNR' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '移交类型', prop: 'yjlx' },
+      { label: '资料名称', prop: 'zlmc' },
+      { label: '移交日期', prop: 'yjrq', isDate: true },
+      { label: '移交方', prop: 'yjf' },
+      { label: '接收方', prop: 'jsf' },
+      { label: '移交内容', prop: 'yjnr' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'archivingManagement',
     name: '归档管理',
     icon: 'lucide:archive',
-    api: getArchivingManagementApi,
+    api: getArchivingManagementsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '归档类型', prop: 'GDLX' },
-      { label: '归档内容', prop: 'GDNR' },
-      { label: '归档日期', prop: 'GDRQ', isDate: true },
-      { label: '归档位置', prop: 'GDWZ' },
-      { label: '负责人', prop: 'FZR' },
-      { label: '归档状态', prop: 'GDZT' },
-      { label: '档案号', prop: 'DAH' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '归档类型', prop: 'gdlx' },
+      { label: '归档内容', prop: 'gdnr' },
+      { label: '归档日期', prop: 'gdrq', isDate: true },
+      { label: '归档位置', prop: 'gdwz' },
+      { label: '负责人', prop: 'fzr' },
+      { label: '归档状态', prop: 'gdzt' },
+      { label: '档案号', prop: 'dah' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'sealDestruction',
     name: '印章销毁',
     icon: 'lucide:trash-2',
-    api: getSealDestructionApi,
+    api: getSealDestructionsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '印章类型', prop: 'YZLX' },
-      { label: '印章编号', prop: 'YZBH' },
-      { label: '销毁日期', prop: 'XHRQ', isDate: true },
-      { label: '销毁方式', prop: 'XHFS' },
-      { label: '销毁见证人', prop: 'XHJZR' },
-      { label: '证明文件', prop: 'ZMWJ' },
-      { label: '印章', prop: 'YZ' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '印章类型', prop: 'yzlx' },
+      { label: '印章编号', prop: 'yzbh' },
+      { label: '销毁日期', prop: 'xhrq', isDate: true },
+      { label: '销毁方式', prop: 'xhfs' },
+      { label: '销毁见证人', prop: 'xhjzr' },
+      { label: '证明文件', prop: 'zmwj' },
+      { label: '印章', prop: 'yz' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
     key: 'accountClosing',
     name: '账户销户',
-    icon: 'lucide:credit-card',
-    api: getAccountClosingApi,
+    icon: 'lucide:credit-card-off',
+    api: getAccountClosingsByCaseApi,
+    addApi: null,
     fields: [
-      { label: '账户', prop: 'ZH' },
-      { label: '销户日期', prop: 'XHRQ', isDate: true },
-      { label: '销户原因', prop: 'XHYY' },
-      { label: '余额金额', prop: 'YEJE' },
-      { label: '销户状态', prop: 'XHZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '账户', prop: 'zh' },
+      { label: '销户日期', prop: 'xhrq', isDate: true },
+      { label: '销户原因', prop: 'xhyy' },
+      { label: '余额金额', prop: 'yeje' },
+      { label: '销户状态', prop: 'xhzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
 ];
 
 const taskStatusMap = {
   0: { label: '待确认', type: 'info', color: '#409EFF' },
-  1: { label: '完成', type: 'success', color: '#13C2C2' },
+  1: { label: '完成', type: 'success', color: '#67C23A' },
   2: { label: '跳过', type: 'warning', color: '#E6A23C' },
 };
 
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    if (response.status === '1') {
+    const isNewFormat = response.code === 200;
+    if (isNewFormat) {
       return {
         ...taskConfigItem,
-        data: response.data.records || [],
-        count: response.data.count || 0,
+        data: response.data || [],
+        count: response.data?.length || 0,
+        status: 'loaded',
+      };
+    } else if (response.status === '1') {
+      const records =
+        response.data?.records ||
+        (Array.isArray(response.data) ? response.data : []);
+      return {
+        ...taskConfigItem,
+        data: records,
+        count: records.length || 0,
         status: 'loaded',
       };
     } else {
-      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      ElMessage.error(
+        `获取${taskConfigItem.name}失败：${response.message || response.error}`,
+      );
       return {
         ...taskConfigItem,
         data: [],
@@ -247,7 +267,7 @@ const getTaskStatus = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     if (completedCount === task.data.length) {
       return 1;
@@ -262,7 +282,7 @@ const getTaskProgress = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     return Math.round((completedCount / task.data.length) * 100);
   }
@@ -284,8 +304,9 @@ const formatTaskDate = (dateStr: string) => {
   return date.toLocaleDateString('zh-CN');
 };
 
-const getStatusInfo = (status: string) => {
-  const statusNum = Number.parseInt(status, 10);
+const getStatusInfo = (status: number | string) => {
+  const statusNum =
+    typeof status === 'string' ? Number.parseInt(status, 10) : status;
   return (
     taskStatusMap[statusNum as keyof typeof taskStatusMap] || taskStatusMap[0]
   );
@@ -355,11 +376,13 @@ onMounted(() => {
       <template #header>
         <div class="stage-header">
           <div class="stage-info">
-            <Icon icon="lucide:check-circle" class="stage-icon" />
+            <Icon icon="lucide:archive" class="stage-icon" />
             <div>
-              <h2 class="stage-title">阶段七：收尾工作</h2>
+              <h2 class="stage-title">
+                阶段七：破产程序终结及注销登记工作
+              </h2>
               <p class="stage-description">
-                完成注销登记、终结诉讼仲裁、追加分配、账户印章管理、职务报告、资料移交、归档管理、印章销毁、账户销户等收尾工作
+                完成注销登记、终结诉讼仲裁、账户印章管理、资料移交、归档管理等终结工作
               </p>
             </div>
           </div>
@@ -387,9 +410,19 @@ onMounted(() => {
                     <Icon :icon="task.icon" class="task-icon" />
                     <span>{{ task.name }}</span>
                   </div>
-                  <ElTag :type="getTaskStatusInfo(task).type" size="small">
-                    {{ getTaskStatusInfo(task).label }}
-                  </ElTag>
+                  <div style="display: flex; gap: 12px; align-items: center">
+                    <ElTag :type="getTaskStatusInfo(task).type" size="small">
+                      {{ getTaskStatusInfo(task).label }}
+                    </ElTag>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="handleAdd(task)"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      新增
+                    </ElButton>
+                  </div>
                 </div>
               </template>
 
@@ -407,13 +440,41 @@ onMounted(() => {
                     :stroke-width="8"
                   />
                   <div class="task-count">
-                    <span>{{
-                      task.data?.filter((item: any) => item.ZT === '1')
-                        .length || 0
-                    }}</span>
+                    <span>
+                      <span style="color: #67c23a">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.zt === '1' || item.zt === 1,
+                          ).length || 0
+                        }}
+                      </span>
+                      <span style="margin: 0 4px">+</span>
+                      <span style="color: #e6a23c">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.zt === '2' || item.zt === 2,
+                          ).length || 0
+                        }}
+                      </span>
+                    </span>
                     <span>/</span>
                     <span>{{ task.count || 0 }}</span>
                     <span>项已完成</span>
+                    <span
+                      style="margin-left: 8px; font-size: 11px; color: #999"
+                    >
+                      (
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.zt === '1' || item.zt === 1,
+                        ).length || 0
+                      }}完成,
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.zt === '2' || item.zt === 2,
+                        ).length || 0
+                      }}跳过)
+                    </span>
                   </div>
                 </div>
 
@@ -449,7 +510,6 @@ onMounted(() => {
                     <ElTableColumn width="350" fixed="right">
                       <template #default="scope">
                         <div class="action-buttons">
-                          <!-- 查看按钮 - 所有状态都显示 -->
                           <ElButton
                             type="primary"
                             size="small"
@@ -459,11 +519,9 @@ onMounted(() => {
                             查看
                           </ElButton>
 
-                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
                           <template
-                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
+                            v-if="scope.row.zt === '0' || scope.row.zt === 0"
                           >
-                            <!-- 编辑按钮 -->
                             <ElButton
                               type="primary"
                               size="small"
@@ -473,7 +531,6 @@ onMounted(() => {
                               编辑
                             </ElButton>
 
-                            <!-- 完成按钮 -->
                             <ElButton
                               type="success"
                               size="small"
@@ -483,7 +540,6 @@ onMounted(() => {
                               完成
                             </ElButton>
 
-                            <!-- 跳过按钮 -->
                             <ElButton
                               type="warning"
                               size="small"
@@ -494,13 +550,12 @@ onMounted(() => {
                             </ElButton>
                           </template>
 
-                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
                           <ElButton
                             v-else-if="
-                              scope.row.ZT === '1' ||
-                              scope.row.ZT === 1 ||
-                              scope.row.ZT === '2' ||
-                              scope.row.ZT === 2
+                              scope.row.zt === '1' ||
+                              scope.row.zt === 1 ||
+                              scope.row.zt === '2' ||
+                              scope.row.zt === 2
                             "
                             type="danger"
                             size="small"
@@ -562,7 +617,7 @@ onMounted(() => {
   flex-shrink: 0;
   width: 48px;
   height: 48px;
-  color: #13c2c2;
+  color: #909399;
 }
 
 .stage-title {
@@ -579,11 +634,11 @@ onMounted(() => {
 }
 
 .loading-container {
-  padding: 40px 0;
+  padding: 40px 20px;
 }
 
 .tasks-container {
-  padding: 20px 0;
+  min-height: 400px;
 }
 
 .task-col {
@@ -592,6 +647,13 @@ onMounted(() => {
 
 .task-card {
   height: 100%;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.task-card:hover {
+  box-shadow: 0 8px 16px rgb(0 0 0 / 10%);
+  transform: translateY(-4px);
 }
 
 .task-card-header {
@@ -604,21 +666,26 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 16px;
   font-weight: 600;
+  color: #1f2937;
 }
 
 .task-icon {
-  font-size: 20px;
-  color: #13c2c2;
+  width: 20px;
+  height: 20px;
+  color: #909399;
 }
 
 .task-content {
-  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .task-progress {
-  margin-bottom: 20px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
 }
 
 .progress-info {
@@ -626,32 +693,38 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 8px;
   font-size: 14px;
+  color: #6b7280;
 }
 
 .progress-text {
   font-weight: 600;
-  color: #13c2c2;
+  color: #1f2937;
 }
 
 .task-count {
-  display: flex;
-  gap: 4px;
-  align-items: center;
   margin-top: 8px;
   font-size: 12px;
   color: #6b7280;
+  text-align: center;
+}
+
+.task-count span {
+  margin: 0 2px;
+}
+
+.task-count span:first-child {
+  font-weight: 600;
+  color: #67c23a;
 }
 
 .task-list {
-  max-height: 400px;
-  overflow: auto;
+  flex: 1;
+  overflow-x: auto;
 }
 
 .task-table {
   min-width: 800px;
-  overflow: hidden;
   font-size: 13px;
-  border-radius: 8px;
 }
 
 .action-buttons {
@@ -668,9 +741,25 @@ onMounted(() => {
 
 .empty-task {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex: 1;
   align-items: center;
-  padding: 40px 0;
+  justify-content: center;
+  min-height: 100px;
+}
+
+@media (max-width: 768px) {
+  .stage-info {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stage-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .task-col {
+    margin-bottom: 16px;
+  }
 }
 </style>

@@ -47,16 +47,16 @@ export async function getUserInfoApi() {
 
 /**
  * 根据部门ID获取用户列表
- * @param deptId 部门ID
+ * @param sepId 管理人ID (sep_id)
  */
-export async function getUserByDeptIdApi(deptId: number) {
+export async function getUserByDeptIdApi(sepId: number) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
   return requestClient8085.get<UserApi.UserListResponse>(
     '/api/web/getUserByDeptid',
     {
       params: {
         token,
-        deptId,
+        sep_id: sepId,
       },
     },
   );

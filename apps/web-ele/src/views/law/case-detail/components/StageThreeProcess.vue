@@ -59,13 +59,13 @@ const taskConfig = [
     addApi: addPropertyInvestigationApi,
     operateType: 0,
     fields: [
-      { label: '调查类型', prop: 'TCLX' },
-      { label: '调查内容', prop: 'TCNR' },
-      { label: '调查日期', prop: 'TCRQ', isDate: true },
-      { label: '调查人', prop: 'TCR' },
-      { label: '调查发现', prop: 'TCFX' },
-      { label: '调查状态', prop: 'TCZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '调查类型', prop: 'tclx' },
+      { label: '调查内容', prop: 'tcnr' },
+      { label: '调查日期', prop: 'tcrq', isDate: true },
+      { label: '调查人', prop: 'tcr' },
+      { label: '调查发现', prop: 'tcfx' },
+      { label: '调查状态', prop: 'tczt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -76,12 +76,12 @@ const taskConfig = [
     addApi: addBankExpensesApi,
     operateType: 1,
     fields: [
-      { label: '费用类型', prop: 'FYLX' },
-      { label: '费用名称', prop: 'FYMC' },
-      { label: '金额', prop: 'JE', isNumber: true },
-      { label: '支付日期', prop: 'ZFRQ', isDate: true },
-      { label: '支付状态', prop: 'ZFZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '费用类型', prop: 'fylx' },
+      { label: '费用名称', prop: 'fymc' },
+      { label: '金额', prop: 'je', isNumber: true },
+      { label: '支付日期', prop: 'zfrq', isDate: true },
+      { label: '支付状态', prop: 'zfzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -92,13 +92,13 @@ const taskConfig = [
     addApi: addRightsClaimApi,
     operateType: 2,
     fields: [
-      { label: '主张类型', prop: 'ZZLXCX' },
-      { label: '主张内容', prop: 'ZZNR' },
-      { label: '主张日期', prop: 'ZZRQ', isDate: true },
-      { label: '主张人', prop: 'ZZR' },
-      { label: '法院回应', prop: 'FYHY' },
-      { label: '主张状态', prop: 'ZZZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '主张类型', prop: 'zzlxcx' },
+      { label: '主张内容', prop: 'zznr' },
+      { label: '主张日期', prop: 'zzrq', isDate: true },
+      { label: '主张人', prop: 'zzr' },
+      { label: '法院回应', prop: 'fyhy' },
+      { label: '主张状态', prop: 'zzzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -109,14 +109,14 @@ const taskConfig = [
     addApi: addReclaimReviewApi,
     operateType: 3,
     fields: [
-      { label: '权利人名称', prop: 'QLRMC' },
-      { label: '取回权基础', prop: 'QHQJC' },
-      { label: '财产是否存在', prop: 'CCSFCZ' },
-      { label: '对待给付义务', prop: 'DDGFYW' },
-      { label: '审查日期', prop: 'SCRQ', isDate: true },
-      { label: '审查人', prop: 'SCR' },
-      { label: '审查决定', prop: 'SCJD' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '权利人名称', prop: 'qlrmc' },
+      { label: '取回权基础', prop: 'qhqjc' },
+      { label: '财产是否存在', prop: 'ccsfcz' },
+      { label: '对待给付义务', prop: 'ddgfyw' },
+      { label: '审查日期', prop: 'scrq', isDate: true },
+      { label: '审查人', prop: 'scr' },
+      { label: '审查决定', prop: 'scjd' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -127,32 +127,15 @@ const taskConfig = [
     addApi: addLitigationArbitrationApi,
     operateType: 4,
     fields: [
-      { label: '类型', prop: 'LX' },
-      { label: '相对方', prop: 'XDF' },
-      { label: '法院', prop: 'FY' },
-      { label: '诉讼内容', prop: 'SSNR' },
-      { label: '诉讼状态', prop: 'SSZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '类型', prop: 'lx' },
+      { label: '相对方', prop: 'xdf' },
+      { label: '法院', prop: 'fy' },
+      { label: '诉讼内容', prop: 'ssnr' },
+      { label: '诉讼状态', prop: 'sszt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
-  {
-    key: 'creditorClaim',
-    name: '债权申报',
-    icon: 'lucide:file-text',
-    api: getAllCreditorClaimApi,
-    addApi: addCreditorClaimApi,
-    operateType: 5,
-    fields: [
-      { label: '债权人名称', prop: 'ZQRMC' },
-      { label: '债权人类型', prop: 'ZQRLX' },
-      { label: '申报金额', prop: 'SBJE', isNumber: true },
-      { label: '申报依据', prop: 'SBYJ' },
-      { label: '接收人', prop: 'JSR' },
-      { label: '申报类型', prop: 'SBLX' },
-      { label: '备注', prop: 'BZ' },
-      { label: '状态', prop: 'ZT', isStatus: true },
-    ],
-  },
+
   {
     key: 'socialSecurityFees',
     name: '社保费用',
@@ -161,13 +144,13 @@ const taskConfig = [
     addApi: addSocialSecurtyFeesApi,
     operateType: 6,
     fields: [
-      { label: '费用类型', prop: 'FYLX' },
-      { label: '费用金额', prop: 'FYJE', isNumber: true },
-      { label: '社保机构', prop: 'SBJG' },
-      { label: '核定日期', prop: 'HDRQ', isDate: true },
-      { label: '核定人', prop: 'HDR' },
-      { label: '核定状态', prop: 'HDZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '费用类型', prop: 'fylx' },
+      { label: '费用金额', prop: 'fyje', isNumber: true },
+      { label: '社保机构', prop: 'sbjg' },
+      { label: '核定日期', prop: 'hdrq', isDate: true },
+      { label: '核定人', prop: 'hdr' },
+      { label: '核定状态', prop: 'hdzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
   {
@@ -178,13 +161,13 @@ const taskConfig = [
     addApi: addTaxVerificationApi,
     operateType: 7,
     fields: [
-      { label: '税种', prop: 'SZ' },
-      { label: '税款金额', prop: 'SKJE', isNumber: true },
-      { label: '税务机关', prop: 'SWJG' },
-      { label: '核定日期', prop: 'HDRQ', isDate: true },
-      { label: '核定人', prop: 'HDR' },
-      { label: '核定状态', prop: 'HDZT' },
-      { label: '状态', prop: 'ZT', isStatus: true },
+      { label: '税种', prop: 'sz' },
+      { label: '税款金额', prop: 'skje', isNumber: true },
+      { label: '税务机关', prop: 'swjg' },
+      { label: '核定日期', prop: 'hdrq', isDate: true },
+      { label: '核定人', prop: 'hdr' },
+      { label: '核定状态', prop: 'hdzt' },
+      { label: '状态', prop: 'zt', isStatus: true },
     ],
   },
 ];
@@ -195,24 +178,122 @@ const taskStatusMap = {
   2: { label: '跳过', type: 'warning', color: '#E6A23C' },
 };
 
+const fieldNameMap: Record<string, Record<string, string>> = {
+  propertyInvestigation: {
+    investigationType: 'tclx',
+    investigationContent: 'tcnr',
+    investigationDate: 'tcrq',
+    investigator: 'tcr',
+    investigationFindings: 'tcfx',
+    investigationStatus: 'tczt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+  bankExpenses: {
+    expenseType: 'fylx',
+    expenseName: 'fymc',
+    amount: 'je',
+    paymentDate: 'zfrq',
+    paymentStatus: 'zfzt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+  rightsClaim: {
+    claimType: 'zzlxcx',
+    claimContent: 'zznr',
+    claimDate: 'zzrq',
+    claimant: 'zzr',
+    courtResponse: 'fyhy',
+    claimStatus: 'zzzt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+  reclaimReview: {
+    claimantName: 'qlrmc',
+    reclaimRightBasis: 'qhqjc',
+    propertyExists: 'ccsfcz',
+    reciprocalObligation: 'ddgfyw',
+    reviewDate: 'scrq',
+    reviewer: 'scr',
+    reviewDecision: 'scjd',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+  litigationArbitration: {
+    type: 'lx',
+    oppositeParty: 'xdf',
+    court: 'fy',
+    litigationContent: 'ssnr',
+    litigationStatus: 'sszt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+
+  socialSecurityFees: {
+    feeType: 'fylx',
+    feeAmount: 'fyje',
+    socialSecurityAgency: 'sbjg',
+    verificationDate: 'hdrq',
+    verifier: 'hdr',
+    verificationStatus: 'hdzt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+  taxVerification: {
+    taxType: 'sz',
+    taxAmount: 'skje',
+    taxAuthority: 'swjg',
+    verificationDate: 'hdrq',
+    verifier: 'hdr',
+    verificationStatus: 'hdzt',
+    status: 'zt',
+    sepId: 'sepId',
+  },
+};
+
+const transformData = (taskKey: string, data: any[]) => {
+  const map = fieldNameMap[taskKey];
+  if (!map) return data;
+
+  return data.map((item) => {
+    const transformed: any = {};
+    Object.keys(item).forEach((key) => {
+      // 特殊处理sepId字段
+      if (key === 'sepId' || key === 'SEP_ID' || key === 'row') {
+        transformed.sepId = item[key];
+      } else if (map[key]) {
+        // 如果有映射，使用映射后的小写字段名
+        transformed[map[key]] = item[key];
+      } else {
+        // 否则直接使用原字段名
+        transformed[key] = item[key];
+      }
+    });
+    return transformed;
+  });
+};
+
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    
+
     // 添加调试日志
     console.log(`=== ${taskConfigItem.name} API响应调试信息 ===`);
     console.log('完整响应:', response);
     console.log('响应状态码:', response.code || response.status);
     console.log('响应数据:', response.data);
-    
+
     // 检查响应结构，兼容不同的响应格式
     const isSuccess = response.code === 200 || response.status === '1';
     const responseData = response.data?.records || response.data || [];
-    
+
+    // 转换字段名从大写改为小写
+    const transformedData = transformData(taskConfigItem.key, responseData);
+
     if (isSuccess) {
       return {
         ...taskConfigItem,
-        data: responseData,
+        data: transformedData,
         count: response.data?.count || responseData.length,
         status: 'loaded',
       };
@@ -229,7 +310,9 @@ const fetchTaskData = async (taskConfigItem: any) => {
     }
   } catch (error: any) {
     console.error(`获取${taskConfigItem.name}失败:`, error);
-    ElMessage.error(`获取${taskConfigItem.name}失败：${error.message || '网络异常'}`);
+    ElMessage.error(
+      `获取${taskConfigItem.name}失败：${error.message || '网络异常'}`,
+    );
     return {
       ...taskConfigItem,
       data: [],
@@ -266,7 +349,7 @@ const getTaskStatus = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     if (completedCount === task.data.length) {
       return 1;
@@ -281,7 +364,7 @@ const getTaskProgress = (task: any) => {
   if (task.data && task.data.length > 0) {
     const completedCount = task.data.filter(
       (item: any) =>
-        item.ZT === '1' || item.ZT === 1 || item.ZT === '2' || item.ZT === 2,
+        item.zt === '1' || item.zt === 1 || item.zt === '2' || item.zt === 2,
     ).length;
     return Math.round((completedCount / task.data.length) * 100);
   }
@@ -318,35 +401,56 @@ const handleAdd = (task: any) => {
 };
 
 const handleEdit = (task: any, item: any) => {
-  currentTask.value = item;
+  // 确保传递的数据包含sepId字段（从原始数据中获取）
+  const taskData = {
+    ...item,
+    sepId: item.sepId || item.SEP_ID || item.row,
+  };
+  currentTask.value = taskData;
   currentTaskType.value = task.key;
   currentMode.value = 'edit';
   showTaskEdit.value = true;
 };
 
 const handleView = (task: any, item: any) => {
-  currentTask.value = item;
+  const taskData = {
+    ...item,
+    sepId: item.sepId || item.SEP_ID || item.row,
+  };
+  currentTask.value = taskData;
   currentTaskType.value = task.key;
   currentMode.value = 'view';
   showTaskEdit.value = true;
 };
 
 const handleComplete = async (task: any, item: any) => {
-  currentTask.value = item;
+  const taskData = {
+    ...item,
+    sepId: item.sepId || item.SEP_ID || item.row,
+  };
+  currentTask.value = taskData;
   currentTaskType.value = task.key;
   currentMode.value = 'complete';
   showTaskEdit.value = true;
 };
 
 const handleSkip = async (task: any, item: any) => {
-  currentTask.value = item;
+  const taskData = {
+    ...item,
+    sepId: item.sepId || item.SEP_ID || item.row,
+  };
+  currentTask.value = taskData;
   currentTaskType.value = task.key;
   currentMode.value = 'skip';
   showTaskEdit.value = true;
 };
 
 const handleRevoke = (task: any, item: any) => {
-  currentTask.value = item;
+  const taskData = {
+    ...item,
+    sepId: item.sepId || item.SEP_ID || item.row,
+  };
+  currentTask.value = taskData;
   currentTaskType.value = task.key;
   currentMode.value = 'revoke';
   showTaskEdit.value = true;
@@ -408,9 +512,19 @@ onMounted(() => {
                     <Icon :icon="task.icon" class="task-icon" />
                     <span>{{ task.name }}</span>
                   </div>
-                  <ElTag :type="getTaskStatusInfo(task).type" size="small">
-                    {{ getTaskStatusInfo(task).label }}
-                  </ElTag>
+                  <div style="display: flex; gap: 12px; align-items: center">
+                    <ElTag :type="getTaskStatusInfo(task).type" size="small">
+                      {{ getTaskStatusInfo(task).label }}
+                    </ElTag>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="handleAdd(task)"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      新增
+                    </ElButton>
+                  </div>
                 </div>
               </template>
 
@@ -418,9 +532,7 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text"
-                      >{{ getTaskProgress(task) }}%</span
-                    >
+                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -432,7 +544,7 @@ onMounted(() => {
                       <span style="color: #67c23a">
                         {{
                           task.data?.filter(
-                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                            (item: any) => item.zt === '1' || item.zt === 1,
                           ).length || 0
                         }}
                       </span>
@@ -440,7 +552,7 @@ onMounted(() => {
                       <span style="color: #e6a23c">
                         {{
                           task.data?.filter(
-                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                            (item: any) => item.zt === '2' || item.zt === 2,
                           ).length || 0
                         }}
                       </span>
@@ -453,12 +565,12 @@ onMounted(() => {
                     >
                       ({{
                         task.data?.filter(
-                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                          (item: any) => item.zt === '1' || item.zt === 1,
                         ).length || 0
                       }}完成,
                       {{
                         task.data?.filter(
-                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                          (item: any) => item.zt === '2' || item.zt === 2,
                         ).length || 0
                       }}跳过)
                     </span>
@@ -507,9 +619,9 @@ onMounted(() => {
                             查看
                           </ElButton>
 
-                          <!-- 待确认状态 (ZT=0) - 显示编辑、完成、跳过按钮 -->
+                          <!-- 待确认状态 (zt=0) - 显示编辑、完成、跳过按钮 -->
                           <template
-                            v-if="scope.row.ZT === '0' || scope.row.ZT === 0"
+                            v-if="scope.row.zt === '0' || scope.row.zt === 0"
                           >
                             <!-- 编辑按钮 -->
                             <ElButton
@@ -542,13 +654,13 @@ onMounted(() => {
                             </ElButton>
                           </template>
 
-                          <!-- 已完成或已跳过状态 (ZT=1 或 ZT=2) - 显示撤回按钮 -->
+                          <!-- 已完成或已跳过状态 (zt=1 或 zt=2) - 显示撤回按钮 -->
                           <ElButton
                             v-else-if="
-                              scope.row.ZT === '1' ||
-                              scope.row.ZT === 1 ||
-                              scope.row.ZT === '2' ||
-                              scope.row.ZT === 2
+                              scope.row.zt === '1' ||
+                              scope.row.zt === 1 ||
+                              scope.row.zt === '2' ||
+                              scope.row.zt === 2
                             "
                             type="danger"
                             size="small"

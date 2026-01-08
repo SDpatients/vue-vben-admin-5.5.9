@@ -59,16 +59,21 @@ export namespace FileApi {
  * @param file 文件对象
  * @param bizType 业务类型 (case, process, notice等)
  * @param bizId 业务ID
+ * @param category 分类标识（可选，用于归档等场景）
  */
 export async function uploadFileApi(
   file: File,
   bizType: string,
   bizId: number,
+  category?: string,
 ): Promise<FileApi.UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('bizType', bizType);
   formData.append('bizId', bizId.toString());
+  if (category) {
+    formData.append('category', category);
+  }
 
   return fileUploadRequestClient.post<FileApi.UploadResponse>(
     '/api/file/upload',

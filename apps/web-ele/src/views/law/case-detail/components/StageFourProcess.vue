@@ -17,9 +17,9 @@ import {
 } from 'element-plus';
 
 import {
-  getAllAuditReportApi,
   getAllAssetValuationApi,
   getAllAuctionAgencyApi,
+  getAllAuditReportApi,
   getAllBankruptcyDeclarationApi,
   getAllClaimConfirmationApi,
   getAllImportantActionsApi,
@@ -94,20 +94,7 @@ const taskConfig = [
       { label: '状态', prop: 'ZT', isStatus: true },
     ],
   },
-  {
-    key: 'claimConfirmation',
-    name: '债权确认',
-    icon: 'lucide:check-circle',
-    api: getAllClaimConfirmationApi,
-    fields: [
-      { label: '法院裁定日期', prop: 'FYCDRQ', isDate: true },
-      { label: '裁定文号', prop: 'CDWH' },
-      { label: '最终金额', prop: 'ZZJE' },
-      { label: '申报金额', prop: 'SBJE' },
-      { label: '申报ID', prop: 'SBID' },
-      { label: '状态', prop: 'ZT', isStatus: true },
-    ],
-  },
+
   {
     key: 'remunerationPlan',
     name: '报酬方案',
@@ -248,15 +235,28 @@ const taskStatusMap = {
 const fetchTaskData = async (taskConfigItem: any) => {
   try {
     const response = await taskConfigItem.api(props.caseId, 1, 10);
-    if (response.status === '1') {
+    const isNewFormat = response.code === 200;
+    if (isNewFormat) {
       return {
         ...taskConfigItem,
-        data: response.data.records || [],
-        count: response.data.count || 0,
+        data: response.data || [],
+        count: response.data?.length || 0,
+        status: 'loaded',
+      };
+    } else if (response.status === '1') {
+      const records =
+        response.data.records ||
+        (Array.isArray(response.data) ? response.data : []);
+      return {
+        ...taskConfigItem,
+        data: records,
+        count: records.length || 0,
         status: 'loaded',
       };
     } else {
-      ElMessage.error(`获取${taskConfigItem.name}失败：${response.error}`);
+      ElMessage.error(
+        `获取${taskConfigItem.name}失败：${response.message || response.error}`,
+      );
       return {
         ...taskConfigItem,
         data: [],
@@ -444,9 +444,19 @@ onMounted(() => {
                     <Icon :icon="task.icon" class="task-icon" />
                     <span>{{ task.name }}</span>
                   </div>
-                  <ElTag :type="getTaskStatusInfo(task).type" size="small">
-                    {{ getTaskStatusInfo(task).label }}
-                  </ElTag>
+                  <div style="display: flex; gap: 12px; align-items: center">
+                    <ElTag :type="getTaskStatusInfo(task).type" size="small">
+                      {{ getTaskStatusInfo(task).label }}
+                    </ElTag>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="handleAdd(task)"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      新增
+                    </ElButton>
+                  </div>
                 </div>
               </template>
 
@@ -454,7 +464,9 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                    <span class="progress-text"
+                      >{{ getTaskProgress(task) }}%</span
+                    >
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -462,13 +474,41 @@ onMounted(() => {
                     :stroke-width="8"
                   />
                   <div class="task-count">
-                    <span>{{
-                      task.data?.filter((item: any) => item.ZT === '1')
-                        .length || 0
-                    }}</span>
+                    <span>
+                      <span style="color: #67c23a">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                          ).length || 0
+                        }}
+                      </span>
+                      <span style="margin: 0 4px">+</span>
+                      <span style="color: #e6a23c">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                          ).length || 0
+                        }}
+                      </span>
+                    </span>
                     <span>/</span>
                     <span>{{ task.count || 0 }}</span>
                     <span>项已完成</span>
+                    <span
+                      style="margin-left: 8px; font-size: 11px; color: #999"
+                    >
+                      (
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                        ).length || 0
+                      }}完成,
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                        ).length || 0
+                      }}跳过)
+                    </span>
                   </div>
                 </div>
 
