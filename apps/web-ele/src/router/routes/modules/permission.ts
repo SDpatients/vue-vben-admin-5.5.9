@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.permission.index'),
         },
       },
+      {
+        name: 'CasePermission',
+        path: '/case-permission',
+        component: () => import('#/views/case-permission/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:folder-key',
+          title: '案件权限',
+        },
+      },
     ],
   },
 ];

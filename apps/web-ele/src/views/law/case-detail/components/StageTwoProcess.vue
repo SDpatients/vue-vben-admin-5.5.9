@@ -21,16 +21,22 @@ import {
   addContractManagementApi,
   addEmergencyApi,
   addInternalAffairsApi,
+  addLegalProcedureApi,
+  addManagementApi,
   addPersonnelEmploymentApi,
   addPropertyPlanApi,
   addPropertyReceiptApi,
+  addSealManagementApi,
   getAllBManagementApi,
   getAllContractManagementApi,
   getAllEmergencyApi,
   getAllInternalAffairsApi,
+  getAllLegalProcedureApi,
+  getAllManagementApi,
   getAllPersonnelEmpApi,
   getAllPropertyPlanApi,
   getAllPropertyReceiptApi,
+  getAllSealManagementApi,
 } from '#/api/core/case-process';
 
 import TaskEdit from '../TaskEdit.vue';
@@ -177,6 +183,7 @@ const taskConfig = [
   },
 ];
 
+
 const taskStatusMap = {
   0: { label: '待确认', type: 'info', color: '#409EFF' },
   1: { label: '完成', type: 'success', color: '#67C23A' },
@@ -194,7 +201,7 @@ const fetchTaskData = async (taskConfigItem: any) => {
       return {
         ...taskConfigItem,
         data: records,
-        count: count,
+        count,
         status: 'loaded',
       };
     } else {
@@ -209,7 +216,9 @@ const fetchTaskData = async (taskConfigItem: any) => {
     }
   } catch (error: any) {
     console.error(`获取${taskConfigItem.name}失败:`, error);
-    ElMessage.error(`获取${taskConfigItem.name}失败：${error.message || '网络错误'}`);
+    ElMessage.error(
+      `获取${taskConfigItem.name}失败：${error.message || '网络错误'}`,
+    );
     return {
       ...taskConfigItem,
       data: [],
@@ -280,6 +289,14 @@ const getStatusInfo = (status: string) => {
   return (
     taskStatusMap[statusNum as keyof typeof taskStatusMap] || taskStatusMap[0]
   );
+};
+
+const formatTaskDate = (dateStr: string) => {
+  if (!dateStr || dateStr === '1900-01-01T00:00:00') {
+    return '-';
+  }
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN');
 };
 
 const handleAdd = (task: any) => {
@@ -380,9 +397,19 @@ onMounted(() => {
                     <Icon :icon="task.icon" class="task-icon" />
                     <span>{{ task.name }}</span>
                   </div>
-                  <ElTag :type="getTaskStatusInfo(task).type" size="small">
-                    {{ getTaskStatusInfo(task).label }}
-                  </ElTag>
+                  <div style="display: flex; gap: 12px; align-items: center">
+                    <ElTag :type="getTaskStatusInfo(task).type" size="small">
+                      {{ getTaskStatusInfo(task).label }}
+                    </ElTag>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="handleAdd(task)"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      新增
+                    </ElButton>
+                  </div>
                 </div>
               </template>
 
@@ -390,7 +417,9 @@ onMounted(() => {
                 <div class="task-progress mb-4">
                   <div class="progress-info">
                     <span>完成进度</span>
-                    <span class="progress-text">{{ getTaskProgress(task) }}%</span>
+                    <span class="progress-text"
+                      >{{ getTaskProgress(task) }}%</span
+                    >
                   </div>
                   <ElProgress
                     :percentage="getTaskProgress(task)"
@@ -398,13 +427,41 @@ onMounted(() => {
                     :stroke-width="8"
                   />
                   <div class="task-count">
-                    <span>{{
-                      task.data?.filter((item: any) => item.ZT === '1')
-                        .length || 0
-                    }}</span>
+                    <span>
+                      <span style="color: #67c23a">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '1' || item.ZT === 1,
+                          ).length || 0
+                        }}
+                      </span>
+                      <span style="margin: 0 4px">+</span>
+                      <span style="color: #e6a23c">
+                        {{
+                          task.data?.filter(
+                            (item: any) => item.ZT === '2' || item.ZT === 2,
+                          ).length || 0
+                        }}
+                      </span>
+                    </span>
                     <span>/</span>
                     <span>{{ task.count || 0 }}</span>
                     <span>项已完成</span>
+                    <span
+                      style="margin-left: 8px; font-size: 11px; color: #999"
+                    >
+                      (
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '1' || item.ZT === 1,
+                        ).length || 0
+                      }}完成,
+                      {{
+                        task.data?.filter(
+                          (item: any) => item.ZT === '2' || item.ZT === 2,
+                        ).length || 0
+                      }}跳过)
+                    </span>
                   </div>
                 </div>
 
@@ -424,8 +481,11 @@ onMounted(() => {
                       show-overflow-tooltip
                     >
                       <template #default="scope">
+                        <span v-if="field.isDate">{{
+                          formatTaskDate(scope.row[field.prop])
+                        }}</span>
                         <ElTag
-                          v-if="field.isStatus"
+                          v-else-if="field.isStatus"
                           :type="getStatusInfo(scope.row[field.prop]).type"
                           size="small"
                         >

@@ -15,7 +15,6 @@ import {
   ElDropdownItem,
   ElDropdownMenu,
   ElMessage,
-  ElMessageBox,
   ElPagination,
   ElPopover,
   ElTable,
@@ -25,7 +24,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { deleteCaseApi, getCaseListApi } from '#/api/core/case';
+import { getCaseListApi } from '#/api/core/case';
 import { selectMyCasesApi, selectTeamCasesApi } from '#/api/core/work-team';
 
 import ReviewModal from './components/ReviewModal.vue';
@@ -302,29 +301,6 @@ const showReviewModal = (row: CaseApi.CaseInfo) => {
   reviewModalVisible.value = true;
 };
 
-// 删除案件
-const deleteCase = async (row: CaseApi.CaseInfo) => {
-  try {
-    await ElMessageBox.confirm(`确认删除案件"${row.案号}"吗？`, '确认删除', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-
-    const response = await deleteCaseApi(row.案件单据号);
-    if (response.status === '1') {
-      ElMessage.success('删除成功');
-      fetchCaseList();
-    } else {
-      ElMessage.error(response.error || '删除失败');
-    }
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败');
-    }
-  }
-};
-
 // 检查是否有权限
 const hasPermission = (perm: string | string[]) => {
   if (Array.isArray(perm)) {
@@ -336,11 +312,6 @@ const hasPermission = (perm: string | string[]) => {
 // 检查是否可以审核
 const canReview = (row: CaseApi.CaseInfo) => {
   return hasPermission('case:review');
-};
-
-// 检查是否可以删除
-const canDelete = () => {
-  return hasPermission('case:delete');
 };
 </script>
 
@@ -682,14 +653,6 @@ const canDelete = () => {
                     @click="showReviewModal(row)"
                   >
                     审核
-                  </ElButton>
-                  <ElButton
-                    v-if="canDelete()"
-                    type="danger"
-                    size="small"
-                    @click="deleteCase(row)"
-                  >
-                    删除
                   </ElButton>
                 </div>
               </template>

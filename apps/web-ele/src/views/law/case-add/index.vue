@@ -120,11 +120,15 @@ const fetchManagerList = async () => {
   try {
     const response = await getManagerListApi({ page: 1, size: 100 });
     if (response.status === '1' && response.data) {
-      managerList.value = response.data.map((manager: any) => ({
-        label: manager.lsswsid, // 律师事务所
-        value: manager.sepId.toString(), // 管理人ID
-        sepId: manager.sepId.toString(),
-      }));
+      // 只保留 sepId 有效的管理人
+      managerList.value = response.data
+        .filter((manager: any) => manager.sepId)
+        .map((manager: any) => ({
+          label: manager.lsswsid, // 律师事务所
+          value: manager.sepId.toString(), // 管理人ID
+          sepId: manager.sepId.toString(),
+        }));
+      console.log('加载到的管理人列表:', managerList.value);
     }
   } catch (error) {
     console.error('获取管理人列表失败:', error);
@@ -138,12 +142,30 @@ const fetchUserList = async (managerIds: string[]) => {
     // 清空当前用户列表
     userList.value = [];
 
+    // 过滤掉无效的管理人ID（空字符串、undefined、null）
+    const validManagerIds = managerIds.filter(
+      (id) => id && id.trim() !== '',
+    );
+    console.log('有效的管理人ID列表:', validManagerIds);
+
+    // 如果没有有效的ID，直接返回
+    if (validManagerIds.length === 0) {
+      console.warn('没有有效的管理人ID');
+      return;
+    }
+
     // 存储所有用户的Map，用于去重
     const userMap = new Map<number, { label: string; value: number }>();
 
     // 遍历所有选中的管理员ID
-    for (const managerId of managerIds) {
-      const response = await getUserByDeptIdApi(Number.parseInt(managerId));
+    for (const managerId of validManagerIds) {
+      // 确保 managerId 是有效的数字
+      const deptId = Number(managerId);
+      if (!deptId || Number.isNaN(deptId)) {
+        console.warn('无效的管理人ID:', managerId);
+        continue;
+      }
+      const response = await getUserByDeptIdApi(deptId);
       if (response.status === '1' && response.data) {
         // 将当前管理员的用户添加到Map中，避免重复
         response.data.forEach((user: any) => {
