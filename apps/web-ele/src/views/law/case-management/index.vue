@@ -46,7 +46,6 @@ const pagination = ref({
 
 // 确保表格数据始终为数组
 const safeCaseList = computed(() => Array.isArray(caseList.value) ? caseList.value : []);
-});
 
 // 标签页控制
 const activeTab = ref('allCases');
