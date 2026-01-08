@@ -1,153 +1,68 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient } from '#/api/request';
 
 export namespace ManagerApi {
-  /** 管理人查询参数 */
-  export interface ManagerQueryParams {
-    page?: number;
-    size?: number;
-    token?: string;
-    LSWS?: string;
-    GLRType?: string;
-    FZR?: string;
-  }
-
-  /** 管理人信息 */
+  /** 管理人员信息 */
   export interface ManagerInfo {
-    row?: number;
-    sepId: number; // 管理人ID
-    lsswsid: string; // 律师事务所
-    glrlx: string; // 管理人类型
-    fzrid: string; // 负责人
-    lxdh: string; // 联系电话
-    lxyx: string; // 联系邮箱
-    bgdz: string; // 办公地址
-    zt: string; // 状态
-    sepLd?: any;
-    sepMd?: any;
-    ccje?: any;
-    kzje?: any;
-    sepNd?: any;
-    sepAuser: string; // 创建者
-    sepAdate: number; // 创建时间
-    sepEuser?: any;
-    sepEdate?: any;
-  }
-
-  /** 管理人列表响应 */
-  export interface ManagerListResponse {
-    data: ManagerInfo[];
+    managerId: number;
+    name: string;
+    position: string;
+    department: string;
+    contactPhone?: string;
+    email?: string;
     status: string;
-    error: string;
+    createTime: string;
+    updateTime: string;
+  }
+
+  /** 管理人员列表响应 */
+  export interface ManagerListResponse {
+    data: {
+      count: number;
+      pages: number;
+      records: ManagerInfo[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 管理人员响应 */
+  export interface ManagerResponse {
+    code: number;
+    message: string;
   }
 }
 
 /**
- * 获取管理人列表
+ * 获取管理人员列表
  */
-export async function getManagerListApi(params: ManagerApi.ManagerQueryParams) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.get<ManagerApi.ManagerListResponse>(
-    '/api/web/getAllAdministrator',
-    {
-      params: {
-        ...params,
-        token,
-      },
-    },
-  );
-}
-
-/** 添加管理人请求 */
-export interface AddManagerRequest {
-  sep_auser: string;
-  sep_adate: string;
-  lsws: string;
-  glrtype: string;
-  fzr: string;
-  lxdh: string;
-  lxemail: string;
-  bgaddress: string;
-  zt: string;
-}
-
-/** 添加管理人响应 */
-export interface AddManagerResponse {
-  status: string;
-  error: string;
+export async function getManagerListApi() {
+  return requestClient.get<ManagerApi.ManagerListResponse>('/managers');
 }
 
 /**
- * 添加管理人信息
+ * 获取管理人员详情
  */
-export async function addManagerApi(data: AddManagerRequest[]) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<AddManagerResponse>('/api/web/addAdministrator', data, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    params: {
-      token,
-    },
-  });
-}
-
-/** 更新管理人请求 */
-export interface UpdateManagerRequest {
-  SEP_EUSER: string;
-  SEP_EDATE: string;
-  SEP_ID: string;
-  LSWS: string;
-  GLRType: string;
-  FZR: string;
-  LXDH: string;
-  LXEmail: string;
-  BGAddress: string;
-  ZT: string;
-}
-
-/** 更新管理人响应 */
-export interface UpdateManagerResponse {
-  status: string;
-  error: string;
+export async function getManagerDetailApi() {
+  return requestClient.get<ManagerApi.ManagerInfo>('/managers');
 }
 
 /**
- * 更新管理人信息
+ * 新增管理人员
  */
-export async function updateManagerApi(data: UpdateManagerRequest) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<UpdateManagerResponse>('/api/web/updateManager', [data], {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    params: {
-      token,
-    },
-  });
-}
-
-/** 删除管理人请求 */
-export interface DeleteManagerRequest {
-  SEP_ID: string;
-}
-
-/** 删除管理人响应 */
-export interface DeleteManagerResponse {
-  status: string;
-  error: string;
+export async function addManagerApi() {
+  return requestClient.post<ManagerApi.ManagerResponse>('/managers');
 }
 
 /**
- * 删除管理人信息
+ * 更新管理人员
  */
-export async function deleteManagerApi(data: DeleteManagerRequest) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<DeleteManagerResponse>('/api/web/deleteAdministrator', data, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    params: {
-      token,
-    },
-  });
+export async function updateManagerApi() {
+  return requestClient.put<ManagerApi.ManagerResponse>('/managers');
+}
+
+/**
+ * 删除管理人员
+ */
+export async function deleteManagerApi() {
+  return requestClient.delete<ManagerApi.ManagerResponse>('/managers');
 }

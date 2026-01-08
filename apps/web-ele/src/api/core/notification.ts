@@ -1,46 +1,67 @@
 import { requestClient } from '#/api/request';
 
-export interface Notification {
-  id: number;
-  userId: number;
-  type: string;
-  title: string;
-  content: string;
-  relatedType?: string;
-  relatedId?: number;
-  isRead: boolean;
-  createTime: string;
-  readTime?: string;
+export namespace NotificationApi {
+  /** 通知信息 */
+  export interface Notification {
+    id: number;
+    title: string;
+    content: string;
+    type: string;
+    status: string;
+    createTime: string;
+    readTime?: string;
+  }
+
+  /** 通知列表响应 */
+  export interface NotificationListResponse {
+    data: {
+      count: number;
+      pages: number;
+      records: Notification[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 通知响应 */
+  export interface NotificationResponse {
+    code: number;
+    message: string;
+  }
 }
 
-export interface NotificationListResponse {
-  code: string;
-  message: string;
-  data: Notification[];
+export type Notification = NotificationApi.Notification;
+
+/**
+ * 获取通知列表
+ */
+export async function notificationApi() {
+  return requestClient.get<NotificationApi.NotificationListResponse>(
+    '/notifications',
+  );
 }
 
-export const notificationApi = {
-  getNotificationList: (page: number = 1, pageSize: number = 20) => {
-    return requestClient.get<NotificationListResponse>('/api/notification/list', {
-      params: { page, pageSize },
-    });
-  },
+/**
+ * 标记通知为已读
+ */
+export async function markNotificationReadApi() {
+  return requestClient.put<NotificationApi.NotificationResponse>(
+    '/notifications/read',
+  );
+}
 
-  getUnreadCount: () => {
-    return requestClient.get<{ code: string; message: string; data: number }>(
-      '/api/notification/unread/count',
-    );
-  },
+/**
+ * 删除通知
+ */
+export async function deleteNotificationApi() {
+  return requestClient.delete<NotificationApi.NotificationResponse>(
+    '/notifications',
+  );
+}
 
-  markAsRead: (id: number) => {
-    return requestClient.put(`/api/notification/${id}/read`);
-  },
-
-  markAllAsRead: () => {
-    return requestClient.put('/api/notification/read/all');
-  },
-
-  deleteNotification: (id: number) => {
-    return requestClient.delete(`/api/notification/${id}`);
-  },
-};
+/**
+ * 获取未读通知数量
+ */
+export async function getUnreadNotificationCountApi() {
+  return requestClient.get<{ count: number }>('/notifications/unread-count');
+}

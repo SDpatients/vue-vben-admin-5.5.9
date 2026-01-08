@@ -1,65 +1,69 @@
 import { requestClient } from '#/api/request';
 
-export interface Todo {
-  id: number;
-  userId: number;
-  title: string;
-  description?: string;
-  priority: string;
-  status: string;
-  deadline?: string;
-  sourceType?: string;
-  sourceId?: number;
-  relatedType?: string;
-  relatedId?: number;
-  completedTime?: string;
-  createTime: string;
-  updateTime: string;
+export namespace TodoApi {
+  /** 待办事项信息 */
+  export interface TodoInfo {
+    todoId: number;
+    todoTitle: string;
+    todoContent: string;
+    todoStatus: string;
+    priority: string;
+    deadline?: string;
+    createTime: string;
+    updateTime: string;
+    createUser: string;
+    updateUser: string;
+  }
+
+  /** 待办事项列表响应 */
+  export interface TodoListResponse {
+    data: {
+      count: number;
+      pages: number;
+      records: TodoInfo[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 待办事项响应 */
+  export interface TodoResponse {
+    code: number;
+    message: string;
+  }
 }
 
-export interface TodoDTO {
-  title: string;
-  description?: string;
-  priority?: string;
-  deadline?: string;
-  relatedType?: string;
-  relatedId?: number;
+/**
+ * 获取待办事项列表
+ */
+export async function getTodoListApi() {
+  return requestClient.get<TodoApi.TodoListResponse>('/todos');
 }
 
-export const todoApi = {
-  getTodoList: (status?: string, priority?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/todo/list', {
-      params: { status, priority, page, pageSize },
-    });
-  },
+/**
+ * 获取待办事项详情
+ */
+export async function getTodoDetailApi() {
+  return requestClient.get<TodoApi.TodoInfo>('/todos');
+}
 
-  getUserTodoList: (targetUserId: number, status?: string, priority?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get(`/api/todo/user/${targetUserId}`, {
-      params: { status, priority, page, pageSize },
-    });
-  },
+/**
+ * 新增待办事项
+ */
+export async function addTodoApi() {
+  return requestClient.post<TodoApi.TodoResponse>('/todos');
+}
 
-  createTodo: (data: TodoDTO) => {
-    return requestClient.post('/api/todo', data);
-  },
+/**
+ * 更新待办事项
+ */
+export async function updateTodoApi() {
+  return requestClient.put<TodoApi.TodoResponse>('/todos');
+}
 
-  createTodoForUser: (targetUserId: number, data: TodoDTO) => {
-    return requestClient.post(`/api/todo/user/${targetUserId}`, data);
-  },
-
-  updateTodo: (id: number, data: Partial<TodoDTO>) => {
-    return requestClient.put(`/api/todo/${id}`, data);
-  },
-
-  completeTodo: (id: number) => {
-    return requestClient.put(`/api/todo/${id}/complete`);
-  },
-
-  cancelTodo: (id: number) => {
-    return requestClient.put(`/api/todo/${id}/cancel`);
-  },
-
-  deleteTodo: (id: number) => {
-    return requestClient.delete(`/api/todo/${id}`);
-  },
-};
+/**
+ * 删除待办事项
+ */
+export async function deleteTodoApi() {
+  return requestClient.delete<TodoApi.TodoResponse>('/todos');
+}

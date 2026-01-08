@@ -1,63 +1,80 @@
-import type { UserInfo } from '@vben/types';
-
-import { requestClient8085 } from '#/api/request';
+import { requestClient } from '#/api/request';
 
 export namespace UserApi {
   /** 用户信息 */
   export interface UserInfo {
-    uPid: number;
-    uName: string;
-    uCode: string;
-    uDeptId: number;
-    uDeptName: string;
-    uRole: string;
-    uStatus: string;
+    userId: number;
+    username: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    avatar?: string;
+    status: string;
+    createTime: string;
+    updateTime: string;
+    roles: {
+      roleCode: string;
+      roleId: number;
+      roleName: string;
+    }[];
   }
 
   /** 用户列表响应 */
   export interface UserListResponse {
-    data: UserInfo[];
-    status: string;
-    error: string;
+    data: {
+      count: number;
+      pages: number;
+      records: UserInfo[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 用户响应 */
+  export interface UserResponse {
+    code: number;
+    message: string;
   }
 }
 
 /**
- * 获取用户信息
- * 由于后端没有/user/info接口，返回模拟数据
+ * 获取用户列表
  */
-export async function getUserInfoApi() {
-  // 返回模拟的用户信息
-  const mockUserInfo: UserInfo = {
-    userId: 'admin',
-    username: 'admin',
-    realName: '管理员',
-    avatar: '',
-    homePath: '/dashboard',
-    desc: '系统管理员',
-    token: 'mock_token',
-    roles: ['admin'],
-  };
-
-  // 模拟异步请求延迟
-  return new Promise<UserInfo>((resolve) => {
-    setTimeout(() => resolve(mockUserInfo), 100);
-  });
+export async function getUserListApi() {
+  return requestClient.get<UserApi.UserListResponse>('/users');
 }
 
 /**
- * 根据部门ID获取用户列表
- * @param sepId 管理人ID (sep_id)
+ * 获取用户详情
  */
-export async function getUserByDeptIdApi(sepId: number) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.get<UserApi.UserListResponse>(
-    '/api/web/getUserByDeptid',
-    {
-      params: {
-        token,
-        sep_id: sepId,
-      },
-    },
-  );
+export async function getUserDetailApi() {
+  return requestClient.get<UserApi.UserInfo>('/users');
+}
+
+/**
+ * 新增用户
+ */
+export async function addUserApi() {
+  return requestClient.post<UserApi.UserResponse>('/users');
+}
+
+/**
+ * 更新用户
+ */
+export async function updateUserApi() {
+  return requestClient.put<UserApi.UserResponse>('/users');
+}
+
+/**
+ * 删除用户
+ */
+export async function deleteUserApi() {
+  return requestClient.delete<UserApi.UserResponse>('/users');
+}
+
+/**
+ * 更新用户状态
+ */
+export async function updateUserStatusApi() {
+  return requestClient.put<UserApi.UserResponse>('/users/status');
 }

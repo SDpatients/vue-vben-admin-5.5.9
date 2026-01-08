@@ -1,44 +1,68 @@
 import { requestClient } from '#/api/request';
 
-export interface Activity {
-  id: number;
-  userId: number;
-  userName: string;
-  type: string;
-  content: string;
-  relatedType?: string;
-  relatedId?: number;
-  createTime: string;
+export namespace ActivityApi {
+  /** 活动信息 */
+  export interface Activity {
+    activityId: number;
+    title: string;
+    content: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    createTime: string;
+    updateTime: string;
+    createUser: string;
+  }
+
+  /** 活动列表响应 */
+  export interface ActivityListResponse {
+    data: {
+      count: number;
+      pages: number;
+      records: Activity[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 活动响应 */
+  export interface ActivityResponse {
+    code: number;
+    message: string;
+  }
 }
 
-export const activityApi = {
-  getActivityList: (type?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/activity/list', {
-      params: { type, page, pageSize },
-    });
-  },
+/**
+ * 获取活动列表
+ */
+export async function activityApi() {
+  return requestClient.get<ActivityApi.ActivityListResponse>('/activities');
+}
 
-  getMyActivityList: (page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/activity/my', {
-      params: { page, pageSize },
-    });
-  },
+/**
+ * 获取活动详情
+ */
+export async function getActivityDetailApi() {
+  return requestClient.get<ActivityApi.Activity>('/activities');
+}
 
-  getUserActivityList: (targetUserId: number, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get(`/api/activity/user/${targetUserId}`, {
-      params: { page, pageSize },
-    });
-  },
+/**
+ * 新增活动
+ */
+export async function addActivityApi() {
+  return requestClient.post<ActivityApi.ActivityResponse>('/activities');
+}
 
-  DeleteActivity: (id: number) => {
-    return requestClient.put(`/api/web/activity/UpdateActivityIsDelete`, {}, {
-      params: { id },
-    });
-  },
+/**
+ * 更新活动
+ */
+export async function updateActivityApi() {
+  return requestClient.put<ActivityApi.ActivityResponse>('/activities');
+}
 
-  UpdateActivityIsDeleteByUserId: (userId: number) => {
-    return requestClient.put(`/api/web/activity/UpdateActivityIsDelete`, {}, {
-      params: { userId },
-    });
-  },
-};
+/**
+ * 删除活动
+ */
+export async function deleteActivityApi() {
+  return requestClient.delete<ActivityApi.ActivityResponse>('/activities');
+}

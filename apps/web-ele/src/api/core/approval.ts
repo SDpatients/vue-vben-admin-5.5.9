@@ -1,67 +1,71 @@
 import { requestClient } from '#/api/request';
 
-export interface Approval {
-  id: number;
-  approvalNo: string;
-  type: string;
-  applicantId: number;
-  applicantName: string;
-  approverId?: number;
-  approverName?: string;
-  status: string;
-  title: string;
-  description?: string;
-  businessData?: string;
-  applyTime: string;
-  approveTime?: string;
-  createTime: string;
-  updateTime: string;
+export namespace ApprovalApi {
+  /** 审批信息 */
+  export interface ApprovalInfo {
+    approvalId: number;
+    approvalType: string;
+    approvalTitle: string;
+    approvalContent: string;
+    approvalStatus: string;
+    createTime: string;
+    updateTime: string;
+    createUser: string;
+    updateUser: string;
+    approvalHistory?: {
+      approvalComment: string;
+      approvalId: number;
+      approvalStatus: string;
+      approvalTime: string;
+      approvalUser: string;
+      historyId: number;
+    }[];
+  }
+
+  /** 审批列表响应 */
+  export interface ApprovalListResponse {
+    data: {
+      count: number;
+      pages: number;
+      records: ApprovalInfo[];
+    };
+    code: number;
+    message: string;
+  }
+
+  /** 审批响应 */
+  export interface ApprovalResponse {
+    code: number;
+    message: string;
+  }
 }
 
-export interface ApprovalSubmitDTO {
-  type: string;
-  applicantName: string;
-  approverId: number;
-  approverName: string;
-  title: string;
-  description?: string;
-  businessData?: Record<string, any>;
+/**
+ * 获取审批列表
+ */
+export async function getApprovalListApi() {
+  return requestClient.get<ApprovalApi.ApprovalListResponse>('/approvals');
 }
 
-export const approvalApi = {
-  getApprovalList: (status?: string, type?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/approval/list', {
-      params: { status, type, page, pageSize },
-    });
-  },
+/**
+ * 获取审批详情
+ */
+export async function getApprovalDetailApi() {
+  return requestClient.get<ApprovalApi.ApprovalInfo>('/approvals');
+}
 
-  getPendingApprovals: (page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/approval/pending', {
-      params: { page, pageSize },
-    });
-  },
+/**
+ * 提交审批
+ */
+export async function submitApprovalApi() {
+  return requestClient.post<ApprovalApi.ApprovalResponse>('/approvals');
+}
 
-  getApprovalDetail: (id: number) => {
-    return requestClient.get(`/api/approval/${id}`);
-  },
-
-  submitApproval: (data: ApprovalSubmitDTO) => {
-    return requestClient.post('/api/approval', data);
-  },
-
-  approve: (id: number, opinion?: string) => {
-    return requestClient.put(`/api/approval/${id}/approve`, { opinion });
-  },
-
-  reject: (id: number, opinion?: string) => {
-    return requestClient.put(`/api/approval/${id}/reject`, { opinion });
-  },
-
-  cancel: (id: number) => {
-    return requestClient.put(`/api/approval/${id}/cancel`);
-  },
-
-  getApprovalLogs: (id: number) => {
-    return requestClient.get(`/api/approval/${id}/logs`);
-  },
-};
+/**
+ * 审批操作
+ */
+export async function approvalOperationApi() {
+  return requestClient.put<ApprovalApi.ApprovalResponse>(
+    '/approvals/operation',
+  );
+}
