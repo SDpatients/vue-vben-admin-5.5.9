@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:bell',
       order: 10,
       title: $t('page.notification.title'),
+      roles: ['ADMIN'],
     },
     name: 'Notification',
     path: '/notification',

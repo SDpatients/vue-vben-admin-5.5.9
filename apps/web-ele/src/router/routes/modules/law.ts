@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:scale',
       order: 2,
       title: $t('page.law.title'),
+      roles: ['USER'],
     },
     name: 'Law',
     path: '/law',

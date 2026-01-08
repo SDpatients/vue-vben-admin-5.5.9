@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { CourtApi } from '#/api/core';
 
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, ref, computed } from 'vue';
 
 import { useUserStore } from '@vben/stores';
 
@@ -28,8 +28,14 @@ import {
 
 const userStore = useUserStore();
 
+// 组件挂载状态标志，用于防止组件卸载后更新状态
+let isMounted = false;
+
 // 法院列表数据
 const courtList = ref<CourtApi.CourtInfo[]>([]);
+
+// 确保表格数据始终为数组
+const safeCourtList = computed(() => Array.isArray(courtList.value) ? courtList.value : []);
 
 // 加载状态
 const loading = ref(false);
@@ -54,6 +60,8 @@ const fetchCourtList = async () => {
   loading.value = true;
   try {
     const params: CourtApi.CourtQueryParams = {
+      page: pagination.page,
+      size: pagination.pageSize,
       FYQC: searchForm.FYQC,
       FYJC: searchForm.FYJC,
       FYJB: searchForm.FYJB,
@@ -61,11 +69,30 @@ const fetchCourtList = async () => {
 
     const response = await getCourtListApi(params);
 
+    // 检查组件是否仍挂载，避免卸载后更新状态
+    if (!isMounted) return;
+
     if (response.status === '1' && response.data) {
-      courtList.value = response.data || [];
-      // 由于新API直接返回数组，没有分页信息，我们设置固定的分页数据
-      pagination.itemCount = response.data.length || 0;
-      pagination.pages = Math.ceil((response.data.length || 0) / pagination.pageSize);
+      // 从response.data.records中获取数据
+      const records = response.data.records || [];
+      // 处理数据，统一字段名格式
+      const processedData = records.map((item: any) => {
+        return {
+          sep_id: item.sep_id || item.SEP_ID || '',
+          fyqc: item.fyqc || item.FYQC || '',
+          fyjc: item.fyjc || item.FYJC || '',
+          fyjb: item.fyjb || item.FYJB || '',
+          dz: item.dz || item.DZ || '',
+          lxdh: item.lxdh || item.LXDH || '',
+          fzr: item.fzr || item.FZR || '',
+          cbfg: item.cbfg || item.CBFG || '',
+          scbj: item.scbj || item.SCBJ || '',
+        };
+      });
+      courtList.value = processedData;
+      // 使用API返回的分页信息
+      pagination.itemCount = response.data.count || response.data.records?.length || 0;
+      pagination.pages = response.data.pages || 1;
       ElMessage.success('法院列表加载成功');
     } else {
       ElMessage.error(response.error || '获取法院列表失败');
@@ -74,14 +101,21 @@ const fetchCourtList = async () => {
       pagination.itemCount = 0;
       pagination.pages = 0;
     }
-  } catch {
+  } catch (error) {
+    // 检查组件是否仍挂载，避免卸载后更新状态
+    if (!isMounted) return;
+    
+    console.error('获取法院列表失败:', error);
     ElMessage.error('后端API暂时不可用，请稍后再试');
     // 清空列表数据
     courtList.value = [];
     pagination.itemCount = 0;
     pagination.pages = 0;
   } finally {
-    loading.value = false;
+    // 检查组件是否仍挂载，避免卸载后更新状态
+    if (isMounted) {
+      loading.value = false;
+    }
   }
 };
 
@@ -148,11 +182,18 @@ const editCourtForm = reactive({
   CBFG: '',
 });
 
-// 表单验证规则
-const rules = reactive({
+// 表单验证规则 - 用于新增表单
+const addRules = reactive({
   fyqc: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
   fyjc: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
   fyjb: [{ required: true, message: '请输入法院级别', trigger: 'blur' }],
+});
+
+// 表单验证规则 - 用于编辑表单
+const editRules = reactive({
+  FYQC: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
+  FYJC: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
+  FYJB: [{ required: true, message: '请输入法院级别', trigger: 'blur' }],
 });
 
 // 新增法院
@@ -193,6 +234,10 @@ const submitAddCourt = async () => {
     };
 
     const response = await addCourtApi(requestData);
+    
+    // 检查组件是否仍挂载
+    if (!isMounted) return;
+    
     if (response.status === '1') {
       ElMessage.success('法院添加成功');
       dialogVisible.value = false;
@@ -202,6 +247,9 @@ const submitAddCourt = async () => {
       ElMessage.error(response.error || '法院添加失败');
     }
   } catch (error) {
+    // 检查组件是否仍挂载
+    if (!isMounted) return;
+    
     console.error('添加法院失败:', error);
     ElMessage.error('网络错误，请稍后重试');
   }
@@ -245,6 +293,10 @@ const submitEditCourt = async () => {
     };
 
     const response = await updateCourtApi(requestData);
+    
+    // 检查组件是否仍挂载
+    if (!isMounted) return;
+    
     if (response.status === '1') {
       ElMessage.success('法院修改成功');
       editDialogVisible.value = false;
@@ -254,6 +306,9 @@ const submitEditCourt = async () => {
       ElMessage.error(response.error || '法院修改失败');
     }
   } catch (error) {
+    // 检查组件是否仍挂载
+    if (!isMounted) return;
+    
     console.error('修改法院失败:', error);
     ElMessage.error('网络错误，请稍后重试');
   }
@@ -269,6 +324,10 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
     });
 
     const response = await deleteCourtApi({ SEP_ID: row.sep_id }); // 使用小写字段名
+    
+    // 检查组件是否仍挂载
+    if (!isMounted) return;
+    
     if (response.status === '1') {
       ElMessage.success('法院删除成功');
       // 刷新列表
@@ -279,6 +338,9 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
   } catch (error) {
     // 如果用户取消删除，不显示错误信息
     if (error !== 'cancel') {
+      // 检查组件是否仍挂载
+      if (!isMounted) return;
+      
       console.error('删除法院失败:', error);
       ElMessage.error('网络错误，请稍后重试');
     }
@@ -287,7 +349,13 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  isMounted = true;
   fetchCourtList();
+});
+
+// 页面卸载时清理
+onUnmounted(() => {
+  isMounted = false;
 });
 </script>
 
@@ -348,7 +416,7 @@ onMounted(() => {
       <!-- 数据表格 -->
       <ElTable
           v-loading="loading"
-          :data="courtList"
+          :data="safeCourtList"
           :border="true"
           :stripe="true"
           :style="{ width: '100%' }"
@@ -425,7 +493,7 @@ onMounted(() => {
         width="500px"
         @close="handleCloseDialog"
       >
-        <ElForm :model="addCourtForm" label-width="100px" :rules="rules">
+        <ElForm :model="addCourtForm" label-width="100px" :rules="addRules">
           <ElFormItem label="法院全称" prop="fyqc">
             <ElInput v-model="addCourtForm.fyqc" placeholder="请输入法院全称" />
           </ElFormItem>
@@ -463,7 +531,7 @@ onMounted(() => {
         width="500px"
         @close="handleCloseEditDialog"
       >
-        <ElForm :model="editCourtForm" label-width="100px" :rules="rules">
+        <ElForm :model="editCourtForm" label-width="100px" :rules="editRules">
           <ElFormItem label="法院全称" prop="FYQC">
             <ElInput
               v-model="editCourtForm.FYQC"

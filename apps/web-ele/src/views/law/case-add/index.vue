@@ -884,22 +884,6 @@ const submitForm = async () => {
                       <div v-else class="mt-2 text-sm text-gray-500">
                         暂无上传文件
                       </div>
-
-                      <<<<<<< HEAD
-                      <!-- 上传说明 -->
-                      <div class="upload-tip mt-3 text-sm text-gray-500">
-                        <p>
-                          支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
-                          格式文件，单个文件大小不超过 10MB
-                        </p>
-                        <p class="mt-1">
-                          文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
-                        </p>
-                        <p class="mt-1 text-blue-500">
-                          服务器存储路径：C:\Users\Lenovo\Desktop\yzz\Release\律师\Service\ServiceWin\wwwroot\Upload\File
-                        </p>
-                      </div>
-                      =======
                       <!-- 上传说明 -->
                       <div class="upload-tip mt-3 text-sm text-gray-500">
                         <p class="mb-2 font-semibold text-gray-700">

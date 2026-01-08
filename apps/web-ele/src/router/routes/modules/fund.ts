@@ -8,6 +8,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:bank',
       order: 4,
       title: $t('page.fund.title'),
+      roles: ['USER'],
     },
     name: 'Fund',
     path: '/fund',

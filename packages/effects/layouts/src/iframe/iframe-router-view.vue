@@ -37,7 +37,7 @@ function routeShow(tabItem: RouteLocationNormalized) {
 function canRender(tabItem: RouteLocationNormalized) {
   const { meta, name } = tabItem;
 
-  if (!name || !tabbarStore.renderRouteView) {
+  if (!name) {
     return false;
   }
 

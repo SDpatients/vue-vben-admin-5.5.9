@@ -14,6 +14,10 @@ declare namespace DebtorApi {
   interface DebtorInfo {
     /** 债务人ID */
     sepId: number;
+    /** 案号 */
+    ah: string;
+    /** 案件名称 */
+    ajmc: string;
     /** 企业名称 */
     qymc: string;
     /** 统一社会信用代码 */
@@ -56,8 +60,15 @@ declare namespace DebtorApi {
     status: string;
     /** 错误信息 */
     error: string;
-    /** 债务人记录列表 */
-    data: DebtorInfo[];
+    /** 响应数据 */
+    data: {
+      /** 总页数 */
+      pages: number;
+      /** 总条数 */
+      total?: number;
+      /** 债务人记录列表 */
+      records: DebtorInfo[];
+    };
   }
 
   /** 债务人详情响应 */
@@ -72,6 +83,8 @@ declare namespace DebtorApi {
 
   /** 添加债务人请求体 */
   interface AddDebtorRequest {
+    sep_id?: string; // 案号ID（取自案号的SEP_ID）
+    ah?: string; // 案号
     qymc: string;
     tyshxydm: string;
     fddbr?: string;
@@ -85,7 +98,6 @@ declare namespace DebtorApi {
     lxdh?: string;
     lxr?: string;
     zt?: string;
-    sepLd?: number;
     sepMd?: number;
     sepNd?: string;
   }
@@ -122,10 +134,10 @@ export async function getDebtorDetailApi(debtorId: string, token: string) {
  * 添加债务人企业信息
  */
 export async function addDebtorApi(data: DebtorApi.AddDebtorRequest) {
-  // 将数据包装为数组格式，符合后端要求的[{}]格式
+  // 直接传递JSON对象格式
   return requestClient8085.post<DebtorApi.AddDebtorResponse>(
     '/api/web/addDebtor',
-    [data],
+    data,
     {
       headers: {
         'Content-Type': 'application/json',

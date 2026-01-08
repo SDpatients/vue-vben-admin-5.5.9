@@ -8,7 +8,12 @@ export namespace PermissionApi {
     roleName: string;
     roleDesc?: string;
     isSystem?: string;
+    status?: string;
     sortOrder?: number;
+    sepAuser?: any;
+    sepAdate?: string;
+    sepEuser?: any;
+    sepEdate?: string;
   }
 
   /** 用户角色 */
@@ -33,15 +38,46 @@ export namespace PermissionApi {
     data: UserRole[];
   }
 
+  /** 用户信息 */
+  export interface User {
+    u_pid: number;
+    u_user: string;
+    u_name: string;
+    u_pwd: string;
+    u_deptid: number;
+    u_dept: string;
+    u_tel: string | null;
+    u_mobile: string | null;
+    u_email: string;
+    u_remark: string | null;
+    u_valid: string;
+    u_status: string;
+    u_login_type: string;
+    u_bind_device: any;
+    u_last_login_time: string;
+    u_last_login_ip: string;
+    u_login_count: number;
+    u_pwd_error_count: number;
+    u_pwd_error_time: any;
+    u_pwd_expire_time: any;
+    sep_auser: string;
+    sep_adate: string;
+    sep_euser: any;
+    sep_edate: string;
+    u_pur1: any;
+    u_pur2: any;
+    u_pur3: any;
+    u_pur4: any;
+    u_pur5: any;
+    roles: any;
+    permissions: any;
+  }
+
   /** 用户列表响应 */
   export interface UsersResponse {
     status: string;
     error: string;
-    data: Array<{
-      userId: number;
-      username: string;
-      realName?: string;
-    }>;
+    data: User[];
   }
 
   /** 通用响应 */
@@ -178,6 +214,18 @@ export async function updateTBUserRoleApi(data: {
       headers: {
         'Content-Type': 'application/json',
       },
+    },
+  );
+}
+
+/**
+ * 根据用户ID获取用户角色
+ */
+export async function getUserRoleByUserIdApi(userId: number) {
+  return requestClient8085.get<PermissionApi.RolesResponse>(
+    '/api/web/userRole/getUserRoleByUserId',
+    {
+      params: { userId },
     },
   );
 }

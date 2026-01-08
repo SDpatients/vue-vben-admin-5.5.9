@@ -14,33 +14,39 @@ declare namespace CreditorApi {
   /** 债权人信息 */
   interface CreditorInfo {
     /** 债权人ID */
-    sepId: number;
+    id: number;
+    /** 案件ID */
+    caseId: string;
     /** 债权人名称 */
-    zqr: string;
+    creditorName: string;
     /** 债权人分类 */
-    zqrfl: string;
-    /** 证件号码 */
-    zjhm: string;
-    /** 法定代表人 */
-    fddbrqy: string;
+    creditorType: string;
+    /** 联系电话 */
+    contactPhone: string;
+    /** 邮箱 */
+    contactEmail: string;
     /** 注册地址 */
-    zcdz: string;
-    /** 经营范围 */
-    jyfwqy: string;
-    /** 行业分类 */
-    hyfl: string;
-    /** 成立日期 */
-    clrqqy: number;
+    address: string;
+    /** 证件号码 */
+    idNumber: string;
+    /** 法定代表人 */
+    legalRepresentative: string;
     /** 注册资本 */
-    zczbqy: string;
-    /** 创建用户 */
-    sepAuser: string;
+    registeredCapital: string;
+    /** 创建者 */
+    createdBy: string;
     /** 创建时间 */
-    sepAdate: number;
-    /** 修改用户 */
-    sepEuser: string;
+    createdTime: string;
+    /** 修改者 */
+    updatedBy: string;
     /** 修改时间 */
-    sepEdate: number;
+    updatedTime: string;
+    /** 案号 */
+    ah: string;
+    /** 案件名称 */
+    ajmc: string;
+    /** 状态 */
+    status: string;
   }
 
   /** 债权人列表响应 */
@@ -49,8 +55,15 @@ declare namespace CreditorApi {
     status: string;
     /** 错误信息 */
     error: string;
-    /** 债权人记录列表 */
-    data: CreditorInfo[];
+    /** 响应数据 */
+    data: {
+      /** 总页数 */
+      pages: number;
+      /** 总记录数 */
+      count: number;
+      /** 债权人记录列表 */
+      records: CreditorInfo[];
+    };
   }
 
   /** 债权人详情响应 */
@@ -66,6 +79,8 @@ declare namespace CreditorApi {
   /** 单个债权人请求体 */
   interface SingleCreditorRequest {
     case_id: string;
+    SEP_LD: string;
+    AH?: string;
     creditor_name: string;
     creditor_type: string;
     contact_phone: string;
@@ -141,7 +156,7 @@ export async function getCreditorListApi(
   params: CreditorApi.CreditorQueryParams,
 ) {
   return requestClient8085.get<CreditorApi.CreditorListResponse>(
-    '/api/web/getAllCreditor',
+    '/api/web/getAllCreditorInfo',
     { params },
   );
 }
@@ -191,11 +206,11 @@ export async function editCreditorApi(
  * 删除债权人信息
  */
 export async function deleteCreditorApi(
-  data: CreditorApi.DeleteCreditorRequest,
+  { id }: CreditorApi.DeleteCreditorRequest,
 ) {
   return requestClient8085.post<CreditorApi.CommonResponse>(
-    '/api/web/deleteCreditor',
-    data,
+    `/api/web/deleteCreditorInfo?id=${id}`,
+    {},
     {
       headers: {
         'Content-Type': 'application/json',

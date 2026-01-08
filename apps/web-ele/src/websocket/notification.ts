@@ -23,10 +23,12 @@ export function useWebSocket() {
     connecting.value = true;
 
     const token = localStorage.getItem('token');
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+    // 使用当前页面的协议和主机，通过代理连接WebSocket
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
 
     try {
-      ws = new WebSocket(`${wsUrl}?token=${token}`);
+      ws = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token || '')}`);
 
       ws.onopen = () => {
         console.log('WebSocket连接成功');

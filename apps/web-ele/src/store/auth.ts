@@ -7,7 +7,7 @@ import { LOGIN_PATH } from '@vben/constants';
 import { preferences } from '@vben/preferences';
 import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 
-import { ElNotification } from 'element-plus';
+import { ElNotification, ElMessage } from 'element-plus';
 import { defineStore } from 'pinia';
 
 import {
@@ -18,6 +18,7 @@ import {
   logoutApi,
 } from '#/api';
 import { $t } from '#/locales';
+import { getUserRoleByUserId, saveUserRoleToStorage, clearUserRoleFromStorage } from '#/utils/role';
 
 export const useAuthStore = defineStore('auth', () => {
   const accessStore = useAccessStore();
@@ -75,12 +76,64 @@ export const useAuthStore = defineStore('auth', () => {
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);
         } else {
-          if (onSuccess) {
-            await onSuccess?.();
+          // 获取用户角色并跳转
+          const chatUserId = localStorage.getItem('chat_user_id');
+          if (chatUserId) {
+            try {
+              ElMessage.info('正在获取用户角色信息...');
+              const userId = parseInt(chatUserId, 10);
+              const roleResult = await getUserRoleByUserId(userId);
+
+              if (roleResult.roleInfo) {
+                // 保存角色信息到本地存储
+                saveUserRoleToStorage(roleResult.roleInfo);
+
+                // 根据角色跳转到不同的页面
+                if (roleResult.isAdmin) {
+                  // 管理员跳转到管理员专用界面
+                  ElMessage.success(`欢迎回来，${roleResult.roleName}`);
+                  await router.push('/notification');
+                } else {
+                  // 普通用户跳转到首页
+                  ElMessage.success(`欢迎回来，${roleResult.roleName}`);
+                  if (onSuccess) {
+                    await onSuccess?.();
+                  } else {
+                    const targetPath =
+                      userInfo.homePath || preferences.app.defaultHomePath;
+                    await router.push(targetPath);
+                  }
+                }
+              } else {
+                // 没有获取到角色信息，使用默认跳转
+                if (onSuccess) {
+                  await onSuccess?.();
+                } else {
+                  const targetPath =
+                    userInfo.homePath || preferences.app.defaultHomePath;
+                  await router.push(targetPath);
+                }
+              }
+            } catch (error) {
+              console.error('获取用户角色失败:', error);
+              ElMessage.warning('获取用户角色失败，使用默认页面');
+              if (onSuccess) {
+                await onSuccess?.();
+              } else {
+                const targetPath =
+                  userInfo.homePath || preferences.app.defaultHomePath;
+                await router.push(targetPath);
+              }
+            }
           } else {
-            const targetPath =
-              userInfo.homePath || preferences.app.defaultHomePath;
-            await router.push(targetPath);
+            // 没有chat_user_id，使用默认跳转
+            if (onSuccess) {
+              await onSuccess?.();
+            } else {
+              const targetPath =
+                userInfo.homePath || preferences.app.defaultHomePath;
+              await router.push(targetPath);
+            }
           }
         }
 
@@ -132,6 +185,9 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('accessTokenExpire');
     localStorage.removeItem('refreshTokenExpire');
+    
+    // 清除角色信息
+    clearUserRoleFromStorage();
     
     // 重置所有 store
     resetAllStores();

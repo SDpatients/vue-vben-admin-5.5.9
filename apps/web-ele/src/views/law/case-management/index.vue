@@ -45,6 +45,10 @@ const pagination = ref({
   pages: 0,
 });
 
+// 确保表格数据始终为数组
+const safeCaseList = computed(() => Array.isArray(caseList.value) ? caseList.value : []);
+});
+
 // 标签页控制
 const activeTab = ref('allCases');
 
@@ -492,7 +496,7 @@ const canDelete = () => {
       <ElCard header="案件列表" size="small">
         <div class="table-wrapper">
           <ElTable
-            :data="caseList"
+            :data="safeCaseList"
             v-loading="loading"
             stripe
             border

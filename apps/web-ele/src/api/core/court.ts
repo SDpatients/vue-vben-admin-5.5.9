@@ -33,9 +33,13 @@ export namespace CourtApi {
 
   /** 法院列表响应 */
   export interface CourtListResponse {
-    data: CourtInfo[]; // 直接返回法院信息数组
     status: string;
     error: string;
+    data: {
+      pages: number;
+      records: CourtInfo[];
+      count?: number;
+    };
   }
 }
 
@@ -80,7 +84,7 @@ export interface AddCourtResponse {
  */
 export async function addCourtApi(data: AddCourtRequest) {
   const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<AddCourtResponse>('/api/web/addCourt', [data], {
+  return requestClient8085.post<AddCourtResponse>('/api/web/addCourt', data, {
     headers: {
       'Content-Type': 'application/json',
     },

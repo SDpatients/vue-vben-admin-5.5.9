@@ -3,6 +3,8 @@ import type { DebtorApi } from '#/api/core/debtor';
 
 import { onMounted, ref } from 'vue';
 
+import { requestClient8085 } from '#/api/request';
+
 import {
   ElButton,
   ElCard,
@@ -126,10 +128,14 @@ const fetchDebtorList = async () => {
 
     if (response.status === '1') {
       // 处理API响应，确保字段名正确映射
-      const processedData = response.data.map((item: any) => {
+      // 从response.data.records中获取数据，而不是直接从response.data获取
+      const records = response.data.records || [];
+      const processedData = records.map((item: any) => {
         // 统一字段名，支持多种格式（下划线、小驼峰、大写）
         return {
           sepId: item.sep_id || item.sepId || item.SEP_ID || item.id || '',
+          ah: item.ah || item.AH || '',
+          ajmc: item.ajmc || item.AJMC || '',
           qymc: item.qymc || item.QYMC || '',
           tyshxydm: item.tyshxydm || item.TYSHXYDM || '',
           fddbr: item.fddbr || item.FDDBR || '',
@@ -151,8 +157,8 @@ const fetchDebtorList = async () => {
       });
       
       debtorList.value = processedData;
-      pagination.value.itemCount = processedData.length;
-      pagination.value.pages = 1;
+      pagination.value.itemCount = response.data.total || processedData.length;
+      pagination.value.pages = response.data.pages || 1;
       ElMessage.success(`成功加载 ${processedData.length} 条债务人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.error}`);
@@ -216,6 +222,42 @@ const hideNonCoreColumns = () => {
   ElMessage.success('已隐藏非核心列');
 };
 
+// 获取案件列表
+const getCaseList = async (query = '') => {
+  caseLoading.value = true;
+  try {
+    const response = await requestClient8085.get('/api/web/getAllCaseAndFYandZWR', {
+      params: {
+        page: 1,
+        size: 10, // 修改为10条数据
+        AH: query, // 模糊查询参数
+      },
+    });
+    
+    if (response.status === '1' && response.data?.records) {
+      caseList.value = response.data.records;
+    } else {
+      caseList.value = [];
+    }
+  } catch (error) {
+    console.error('获取案件列表失败:', error);
+    caseList.value = [];
+  } finally {
+    caseLoading.value = false;
+  }
+};
+
+// 处理案号选择
+const handleCaseSelect = (value: string) => {
+  formData.value.AH = value;
+  // 根据选中的AH值在caseList中找到对应的项，获取其SEP_ID
+  const selectedCase = caseList.value.find((item) => item.AH === value);
+  if (selectedCase) {
+    formData.value.SEP_ID = selectedCase.SEP_ID;
+    formData.value.sep_ld = selectedCase.SEP_ID; // 将SEP_ID赋值给sep_ld
+  }
+};
+
 // 格式化日期显示
 const formatDate = (dateValue: any) => {
   if (!dateValue) return '-';
@@ -272,10 +314,18 @@ const viewDebtorDetail = (row: DebtorApi.DebtorInfo) => {
   // router.push(`/debtor-detail`);
 };
 
+// 案件列表数据
+const caseList = ref<any[]>([]);
+const caseLoading = ref(false);
+const caseSearchQuery = ref('');
+
 // 新增债务人弹窗相关
 const dialogVisible = ref(false);
 const formRef = ref<InstanceType<typeof ElForm>>();
 const formData = ref({
+  SEP_ID: '', // 案号ID
+  sep_ld: '', // 案号ID（用于传递给后端，取自SEP_ID）
+  AH: '', // 案号
   QYMC: '', // 企业名称
   TYSHXYDM: '', // 统一社会信用代码
   FDDBR: '', // 法定代表人
@@ -313,6 +363,8 @@ const rules = ref({
 // 打开新增债务人弹窗
 const handleAddDebtor = () => {
   dialogVisible.value = true;
+  // 打开弹窗时加载案号列表
+  getCaseList();
 };
 
 // 关闭弹窗
@@ -322,6 +374,10 @@ const handleCloseDialog = () => {
   if (formRef.value) {
     formRef.value.resetFields();
   }
+  // 重置隐藏字段
+  formData.value.SEP_ID = '';
+  formData.value.sep_ld = '';
+  formData.value.AH = '';
 };
 
 // 提交新增债务人表单
@@ -352,6 +408,7 @@ const submitFormData = async () => {
 
     // 转换数据格式，将大写属性名转换为小写，并添加必要的字段
     const requestData = {
+      SEP_LD: formData.value.sep_ld, // 案号ID（取自案号的SEP_ID，存储在隐藏字段sep_ld中）
       qymc: formData.value.QYMC,
       tyshxydm: formData.value.TYSHXYDM,
       fddbr: formData.value.FDDBR,
@@ -385,6 +442,10 @@ const submitFormData = async () => {
       if (formRef.value) {
         formRef.value.resetFields();
       }
+      // 重置所有案号相关数据
+      formData.value.SEP_ID = '';
+      formData.value.sep_ld = '';
+      formData.value.AH = '';
     } else {
       ElMessage.error(`债务人添加失败: ${response.error}`);
     }
@@ -788,6 +849,18 @@ const handleDeleteSubmit = async () => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
+          prop="ah"
+          label="案号"
+          min-width="150"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="ajmc"
+          label="案件名称"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
           prop="qymc"
           label="企业名称"
           min-width="180"
@@ -907,6 +980,32 @@ const handleDeleteSubmit = async () => {
         >
           <ElRow :gutter="30">
             <!-- 第一行 -->
+            <ElCol :span="8">
+              <ElFormItem label="案号">
+                <ElSelect
+                  v-model="formData.AH"
+                  placeholder="请选择或搜索案号"
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="getCaseList"
+                  :loading="caseLoading"
+                  @change="handleCaseSelect"
+                >
+                  <ElOption
+                    v-for="item in caseList"
+                    :key="item.SEP_ID"
+                    :label="item.AH"
+                    :value="item.AH"
+                    :data="item"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <!-- 隐藏的sep_id字段，用于存储案号的SEP_ID -->
+              <ElFormItem prop="SEP_ID" class="hidden-field">
+                <ElInput v-model="formData.SEP_ID" type="hidden" />
+              </ElFormItem>
+            </ElCol>
             <ElCol :span="8">
               <ElFormItem label="企业名称" prop="QYMC">
                 <ElInput v-model="formData.QYMC" placeholder="请输入企业名称" />
@@ -1239,6 +1338,11 @@ const handleDeleteSubmit = async () => {
 
 .number-value {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 隐藏字段样式 */
+.hidden-field {
+  display: none;
 }
 
 /* 新增债务人弹窗样式 */
