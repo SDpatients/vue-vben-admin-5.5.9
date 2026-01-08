@@ -62,7 +62,7 @@ import FileUploader from '../../../components/FileUploader.vue';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import ClaimRegistration from './components/ClaimRegistration.vue';
-import CreditorInfo from './components/CreditorInfo.vue';
+import CreditorInfo from './components/CreditorInfo.vue'; // TODO: 考虑重命名为DebtorInfo以保持一致性
 import StageFiveProcess from './components/StageFiveProcess.vue';
 import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
@@ -113,6 +113,7 @@ const selectedDeptId = ref<null | number>(null);
 const selectedUser = ref<any>(null);
 
 const currentStage = ref(1);
+
 const stages = [
   {
     id: 1,
@@ -141,6 +142,8 @@ const stages = [
 
 // 页面内容类型切换
 const activeTab = ref('caseInfo');
+
+
 
 // 监听activeTab变化，加载对应数据
 watch(activeTab, async (newTab) => {
@@ -855,6 +858,152 @@ watch(activeTab, (newTab) => {
 
 // 破产流程阶段数据
 
+// 文书送达相关数据
+const documentList = ref<any[]>([
+  {
+    id: 1,
+    documentName: '破产申请书',
+    documentType: '法律文书',
+    sender: '张法官',
+    sendDate: '2026-01-08',
+    status: '已送达',
+    recipient: '某某公司',
+    deliveryMethod: '电子送达',
+    content: '这是破产申请书的内容...'
+  },
+  {
+    id: 2,
+    documentName: '债权申报通知书',
+    documentType: '通知文书',
+    sender: '李律师',
+    sendDate: '2026-01-07',
+    status: '已送达',
+    recipient: '所有债权人',
+    deliveryMethod: '公告送达',
+    content: '这是债权申报通知书的内容...'
+  },
+  {
+    id: 3,
+    documentName: '第一次债权人会议通知',
+    documentType: '通知文书',
+    sender: '张法官',
+    sendDate: '2026-01-06',
+    status: '已送达',
+    recipient: '所有债权人',
+    deliveryMethod: '电子送达',
+    content: '这是第一次债权人会议通知的内容...'
+  }
+]);
+
+// 弹窗相关数据
+const showAddDocumentDialog = ref(false);
+const selectedDocument = ref<any>(null);
+
+// 新增文书表单数据
+const newDocument = reactive({
+  caseId: '',
+  caseName: '自动填充',
+  documentName: '',
+  documentType: '',
+  recipient: '',
+  phone: '',
+  content: '',
+  attachments: []
+});
+
+
+
+// 文书状态类型
+const getDocumentStatusType = (status: string) => {
+  const typeMap: Record<string, any> = {
+    '已送达': 'success',
+    '待发送': 'warning',
+    '已撤回': 'info',
+    '送达失败': 'danger'
+  };
+  return typeMap[status] || 'info';
+};
+
+// 文书操作方法
+const handleAddDocument = () => {
+  // 重置表单数据
+  Object.assign(newDocument, {
+    caseId: '',
+    documentName: '',
+    documentType: '',
+    recipient: '',
+    phone: '',
+    content: '',
+    attachments: []
+  });
+  // 打开弹窗
+  showAddDocumentDialog.value = true;
+};
+
+const handleSendDocument = () => {
+  // 发送文书逻辑
+  ElMessage.info('发送文书功能待实现');
+};
+
+const handleSaveDraft = () => {
+  // 暂存文书逻辑
+  ElMessage.info('暂存文书功能待实现');
+};
+
+const handleViewDocument = (document: any) => {
+  // 查看文书逻辑
+  selectedDocument.value = document;
+};
+
+const handleEditDocument = (document: any) => {
+  // 编辑文书逻辑
+  ElMessage.info('编辑文书功能待实现');
+};
+
+const handleDeleteDocument = (document: any) => {
+  // 删除文书逻辑
+  ElMessage.info('删除文书功能待实现');
+};
+
+// 关闭添加文书弹窗
+const closeAddDocumentDialog = () => {
+  showAddDocumentDialog.value = false;
+};
+
+// 文件上传成功处理
+const handleUploadSuccess = (file: any) => {
+  // 这里根据实际的API返回格式处理
+  console.log('文件上传成功:', file);
+  ElMessage.success('文件上传成功');
+};
+
+// 文件上传失败处理
+const handleUploadError = (error: any) => {
+  console.error('文件上传失败:', error);
+  ElMessage.error('文件上传失败');
+};
+
+// 提交文书
+const submitDocument = () => {
+  // 模拟提交逻辑
+  const newDoc = {
+    id: documentList.value.length + 1,
+    documentName: newDocument.documentName,
+    documentType: newDocument.documentType,
+    sender: '当前用户',
+    sendDate: new Date().toISOString().split('T')[0],
+    status: '待发送',
+    recipient: newDocument.recipient,
+    deliveryMethod: '电子送达', // 默认值，不显示在表单中
+    content: newDocument.content,
+    attachments: newDocument.attachments
+  };
+  
+  documentList.value.push(newDoc);
+  showAddDocumentDialog.value = false;
+  ElMessage.success('文书添加成功');
+};
+
 // 计算属性
 
 // 方法
@@ -1407,13 +1556,17 @@ const checkPermissions = async () => {
           流程处理
         </ElRadioButton>
         <ElRadioButton value="creditorInfo" class="tab-button">
-          债权人信息
+          债务人信息
         </ElRadioButton>
         <ElRadioButton value="claimRegistration" class="tab-button">
           债权登记表
         </ElRadioButton>
         <ElRadioButton value="announcement" class="tab-button">
           公告管理
+        </ElRadioButton>
+
+        <ElRadioButton value="documentService" class="tab-button">
+          文书送达
         </ElRadioButton>
 
         <ElRadioButton value="workTeam" class="tab-button">
@@ -1494,13 +1647,10 @@ const checkPermissions = async () => {
                   <div class="key-info-label mb-1 text-sm text-gray-500">
                     案件进度
                   </div>
-                  <div class="key-info-value">
-                    <div
-                      :style="getCaseStatusStyle(caseDetail.案件进度)"
-                      class="inline-block rounded-full px-4 py-1 text-base font-semibold"
-                    >
-                      {{ caseDetail.案件进度 }}
-                    </div>
+                  <div
+                    class="key-info-value text-lg font-semibold text-green-600"
+                  >
+                    {{ caseDetail.案件进度 }}
                   </div>
                 </div>
               </ElCol>
@@ -1512,9 +1662,23 @@ const checkPermissions = async () => {
                     受理法院
                   </div>
                   <div
-                    class="key-info-value text-lg font-semibold text-orange-600"
+                    class="key-info-value text-lg font-semibold text-blue-700"
                   >
                     {{ caseDetail.受理法院 }}
+                  </div>
+                </div>
+              </ElCol>
+              <ElCol :xs="24" :sm="8" :md="6">
+                <div
+                  class="key-info-item rounded-lg bg-blue-50 p-4 text-center"
+                >
+                  <div class="key-info-label mb-1 text-sm text-gray-500">
+                    承办负责人
+                  </div>
+                  <div
+                    class="key-info-value text-lg font-semibold text-cyan-800"
+                  >
+                    程jt
                   </div>
                 </div>
               </ElCol>
@@ -1936,12 +2100,12 @@ const checkPermissions = async () => {
               </div>
             </ElCard>
 
-            <!-- 债权人信息 -->
+            <!-- 债务人信息 -->
             <ElCard class="category-card mb-4" shadow="hover">
               <template #header>
                 <div class="category-header">
-                  <Icon icon="lucide:handshake" class="mr-2 text-orange-500" />
-                  <span class="text-md font-semibold">债权人信息</span>
+                  <Icon icon="lucide:building" class="mr-2 text-blue-500" />
+                  <span class="text-md font-semibold">债务人信息</span>
                 </div>
               </template>
               <div class="category-content">
@@ -1950,18 +2114,18 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600">债务人名称：</span>
                       <template v-if="isEditing">
                         <ElInput
-                          v-model="editedData.债权人名称"
+                          v-model="editedData.债务人名称"
                           size="small"
-                          placeholder="请输入债权人名称"
+                          placeholder="请输入债务人名称"
                           style="width: 160px"
                         />
                       </template>
                       <template v-else>
                         <span class="detail-info-value text-gray-900">{{
-                          caseDetail.债权人名称
+                          caseDetail.债务人名称 || caseDetail.债权人名称
                         }}</span>
                       </template>
                     </div>
@@ -1970,18 +2134,18 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600">债务人类型：</span>
                       <template v-if="isEditing">
                         <ElInput
-                          v-model="editedData.债权人类型"
+                          v-model="editedData.债务人类型"
                           size="small"
-                          placeholder="请输入债权人类型"
+                          placeholder="请输入债务人类型"
                           style="width: 160px"
                         />
                       </template>
                       <template v-else>
                         <span class="detail-info-value text-gray-900">{{
-                          caseDetail.债权人类型
+                          caseDetail.债务人类型 || caseDetail.债权人类型
                         }}</span>
                       </template>
                     </div>
@@ -2074,32 +2238,42 @@ const checkPermissions = async () => {
         <div class="process-content">
           <div class="stage-navigation">
             <div class="stage-indicators">
-              <div
-                v-for="stage in stages"
-                :key="stage.id"
-                class="stage-dot"
-                :class="[{ active: currentStage === stage.id }]"
-                @click="currentStage = stage.id"
-              >
-                <span class="stage-number">{{ stage.id }}</span>
-                <div class="stage-tooltip">
-                  <div class="stage-tooltip-name">{{ stage.name }}</div>
-                  <div class="stage-tooltip-desc">{{ stage.description }}</div>
+              <div class="stage-container">
+                <!-- 阶段点和连接线组合 -->
+                <div
+                  v-for="stage in stages"
+                  :key="stage.id"
+                  class="stage-item"
+                >
+                  <!-- 阶段点 -->
+                  <div
+                    class="stage-dot"
+                    :class="{ active: currentStage === stage.id }"
+                    @click="currentStage = stage.id"
+                  >
+                    <span class="stage-number">{{ ['一', '二', '三', '四', '五', '六', '七'][stage.id - 1] }}</span>
+                    <div class="stage-tooltip">
+                      <div class="stage-tooltip-name">{{ stage.name }}</div>
+                      <div class="stage-tooltip-desc">{{ stage.description }}</div>
+                    </div>
+                  </div>
+                  <!-- 连接线，除最后一个阶段外都显示 -->
+                  <div v-if="stage.id < stages.length" class="stage-connector"></div>
                 </div>
               </div>
             </div>
             <div class="stage-controls">
               <ElButton
-                :disabled="currentStage === 1"
-                @click="currentStage--"
+                :disabled="currentStage === 1 || isAnimating"
+                @click="handleStageClick(currentStage - 1)"
                 size="small"
               >
                 <Icon icon="lucide:chevron-left" class="mr-1" />
                 上一阶段
               </ElButton>
               <ElButton
-                :disabled="currentStage === 7"
-                @click="currentStage++"
+                :disabled="currentStage === 7 || isAnimating"
+                @click="handleStageClick(currentStage + 1)"
                 type="primary"
                 size="small"
               >
@@ -2334,6 +2508,180 @@ const checkPermissions = async () => {
         </div>
       </ElCard>
     </div>
+
+    <!-- 文书送达卡片 -->
+    <div v-if="activeTab === 'documentService'" style="margin: 20px 0">
+      <ElCard class="document-service-card" shadow="hover">
+        <template #header>
+          <div class="card-header flex items-center justify-between">
+            <div class="flex items-center">
+              <Icon icon="lucide:file-check" class="mr-2 text-blue-500" />
+              <span class="text-lg font-semibold">文书送达管理</span>
+            </div>
+            <div class="flex space-x-2">
+              <ElButton type="primary" @click="handleAddDocument">
+                <Icon icon="lucide:plus" class="mr-1" />
+                添加文书
+              </ElButton>
+              <ElButton type="success" @click="handleSendDocument">
+                <Icon icon="lucide:send" class="mr-1" />
+                发送文书
+              </ElButton>
+              <ElButton @click="handleSaveDraft">
+                <Icon icon="lucide:save" class="mr-1" />
+                暂存文书
+              </ElButton>
+            </div>
+          </div>
+        </template>
+
+        <div class="document-service-content">
+          <!-- 文书列表区域 -->
+          <div class="document-list-section mb-6">
+            <h3 class="section-title text-md font-semibold mb-3">文书列表</h3>
+            <ElTable :data="documentList" style="width: 100%" stripe>
+              <ElTableColumn prop="documentName" label="文书名称" width="200" />
+              <ElTableColumn prop="documentType" label="文书类型" width="120" />
+              <ElTableColumn prop="sender" label="发送人" width="120" />
+              <ElTableColumn prop="sendDate" label="发送日期" width="150" />
+              <ElTableColumn prop="status" label="状态" width="100">
+                <template #default="scope">
+                  <ElTag :type="getDocumentStatusType(scope.row.status)">
+                    {{ scope.row.status }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="recipient" label="接收人" width="150" />
+              <ElTableColumn label="操作" width="180">
+                <template #default="scope">
+                  <ElButton size="small" type="primary" link @click="handleViewDocument(scope.row)">
+                    查看
+                  </ElButton>
+                  <ElButton size="small" type="warning" link @click="handleEditDocument(scope.row)">
+                    编辑
+                  </ElButton>
+                  <ElButton size="small" type="danger" link @click="handleDeleteDocument(scope.row)">
+                    删除
+                  </ElButton>
+                </template>
+              </ElTableColumn>
+            </ElTable>
+          </div>
+
+          <!-- 文书详情区域 -->
+          <div v-if="selectedDocument" class="document-detail-section">
+            <h3 class="section-title text-md font-semibold mb-3">文书详情</h3>
+            <div class="document-detail-content">
+              <ElDescriptions border :column="2" size="small">
+                <ElDescriptionsItem label="文书名称">{{ selectedDocument.documentName }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="文书类型">{{ selectedDocument.documentType }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="发送人">{{ selectedDocument.sender }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="发送日期">{{ selectedDocument.sendDate }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="状态">{{ selectedDocument.status }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="接收人">{{ selectedDocument.recipient }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="送达方式" :span="2">{{ selectedDocument.deliveryMethod }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="文书内容" :span="2">
+                  <div class="document-content-box">{{ selectedDocument.content }}</div>
+                </ElDescriptionsItem>
+              </ElDescriptions>
+            </div>
+          </div>
+        </div>
+      </ElCard>
+    </div>
+
+    <!-- 新增文书弹窗 -->
+    <ElDialog
+      v-model="showAddDocumentDialog"
+      title="新增文书"
+      width="800px"
+      destroy-on-close
+    >
+      <ElForm label-position="top" :model="newDocument" :rules="{}" label-width="80px">
+        <ElRow :gutter="20">
+          <!-- 案件信息 -->
+          <ElCol :span="12">
+            <ElFormItem label="案号" required>
+              <ElSelect v-model="newDocument.caseId" placeholder="请选择案件" style="width: 100%">
+                <ElOption label="案件1" value="1" />
+                <ElOption label="案件2" value="2" />
+              </ElSelect>
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="案件名称">
+              <ElInput v-model="newDocument.caseName" placeholder="自动填充" disabled style="width: 100%" />
+            </ElFormItem>
+          </ElCol>
+
+          <!-- 文书基本信息 -->
+          <ElCol :span="12">
+            <ElFormItem label="文书名称" required>
+              <ElInput v-model="newDocument.documentName" placeholder="请输入文书名称" style="width: 100%" />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="文书类型" required>
+              <ElSelect v-model="newDocument.documentType" placeholder="请选择文书类型" style="width: 100%">
+                <ElOption label="法律文书" value="法律文书" />
+                <ElOption label="通知文书" value="通知文书" />
+                <ElOption label="其他文书" value="其他文书" />
+              </ElSelect>
+            </ElFormItem>
+          </ElCol>
+
+          <!-- 受送达人信息 -->
+          <ElCol :span="12">
+            <ElFormItem label="受送达人" required>
+              <ElInput v-model="newDocument.recipient" placeholder="请输入受送达人姓名" style="width: 100%" />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="联系电话" required>
+              <ElInput v-model="newDocument.phone" placeholder="请输入联系电话" style="width: 100%" />
+            </ElFormItem>
+          </ElCol>
+
+          <!-- 送达内容 -->
+          <ElCol :span="24">
+            <ElFormItem label="送达内容" required>
+              <RichTextEditor
+                v-model="newDocument.content"
+                :height="'300px'"
+                placeholder="请输入送达内容"
+              />
+            </ElFormItem>
+          </ElCol>
+
+          <!-- 文书附件 -->
+          <ElCol :span="24">
+            <ElFormItem label="文书附件">
+              <FileUploader
+                :biz-id="Number(caseId) || 0"
+                biz-type="document"
+                :initial-files="[]"
+                :multiple="true"
+                button-text="选择文件"
+                @file-list-change="(files) => newDocument.attachments = files"
+                @upload-success="handleUploadSuccess"
+                @upload-error="handleUploadError"
+              />
+              <div class="attachment-hint mt-2">
+                支持上传文档、图片等文件，单个文件不超过10MB
+              </div>
+            </ElFormItem>
+          </ElCol>
+        </ElRow>
+      </ElForm>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <ElButton @click="closeAddDocumentDialog">取消</ElButton>
+          <ElButton @click="closeAddDocumentDialog">重置</ElButton>
+          <ElButton type="primary" @click="submitDocument">提交</ElButton>
+        </div>
+      </template>
+    </ElDialog>
 
     <!-- 工作团队卡片 -->
     <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
@@ -2989,19 +3337,22 @@ const checkPermissions = async () => {
 }
 
 .key-info-overview {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .key-info-item {
   background: #fff;
-  border: 1px solid transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .key-info-item:hover {
   background: #f9fafb;
   border-color: #d1d5db;
   transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
 }
 
 .detail-info-grid {
@@ -3011,26 +3362,72 @@ const checkPermissions = async () => {
   border-radius: 8px;
 }
 
+.category-sections {
+  padding: 12px 0;
+}
+
+.category-card {
+  margin-bottom: 28px !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.category-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.category-content {
+  padding: 24px;
+  background: #f0f9ff;
+  border-radius: 0 0 8px 8px;
+}
+
 .detail-info-item {
-  background: #fff;
-  transition: background-color 0.2s ease;
+  background: transparent;
+  transition: all 0.2s ease;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.detail-info-item:last-child {
+  border-bottom: none;
 }
 
 .detail-info-item:hover {
-  background-color: #f8fafc;
+  background-color: rgba(248, 250, 252, 0.8);
+  padding-left: 8px;
+  border-left: 3px solid #3b82f6;
 }
 
 .detail-info-label {
-  min-width: 120px;
+  min-width: 140px;
   font-weight: 500;
-  color: #6b7280;
+  color: #64748b;
+  font-size: 14px;
+  margin-right: 16px;
 }
 
 .detail-info-value {
   font-weight: 400;
-  color: #1f2937;
-  text-align: right;
+  color: #0f172a;
+  text-align: left;
   word-break: break-all;
+  font-size: 14px;
+  flex: 1;
 }
 
 .loading-container {
@@ -3106,11 +3503,27 @@ const checkPermissions = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 20px;
+}
+
+/* 阶段容器，使用flex布局确保阶段点均匀分布 */
+.stage-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 1000px;
+}
+
+/* 阶段项：阶段点 + 连接线 */
+.stage-item {
+  display: flex;
+  align-items: center;
+  flex: 1;
   position: relative;
 }
 
+/* 阶段点 */
 .stage-dot {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3124,42 +3537,12 @@ const checkPermissions = async () => {
   border-radius: 50%;
   transition: all 0.3s ease;
   z-index: 2;
-  margin: 0 24px;
-}
-
-.stage-dot::before {
-  content: '';
-  position: absolute;
-  right: -48px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 2px;
-  background: #e5e7eb;
-  z-index: -1;
-}
-
-.stage-dot::after {
-  content: '';
-  position: absolute;
-  right: -48px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 10px solid #d1d5db;
-  z-index: -1;
+  position: relative;
 }
 
 .stage-dot:hover {
   background: #9ca3af;
   transform: scale(1.1);
-}
-
-.stage-dot:hover::after {
-  border-left-color: #9ca3af;
 }
 
 .stage-dot.active {
@@ -3168,12 +3551,18 @@ const checkPermissions = async () => {
   transform: scale(1.2);
 }
 
-.stage-dot.active::before {
-  background: #409eff;
+/* 连接线，使用flex-grow自动填充空间 */
+.stage-connector {
+  flex: 1;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 10px;
+  transition: all 0.3s ease;
 }
 
-.stage-dot.active::after {
-  border-left-color: #409eff;
+/* 激活状态的连接线 */
+.stage-item:nth-child(-n+3) .stage-connector {
+  background: #409eff;
 }
 
 .stage-dot:last-child::before,
@@ -3455,5 +3844,58 @@ const checkPermissions = async () => {
 .unsupported-preview p {
   margin-bottom: 20px;
   color: #909399;
+}
+
+/* 文书送达样式 */
+.document-service-card {
+  margin: 20px 0;
+}
+
+.document-service-content {
+  padding: 0 20px 20px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.document-list-section {
+  margin-bottom: 24px;
+}
+
+.document-detail-section {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.document-detail-content {
+  margin-top: 8px;
+}
+
+.document-content-box {
+  background: #fff;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  min-height: 100px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.document-service-card .el-button {
+  margin-right: 8px;
+}
+
+.document-service-card .el-descriptions {
+  margin-top: 12px;
+}
+
+.document-service-card .el-table {
+  margin-top: 12px;
 }
 </style>
