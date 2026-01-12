@@ -285,50 +285,16 @@ const fetchAnnouncements = async () => {
   loadingAnnouncements.value = true;
   try {
     const response = await getAnnouncementListApi(
-      caseId.value,
       currentPage.value,
       pageSize.value,
+      parseInt(caseId.value),
       statusFilter.value || undefined,
     );
-    if (response.status === '1') {
-      let records = response.data.records || [];
-
-      // 解析每个公告的attachments字段，将JSON字符串转换为数组
-      records = records.map((announcement: any) => {
-        const processed = { ...announcement };
-        if (
-          processed.attachments &&
-          typeof processed.attachments === 'string'
-        ) {
-          try {
-            processed.attachments = JSON.parse(processed.attachments);
-          } catch (error) {
-            console.error('解析attachments失败:', error);
-            processed.attachments = [];
-          }
-        } else if (!processed.attachments) {
-          processed.attachments = [];
-        }
-
-        // 处理附件数据，确保file_url是完整的可访问URL
-        if (processed.attachments && Array.isArray(processed.attachments)) {
-          processed.attachments = processed.attachments.map((att: any) => ({
-            ...att,
-            file_url: att.file_url?.startsWith('http')
-              ? att.file_url
-              : (att.file_url?.startsWith('/')
-                ? `http://192.168.0.120:8080${att.file_url}`
-                : att.file_url),
-          }));
-        }
-
-        return processed;
-      });
-
-      announcements.value = records;
-      totalAnnouncements.value = response.data.count || 0;
+    if (response.code === 200) {
+      announcements.value = response.data.list || [];
+      totalAnnouncements.value = response.data.total || 0;
     } else {
-      ElMessage.error(`获取公告列表失败：${response.error || '未知错误'}`);
+      ElMessage.error(`获取公告列表失败：${response.message || '未知错误'}`);
       announcements.value = [];
       totalAnnouncements.value = 0;
     }
@@ -597,58 +563,14 @@ const viewAnnouncementDetail = async (announcement: any) => {
     );
 
     const response = await getAnnouncementDetailApi(announcementId);
-    if (response.status === '1') {
+    if (response.code === 200) {
       let detail = response.data;
-
-      // 解析attachments字段，将JSON字符串转换为数组
-      if (detail.attachments && typeof detail.attachments === 'string') {
-        try {
-          detail = {
-            ...detail,
-            attachments: JSON.parse(detail.attachments),
-          };
-        } catch (error) {
-          console.error('解析attachments失败:', error);
-          detail = {
-            ...detail,
-            attachments: [],
-          };
-        }
-      } else if (!detail.attachments) {
-        detail = {
-          ...detail,
-          attachments: [],
-        };
+      
+      // 确保attachments字段是数组
+      if (!detail.attachments) {
+        detail.attachments = [];
       }
-
-      // 确保浏览次数字段存在
-      if (detail.view_count === undefined && detail.viewCount === undefined) {
-        detail.view_count = 0;
-        detail.viewCount = 0;
-      } else if (
-        detail.view_count !== undefined &&
-        detail.viewCount === undefined
-      ) {
-        detail.viewCount = detail.view_count;
-      } else if (
-        detail.viewCount !== undefined &&
-        detail.view_count === undefined
-      ) {
-        detail.view_count = detail.viewCount;
-      }
-
-      // 处理附件数据，确保file_url是完整的可访问URL
-      if (detail.attachments && Array.isArray(detail.attachments)) {
-        detail.attachments = detail.attachments.map((att: any) => ({
-          ...att,
-          file_url: att.file_url?.startsWith('http')
-            ? att.file_url
-            : (att.file_url?.startsWith('/')
-              ? `http://192.168.0.120:8080${att.file_url}`
-              : att.file_url),
-        }));
-      }
-
+      
       currentAnnouncementDetail.value = detail;
       ElMessage.success('公告详情加载成功');
     }
@@ -1094,12 +1016,12 @@ const loadAdministrators = async () => {
   loadingAdministrators.value = true;
   try {
     const response = await getManagerListApi({});
-    if (response.data) {
-      administrators.value = response.data
-        .filter((admin) => admin && admin.sep_id != null)
+    if (response.data && response.data.list) {
+      administrators.value = response.data.list
+        .filter((admin) => admin && admin.id != null)
         .map((admin) => ({
           ...admin,
-          sepId: admin.sep_id, // 转换 snake_case 到 camelCase
+          sepId: admin.id, // 使用id作为sepId
         }));
     }
   } catch (error) {

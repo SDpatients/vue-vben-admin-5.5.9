@@ -1,68 +1,151 @@
-import { requestClient } from '#/api/request';
+import { requestClient8085 } from '#/api/request';
 
 export namespace BankAccountApi {
+  /** 银行账户查询参数 */
+  export interface BankAccountQueryParams {
+    pageNum?: number;
+    pageSize?: number;
+    accountType?: string;
+    status?: string;
+  }
+
   /** 银行账户信息 */
   export interface BankAccountInfo {
-    accountId: number;
-    accountName: string;
-    bankName: string;
-    accountNumber: string;
-    accountType: string;
-    currency: string;
-    status: string;
-    createTime: string;
-    updateTime: string;
+    id: number; // 银行账户ID
+    accountName: string; // 账户名称
+    accountNumber: string; // 账户号码
+    accountType: string; // 账户类型
+    bankName: string; // 银行名称/开户行
+    currentBalance: number; // 当前余额
+    status: string; // 状态
+    caseId: number;
+    createTime: string; // 创建时间
+    updateTime: string; // 更新时间
   }
 
   /** 银行账户列表响应 */
   export interface BankAccountListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: BankAccountInfo[];
-    };
     code: number;
     message: string;
+    data: {
+      list: BankAccountInfo[];
+      total: number;
+    };
   }
 
-  /** 银行账户响应 */
-  export interface BankAccountResponse {
+  /** 新增银行账户请求体 */
+  export interface AddBankAccountRequest {
+    accountName: string;
+    accountNumber: string;
+    accountType: string;
+    bankName: string; // 开户行字段改为bankName
+    password: string;
+    currentBalance: number;
+    currency?: string;
+    openingDate?: string;
+    closingDate?: null | string;
+    status?: string;
+    caseId?: number;
+  }
+
+  /** 新增银行账户响应 */
+  export interface AddBankAccountResponse {
     code: number;
     message: string;
+    data: {
+      accountId: number;
+    };
+  }
+
+  /** 更新银行账户请求体 */
+  export interface UpdateBankAccountRequest {
+    accountName?: string;
+    currentBalance?: number;
+    accountNumber?: string;
+    accountType?: string;
+    bankName?: string; // 开户行字段改为bankName
+    password?: string;
+    currency?: string;
+    openingDate?: string;
+    closingDate?: null | string;
+    status?: string;
+    caseId?: number;
+  }
+
+  /** 更新银行账户响应 */
+  export interface UpdateBankAccountResponse {
+    code: number;
+    message: string;
+    data: null;
+  }
+
+  /** 删除银行账户响应 */
+  export interface DeleteBankAccountResponse {
+    code: number;
+    message: string;
+    data: null;
   }
 }
 
 /**
  * 获取银行账户列表
  */
-export async function getBankAccountListApi() {
-  return requestClient.get<BankAccountApi.BankAccountListResponse>('/bank-accounts');
-}
-
-/**
- * 获取银行账户详情
- */
-export async function getBankAccountDetailApi() {
-  return requestClient.get<BankAccountApi.BankAccountInfo>('/bank-accounts');
+export async function getBankAccountListApi(
+  params: BankAccountApi.BankAccountQueryParams,
+) {
+  return requestClient8085.get<BankAccountApi.BankAccountListResponse>(
+    '/bank-account/list',
+    {
+      params,
+    },
+  );
 }
 
 /**
  * 新增银行账户
  */
-export async function addBankAccountApi() {
-  return requestClient.post<BankAccountApi.BankAccountResponse>('/bank-accounts');
+export async function addBankAccountApi(
+  data: BankAccountApi.AddBankAccountRequest,
+) {
+  return requestClient8085.post<BankAccountApi.AddBankAccountResponse>(
+    '/bank-account',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
 }
 
 /**
  * 更新银行账户
  */
-export async function updateBankAccountApi() {
-  return requestClient.put<BankAccountApi.BankAccountResponse>('/bank-accounts');
+export async function updateBankAccountApi(
+  accountId: number,
+  data: BankAccountApi.UpdateBankAccountRequest,
+) {
+  return requestClient8085.put<BankAccountApi.UpdateBankAccountResponse>(
+    `/bank-account/${accountId}`,
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
 }
 
 /**
  * 删除银行账户
  */
-export async function deleteBankAccountApi() {
-  return requestClient.delete<BankAccountApi.BankAccountResponse>('/bank-accounts');
+export async function deleteBankAccountApi(accountId: number) {
+  return requestClient8085.delete<BankAccountApi.DeleteBankAccountResponse>(
+    `/bank-account/${accountId}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  );
 }

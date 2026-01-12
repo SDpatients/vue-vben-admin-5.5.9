@@ -32,7 +32,7 @@ import {
   updateTBUserRoleApi,
 } from '#/api/core/permission';
 
-const activeTab = ref('roles');
+const activeTab = ref('roleUsers');
 
 const loading = ref(false);
 const roles = ref<PermissionApi.Role[]>([]);
@@ -62,7 +62,15 @@ const loadRoles = async () => {
   try {
     const response = await getAllRolesApi();
     if (response.status === '1') {
-      roles.value = response.data || [];
+      // 将API返回的下划线命名字段转换为驼峰命名
+      roles.value = (response.data || []).map(role => ({
+        roleId: role.role_id,
+        roleCode: role.role_code,
+        roleName: role.role_name,
+        roleDesc: role.role_desc,
+        isSystem: role.is_system,
+        sortOrder: role.sort_order
+      }));
       ElMessage.success('角色列表加载成功');
     } else {
       ElMessage.error(response.error || '加载角色列表失败');
@@ -81,7 +89,40 @@ const loadRoleUsers = async () => {
   try {
     const response = await getUsersByRoleCodeApi(currentRoleCode.value);
     if (response.status === '1') {
-      roleUsers.value = response.data || [];
+      // 将API返回的下划线命名字段转换为驼峰命名
+      roleUsers.value = (response.data || []).map(user => ({
+        uPid: user.u_pid,
+        uUser: user.u_user,
+        uName: user.u_name,
+        uPwd: user.u_pwd,
+        uDeptid: user.u_deptid,
+        uDept: user.u_dept,
+        uTel: user.u_tel,
+        uMobile: user.u_mobile,
+        uEmail: user.u_email,
+        uRemark: user.u_remark,
+        uValid: user.u_valid,
+        uStatus: user.u_status,
+        uLoginType: user.u_login_type,
+        uBindDevice: user.u_bind_device,
+        uLastLoginTime: user.u_last_login_time,
+        uLastLoginIp: user.u_last_login_ip,
+        uLoginCount: user.u_login_count,
+        uPwdErrorCount: user.u_pwd_error_count,
+        uPwdErrorTime: user.u_pwd_error_time,
+        uPwdExpireTime: user.u_pwd_expire_time,
+        sepAuser: user.sep_auser,
+        sepAdate: user.sep_adate,
+        sepEuser: user.sep_euser,
+        sepEdate: user.sep_edate,
+        uPur1: user.u_pur1,
+        uPur2: user.u_pur2,
+        uPur3: user.u_pur3,
+        uPur4: user.u_pur4,
+        uPur5: user.u_pur5,
+        roles: user.roles,
+        permissions: user.permissions
+      }));
       ElMessage.success('角色用户列表加载成功');
     } else {
       ElMessage.error(response.error || '加载角色用户列表失败');
@@ -302,6 +343,7 @@ onMounted(() => {
                 </ElTableColumn>
                 <ElTableColumn prop="uUser" label="用户名" width="200" />
                 <ElTableColumn prop="uName" label="真实姓名" />
+                <ElTableColumn prop="uMobile" label="联系电话" width="180" />
                 <ElTableColumn label="操作" width="200">
                   <template #default="scope">
                     <span

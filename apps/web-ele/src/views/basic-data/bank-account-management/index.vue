@@ -62,22 +62,24 @@ const availableColumns = [
   '银行名称',
   '账户号码',
   '账户类型',
-  '币种',
-  '余额',
-  '开户日期',
-  '销户日期',
+  '开户行',
+  '当前余额',
+  '创建时间',
+  '更新时间',
   '状态',
 ];
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '余额',
-  '开户日期',
+  '当前余额',
+  '创建时间',
+  '更新时间',
   '状态',
   '账户号码',
   '账户名称',
   '账户类型',
   '银行名称',
+  '开户行',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -98,25 +100,23 @@ const accessStore = useAccessStore();
 const fetchBankAccountList = async () => {
   loading.value = true;
   try {
-    const token = accessStore.accessToken || 'fefd6e9ec409dae4290d2386001ff028';
     const params: BankAccountApi.BankAccountQueryParams = {
-      page: pagination.value.page,
-      size: pagination.value.pageSize,
-      token,
+      pageNum: pagination.value.page,
+      pageSize: pagination.value.pageSize,
     };
 
     const response = await getBankAccountListApi(params);
 
-    if (response.status === '1') {
-      bankAccountList.value = response.data || [];
-      pagination.value.itemCount = response.data?.length || 0;
+    if (response.code === 200) {
+      bankAccountList.value = response.data.list || [];
+      pagination.value.itemCount = response.data.total || 0;
       pagination.value.pages =
         Math.ceil(pagination.value.itemCount / pagination.value.pageSize) || 0;
       ElMessage.success(
         `成功加载 ${bankAccountList.value.length} 条银行账户记录`,
       );
     } else {
-      ElMessage.error(`API返回错误: ${response.error}`);
+      ElMessage.error(`API返回错误: ${response.message}`);
       bankAccountList.value = [];
       pagination.value.itemCount = 0;
       pagination.value.pages = 0;
@@ -242,23 +242,12 @@ const viewBankAccountDetail = (row: BankAccountApi.BankAccountInfo) => {
 const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editingRow.value = row;
   // 填充编辑表单数据
-  editFormData.SEP_ID = row.sepId.toString();
-  editFormData.account_name = row.accountName;
-  editFormData.bank_name = row.bankName;
-  editFormData.account_number = row.accountNumber;
-  editFormData.account_type = row.accountType;
-  editFormData.currency = row.currency;
-  editFormData.balance = row.balance;
-  // 注意：这里需要将时间戳转换为日期字符串，因为表单中使用的是日期选择器
-  editFormData.KHRQ =
-    row.khrq && row.khrq !== -2_209_017_600_000
-      ? new Date(row.khrq).toISOString().slice(0, 10)
-      : '';
-  editFormData.XHRQ =
-    row.xhrq && row.xhrq !== -2_209_017_600_000
-      ? new Date(row.xhrq).toISOString().slice(0, 10)
-      : '';
-  editFormData.ZT = row.zt;
+  editFormData.accountName = row.accountName;
+  editFormData.accountNumber = row.accountNumber;
+  editFormData.accountType = row.accountType;
+  editFormData.openingBank = row.bankName; // 直接使用bankName
+  editFormData.currentBalance = row.currentBalance;
+  editFormData.status = row.status;
   // 显示编辑弹窗
   editDialogVisible.value = true;
 };
@@ -276,47 +265,29 @@ const handleCloseEditDialog = () => {
 // 提交编辑账户表单
 const handleEditSubmit = async () => {
   if (!editFormRef.value) return;
+  if (!editingRow.value) return;
 
   try {
-    // 自动填写SEP_EUSER：从本地存储获取chat_user_info.user.uName
-    const chatUserInfoStr = localStorage.getItem('chat_user_info');
-    if (chatUserInfoStr) {
-      try {
-        const chatUserInfo = JSON.parse(chatUserInfoStr);
-        editFormData.SEP_EUSER =
-          chatUserInfo.user?.uName ||
-          chatUserInfo.uName ||
-          chatUserInfo.U_NAME ||
-          '';
-      } catch (error) {
-        console.error('解析chat_user_info失败:', error);
-      }
-    }
-
-    // 自动填写SEP_EDATE：使用ISO格式的日期时间字符串
-    editFormData.SEP_EDATE = new Date().toISOString().slice(0, 19);
-
-    // 处理KHRQ和XHRQ：如果为空则设为null
-    if (!editFormData.KHRQ) {
-      editFormData.KHRQ = null;
-    }
-    if (!editFormData.XHRQ) {
-      editFormData.XHRQ = null;
-    }
-
     await editFormRef.value.validate();
     editFormLoading.value = true;
 
-    // 调用更新账户API
-    const response = await updateBankAccountApi(editFormData);
+    // 转换表单数据，将openingBank映射为bankName
+    const submitData = {
+      ...editFormData,
+      bankName: editFormData.openingBank, // 转换字段名
+      openingBank: undefined, // 移除原始字段
+    };
 
-    if (response.status === '1') {
+    // 调用更新账户API
+    const response = await updateBankAccountApi(editingRow.value.id, submitData);
+
+    if (response.code === 200) {
       ElMessage.success('银行账户更新成功');
       handleCloseEditDialog();
       // 刷新银行账户列表
       fetchBankAccountList();
     } else {
-      ElMessage.error(response.error || '银行账户更新失败');
+      ElMessage.error(response.message || '银行账户更新失败');
     }
   } catch (error: any) {
     if (error.name === 'ElValidationError') {
@@ -341,14 +312,14 @@ const handleDeleteBankAccount = async (row: BankAccountApi.BankAccountInfo) => {
     });
 
     // 调用删除账户API
-    const response = await deleteBankAccountApi({ SEP_ID: row.sepId.toString() });
+    const response = await deleteBankAccountApi(row.id);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('银行账户删除成功');
       // 刷新银行账户列表
       fetchBankAccountList();
     } else {
-      ElMessage.error(response.error || '银行账户删除失败');
+      ElMessage.error(response.message || '银行账户删除失败');
     }
   } catch (error: any) {
     if (error.name !== 'ElMessageBoxCancel') {
@@ -423,28 +394,28 @@ const dialogVisible = ref(false);
 const formRef = ref();
 const formLoading = ref(false);
 
+// 状态选项
+const statusOptions = [
+  { label: '激活', value: 'ACTIVE' },
+  { label: '停用', value: 'INACTIVE' },
+];
+
 // 新增账户表单数据
 const formData = reactive({
-  sep_auser: '',
-  sep_adate: '',
-  account_name: '',
-  bank_name: '',
-  account_number: '',
-  account_type: '',
+  accountName: '',
+  accountNumber: '',
+  accountType: '',
+  openingBank: '', // 表单使用openingBank，提交时转换为bank_name
+  password: '',
+  currentBalance: 0,
   currency: '',
-  balance: 0,
-  khrq: '',
-  xhrq: null as null | string,
-  zt: '启用',
+  openingDate: '',
+  closingDate: null as null | string,
+  status: 'ACTIVE',
 });
 
 // 表单验证规则
-const rules = {
-  account_name: [
-    { required: true, message: '请输入账户名称', trigger: 'blur' },
-  ],
-  account_number: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-};
+const rules = {};
 
 // 编辑银行账户相关
 const editDialogVisible = ref(false);
@@ -454,19 +425,31 @@ const editingRow = ref<BankAccountApi.BankAccountInfo | null>(null);
 
 // 编辑账户表单数据
 const editFormData = reactive({
-  SEP_ID: '',
-  SEP_EUSER: '',
-  SEP_EDATE: '',
-  account_name: '',
-  bank_name: '',
-  account_number: '',
-  account_type: '',
+  accountName: '',
+  accountNumber: '',
+  accountType: '',
+  openingBank: '', // 表单使用openingBank，提交时转换为bank_name
+  password: '',
+  currentBalance: 0,
   currency: '',
-  balance: 0,
-  KHRQ: '',
-  XHRQ: null as null | string,
-  ZT: null as null | string,
+  openingDate: '',
+  closingDate: null as null | string,
+  status: 'ACTIVE',
 });
+
+// 开户行选项
+const bankOptions = ref([
+  { label: '中国工商银行', value: '中国工商银行' },
+  { label: '中国建设银行', value: '中国建设银行' },
+  { label: '中国农业银行', value: '中国农业银行' },
+  { label: '中国银行', value: '中国银行' },
+  { label: '招商银行', value: '招商银行' },
+  { label: '交通银行', value: '交通银行' },
+  { label: '浦发银行', value: '浦发银行' },
+  { label: '中信银行', value: '中信银行' },
+  { label: '兴业银行', value: '兴业银行' },
+  { label: '民生银行', value: '民生银行' },
+]);
 
 // 账户类型选项
 const accountTypeOptions = [
@@ -475,67 +458,18 @@ const accountTypeOptions = [
   { label: '专用户', value: '专用户' },
 ];
 
-// 从本地存储获取保存的自定义币种
-const getSavedCurrencyOptions = () => {
-  const saved = localStorage.getItem('customCurrencyOptions');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (error) {
-      console.error('解析自定义币种失败:', error);
-    }
-  }
-  return [];
-};
-
-// 币种选项 - 合并默认选项和自定义选项
-const defaultCurrencyOptions = [
-  { label: '人民币', value: '人民币' },
-  { label: '美元', value: '美元' },
-  { label: '欧元', value: '欧元' },
-  { label: '日元', value: '日元' },
-];
-
-// 保存自定义币种到本地存储
-const saveCustomCurrency = (value) => {
-  if (!value || defaultCurrencyOptions.some((opt) => opt.value === value)) {
-    return;
-  }
-
-  const savedOptions = getSavedCurrencyOptions();
-  if (!savedOptions.some((opt) => opt.value === value)) {
-    savedOptions.push({ label: value, value });
-    localStorage.setItem('customCurrencyOptions', JSON.stringify(savedOptions));
-    // 更新币种选项
-    currencyOptions.value = [...defaultCurrencyOptions, ...savedOptions];
-  }
-};
-
-// 删除自定义币种
-const deleteCustomCurrency = (value) => {
-  // 不能删除默认币种
-  if (defaultCurrencyOptions.some((opt) => opt.value === value)) {
-    return;
-  }
-
-  // 更新本地存储
-  const savedOptions = getSavedCurrencyOptions();
-  const updatedOptions = savedOptions.filter((opt) => opt.value !== value);
-  localStorage.setItem('customCurrencyOptions', JSON.stringify(updatedOptions));
-
-  // 更新币种选项
-  currencyOptions.value = [...defaultCurrencyOptions, ...updatedOptions];
-
-  // 如果当前选中的是被删除的币种，清空选择
-  if (formData.currency === value) {
-    formData.currency = '';
-  }
-};
-
-// 响应式币种选项
+// 币种选项 (3位大写字母)
 const currencyOptions = ref([
-  ...defaultCurrencyOptions,
-  ...getSavedCurrencyOptions(),
+  { label: '人民币 (CNY)', value: 'CNY' },
+  { label: '美元 (USD)', value: 'USD' },
+  { label: '欧元 (EUR)', value: 'EUR' },
+  { label: '日元 (JPY)', value: 'JPY' },
+  { label: '英镑 (GBP)', value: 'GBP' },
+  { label: '港币 (HKD)', value: 'HKD' },
+  { label: '澳元 (AUD)', value: 'AUD' },
+  { label: '加元 (CAD)', value: 'CAD' },
+  { label: '瑞士法郎 (CHF)', value: 'CHF' },
+  { label: '新加坡元 (SGD)', value: 'SGD' },
 ]);
 
 // 打开新增账户弹窗
@@ -557,43 +491,26 @@ const handleSubmit = async () => {
   if (!formRef.value) return;
 
   try {
-    // 自动填写sep_auser：从本地存储获取chat_user_info.user.uName
-    const chatUserInfoStr = localStorage.getItem('chat_user_info');
-    if (chatUserInfoStr) {
-      try {
-        const chatUserInfo = JSON.parse(chatUserInfoStr);
-        formData.sep_auser =
-          chatUserInfo.user?.uName ||
-          chatUserInfo.uName ||
-          chatUserInfo.U_NAME ||
-          '';
-      } catch (error) {
-        console.error('解析chat_user_info失败:', error);
-      }
-    }
-
-    // 自动填写sep_adate：使用ISO格式的日期时间字符串
-    formData.sep_adate = new Date().toISOString().slice(0, 19);
-
     await formRef.value.validate();
     formLoading.value = true;
 
-    // 创建表单数据副本并处理khrq字段：如果为空则设为null
-    const formDataCopy = { ...formData };
-    if (!formDataCopy.khrq) {
-      formDataCopy.khrq = null;
-    }
+    // 转换表单数据，将openingBank映射为bankName
+    const submitData = {
+      ...formData,
+      bankName: formData.openingBank, // 转换字段名
+      openingBank: undefined, // 移除原始字段
+    };
 
     // 调用新增账户API
-    const response = await addBankAccountApi([formDataCopy]);
+    const response = await addBankAccountApi(submitData);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('银行账户添加成功');
       dialogVisible.value = false;
       // 刷新银行账户列表
       fetchBankAccountList();
     } else {
-      ElMessage.error(response.error || '银行账户添加失败');
+      ElMessage.error(response.message || '银行账户添加失败');
     }
   } catch (error: any) {
     if (error.name === 'ElValidationError') {
@@ -650,14 +567,6 @@ const handleSubmit = async () => {
           show-overflow-tooltip
         />
 
-        <!-- 银行名称列 -->
-        <ElTableColumn
-          prop="bankName"
-          label="银行名称"
-          width="120"
-          show-overflow-tooltip
-        />
-
         <!-- 账户号码列 -->
         <ElTableColumn
           prop="accountNumber"
@@ -680,40 +589,40 @@ const handleSubmit = async () => {
           </template>
         </ElTableColumn>
 
-        <!-- 币种列 -->
+        <!-- 银行名称/开户行列 -->
         <ElTableColumn
-          prop="currency"
-          label="币种"
-          width="120"
-          align="center"
+          prop="bankName"
+          label="开户行"
+          width="150"
+          show-overflow-tooltip
         />
 
         <!-- 余额列 -->
-        <ElTableColumn prop="balance" label="余额" width="150" align="right">
+        <ElTableColumn prop="currentBalance" label="当前余额" width="150" align="right">
           <template #default="{ row }">
-            {{ formatCurrency(row.balance) }}
+            {{ formatCurrency(row.currentBalance) }}
           </template>
         </ElTableColumn>
 
-        <!-- 开户日期列 -->
-        <ElTableColumn prop="khrq" label="开户日期" width="120" align="center">
+        <!-- 创建时间列 -->
+        <ElTableColumn prop="createTime" label="创建时间" width="160" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.khrq) }}
+            {{ new Date(row.createTime).toLocaleString('zh-CN') }}
           </template>
         </ElTableColumn>
 
-        <!-- 销户日期列 -->
-        <ElTableColumn prop="xhrq" label="销户日期" width="120" align="center">
+        <!-- 更新时间列 -->
+        <ElTableColumn prop="updateTime" label="更新时间" width="160" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.xhrq) }}
+            {{ new Date(row.updateTime).toLocaleString('zh-CN') }}
           </template>
         </ElTableColumn>
 
         <!-- 状态列 -->
-        <ElTableColumn prop="zt" label="状态" width="100" align="center">
+        <ElTableColumn prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <ElTag :type="getStatusType(row.zt)" size="small">
-              {{ row.zt }}
+            <ElTag :type="getStatusType(row.status)" size="small">
+              {{ row.status }}
             </ElTag>
           </template>
         </ElTableColumn>
@@ -773,38 +682,48 @@ const handleSubmit = async () => {
         >
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="账户名称" prop="account_name">
+              <ElFormItem label="账户名称" prop="accountName">
                 <ElInput
-                  v-model="formData.account_name"
+                  v-model="formData.accountName"
                   placeholder="请输入账户名称"
                   size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="银行名称" prop="bank_name">
-                <ElInput
-                  v-model="formData.bank_name"
-                  placeholder="请输入银行名称"
+              <ElFormItem label="开户行" prop="openingBank">
+                <ElSelect
+                  v-model="formData.openingBank"
+                  placeholder="请选择开户行"
                   size="large"
-                />
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in bankOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="账号" prop="account_number">
+              <ElFormItem label="账号" prop="accountNumber">
                 <ElInput
-                  v-model="formData.account_number"
+                  v-model="formData.accountNumber"
                   placeholder="请输入账号"
                   size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="账户类型" prop="account_type">
+              <ElFormItem label="账户类型" prop="accountType">
                 <ElSelect
-                  v-model="formData.account_type"
+                  v-model="formData.accountType"
                   placeholder="请选择账户类型"
                   style="width: 100%"
                   size="large"
@@ -821,46 +740,20 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="币种" prop="currency">
-                <ElSelect
-                  v-model="formData.currency"
-                  placeholder="请选择或输入币种"
-                  style="width: 100%"
+              <ElFormItem label="密码" prop="password">
+                <ElInput
+                  v-model="formData.password"
+                  type="password"
+                  placeholder="请输入密码"
                   size="large"
-                  filterable
-                  allow-create
-                  @change="(value) => saveCustomCurrency(value)"
-                >
-                  <ElOption
-                    v-for="option in currencyOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    <div class="flex items-center justify-between">
-                      <span>{{ option.label }}</span>
-                      <!-- 只有自定义币种才显示删除按钮 -->
-                      <ElButton
-                        v-if="
-                          !defaultCurrencyOptions.some(
-                            (opt) => opt.value === option.value,
-                          )
-                        "
-                        type="text"
-                        size="small"
-                        @click.stop="deleteCustomCurrency(option.value)"
-                        class="text-red-500 hover:text-red-700"
-                      >
-                        <i class="i-lucide-x"></i>
-                      </ElButton>
-                    </div>
-                  </ElOption>
-                </ElSelect>
+                  style="width: 100%"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="当前余额" prop="balance">
+              <ElFormItem label="当前余额" prop="currentBalance">
                 <ElInputNumber
-                  v-model="formData.balance"
+                  v-model="formData.currentBalance"
                   :min="0"
                   :precision="2"
                   placeholder="请输入当前余额"
@@ -873,24 +766,60 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="开户日期" prop="khrq">
-                <ElDatePicker
-                  v-model="formData.khrq"
-                  type="datetime"
-                  placeholder="请选择开户日期"
+              <ElFormItem label="币种" prop="currency">
+                <ElSelect
+                  v-model="formData.currency"
+                  placeholder="请选择币种"
                   style="width: 100%"
                   size="large"
+                >
+                  <ElOption
+                    v-for="option in currencyOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="状态" prop="status">
+                <ElSelect
+                  v-model="formData.status"
+                  placeholder="请选择状态"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="开户日期" prop="openingDate">
+                <ElDatePicker
+                  v-model="formData.openingDate"
+                  type="datetime"
+                  placeholder="请选择开户日期"
+                  size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="销户日期">
+              <ElFormItem label="销户日期" prop="closingDate">
                 <ElDatePicker
-                  v-model="formData.xhrq"
+                  v-model="formData.closingDate"
                   type="datetime"
                   placeholder="请选择销户日期"
-                  style="width: 100%"
                   size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
@@ -929,38 +858,48 @@ const handleSubmit = async () => {
         >
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="账户名称" prop="account_name">
+              <ElFormItem label="账户名称" prop="accountName">
                 <ElInput
-                  v-model="editFormData.account_name"
+                  v-model="editFormData.accountName"
                   placeholder="请输入账户名称"
                   size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="银行名称" prop="bank_name">
-                <ElInput
-                  v-model="editFormData.bank_name"
-                  placeholder="请输入银行名称"
+              <ElFormItem label="开户行" prop="openingBank">
+                <ElSelect
+                  v-model="editFormData.openingBank"
+                  placeholder="请选择开户行"
                   size="large"
-                />
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in bankOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="账号" prop="account_number">
+              <ElFormItem label="账号" prop="accountNumber">
                 <ElInput
-                  v-model="editFormData.account_number"
+                  v-model="editFormData.accountNumber"
                   placeholder="请输入账号"
                   size="large"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="账户类型" prop="account_type">
+              <ElFormItem label="账户类型" prop="accountType">
                 <ElSelect
-                  v-model="editFormData.account_type"
+                  v-model="editFormData.accountType"
                   placeholder="请选择账户类型"
                   style="width: 100%"
                   size="large"
@@ -977,46 +916,20 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="币种" prop="currency">
-                <ElSelect
-                  v-model="editFormData.currency"
-                  placeholder="请选择或输入币种"
-                  style="width: 100%"
+              <ElFormItem label="密码" prop="password">
+                <ElInput
+                  v-model="editFormData.password"
+                  type="password"
+                  placeholder="请输入密码"
                   size="large"
-                  filterable
-                  allow-create
-                  @change="(value) => saveCustomCurrency(value)"
-                >
-                  <ElOption
-                    v-for="option in currencyOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    <div class="flex items-center justify-between">
-                      <span>{{ option.label }}</span>
-                      <!-- 只有自定义币种才显示删除按钮 -->
-                      <ElButton
-                        v-if="
-                          !defaultCurrencyOptions.some(
-                            (opt) => opt.value === option.value,
-                          )
-                        "
-                        type="text"
-                        size="small"
-                        @click.stop="deleteCustomCurrency(option.value)"
-                        class="text-red-500 hover:text-red-700"
-                      >
-                        <i class="i-lucide-x"></i>
-                      </ElButton>
-                    </div>
-                  </ElOption>
-                </ElSelect>
+                  style="width: 100%"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="当前余额" prop="balance">
+              <ElFormItem label="当前余额" prop="currentBalance">
                 <ElInputNumber
-                  v-model="editFormData.balance"
+                  v-model="editFormData.currentBalance"
                   :min="0"
                   :precision="2"
                   placeholder="请输入当前余额"
@@ -1029,41 +942,61 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="开户日期">
-                <ElDatePicker
-                  v-model="editFormData.KHRQ"
-                  type="datetime"
-                  placeholder="请选择开户日期"
+              <ElFormItem label="币种" prop="currency">
+                <ElSelect
+                  v-model="editFormData.currency"
+                  placeholder="请选择币种"
                   style="width: 100%"
                   size="large"
-                />
+                >
+                  <ElOption
+                    v-for="option in currencyOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="销户日期">
-                <ElDatePicker
-                  v-model="editFormData.XHRQ"
-                  type="datetime"
-                  placeholder="请选择销户日期"
+              <ElFormItem label="状态" prop="status">
+                <ElSelect
+                  v-model="editFormData.status"
+                  placeholder="请选择状态"
                   style="width: 100%"
                   size="large"
-                />
+                >
+                  <ElOption
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
-              <ElFormItem label="状态">
-                <ElSelect
-                  v-model="editFormData.ZT"
-                  placeholder="请选择状态"
-                  style="width: 100%"
+              <ElFormItem label="开户日期" prop="openingDate">
+                <ElDatePicker
+                  v-model="editFormData.openingDate"
+                  type="datetime"
+                  placeholder="请选择开户日期"
                   size="large"
-                >
-                  <ElOption label="启用" value="启用" />
-                  <ElOption label="冻结" value="冻结" />
-                  <ElOption label="销户" value="销户" />
-                </ElSelect>
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="销户日期" prop="closingDate">
+                <ElDatePicker
+                  v-model="editFormData.closingDate"
+                  type="datetime"
+                  placeholder="请选择销户日期"
+                  size="large"
+                  style="width: 100%"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>

@@ -51,11 +51,29 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
+    const authStore = useAuthStore();
     const resp = await refreshTokenApi();
-    if (resp && resp.status === '1' && resp.data) {
+    if (resp && resp.code === 200 && resp.data) {
       const newTokens = resp.data;
       accessStore.setAccessToken(newTokens.accessToken);
       accessStore.setRefreshToken(newTokens.refreshToken);
+      accessStore.setAccessCodes(newTokens.permissions || []);
+      
+      // 更新用户信息
+      const userInfo = {
+        userId: newTokens.userId.toString(),
+        username: newTokens.username,
+        realName: newTokens.realName,
+        homePath: preferences.app.defaultHomePath,
+        avatar: '',
+        desc: '',
+        token: newTokens.accessToken,
+        refreshToken: newTokens.refreshToken,
+        roles: [],
+        permissions: newTokens.permissions || [],
+      };
+      authStore.userStore.setUserInfo(userInfo);
+      
       return newTokens.accessToken;
     }
     throw new Error('Failed to refresh token');
@@ -147,7 +165,7 @@ export const chatRequestClient = createRequestClient(
 );
 
 export const requestClient8085 = createRequestClient(
-  import.meta.env.VITE_API_URL_8085 || 'http://192.168.0.120:8080',
+  import.meta.env.VITE_API_URL_8085 || '/api/v1',
   {
     responseReturn: 'body',
   },
@@ -156,17 +174,4 @@ export const requestClient8085 = createRequestClient(
 // 文件上传API客户端，使用环境变量中的API URL，通过Vite代理
 export const fileUploadRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
-});
-
-// 为文件上传API客户端添加JWT请求拦截器
-fileUploadRequestClient.addRequestInterceptor({
-  fulfilled: (config) => {
-    // 从localStorage获取动态的JWT令牌
-    const token = localStorage.getItem('token');
-    // 将JWT令牌添加到请求头
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
 });

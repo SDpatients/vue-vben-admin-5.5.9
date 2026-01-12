@@ -61,3 +61,15 @@ export async function deleteFileApi() {
 export async function batchUploadCaseFilesApi() {
   return requestClient.post<FileApi.FileResponse>('/files/batch-upload');
 }
+
+/**
+ * 获取文件列表
+ */
+export async function getFileListApi(bizType: string, bizId: number) {
+  return requestClient.get<FileApi.FileListResponse>('/files/list', {
+    params: {
+      bizType,
+      bizId
+    }
+  });
+}

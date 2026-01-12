@@ -56,22 +56,20 @@ const fetchManagerList = async () => {
   loading.value = true;
   try {
     const params: ManagerApi.ManagerQueryParams = {
-      page: pagination.page,
-      size: pagination.pageSize,
-      LSSWSID: searchForm.LSSWSID,
-      GLRLX: searchForm.GLRLX,
-      FZRID: searchForm.FZRID,
+      pageNum: pagination.page,
+      pageSize: pagination.pageSize,
+      // 注意：新API只支持caseId查询，不支持之前的搜索条件
     };
 
     const response = await getManagerListApi(params);
 
-    if (response.status === '1' && response.data) {
-      managerList.value = response.data.records || [];
-      pagination.itemCount = response.data.count || 0;
-      pagination.pages = response.data.pages || 0;
+    if (response.code === 200 && response.data) {
+      managerList.value = response.data.list || [];
+      pagination.itemCount = response.data.total || 0;
+      pagination.pages = Math.ceil(pagination.itemCount / pagination.pageSize);
       ElMessage.success('管理人列表加载成功');
     } else {
-      ElMessage.error(response.error || '获取管理人列表失败');
+      ElMessage.error(response.message || '获取管理人列表失败');
       // 清空列表数据
       managerList.value = [];
       pagination.itemCount = 0;
@@ -134,13 +132,12 @@ const managerTypeOptions = [
 
 // 新增管理人表单数据
 const addManagerForm = reactive({
-  lsswsid: '',
-  glrlx: '律师事务所',
-  fzrid: '',
-  lxdh: '',
-  lxyx: '',
-  bgdz: '',
-  zt: '正常',
+  caseId: 1, // 默认案件ID，实际使用时可能需要从案件列表中选择
+  administratorName: '',
+  contactPhone: '',
+  contactEmail: '',
+  officeAddress: '',
+  responsiblePersonId: 1, // 默认负责人ID，实际使用时可能需要从用户列表中选择
 });
 
 // 编辑管理人弹窗状态
@@ -148,30 +145,19 @@ const editDialogVisible = ref(false);
 
 // 编辑管理人表单数据
 const editManagerForm = reactive({
-  SEP_ID: '',
-  LSSWSID: '',
-  GLRLX: '',
-  FZRID: '',
-  LXDH: '',
-  LXYX: '',
-  BGDZ: '',
-  ZT: '',
+  id: '', // 用于存储管理人ID，用于更新请求的路径参数
+  contactPhone: '',
+  contactEmail: '',
+  officeAddress: '',
 });
 
 // 表单验证规则
 const rules = reactive({
-  lsswsid: [
+  administratorName: [
     {
       required: true,
-      message: '请输入管理人',
+      message: '请输入管理人名称',
       trigger: 'blur',
-    },
-  ],
-  glrlx: [
-    {
-      required: true,
-      message: '请选择管理人类型',
-      trigger: 'change',
     },
   ],
 });
@@ -185,13 +171,12 @@ const handleAdd = () => {
 const handleCloseDialog = () => {
   // 重置表单
   Object.assign(addManagerForm, {
-    lsswsid: '',
-    glrlx: '律师事务所',
-    fzrid: '',
-    lxdh: '',
-    lxyx: '',
-    bgdz: '',
-    zt: '正常',
+    caseId: 1,
+    administratorName: '',
+    contactPhone: '',
+    contactEmail: '',
+    officeAddress: '',
+    responsiblePersonId: 1,
   });
 };
 
@@ -199,19 +184,13 @@ const handleCloseDialog = () => {
 const handleAddSubmit = async () => {
   loading.value = true;
   try {
-    const data = {
-    sep_auser: userStore.userInfo?.username || 'admin',
-    sep_adate: new Date().toISOString(),
-    ...addManagerForm,
-  };
-
-  const response = await addManagerApi([data]);
-    if (response.status === '1') {
+    const response = await addManagerApi(addManagerForm);
+    if (response.code === 200) {
       ElMessage.success('添加管理人成功');
       dialogVisible.value = false;
       fetchManagerList();
     } else {
-      ElMessage.error(response.error || '添加管理人失败');
+      ElMessage.error(response.message || '添加管理人失败');
     }
   } catch {
     ElMessage.error('后端API暂时不可用，请稍后再试');
@@ -222,7 +201,12 @@ const handleAddSubmit = async () => {
 
 // 打开编辑弹窗
 const handleEdit = (row: ManagerApi.ManagerInfo) => {
-  Object.assign(editManagerForm, row);
+  Object.assign(editManagerForm, {
+    id: row.id,
+    contactPhone: row.contactPhone,
+    contactEmail: row.contactEmail,
+    officeAddress: row.officeAddress,
+  });
   editDialogVisible.value = true;
 };
 
@@ -230,14 +214,10 @@ const handleEdit = (row: ManagerApi.ManagerInfo) => {
 const handleCloseEditDialog = () => {
   // 重置表单
   Object.assign(editManagerForm, {
-    SEP_ID: '',
-    LSSWSID: '',
-    GLRLX: '',
-    FZRID: '',
-    LXDH: '',
-    LXYX: '',
-    BGDZ: '',
-    ZT: '',
+    id: '',
+    contactPhone: '',
+    contactEmail: '',
+    officeAddress: '',
   });
 };
 
@@ -245,19 +225,16 @@ const handleCloseEditDialog = () => {
 const handleEditSubmit = async () => {
   loading.value = true;
   try {
-    const data = {
-      SEP_EUSER: userStore.userInfo?.username || 'admin',
-      SEP_EDATE: new Date().toISOString(),
-      ...editManagerForm,
-    };
-
-    const response = await updateManagerApi(data);
-    if (response.status === '1') {
+    // 从表单中提取管理人ID
+    const { id, ...updateData } = editManagerForm;
+    
+    const response = await updateManagerApi(id, updateData);
+    if (response.code === 200) {
       ElMessage.success('更新管理人成功');
       editDialogVisible.value = false;
       fetchManagerList();
     } else {
-      ElMessage.error(response.error || '更新管理人失败');
+      ElMessage.error(response.message || '更新管理人失败');
     }
   } catch {
     ElMessage.error('后端API暂时不可用，请稍后再试');
@@ -276,12 +253,12 @@ const handleDelete = async (row: ManagerApi.ManagerInfo) => {
     });
 
     loading.value = true;
-    const response = await deleteManagerApi({ SEP_ID: row.SEP_ID });
-    if (response.status === '1') {
+    const response = await deleteManagerApi(row.id);
+    if (response.code === 200) {
       ElMessage.success('删除管理人成功');
       fetchManagerList();
     } else {
-      ElMessage.error(response.error || '删除管理人失败');
+      ElMessage.error(response.message || '删除管理人失败');
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -389,71 +366,55 @@ onMounted(() => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="GLRLX"
-          label="管理人类型"
-          width="140"
-          align="center"
-        />
-        <ElTableColumn
-          prop="LSSWSID"
-          label="管理人"
+          prop="administratorName"
+          label="管理人名称"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="FZRID"
-          label="负责人"
-          width="100"
-          align="center"
-        />
-        <ElTableColumn
-          prop="LXDH"
+          prop="contactPhone"
           label="联系电话"
           width="130"
           align="center"
         />
         <ElTableColumn
-          prop="LXYX"
+          prop="contactEmail"
           label="联系邮箱"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="BGDZ"
+          prop="officeAddress"
           label="办公地址"
           min-width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="ZT"
-          label="状态"
-          width="100"
-          align="center"
-        >
-          <template #default="{ row }">
-            <span :class="row.ZT === '正常' ? 'text-green-600' : 'text-red-600'">
-              {{ row.ZT }}
-            </span>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn
-          prop="SEP_AUSER"
-          label="创建者"
-          width="120"
-          align="center"
-        />
-        <ElTableColumn
-          prop="SEP_ADATE"
+          prop="createTime"
           label="创建时间"
           width="180"
           align="center"
         >
           <template #default="{ row }">
-            {{ formatDateTime(row.SEP_ADATE) }}
+            {{ formatDateTime(row.createTime) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="updateTime"
+          label="更新时间"
+          width="180"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatDateTime(row.updateTime) }}
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
+            <ElButton type="primary" size="small" @click="handleEdit(row)">
+              <i class="i-lucide-pencil mr-1"></i>
+              编辑
+            </ElButton>
             <ElButton type="danger" size="small" @click="handleDelete(row)">
               <i class="i-lucide-trash-2 mr-1"></i>
               删除
@@ -484,40 +445,23 @@ onMounted(() => {
       @close="handleCloseDialog"
     >
       <ElForm :model="addManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="管理人类型" prop="glrlx">
-          <ElSelect v-model="addManagerForm.glrlx" placeholder="请选择管理人类型">
-            <ElOption
-              v-for="option in managerTypeOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </ElSelect>
+        <ElFormItem label="案件ID">
+          <ElInput v-model="addManagerForm.caseId" placeholder="请输入案件ID" type="number" />
         </ElFormItem>
-        <ElFormItem label="管理人" prop="lsswsid">
-          <ElInput v-model="addManagerForm.lsswsid" placeholder="请输入管理人" />
-        </ElFormItem>
-        <ElFormItem label="负责人">
-          <ElInput v-model="addManagerForm.fzrid" placeholder="请输入负责人" />
+        <ElFormItem label="管理人名称" prop="administratorName">
+          <ElInput v-model="addManagerForm.administratorName" placeholder="请输入管理人名称" />
         </ElFormItem>
         <ElFormItem label="联系电话">
-          <ElInput v-model="addManagerForm.lxdh" placeholder="请输入联系电话" />
+          <ElInput v-model="addManagerForm.contactPhone" placeholder="请输入联系电话" />
         </ElFormItem>
         <ElFormItem label="联系邮箱">
-          <ElInput v-model="addManagerForm.lxyx" placeholder="请输入联系邮箱" />
+          <ElInput v-model="addManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
         </ElFormItem>
         <ElFormItem label="办公地址">
-          <ElInput v-model="addManagerForm.bgdz" placeholder="请输入办公地址" />
+          <ElInput v-model="addManagerForm.officeAddress" placeholder="请输入办公地址" />
         </ElFormItem>
-        <ElFormItem label="状态">
-          <ElSelect v-model="addManagerForm.zt" placeholder="请选择状态">
-            <ElOption
-              v-for="option in statusOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </ElSelect>
+        <ElFormItem label="负责人ID">
+          <ElInput v-model="addManagerForm.responsiblePersonId" placeholder="请输入负责人ID" type="number" />
         </ElFormItem>
       </ElForm>
       <template #footer>
@@ -535,34 +479,15 @@ onMounted(() => {
       width="500px"
       @close="handleCloseEditDialog"
     >
-      <ElForm :model="editManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="管理人" prop="lsws">
-          <ElInput v-model="editManagerForm.LSSWSID" placeholder="请输入管理人" />
+      <ElForm :model="editManagerForm" label-width="100px">
+        <ElFormItem label="联系电话">
+          <ElInput v-model="editManagerForm.contactPhone" placeholder="请输入联系电话" />
         </ElFormItem>
-        <ElFormItem label="管理人类型" prop="glrtype">
-          <ElInput v-model="editManagerForm.GLRLX" placeholder="请输入管理人类型" />
+        <ElFormItem label="联系邮箱">
+          <ElInput v-model="editManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
         </ElFormItem>
-        <ElFormItem label="负责人" prop="fzr">
-          <ElInput v-model="editManagerForm.FZRID" placeholder="请输入负责人" />
-        </ElFormItem>
-        <ElFormItem label="联系电话" prop="lxdh">
-          <ElInput v-model="editManagerForm.LXDH" placeholder="请输入联系电话" />
-        </ElFormItem>
-        <ElFormItem label="联系邮箱" prop="lxemail">
-          <ElInput v-model="editManagerForm.LXYX" placeholder="请输入联系邮箱" />
-        </ElFormItem>
-        <ElFormItem label="办公地址" prop="bgaddress">
-          <ElInput v-model="editManagerForm.BGDZ" placeholder="请输入办公地址" />
-        </ElFormItem>
-        <ElFormItem label="状态">
-          <ElSelect v-model="editManagerForm.ZT" placeholder="请选择状态">
-            <ElOption
-              v-for="option in statusOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </ElSelect>
+        <ElFormItem label="办公地址">
+          <ElInput v-model="editManagerForm.officeAddress" placeholder="请输入办公地址" />
         </ElFormItem>
       </ElForm>
       <template #footer>

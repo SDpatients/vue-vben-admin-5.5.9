@@ -3,6 +3,8 @@ import type { DebtorApi } from '#/api/core/debtor';
 
 import { onMounted, ref } from 'vue';
 
+import { requestClient8085 } from '#/api/request';
+
 import {
   ElButton,
   ElCard,
@@ -34,6 +36,8 @@ import {
   editDebtorApi,
   getDebtorListApi,
 } from '#/api/core/debtor';
+
+import { getCaseSimpleListApi } from '#/api/core/case';
 
 // 响应式数据
 const debtorList = ref<DebtorApi.DebtorInfo[]>([]);
@@ -111,51 +115,28 @@ const initColumnVisibility = () => {
 const fetchDebtorList = async () => {
   loading.value = true;
   try {
-    const token = '6ee6373b2fa95f552a4710a001aff052'; // 使用固定token
     const params = {
-      page: pagination.value.page,
-      size: pagination.value.pageSize,
-      token,
-      QYMC: searchQymc.value,
-      TYSHXYDM: searchTyshxydm.value,
-      FDDBR: searchFddbr.value,
+      pageNum: pagination.value.page,
+      pageSize: pagination.value.pageSize,
+      enterpriseName: searchQymc.value,
+      unifiedSocialCreditCode: searchTyshxydm.value,
+      legalRepresentative: searchFddbr.value,
     };
 
     const response = await getDebtorListApi(params);
     console.log('API响应:', response);
 
-    if (response.status === '1') {
-      // 处理API响应，确保字段名正确映射
-      const processedData = response.data.map((item: any) => {
-        // 统一字段名，支持多种格式（下划线、小驼峰、大写）
-        return {
-          sepId: item.sep_id || item.sepId || item.SEP_ID || item.id || '',
-          qymc: item.qymc || item.QYMC || '',
-          tyshxydm: item.tyshxydm || item.TYSHXYDM || '',
-          fddbr: item.fddbr || item.FDDBR || '',
-          djjg: item.djjg || item.DJJG || '',
-          clrq: item.clrq || item.CLRQ || '',
-          zczb: item.zczb || item.ZCZB || '',
-          jyfw: item.jyfw || item.JYFW || '',
-          qylx: item.qylx || item.QYLX || '',
-          shhy: item.shhy || item.SHHY || item.SSHY || '',
-          zcdz: item.zcdz || item.ZCDZ || '',
-          lxdh: item.lxdh || item.LXDH || '',
-          lxr: item.lxr || item.LXR || '',
-          zt: item.zt || item.ZT || '',
-          sepAuser: item.sep_auser || item.sepAuser || item.SEP_AUSER || '',
-          sepAdate: item.sep_adate || item.sepAdate || item.SEP_ADATE || '',
-          sepEuser: item.sep_euser || item.sepEuser || item.SEP_EUSER || '',
-          sepEdate: item.sep_edate || item.sepEdate || item.SEP_EDATE || '',
-        };
-      });
+    if (response.code === 200) {
+      // 处理API响应，直接使用新的字段名
+      const data = response.data || {};
+      const list = data.list || [];
       
-      debtorList.value = processedData;
-      pagination.value.itemCount = processedData.length;
-      pagination.value.pages = 1;
-      ElMessage.success(`成功加载 ${processedData.length} 条债务人记录`);
+      debtorList.value = list;
+      pagination.value.itemCount = data.total || 0;
+      pagination.value.pages = Math.ceil((data.total || 0) / pagination.value.pageSize) || 1;
+      ElMessage.success(`成功加载 ${list.length} 条债务人记录`);
     } else {
-      ElMessage.error(`API返回错误: ${response.error}`);
+      ElMessage.error(`API返回错误: ${response.message}`);
       debtorList.value = [];
       pagination.value.itemCount = 0;
       pagination.value.pages = 0;
@@ -216,6 +197,40 @@ const hideNonCoreColumns = () => {
   ElMessage.success('已隐藏非核心列');
 };
 
+// 获取案件列表
+const getCaseList = async (query = '') => {
+  caseLoading.value = true;
+  try {
+    const response = await getCaseSimpleListApi({
+      page: 1,
+      size: 10,
+      caseNumber: query,
+    });
+    
+    if (response.code === 200 && response.data?.list) {
+      caseList.value = response.data.list;
+    } else {
+      caseList.value = [];
+    }
+  } catch (error) {
+    console.error('获取案件列表失败:', error);
+    caseList.value = [];
+  } finally {
+    caseLoading.value = false;
+  }
+};
+
+// 处理案号选择
+const handleCaseSelect = (value: string) => {
+  formData.value.AH = value;
+  // 根据选中的caseNumber值在caseList中找到对应的项，获取其id
+  const selectedCase = caseList.value.find((item) => item.caseNumber === value);
+  if (selectedCase) {
+    formData.value.SEP_ID = selectedCase.id.toString(); // 将id转换为字符串存储
+    formData.value.caseId = selectedCase.id; // 存储caseId
+  }
+};
+
 // 格式化日期显示
 const formatDate = (dateValue: any) => {
   if (!dateValue) return '-';
@@ -266,16 +281,24 @@ const getStatusType = (status: string) => {
 
 // 查看债务人详情
 const viewDebtorDetail = (row: DebtorApi.DebtorInfo) => {
-  ElMessage.info(`查看债务人详情: ${row.QYMC}`);
+  ElMessage.info(`查看债务人详情: ${row.enterpriseName}`);
   // 后续可添加路由跳转逻辑
   // const router = useRouter();
   // router.push(`/debtor-detail`);
 };
 
+// 案件列表数据
+const caseList = ref<any[]>([]);
+const caseLoading = ref(false);
+const caseSearchQuery = ref('');
+
 // 新增债务人弹窗相关
 const dialogVisible = ref(false);
 const formRef = ref<InstanceType<typeof ElForm>>();
 const formData = ref({
+  SEP_ID: '', // 案号ID
+  caseId: 0, // 案件ID
+  AH: '', // 案号
   QYMC: '', // 企业名称
   TYSHXYDM: '', // 统一社会信用代码
   FDDBR: '', // 法定代表人
@@ -301,18 +324,53 @@ const statusOptions = [
   { label: '其他', value: '其他' },
 ];
 
+// 经营范围选项
+const businessScopeOptions = [
+  { label: '软件开发', value: '软件开发' },
+  { label: '硬件制造', value: '硬件制造' },
+  { label: '互联网服务', value: '互联网服务' },
+  { label: '金融服务', value: '金融服务' },
+  { label: '教育培训', value: '教育培训' },
+  { label: '医疗健康', value: '医疗健康' },
+  { label: '零售批发', value: '零售批发' },
+  { label: '其他', value: '其他' },
+];
+
+// 企业类型选项
+const enterpriseTypeOptions = [
+  { label: '有限责任公司', value: '有限责任公司' },
+  { label: '股份有限公司', value: '股份有限公司' },
+  { label: '个人独资企业', value: '个人独资企业' },
+  { label: '合伙企业', value: '合伙企业' },
+  { label: '国有企业', value: '国有企业' },
+  { label: '集体企业', value: '集体企业' },
+  { label: '外资企业', value: '外资企业' },
+  { label: '其他', value: '其他' },
+];
+
+// 所属行业选项
+const industryOptions = [
+  { label: '信息技术', value: '信息技术' },
+  { label: '金融', value: '金融' },
+  { label: '制造业', value: '制造业' },
+  { label: '教育', value: '教育' },
+  { label: '医疗', value: '医疗' },
+  { label: '零售', value: '零售' },
+  { label: '房地产', value: '房地产' },
+  { label: '其他', value: '其他' },
+];
+
 // 表单验证规则
 const rules = ref({
   QYMC: [{ required: true, message: '请输入企业名称', trigger: 'blur' }],
-  TYSHXYDM: [
-    { required: true, message: '请输入统一社会信用代码', trigger: 'blur' },
-  ],
-  FDDBR: [{ required: true, message: '请输入法定代表人', trigger: 'blur' }],
+  // 统一社会信用代码、手机号不需要校验，可以为空
 });
 
 // 打开新增债务人弹窗
 const handleAddDebtor = () => {
   dialogVisible.value = true;
+  // 打开弹窗时加载案号列表
+  getCaseList();
 };
 
 // 关闭弹窗
@@ -322,6 +380,10 @@ const handleCloseDialog = () => {
   if (formRef.value) {
     formRef.value.resetFields();
   }
+  // 重置隐藏字段
+  formData.value.SEP_ID = '';
+  formData.value.caseId = 0;
+  formData.value.AH = '';
 };
 
 // 提交新增债务人表单
@@ -342,41 +404,26 @@ const handleSubmit = () => {
 // 实际提交表单数据
 const submitFormData = async () => {
   try {
-    // 获取当前登录用户信息
-    const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
-    const username = userInfo.user?.uName || 'admin';
-
-    // 获取当前北京时间
-    const now = new Date();
-    const sep_adate = now.toISOString().slice(0, 19).replace('T', ' ');
-
-    // 转换数据格式，将大写属性名转换为小写，并添加必要的字段
+    // 转换数据格式，使用新的字段名
     const requestData = {
-      qymc: formData.value.QYMC,
-      tyshxydm: formData.value.TYSHXYDM,
-      fddbr: formData.value.FDDBR,
-      djjg: formData.value.DJJG,
-      clrq: formData.value.CLRQ
-        ? new Date(formData.value.CLRQ)
-            .toISOString()
-            .slice(0, 19)
-            .replace('T', ' ')
-        : null,
-      zczb: formData.value.ZCZB,
-      jyfw: formData.value.JYFW,
-      qylx: formData.value.QYLX,
-      sshy: formData.value.SSHY,
-      zcdz: formData.value.ZCDZ,
-      lxdh: formData.value.LXDH,
-      lxr: formData.value.LXR,
-      zt: formData.value.ZT,
-      sep_auser: username,
-      sep_adate,
+      caseId: formData.value.caseId,
+      enterpriseName: formData.value.QYMC,
+      unifiedSocialCreditCode: formData.value.TYSHXYDM,
+      legalRepresentative: formData.value.FDDBR,
+      registrationAuthority: formData.value.DJJG,
+      establishmentDate: formData.value.CLRQ,
+      registeredCapital: formData.value.ZCZB ? Number(formData.value.ZCZB) : undefined,
+      businessScope: formData.value.JYFW,
+      enterpriseType: formData.value.QYLX,
+      industry: formData.value.SSHY,
+      registeredAddress: formData.value.ZCDZ,
+      contactPhone: formData.value.LXDH,
+      contactPerson: formData.value.LXR,
     };
 
     const response = await addDebtorApi(requestData);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('债务人添加成功');
       dialogVisible.value = false;
       // 刷新列表
@@ -385,8 +432,12 @@ const submitFormData = async () => {
       if (formRef.value) {
         formRef.value.resetFields();
       }
+      // 重置所有案号相关数据
+      formData.value.SEP_ID = '';
+      formData.value.caseId = 0;
+      formData.value.AH = '';
     } else {
-      ElMessage.error(`债务人添加失败: ${response.error}`);
+      ElMessage.error(`债务人添加失败: ${response.message}`);
     }
   } catch (error) {
     console.error('添加债务人失败:', error);
@@ -403,6 +454,7 @@ const editDialogVisible = ref(false);
 const editFormRef = ref<InstanceType<typeof ElForm>>();
 const editFormData = ref({
   row: 0,
+  id: 0,
   AJID: '',
   SEP_ID: '',
   QYMC: '',
@@ -419,6 +471,7 @@ const editFormData = ref({
   LXR: '',
   ZT: '',
 } as {
+  id: number;
   AJID: string;
   CLRQ: string;
   DJJG: string;
@@ -439,62 +492,33 @@ const editFormData = ref({
 
 // 打开编辑债务人弹窗
 const handleEditDebtor = (row: any) => {
-  // 尝试从row中获取sep_id，优先使用下划线格式的sep_id
-  let debtorId = '';
+  // 直接从row中获取id字段作为债务人ID
+  const debtorId = row.id;
   
-  // 1. 先尝试从row中获取，优先使用下划线格式的sep_id
-  if (row.sep_id) {
-    debtorId = row.sep_id; // 优先使用下划线格式
-  } else if (row.sepId) {
-    debtorId = row.sepId; // 小驼峰格式
-  } else if (row.SEP_ID) {
-    debtorId = row.SEP_ID; // 大写格式
-  } else if (row.id) {
-    debtorId = row.id; // id字段
-  } else {
-    // 2. 如果row中没有，尝试从原始响应数据debtorList中查找
-    const matchingItem = debtorList.value.find(item => {
-      // 根据企业名称、统一社会信用代码等唯一字段匹配
-      return (
-        item.qymc === row.qymc || 
-        item.qymc === row.QYMC ||
-        item.tyshxydm === row.tyshxydm ||
-        item.tyshxydm === row.TYSHXYDM
-      );
-    });
-    
-    if (matchingItem) {
-      // 从匹配的数据中获取sep_id，同样优先使用下划线格式
-      debtorId = matchingItem.sep_id || matchingItem.sepId || matchingItem.SEP_ID || matchingItem.id || '';
-    }
-  }
+  // 调试信息，查看id是否获取到
+  console.log('编辑债务人时获取的ID:', debtorId);
+  console.log('原始行数据:', row);
   
-  // 确保debtorId是字符串类型
-  const finalDebtorId = debtorId?.toString() || '';
-  
-  // 将小驼峰格式的字段转换为大写，并复制行数据到编辑表单，处理日期字段
+  // 复制行数据到编辑表单，使用新的字段名
   editFormData.value = {
+    id: debtorId, // 存储债务人ID
     AJID: '',
-    SEP_ID: finalDebtorId, // 使用获取到的SEP_ID
-    QYMC: row.QYMC || row.qymc || '',
-    TYSHXYDM: row.TYSHXYDM || row.tyshxydm || '',
-    FDDBR: row.FDDBR || row.fddbr || '',
-    DJJG: row.DJJG || row.djjg || '',
-    CLRQ: row.CLRQ || row.clrq ? new Date(row.CLRQ || row.clrq).toISOString().slice(0, 10) : '',
-    ZCZB: row.ZCZB || row.zczb || '',
-    JYFW: row.JYFW || row.jyfw || '',
-    QYLX: row.QYLX || row.qylx || '',
-    SSHY: row.SSHY || row.shhy || '',
-    ZCDZ: row.ZCDZ || row.zcdz || '',
-    LXDH: row.LXDH || row.lxdh || '',
-    LXR: row.LXR || row.lxr || '',
-    ZT: row.ZT || row.zt || '',
+    SEP_ID: debtorId?.toString() || '', // 兼容旧代码
+    QYMC: row.enterpriseName || row.QYMC || row.qymc || '',
+    TYSHXYDM: row.unifiedSocialCreditCode || row.TYSHXYDM || row.tyshxydm || '',
+    FDDBR: row.legalRepresentative || row.FDDBR || row.fddbr || '',
+    DJJG: row.registrationAuthority || row.DJJG || row.djjg || '',
+    CLRQ: row.establishmentDate || row.CLRQ || row.clrq ? new Date(row.establishmentDate || row.CLRQ || row.clrq).toISOString().slice(0, 10) : '',
+    ZCZB: row.registeredCapital?.toString() || row.ZCZB || row.zczb || '',
+    JYFW: row.businessScope || row.JYFW || row.jyfw || '',
+    QYLX: row.enterpriseType || row.QYLX || row.qylx || '',
+    SSHY: row.industry || row.SSHY || row.shhy || '',
+    ZCDZ: row.registeredAddress || row.ZCDZ || row.zcdz || '',
+    LXDH: row.contactPhone || row.LXDH || row.lxdh || '',
+    LXR: row.contactPerson || row.LXR || row.lxr || '',
+    ZT: row.status || row.ZT || row.zt || '',
     row: 0,
   };
-  
-  // 调试信息，查看SEP_ID是否获取到
-  console.log('编辑债务人时获取的SEP_ID:', finalDebtorId);
-  console.log('原始行数据:', row);
   
   editDialogVisible.value = true;
 };
@@ -526,45 +550,28 @@ const handleEditSubmit = () => {
 // 实际提交编辑表单数据
 const submitEditFormData = async () => {
   try {
-    const token = '6ee6373b2fa95f552a4710a001aff052'; // 使用固定token
+    // 获取债务人ID
+    const debtorId = editFormData.value.id;
+    if (!debtorId) {
+      ElMessage.error('债务人ID获取失败');
+      return;
+    }
 
-    // 获取当前登录用户信息
-    const userInfo = JSON.parse(localStorage.getItem('chat_user_info') || '{}');
-    const username = userInfo.user?.uName || 'admin';
-
-    // 获取当前北京时间
-    const now = new Date();
-    const sep_edate = now.toISOString().slice(0, 19).replace('T', ' ');
-
-    // 构建请求数据
+    // 构建请求数据，使用新的字段名
     const requestData = {
-      SEP_EUSER: username,
-      SEP_EDATE: sep_edate,
-      SEP_ID: editFormData.value.SEP_ID ?? editFormData.value.AJID ?? '', // 优先使用SEP_ID，否则使用AJID，否则使用空字符串
-      QYMC: editFormData.value.QYMC,
-      TYSHXYDM: editFormData.value.TYSHXYDM,
-      FDDBR: editFormData.value.FDDBR,
-      DJJG: editFormData.value.DJJG,
-      CLRQ: editFormData.value.CLRQ
-        ? new Date(editFormData.value.CLRQ)
-            .toISOString()
-            .slice(0, 19)
-            .replace('T', ' ')
-        : null,
-      ZCZB: editFormData.value.ZCZB,
-      JYFW: editFormData.value.JYFW,
-      QYLX: editFormData.value.QYLX,
-      SSHY: editFormData.value.SSHY,
-      ZCDZ: editFormData.value.ZCDZ,
-      LXDH: editFormData.value.LXDH,
-      LXR: editFormData.value.LXR,
-      ZT: editFormData.value.ZT,
+      enterpriseName: editFormData.value.QYMC,
+      legalRepresentative: editFormData.value.FDDBR,
+      contactPhone: editFormData.value.LXDH,
+      contactPerson: editFormData.value.LXR,
+      businessScope: editFormData.value.JYFW,
+      industry: editFormData.value.SSHY,
+      registeredAddress: editFormData.value.ZCDZ,
     };
 
     // 调用编辑接口
-    const response = await editDebtorApi(requestData, token);
+    const response = await editDebtorApi(debtorId, requestData);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('债务人修改成功');
       editDialogVisible.value = false;
       // 刷新列表
@@ -574,7 +581,7 @@ const submitEditFormData = async () => {
         editFormRef.value.resetFields();
       }
     } else {
-      ElMessage.error(`债务人修改失败: ${response.error}`);
+      ElMessage.error(`债务人修改失败: ${response.message}`);
     }
   } catch (error) {
     console.error('修改债务人失败:', error);
@@ -593,43 +600,27 @@ const handleDeleteSubmit = async () => {
   if (!currentDeleteItem.value) return;
 
   try {
-    const token = '7b45265f3ca3eefeaad42615d995e8c5'; // 使用删除接口指定的token
     const row = currentDeleteItem.value;
     
-    // 尝试从row中获取sep_id，支持多种格式
-    let sepId = '';
-    if (row.sep_id) {
-      // 优先使用下划线格式的sep_id
-      sepId = row.sep_id;
-    } else if (row.sepId) {
-      // 使用小驼峰格式的sepId
-      sepId = row.sepId;
-    } else if (row.SEP_ID) {
-      // 使用大写格式的SEP_ID
-      sepId = row.SEP_ID;
-    } else if (row.id) {
-      // 使用id字段
-      sepId = row.id;
-    } else if (row.AJID) {
-      // 最后尝试使用AJID
-      sepId = row.AJID;
+    // 直接从row中获取id字段作为债务人ID
+    const debtorId = row.id;
+    if (!debtorId) {
+      ElMessage.error('债务人ID获取失败');
+      return;
     }
-
-    // 确保sepId是字符串类型
-    const finalSepId = sepId?.toString() || '';
     
-    console.log('删除债务人时使用的SEP_ID:', finalSepId);
+    console.log('删除债务人时使用的ID:', debtorId);
     console.log('原始删除数据:', row);
 
-    const response = await deleteDebtorApi({ SEP_ID: finalSepId }, token);
+    const response = await deleteDebtorApi(debtorId);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('债务人删除成功');
       deleteDialogVisible.value = false;
       // 刷新列表
       fetchDebtorList();
     } else {
-      ElMessage.error(`债务人删除失败: ${response.error}`);
+      ElMessage.error(`债务人删除失败: ${response.message}`);
     }
   } catch (error) {
     console.error('删除债务人失败:', error);
@@ -788,70 +779,73 @@ const handleDeleteSubmit = async () => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
-          prop="qymc"
+          prop="caseNumber"
+          label="案号"
+          min-width="180"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="caseName"
+          label="案件名称"
+          min-width="250"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="enterpriseName"
           label="企业名称"
           min-width="180"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="tyshxydm"
+          prop="unifiedSocialCreditCode"
           label="统一社会信用代码"
           width="200"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="fddbr"
+          prop="legalRepresentative"
           label="法定代表人"
           width="150"
           show-overflow-tooltip
         />
         <ElTableColumn
-          prop="djjg"
-          label="登记机关"
-          width="120"
-          show-overflow-tooltip
-        />
-        <ElTableColumn prop="clrq" label="成立日期" width="120" align="center">
-          <template #default="{ row }">
-            {{ formatDate(row.clrq) }}
-          </template>
-        </ElTableColumn>
-        <ElTableColumn
-          prop="zczb"
-          label="注册资本"
-          width="120"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="qylx"
-          label="企业类型"
-          width="120"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="shhy"
-          label="所属行业"
-          width="120"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="zcdz"
-          label="注册地址"
-          min-width="200"
-          show-overflow-tooltip
-        />
-        <ElTableColumn
-          prop="lxdh"
+          prop="contactPhone"
           label="联系电话"
           width="130"
           align="center"
         />
-        <ElTableColumn prop="lxr" label="联系人" width="120" align="center" />
-        <ElTableColumn prop="zt" label="状态" width="100" align="center">
-          <template #default="scope">
-            <ElTag :type="getStatusType(scope.row.zt)" size="small">
-              {{ scope.row.zt }}
-            </ElTag>
+        <ElTableColumn
+          prop="contactPerson"
+          label="联系人"
+          width="120"
+          align="center"
+        />
+        <ElTableColumn
+          prop="businessScope"
+          label="经营范围"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="industry"
+          label="行业"
+          width="120"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="registeredAddress"
+          label="注册地址"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn prop="createTime" label="创建时间" width="180" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.createTime) }}
+          </template>
+        </ElTableColumn>
+        <ElTableColumn prop="updateTime" label="更新时间" width="180" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.updateTime) }}
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="150" align="center" fixed="right">
@@ -908,6 +902,32 @@ const handleDeleteSubmit = async () => {
           <ElRow :gutter="30">
             <!-- 第一行 -->
             <ElCol :span="8">
+              <ElFormItem label="案号">
+                <ElSelect
+                  v-model="formData.AH"
+                  placeholder="请选择或搜索案号"
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="getCaseList"
+                  :loading="caseLoading"
+                  @change="handleCaseSelect"
+                >
+                  <ElOption
+                    v-for="item in caseList"
+                    :key="item.id"
+                    :label="item.caseNumber"
+                    :value="item.caseNumber"
+                    :data="item"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <!-- 隐藏的sep_id字段，用于存储案号的SEP_ID -->
+              <ElFormItem prop="SEP_ID" class="hidden-field">
+                <ElInput v-model="formData.SEP_ID" type="hidden" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
               <ElFormItem label="企业名称" prop="QYMC">
                 <ElInput v-model="formData.QYMC" placeholder="请输入企业名称" />
               </ElFormItem>
@@ -956,17 +976,38 @@ const handleDeleteSubmit = async () => {
             <!-- 第三行 -->
             <ElCol :span="8">
               <ElFormItem label="经营范围">
-                <ElInput v-model="formData.JYFW" placeholder="请输入经营范围" />
+                <ElSelect v-model="formData.JYFW" placeholder="请选择经营范围">
+                  <ElOption
+                    v-for="option in businessScopeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="企业类型">
-                <ElInput v-model="formData.QYLX" placeholder="请输入企业类型" />
+                <ElSelect v-model="formData.QYLX" placeholder="请选择企业类型">
+                  <ElOption
+                    v-for="option in enterpriseTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="所属行业">
-                <ElInput v-model="formData.SSHY" placeholder="请输入所属行业" />
+                <ElSelect v-model="formData.SSHY" placeholder="请选择所属行业">
+                  <ElOption
+                    v-for="option in industryOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
 
@@ -1088,26 +1129,38 @@ const handleDeleteSubmit = async () => {
             <!-- 第三行 -->
             <ElCol :span="8">
               <ElFormItem label="经营范围">
-                <ElInput
-                  v-model="editFormData.JYFW"
-                  placeholder="请输入经营范围"
-                />
+                <ElSelect v-model="editFormData.JYFW" placeholder="请选择经营范围">
+                  <ElOption
+                    v-for="option in businessScopeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="企业类型">
-                <ElInput
-                  v-model="editFormData.QYLX"
-                  placeholder="请输入企业类型"
-                />
+                <ElSelect v-model="editFormData.QYLX" placeholder="请选择企业类型">
+                  <ElOption
+                    v-for="option in enterpriseTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="所属行业">
-                <ElInput
-                  v-model="editFormData.SSHY"
-                  placeholder="请输入所属行业"
-                />
+                <ElSelect v-model="editFormData.SSHY" placeholder="请选择所属行业">
+                  <ElOption
+                    v-for="option in industryOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
 
@@ -1239,6 +1292,11 @@ const handleDeleteSubmit = async () => {
 
 .number-value {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 隐藏字段样式 */
+.hidden-field {
+  display: none;
 }
 
 /* 新增债务人弹窗样式 */

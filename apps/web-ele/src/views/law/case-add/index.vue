@@ -118,15 +118,15 @@ const fetchCourtList = async () => {
 // 获取管理人列表
 const fetchManagerList = async () => {
   try {
-    const response = await getManagerListApi({ page: 1, size: 100 });
-    if (response.status === '1' && response.data) {
-      // 只保留 sepId 有效的管理人
-      managerList.value = response.data
-        .filter((manager: any) => manager.sepId)
+    const response = await getManagerListApi({ pageNum: 1, pageSize: 100 });
+    if (response.code === 200 && response.data && response.data.list) {
+      // 只保留 id 有效的管理人
+      managerList.value = response.data.list
+        .filter((manager: any) => manager.id)
         .map((manager: any) => ({
-          label: manager.lsswsid, // 律师事务所
-          value: manager.sepId.toString(), // 管理人ID
-          sepId: manager.sepId.toString(),
+          label: manager.administratorName, // 律师事务所名称
+          value: manager.id.toString(), // 管理人ID
+          sepId: manager.id.toString(),
         }));
       console.log('加载到的管理人列表:', managerList.value);
     }
@@ -906,22 +906,6 @@ const submitForm = async () => {
                       <div v-else class="mt-2 text-sm text-gray-500">
                         暂无上传文件
                       </div>
-
-                      <<<<<<< HEAD
-                      <!-- 上传说明 -->
-                      <div class="upload-tip mt-3 text-sm text-gray-500">
-                        <p>
-                          支持上传 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG
-                          格式文件，单个文件大小不超过 10MB
-                        </p>
-                        <p class="mt-1">
-                          文件将根据当前年月自动组织到服务器对应文件夹，例如：202512
-                        </p>
-                        <p class="mt-1 text-blue-500">
-                          服务器存储路径：C:\Users\Lenovo\Desktop\yzz\Release\律师\Service\ServiceWin\wwwroot\Upload\File
-                        </p>
-                      </div>
-                      =======
                       <!-- 上传说明 -->
                       <div class="upload-tip mt-3 text-sm text-gray-500">
                         <p class="mb-2 font-semibold text-gray-700">
