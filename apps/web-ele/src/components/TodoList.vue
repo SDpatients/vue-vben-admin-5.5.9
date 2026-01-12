@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { todoApi, type Todo, type TodoDTO } from '#/api/core/todo';
 import { Icon } from '@iconify/vue';
-import { ElButton, ElCheckbox, ElTag, ElSelect, ElOption, ElRadioGroup, ElRadioButton, ElScrollbar, ElEmpty, ElMessage, ElDialog, ElInput, ElForm, ElFormItem, ElDatePicker } from 'element-plus';
+import { ElButton, ElCheckbox, ElTag, ElSelect, ElOption, ElRadioGroup, ElRadioButton, ElScrollbar, ElEmpty, ElMessage, ElMessageBox, ElDialog, ElInput, ElForm, ElFormItem, ElDatePicker } from 'element-plus';
 import type { FormInstance } from 'element-plus';
 
 const loading = ref(false);
@@ -45,15 +45,28 @@ const formatTime = (time: string) => {
 const loadTodos = async () => {
   loading.value = true;
   try {
-    // 新API页码从0开始，所以传递0而不是1
-    const res = await todoApi.getTodoList(
-      selectedStatus.value || undefined,
-      selectedPriority.value || undefined,
-      0,
-      20,
-    );
-    // 新API响应格式中，待办事项在content字段中
-    todos.value = res.data?.content || [];
+    let res;
+    if (selectedStatus.value === 'PENDING') {
+      // 调用待处理待办事项接口
+      res = await todoApi.getPendingTodos();
+      // 新API响应格式直接返回数据数组
+      todos.value = res.data || [];
+    } else if (selectedStatus.value === 'COMPLETED') {
+      // 调用已完成待办事项接口
+      res = await todoApi.getCompletedTodos();
+      // 新API响应格式直接返回数据数组
+      todos.value = res.data || [];
+    } else {
+      // 调用原接口获取其他状态的待办事项
+      res = await todoApi.getTodoList(
+        selectedStatus.value || undefined,
+        selectedPriority.value || undefined,
+        0,
+        20,
+      );
+      // 原API响应格式中，待办事项在content字段中
+      todos.value = res.data?.content || [];
+    }
   } catch (error) {
     console.error('加载待办失败:', error);
   } finally {
@@ -132,10 +145,18 @@ const handleEdit = async () => {
 
 const deleteTodo = async (id: number) => {
   try {
+    await ElMessageBox.confirm('确定要删除该待办事项吗？', '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
     await todoApi.deleteTodo(id);
     todos.value = todos.value.filter((item) => item.id !== id);
     ElMessage.success('删除成功');
-  } catch (error) {
+  } catch (error: any) {
+    if (error === 'cancel') {
+      return;
+    }
     ElMessage.error('删除失败');
   }
 };
@@ -161,7 +182,6 @@ const getPriorityText = (priority: string) => {
 const getStatusText = (status: string) => {
   const textMap: Record<string, string> = {
     PENDING: '待处理',
-    IN_PROGRESS: '进行中',
     COMPLETED: '已完成',
     CANCELLED: '已取消',
   };
@@ -186,7 +206,6 @@ onMounted(() => {
       <ElRadioGroup v-model="selectedStatus" @change="loadTodos" size="small">
         <ElRadioButton value="">全部</ElRadioButton>
         <ElRadioButton value="PENDING">待处理</ElRadioButton>
-        <ElRadioButton value="IN_PROGRESS">进行中</ElRadioButton>
         <ElRadioButton value="COMPLETED">已完成</ElRadioButton>
       </ElRadioGroup>
       <ElSelect
@@ -228,17 +247,24 @@ onMounted(() => {
                 {{ item.description }}
               </div>
               <div class="todo-meta">
-                <ElTag :type="getPriorityColor(item.priority)" size="small">
-                  {{ getPriorityText(item.priority) }}
-                </ElTag>
-                <ElTag type="info" size="small">
-                  {{ getStatusText(item.status) }}
-                </ElTag>
-                <span v-if="item.deadline" class="todo-deadline">
-                  <Icon icon="lucide:clock" :size="12" />
-                  {{ formatTime(item.deadline) }}
-                </span>
-              </div>
+              <ElTag :type="getPriorityColor(item.priority)" size="small">
+                {{ getPriorityText(item.priority) }}
+              </ElTag>
+              <span 
+                class="todo-status" 
+                :class="{
+                  'status-pending': item.status === 'PENDING',
+                  'status-completed': item.status === 'COMPLETED',
+                  'status-cancelled': item.status === 'CANCELLED'
+                }"
+              >
+                {{ getStatusText(item.status) }}
+              </span>
+              <span v-if="item.deadline" class="todo-deadline">
+                <Icon icon="lucide:clock" :size="12" />
+                {{ formatTime(item.deadline) }}
+              </span>
+            </div>
             </div>
             <div class="todo-actions">
               <ElButton circle size="small" @click="editTodo(item)">
@@ -425,6 +451,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.todo-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pending {
+  color: #ff4d4f;
+}
+
+.status-completed {
+  color: #52c41a;
+}
+
+.status-cancelled {
+  color: #999;
 }
 
 .todo-actions {
