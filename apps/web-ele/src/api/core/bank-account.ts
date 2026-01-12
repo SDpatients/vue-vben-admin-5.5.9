@@ -3,116 +3,87 @@ import { requestClient8085 } from '#/api/request';
 export namespace BankAccountApi {
   /** 银行账户查询参数 */
   export interface BankAccountQueryParams {
-    page?: number;
-    size?: number;
-    token?: string;
+    pageNum?: number;
+    pageSize?: number;
+    accountType?: string;
+    status?: string;
   }
 
   /** 银行账户信息 */
   export interface BankAccountInfo {
-    sepId: number; // 银行账户ID
-    sepLd: string | null;
-    sepMd: string | null;
-    sepNd: string | null;
-    sepAuser: string;
-    sepAdate: number; // 创建时间戳
-    sepEuser: string;
-    sepEdate: number; // 修改时间戳
-    bankName: string; // 银行名称
-    accountNumber: string; // 账户号码
+    id: number; // 银行账户ID
     accountName: string; // 账户名称
+    accountNumber: string; // 账户号码
     accountType: string; // 账户类型
-    currency: string; // 币种
-    balance: number; // 余额
-    mm: string | null; // 密码
-    khrq: number; // 开户日期时间戳
-    xhrq: number; // 销户日期时间戳
-    zt: string; // 状态
+    bankName: string; // 银行名称/开户行
+    currentBalance: number; // 当前余额
+    status: string; // 状态
+    caseId: number;
+    createTime: string; // 创建时间
+    updateTime: string; // 更新时间
   }
 
   /** 银行账户列表响应 */
   export interface BankAccountListResponse {
-    data: BankAccountInfo[];
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: BankAccountInfo[];
+    };
   }
 
   /** 新增银行账户请求体 */
   export interface AddBankAccountRequest {
-    /** 操作人 */
-    sep_auser: string;
-    /** 操作日期 */
-    sep_adate: string;
-    /** 账户名称 */
-    account_name: string;
-    /** 银行名称 */
-    bank_name: string;
-    /** 账户号码 */
-    account_number: string;
-    /** 账户类型 */
-    account_type: string;
-    /** 币种 */
-    currency: string;
-    /** 余额 */
-    balance: number;
-    /** 开户日期 */
-    khrq: string;
-    /** 销户日期 */
-    xhrq: null | string;
-    /** 状态 */
-    zt: string;
+    accountName: string;
+    accountNumber: string;
+    accountType: string;
+    bankName: string; // 开户行字段改为bankName
+    password: string;
+    currentBalance: number;
+    currency?: string;
+    openingDate?: string;
+    closingDate?: string | null;
+    status?: string;
+    caseId?: number;
   }
 
   /** 新增银行账户响应 */
   export interface AddBankAccountResponse {
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: {
+      accountId: number;
+    };
   }
 
   /** 更新银行账户请求体 */
   export interface UpdateBankAccountRequest {
-    /** 银行账户ID */
-    SEP_ID: string;
-    /** 操作人 */
-    SEP_EUSER: string;
-    /** 操作日期 */
-    SEP_EDATE: string;
-    /** 账户名称 */
-    account_name: string;
-    /** 银行名称 */
-    bank_name: string;
-    /** 账户号码 */
-    account_number: string;
-    /** 账户类型 */
-    account_type: string;
-    /** 币种 */
-    currency: string;
-    /** 余额 */
-    balance: number | string;
-    /** 开户日期 */
-    KHRQ: null | string;
-    /** 销户日期 */
-    XHRQ: null | string;
-    /** 状态 */
-    ZT: null | string;
+    accountName?: string;
+    currentBalance?: number;
+    accountNumber?: string;
+    accountType?: string;
+    bankName?: string; // 开户行字段改为bankName
+    password?: string;
+    currency?: string;
+    openingDate?: string;
+    closingDate?: string | null;
+    status?: string;
+    caseId?: number;
   }
 
   /** 更新银行账户响应 */
   export interface UpdateBankAccountResponse {
-    status: string;
-    error: string;
-  }
-
-  /** 删除银行账户请求体 */
-  export interface DeleteBankAccountRequest {
-    /** 银行账户ID */
-    SEP_ID: string;
+    code: number;
+    message: string;
+    data: null;
   }
 
   /** 删除银行账户响应 */
   export interface DeleteBankAccountResponse {
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: null;
   }
 }
 
@@ -122,14 +93,10 @@ export namespace BankAccountApi {
 export async function getBankAccountListApi(
   params: BankAccountApi.BankAccountQueryParams,
 ) {
-  const token = 'fefd6e9ec409dae4290d2386001ff028';
   return requestClient8085.get<BankAccountApi.BankAccountListResponse>(
-    '/api/web/getAllBankAccounts',
+    '/bank-account/list',
     {
-      params: {
-        ...params,
-        token,
-      },
+      params,
     },
   );
 }
@@ -138,18 +105,14 @@ export async function getBankAccountListApi(
  * 新增银行账户
  */
 export async function addBankAccountApi(
-  data: BankAccountApi.AddBankAccountRequest[],
+  data: BankAccountApi.AddBankAccountRequest,
 ) {
-  const token = '170b18cfd8f829e2ecf9bfb0a78019d4';
   return requestClient8085.post<BankAccountApi.AddBankAccountResponse>(
-    '/api/web/addBankAccounts',
+    '/bank-account',
     data,
     {
       headers: {
         'Content-Type': 'application/json',
-      },
-      params: {
-        token,
       },
     },
   );
@@ -159,18 +122,15 @@ export async function addBankAccountApi(
  * 更新银行账户
  */
 export async function updateBankAccountApi(
+  accountId: number,
   data: BankAccountApi.UpdateBankAccountRequest,
 ) {
-  const token = '74df58d5a0ff35a6bf1a5f341ab0b509';
-  return requestClient8085.post<BankAccountApi.UpdateBankAccountResponse>(
-    '/api/web/updateBankAccounts',
+  return requestClient8085.put<BankAccountApi.UpdateBankAccountResponse>(
+    `/bank-account/${accountId}`,
     data,
     {
       headers: {
         'Content-Type': 'application/json',
-      },
-      params: {
-        token,
       },
     },
   );
@@ -180,18 +140,13 @@ export async function updateBankAccountApi(
  * 删除银行账户
  */
 export async function deleteBankAccountApi(
-  data: BankAccountApi.DeleteBankAccountRequest,
+  accountId: number,
 ) {
-  const token = '46646a032ae30bd8734b8056642bf27e';
-  return requestClient8085.post<BankAccountApi.DeleteBankAccountResponse>(
-    '/api/web/deleteBankAccounts',
-    data,
+  return requestClient8085.delete<BankAccountApi.DeleteBankAccountResponse>(
+    `/bank-account/${accountId}`,
     {
       headers: {
         'Content-Type': 'application/json',
-      },
-      params: {
-        token,
       },
     },
   );

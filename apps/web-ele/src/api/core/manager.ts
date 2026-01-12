@@ -3,151 +3,95 @@ import { requestClient8085 } from '#/api/request';
 export namespace ManagerApi {
   /** 管理人查询参数 */
   export interface ManagerQueryParams {
-    page?: number;
-    size?: number;
-    token?: string;
-    LSWS?: string;
-    GLRType?: string;
-    FZR?: string;
+    pageNum?: number;
+    pageSize?: number;
+    caseId?: number;
   }
 
   /** 管理人信息 */
   export interface ManagerInfo {
-    row?: number;
-    sepId: number; // 管理人ID
-    lsswsid: string; // 律师事务所
-    glrlx: string; // 管理人类型
-    fzrid: string; // 负责人
-    lxdh: string; // 联系电话
-    lxyx: string; // 联系邮箱
-    bgdz: string; // 办公地址
-    zt: string; // 状态
-    sepLd?: any;
-    sepMd?: any;
-    ccje?: any;
-    kzje?: any;
-    sepNd?: any;
-    sepAuser: string; // 创建者
-    sepAdate: number; // 创建时间
-    sepEuser?: any;
-    sepEdate?: any;
+    id: number; // 管理人ID
+    caseId: number; // 案件ID
+    administratorName: string; // 管理人名称（律师事务所）
+    contactPhone: string; // 联系电话
+    contactEmail: string; // 联系邮箱
+    officeAddress: string; // 办公地址
+    responsiblePersonId: number; // 负责人ID
+    createTime: string; // 创建时间
+    updateTime: string; // 更新时间
   }
 
   /** 管理人列表响应 */
   export interface ManagerListResponse {
-    data: ManagerInfo[];
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: ManagerInfo[];
+    };
+  }
+
+  /** 管理人操作响应 */
+  export interface ManagerOperationResponse {
+    code: number;
+    message: string;
+    data?: {
+      administratorId?: number;
+    };
   }
 }
 
 /**
- * 获取管理人列表
+ * 获取管理人列表（分页）
  */
 export async function getManagerListApi(params: ManagerApi.ManagerQueryParams) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.get<ManagerApi.ManagerListResponse>(
-    '/api/web/getAllAdministrator',
-    {
-      params: {
-        ...params,
-        token,
-      },
-    },
-  );
+  return requestClient8085.get<ManagerApi.ManagerListResponse>('/administrator/list', {
+    params,
+  });
 }
 
 /** 添加管理人请求 */
 export interface AddManagerRequest {
-  sep_auser: string;
-  sep_adate: string;
-  lsws: string;
-  glrtype: string;
-  fzr: string;
-  lxdh: string;
-  lxemail: string;
-  bgaddress: string;
-  zt: string;
-}
-
-/** 添加管理人响应 */
-export interface AddManagerResponse {
-  status: string;
-  error: string;
+  caseId: number;
+  administratorName: string;
+  contactPhone: string;
+  contactEmail: string;
+  officeAddress: string;
+  responsiblePersonId: number;
 }
 
 /**
  * 添加管理人信息
  */
-export async function addManagerApi(data: AddManagerRequest[]) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<AddManagerResponse>('/api/web/addAdministrator', data, {
+export async function addManagerApi(data: AddManagerRequest) {
+  return requestClient8085.post<ManagerApi.ManagerOperationResponse>('/administrator', data, {
     headers: {
       'Content-Type': 'application/json',
-    },
-    params: {
-      token,
     },
   });
 }
 
 /** 更新管理人请求 */
 export interface UpdateManagerRequest {
-  SEP_EUSER: string;
-  SEP_EDATE: string;
-  SEP_ID: string;
-  LSWS: string;
-  GLRType: string;
-  FZR: string;
-  LXDH: string;
-  LXEmail: string;
-  BGAddress: string;
-  ZT: string;
-}
-
-/** 更新管理人响应 */
-export interface UpdateManagerResponse {
-  status: string;
-  error: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  officeAddress?: string;
 }
 
 /**
  * 更新管理人信息
  */
-export async function updateManagerApi(data: UpdateManagerRequest) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<UpdateManagerResponse>('/api/web/updateManager', [data], {
+export async function updateManagerApi(administratorId: number | string, data: UpdateManagerRequest) {
+  return requestClient8085.put<ManagerApi.ManagerOperationResponse>(`/administrator/${administratorId}`, data, {
     headers: {
       'Content-Type': 'application/json',
     },
-    params: {
-      token,
-    },
   });
-}
-
-/** 删除管理人请求 */
-export interface DeleteManagerRequest {
-  SEP_ID: string;
-}
-
-/** 删除管理人响应 */
-export interface DeleteManagerResponse {
-  status: string;
-  error: string;
 }
 
 /**
  * 删除管理人信息
  */
-export async function deleteManagerApi(data: DeleteManagerRequest) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.post<DeleteManagerResponse>('/api/web/deleteAdministrator', data, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    params: {
-      token,
-    },
-  });
+export async function deleteManagerApi(administratorId: number | string) {
+  return requestClient8085.delete<ManagerApi.ManagerOperationResponse>(`/administrator/${administratorId}`);
 }

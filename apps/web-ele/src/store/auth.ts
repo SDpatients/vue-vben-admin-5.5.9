@@ -43,29 +43,28 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await loginApi(params);
 
       // 检查返回的数据结构
-      if (result && result.status === '1' && result.data) {
+      if (result && result.code === 200 && result.data) {
         // 登录成功，使用后端返回的用户信息
         const backendUserInfo = result.data;
 
         // 将用户信息转换为系统需要的格式
         userInfo = {
-          userId: backendUserInfo.user.uUser,
-          username: backendUserInfo.user.uUser,
-          realName: backendUserInfo.user.uName,
+          userId: backendUserInfo.userId.toString(),
+          username: backendUserInfo.username,
+          realName: backendUserInfo.realName,
           homePath: preferences.app.defaultHomePath,
           avatar: '', // 默认头像
           desc: '', // 用户描述
           token: backendUserInfo.accessToken, // 使用后端返回的accessToken
           refreshToken: backendUserInfo.refreshToken, // 使用后端返回的refreshToken
-          accessTokenExpire: backendUserInfo.accessTokenExpire,
-          refreshTokenExpire: backendUserInfo.refreshTokenExpire,
           roles: [],
-          permissions: [],
+          permissions: backendUserInfo.permissions || [],
         };
 
         // 设置从后端获取的accessToken和refreshToken
         accessStore.setAccessToken(backendUserInfo.accessToken);
         accessStore.setRefreshToken(backendUserInfo.refreshToken);
+        accessStore.setAccessCodes(backendUserInfo.permissions || []);
 
         // 设置用户信息
         userStore.setUserInfo(userInfo);
@@ -146,7 +145,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
       } else {
         // 登录失败，显示错误信息
-        const errorMsg = result?.error || $t('authentication.passwordErrorTip');
+        const errorMsg = result?.message || $t('authentication.passwordErrorTip');
         ElNotification({
           message: errorMsg,
           title: '登录失败',

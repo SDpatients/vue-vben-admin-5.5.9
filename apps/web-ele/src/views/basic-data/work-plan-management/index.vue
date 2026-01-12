@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { CaseProcessApi } from '#/api/core/case-process';
-
 import { onMounted, ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
@@ -17,8 +15,27 @@ import {
 
 import { getAllWorkPlanApi } from '#/api/core/case-process';
 
+// 定义新的工作计划类型
+interface WorkPlanInfo {
+  id: number;
+  status: string;
+  isDeleted: boolean;
+  createTime: string;
+  updateTime: string;
+  createUserId: number | null;
+  updateUserId: number | null;
+  planNumber: string;
+  planType: string;
+  planContent: string;
+  startDate: string;
+  endDate: string;
+  responsibleUserId: number;
+  executionStatus: string;
+  caseId: number;
+}
+
 // 响应式数据
-const workPlanList = ref<CaseProcessApi.WorkPlanInfo[]>([]);
+const workPlanList = ref<WorkPlanInfo[]>([]);
 const loading = ref(false);
 const pagination = ref({
   page: 1,
@@ -33,22 +50,22 @@ const accessStore = useAccessStore();
 const fetchWorkPlanList = async () => {
   loading.value = true;
   try {
-    // 注意：getAllWorkPlanApi需要SEP_ID参数，这里暂时使用空字符串作为默认值
-    // 实际应用中应该从路由或其他地方获取SEP_ID
-    const SEP_ID = '';
     const response = await getAllWorkPlanApi(
-      SEP_ID,
+      undefined, // caseId 可选
       pagination.value.page,
       pagination.value.pageSize,
+      undefined, // planType 可选
+      undefined, // executionStatus 可选
+      undefined, // status 可选
     );
 
-    if (response.status === '1') {
-      workPlanList.value = response.data.records || [];
-      pagination.value.itemCount = response.data.count || 0;
-      pagination.value.pages = response.data.pages || 0;
+    if (response.code === 200) {
+      workPlanList.value = response.data.list || [];
+      pagination.value.itemCount = response.data.total || 0;
+      pagination.value.pages = Math.ceil((response.data.total || 0) / pagination.value.pageSize);
       ElMessage.success(`成功加载 ${workPlanList.value.length} 条工作计划记录`);
     } else {
-      ElMessage.error(`API返回错误: ${response.error || '未知错误'}`);
+      ElMessage.error(`API返回错误: ${response.message || '未知错误'}`);
       workPlanList.value = [];
       pagination.value.itemCount = 0;
       pagination.value.pages = 0;
@@ -98,40 +115,56 @@ const formatDate = (dateString: null | string | undefined) => {
   }
 };
 
-// 根据状态值获取状态文本
-const getStatusText = (status: number | string | undefined) => {
-  const statusStr = String(status);
-  switch (statusStr) {
-    case '0': {
-      return '待执行';
+// 根据执行状态值获取状态文本
+const getExecutionStatusText = (status: string | undefined) => {
+  if (!status) return '-';
+  switch (status) {
+    case 'NOT_STARTED': {
+      return '未开始';
     }
-    case '1': {
-      return '已执行';
+    case 'IN_PROGRESS': {
+      return '进行中';
     }
-    case '2': {
-      return '完成';
+    case 'COMPLETED': {
+      return '已完成';
     }
     default: {
-      return '待执行';
+      return status;
     }
   }
 };
 
-// 获取计划状态标签类型
-const getStatusType = (status: number | string | undefined) => {
-  const statusStr = String(status);
-  switch (statusStr) {
-    case '0': {
+// 获取执行状态标签类型
+const getExecutionStatusType = (status: string | undefined) => {
+  if (!status) return 'info';
+  switch (status) {
+    case 'NOT_STARTED': {
       return 'warning';
     }
-    case '1': {
-      return 'success';
+    case 'IN_PROGRESS': {
+      return 'primary';
     }
-    case '2': {
+    case 'COMPLETED': {
       return 'success';
     }
     default: {
       return 'info';
+    }
+  }
+};
+
+// 根据状态值获取状态文本
+const getStatusText = (status: string | undefined) => {
+  if (!status) return '-';
+  switch (status) {
+    case 'ACTIVE': {
+      return '激活';
+    }
+    case 'INACTIVE': {
+      return ' inactive';
+    }
+    default: {
+      return status;
     }
   }
 };
@@ -161,86 +194,76 @@ const getStatusType = (status: number | string | undefined) => {
         :style="{ width: '100%' }"
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
-        <ElTableColumn prop="JHLX" label="计划类型" width="120" align="center">
+        <ElTableColumn prop="planType" label="计划类型" width="120" align="center">
           <template #default="{ row }">
-            <span v-if="row.JHLX">{{ row.JHLX }}</span>
+            <span v-if="row.planType">{{ row.planType }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="JHNR"
+          prop="planContent"
           label="计划内容"
           min-width="150"
           show-overflow-tooltip
         >
           <template #default="{ row }">
-            <span v-if="row.JHNR">{{ row.JHNR }}</span>
+            <span v-if="row.planContent">{{ row.planContent }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="KSRQ" label="开始日期" width="150" align="center">
+        <ElTableColumn prop="startDate" label="开始日期" width="150" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.KSRQ) }}
+            {{ formatDate(row.startDate) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="JSRQ" label="结束日期" width="150" align="center">
+        <ElTableColumn prop="endDate" label="结束日期" width="150" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.JSRQ) }}
+            {{ formatDate(row.endDate) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="FZR" label="负责人" width="100" align="center">
+        <ElTableColumn prop="responsibleUserId" label="负责人ID" width="120" align="center">
           <template #default="{ row }">
-            <span v-if="row.FZR">{{ row.FZR }}</span>
+            <span v-if="row.responsibleUserId">{{ row.responsibleUserId }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="ZT" label="执行状态" width="100" align="center">
+        <ElTableColumn prop="executionStatus" label="执行状态" width="120" align="center">
           <template #default="{ row }">
-            <ElTag :type="getStatusType(row.ZT)">
-              {{ getStatusText(row.ZT) }}
+            <ElTag :type="getExecutionStatusType(row.executionStatus)">
+              {{ getExecutionStatusText(row.executionStatus) }}
             </ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="SEP_AUSER"
-          label="创建者"
-          width="120"
-          align="center"
-        >
+        <ElTableColumn prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <span v-if="row.SEP_AUSER">{{ row.SEP_AUSER }}</span>
+            <span v-if="row.status">{{ getStatusText(row.status) }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn prop="planNumber" label="计划编号" width="120" align="center">
+          <template #default="{ row }">
+            <span v-if="row.planNumber">{{ row.planNumber }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="SEP_ADATE"
+          prop="createTime"
           label="创建时间"
           width="150"
           align="center"
         >
           <template #default="{ row }">
-            {{ formatDate(row.SEP_ADATE) }}
+            {{ formatDate(row.createTime) }}
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="SEP_EUSER"
-          label="修改者"
-          width="120"
-          align="center"
-        >
-          <template #default="{ row }">
-            <span v-if="row.SEP_EUSER">{{ row.SEP_EUSER }}</span>
-            <span v-else class="text-gray-400">-</span>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn
-          prop="SEP_EDATE"
+          prop="updateTime"
           label="修改时间"
           width="150"
           align="center"
         >
           <template #default="{ row }">
-            {{ formatDate(row.SEP_EDATE) }}
+            {{ formatDate(row.updateTime) }}
           </template>
         </ElTableColumn>
       </ElTable>

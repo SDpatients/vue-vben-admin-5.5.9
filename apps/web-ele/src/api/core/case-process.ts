@@ -1175,17 +1175,39 @@ export const getAllBManagementApi = async (
 };
 
 export const getAllWorkPlanApi = async (
-  SEP_ID: string,
-  page: number = 1,
-  size: number = 10,
-): Promise<
-  CaseProcessApi.TaskResponse<
-    CaseProcessApi.PageResponse<CaseProcessApi.WorkPlanInfo>
-  >
-> => {
+  caseId?: string,
+  pageNum: number = 1,
+  pageSize: number = 10,
+  planType?: string,
+  executionStatus?: string,
+  status?: string,
+): Promise<{
+  code: number;
+  message: string;
+  data: {
+    total: number;
+    list: Array<{
+      id: number;
+      status: string;
+      isDeleted: boolean;
+      createTime: string;
+      updateTime: string;
+      createUserId: number | null;
+      updateUserId: number | null;
+      planNumber: string;
+      planType: string;
+      planContent: string;
+      startDate: string;
+      endDate: string;
+      responsibleUserId: number;
+      executionStatus: string;
+      caseId: number;
+    }>;
+  };
+}> => {
   try {
-    return await requestClient8085.get('/api/web/getAllWorkPlan', {
-      params: { SEP_ID, page, size },
+    return await requestClient8085.get('/work-plan/list', {
+      params: { caseId, pageNum, pageSize, planType, executionStatus, status },
     });
   } catch (error) {
     console.error('获取工作计划数据失败:', error);

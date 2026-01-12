@@ -14,7 +14,9 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
 } from 'element-plus';
@@ -40,11 +42,20 @@ const safeCourtList = computed(() => Array.isArray(courtList.value) ? courtList.
 // 加载状态
 const loading = ref(false);
 
+// 法院级别选项
+const courtLevelOptions = [
+  { label: '中级人民法院', value: '中级人民法院' },
+  { label: '高级人民法院', value: '高级人民法院' },
+  { label: 'deserunt adipisicing', value: 'deserunt adipisicing' },
+  { label: '省级人民法院', value: '省级人民法院' },
+  { label: '县级人民法院', value: '县级人民法院' },
+  { label: '市级人民法院', value: '市级人民法院' },
+];
+
 // 搜索表单
 const searchForm = reactive({
-  FYQC: '',
-  FYJC: '',
-  FYJB: '',
+  shortName: '',
+  courtLevel: '',
 });
 
 // 分页配置
@@ -59,43 +70,61 @@ const pagination = reactive({
 const fetchCourtList = async () => {
   loading.value = true;
   try {
+    // 构建查询参数，只包含有值的字段
     const params: CourtApi.CourtQueryParams = {
-      page: pagination.page,
-      size: pagination.pageSize,
-      FYQC: searchForm.FYQC,
-      FYJC: searchForm.FYJC,
-      FYJB: searchForm.FYJB,
+      pageNum: pagination.page,
+      pageSize: pagination.pageSize,
     };
+    
+    // 只在有值时添加shortName参数
+    if (searchForm.shortName) {
+      params.shortName = searchForm.shortName;
+    }
+    
+    // 只在有值时添加courtLevel参数
+    if (searchForm.courtLevel) {
+      params.courtLevel = searchForm.courtLevel;
+    }
 
     const response = await getCourtListApi(params);
 
     // 检查组件是否仍挂载，避免卸载后更新状态
     if (!isMounted) return;
 
-    if (response.status === '1' && response.data) {
-      // 从response.data.records中获取数据
-      const records = response.data.records || [];
-      // 处理数据，统一字段名格式
+    if (response.code === 200 && response.data) {
+      // 从response.data.list中获取数据
+      const records = response.data.list || [];
+      // 处理数据，映射新字段名到组件使用的字段名
       const processedData = records.map((item: any) => {
         return {
-          sep_id: item.sep_id || item.SEP_ID || '',
-          fyqc: item.fyqc || item.FYQC || '',
-          fyjc: item.fyjc || item.FYJC || '',
-          fyjb: item.fyjb || item.FYJB || '',
-          dz: item.dz || item.DZ || '',
-          lxdh: item.lxdh || item.LXDH || '',
-          fzr: item.fzr || item.FZR || '',
-          cbfg: item.cbfg || item.CBFG || '',
-          scbj: item.scbj || item.SCBJ || '',
+          sep_id: String(item.id), // 兼容旧的sep_id字段
+          fyqc: item.fullName, // 法院全称
+          fyjc: item.shortName, // 法院简称
+          fyjb: item.courtLevel, // 法院级别
+          dz: item.address || '', // 获取新接口的address字段作为地址
+          lxdh: item.contactPhone, // 联系电话
+          fzr: '', // 新接口未提供负责人字段，使用responsibleUserId替代
+          cbfg: item.undertakingJudge, // 承办法官
+          // 新字段
+          id: item.id,
+          fullName: item.fullName,
+          shortName: item.shortName,
+          courtLevel: item.courtLevel,
+          contactPhone: item.contactPhone,
+          address: item.address, // 保存新接口的address字段
+          undertakingJudge: item.undertakingJudge,
+          responsibleUserId: item.responsibleUserId,
+          createTime: item.createTime,
+          updateTime: item.updateTime,
         };
       });
       courtList.value = processedData;
       // 使用API返回的分页信息
-      pagination.itemCount = response.data.count || response.data.records?.length || 0;
-      pagination.pages = response.data.pages || 1;
+      pagination.itemCount = response.data.total || 0;
+      pagination.pages = Math.ceil(response.data.total / pagination.pageSize) || 1;
       ElMessage.success('法院列表加载成功');
     } else {
-      ElMessage.error(response.error || '获取法院列表失败');
+      ElMessage.error(response.message || '获取法院列表失败');
       // 清空列表数据
       courtList.value = [];
       pagination.itemCount = 0;
@@ -140,9 +169,8 @@ const handleSearch = () => {
 
 // 重置搜索
 const handleReset = () => {
-  searchForm.FYQC = '';
-  searchForm.FYJC = '';
-  searchForm.FYJB = '';
+  searchForm.shortName = '';
+  searchForm.courtLevel = '';
   pagination.page = 1;
   fetchCourtList();
 };
@@ -163,7 +191,6 @@ const addCourtForm = reactive({
   fyjb: '',
   dz: '',
   lxdh: '',
-  fzr: '',
   cbfg: '',
 });
 
@@ -178,7 +205,6 @@ const editCourtForm = reactive({
   FYJB: '',
   DZ: '',
   LXDH: '',
-  FZR: '',
   CBFG: '',
 });
 
@@ -211,7 +237,6 @@ const handleCloseDialog = () => {
     fyjb: '',
     dz: '',
     lxdh: '',
-    fzr: '',
     cbfg: '',
   });
 };
@@ -219,18 +244,15 @@ const handleCloseDialog = () => {
 // 提交新增法院
 const submitAddCourt = async () => {
   try {
-    const currentUser = userStore.userInfo;
-
-    // 构建完整的请求数据，自动添加不需要前端展示的参数
-    const now = new Date();
-    // 调整为北京时间（UTC+8）
-    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-
+    // 构建请求数据，只包含新API需要的字段
     const requestData = {
-      ...addCourtForm,
-      sep_auser: currentUser?.username || 'admin', // 当前登录用户
-      sep_adate: beijingTime.toISOString(), // 当前创建时间（北京时间）
-      scbj: '0', // 默认值为0
+      fullName: addCourtForm.fyqc, // 法院全称
+      shortName: addCourtForm.fyjc, // 法院简称
+      courtLevel: addCourtForm.fyjb, // 法院级别
+      address: addCourtForm.dz, // 地址
+      contactPhone: addCourtForm.lxdh, // 联系电话
+      undertakingJudge: addCourtForm.cbfg, // 承办法官
+      // responsibleUserId 暂不提供，因为当前组件中没有该字段
     };
 
     const response = await addCourtApi(requestData);
@@ -238,20 +260,25 @@ const submitAddCourt = async () => {
     // 检查组件是否仍挂载
     if (!isMounted) return;
     
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('法院添加成功');
       dialogVisible.value = false;
       // 刷新列表
       fetchCourtList();
     } else {
-      ElMessage.error(response.error || '法院添加失败');
+      ElMessage.error(response.message || '法院添加失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     // 检查组件是否仍挂载
     if (!isMounted) return;
     
     console.error('添加法院失败:', error);
-    ElMessage.error('网络错误，请稍后重试');
+    // 处理错误响应
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message);
+    } else {
+      ElMessage.error('网络错误，请稍后重试');
+    }
   }
 };
 
@@ -264,7 +291,6 @@ const handleEdit = (row: CourtApi.CourtInfo) => {
   editCourtForm.FYJB = row.fyjb; // 使用小写字段名
   editCourtForm.DZ = row.dz; // 使用小写字段名
   editCourtForm.LXDH = row.lxdh; // 使用小写字段名
-  editCourtForm.FZR = row.fzr; // 使用小写字段名
   editCourtForm.CBFG = row.cbfg; // 使用小写字段名
 
   // 打开编辑弹窗
@@ -279,38 +305,43 @@ const handleCloseEditDialog = () => {
 // 提交编辑法院
 const submitEditCourt = async () => {
   try {
-    const currentUser = userStore.userInfo;
-
-    // 构建完整的请求数据，自动添加不需要前端展示的参数
-    const now = new Date();
-    // 调整为北京时间（UTC+8）
-    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-
+    // 构建请求数据，包含所有需要的字段
     const requestData = {
-      ...editCourtForm,
-      SEP_EUSER: currentUser?.username || 'admin', // 当前登录用户
-      SEP_EDATE: beijingTime.toISOString(), // 当前修改时间（北京时间）
+      fullName: editCourtForm.FYQC, // 法院全称
+      shortName: editCourtForm.FYJC, // 法院简称
+      courtLevel: editCourtForm.FYJB, // 法院级别
+      address: editCourtForm.DZ, // 地址
+      contactPhone: editCourtForm.LXDH, // 联系电话
+      undertakingJudge: editCourtForm.CBFG, // 承办法官
     };
 
-    const response = await updateCourtApi(requestData);
+    // 获取法院ID，从编辑表单中获取
+    const courtId = editCourtForm.SEP_ID;
+    
+    const response = await updateCourtApi(courtId, requestData);
     
     // 检查组件是否仍挂载
     if (!isMounted) return;
     
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('法院修改成功');
       editDialogVisible.value = false;
       // 刷新列表
       fetchCourtList();
     } else {
-      ElMessage.error(response.error || '法院修改失败');
+      ElMessage.error(response.message || '法院修改失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     // 检查组件是否仍挂载
     if (!isMounted) return;
     
     console.error('修改法院失败:', error);
-    ElMessage.error('网络错误，请稍后重试');
+    // 处理错误响应
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message);
+    } else {
+      ElMessage.error('网络错误，请稍后重试');
+    }
   }
 };
 
@@ -323,26 +354,34 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
       type: 'warning',
     });
 
-    const response = await deleteCourtApi({ SEP_ID: row.sep_id }); // 使用小写字段名
+    // 获取法院ID，优先使用row.id，兼容旧的sep_id
+    const courtId = row.id || row.sep_id;
+    
+    const response = await deleteCourtApi(courtId);
     
     // 检查组件是否仍挂载
     if (!isMounted) return;
     
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('法院删除成功');
       // 刷新列表
       fetchCourtList();
     } else {
-      ElMessage.error(response.error || '法院删除失败');
+      ElMessage.error(response.message || '法院删除失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     // 如果用户取消删除，不显示错误信息
     if (error !== 'cancel') {
       // 检查组件是否仍挂载
       if (!isMounted) return;
       
       console.error('删除法院失败:', error);
-      ElMessage.error('网络错误，请稍后重试');
+      // 处理错误响应
+      if (error.response?.data?.message) {
+        ElMessage.error(error.response.data.message);
+      } else {
+        ElMessage.error('网络错误，请稍后重试');
+      }
     }
   }
 };
@@ -382,26 +421,26 @@ onUnmounted(() => {
       <div class="mb-4 rounded-lg bg-gray-50 p-4">
         <div class="flex flex-wrap gap-4">
           <ElInput
-            v-model="searchForm.FYQC"
-            placeholder="法院全称"
-            clearable
-            style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
-          <ElInput
-            v-model="searchForm.FYJC"
+            v-model="searchForm.shortName"
             placeholder="法院简称"
             clearable
             style="width: 200px"
             @keyup.enter="handleSearch"
           />
-          <ElInput
-            v-model="searchForm.FYJB"
+          <ElSelect
+            v-model="searchForm.courtLevel"
             placeholder="法院级别"
             clearable
             style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
+            @change="handleSearch"
+          >
+            <ElOption
+              v-for="option in courtLevelOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
           <ElButton type="primary" @click="handleSearch">
             <i class="i-lucide-search mr-1"></i>
             搜索
@@ -452,7 +491,6 @@ onUnmounted(() => {
             width="130"
             align="center"
           />
-          <ElTableColumn prop="fzr" label="负责人" width="100" align="center" />
           <ElTableColumn
             prop="cbfg"
             label="承办法官"
@@ -509,9 +547,6 @@ onUnmounted(() => {
           <ElFormItem label="联系电话">
             <ElInput v-model="addCourtForm.lxdh" placeholder="请输入联系电话" />
           </ElFormItem>
-          <ElFormItem label="负责人">
-            <ElInput v-model="addCourtForm.fzr" placeholder="请输入负责人" />
-          </ElFormItem>
           <ElFormItem label="承办法官">
             <ElInput v-model="addCourtForm.cbfg" placeholder="请输入承办法官" />
           </ElFormItem>
@@ -545,10 +580,18 @@ onUnmounted(() => {
             />
           </ElFormItem>
           <ElFormItem label="法院级别" prop="FYJB">
-            <ElInput
+            <ElSelect
               v-model="editCourtForm.FYJB"
-              placeholder="请输入法院级别"
-            />
+              placeholder="请选择法院级别"
+              clearable
+            >
+              <ElOption
+                v-for="option in courtLevelOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </ElSelect>
           </ElFormItem>
           <ElFormItem label="地址">
             <ElInput v-model="editCourtForm.DZ" placeholder="请输入地址" />
@@ -558,9 +601,6 @@ onUnmounted(() => {
               v-model="editCourtForm.LXDH"
               placeholder="请输入联系电话"
             />
-          </ElFormItem>
-          <ElFormItem label="负责人">
-            <ElInput v-model="editCourtForm.FZR" placeholder="请输入负责人" />
           </ElFormItem>
           <ElFormItem label="承办法官">
             <ElInput

@@ -2,7 +2,7 @@ import { createRequestClient } from '#/api/request';
 
 // 案件公告管理专用客户端，使用指定的基础URL
 const announcementRequestClient = createRequestClient(
-  'http://192.168.0.120:8080',
+  'http://localhost:5779',
   {
     responseReturn: 'body',
   },
@@ -20,101 +20,43 @@ announcementRequestClient.addRequestInterceptor({
 });
 
 export namespace CaseAnnouncementApi {
-  /** 公告附件 */
-  export interface AnnouncementAttachment {
-    file_id: string;
-    file_name: string;
-    file_url: string;
-  }
-
   /** 公告信息 */
   export interface Announcement {
-    id: string;
-    sep_id: string;
+    id: number;
+    caseId: number;
     title: string;
     content: string;
-    announcement_type: string;
+    announcementType: string;
     status: string;
-    publisher_id: string;
-    publisher_name: string;
-    publish_time: string;
-    view_count: number;
-    is_top: number;
-    top_expire_time: string;
-    attachments: AnnouncementAttachment[];
-    create_time: string;
-    update_time: string;
-    ah: string; // 案号
-    glyfrz: string; // 主要负责人
+    publisherId: number;
+    publisherName: string;
+    publishTime: string;
+    viewCount: number;
+    isTop: boolean;
+    topExpireTime: string;
+    attachments: any[];
+    createTime: string;
+    updateTime: string;
+  }
+
+  /** 公告列表响应数据 */
+  export interface AnnouncementListData {
+    total: number;
+    list: Announcement[];
   }
 
   /** 公告列表响应 */
   export interface AnnouncementListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: Announcement[];
-    };
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: AnnouncementListData;
   }
 
   /** 公告详情响应 */
   export interface AnnouncementDetailResponse {
+    code: number;
+    message: string;
     data: Announcement;
-    status: string;
-    error: string;
-  }
-
-  /** 创建公告请求体 */
-  export interface CreateAnnouncementRequest {
-    sep_id: string;
-    title: string;
-    content: string;
-    announcement_type?: string;
-    is_top?: boolean;
-    top_expire_time?: string;
-    attachments?: AnnouncementAttachment[];
-    publisher_id?: string;
-    publisher_name?: string;
-  }
-
-  /** 更新公告请求体 */
-  export interface UpdateAnnouncementRequest {
-    announcement_id: string;
-    title?: string;
-    content?: string;
-    announcement_type?: string;
-    status?: string;
-    is_top?: boolean;
-    top_expire_time?: string;
-    attachments?: AnnouncementAttachment[];
-  }
-
-  /** 撤回公告请求体 */
-  export interface RetractAnnouncementRequest {
-    announcement_id: string;
-    retract_reason?: string;
-  }
-
-  /** 公告浏览记录 */
-  export interface AnnouncementView {
-    id: string;
-    announcement_id: string;
-    viewer_name: string;
-    view_time: string;
-    ip_address: string;
-  }
-
-  /** 公告浏览记录响应 */
-  export interface AnnouncementViewListResponse {
-    data: {
-      count: number;
-      pages: number;
-      records: AnnouncementView[];
-    };
-    status: string;
-    error: string;
   }
 }
 
@@ -122,18 +64,18 @@ export namespace CaseAnnouncementApi {
  * 获取案件公告列表
  */
 export async function getAnnouncementListApi(
-  sepId: string,
-  page?: number,
-  size?: number,
+  pageNum?: number,
+  pageSize?: number,
+  caseId?: number,
   status?: string,
 ) {
   return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementListResponse>(
-    '/api/web/getCaseAnnouncements',
+    '/api/v1/case-announcement/list',
     {
       params: {
-        sep_id: sepId,
-        page,
-        size,
+        pageNum,
+        pageSize,
+        caseId,
         status,
       },
     },
@@ -143,14 +85,9 @@ export async function getAnnouncementListApi(
 /**
  * 获取公告详情
  */
-export async function getAnnouncementDetailApi(announcementId: string) {
+export async function getAnnouncementDetailApi(announcementId: number | string) {
   return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementDetailResponse>(
-    '/api/web/getAnnouncementDetail',
-    {
-      params: {
-        announcement_id: announcementId,
-      },
-    },
+    `/api/v1/case-announcement/${announcementId}`,
   );
 }
 

@@ -1,39 +1,46 @@
 import { requestClient } from '#/api/request';
 
 export interface User {
-  row: number;
-  U_PID: number;
-  U_USER: string;
-  U_NAME: string;
-  U_TEL: null | string;
-  U_EMAIL: null | string;
-  U_REMARK: string;
-  U_VALID: string;
+  id: number;
+  username: string;
+  realName: string;
+  mobile: string;
+  email: string;
+  phone: string;
+  isValid: string;
+  status: string;
+  loginType: string;
+  lastLoginTime: string;
+  lastLoginIp: string;
+  loginCount: number;
+  createTime: string;
+  updateTime: string;
 }
 
 export interface UserListResponse {
+  code: number;
+  message: string;
   data: {
-    count: number;
-    pages: number;
-    paras: any;
-    records: User[];
+    total: number;
+    page: number;
+    size: number;
+    totalPages: number;
+    users: User[];
   };
-  status: string;
-  error: string;
 }
 
 export interface UserForm {
-  U_USER: string;
-  U_NAME: string;
-  U_TEL: string;
-  U_EMAIL: string;
-  U_REMARK: string;
-  U_VALID: string;
+  username: string;
+  password: string;
+  realName: string;
+  mobile: string;
+  email?: string;
+  status?: string;
 }
 
 export interface BaseResponse {
-  status: string;
-  error: string;
+  code: number;
+  message: string;
   data?: any;
 }
 
@@ -42,16 +49,22 @@ export interface BaseResponse {
  */
 export async function getAllUsers(params?: {
   page?: number;
-  SearchKeyword?: string;
   size?: number;
+  sortField?: string;
+  sortOrder?: string;
+  keyword?: string;
+  status?: string;
 }) {
-  // 根据您提供的接口，使用size和page参数
   const queryParams = {
-    size: params?.size || 10,
     page: params?.page || 1,
+    size: params?.size || 10,
+    sortField: params?.sortField || 'createTime',
+    sortOrder: params?.sortOrder || 'DESC',
+    keyword: params?.keyword,
+    status: params?.status,
   };
 
-  return requestClient.get<UserListResponse>('/api/web/selectAllUsers', {
+  return requestClient.get<UserListResponse>('/api/v1/users', {
     params: queryParams,
   });
 }
@@ -60,24 +73,21 @@ export async function getAllUsers(params?: {
  * 创建用户
  */
 export async function createUser(userData: UserForm) {
-  return requestClient.post<BaseResponse>('/api/web/createUser', userData);
+  return requestClient.post<UserListResponse>('/api/v1/users', userData);
 }
 
 /**
- * 更新用户
+ * 修改用户
  */
-export async function updateUser(userId: number, userData: UserForm) {
-  return requestClient.put<BaseResponse>(
-    `/api/web/updateUser/${userId}`,
-    userData,
-  );
+export async function updateUser(userId: number, userData: Partial<UserForm>) {
+  return requestClient.put<UserListResponse>(`/api/v1/users/${userId}`, userData);
 }
 
 /**
  * 删除用户
  */
 export async function deleteUser(userId: number) {
-  return requestClient.delete<BaseResponse>(`/api/web/deleteUser/${userId}`);
+  return requestClient.delete<UserListResponse>(`/api/v1/users/${userId}`);
 }
 
 // 导出所有API方法

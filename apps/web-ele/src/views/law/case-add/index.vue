@@ -118,15 +118,15 @@ const fetchCourtList = async () => {
 // 获取管理人列表
 const fetchManagerList = async () => {
   try {
-    const response = await getManagerListApi({ page: 1, size: 100 });
-    if (response.status === '1' && response.data) {
-      // 只保留 sepId 有效的管理人
-      managerList.value = response.data
-        .filter((manager: any) => manager.sepId)
+    const response = await getManagerListApi({ pageNum: 1, pageSize: 100 });
+    if (response.code === 200 && response.data && response.data.list) {
+      // 只保留 id 有效的管理人
+      managerList.value = response.data.list
+        .filter((manager: any) => manager.id)
         .map((manager: any) => ({
-          label: manager.lsswsid, // 律师事务所
-          value: manager.sepId.toString(), // 管理人ID
-          sepId: manager.sepId.toString(),
+          label: manager.administratorName, // 律师事务所名称
+          value: manager.id.toString(), // 管理人ID
+          sepId: manager.id.toString(),
         }));
       console.log('加载到的管理人列表:', managerList.value);
     }

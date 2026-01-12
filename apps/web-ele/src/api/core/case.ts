@@ -9,6 +9,23 @@ export namespace CaseApi {
     token?: string;
   }
 
+  /** 案件简单信息 */
+  export interface SimpleCaseInfo {
+    id: number;
+    caseNumber: string;
+    caseName: string;
+  }
+
+  /** 案件简单列表响应 */
+  export interface SimpleCaseListResponse {
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: SimpleCaseInfo[];
+    };
+  }
+
   /** 案件处理进度数据 */
   export interface CaseProgressInfo {
     AJJD: string;
@@ -518,5 +535,18 @@ export async function deleteCaseApi(caseId: number) {
       },
     },
   );
+}
+
+/**
+ * 获取案件简单列表
+ */
+export async function getCaseSimpleListApi(params: {
+  page?: number;
+  size?: number;
+  caseNumber?: string;
+}) {
+  return requestClient8085.get<CaseApi.SimpleCaseListResponse>('/case/simple-list', {
+    params,
+  });
 }
 
