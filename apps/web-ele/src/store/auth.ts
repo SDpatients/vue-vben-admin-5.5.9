@@ -10,13 +10,6 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { ElNotification } from 'element-plus';
 import { defineStore } from 'pinia';
 
-import {
-  getCurrentUserApi,
-  getPermissionsApi,
-  getUserInfoApi,
-  loginApi,
-  logoutApi,
-} from '#/api';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -39,12 +32,26 @@ export const useAuthStore = defineStore('auth', () => {
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const result = await loginApi(params);
+
+      // 使用虚拟数据模拟登录成功
+      const mockResult = {
+        status: '1',
+        data: {
+          user: {
+            uUser: params.username || 'admin',
+            uName: params.username || 'Admin',
+          },
+          accessToken: 'mock_access_token',
+          refreshToken: 'mock_refresh_token',
+          accessTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7天过期
+          refreshTokenExpire: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30天过期
+        },
+      };
 
       // 检查返回的数据结构
-      if (result && result.status === '1' && result.data) {
-        // 登录成功，使用后端返回的用户信息
-        const backendUserInfo = result.data;
+      if (mockResult && mockResult.status === '1' && mockResult.data) {
+        // 登录成功，使用虚拟用户信息
+        const backendUserInfo = mockResult.data;
 
         // 将用户信息转换为系统需要的格式
         userInfo = {
@@ -54,15 +61,15 @@ export const useAuthStore = defineStore('auth', () => {
           homePath: preferences.app.defaultHomePath,
           avatar: '', // 默认头像
           desc: '', // 用户描述
-          token: backendUserInfo.accessToken, // 使用后端返回的accessToken
-          refreshToken: backendUserInfo.refreshToken, // 使用后端返回的refreshToken
+          token: backendUserInfo.accessToken, // 使用虚拟accessToken
+          refreshToken: backendUserInfo.refreshToken, // 使用虚拟refreshToken
           accessTokenExpire: backendUserInfo.accessTokenExpire,
           refreshTokenExpire: backendUserInfo.refreshTokenExpire,
           roles: [],
           permissions: [],
         };
 
-        // 设置从后端获取的accessToken和refreshToken
+        // 设置虚拟accessToken和refreshToken
         accessStore.setAccessToken(backendUserInfo.accessToken);
         accessStore.setRefreshToken(backendUserInfo.refreshToken);
 
@@ -91,14 +98,6 @@ export const useAuthStore = defineStore('auth', () => {
             type: 'success',
           });
         }
-      } else {
-        // 登录失败，显示错误信息
-        const errorMsg = result?.error || $t('authentication.passwordErrorTip');
-        ElNotification({
-          message: errorMsg,
-          title: '登录失败',
-          type: 'error',
-        });
       }
     } catch (error: any) {
       // 网络错误或其他异常
@@ -117,12 +116,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(redirect: boolean = true) {
-    try {
-      await logoutApi();
-    } catch {
-      // 不做任何处理
-    }
-    
     // 清除所有用户相关的localStorage信息，保留设备ID
     localStorage.removeItem('chat_user_info');
     localStorage.removeItem('chat_user_id');
@@ -132,10 +125,10 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('accessTokenExpire');
     localStorage.removeItem('refreshTokenExpire');
-    
+
     // 重置所有 store
     resetAllStores();
-    
+
     // 确保 accessStore 中的状态被正确重置
     accessStore.setLoginExpired(false);
     accessStore.setAccessToken(null);
@@ -144,7 +137,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessStore.setIsAccessChecked(false);
     accessStore.setAccessMenus([]);
     accessStore.setAccessRoutes([]);
-    
+
     // 确保 userStore 中的状态被正确重置
     userStore.setUserInfo(null);
     userStore.setUserRoles([]);
@@ -161,80 +154,60 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUserInfo() {
-    let userInfo: null | UserInfo = null;
-    try {
-      userInfo = await getUserInfoApi();
-      userStore.setUserInfo(userInfo);
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
-    }
+    // 使用虚拟数据模拟获取用户信息
+    const userInfo: UserInfo = {
+      userId: 'admin',
+      username: 'admin',
+      realName: 'Admin',
+      homePath: preferences.app.defaultHomePath,
+      avatar: '',
+      desc: '',
+      token: accessStore.accessToken || 'mock_access_token',
+      refreshToken: accessStore.refreshToken || 'mock_refresh_token',
+      accessTokenExpire: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      refreshTokenExpire: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      roles: [],
+      permissions: [],
+    };
+    userStore.setUserInfo(userInfo);
     return userInfo;
   }
 
   /**
-   * 获取当前用户信息（从后端API）
+   * 获取当前用户信息（使用虚拟数据）
    */
   async function fetchCurrentUser() {
-    try {
-      const result = await getCurrentUserApi();
-      if (result && result.status === '1' && result.data) {
-        const backendUserInfo = result.data;
-        const userInfo: UserInfo = {
-          userId: backendUserInfo.uUser,
-          username: backendUserInfo.uUser,
-          realName: backendUserInfo.uName,
-          homePath: preferences.app.defaultHomePath,
-          avatar: '',
-          desc: '',
-          token: accessStore.accessToken || '',
-          refreshToken: accessStore.refreshToken || '',
-          roles: [],
-          permissions: [],
-        };
-        userStore.setUserInfo(userInfo);
-        return userInfo;
-      }
-    } catch (error) {
-      console.error('获取当前用户信息失败:', error);
-    }
-    return null;
+    // 使用虚拟数据模拟获取当前用户信息
+    const backendUserInfo = {
+      uUser: 'admin',
+      uName: 'Admin',
+    };
+    const userInfo: UserInfo = {
+      userId: backendUserInfo.uUser,
+      username: backendUserInfo.uUser,
+      realName: backendUserInfo.uName,
+      homePath: preferences.app.defaultHomePath,
+      avatar: '',
+      desc: '',
+      token: accessStore.accessToken || 'mock_access_token',
+      refreshToken: accessStore.refreshToken || 'mock_refresh_token',
+      roles: [],
+      permissions: [],
+    };
+    userStore.setUserInfo(userInfo);
+    return userInfo;
   }
 
   /**
-   * 获取用户权限信息
+   * 获取用户权限信息（使用虚拟数据）
    */
   async function fetchPermissions() {
-    try {
-      const result = await getPermissionsApi();
-      if (result && result.status === '1' && result.data) {
-        const { permissions, menus } = result.data;
-        
-        const accessCodes = permissions || [];
-        
-        if (menus && menus.length > 0) {
-          const extractPermCodes = (menuList: any[]): string[] => {
-            const codes: string[] = [];
-            menuList.forEach((menu) => {
-              if (menu.permCode) {
-                codes.push(menu.permCode);
-              }
-              if (menu.children && menu.children.length > 0) {
-                codes.push(...extractPermCodes(menu.children));
-              }
-            });
-            return codes;
-          };
-          
-          accessCodes.push(...extractPermCodes(menus));
-        }
-        
-        accessStore.setAccessCodes(accessCodes);
-        return { permissions, menus };
-      }
-    } catch (error) {
-      console.error('获取权限信息失败:', error);
-    }
-    return null;
+    // 使用虚拟数据模拟获取权限信息
+    const mockPermissions = ['admin', 'user', 'system'];
+    const mockMenus = [];
+
+    accessStore.setAccessCodes(mockPermissions);
+    return { permissions: mockPermissions, menus: mockMenus };
   }
 
   function $reset() {

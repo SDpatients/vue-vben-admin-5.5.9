@@ -9,7 +9,6 @@ import { $t } from '@vben/locales';
 
 import { ElMessage } from 'element-plus';
 
-import { sendSmsCodeApi } from '#/api/core/auth';
 import { useAuthStore } from '#/store';
 
 // 登录方式类型
@@ -45,28 +44,16 @@ const startCountdown = () => {
   }, 1000);
 };
 
-// 发送短信验证码
+// 发送短信验证码（使用虚拟数据）
 const sendSmsCode = async (formData: any) => {
   if (!formData.mobile) {
     ElMessage.warning($t('authentication.mobileRequired'));
     return;
   }
 
-  try {
-    const result = await sendSmsCodeApi({
-      mobile: formData.mobile,
-      smsType: 'login',
-    });
-
-    if (result && result.status === '1') {
-      ElMessage.success($t('authentication.smsCodeSent'));
-      startCountdown();
-    } else {
-      ElMessage.error(result?.error || $t('authentication.smsCodeSendFailed'));
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || $t('authentication.smsCodeSendFailed'));
-  }
+  // 使用虚拟数据模拟发送短信验证码
+  ElMessage.success($t('authentication.smsCodeSent'));
+  startCountdown();
 };
 
 // 认证store
