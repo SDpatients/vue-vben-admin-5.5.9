@@ -24,7 +24,9 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
 
     try {
-      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+      // 使用当前页面的协议和主机，通过代理连接WebSocket
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
       socket.value = new WebSocket(`${wsUrl}?token=${token}`);
 
       socket.value.onopen = handleConnect;

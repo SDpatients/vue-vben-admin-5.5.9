@@ -9,6 +9,8 @@ export interface Notification {
   relatedType?: string;
   relatedId?: number;
   isRead: boolean;
+  priority: string;
+  status: string;
   createTime: string;
   readTime?: string;
 }
@@ -32,8 +34,14 @@ export const notificationApi = {
     );
   },
 
+  getUnreadNotifications: (userId: number) => {
+    return requestClient.get<NotificationListResponse>('/api/v1/notification/unread', {
+      params: { userId },
+    });
+  },
+
   markAsRead: (id: number) => {
-    return requestClient.put(`/api/notification/${id}/read`);
+    return requestClient.put(`/api/v1/notification/${id}/read`);
   },
 
   markAllAsRead: () => {

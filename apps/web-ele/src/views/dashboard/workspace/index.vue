@@ -56,8 +56,10 @@ const formatDate = (time?: number) => {
 
 const loadTodoItems = async () => {
   try {
-    const res = await todoApi.getTodoList('PENDING', undefined, 1, 5);
-    const todos: Todo[] = res.data || [];
+    // 新API页码从0开始，所以传递0而不是1
+    const res = await todoApi.getTodoList('PENDING', undefined, 0, 5);
+    // 新API响应格式中，待办事项在content字段中
+    const todos: Todo[] = res.data?.content || [];
     todoItems.value = todos.map((item: Todo) => ({
       title: item.title,
       content: item.description || '暂无描述',

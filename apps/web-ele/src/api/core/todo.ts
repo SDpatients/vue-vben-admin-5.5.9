@@ -24,42 +24,72 @@ export interface TodoDTO {
   deadline?: string;
   relatedType?: string;
   relatedId?: number;
+  userId?: number;
+  userAccount?: string;
+  userName?: string;
+  type?: string;
+  status?: string;
+  assigneeId?: number;
+  assigneeName?: string;
+  createUserId?: number;
+  createUserName?: string;
+  remark?: string;
 }
 
 export const todoApi = {
-  getTodoList: (status?: string, priority?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/todo/list', {
-      params: { status, priority, page, pageSize },
+  getTodoList: (status?: string, priority?: string, pageNum: number = 0, pageSize: number = 10) => {
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      throw new Error('无法获取用户ID');
+    }
+    return requestClient.get('/api/v1/todo/list', {
+      params: { userId: Number(userId), status, priority, pageNum, pageSize },
     });
   },
 
-  getUserTodoList: (targetUserId: number, status?: string, priority?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get(`/api/todo/user/${targetUserId}`, {
-      params: { status, priority, page, pageSize },
+  getUserTodoList: (targetUserId: number, status?: string, priority?: string, pageNum: number = 0, pageSize: number = 10) => {
+    return requestClient.get(`/api/v1/todo/list`, {
+      params: { userId: targetUserId, status, priority, pageNum, pageSize },
     });
   },
 
   createTodo: (data: TodoDTO) => {
-    return requestClient.post('/api/todo', data);
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      throw new Error('无法获取用户ID');
+    }
+    // 添加userId到请求数据
+    const requestData = {
+      ...data,
+      userId: Number(userId),
+    };
+    return requestClient.post('/api/v1/todo', requestData);
   },
 
   createTodoForUser: (targetUserId: number, data: TodoDTO) => {
-    return requestClient.post(`/api/todo/user/${targetUserId}`, data);
+    // 添加userId到请求数据，使用targetUserId作为userId
+    const requestData = {
+      ...data,
+      userId: targetUserId,
+    };
+    return requestClient.post('/api/v1/todo', requestData);
   },
 
   updateTodo: (id: number, data: Partial<TodoDTO>) => {
-    return requestClient.put(`/api/todo/${id}`, data);
+    return requestClient.put(`/api/v1/todo/${id}`, data);
   },
 
   completeTodo: (id: number) => {
-    return requestClient.put(`/api/todo/${id}/complete`);
+    return requestClient.put(`/api/v1/todo/${id}/complete`);
   },
 
   cancelTodo: (id: number) => {
-    return requestClient.put(`/api/todo/${id}/cancel`);
+    return requestClient.put(`/api/v1/todo/${id}/cancel`);
   },
 
   deleteTodo: (id: number) => {
-    return requestClient.delete(`/api/todo/${id}`);
+    return requestClient.delete(`/api/v1/todo/${id}`);
   },
 };

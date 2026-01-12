@@ -50,8 +50,14 @@ const { connect, disconnect, onMessage } = useWebSocket();
 // 加载最新动态数量
 const loadDynamicCount = async () => {
   try {
-    // 获取所有最新动态，以便得到准确的总数
-    const res = await activityApi.getActivityList(undefined, 1, 100);
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      dynamicCount.value = 0;
+      return;
+    }
+    // 调用新的未读通知接口
+    const res = await notificationApi.getUnreadNotifications(Number(userId));
     dynamicCount.value = res.data?.length || 0;
   } catch (error) {
     console.error('加载最新动态数量失败:', error);
@@ -236,7 +242,13 @@ const handleApprovalClick = (approval: Approval) => {
 };
 
 const markAllAsRead = async () => {
-  await notificationApi.markAllAsRead();
+  // 从本地存储获取userId
+  const userId = localStorage.getItem('chat_user_id');
+  if (!userId) {
+    ElMessage.error('无法获取用户信息');
+    return;
+  }
+  await notificationApi.markAllAsRead(Number(userId));
   notifications.value.forEach((item) => {
     item.isRead = true;
   });

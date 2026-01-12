@@ -132,12 +132,11 @@ const managerTypeOptions = [
 
 // 新增管理人表单数据
 const addManagerForm = reactive({
-  caseId: 1, // 默认案件ID，实际使用时可能需要从案件列表中选择
   administratorName: '',
+  administratorType: '',
   contactPhone: '',
   contactEmail: '',
   officeAddress: '',
-  responsiblePersonId: 1, // 默认负责人ID，实际使用时可能需要从用户列表中选择
 });
 
 // 编辑管理人弹窗状态
@@ -146,6 +145,7 @@ const editDialogVisible = ref(false);
 // 编辑管理人表单数据
 const editManagerForm = reactive({
   id: '', // 用于存储管理人ID，用于更新请求的路径参数
+  administratorType: '',
   contactPhone: '',
   contactEmail: '',
   officeAddress: '',
@@ -171,12 +171,11 @@ const handleAdd = () => {
 const handleCloseDialog = () => {
   // 重置表单
   Object.assign(addManagerForm, {
-    caseId: 1,
     administratorName: '',
+    administratorType: '',
     contactPhone: '',
     contactEmail: '',
     officeAddress: '',
-    responsiblePersonId: 1,
   });
 };
 
@@ -203,6 +202,7 @@ const handleAddSubmit = async () => {
 const handleEdit = (row: ManagerApi.ManagerInfo) => {
   Object.assign(editManagerForm, {
     id: row.id,
+    administratorType: row.administratorType,
     contactPhone: row.contactPhone,
     contactEmail: row.contactEmail,
     officeAddress: row.officeAddress,
@@ -215,6 +215,7 @@ const handleCloseEditDialog = () => {
   // 重置表单
   Object.assign(editManagerForm, {
     id: '',
+    administratorType: '',
     contactPhone: '',
     contactEmail: '',
     officeAddress: '',
@@ -366,11 +367,29 @@ onMounted(() => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
+          prop="administratorType"
+          label="管理人类型"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
           prop="administratorName"
           label="管理人名称"
           min-width="180"
           show-overflow-tooltip
         />
+        <ElTableColumn
+          label="负责人"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default>
+            <!-- 先不填数据，留空或显示占位符 -->
+            - 
+          </template>
+        </ElTableColumn>
         <ElTableColumn
           prop="contactPhone"
           label="联系电话"
@@ -409,16 +428,18 @@ onMounted(() => {
             {{ formatDateTime(row.updateTime) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="100" align="center" fixed="right">
+        <ElTableColumn label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <ElButton type="primary" size="small" @click="handleEdit(row)">
-              <i class="i-lucide-pencil mr-1"></i>
-              编辑
-            </ElButton>
-            <ElButton type="danger" size="small" @click="handleDelete(row)">
-              <i class="i-lucide-trash-2 mr-1"></i>
-              删除
-            </ElButton>
+            <div class="operation-buttons">
+              <ElButton type="primary" size="small" @click="handleEdit(row)">
+                <i class="i-lucide-pencil mr-1"></i>
+                编辑
+              </ElButton>
+              <ElButton type="danger" size="small" @click="handleDelete(row)">
+                <i class="i-lucide-trash-2 mr-1"></i>
+                删除
+              </ElButton>
+            </div>
           </template>
         </ElTableColumn>
       </ElTable>
@@ -445,11 +466,18 @@ onMounted(() => {
       @close="handleCloseDialog"
     >
       <ElForm :model="addManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="案件ID">
-          <ElInput v-model="addManagerForm.caseId" placeholder="请输入案件ID" type="number" />
-        </ElFormItem>
         <ElFormItem label="管理人名称" prop="administratorName">
           <ElInput v-model="addManagerForm.administratorName" placeholder="请输入管理人名称" />
+        </ElFormItem>
+        <ElFormItem label="管理人类型">
+          <ElSelect v-model="addManagerForm.administratorType" placeholder="请选择管理人类型">
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
         </ElFormItem>
         <ElFormItem label="联系电话">
           <ElInput v-model="addManagerForm.contactPhone" placeholder="请输入联系电话" />
@@ -459,9 +487,6 @@ onMounted(() => {
         </ElFormItem>
         <ElFormItem label="办公地址">
           <ElInput v-model="addManagerForm.officeAddress" placeholder="请输入办公地址" />
-        </ElFormItem>
-        <ElFormItem label="负责人ID">
-          <ElInput v-model="addManagerForm.responsiblePersonId" placeholder="请输入负责人ID" type="number" />
         </ElFormItem>
       </ElForm>
       <template #footer>
@@ -480,6 +505,16 @@ onMounted(() => {
       @close="handleCloseEditDialog"
     >
       <ElForm :model="editManagerForm" label-width="100px">
+        <ElFormItem label="管理人类型">
+          <ElSelect v-model="editManagerForm.administratorType" placeholder="请选择管理人类型">
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
+        </ElFormItem>
         <ElFormItem label="联系电话">
           <ElInput v-model="editManagerForm.contactPhone" placeholder="请输入联系电话" />
         </ElFormItem>
@@ -520,5 +555,11 @@ onMounted(() => {
 .card-actions {
   display: flex;
   gap: 8px;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
 }
 </style>

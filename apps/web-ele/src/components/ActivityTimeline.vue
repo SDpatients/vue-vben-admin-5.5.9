@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { activityApi, type Activity } from '#/api/core/activity';
 import { Icon } from '@iconify/vue';
 import { ElSelect, ElOption, ElButton, ElScrollbar, ElEmpty } from 'element-plus';
-import { useUserStore } from '@vben/stores';
+import { notificationApi, type Notification } from '#/api/core/notification';
 
 // 定义事件
 const emit = defineEmits<{
@@ -11,14 +10,9 @@ const emit = defineEmits<{
 }>();
 
 const loading = ref(false);
-const activities = ref<Activity[]>([]);
+const activities = ref<Notification[]>([]);
 const selectedType = ref('');
-const currentPage = ref(1);
-const pageSize = ref(10);
 const hasMore = ref(false);
-
-// 用户信息
-const userStore = useUserStore();
 
 const formatTime = (time: string) => {
   const date = new Date(time);
@@ -37,47 +31,18 @@ const formatTime = (time: string) => {
 
 const loadActivities = async () => {
   loading.value = true;
-  currentPage.value = 1;
   try {
-    const res = await activityApi.getActivityList(
-      selectedType.value || undefined,
-      currentPage.value,
-      pageSize.value,
-    );
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      activities.value = [];
+      return;
+    }
+    
+    const res = await notificationApi.getUnreadNotifications(Number(userId));
     console.log('加载动态结果:', res);
     activities.value = res.data || [];
-    hasMore.value = res.data.length >= pageSize.value;
-    
-    // 如果没有数据，添加一些模拟数据用于测试
-    if (activities.value.length === 0) {
-      activities.value = [
-        {
-          id: 1,
-          userId: 1,
-          userName: '管理员',
-          type: 'CREATE_CASE',
-          content: '创建了新案件：xxx案件',
-          createTime: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          userId: 2,
-          userName: '用户1',
-          type: 'UPLOAD_FILE',
-          content: '上传了文件：证据材料.pdf',
-          createTime: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 3,
-          userId: 3,
-          userName: '用户2',
-          type: 'APPROVE_PASS',
-          content: '审核通过了案件：yyy案件',
-          createTime: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ];
-      hasMore.value = false;
-    }
+    hasMore.value = false; // 新接口一次性返回所有未读通知，不需要分页
   } catch (error) {
     console.error('加载动态失败:', error);
     // 发生错误时，添加一些模拟数据用于测试
@@ -85,17 +50,23 @@ const loadActivities = async () => {
       {
         id: 1,
         userId: 1,
-        userName: '管理员',
-        type: 'CREATE_CASE',
-        content: '创建了新案件：xxx案件',
+        title: '案件进度更新',
+        content: '您的案件CASE-2026-001已进入审核阶段',
+        type: 'CASE',
+        isRead: false,
+        priority: 'NORMAL',
+        status: 'ACTIVE',
         createTime: new Date().toISOString(),
       },
       {
         id: 2,
-        userId: 2,
-        userName: '用户1',
-        type: 'UPLOAD_FILE',
-        content: '上传了文件：证据材料.pdf',
+        userId: 1,
+        title: '您有新的待办事项',
+        content: '请及时处理案件编号为CASE-2026-001的待办事项',
+        type: 'TODO',
+        isRead: false,
+        priority: 'HIGH',
+        status: 'ACTIVE',
         createTime: new Date(Date.now() - 3600000).toISOString(),
       },
     ];
@@ -105,98 +76,47 @@ const loadActivities = async () => {
   }
 };
 
-const loadMore = async () => {
-  loading.value = true;
-  currentPage.value++;
-  try {
-    const res = await activityApi.getActivityList(
-      selectedType.value || undefined,
-      currentPage.value,
-      pageSize.value,
-    );
-    activities.value = [...activities.value, ...(res.data || [])];
-    hasMore.value = res.data.length >= pageSize.value;
-  } catch (error) {
-    console.error('加载更多失败:', error);
-  } finally {
-    loading.value = false;
-  }
-};
+
 
 const getActivityIcon = (type: string) => {
   const iconMap: Record<string, string> = {
-    CREATE_CASE: 'lucide:file-plus',
-    UPLOAD_FILE: 'lucide:upload',
-    APPROVE_PASS: 'lucide:check-circle',
-    APPROVE_REJECT: 'lucide:x-circle',
-    COMPLETE_TODO: 'lucide:check-square',
+    CASE: 'lucide:file-case',
+    TODO: 'lucide:check-square',
+    SYSTEM: 'lucide:bell',
+    APPROVAL: 'lucide:clipboard-check',
   };
   return iconMap[type] || 'lucide:activity';
 };
 
 const getActivityColor = (type: string) => {
   const colorMap: Record<string, string> = {
-    CREATE_CASE: '#1890ff',
-    UPLOAD_FILE: '#52c41a',
-    APPROVE_PASS: '#52c41a',
-    APPROVE_REJECT: '#ff4d4f',
-    COMPLETE_TODO: '#1890ff',
+    CASE: '#1890ff',
+    TODO: '#52c41a',
+    SYSTEM: '#faad14',
+    APPROVAL: '#ff7875',
   };
   return colorMap[type] || '#999';
 };
 
-// 我已知晓，删除活动
+// 我已知晓，标记为已读
 const markAsKnown = async (id: number) => {
   try {
-    // 获取认证令牌
-    const token = localStorage.getItem('token');
-    // 调用后端接口，改为PUT请求并添加认证令牌
-    await fetch(`http://192.168.0.120:8080/api/web/activity/UpdateActivityIsDelete?id=${id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : ''
-      }
-    });
-    // 从活动列表中移除该活动
+    await notificationApi.markAsRead(id);
+    // 从列表中移除该通知
     activities.value = activities.value.filter(item => item.id !== id);
   } catch (error) {
-    console.error('删除活动失败:', error);
+    console.error('标记为已读失败:', error);
   }
 };
 
-// 全部知晓，删除所有活动
+// 全部知晓，标记所有为已读
 const markAllAsKnown = async () => {
   try {
-    // 从本地存储空间获取用户信息和认证令牌
-    const chatUserInfoStr = localStorage.getItem('chat_user_info');
-    const token = localStorage.getItem('token');
-    let userId = 1; // 默认值
-    
-    if (chatUserInfoStr) {
-      try {
-        const chatUserInfo = JSON.parse(chatUserInfoStr);
-        // 取uPid作为userId
-        userId = chatUserInfo.user?.uPid || 1;
-      } catch (parseError) {
-        console.error('解析chat_user_info失败:', parseError);
-      }
-    }
-    
-    // 调用后端接口，改为PUT请求并添加认证令牌
-    await fetch('http://192.168.0.120:8080/api/web/activity/UpdateActivityIsDeleteByUserId', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify({
-        userId
-      })
-    });
+    await notificationApi.markAllAsRead();
     // 清空活动列表
     activities.value = [];
   } catch (error) {
-    console.error('删除所有活动失败:', error);
+    console.error('标记全部为已读失败:', error);
   }
 };
 
@@ -216,19 +136,6 @@ onMounted(async () => {
   <div class="activity-timeline">
     <div class="activity-header fixed">
       <div class="activity-header-actions">
-        <ElSelect
-          v-model="selectedType"
-          style="width: 120px; margin-right: 8px"
-          placeholder="全部类型"
-          @change="loadActivities"
-        >
-          <ElOption label="全部" value="" />
-          <ElOption label="创建案件" value="CREATE_CASE" />
-          <ElOption label="上传文件" value="UPLOAD_FILE" />
-          <ElOption label="审核通过" value="APPROVE_PASS" />
-          <ElOption label="审核驳回" value="APPROVE_REJECT" />
-          <ElOption label="完成待办" value="COMPLETE_TODO" />
-        </ElSelect>
         <span class="mark-all-known" @click="markAllAsKnown">全部知晓</span>
       </div>
     </div>
@@ -244,7 +151,7 @@ onMounted(async () => {
               <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
             </div>
             <div class="activity-content-wrapper">
-              <div class="activity-user">{{ item.userName }}</div>
+              <div class="activity-user">{{ item.title }}</div>
               <div class="activity-content">{{ item.content }}</div>
               <div class="activity-footer-row">
                 <div class="activity-time">{{ formatTime(item.createTime) }}</div>
@@ -256,9 +163,6 @@ onMounted(async () => {
           <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
         </div>
       </ElScrollbar>
-    </div>
-    <div v-if="hasMore" class="activity-footer">
-      <ElButton link @click="loadMore">加载更多</ElButton>
     </div>
   </div>
 </template>

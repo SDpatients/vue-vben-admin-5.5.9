@@ -110,13 +110,15 @@ const loadActivities = async () => {
 const loadTodos = async () => {
   loading.value = true;
   try {
+    // 新API页码从0开始，所以传递0而不是1
     const res = await todoApi.getTodoList(
       selectedStatus.value || undefined,
       selectedPriority.value || undefined,
-      1,
+      0,
       20,
     );
-    todos.value = res.data || [];
+    // 新API响应格式中，待办事项在content字段中
+    todos.value = res.data?.content || [];
   } catch (error) {
     ElMessage.error('加载待办失败');
   } finally {
