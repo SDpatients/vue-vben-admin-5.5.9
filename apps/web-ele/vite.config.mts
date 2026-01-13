@@ -18,13 +18,13 @@ export default defineConfig(async (): Promise<any> => {
         proxy: {
           '/api': {
             changeOrigin: true,
-            target: 'http://192.168.0.120:8080',
+            target: 'http://localhost:8080',
             ws: true,
             rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
           '/ws': {
             changeOrigin: true,
-            target: 'http://192.168.0.120:8080',
+            target: 'http://localhost:8080',
             ws: true,
             rewrite: (path: string) => path.replace(/^\/ws/, '/ws'),
           },

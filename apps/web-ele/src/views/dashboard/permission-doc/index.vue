@@ -237,7 +237,7 @@ const hasPermission = (permCode: string) => {
           >
             {{ perm }}
           </ElTag>
-          <span v-if="permissions.length === 0" style="color: #999; margin-left: 8px">暂无权限</span>
+          <span v-if="permissions.length === 0" style=" margin-left: 8px;color: #999">暂无权限</span>
         </div>
       </template>
     </ElAlert>
@@ -457,21 +457,21 @@ const hasPermission = (permCode: string) => {
 
 <style scoped>
 .permission-doc-container {
+  min-height: 100vh;
   padding: 24px;
   background: #f5f7fa;
-  min-height: 100vh;
 }
 
 .doc-header {
+  padding: 24px;
   margin-bottom: 24px;
   background: #fff;
-  padding: 24px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
 }
 
 .doc-header h1 {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
   font-size: 28px;
   font-weight: 600;
   color: #1a1a1a;
@@ -480,15 +480,15 @@ const hasPermission = (permCode: string) => {
 .doc-header p {
   margin: 0;
   font-size: 14px;
-  color: #666;
   line-height: 1.6;
+  color: #666;
 }
 
 .current-permissions {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
 }
 
 .scenario-section {
@@ -497,9 +497,9 @@ const hasPermission = (permCode: string) => {
 
 .card-header {
   display: flex;
-  align-items: center;
   gap: 8px;
-  font-weight: 600;
+  align-items: center;
   font-size: 16px;
+  font-weight: 600;
 }
 </style>

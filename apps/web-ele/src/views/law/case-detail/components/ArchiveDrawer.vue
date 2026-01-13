@@ -903,8 +903,8 @@ const loadFileList = async (category: string) => {
   fileListLoading.value = true;
   try {
     const response = await getFileListApi('archive', Number(props.caseId));
-    if (response.status === '1') {
-      fileList.value = (response.data || []).filter((file: FileRecord) => {
+    if (response.code === 200) {
+      fileList.value = (response.data?.list || []).filter((file: FileRecord) => {
         const fileCategory = file.filePath?.split('/')[2];
         return fileCategory === category;
       });
@@ -944,10 +944,9 @@ const uploadFiles = async () => {
         formData.append('file', file.raw);
         formData.append('bizType', 'archive');
         formData.append('bizId', props.caseId);
-        formData.append('category', category);
 
         const response = await fetch(
-          'http://192.168.0.120:8080/api/file/upload',
+          'http://localhost:8080/api/v1/file/upload',
           {
             method: 'POST',
             headers: {
@@ -958,7 +957,7 @@ const uploadFiles = async () => {
         );
 
         const result = await response.json();
-        if (result.status !== '1') {
+        if (result.code !== 200) {
           throw new Error(`文件${file.name}上传失败`);
         }
       }
@@ -1000,7 +999,7 @@ const previewFile = async (file: FileRecord) => {
   const previewableExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
   if (previewableExtensions.includes(file.fileExtension.toLowerCase())) {
     window.open(
-      `http://192.168.0.120:8080/api/file/view/${file.id}?token=${localStorage.getItem('token') || ''}`,
+      `http://localhost:8080/api/v1/file/preview/${file.id}`,
       '_blank',
     );
   } else {
@@ -1011,13 +1010,13 @@ const previewFile = async (file: FileRecord) => {
 const deleteFile = async (file: FileRecord) => {
   try {
     const response = await deleteFileApi(file.id);
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('文件删除成功');
       if (selectedNode.value?.category) {
         await loadFileList(selectedNode.value.category);
       }
     } else {
-      ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
+      ElMessage.error(`文件删除失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('删除文件失败:', error);
@@ -1246,13 +1245,13 @@ defineExpose({
 <style scoped>
 .archive-container {
   display: flex;
-  height: 100%;
   gap: 20px;
+  height: 100%;
 }
 
 .archive-sidebar {
-  width: 350px;
   flex-shrink: 0;
+  width: 350px;
 }
 
 .tree-card {
@@ -1277,9 +1276,9 @@ defineExpose({
 
 .tree-node {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex: 1;
+  gap: 8px;
+  align-items: center;
 }
 
 .node-icon {
@@ -1293,8 +1292,8 @@ defineExpose({
 }
 
 .archive-content {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
 }
 
@@ -1309,15 +1308,15 @@ defineExpose({
 
 .content-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  color: #1f2937;
   font-weight: 600;
+  color: #1f2937;
 }
 
 .current-path {
@@ -1338,8 +1337,8 @@ defineExpose({
 
 .file-name-cell {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .file-icon {
@@ -1352,9 +1351,9 @@ defineExpose({
 }
 
 .upload-icon {
+  margin-bottom: 16px;
   font-size: 48px;
   color: #409eff;
-  margin-bottom: 16px;
 }
 
 .upload-text {

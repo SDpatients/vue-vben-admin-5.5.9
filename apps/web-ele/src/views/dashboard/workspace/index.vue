@@ -381,8 +381,8 @@ onMounted(() => {
 }
 
 .empty-icon {
-  font-size: 48px;
   margin-bottom: 12px;
+  font-size: 48px;
   opacity: 0.5;
 }
 
@@ -391,18 +391,18 @@ onMounted(() => {
 }
 
 .view-more {
-  text-align: center;
   padding-top: 12px;
+  text-align: center;
   border-top: 1px solid #ebeef5;
 }
 
 .view-more-btn {
-  background: none;
-  border: none;
+  padding: 4px 12px;
+  font-size: 14px;
   color: #1890ff;
   cursor: pointer;
-  font-size: 14px;
-  padding: 4px 12px;
+  background: none;
+  border: none;
   border-radius: 4px;
   transition: all 0.3s;
 }
@@ -414,8 +414,8 @@ onMounted(() => {
 /* 案件列表样式 */
 .case-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .case-tabs {
@@ -451,19 +451,19 @@ onMounted(() => {
 }
 
 .case-card {
-  transition: all 0.3s;
   background-color: #f0f8ff;
+  transition: all 0.3s;
 }
 
 .case-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   background-color: #e6f7ff;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  transform: translateY(-2px);
 }
 
 .case-title {
-  color: #333;
   font-weight: 600;
+  color: #333;
 }
 
 .case-info {

@@ -348,15 +348,15 @@ onMounted(() => {
 
 <style scoped>
 .todo-list {
+  padding: 20px;
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
 }
 
 .todo-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
@@ -380,15 +380,15 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   padding: 12px;
+  margin-bottom: 8px;
   border: 1px solid #f0f0f0;
   border-radius: 6px;
-  margin-bottom: 8px;
   transition: all 0.2s;
 }
 
 .todo-item:hover {
   border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+  box-shadow: 0 2px 8px rgb(24 144 255 / 10%);
 }
 
 .todo-item.completed {
@@ -412,8 +412,8 @@ onMounted(() => {
 }
 
 .todo-checkbox {
-  margin-right: 12px;
   margin-top: 2px;
+  margin-right: 12px;
 }
 
 .todo-content {
@@ -422,35 +422,35 @@ onMounted(() => {
 }
 
 .todo-title {
-  font-weight: 500;
   margin-bottom: 4px;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .todo-description {
-  font-size: 13px;
-  color: #666;
+  display: -webkit-box;
   margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
+  font-size: 13px;
+  color: #666;
   -webkit-box-orient: vertical;
 }
 
 .todo-meta {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .todo-deadline {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   font-size: 12px;
   color: #999;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .todo-status {

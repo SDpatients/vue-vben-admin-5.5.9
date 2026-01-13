@@ -76,25 +76,12 @@ const routes: RouteRecordRaw[] = [
         name: 'BasicDataWorkTeamManagement',
         path: 'work-team-management',
         component: () =>
-          import('#/views/basic-data/work-team-management/index.vue'),
+          import('#/views/basic-data/work-team-management/WorkTeamManagement.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:users',
           title: $t('page.basicData.workTeamManagement'),
         },
-        children: [
-          {
-            name: 'BasicDataWorkTeamEdit',
-            path: 'edit/:sepId',
-            component: () =>
-              import('#/views/basic-data/work-team-management/WorkTeamEdit.vue'),
-            meta: {
-              affixTab: false,
-              icon: 'lucide:edit',
-              title: $t('page.basicData.workTeamEdit'),
-            },
-          },
-        ],
       },
 
       {

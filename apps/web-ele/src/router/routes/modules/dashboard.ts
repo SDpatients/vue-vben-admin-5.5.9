@@ -59,6 +59,15 @@ const routes: RouteRecordRaw[] = [
           title: '权限说明',
         },
       },
+      {
+        name: 'FileUploadTest',
+        path: '/file-upload-test',
+        component: () => import('#/views/test/file-upload-test.vue'),
+        meta: {
+          icon: 'lucide:upload-cloud',
+          title: '文件上传测试',
+        },
+      },
     ],
   },
 ];

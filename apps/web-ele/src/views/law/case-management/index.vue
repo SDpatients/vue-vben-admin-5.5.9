@@ -4,7 +4,7 @@ import type { CaseApi } from '#/api';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 import {
   ElButton,
@@ -14,6 +14,7 @@ import {
   ElDropdown,
   ElDropdownItem,
   ElDropdownMenu,
+  ElEmpty,
   ElMessage,
   ElPagination,
   ElPopover,
@@ -30,7 +31,12 @@ import { selectMyCasesApi, selectTeamCasesApi } from '#/api/core/work-team';
 import ReviewModal from './components/ReviewModal.vue';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
 const permissions = computed(() => accessStore.accessCodes || []);
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  return userId ? parseInt(userId, 10) : 0;
+});
 
 // 响应式数据
 const caseList = ref<CaseApi.CaseInfo[]>([]);
@@ -71,6 +77,11 @@ const availableColumns = [
   '立案日期',
   '文件上传',
   '备注',
+  '案件状态',
+  '审核状态',
+  '审核时间',
+  '审核意见',
+  '审核次数',
 ];
 
 // 默认显示的列（核心信息）
@@ -180,7 +191,13 @@ const fetchCaseList = async () => {
 
     if (activeTab.value === 'myCases') {
       // 获取我的案件
+      if (!currentUserId.value) {
+        ElMessage.error('未获取到用户信息，请重新登录');
+        loading.value = false;
+        return;
+      }
       response = await selectMyCasesApi(
+        currentUserId.value,
         pagination.value.page,
         pagination.value.pageSize,
       );
@@ -214,6 +231,23 @@ const fetchCaseList = async () => {
           'SEVENTH': '第七阶段',
         };
 
+        // 映射案件状态
+        const caseStatusMap: Record<string, string> = {
+          'PENDING': '待处理',
+          'IN_PROGRESS': '进行中',
+          'COMPLETED': '已完成',
+          'CLOSED': '已结案',
+          'TERMINATED': '已终结',
+          'ARCHIVED': '已归档',
+        };
+
+        // 映射审核状态
+        const reviewStatusMap: Record<string, string> = {
+          'PENDING': '待审核',
+          'APPROVED': '已通过',
+          'REJECTED': '已驳回',
+        };
+
         return {
           'id': item.id,
           '案号': item.caseNumber,
@@ -228,23 +262,30 @@ const fetchCaseList = async () => {
           '创建者': item.creatorName,
           '创建时间': item.createTime,
           '修改时间': item.updateTime,
-          '案件状态': item.caseStatus === 'IN_PROGRESS' ? '进行中' : item.caseStatus,
+          '案件状态': caseStatusMap[item.caseStatus] || item.caseStatus,
           '指定法官': item.designatedJudge,
           '承办人': item.undertakingPersonnel,
+          '审核状态': reviewStatusMap[item.reviewStatus] || item.reviewStatus,
+          '审核时间': item.reviewTime,
+          '审核意见': item.reviewOpinion,
+          '审核次数': item.reviewCount,
         };
       });
 
       caseList.value = mappedCases;
       pagination.value.itemCount = response.data.total || 0;
       pagination.value.pages = Math.ceil(pagination.value.itemCount / pagination.value.pageSize);
-      ElMessage.success('案件列表加载成功');
+      
+      if (mappedCases.length > 0) {
+        ElMessage.success(`成功加载 ${mappedCases.length} 条案件记录`);
+      }
     } else {
-      ElMessage.error(response.message || '获取案件列表失败，已使用模拟数据');
+      ElMessage.error(response.message || '获取案件列表失败');
       generateMockData();
     }
   } catch (error) {
     console.error('获取案件列表失败:', error);
-    ElMessage.error('后端API暂时不可用，请稍后再试');
+    ElMessage.error('获取案件列表失败，请检查网络连接');
     generateMockData();
   } finally {
     loading.value = false;
@@ -252,10 +293,17 @@ const fetchCaseList = async () => {
 };
 
 // 处理标签页切换
-const handleTabChange = (tabName: string) => {
+const handleTabChange = async (tabName: string) => {
   activeTab.value = tabName;
   pagination.value.page = 1;
-  fetchCaseList();
+  loading.value = true;
+  try {
+    await fetchCaseList();
+  } catch (error) {
+    console.error('切换标签页失败:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 // 处理分页变化
@@ -272,9 +320,15 @@ const handleSizeChange = (size: number) => {
 };
 
 // 刷新案件列表
-const handleRefresh = () => {
-  pagination.value.page = 1;
-  fetchCaseList();
+const handleRefresh = async () => {
+  try {
+    pagination.value.page = 1;
+    await fetchCaseList();
+    ElMessage.success('刷新成功');
+  } catch (error) {
+    console.error('刷新失败:', error);
+    ElMessage.error('刷新失败，请重试');
+  }
 };
 
 // 页面加载时获取数据
@@ -324,11 +378,56 @@ const getCaseProgressType = (progress: string) => {
   }
 };
 
+// 获取案件状态标签类型
+const getCaseStatusType = (status: string) => {
+  switch (status) {
+    case '待处理': {
+      return 'info';
+    }
+    case '进行中': {
+      return 'primary';
+    }
+    case '已完成': {
+      return 'success';
+    }
+    case '已结案': {
+      return 'success';
+    }
+    case '已终结': {
+      return 'warning';
+    }
+    case '已归档': {
+      return 'info';
+    }
+    default: {
+      return 'info';
+    }
+  }
+};
+
+// 获取审核状态标签类型
+const getReviewStatusType = (status: string) => {
+  switch (status) {
+    case '待审核': {
+      return 'warning';
+    }
+    case '已通过': {
+      return 'success';
+    }
+    case '已驳回': {
+      return 'danger';
+    }
+    default: {
+      return 'info';
+    }
+  }
+};
+
 // 查看案件详情
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
-  if (row.案件单据号) {
-    router.push(`/case-detail/${row.案件单据号}`);
+  if (row.id) {
+    router.push(`/case-detail/${row.id}`);
   } else {
     ElMessage.warning('案件ID不存在，无法查看详情');
   }
@@ -509,6 +608,9 @@ const canReview = (row: CaseApi.CaseInfo) => {
             size="small"
             :style="{ width: '100%' }"
           >
+            <template #empty>
+              <ElEmpty description="暂无案件数据" />
+            </template>
             <!-- 案号 -->
             <ElTableColumn
               v-if="isColumnVisible('案号')"
@@ -671,6 +773,74 @@ const canReview = (row: CaseApi.CaseInfo) => {
               prop="备注"
               label="备注"
               min-width="200"
+              show-overflow-tooltip
+            />
+
+            <!-- 案件状态 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案件状态')"
+              prop="案件状态"
+              label="案件状态"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag
+                  :type="getCaseStatusType(row['案件状态'])"
+                  size="small"
+                >
+                  {{ row['案件状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核状态 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核状态')"
+              prop="审核状态"
+              label="审核状态"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag
+                  :type="getReviewStatusType(row['审核状态'])"
+                  size="small"
+                >
+                  {{ row['审核状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核时间 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核时间')"
+              prop="审核时间"
+              label="审核时间"
+              min-width="180"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['审核时间']) }}
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核意见 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核意见')"
+              prop="审核意见"
+              label="审核意见"
+              min-width="200"
+              show-overflow-tooltip
+            />
+
+            <!-- 审核次数 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核次数')"
+              prop="审核次数"
+              label="审核次数"
+              min-width="100"
+              align="center"
               show-overflow-tooltip
             />
 
@@ -897,8 +1067,8 @@ const canReview = (row: CaseApi.CaseInfo) => {
 /* 操作按钮样式 */
 .action-buttons {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
 .action-buttons .el-button {

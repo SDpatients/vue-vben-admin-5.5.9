@@ -50,9 +50,10 @@ import { getUserByDeptIdApi } from '#/api/core/user';
 import {
   addTeamMemberApi,
   getWorkTeamDetailWithMembersApi,
-  getActiveTeamRolesApi,
+  getWorkTeamListApi,
   removeTeamMemberApi,
   updateMemberPermissionApi,
+  getMemberPermissionsApi,
 } from '#/api/core/work-team';
 
 import FileUploader from '../../../components/FileUploader.vue';
@@ -60,6 +61,7 @@ import RichTextEditor from '../../../components/RichTextEditor.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import ClaimRegistration from './components/ClaimRegistration.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
+import AssetManagement from './components/AssetManagement.vue';
 import StageFiveProcess from './components/StageFiveProcess.vue';
 import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
@@ -90,6 +92,7 @@ const archiveDrawerRef = ref<InstanceType<typeof ArchiveDrawer> | null>(null);
 
 // 工作团队相关
 const teamMembers = ref<any[]>([]);
+const teamDetails = ref<any>(null); // 存储团队详情信息
 const teamRoles = ref<any[]>([]);
 const availableUsers = ref<any[]>([]);
 const workTeamLoading = ref(false);
@@ -108,6 +111,9 @@ const loadingAdministrators = ref(false);
 const loadingUsers = ref(false);
 const selectedDeptId = ref<null | number>(null);
 const selectedUser = ref<any>(null);
+
+// 保存成员时的加载状态
+const savingMember = ref(false);
 
 const currentStage = ref(1);
 const stages = [
@@ -143,7 +149,7 @@ const activeTab = ref('caseInfo');
 watch(activeTab, async (newTab) => {
   if (newTab === 'workTeam') {
     await fetchTeamMembers();
-    await fetchTeamRoles();
+    fetchTeamRoles();
     await loadAdministrators();
   }
 });
@@ -195,6 +201,8 @@ const isPdf = ref(false);
 const isText = ref(false);
 const textContent = ref('');
 const previewLoading = ref(false);
+
+const showAssetManagementDialog = ref(false);
 
 // 预览附件
 const viewAttachment = async (attachment: any) => {
@@ -288,7 +296,17 @@ const fetchAnnouncements = async () => {
       status: statusFilter.value || undefined,
     });
     if (response.code === 200 && response.data) {
-      announcements.value = response.data.list || [];
+      // 将驼峰命名转换为下划线命名，以匹配表格组件的预期
+      const list = (response.data.list || []).map((item: any) => ({
+        ...item,
+        announcement_type: item.announcementType,
+        is_top: item.isTop ? 1 : 0,
+        top_expire_time: item.topExpireTime,
+        publisher_name: item.publisherName,
+        publish_time: item.publishTime,
+        view_count: item.viewCount,
+      }));
+      announcements.value = list;
       totalAnnouncements.value = response.data.total || 0;
     } else {
       ElMessage.error(`获取公告列表失败：${response.message || '未知错误'}`);
@@ -372,19 +390,15 @@ const saveAnnouncement = async () => {
 const publishAnnouncement = async (announcementId: string) => {
   try {
     const response = await publishAnnouncementApi(Number(announcementId));
-    if (response.code === 200) {
-      ElMessage.success('公告发布成功');
-      await fetchAnnouncements();
-    } else {
-      ElMessage.error(`发布公告失败：${response.message || '未知错误'}`);
-    }
+    ElMessage.success('公告发布成功');
+    await fetchAnnouncements();
   } catch (error) {
     console.error('发布公告失败:', error);
     ElMessage.error('发布公告失败');
   }
 };
 
-// 撤销公告
+// 撤销公告（将已发布改为草稿）
 const revokeAnnouncement = async (announcementId: string) => {
   currentRevokeAnnouncementId.value = announcementId;
   revokeReason.value = '';
@@ -397,21 +411,17 @@ const confirmRevokeAnnouncement = async () => {
   try {
     // 使用更新API将状态改为DRAFT
     const response = await updateAnnouncementApi(
-      currentRevokeAnnouncementId.value,
-      { status: 'DRAFT' as any },
+      Number(currentRevokeAnnouncementId.value),
+      { status: 'DRAFT' as any }
     );
-    if (response.code === 200) {
-      ElMessage.success('公告撤销成功');
-      await fetchAnnouncements();
-      showRevokeDialog.value = false;
-      revokeReason.value = '';
-      currentRevokeAnnouncementId.value = null;
-    } else {
-      ElMessage.error(`公告撤销失败：${response.message || '未知错误'}`);
-    }
+    ElMessage.success('公告已撤回为草稿');
+    await fetchAnnouncements();
+    showRevokeDialog.value = false;
+    revokeReason.value = '';
+    currentRevokeAnnouncementId.value = null;
   } catch (error) {
-    console.error('撤销公告失败:', error);
-    ElMessage.error('撤销公告失败');
+    console.error('撤回公告失败:', error);
+    ElMessage.error('撤回公告失败');
   }
 };
 
@@ -419,12 +429,8 @@ const confirmRevokeAnnouncement = async () => {
 const deleteAnnouncement = async (announcementId: string) => {
   try {
     const response = await deleteAnnouncementApi(Number(announcementId));
-    if (response.code === 200) {
-      ElMessage.success('公告删除成功');
-      await fetchAnnouncements();
-    } else {
-      ElMessage.error(`公告删除失败：${response.message || '未知错误'}`);
-    }
+    ElMessage.success('公告删除成功');
+    await fetchAnnouncements();
   } catch (error) {
     console.error('删除公告失败:', error);
     ElMessage.error('删除公告失败');
@@ -505,26 +511,33 @@ const viewAnnouncementDetail = async (announcement: any) => {
     });
 
     const response = await getAnnouncementDetailApi(Number(announcementId));
-    if (response.code === 200 && response.data) {
-      let detail = response.data;
+    let detail = response;
 
-      // 确保attachments字段是数组
-      if (!detail.attachments) {
+    // 将驼峰命名转换为下划线命名
+    detail = {
+      ...detail,
+      announcement_type: detail.announcementType,
+      is_top: detail.isTop ? 1 : 0,
+      top_expire_time: detail.topExpireTime,
+      publisher_name: detail.publisherName,
+      publish_time: detail.publishTime,
+      view_count: detail.viewCount,
+    };
+
+    // 确保attachments字段是数组
+    if (!detail.attachments) {
+      detail.attachments = [];
+    } else if (typeof detail.attachments === 'string') {
+      try {
+        detail.attachments = JSON.parse(detail.attachments);
+      } catch (error) {
+        console.error('解析attachments失败:', error);
         detail.attachments = [];
-      } else if (typeof detail.attachments === 'string') {
-        try {
-          detail.attachments = JSON.parse(detail.attachments);
-        } catch (error) {
-          console.error('解析attachments失败:', error);
-          detail.attachments = [];
-        }
       }
-
-      currentAnnouncementDetail.value = detail;
-      ElMessage.success('公告详情加载成功');
-    } else {
-      ElMessage.error(`获取公告详情失败：${response.message || '未知错误'}`);
     }
+
+    currentAnnouncementDetail.value = detail;
+    ElMessage.success('公告详情加载成功');
   } catch (error) {
     console.error('获取公告详情失败:', error);
     ElMessage.error('获取公告详情失败');
@@ -553,7 +566,7 @@ const resetAnnouncement = () => {
   // 重置表单数据
   announcementData.title = '';
   announcementData.content = '';
-  announcementData.announcement_type = 'NORMAL';
+  announcementData.announcement_type = 'ANNOUNCEMENT';
   announcementData.status = 'PUBLISHED';
   announcementData.is_top = false;
   announcementData.top_expire_time = '';
@@ -587,11 +600,7 @@ const handleAttachmentRemove = async (file: any, fileList: any[]) => {
   if (file.file_id && file.file_id !== undefined) {
     try {
       const response = await deleteFileApi(Number(file.file_id));
-      if (response.status === '1') {
-        ElMessage.success('文件删除成功');
-      } else {
-        ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
-      }
+      ElMessage.success('文件删除成功');
     } catch (error) {
       console.error('删除文件失败:', error);
       ElMessage.error('文件删除失败');
@@ -652,30 +661,25 @@ const viewAnnouncementViews = async (announcement: any) => {
 
     console.log('getAnnouncementViewsApi 响应:', response);
 
-    if (response.status === '1') {
-      // 处理浏览记录数据，将驼峰命名转换为下划线命名，以匹配表格组件的预期
-      let records = response.data.records || [];
+    // 处理浏览记录数据，将驼峰命名转换为下划线命名，以匹配表格组件的预期
+    let records = response || [];
 
-      records = records.map((record: any) => {
-        // 将驼峰命名转换为下划线命名
-        return {
-          id: record.id,
-          viewer_name: record.viewerName || record.viewer_name || '',
-          view_time: record.viewTime || record.view_time || '',
-          ip_address: record.ipAddress || record.ip_address || '',
-          // 保留原始字段，确保数据完整性
-          ...record,
-        };
-      });
+    records = records.map((record: any) => {
+      // 将驼峰命名转换为下划线命名
+      return {
+        id: record.id,
+        viewer_name: record.viewerName || record.viewer_name || '',
+        view_time: record.viewTime || record.view_time || '',
+        ip_address: record.ipAddress || record.ip_address || '',
+        // 保留原始字段，确保数据完整性
+        ...record,
+      };
+    });
 
-      viewsList.value = records;
-      viewsTotal.value = response.data.count || 0;
-      console.log('处理后的浏览记录数据:', records);
-    } else {
-      ElMessage.error(`获取浏览记录失败：${response.error || '未知错误'}`);
-      viewsList.value = [];
-      viewsTotal.value = 0;
-    }
+    viewsList.value = records;
+    // API文档没有返回总数，这里使用列表长度
+    viewsTotal.value = records.length;
+    console.log('处理后的浏览记录数据:', records);
   } catch (error) {
     console.error('获取浏览记录失败:', error);
     ElMessage.error('获取浏览记录失败');
@@ -777,15 +781,10 @@ const saveEditing = async () => {
       debtClaimDeadline: formatDateForApi(editedData.债权申报截止时间) || caseDetail.value?.debtClaimDeadline,
     };
 
-    const response = await updateCaseApi(parseInt(caseId.value, 10), updateData);
-
-    if (response.code === 200) {
-      Object.assign(caseDetail.value, editedData);
-      isEditing.value = false;
-      ElMessage.success('案件信息已保存');
-    } else {
-      ElMessage.error(`保存失败：${response.message || '未知错误'}`);
-    }
+    await updateCaseApi(parseInt(caseId.value, 10), updateData);
+    Object.assign(caseDetail.value, editedData);
+    isEditing.value = false;
+    ElMessage.success('案件信息已保存');
   } catch (error) {
     console.error('保存案件信息失败:', error);
     ElMessage.error('保存案件信息失败');
@@ -826,7 +825,39 @@ onMounted(async () => {
       const caseData = responseData.data;
 
       if (caseData) {
-        caseDetail.value = caseData;
+        // 映射API返回的英文字段为中文显示
+        caseDetail.value = {
+          案件ID: caseData.id || caseId.value,
+          案号: caseData.caseNumber,
+          案件名称: caseData.caseName,
+          受理日期: caseData.acceptanceDate,
+          案件来源: caseData.caseSource,
+          受理法院: caseData.acceptanceCourt,
+          管理人负责人: caseData.mainResponsiblePerson,
+          承办法官: caseData.designatedJudge,
+          案由: caseData.caseReason,
+          债权申报截止时间: caseData.debtClaimDeadline,
+          是否简化审: caseData.isSimplifiedTrial ? '是' : '否',
+          案件进度: mapCaseProgress(caseData.caseProgress),
+          立案日期: caseData.filingDate,
+          破产时间: caseData.bankruptcyDate,
+          终结时间: caseData.terminationDate,
+          注销时间: caseData.cancellationDate,
+          归档时间: caseData.archivingDate,
+          结案日期: caseData.closingDate,
+          指定机构: caseData.designatedInstitution,
+          承办人: caseData.undertakingPersonnel,
+          创建者: caseData.creatorName,
+          审核状态: mapReviewStatus(caseData.reviewStatus),
+          审核时间: caseData.reviewTime,
+          审核意见: caseData.reviewOpinion,
+          审核次数: caseData.reviewCount,
+          案件状态: mapCaseStatus(caseData.caseStatus),
+          创建时间: caseData.createTime,
+          修改时间: caseData.updateTime,
+          备注: caseData.remarks,
+          文件上传路径: caseData.fileUploadPath,
+        };
         ElMessage.success('案件详情加载成功');
       } else {
         throw new Error('API返回的数据结构异常');
@@ -849,25 +880,23 @@ onMounted(async () => {
         债权申报截止时间: '2023-03-15',
         是否简化审: '否',
         案件进度: '审理中',
-        // 新增债务人信息
-        债务人: '某某公司',
-        法定代表人: '王某某',
-        注册地址: '某某市某某区某某路123号',
-        注册资本: '1000万',
-        // 新增债权人信息
-        债权人名称: '某某银行股份有限公司',
-        债权人类型: '金融机构',
-        // 新增法院相关信息
-        会议庭成员: '张法官、李法官、王法官',
-        受理庭室: '破产审判庭',
-        // 新增案件状态信息
         立案日期: '2023-01-10',
         破产时间: '2023-01-20',
         归档时间: '',
         注销时间: '',
-        // 新增管理人信息
-        管理人类型: '律师事务所',
-        管理人联系方式: '13800138000',
+        结案日期: '',
+        指定机构: '某律师事务所',
+        承办人: '李四',
+        创建者: '管理员',
+        审核状态: '待审核',
+        审核时间: '',
+        审核意见: '',
+        审核次数: 0,
+        案件状态: '进行中',
+        创建时间: '2023-01-10 10:00:00',
+        修改时间: '2023-01-10 10:00:00',
+        备注: '备注信息',
+        文件上传路径: '/files/case/123',
       };
     }
   } catch (error) {
@@ -888,25 +917,23 @@ onMounted(async () => {
       债权申报截止时间: '2023-03-15',
       是否简化审: '否',
       案件进度: '审理中',
-      // 新增债务人信息
-      债务人: '某某公司',
-      法定代表人: '王某某',
-      注册地址: '某某市某某区某某路123号',
-      注册资本: '1000万',
-      // 新增债权人信息
-      债权人名称: '某某银行股份有限公司',
-      债权人类型: '金融机构',
-      // 新增法院相关信息
-      会议庭成员: '张法官、李法官、王法官',
-      受理庭室: '破产审判庭',
-      // 新增案件状态信息
       立案日期: '2023-01-10',
       破产时间: '2023-01-20',
       归档时间: '',
       注销时间: '',
-      // 新增管理人信息
-      管理人类型: '律师事务所',
-      管理人联系方式: '13800138000',
+      结案日期: '',
+      指定机构: '某律师事务所',
+      承办人: '李四',
+      创建者: '管理员',
+      审核状态: '待审核',
+      审核时间: '',
+      审核意见: '',
+      审核次数: 0,
+      案件状态: '进行中',
+      创建时间: '2023-01-10 10:00:00',
+      修改时间: '2023-01-10 10:00:00',
+      备注: '备注信息',
+      文件上传路径: '/files/case/123',
     };
   } finally {
     loading.value = false;
@@ -915,6 +942,43 @@ onMounted(async () => {
   // 检查权限
   await checkPermissions();
 });
+
+// 映射案件进度
+const mapCaseProgress = (progress: string): string => {
+  const progressMap: Record<string, string> = {
+    'FIRST': '第一阶段',
+    'SECOND': '第二阶段',
+    'THIRD': '第三阶段',
+    'FOURTH': '第四阶段',
+    'FIFTH': '第五阶段',
+    'SIXTH': '第六阶段',
+    'SEVENTH': '第七阶段',
+  };
+  return progressMap[progress] || progress;
+};
+
+// 映射审核状态
+const mapReviewStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'PENDING': '待审核',
+    'APPROVED': '已通过',
+    'REJECTED': '已驳回',
+  };
+  return statusMap[status] || status;
+};
+
+// 映射案件状态
+const mapCaseStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'PENDING': '待处理',
+    'IN_PROGRESS': '进行中',
+    'COMPLETED': '已完成',
+    'CLOSED': '已结案',
+    'TERMINATED': '已终结',
+    'ARCHIVED': '已归档',
+  };
+  return statusMap[status] || status;
+};
 
 // 获取管理员机构列表
 const loadAdministrators = async () => {
@@ -956,14 +1020,14 @@ const loadUsersByDeptId = async (deptId: number) => {
   loadingUsers.value = true;
   try {
     const response = await getUserByDeptIdApi(deptId);
-    if (response.data) {
-      availableUsers.value = response.data
-        .filter((user) => user && user.u_pid != null)
+    if (response.data && Array.isArray(response.data.data)) {
+      availableUsers.value = response.data.data
+        .filter((user) => user && user.userId != null)
         .map((user) => ({
           ...user,
-          uPid: user.u_pid, // 转换 snake_case 到 camelCase
-          uUser: user.u_user, // 转换 snake_case 到 camelCase
-          uName: user.u_name, // 转换 snake_case 到 camelCase
+          uPid: user.userId, // 映射 userId 到 uPid
+          uName: user.name, // 映射 name 到 uName
+          uUser: user.name, // 映射 name 到 uUser
         }));
     }
   } catch (error) {
@@ -1004,18 +1068,67 @@ const fetchTeamMembers = async () => {
   console.log('开始获取工作团队成员列表');
   workTeamLoading.value = true;
   try {
-    const response = await getWorkTeamDetailWithMembersApi(Number(caseId.value));
-    console.log('getWorkTeamDetailWithMembersApi响应:', response);
-    if (response.code === 200 && response.data) {
-      teamMembers.value = response.data.members || [];
+    // 首先根据caseId获取该案件下的工作团队列表
+    const teamListResponse = await getWorkTeamListApi({
+      caseId: Number(caseId.value),
+      pageNum: 1,
+      pageSize: 10
+    });
+    console.log('getWorkTeamListApi响应:', teamListResponse);
+    
+    // 处理不同的响应数据结构
+    let workTeams = [];
+    if (teamListResponse.data && Array.isArray(teamListResponse.data.list)) {
+      // 包含data层的响应结构
+      workTeams = teamListResponse.data.list;
+      console.log('从data.list获取到工作团队:', workTeams);
+    } else if (Array.isArray(teamListResponse.list)) {
+      // 直接返回list的响应结构
+      workTeams = teamListResponse.list;
+      console.log('从list获取到工作团队:', workTeams);
+    } else if (Array.isArray(teamListResponse)) {
+      // 直接返回数组的响应结构
+      workTeams = teamListResponse;
+      console.log('直接获取到工作团队数组:', workTeams);
+    }
+    
+    if (workTeams.length > 0) {
+      // 获取第一个工作团队的teamId
+      const firstTeam = workTeams[0];
+      const teamId = firstTeam.id;
+      console.log('获取到的teamId:', teamId);
+      
+      // 使用teamId获取工作团队详情和成员列表
+      const response = await getWorkTeamDetailWithMembersApi(teamId);
+      console.log('getWorkTeamDetailWithMembersApi响应:', response);
+      
+      // 处理团队详情和成员列表的不同响应结构
+      let teamInfo = null;
+      let members = [];
+      
+      if (response.data) {
+        // 包含data层的响应结构
+        teamInfo = response.data;
+        members = response.data.members || [];
+      } else {
+        // 直接返回团队详情的响应结构
+        teamInfo = response;
+        members = response.members || [];
+      }
+      
+      teamDetails.value = teamInfo;
+      teamMembers.value = members;
+      console.log('工作团队详情:', teamDetails.value);
       console.log('工作团队成员列表:', teamMembers.value);
     } else {
+      // 该案件下没有工作团队
+      console.log('该案件下没有工作团队');
       teamMembers.value = [];
-      console.log('没有工作团队成员数据');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取工作团队成员列表失败:', error);
-    ElMessage.error('获取工作团队成员列表失败');
+    const errorMessage = error?.response?.data?.message || error?.message || '获取工作团队成员列表失败';
+    ElMessage.error(errorMessage);
     teamMembers.value = [];
   } finally {
     workTeamLoading.value = false;
@@ -1023,23 +1136,14 @@ const fetchTeamMembers = async () => {
   }
 };
 
-// 获取团队角色列表
-const fetchTeamRoles = async () => {
-  try {
-    const response = await getActiveTeamRolesApi();
-    console.log('getActiveTeamRolesApi响应:', response);
-    if (response.code === 200) {
-      teamRoles.value = (response.data || []).filter(
-        (role) => role && role.roleCode != null,
-      );
-      console.log('团队角色列表:', teamRoles.value);
-    } else {
-      teamRoles.value = [];
-    }
-  } catch (error) {
-    console.error('获取团队角色列表失败:', error);
-    teamRoles.value = [];
-  }
+// 静态团队角色列表
+const fetchTeamRoles = () => {
+  // 使用静态角色列表替代后端接口调用
+  teamRoles.value = [
+    { roleCode: 'LEADER', roleName: '团队负责人' },
+    { roleCode: 'MEMBER', roleName: '团队成员' },
+    { roleCode: 'VIEWER', roleName: '查看者' },
+  ];
 };
 
 // 获取可用用户列表
@@ -1094,9 +1198,11 @@ const handleSaveMember = async () => {
       !memberForm.value.teamRole ||
       !memberForm.value.permissionLevel
     ) {
-      ElMessage.error('请填写完整信息');
+      ElMessage.warning('请填写完整信息');
       return;
     }
+
+    savingMember.value = true;
 
     const data = {
       caseId: Number(caseId.value),
@@ -1117,9 +1223,12 @@ const handleSaveMember = async () => {
 
     memberDialogVisible.value = false;
     await fetchTeamMembers();
-  } catch (error) {
+  } catch (error: any) {
     console.error('保存团队成员失败:', error);
-    ElMessage.error('保存团队成员失败');
+    const errorMessage = error?.response?.data?.message || error?.message || '保存团队成员失败';
+    ElMessage.error(errorMessage);
+  } finally {
+    savingMember.value = false;
   }
 };
 
@@ -1129,9 +1238,10 @@ const handleRemoveMember = async (row: any) => {
     await removeTeamMemberApi(row.id);
     ElMessage.success('移除团队成员成功');
     await fetchTeamMembers();
-  } catch (error) {
+  } catch (error: any) {
     console.error('移除团队成员失败:', error);
-    ElMessage.error('移除团队成员失败');
+    const errorMessage = error?.response?.data?.message || error?.message || '移除团队成员失败';
+    ElMessage.error(errorMessage);
   }
 };
 
@@ -1140,7 +1250,7 @@ const getPermissionTagType = (level: string) => {
   const types: Record<string, any> = {
     VIEW: 'info',
     EDIT: 'warning',
-    FULL: 'danger',
+    ADMIN: 'danger',
   };
   return types[level] || 'info';
 };
@@ -1155,46 +1265,66 @@ const getPermissionLabel = (level: string) => {
   return labels[level] || level;
 };
 
+// 格式化日期时间
+const formatDateTime = (dateTime: string | null | undefined) => {
+  if (!dateTime) return '-';
+  try {
+    const date = new Date(dateTime);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    console.error('日期格式化失败:', error);
+    return dateTime;
+  }
+};
+
+// 权限详情对话框相关
+const permissionDialogVisible = ref(false);
+const currentMemberPermissions = ref<any[]>([]);
+const currentMemberName = ref('');
+
+// 查看成员权限详情
+const handleViewPermissions = async (row: any) => {
+  try {
+    currentMemberName.value = row.userRealName || row.userName || '未知用户';
+    permissionDialogVisible.value = true;
+    
+    if (row.permissions && row.permissions.length > 0) {
+      currentMemberPermissions.value = row.permissions;
+    } else if (row.id) {
+      const response = await getMemberPermissionsApi(row.id);
+      currentMemberPermissions.value = response || [];
+    } else {
+      currentMemberPermissions.value = [];
+    }
+  } catch (error) {
+    console.error('获取成员权限失败:', error);
+    ElMessage.error('获取成员权限失败');
+    currentMemberPermissions.value = [];
+  }
+};
+
 // 检查权限
 const checkPermissions = async () => {
   try {
-    // 检查编辑权限
-    const editResponse = await canAccessCaseApi(Number(caseId.value), 'EDIT');
-    canEdit.value =
-      (editResponse.code === 200 || editResponse.status === '1') &&
-      editResponse.data;
-
-    // 检查删除权限
-    const deleteResponse = await canAccessCaseApi(
-      Number(caseId.value),
-      'DELETE',
-    );
-    canDelete.value =
-      (deleteResponse.code === 200 || deleteResponse.status === '1') &&
-      deleteResponse.data;
-
-    // 获取我的团队成员信息
-    const memberResponse = await getMyTeamMemberInfoApi(Number(caseId.value));
-    console.log('getMyTeamMemberInfoApi响应:', memberResponse);
-    if (
-      (memberResponse.code === 200 || memberResponse.status === '1') &&
-      memberResponse.data
-    ) {
-      teamMemberInfo.value = memberResponse.data;
-      // 判断是否是创建者（通过权限级别判断）
-      isCreator.value = memberResponse.data.permissionLevel === 'FULL';
-      console.log('isCreator设置为:', isCreator.value);
-    } else {
-      // 如果获取团队成员信息失败，默认将当前用户视为创建者
-      // 这是为了测试目的，实际环境中应该有更严格的权限控制
-      isCreator.value = true;
-      console.log('isCreator默认设置为:', isCreator.value);
-    }
+    // TODO: 根据API文档，暂时没有权限检查的API
+    // 这里先设置为默认值，等待后端提供权限检查接口
+    canEdit.value = true;
+    canDelete.value = true;
+    isCreator.value = true;
+    console.log('权限检查完成（使用默认值）');
   } catch (error) {
     console.error('检查权限失败:', error);
     // 如果发生异常，默认将当前用户视为创建者
+    canEdit.value = true;
+    canDelete.value = true;
     isCreator.value = true;
-    console.log('检查权限异常，isCreator默认设置为:', isCreator.value);
+    console.log('检查权限异常，使用默认权限设置');
   }
 };
 </script>
@@ -1209,6 +1339,10 @@ const checkPermissions = async () => {
       </ElButton>
       <h1 class="page-title">案件详情</h1>
       <div class="header-actions">
+        <ElButton type="primary" @click="showAssetManagementDialog = true">
+          <Icon icon="lucide:landmark" class="mr-2" />
+          资金管理
+        </ElButton>
         <ElButton type="primary" @click="openArchiveDrawer">
           <Icon icon="lucide:archive" class="mr-2" />
           案件卷宗归档
@@ -1229,6 +1363,9 @@ const checkPermissions = async () => {
         <ElRadioButton value="caseInfo" class="tab-button">
           案件基本信息
         </ElRadioButton>
+        <ElRadioButton value="workTeam" class="tab-button">
+          工作团队
+        </ElRadioButton>
         <ElRadioButton value="process" class="tab-button">
           流程处理
         </ElRadioButton>
@@ -1240,10 +1377,6 @@ const checkPermissions = async () => {
         </ElRadioButton>
         <ElRadioButton value="announcement" class="tab-button">
           公告管理
-        </ElRadioButton>
-
-        <ElRadioButton value="workTeam" class="tab-button">
-          工作团队
         </ElRadioButton>
       </ElRadioGroup>
     </div>
@@ -2028,20 +2161,20 @@ const checkPermissions = async () => {
               <template #default="scope">
                 <ElTag
                   :type="
-                    scope.row.announcement_type === 'URGENT'
+                    scope.row.announcement_type === 'WARNING'
                       ? 'danger'
-                      : scope.row.announcement_type === 'IMPORTANT'
+                      : scope.row.announcement_type === 'NOTICE'
                         ? 'warning'
                         : 'info'
                   "
                   size="small"
                 >
                   {{
-                    scope.row.announcement_type === 'URGENT'
-                      ? '紧急'
-                      : scope.row.announcement_type === 'IMPORTANT'
-                        ? '重要'
-                        : '普通'
+                    scope.row.announcement_type === 'ANNOUNCEMENT'
+                      ? '公告'
+                      : scope.row.announcement_type === 'NOTICE'
+                        ? '通知'
+                        : '警告'
                   }}
                 </ElTag>
               </template>
@@ -2082,18 +2215,14 @@ const checkPermissions = async () => {
                   :type="
                     scope.row.status === 'PUBLISHED'
                       ? 'success'
-                      : scope.row.status === 'RETRACTED'
-                        ? 'info'
-                        : 'warning'
+                      : 'warning'
                   "
                   class="status-tag"
                 >
                   {{
                     scope.row.status === 'PUBLISHED'
                       ? '已发布'
-                      : scope.row.status === 'RETRACTED'
-                        ? '已撤回'
-                        : '草稿'
+                      : '草稿'
                   }}
                 </ElTag>
               </template>
@@ -2165,35 +2294,59 @@ const checkPermissions = async () => {
     <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
       <div
         style="
+          overflow: hidden;
           background: white;
           border-radius: 8px;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
+          box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
         "
       >
         <!-- 标题和操作按钮 -->
         <div
           style="
             padding: 20px;
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-bottom: 1px solid #e9ecef;
           "
         >
           <div
             style="
               display: flex;
-              justify-content: space-between;
               align-items: center;
+              justify-content: space-between;
             "
           >
-            <h2 style="color: #333; margin: 0; font-size: 18px">
-              工作团队成员管理
-            </h2>
+            <div style="display: flex; gap: 12px; align-items: center">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 48px;
+                  height: 48px;
+                  background: rgb(255 255 255 / 20%);
+                  border-radius: 50%;
+                "
+              >
+                <Icon icon="lucide:users" style=" font-size: 24px;color: white" />
+              </div>
+              <div>
+                <h2 style=" margin: 0; font-size: 20px; font-weight: 600;color: white">
+                  {{ teamDetails?.teamName || '工作团队成员管理' }}
+                </h2>
+                <p style=" margin: 4px 0 0; font-size: 14px;color: rgb(255 255 255 / 80%)">
+                  {{ teamDetails?.teamDescription || '' }}
+                </p>
+                <p style=" margin: 2px 0 0; font-size: 14px;color: rgb(255 255 255 / 80%)">
+                  共 {{ teamMembers.length }} 位成员
+                </p>
+              </div>
+            </div>
             <div style="display: flex; gap: 10px">
               <ElButton
                 type="primary"
                 @click="handleAddMember"
                 v-if="isCreator"
+                style=" color: #667eea;background: white; border: none"
               >
                 <Icon icon="lucide:plus" class="mr-1" />
                 添加成员
@@ -2202,31 +2355,49 @@ const checkPermissions = async () => {
           </div>
         </div>
 
-        <div v-if="workTeamLoading" class="loading-container">
-          <ElSkeleton :rows="5" animated />
+        <div v-if="workTeamLoading" class="loading-container" style="padding: 40px">
+          <ElSkeleton :rows="8" animated />
         </div>
 
-        <div v-else class="case-info-content">
-          <ElCard class="category-card mb-4" shadow="hover">
+        <div v-else class="case-info-content" style="padding: 20px">
+          <ElCard class="category-card mb-4" shadow="hover" style="border: none">
             <template #header>
-              <div class="category-header">
-                <Icon icon="lucide:users" class="mr-2 text-blue-500" />
+              <div class="category-header" style="display: flex; gap: 8px; align-items: center">
+                <Icon icon="lucide:users" class="text-blue-500" />
                 <span class="text-md font-semibold">团队成员列表</span>
               </div>
             </template>
             <div class="category-content">
-              <ElTable :data="teamMembers" style="width: 100%">
-                <ElTableColumn prop="userName" label="成员姓名" width="150" />
-                <ElTableColumn prop="userCode" label="用户编码" width="150" />
+              <ElTable 
+                :data="teamMembers" 
+                style="width: 100%"
+                :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: '600' }"
+                :row-style="{ height: '56px' }"
+                stripe
+              >
+                <ElTableColumn prop="userRealName" label="真实姓名" width="120">
+                  <template #default="{ row }">
+                    {{ row.userRealName || row.userName || '-' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="userName" label="用户名" width="120">
+                  <template #default="{ row }">
+                    {{ row.userName || '-' }}
+                  </template>
+                </ElTableColumn>
                 <ElTableColumn
-                  prop="teamRoleName"
+                  prop="teamRole"
                   label="团队角色"
-                  width="150"
-                />
+                  width="120"
+                >
+                  <template #default="{ row }">
+                    {{ row.teamRole || '-' }}
+                  </template>
+                </ElTableColumn>
                 <ElTableColumn
                   prop="permissionLevel"
                   label="权限级别"
-                  width="120"
+                  width="100"
                 >
                   <template #default="{ row }">
                     <ElTag :type="getPermissionTagType(row.permissionLevel)">
@@ -2234,16 +2405,35 @@ const checkPermissions = async () => {
                     </ElTag>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="isActive" label="状态" width="100">
+                <ElTableColumn prop="isActive" label="状态" width="80">
                   <template #default="{ row }">
                     <ElTag :type="row.isActive ? 'success' : 'danger'">
                       {{ row.isActive ? '激活' : '禁用' }}
                     </ElTag>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn label="操作" width="200" v-if="isCreator">
+                <ElTableColumn prop="createTime" label="加入时间" width="160">
                   <template #default="{ row }">
-                    <ElButton size="small" @click="handleEditMember(row)">
+                    {{ formatDateTime(row.createTime) }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn label="操作" width="200" fixed="right" v-if="isCreator">
+                  <template #default="{ row }">
+                    <ElButton 
+                      size="small" 
+                      @click="handleViewPermissions(row)"
+                      type="info"
+                      plain
+                    >
+                      <Icon icon="lucide:shield" class="mr-1" />
+                      权限
+                    </ElButton>
+                    <ElButton 
+                      size="small" 
+                      @click="handleEditMember(row)"
+                      type="primary"
+                      plain
+                    >
                       <Icon icon="lucide:pencil" class="mr-1" />
                       编辑
                     </ElButton>
@@ -2254,6 +2444,7 @@ const checkPermissions = async () => {
                       <ElButton
                         size="small"
                         type="danger"
+                        plain
                         style="margin-left: 8px"
                       >
                         <Icon icon="lucide:trash-2" class="mr-1" />
@@ -2267,9 +2458,29 @@ const checkPermissions = async () => {
               <div
                 v-if="teamMembers.length === 0"
                 class="empty-state"
-                style="padding: 40px; text-align: center"
+                style="padding: 60px 20px; text-align: center"
               >
-                <ElEmpty description="暂无团队成员" />
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 120px;
+                    height: 120px;
+                    margin: 0 auto 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 50%;
+                  "
+                >
+                  <Icon icon="lucide:users" style=" font-size: 48px;color: white" />
+                </div>
+                <ElEmpty description="暂无团队成员" :image-size="0">
+                  <template #description>
+                    <p style=" margin-top: 16px; font-size: 14px;color: #909399">
+                      暂无团队成员，点击上方"添加成员"按钮开始添加
+                    </p>
+                  </template>
+                </ElEmpty>
               </div>
             </div>
           </ElCard>
@@ -2282,73 +2493,125 @@ const checkPermissions = async () => {
         :title="memberDialogTitle"
         width="600px"
         destroy-on-close
+        :close-on-click-modal="false"
       >
-        <ElForm :model="memberForm" label-width="100px">
-          <ElFormItem label="管理员机构" required>
-            <ElSelect
-              v-model="selectedDeptId"
-              placeholder="请选择管理员机构"
-              style="width: 100%"
-              filterable
-              :loading="loadingAdministrators"
-            >
-              <ElOption
-                v-for="admin in administrators"
-                :key="admin.sepId"
-                :label="admin.lsswsid"
-                :value="admin.sepId"
-              />
-            </ElSelect>
-          </ElFormItem>
+        <div style="padding: 20px 0">
+          <ElForm :model="memberForm" label-width="100px">
+            <ElFormItem label="管理员机构" required>
+              <ElSelect
+                v-model="selectedDeptId"
+                placeholder="请选择管理员机构"
+                style="width: 100%"
+                filterable
+                :loading="loadingAdministrators"
+                clearable
+              >
+                <ElOption
+                  v-for="admin in administrators"
+                  :key="admin.sepId"
+                  :label="admin.lsswsid"
+                  :value="admin.sepId"
+                />
+              </ElSelect>
+            </ElFormItem>
 
-          <ElFormItem label="成员" required>
-            <ElSelect
-              v-model="selectedUser"
-              placeholder="请选择成员"
-              style="width: 100%"
-              filterable
-              :loading="loadingUsers"
-              :disabled="!selectedDeptId"
-              value-key="uPid"
-            >
-              <ElOption
-                v-for="user in availableUsers"
-                :key="user.uPid"
-                :label="user.uName"
-                :value="user"
-              />
-            </ElSelect>
-          </ElFormItem>
+            <ElFormItem label="成员" required>
+              <ElSelect
+                v-model="selectedUser"
+                placeholder="请选择成员"
+                style="width: 100%"
+                filterable
+                :loading="loadingUsers"
+                :disabled="!selectedDeptId"
+                value-key="uPid"
+                clearable
+              >
+                <ElOption
+                  v-for="user in availableUsers"
+                  :key="user.uPid"
+                  :label="user.uName"
+                  :value="user"
+                />
+              </ElSelect>
+            </ElFormItem>
 
-          <ElFormItem label="团队角色" required>
-            <ElSelect
-              v-model="memberForm.teamRole"
-              placeholder="选择角色"
-              style="width: 100%"
-            >
-              <ElOption
-                v-for="role in teamRoles"
-                :key="role.roleCode"
-                :label="role.roleName"
-                :value="role.roleCode"
-              />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem label="权限级别" required>
-            <ElSelect
-              v-model="memberForm.permissionLevel"
-              placeholder="选择权限"
-              style="width: 100%"
-            >
-              <ElOption label="查看" value="VIEW" />
-              <ElOption label="编辑" value="EDIT" />
-              <ElOption label="完全控制" value="FULL" />
-            </ElSelect>
-          </ElFormItem>
-        </ElForm>
+            <ElFormItem label="团队角色" required>
+              <ElSelect
+                v-model="memberForm.teamRole"
+                placeholder="选择角色"
+                style="width: 100%"
+                clearable
+              >
+                <ElOption
+                  v-for="role in teamRoles"
+                  :key="role.roleCode"
+                  :label="role.roleName"
+                  :value="role.roleCode"
+                />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem label="权限级别" required>
+              <ElSelect
+                v-model="memberForm.permissionLevel"
+                placeholder="选择权限"
+                style="width: 100%"
+                clearable
+              >
+                <ElOption label="查看" value="VIEW" />
+                <ElOption label="编辑" value="EDIT" />
+                <ElOption label="管理" value="ADMIN" />
+              </ElSelect>
+            </ElFormItem>
+          </ElForm>
+        </div>
         <template #footer>
-          <ElButton @click="memberDialogVisible = false">取消</ElButton>
-          <ElButton type="primary" @click="handleSaveMember">确定</ElButton>
+          <div style="display: flex; gap: 12px; justify-content: flex-end">
+            <ElButton @click="memberDialogVisible = false" size="large">取消</ElButton>
+            <ElButton type="primary" @click="handleSaveMember" :loading="savingMember" size="large">
+              <Icon v-if="!savingMember" icon="lucide:check" class="mr-1" />
+              确定
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
+      <!-- 权限详情对话框 -->
+      <ElDialog
+        v-model="permissionDialogVisible"
+        :title="`${currentMemberName} 的权限详情`"
+        width="800px"
+        destroy-on-close
+      >
+        <div v-if="currentMemberPermissions.length > 0">
+          <ElTable :data="currentMemberPermissions" style="width: 100%">
+            <ElTableColumn prop="moduleType" label="模块类型" width="200" />
+            <ElTableColumn prop="permissionType" label="权限类型" width="150" />
+            <ElTableColumn prop="isAllowed" label="是否允许" width="100">
+              <template #default="{ row }">
+                <ElTag :type="row.isAllowed ? 'success' : 'danger'">
+                  {{ row.isAllowed ? '允许' : '禁止' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <ElTag :type="row.status === 'ACTIVE' ? 'success' : 'danger'">
+                  {{ row.status === 'ACTIVE' ? '激活' : '禁用' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="createTime" label="创建时间" width="180">
+              <template #default="{ row }">
+                {{ formatDateTime(row.createTime) }}
+              </template>
+            </ElTableColumn>
+          </ElTable>
+        </div>
+        <div v-else class="empty-permissions">
+          <ElEmpty description="暂无权限信息" />
+        </div>
+        <template #footer>
+          <ElButton type="primary" @click="permissionDialogVisible = false">关闭</ElButton>
         </template>
       </ElDialog>
 
@@ -2381,16 +2644,15 @@ const checkPermissions = async () => {
                   v-model="announcementData.announcement_type"
                   size="large"
                 >
-                  <ElOption label="普通" value="NORMAL" />
-                  <ElOption label="紧急" value="URGENT" />
-                  <ElOption label="重要" value="IMPORTANT" />
+                  <ElOption label="公告" value="ANNOUNCEMENT" />
+                  <ElOption label="通知" value="NOTICE" />
+                  <ElOption label="警告" value="WARNING" />
                 </ElSelect>
               </ElFormItem>
               <ElFormItem label="公告状态">
                 <ElSelect v-model="announcementData.status" size="large">
                   <ElOption label="草稿" value="DRAFT" />
                   <ElOption label="已发布" value="PUBLISHED" />
-                  <ElOption label="已撤回" value="RETRACTED" />
                 </ElSelect>
               </ElFormItem>
               <ElRow :gutter="20">
@@ -2515,18 +2777,14 @@ const checkPermissions = async () => {
                   :type="
                     currentAnnouncementDetail.status === 'PUBLISHED'
                       ? 'success'
-                      : currentAnnouncementDetail.status === 'RETRACTED'
-                        ? 'info'
-                        : 'warning'
+                      : 'warning'
                   "
                   size="small"
                 >
                   {{
                     currentAnnouncementDetail.status === 'PUBLISHED'
                       ? '已发布'
-                      : currentAnnouncementDetail.status === 'RETRACTED'
-                        ? '已撤回'
-                        : '草稿'
+                      : '草稿'
                   }}
                 </ElTag>
               </div>
@@ -2753,10 +3011,10 @@ const checkPermissions = async () => {
 }
 
 .case-detail-container {
+  box-sizing: border-box;
+  width: 100%;
   padding: 20px 10px;
   background: #fff;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .page-header {
@@ -2929,19 +3187,21 @@ const checkPermissions = async () => {
 }
 
 .stage-indicators {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .stage-dot {
   position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
+  margin: 0 24px;
   font-size: 14px;
   font-weight: 600;
   color: #fff;
@@ -2949,34 +3209,32 @@ const checkPermissions = async () => {
   background: #d1d5db;
   border-radius: 50%;
   transition: all 0.3s ease;
-  z-index: 2;
-  margin: 0 24px;
 }
 
 .stage-dot::before {
-  content: '';
   position: absolute;
-  right: -48px;
   top: 50%;
-  transform: translateY(-50%);
+  right: -48px;
+  z-index: -1;
   width: 48px;
   height: 2px;
+  content: '';
   background: #e5e7eb;
-  z-index: -1;
+  transform: translateY(-50%);
 }
 
 .stage-dot::after {
-  content: '';
   position: absolute;
-  right: -48px;
   top: 50%;
-  transform: translateY(-50%);
+  right: -48px;
+  z-index: -1;
   width: 0;
   height: 0;
+  content: '';
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
   border-left: 10px solid #d1d5db;
-  z-index: -1;
+  transform: translateY(-50%);
 }
 
 .stage-dot:hover {
@@ -3283,3 +3541,9 @@ const checkPermissions = async () => {
   color: #909399;
 }
 </style>
+
+<AssetManagement
+  v-model:visible="showAssetManagementDialog"
+  :case-id="caseId"
+  :case-name="caseDetail?.案件名称 || ''"
+/>

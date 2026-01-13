@@ -243,7 +243,7 @@ export async function publishAnnouncementApi(announcementId: number, data: CaseA
  * POST /api/v1/case-announcement/{announcementId}/top
  */
 export async function topAnnouncementApi(announcementId: number, data: CaseAnnouncementApi.TopAnnouncementRequest) {
-  return announcementRequestClient.post<CaseAnnouncementApi.TopAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}/top`, null, { params: data });
+  return announcementRequestClient.post<CaseAnnouncementApi.TopAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}/top`, data);
 }
 
 /**
@@ -314,6 +314,16 @@ export async function getViewerViewCountApi(viewerId: number) {
  */
 export async function deleteViewRecordApi(recordId: number) {
   return announcementRequestClient.delete<CaseAnnouncementApi.CommonResponse>(`/api/v1/announcement-view-record/${recordId}`);
+}
+
+/**
+ * 获取公告浏览记录列表
+ * GET /api/v1/announcement-view-record/list
+ */
+export async function getAnnouncementViewsApi(announcementId: number, page: number = 1, size: number = 10) {
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewRecordListResponse>('/api/v1/announcement-view-record/list', {
+    params: { announcementId, page, size }
+  });
 }
 
 export type { CaseAnnouncementApi };

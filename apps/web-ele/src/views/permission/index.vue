@@ -519,9 +519,9 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     padding: 16px;
+    background-color: #fafafa;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background-color: #fafafa;
     transition: all 0.3s ease;
   }
 
@@ -536,16 +536,16 @@ onMounted(() => {
   }
 
   .check-result {
-    margin-top: 20px;
     padding: 20px;
+    margin-top: 20px;
+    background-color: #fafafa;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background-color: #fafafa;
   }
 
   .result-header {
-    margin-bottom: 16px;
     padding-bottom: 12px;
+    margin-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
   }
 
@@ -557,19 +557,19 @@ onMounted(() => {
 
   .result-item {
     display: flex;
-    align-items: center;
     gap: 12px;
+    align-items: center;
   }
 
   .result-item .label {
+    min-width: 120px;
     font-weight: 500;
     color: #606266;
-    min-width: 120px;
   }
 
   .result-item .value {
-    color: #303133;
     font-weight: 600;
+    color: #303133;
   }
 
   .checkbox-group {
@@ -584,8 +584,8 @@ onMounted(() => {
 
   .checkbox-group :deep(.el-checkbox__label) {
     display: flex;
-    align-items: center;
     gap: 8px;
+    align-items: center;
   }
 }
 

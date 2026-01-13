@@ -169,44 +169,44 @@ onMounted(async () => {
 
 <style scoped>
 .activity-timeline {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
 }
 
 /* 固定表头 */
 .activity-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0;
-  padding: 8px 0;
-  border-bottom: none;
   position: sticky;
   top: 0;
-  background-color: #fff;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 40px;
+  padding: 8px 0;
+  margin-bottom: 0;
+  background-color: #fff;
+  border-bottom: none;
 }
 
 .activity-header-actions {
   display: flex;
   align-items: center;
-  width: 100%;
   justify-content: space-between;
+  width: 100%;
   height: 100%;
   padding-bottom: 10px;
 }
 
 /* 全部知晓文字样式 */
 .mark-all-known {
-  color: #ff4d4f;
-  cursor: pointer;
   font-size: 12px;
   font-weight: 500;
+  color: #ff4d4f;
+  cursor: pointer;
 }
 
 .mark-all-known:hover {
@@ -215,8 +215,8 @@ onMounted(async () => {
 
 .activity-footer-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-top: 4px;
 }
 
@@ -224,39 +224,39 @@ onMounted(async () => {
 .activity-list {
   position: relative;
   flex: 1;
-  overflow: hidden;
   margin-top: -10px;
+  overflow: hidden;
 }
 
 /* 确保滚动条只在内容区域显示 */
 :deep(.el-scrollbar__wrap) {
-  overflow-y: auto;
   max-height: calc(100vh - 300px);
+  overflow-y: auto;
 }
 
 .activity-item {
-  display: flex;
   position: relative;
+  display: flex;
+  padding: 12px;
+  padding-top: 10px;
   padding-bottom: 20px;
+  margin-top: 0;
   margin-bottom: 4px;
   background-color: #fff;
   border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  margin-top: 0;
-  padding-top: 10px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
 }
 
 .activity-icon {
+  z-index: 1;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  flex-shrink: 0;
   margin-right: 12px;
-  z-index: 1;
+  border-radius: 50%;
 }
 
 .activity-content-wrapper {
@@ -265,23 +265,23 @@ onMounted(async () => {
 }
 
 .activity-user {
-  font-weight: 500;
-  color: #1890ff;
   margin-bottom: 4px;
   font-size: 14px;
+  font-weight: 500;
+  color: #1890ff;
 }
 
 .activity-content {
-  color: #333;
+  display: -webkit-box;
+  min-height: 16px;
   margin-bottom: 4px;
-  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 14px;
+  color: #333;
   word-break: break-word;
-  min-height: 16px;
+  -webkit-box-orient: vertical;
 }
 
 .activity-time {
@@ -291,21 +291,21 @@ onMounted(async () => {
 
 .activity-line {
   position: absolute;
-  left: 27px;
   top: 44px;
   bottom: -4px;
+  left: 27px;
   width: 2px;
   background-color: #f0f0f0;
 }
 
 .activity-footer {
-  text-align: center;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
   position: sticky;
   bottom: 0;
-  background-color: #fff;
   z-index: 10;
+  padding-top: 16px;
+  margin-top: 16px;
+  text-align: center;
+  background-color: #fff;
+  border-top: 1px solid #f0f0f0;
 }
 </style>

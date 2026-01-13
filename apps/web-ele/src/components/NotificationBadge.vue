@@ -477,8 +477,8 @@ onUnmounted(() => {
 }
 
 .notification-trigger {
-  cursor: pointer;
   display: inline-block;
+  cursor: pointer;
 }
 
 .notification-icon-wrapper {
@@ -501,23 +501,23 @@ onUnmounted(() => {
   top: 60px;
   right: 20px;
   z-index: 9999999;
-  pointer-events: auto;
   width: 420px;
   margin: 0;
+  pointer-events: auto;
 }
 
 .notification-dropdown {
-  width: 100%;
-  padding: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background-color: white;
-  border-radius: 8px;
-  overflow: hidden;
   position: relative;
   z-index: inherit;
-  height: 500px;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 500px;
+  padding: 0;
+  overflow: hidden;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 /* 标签页固定 */
@@ -537,16 +537,13 @@ onUnmounted(() => {
 
 /* 确保滚动条只在内容区域显示 */
 :deep(.el-scrollbar__wrap) {
-  overflow-y: auto;
   max-height: calc(500px - 50px - 50px); /* 总高度 - 标签栏高度(减少10px) - 底部操作栏高度 */
+  overflow-y: auto;
 }
 
 .notification-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9998;
   pointer-events: auto;
 }
@@ -554,29 +551,29 @@ onUnmounted(() => {
 /* 标签页样式 */
 .notification-tabs {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 6px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  background-color: #fafafa;
+  justify-content: space-between;
   height: 40px;
+  padding: 6px 16px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .notification-tab {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 16px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
   position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.2s;
 }
 
 .notification-tab.active {
-  background-color: #1890ff;
   color: white;
+  background-color: #1890ff;
 }
 
 .notification-tab:not(.active):hover {
@@ -584,23 +581,23 @@ onUnmounted(() => {
 }
 
 .notification-tab.settings {
-  padding: 4px;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 50%;
 }
 
 .tab-badge {
-  background-color: #ff4d4f;
-  color: white;
-  font-size: 9px;
-  padding: 0 3px;
-  border-radius: 6px;
   min-width: 14px;
+  padding: 0 3px;
+  font-size: 9px;
+  color: white;
   text-align: center;
+  background-color: #ff4d4f;
+  border-radius: 6px;
 }
 
 /* 圆形徽章样式 */
@@ -608,19 +605,19 @@ onUnmounted(() => {
   position: absolute;
   top: -4px;
   right: -4px;
-  background-color: #ff4d4f;
-  color: white;
-  font-size: 7px;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 14px;
   min-width: auto;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  height: 14px;
+  padding: 0;
+  font-size: 7px;
   font-weight: bold;
+  color: white;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 10%);
 }
 
 /* 内容区域样式 */
@@ -634,16 +631,16 @@ onUnmounted(() => {
 
 .notification-item {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+  justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  background-color: #fff;
-  border-radius: 8px;
   margin-bottom: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  background-color: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  transition: background-color 0.2s;
 }
 
 .notification-item:hover {
@@ -657,28 +654,28 @@ onUnmounted(() => {
 .notification-content {
   flex: 1;
   min-width: 0;
-  overflow: visible;
   height: auto;
   min-height: 60px;
+  overflow: visible;
 }
 
 .notification-title {
-  font-weight: 500;
   margin-bottom: 4px;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .notification-text {
-  font-size: 13px;
-  color: #666;
+  display: -webkit-box;
+  min-height: 16px;
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 13px;
+  color: #666;
   word-break: break-word;
-  min-height: 16px;
+  -webkit-box-orient: vertical;
 }
 
 .notification-time {
@@ -692,18 +689,18 @@ onUnmounted(() => {
 }
 
 .approval-empty {
-  padding: 40px;
-  text-align: center;
-  color: #999;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 40px;
+  color: #999;
+  text-align: center;
 }
 
 .empty-icon {
-  font-size: 48px;
   margin-bottom: 12px;
+  font-size: 48px;
   opacity: 0.5;
 }
 
@@ -713,18 +710,18 @@ onUnmounted(() => {
 
 .notification-empty {
   padding: 40px;
-  text-align: center;
   color: #999;
+  text-align: center;
 }
 
 /* 底部样式 */
 .notification-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
   background-color: #fafafa;
+  border-top: 1px solid #f0f0f0;
 }
 
 .footer-left,
@@ -737,13 +734,14 @@ onUnmounted(() => {
   display: flex;
   gap: 4px;
 }
+
 /* 覆盖Element Plus徽章样式，确保数字居中 */
 :deep(.el-badge__content) {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  box-sizing: border-box;
 }
 
 /* 确保圆形徽章中的数字居中 */

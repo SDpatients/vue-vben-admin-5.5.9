@@ -293,9 +293,8 @@ export async function assignMemberPermissionsApi(memberId: number, data: WorkTea
 }
 
 // 获取我的案件列表
-// GET /work-team/my-cases
-// 注意：这个接口可能需要从其他模块获取，暂时模拟实现
-export async function selectMyCasesApi(pageNum: number, pageSize: number) {
+// GET /case/user/{userId}/list
+export async function selectMyCasesApi(userId: number, pageNum: number, pageSize: number) {
   return requestClient8085.get<{
     code: number;
     message: string;
@@ -303,14 +302,13 @@ export async function selectMyCasesApi(pageNum: number, pageSize: number) {
       total: number;
       list: any[];
     };
-  }>('/work-team/my-cases', {
+  }>(`/case/user/${userId}/list`, {
     params: { pageNum, pageSize },
   });
 }
 
 // 获取团队案件列表
-// GET /work-team/team-cases
-// 注意：这个接口可能需要从其他模块获取，暂时模拟实现
+// GET /work-team/list
 export async function selectTeamCasesApi(pageNum: number, pageSize: number) {
   return requestClient8085.get<{
     code: number;
@@ -319,9 +317,11 @@ export async function selectTeamCasesApi(pageNum: number, pageSize: number) {
       total: number;
       list: any[];
     };
-  }>('/work-team/team-cases', {
-    params: { pageNum, pageSize },
+  }>('/work-team/list', {
+    params: { pageNum, pageSize, status: 'ACTIVE' },
   });
 }
+
+
 
 export type { WorkTeamApi };

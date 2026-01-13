@@ -295,8 +295,8 @@ onMounted(() => {
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -312,9 +312,9 @@ onMounted(() => {
 }
 
 .page-content {
+  padding: 20px;
   background: #f5f7fa;
   border-radius: 8px;
-  padding: 20px;
 }
 
 .content-wrapper {
@@ -332,8 +332,8 @@ onMounted(() => {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .info-grid {
@@ -364,11 +364,11 @@ onMounted(() => {
 }
 
 .info-item .json-data {
-  background: #f5f7fa;
   padding: 12px;
-  border-radius: 4px;
-  font-size: 12px;
   overflow-x: auto;
+  font-size: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 
 .log-item {
@@ -377,14 +377,14 @@ onMounted(() => {
 
 .log-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 4px;
 }
 
 .log-action {
-  font-weight: 500;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .log-operator {
@@ -394,9 +394,9 @@ onMounted(() => {
 
 .log-opinion,
 .log-remark {
+  margin-top: 4px;
   font-size: 13px;
   color: #606266;
-  margin-top: 4px;
 }
 
 .mr-1 {

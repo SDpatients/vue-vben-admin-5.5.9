@@ -534,11 +534,11 @@ onMounted(() => {
 
 <style scoped>
 .fund-report-page {
+  box-sizing: border-box;
+  width: 100%;
   min-height: 100vh;
   padding: 20px;
   background-color: #f5f7fa;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .page-header {
@@ -553,9 +553,9 @@ onMounted(() => {
 }
 
 .fund-report-content {
+  box-sizing: border-box;
   width: 100%;
   margin: 0;
-  box-sizing: border-box;
 }
 
 .search-card {
