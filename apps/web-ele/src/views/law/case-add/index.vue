@@ -11,8 +11,11 @@ import { ElLoading, ElMessage, ElResult } from 'element-plus';
 import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
 import { getManagerListApi } from '#/api/core/manager';
+<<<<<<< Updated upstream
 import { getUserByDeptIdApi } from '#/api/core/user';
 import { getActiveTeamRolesApi } from '#/api/core/work-team';
+=======
+>>>>>>> Stashed changes
 
 const accessStore = useAccessStore();
 const permissions = accessStore.accessCodes || [];
@@ -230,12 +233,31 @@ const allowedTypes = new Set([
   '.xlsx',
 ]);
 
+<<<<<<< Updated upstream
 // 格式化当前年月（YYYYMM）
 const getCurrentYearMonth = () => {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   return `${year}${month}`;
+=======
+const fetchCourtList = async () => {
+  try {
+    courtListLoading.value = true;
+    const response = await getCourtListApi({ page: 1, size: 100 });
+    if (response.status === '1' && response.data?.records) {
+      courtList.value = response.data.records.map((court: any) => ({
+        label: court.FYQC,
+        value: court.FYQC,
+      }));
+    }
+  } catch (error) {
+    console.error('获取法院列表失败:', error);
+    ElMessage.error('获取法院列表失败');
+  } finally {
+    courtListLoading.value = false;
+  }
+>>>>>>> Stashed changes
 };
 
 // 检查文件类型和大小
@@ -370,6 +392,14 @@ const rules = reactive({
   ah: [
     { required: true, message: '请输入案号', trigger: 'blur' },
     { min: 1, max: 50, message: '案号长度在 1 到 50 个字符', trigger: 'blur' },
+<<<<<<< Updated upstream
+=======
+    {
+      pattern: /^[\w\u4E00-\u9FA5（）()[\]【】\-]+$/,
+      message: '案号格式不正确',
+      trigger: 'blur',
+    },
+>>>>>>> Stashed changes
   ],
   ajmc: [
     { required: true, message: '请输入案件名称', trigger: 'blur' },
@@ -632,7 +662,11 @@ const submitForm = async () => {
                       v-model="form.slfy"
                       placeholder="请选择受理法院"
                       filterable
+<<<<<<< Updated upstream
                       clearable
+=======
+                      :loading="courtListLoading"
+>>>>>>> Stashed changes
                       style="width: 100%"
                     >
                       <el-option
@@ -649,11 +683,16 @@ const submitForm = async () => {
                 <el-col :span="8">
                   <el-form-item label="管理人" prop="selectedManagers">
                     <el-select
+<<<<<<< Updated upstream
                       v-model="form.selectedManagers"
                       placeholder="请选择管理人（可多选）"
                       multiple
                       filterable
                       clearable
+=======
+                      v-model="form.isSimplifiedTrial"
+                      placeholder="请选择"
+>>>>>>> Stashed changes
                       style="width: 100%"
                     >
                       <el-option
@@ -670,6 +709,7 @@ const submitForm = async () => {
                 <el-col :span="8">
                   <el-form-item label="主要负责人" prop="glrfzr">
                     <el-select
+<<<<<<< Updated upstream
                       v-model="form.glrfzr"
                       placeholder="请先选择管理人"
                       :disabled="
@@ -678,6 +718,10 @@ const submitForm = async () => {
                       "
                       filterable
                       clearable
+=======
+                      v-model="form.caseProgress"
+                      placeholder="请选择案件进度"
+>>>>>>> Stashed changes
                       style="width: 100%"
                     >
                       <el-option
@@ -719,9 +763,31 @@ const submitForm = async () => {
 
                 <!-- 立案日期 -->
                 <el-col :span="8">
+<<<<<<< Updated upstream
                   <el-form-item label="立案日期">
                     <el-date-picker
                       v-model="form.larq"
+=======
+                  <el-form-item
+                    label="债权申报截止时间"
+                    prop="debtClaimDeadline"
+                  >
+                    <el-date-picker
+                      v-model="form.debtClaimDeadline"
+                      type="datetime"
+                      placeholder="请选择债权申报截止时间"
+                      format="YYYY-MM-DD HH:mm:ss"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      style="width: 100%"
+                    />
+                  </el-form-item>
+                </el-col>
+
+                <el-col :span="8">
+                  <el-form-item label="立案日期" prop="filingDate">
+                    <el-date-picker
+                      v-model="form.filingDate"
+>>>>>>> Stashed changes
                       type="date"
                       placeholder="请选择立案日期"
                       value-format="YYYY-MM-DD"
@@ -826,6 +892,7 @@ const submitForm = async () => {
                 <el-col :span="24">
                   <el-form-item label="文件上传">
                     <div class="file-upload-container">
+<<<<<<< Updated upstream
                       <!-- 选择文件按钮 -->
                       <div class="mb-4 flex items-center gap-3">
                         <input
@@ -835,6 +902,32 @@ const submitForm = async () => {
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png"
                           @change="handleFileChange"
                         />
+=======
+                      <input
+                        ref="fileInput"
+                        type="file"
+                        accept=".doc,.docx,.pdf,.jpg,.png,.txt,.xls,.xlsx"
+                        style="display: none"
+                        @change="handleFileChange"
+                      />
+                      <el-button type="primary" @click="fileInput?.click()">
+                        <i class="i-lucide-upload mr-1"></i>
+                        选择文件
+                      </el-button>
+                      <span class="ml-2 text-sm text-gray-500">
+                        支持PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式，单个文件不超过10MB
+                      </span>
+                    </div>
+
+                    <div v-if="uploadedFiles.length > 0" class="file-list mt-4">
+                      <div
+                        v-for="(file, index) in uploadedFiles"
+                        :key="index"
+                        class="file-item"
+                      >
+                        <i class="i-lucide-file-text mr-2"></i>
+                        <span class="file-name">{{ file.name }}</span>
+>>>>>>> Stashed changes
                         <el-button
                           type="primary"
                           @click="$refs.fileInput.click()"
@@ -962,6 +1055,7 @@ const submitForm = async () => {
             </div>
           </div>
 
+<<<<<<< Updated upstream
           <!-- 工作团队成员分组 -->
           <div class="form-section mb-6">
             <h3 class="section-title mb-4">工作团队成员</h3>
@@ -1059,6 +1153,17 @@ const submitForm = async () => {
             >
               提交案件
             </ElButton>
+=======
+          <div class="form-actions mt-6">
+            <el-button @click="resetForm">
+              <i class="i-lucide-rotate-ccw mr-1"></i>
+              重置
+            </el-button>
+            <el-button type="primary" :loading="loading" @click="submitForm">
+              <i class="i-lucide-save mr-1"></i>
+              提交
+            </el-button>
+>>>>>>> Stashed changes
           </div>
         </el-form>
       </el-card>

@@ -1,31 +1,38 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { activityApi, type Activity } from '#/api/core/activity';
-import { todoApi, type Todo, type TodoDTO } from '#/api/core/todo';
+import type { FormInstance } from 'element-plus';
+
+import type { Activity } from '#/api/core/activity';
+import type { Todo, TodoDTO } from '#/api/core/todo';
+
+import { computed, onMounted, ref } from 'vue';
+
 import { useAccessStore } from '@vben/stores';
+
 import { Icon } from '@iconify/vue';
 import {
+  ElAlert,
   ElButton,
-  ElSelect,
-  ElOption,
-  ElScrollbar,
-  ElEmpty,
-  ElMessage,
-  ElDialog,
-  ElInput,
-  ElForm,
-  ElFormItem,
-  ElRadioGroup,
-  ElRadioButton,
-  ElTag,
   ElCheckbox,
   ElDatePicker,
-  ElTabs,
+  ElDialog,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElRadioButton,
+  ElRadioGroup,
+  ElScrollbar,
+  ElSelect,
   ElTabPane,
-  ElAlert,
+  ElTabs,
+  ElTag,
   ElTooltip,
 } from 'element-plus';
-import type { FormInstance } from 'element-plus';
+
+import { activityApi } from '#/api/core/activity';
+import { todoApi } from '#/api/core/todo';
 
 const accessStore = useAccessStore();
 
@@ -84,9 +91,9 @@ const formatTime = (time: string) => {
   const date = new Date(time);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+  const minutes = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
 
   if (minutes < 1) return '刚刚';
   if (minutes < 60) return `${minutes}分钟前`;
@@ -98,9 +105,12 @@ const formatTime = (time: string) => {
 const loadActivities = async () => {
   loading.value = true;
   try {
-    const res = await activityApi.getMyActivityList(currentPage.value, pageSize.value);
+    const res = await activityApi.getMyActivityList(
+      currentPage.value,
+      pageSize.value,
+    );
     activities.value = res.data || [];
-  } catch (error) {
+  } catch {
     ElMessage.error('加载动态失败');
   } finally {
     loading.value = false;
@@ -116,8 +126,14 @@ const loadTodos = async () => {
       1,
       20,
     );
+<<<<<<< Updated upstream
     todos.value = res.data || [];
   } catch (error) {
+=======
+    // 新API响应格式中，待办事项在content字段中
+    todos.value = res.data?.content || [];
+  } catch {
+>>>>>>> Stashed changes
     ElMessage.error('加载待办失败');
   } finally {
     loading.value = false;
@@ -143,7 +159,7 @@ const handleCreate = async () => {
         ElMessage.success('创建成功');
         createDialogVisible.value = false;
         loadTodos();
-      } catch (error) {
+      } catch {
         ElMessage.error('创建失败');
       }
     }
@@ -179,7 +195,7 @@ const handleCreateForUser = async () => {
         ElMessage.success('创建成功');
         createForUserDialogVisible.value = false;
         loadTodos();
-      } catch (error) {
+      } catch {
         ElMessage.error('创建失败');
       }
     }
@@ -197,7 +213,7 @@ const toggleTodoStatus = async (item: Todo) => {
       item.status = 'COMPLETED';
       ElMessage.success('已完成');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('操作失败');
   }
 };
@@ -207,7 +223,7 @@ const deleteTodo = async (id: number) => {
     await todoApi.deleteTodo(id);
     todos.value = todos.value.filter((item) => item.id !== id);
     ElMessage.success('删除成功');
-  } catch (error) {
+  } catch {
     ElMessage.error('删除失败');
   }
 };
@@ -298,17 +314,14 @@ onMounted(() => {
   <div class="activity-todo-container">
     <div class="container-header">
       <h2>动态与待办事项管理</h2>
-      <ElAlert
-        title="权限说明"
-        type="info"
-        :closable="false"
-        show-icon
-      >
+      <ElAlert title="权限说明" type="info" :closable="false" show-icon>
         <template #default>
           <div class="permission-info">
             <p><strong>普通用户：</strong>只能查看和管理自己的动态和待办事项</p>
             <p><strong>审核员：</strong>可以查看所有用户的动态和待办事项</p>
-            <p><strong>管理员：</strong>可以查看所有用户的动态和待办事项，并可以为其他用户创建待办</p>
+            <p>
+              <strong>管理员：</strong>可以查看所有用户的动态和待办事项，并可以为其他用户创建待办
+            </p>
           </div>
         </template>
       </ElAlert>
@@ -346,22 +359,41 @@ onMounted(() => {
                   :key="item.id"
                   class="activity-item"
                 >
-                  <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-                    <Icon :icon="getActivityIcon(item.type)" :size="18" color="#fff" />
+                  <div
+                    class="activity-icon"
+                    :style="{ backgroundColor: getActivityColor(item.type) }"
+                  >
+                    <Icon
+                      :icon="getActivityIcon(item.type)"
+                      :size="18"
+                      color="#fff"
+                    />
                   </div>
                   <div class="activity-content-wrapper">
                     <div class="activity-header-row">
                       <span class="activity-user">{{ item.userName }}</span>
-                      <ElTag size="small" :color="getActivityColor(item.type)" effect="plain">
+                      <ElTag
+                        size="small"
+                        :color="getActivityColor(item.type)"
+                        effect="plain"
+                      >
                         {{ getActivityTypeText(item.type) }}
                       </ElTag>
                     </div>
                     <div class="activity-content">{{ item.content }}</div>
-                    <div class="activity-time">{{ formatTime(item.createTime) }}</div>
+                    <div class="activity-time">
+                      {{ formatTime(item.createTime) }}
+                    </div>
                   </div>
-                  <div v-if="index < activities.length - 1" class="activity-line" />
+                  <div
+                    v-if="index < activities.length - 1"
+                    class="activity-line"
+                  ></div>
                 </div>
-                <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
+                <ElEmpty
+                  v-if="activities.length === 0 && !loading"
+                  description="暂无动态"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -375,8 +407,16 @@ onMounted(() => {
                 <Icon icon="lucide:plus" :size="14" />
                 新建待办
               </ElButton>
-              <ElTooltip v-if="canCreateTodoForOthers" content="为其他用户创建待办事项" placement="top">
-                <ElButton type="success" size="small" @click="showCreateForUserModal">
+              <ElTooltip
+                v-if="canCreateTodoForOthers"
+                content="为其他用户创建待办事项"
+                placement="top"
+              >
+                <ElButton
+                  type="success"
+                  size="small"
+                  @click="showCreateForUserModal"
+                >
                   <Icon icon="lucide:user-plus" :size="14" />
                   为用户创建待办
                 </ElButton>
@@ -384,7 +424,11 @@ onMounted(() => {
             </div>
           </div>
           <div class="todo-filters">
-            <ElRadioGroup v-model="selectedStatus" @change="loadTodos" size="small">
+            <ElRadioGroup
+              v-model="selectedStatus"
+              @change="loadTodos"
+              size="small"
+            >
               <ElRadioButton value="">全部</ElRadioButton>
               <ElRadioButton value="PENDING">待处理</ElRadioButton>
               <ElRadioButton value="IN_PROGRESS">进行中</ElRadioButton>
@@ -429,7 +473,10 @@ onMounted(() => {
                       {{ item.description }}
                     </div>
                     <div class="todo-meta">
-                      <ElTag :type="getPriorityColor(item.priority)" size="small">
+                      <ElTag
+                        :type="getPriorityColor(item.priority)"
+                        size="small"
+                      >
                         {{ getPriorityText(item.priority) }}
                       </ElTag>
                       <ElTag type="info" size="small">
@@ -442,12 +489,20 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="todo-actions">
-                    <ElButton circle size="small" type="danger" @click="deleteTodo(item.id)">
+                    <ElButton
+                      circle
+                      size="small"
+                      type="danger"
+                      @click="deleteTodo(item.id)"
+                    >
                       <Icon icon="lucide:trash-2" :size="14" />
                     </ElButton>
                   </div>
                 </div>
-                <ElEmpty v-if="todos.length === 0 && !loading" description="暂无待办事项" />
+                <ElEmpty
+                  v-if="todos.length === 0 && !loading"
+                  description="暂无待办事项"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -461,7 +516,12 @@ onMounted(() => {
           <ElInput v-model="createForm.title" placeholder="请输入待办标题" />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="createForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="createForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
           <ElSelect v-model="createForm.priority" placeholder="请选择优先级">
@@ -487,8 +547,16 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <ElDialog v-model="createForUserDialogVisible" title="为用户创建待办" width="500px">
-      <ElForm ref="createForUserFormRef" :model="createForUserForm" label-width="80px">
+    <ElDialog
+      v-model="createForUserDialogVisible"
+      title="为用户创建待办"
+      width="500px"
+    >
+      <ElForm
+        ref="createForUserFormRef"
+        :model="createForUserForm"
+        label-width="80px"
+      >
         <ElFormItem label="选择用户" required>
           <ElSelect
             v-model="createForUserForm.targetUserId"
@@ -504,13 +572,24 @@ onMounted(() => {
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="标题" required>
-          <ElInput v-model="createForUserForm.title" placeholder="请输入待办标题" />
+          <ElInput
+            v-model="createForUserForm.title"
+            placeholder="请输入待办标题"
+          />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="createForUserForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="createForUserForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
-          <ElSelect v-model="createForUserForm.priority" placeholder="请选择优先级">
+          <ElSelect
+            v-model="createForUserForm.priority"
+            placeholder="请选择优先级"
+          >
             <ElOption label="高" value="HIGH" />
             <ElOption label="中" value="MEDIUM" />
             <ElOption label="低" value="LOW" />

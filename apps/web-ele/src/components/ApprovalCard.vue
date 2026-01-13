@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { approvalApi, type Approval } from '#/api/core/approval';
+import type { Approval } from '#/api/core/approval';
+
 import { Icon } from '@iconify/vue';
-import { ElButton, ElTag, ElCard, ElMessage, ElMessageBox, ElInput } from 'element-plus';
+import { ElButton, ElCard, ElMessage, ElMessageBox, ElTag } from 'element-plus';
+
+import { approvalApi } from '#/api/core/approval';
 
 interface Props {
   approval: Approval;
@@ -45,14 +48,18 @@ const handleApprove = async () => {
 
 const handleReject = async () => {
   try {
-    const { value: opinion } = await ElMessageBox.prompt('请输入驳回原因', '确认驳回', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPattern: /\S+/,
-      inputErrorMessage: '驳回原因不能为空',
-      inputType: 'textarea',
-      inputPlaceholder: '请输入驳回原因',
-    });
+    const { value: opinion } = await ElMessageBox.prompt(
+      '请输入驳回原因',
+      '确认驳回',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '驳回原因不能为空',
+        inputType: 'textarea',
+        inputPlaceholder: '请输入驳回原因',
+      },
+    );
     await approvalApi.reject(props.approval.id, opinion);
     ElMessage.success('已驳回');
     emit('refresh');
@@ -133,7 +140,10 @@ const getTypeText = (type: string) => {
         </div>
       </div>
     </div>
-    <div v-if="!readonly && approval.status === 'PENDING'" class="approval-actions">
+    <div
+      v-if="!readonly && approval.status === 'PENDING'"
+      class="approval-actions"
+    >
       <ElButton type="primary" size="small" @click="handleApprove">
         <Icon icon="lucide:check" :size="14" class="mr-1" />
         通过

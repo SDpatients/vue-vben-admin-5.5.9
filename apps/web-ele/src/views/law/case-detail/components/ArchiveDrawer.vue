@@ -903,11 +903,21 @@ const loadFileList = async (category: string) => {
   fileListLoading.value = true;
   try {
     const response = await getFileListApi('archive', Number(props.caseId));
+<<<<<<< Updated upstream
     if (response.status === '1') {
       fileList.value = (response.data || []).filter((file: FileRecord) => {
         const fileCategory = file.filePath?.split('/')[2];
         return fileCategory === category;
       });
+=======
+    if (response.code === 200) {
+      fileList.value = (response.data?.list || []).filter(
+        (file: FileRecord) => {
+          const fileCategory = file.filePath?.split('/')[2];
+          return fileCategory === category;
+        },
+      );
+>>>>>>> Stashed changes
     } else {
       ElMessage.error('获取文件列表失败');
       fileList.value = [];

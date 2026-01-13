@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
+
 import { useAccessStore } from '@vben/stores';
+
 import { Icon } from '@iconify/vue';
 import {
+  ElAlert,
   ElCard,
+  ElCollapse,
+  ElCollapseItem,
+  ElDescriptions,
+  ElDescriptionsItem,
   ElTable,
   ElTableColumn,
   ElTag,
-  ElAlert,
-  ElDescriptions,
-  ElDescriptionsItem,
-  ElCollapse,
-  ElCollapseItem,
-  ElTimeline,
-  ElTimelineItem,
 } from 'element-plus';
 
 const accessStore = useAccessStore();
@@ -237,7 +237,15 @@ const hasPermission = (permCode: string) => {
           >
             {{ perm }}
           </ElTag>
+<<<<<<< Updated upstream
           <span v-if="permissions.length === 0" style="color: #999; margin-left: 8px">暂无权限</span>
+=======
+          <span
+            v-if="permissions.length === 0"
+            style="margin-left: 8px; color: #999"
+            >暂无权限</span
+          >
+>>>>>>> Stashed changes
         </div>
       </template>
     </ElAlert>
@@ -265,7 +273,10 @@ const hasPermission = (permCode: string) => {
             <ElTableColumn prop="trigger" label="获取时机" width="160" />
             <ElTableColumn label="当前拥有" width="100">
               <template #default="{ row }">
-                <ElTag :type="hasPermission(row.permCode) ? 'success' : 'info'" size="small">
+                <ElTag
+                  :type="hasPermission(row.permCode) ? 'success' : 'info'"
+                  size="small"
+                >
                   {{ hasPermission(row.permCode) ? '是' : '否' }}
                 </ElTag>
               </template>
@@ -341,7 +352,11 @@ const hasPermission = (permCode: string) => {
             <ElTableColumn label="律师 (LAWYER)" width="120" align="center">
               <template #default="{ row }">
                 <Icon
-                  :icon="row.roles.includes('LAWYER') ? 'lucide:check-circle' : 'lucide:x-circle'"
+                  :icon="
+                    row.roles.includes('LAWYER')
+                      ? 'lucide:check-circle'
+                      : 'lucide:x-circle'
+                  "
                   :color="row.roles.includes('LAWYER') ? '#52c41a' : '#ff4d4f'"
                   :size="20"
                 />
@@ -350,8 +365,14 @@ const hasPermission = (permCode: string) => {
             <ElTableColumn label="审核员 (REVIEWER)" width="120" align="center">
               <template #default="{ row }">
                 <Icon
-                  :icon="row.roles.includes('REVIEWER') ? 'lucide:check-circle' : 'lucide:x-circle'"
-                  :color="row.roles.includes('REVIEWER') ? '#52c41a' : '#ff4d4f'"
+                  :icon="
+                    row.roles.includes('REVIEWER')
+                      ? 'lucide:check-circle'
+                      : 'lucide:x-circle'
+                  "
+                  :color="
+                    row.roles.includes('REVIEWER') ? '#52c41a' : '#ff4d4f'
+                  "
                   :size="20"
                 />
               </template>
@@ -359,7 +380,11 @@ const hasPermission = (permCode: string) => {
             <ElTableColumn label="管理员 (ADMIN)" width="120" align="center">
               <template #default="{ row }">
                 <Icon
-                  :icon="row.roles.includes('ADMIN') ? 'lucide:check-circle' : 'lucide:x-circle'"
+                  :icon="
+                    row.roles.includes('ADMIN')
+                      ? 'lucide:check-circle'
+                      : 'lucide:x-circle'
+                  "
                   :color="row.roles.includes('ADMIN') ? '#52c41a' : '#ff4d4f'"
                   :size="20"
                 />
@@ -380,7 +405,9 @@ const hasPermission = (permCode: string) => {
               </div>
             </template>
             <ElDescriptions :column="1" border>
-              <ElDescriptionsItem label="用户角色">律师 (LAWYER)</ElDescriptionsItem>
+              <ElDescriptionsItem label="用户角色">
+                律师 (LAWYER)
+              </ElDescriptionsItem>
               <ElDescriptionsItem label="所需权限">
                 <ElTag type="success" size="small">activity:view:own</ElTag>
                 <ElTag type="success" size="small">todo:view:own</ElTag>
@@ -388,7 +415,9 @@ const hasPermission = (permCode: string) => {
               <ElDescriptionsItem label="操作流程">
                 1. 用户登录系统 → 2. 进入工作台页面 → 3. 查看我的动态和我的待办
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="查看范围">只能查看自己创建的动态和待办事项</ElDescriptionsItem>
+              <ElDescriptionsItem label="查看范围">
+                只能查看自己创建的动态和待办事项
+              </ElDescriptionsItem>
             </ElDescriptions>
           </ElCard>
 
@@ -400,15 +429,20 @@ const hasPermission = (permCode: string) => {
               </div>
             </template>
             <ElDescriptions :column="1" border>
-              <ElDescriptionsItem label="用户角色">审核员 (REVIEWER)</ElDescriptionsItem>
+              <ElDescriptionsItem label="用户角色">
+                审核员 (REVIEWER)
+              </ElDescriptionsItem>
               <ElDescriptionsItem label="所需权限">
                 <ElTag type="success" size="small">activity:view:all</ElTag>
                 <ElTag type="success" size="small">todo:view:all</ElTag>
               </ElDescriptionsItem>
               <ElDescriptionsItem label="操作流程">
-                1. 审核员登录系统 → 2. 进入动态与待办管理页面 → 3. 查看所有用户的动态和待办
+                1. 审核员登录系统 → 2. 进入动态与待办管理页面 → 3.
+                查看所有用户的动态和待办
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="查看范围">可以查看所有用户的动态和待办事项</ElDescriptionsItem>
+              <ElDescriptionsItem label="查看范围">
+                可以查看所有用户的动态和待办事项
+              </ElDescriptionsItem>
             </ElDescriptions>
           </ElCard>
 
@@ -420,14 +454,20 @@ const hasPermission = (permCode: string) => {
               </div>
             </template>
             <ElDescriptions :column="1" border>
-              <ElDescriptionsItem label="用户角色">管理员 (ADMIN)</ElDescriptionsItem>
+              <ElDescriptionsItem label="用户角色">
+                管理员 (ADMIN)
+              </ElDescriptionsItem>
               <ElDescriptionsItem label="所需权限">
                 <ElTag type="danger" size="small">todo:create:all</ElTag>
               </ElDescriptionsItem>
               <ElDescriptionsItem label="操作流程">
-                1. 管理员登录系统 → 2. 进入待办管理页面 → 3. 点击"为用户创建待办"按钮 → 4. 选择目标用户并填写待办信息 → 5. 创建待办
+                1. 管理员登录系统 → 2. 进入待办管理页面 → 3.
+                点击"为用户创建待办"按钮 → 4. 选择目标用户并填写待办信息 → 5.
+                创建待办
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="创建范围">可以为任何用户创建待办事项</ElDescriptionsItem>
+              <ElDescriptionsItem label="创建范围">
+                可以为任何用户创建待办事项
+              </ElDescriptionsItem>
             </ElDescriptions>
           </ElCard>
 
@@ -439,14 +479,20 @@ const hasPermission = (permCode: string) => {
               </div>
             </template>
             <ElDescriptions :column="1" border>
-              <ElDescriptionsItem label="触发用户">律师 (LAWYER)</ElDescriptionsItem>
-              <ElDescriptionsItem label="触发条件">用户创建案件并提交审核</ElDescriptionsItem>
+              <ElDescriptionsItem label="触发用户">
+                律师 (LAWYER)
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="触发条件">
+                用户创建案件并提交审核
+              </ElDescriptionsItem>
               <ElDescriptionsItem label="自动创建内容">
-                1. 为审核人创建待办事项（优先级：HIGH，状态：PENDING）<br>
-                2. 记录动态（类型：SUBMIT，内容：提交审核申请）<br>
+                1. 为审核人创建待办事项（优先级：HIGH，状态：PENDING）<br />
+                2. 记录动态（类型：SUBMIT，内容：提交审核申请）<br />
                 3. 发送通知给审核人
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="目标用户">审核人（由系统指定）</ElDescriptionsItem>
+              <ElDescriptionsItem label="目标用户">
+                审核人（由系统指定）
+              </ElDescriptionsItem>
             </ElDescriptions>
           </ElCard>
         </div>

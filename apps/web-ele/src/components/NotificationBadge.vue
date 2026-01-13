@@ -1,25 +1,18 @@
 <script setup lang="ts">
-import type { Notification } from '#/api/core/notification';
 import type { Approval } from '#/api/core/approval';
+import type { Notification } from '#/api/core/notification';
 
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-import {
-  ElBadge,
-  ElButton,
-  ElDropdown,
-  ElDropdownMenu,
-  ElMessage,
-  ElScrollbar,
-} from 'element-plus';
+import { ElBadge, ElButton, ElMessage, ElScrollbar } from 'element-plus';
 
-import { notificationApi } from '#/api/core/notification';
 import { approvalApi } from '#/api/core/approval';
+import { notificationApi } from '#/api/core/notification';
 import { useWebSocket } from '#/websocket/notification';
+
 import ActivityTimeline from './ActivityTimeline.vue';
 import ApprovalCard from './ApprovalCard.vue';
-import { activityApi } from '#/api/core/activity';
 
 const router = useRouter();
 const dropdownVisible = ref(false);
@@ -80,7 +73,7 @@ const loadNotifications = async () => {
     const res = await notificationApi.getNotificationList(1, 10);
     console.log('加载通知结果:', res);
     notifications.value = res.data || [];
-    
+
     // 如果没有数据，添加一些模拟数据用于测试
     if (notifications.value.length === 0) {
       notifications.value = [
@@ -100,7 +93,7 @@ const loadNotifications = async () => {
           title: '案件更新',
           content: '您的案件已经更新',
           isRead: true,
-          createTime: new Date(Date.now() - 3600000).toISOString(),
+          createTime: new Date(Date.now() - 3_600_000).toISOString(),
         },
         {
           id: 3,
@@ -109,7 +102,7 @@ const loadNotifications = async () => {
           title: '审批通知',
           content: '您有新的审批请求',
           isRead: false,
-          createTime: new Date(Date.now() - 7200000).toISOString(),
+          createTime: new Date(Date.now() - 7_200_000).toISOString(),
         },
       ];
     }
@@ -133,7 +126,7 @@ const loadNotifications = async () => {
         title: '案件更新',
         content: '您的案件已经更新',
         isRead: true,
-        createTime: new Date(Date.now() - 3600000).toISOString(),
+        createTime: new Date(Date.now() - 3_600_000).toISOString(),
       },
     ];
   } finally {
@@ -156,7 +149,7 @@ const loadPendingApprovals = async () => {
     const res = await approvalApi.getPendingApprovals(1, 10);
     console.log('加载待审核结果:', res);
     pendingApprovals.value = res.data || [];
-    
+
     // 如果没有数据，添加一些模拟数据用于测试
     if (pendingApprovals.value.length === 0) {
       pendingApprovals.value = [
@@ -183,7 +176,7 @@ const loadPendingApprovals = async () => {
           approverId: 2,
           approverName: '管理员',
           status: 'PENDING',
-          applyTime: new Date(Date.now() - 3600000).toISOString(),
+          applyTime: new Date(Date.now() - 3_600_000).toISOString(),
           description: '请审核该文书',
         },
       ];
@@ -267,8 +260,6 @@ const handleWebSocketMessage = (data: any) => {
   }
 };
 
-
-
 // 监听下拉菜单显示状态，加载数据
 watch(dropdownVisible, (newVal) => {
   if (newVal) {
@@ -293,7 +284,10 @@ onUnmounted(() => {
 
 <template>
   <div class="notification-badge">
-    <div class="notification-trigger" @click="dropdownVisible = !dropdownVisible">
+    <div
+      class="notification-trigger"
+      @click="dropdownVisible = !dropdownVisible"
+    >
       <ElBadge :value="totalCount" :hidden="totalCount === 0" :max="99">
         <div class="notification-icon-wrapper">
           <svg
@@ -314,10 +308,10 @@ onUnmounted(() => {
         </div>
       </ElBadge>
     </div>
-    
+
     <!-- 自定义下拉菜单 -->
-    <div 
-      v-if="dropdownVisible" 
+    <div
+      v-if="dropdownVisible"
       class="notification-dropdown-container"
       @mouseenter="isHovering = true"
       @mouseleave="isHovering = false"
@@ -325,17 +319,29 @@ onUnmounted(() => {
       <div class="notification-dropdown">
         <!-- 标签页导航 -->
         <div class="notification-tabs">
-          <div 
-            v-for="tab in tabs" 
+          <div
+            v-for="tab in tabs"
             :key="tab.key"
             class="notification-tab"
             :class="{ active: activeTab === tab.key }"
             @click="activeTab = tab.key"
           >
             <span>{{ tab.label }}</span>
-            <span v-if="tab.key === 'all' && unreadCount > 0" class="tab-badge circle-badge">{{ unreadCount }}</span>
-            <span v-if="tab.key === 'dynamic' && dynamicCount > 0" class="tab-badge circle-badge">{{ dynamicCount }}</span>
-            <span v-if="tab.key === 'approval' && pendingApprovals.length > 0" class="tab-badge circle-badge">{{ pendingApprovals.length }}</span>
+            <span
+              v-if="tab.key === 'all' && unreadCount > 0"
+              class="tab-badge circle-badge"
+              >{{ unreadCount }}</span
+            >
+            <span
+              v-if="tab.key === 'dynamic' && dynamicCount > 0"
+              class="tab-badge circle-badge"
+              >{{ dynamicCount }}</span
+            >
+            <span
+              v-if="tab.key === 'approval' && pendingApprovals.length > 0"
+              class="tab-badge circle-badge"
+              >{{ pendingApprovals.length }}</span
+            >
           </div>
           <div class="notification-tab settings" @click="toggleSettings">
             <svg
@@ -351,15 +357,20 @@ onUnmounted(() => {
               class="lucide lucide-settings"
             >
               <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
             </svg>
           </div>
         </div>
-        
-        <ElScrollbar style="flex: 1; min-height: 0;">
+
+        <ElScrollbar style="flex: 1; min-height: 0">
           <div class="notification-content-wrapper">
             <!-- 全部通知 -->
-            <div v-if="activeTab === 'all'" class="notification-content-section">
+            <div
+              v-if="activeTab === 'all'"
+              class="notification-content-section"
+            >
               <div v-loading="loading" class="notification-list">
                 <div
                   v-for="item in notifications"
@@ -402,19 +413,28 @@ onUnmounted(() => {
                     </ElButton>
                   </div>
                 </div>
-                <div v-if="notifications.length === 0" class="notification-empty">
+                <div
+                  v-if="notifications.length === 0"
+                  class="notification-empty"
+                >
                   暂无通知
                 </div>
               </div>
             </div>
-            
+
             <!-- 最新动态 -->
-            <div v-else-if="activeTab === 'dynamic'" class="notification-content-section">
+            <div
+              v-else-if="activeTab === 'dynamic'"
+              class="notification-content-section"
+            >
               <ActivityTimeline @update:count="dynamicCount = $event" />
             </div>
-            
+
             <!-- 待审核 -->
-            <div v-else-if="activeTab === 'approval'" class="notification-content-section">
+            <div
+              v-else-if="activeTab === 'approval'"
+              class="notification-content-section"
+            >
               <div v-if="pendingApprovals.length > 0" class="pending-approvals">
                 <ApprovalCard
                   v-for="approval in pendingApprovals"
@@ -431,7 +451,7 @@ onUnmounted(() => {
             </div>
           </div>
         </ElScrollbar>
-        
+
         <!-- 底部操作 -->
         <div class="notification-footer">
           <div class="footer-left">
@@ -447,11 +467,11 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    
+
     <!-- 点击外部关闭 -->
-    <div 
-      v-if="dropdownVisible" 
-      class="notification-overlay" 
+    <div
+      v-if="dropdownVisible"
+      class="notification-overlay"
       @click="dropdownVisible = false"
     ></div>
   </div>
@@ -525,6 +545,13 @@ onUnmounted(() => {
 
 /* 确保滚动条只在内容区域显示 */
 :deep(.el-scrollbar__wrap) {
+<<<<<<< Updated upstream
+=======
+  max-height: calc(
+    500px - 50px - 50px
+  ); /* 总高度 - 标签栏高度(减少10px) - 底部操作栏高度 */
+
+>>>>>>> Stashed changes
   overflow-y: auto;
   max-height: calc(500px - 50px - 50px); /* 总高度 - 标签栏高度(减少10px) - 底部操作栏高度 */
 }

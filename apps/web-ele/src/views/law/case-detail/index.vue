@@ -36,6 +36,7 @@ import {
   updateCaseApi,
 } from '#/api/core/case';
 import {
+<<<<<<< Updated upstream
   deleteAnnouncementApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
@@ -43,19 +44,35 @@ import {
   publishAnnouncementApi,
   recordAnnouncementViewApi,
   revokeAnnouncementApi,
+=======
+  createAnnouncementApi,
+  createViewRecordApi,
+  deleteAnnouncementApi,
+  getAnnouncementDetailApi,
+  getAnnouncementListApi,
+  publishAnnouncementApi,
+>>>>>>> Stashed changes
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
-import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
+import { deleteFileApi, downloadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi } from '#/api/core/user';
 import {
   addTeamMemberApi,
+<<<<<<< Updated upstream
   canAccessCaseApi,
   getActiveTeamRolesApi,
   getMyTeamMemberInfoApi,
   getTeamMembersApi,
   removeTeamMemberApi,
   updateTeamMemberApi,
+=======
+  getMemberPermissionsApi,
+  getWorkTeamDetailWithMembersApi,
+  getWorkTeamListApi,
+  removeTeamMemberApi,
+  updateMemberPermissionApi,
+>>>>>>> Stashed changes
 } from '#/api/core/work-team';
 
 import FileUploader from '../../../components/FileUploader.vue';
@@ -284,6 +301,7 @@ const formatDateOnly = (dateStr: string) => {
 const fetchAnnouncements = async () => {
   loadingAnnouncements.value = true;
   try {
+<<<<<<< Updated upstream
     const response = await getAnnouncementListApi(
       currentPage.value,
       pageSize.value,
@@ -292,6 +310,26 @@ const fetchAnnouncements = async () => {
     );
     if (response.code === 200) {
       announcements.value = response.data.list || [];
+=======
+    const response = await getAnnouncementListApi({
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+      caseId: Number.parseInt(caseId.value),
+      status: statusFilter.value || undefined,
+    });
+    if (response.code === 200 && response.data) {
+      // 将驼峰命名转换为下划线命名，以匹配表格组件的预期
+      const list = (response.data.list || []).map((item: any) => ({
+        ...item,
+        announcement_type: item.announcementType,
+        is_top: item.isTop ? 1 : 0,
+        top_expire_time: item.topExpireTime,
+        publisher_name: item.publisherName,
+        publish_time: item.publishTime,
+        view_count: item.viewCount,
+      }));
+      announcements.value = list;
+>>>>>>> Stashed changes
       totalAnnouncements.value = response.data.total || 0;
     } else {
       ElMessage.error(`获取公告列表失败：${response.message || '未知错误'}`);
@@ -331,6 +369,7 @@ const saveAnnouncement = async () => {
     console.log('3. 条件判断结果:');
     console.log('   isEditing && announcementId:', isEditing && announcementId);
 
+<<<<<<< Updated upstream
     // 处理附件上传
     const uploadedAttachments = [];
     // 过滤出需要上传的文件（status为ready的文件）
@@ -400,6 +439,18 @@ const saveAnnouncement = async () => {
         }),
       );
     }
+=======
+    // 准备请求数据
+    const requestData = {
+      caseId: Number(caseId.value),
+      title: announcementData.title,
+      content: announcementData.content,
+      announcementType: announcementData.announcement_type,
+      attachments: announcementData.attachments
+        ? JSON.stringify(announcementData.attachments)
+        : undefined,
+    };
+>>>>>>> Stashed changes
 
     if (isEditing && announcementId) {
       console.log('4. 进入更新公告分支');
@@ -455,9 +506,16 @@ const confirmRevokeAnnouncement = async () => {
   if (!currentRevokeAnnouncementId.value) return;
 
   try {
+<<<<<<< Updated upstream
     const response = await revokeAnnouncementApi(
       currentRevokeAnnouncementId.value,
       revokeReason.value,
+=======
+    // 使用更新API将状态改为DRAFT
+    const response = await updateAnnouncementApi(
+      Number(currentRevokeAnnouncementId.value),
+      { status: 'DRAFT' as any },
+>>>>>>> Stashed changes
     );
     if (response.status === '1') {
       ElMessage.success('公告撤销成功');
@@ -509,10 +567,20 @@ const editAnnouncement = (announcement: any) => {
   announcementData.title = announcement.title;
   announcementData.content = announcement.content;
   announcementData.announcement_type =
+<<<<<<< Updated upstream
     announcement.announcement_type || 'NORMAL';
   announcementData.status = announcement.status || 'PUBLISHED';
   announcementData.is_top = Boolean(announcement.is_top);
   announcementData.top_expire_time = announcement.top_expire_time || '';
+=======
+    announcement.announcementType ||
+    announcement.announcement_type ||
+    'ANNOUNCEMENT';
+  announcementData.status = announcement.status || 'DRAFT';
+  announcementData.is_top = Boolean(announcement.isTop || announcement.is_top);
+  announcementData.top_expire_time =
+    announcement.topExpireTime || announcement.top_expire_time || '';
+>>>>>>> Stashed changes
 
   // 处理attachments字段，确保是数组格式
   let attachments = announcement.attachments || [];
@@ -813,6 +881,7 @@ const startEditing = () => {
 const saveEditing = async () => {
   saveLoading.value = true;
   try {
+<<<<<<< Updated upstream
     const currentDate = new Date().toISOString().split('T')[0];
 
     const updateData = {
@@ -877,6 +946,30 @@ const saveEditing = async () => {
     } else {
       ElMessage.error(`保存失败：${response.error || '未知错误'}`);
     }
+=======
+    // 适配新的API请求格式
+    const updateData: CaseApi.UpdateCaseRequest = {
+      caseName: editedData.案件名称 || caseDetail.value?.caseName,
+      caseReason: editedData.案由 || caseDetail.value?.caseReason,
+      remarks: editedData.备注 || caseDetail.value?.remarks,
+      filingDate:
+        formatDateForApi(editedData.立案日期) || caseDetail.value?.filingDate,
+      caseProgress: editedData.案件进度 || caseDetail.value?.caseProgress,
+      mainResponsiblePerson:
+        editedData.管理人负责人 || caseDetail.value?.mainResponsiblePerson,
+      designatedInstitution:
+        editedData.指定机构 || caseDetail.value?.designatedInstitution,
+      acceptanceCourt: editedData.受理法院 || caseDetail.value?.acceptanceCourt,
+      debtClaimDeadline:
+        formatDateForApi(editedData.债权申报截止时间) ||
+        caseDetail.value?.debtClaimDeadline,
+    };
+
+    await updateCaseApi(Number.parseInt(caseId.value, 10), updateData);
+    Object.assign(caseDetail.value, editedData);
+    isEditing.value = false;
+    ElMessage.success('案件信息已保存');
+>>>>>>> Stashed changes
   } catch (error) {
     console.error('保存案件信息失败:', error);
     ElMessage.error('保存案件信息失败');
@@ -907,7 +1000,11 @@ onMounted(async () => {
   loading.value = true;
   try {
     // 调用真实API获取案件详情
+<<<<<<< Updated upstream
     const response = await getCaseDetailApi(caseId.value);
+=======
+    const response = await getCaseDetailApi(Number.parseInt(caseId.value, 10));
+>>>>>>> Stashed changes
 
     // 使用类型断言处理响应数据
     const responseData = response as any;
@@ -927,7 +1024,11 @@ onMounted(async () => {
       }
     } else {
       const errorMsg =
+<<<<<<< Updated upstream
         responseData.error || responseData.data?.error || '未知错误';
+=======
+        responseData.message || responseData.data?.error || '未知错误';
+>>>>>>> Stashed changes
       ElMessage.error(`获取案件详情失败：${errorMsg}`);
 
       // 如果API调用失败，使用虚拟数据作为备用
@@ -1011,6 +1112,46 @@ onMounted(async () => {
   await checkPermissions();
 });
 
+<<<<<<< Updated upstream
+=======
+// 映射案件进度
+const mapCaseProgress = (progress: string): string => {
+  const progressMap: Record<string, string> = {
+    FIRST: '第一阶段',
+    SECOND: '第二阶段',
+    THIRD: '第三阶段',
+    FOURTH: '第四阶段',
+    FIFTH: '第五阶段',
+    SIXTH: '第六阶段',
+    SEVENTH: '第七阶段',
+  };
+  return progressMap[progress] || progress;
+};
+
+// 映射审核状态
+const mapReviewStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    PENDING: '待审核',
+    APPROVED: '已通过',
+    REJECTED: '已驳回',
+  };
+  return statusMap[status] || status;
+};
+
+// 映射案件状态
+const mapCaseStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    PENDING: '待处理',
+    IN_PROGRESS: '进行中',
+    COMPLETED: '已完成',
+    CLOSED: '已结案',
+    TERMINATED: '已终结',
+    ARCHIVED: '已归档',
+  };
+  return statusMap[status] || status;
+};
+
+>>>>>>> Stashed changes
 // 获取管理员机构列表
 const loadAdministrators = async () => {
   loadingAdministrators.value = true;
@@ -1099,10 +1240,64 @@ const fetchTeamMembers = async () => {
   console.log('开始获取工作团队成员列表');
   workTeamLoading.value = true;
   try {
+<<<<<<< Updated upstream
     const response = await getTeamMembersApi(Number(caseId.value));
     console.log('getTeamMembersApi响应:', response);
     if (response.code === 200) {
       teamMembers.value = response.data || [];
+=======
+    // 首先根据caseId获取该案件下的工作团队列表
+    const teamListResponse = await getWorkTeamListApi({
+      caseId: Number(caseId.value),
+      pageNum: 1,
+      pageSize: 10,
+    });
+    console.log('getWorkTeamListApi响应:', teamListResponse);
+
+    // 处理不同的响应数据结构
+    let workTeams = [];
+    if (teamListResponse.data && Array.isArray(teamListResponse.data.list)) {
+      // 包含data层的响应结构
+      workTeams = teamListResponse.data.list;
+      console.log('从data.list获取到工作团队:', workTeams);
+    } else if (Array.isArray(teamListResponse.list)) {
+      // 直接返回list的响应结构
+      workTeams = teamListResponse.list;
+      console.log('从list获取到工作团队:', workTeams);
+    } else if (Array.isArray(teamListResponse)) {
+      // 直接返回数组的响应结构
+      workTeams = teamListResponse;
+      console.log('直接获取到工作团队数组:', workTeams);
+    }
+
+    if (workTeams.length > 0) {
+      // 获取第一个工作团队的teamId
+      const firstTeam = workTeams[0];
+      const teamId = firstTeam.id;
+      console.log('获取到的teamId:', teamId);
+
+      // 使用teamId获取工作团队详情和成员列表
+      const response = await getWorkTeamDetailWithMembersApi(teamId);
+      console.log('getWorkTeamDetailWithMembersApi响应:', response);
+
+      // 处理团队详情和成员列表的不同响应结构
+      let teamInfo = null;
+      let members = [];
+
+      if (response.data) {
+        // 包含data层的响应结构
+        teamInfo = response.data;
+        members = response.data.members || [];
+      } else {
+        // 直接返回团队详情的响应结构
+        teamInfo = response;
+        members = response.members || [];
+      }
+
+      teamDetails.value = teamInfo;
+      teamMembers.value = members;
+      console.log('工作团队详情:', teamDetails.value);
+>>>>>>> Stashed changes
       console.log('工作团队成员列表:', teamMembers.value);
     } else {
       teamMembers.value = [];
@@ -1110,7 +1305,15 @@ const fetchTeamMembers = async () => {
     }
   } catch (error) {
     console.error('获取工作团队成员列表失败:', error);
+<<<<<<< Updated upstream
     ElMessage.error('获取工作团队成员列表失败');
+=======
+    const errorMessage =
+      error?.response?.data?.message ||
+      error?.message ||
+      '获取工作团队成员列表失败';
+    ElMessage.error(errorMessage);
+>>>>>>> Stashed changes
     teamMembers.value = [];
   } finally {
     workTeamLoading.value = false;
@@ -1215,7 +1418,15 @@ const handleSaveMember = async () => {
     await fetchTeamMembers();
   } catch (error) {
     console.error('保存团队成员失败:', error);
+<<<<<<< Updated upstream
     ElMessage.error('保存团队成员失败');
+=======
+    const errorMessage =
+      error?.response?.data?.message || error?.message || '保存团队成员失败';
+    ElMessage.error(errorMessage);
+  } finally {
+    savingMember.value = false;
+>>>>>>> Stashed changes
   }
 };
 
@@ -1227,7 +1438,13 @@ const handleRemoveMember = async (row: any) => {
     await fetchTeamMembers();
   } catch (error) {
     console.error('移除团队成员失败:', error);
+<<<<<<< Updated upstream
     ElMessage.error('移除团队成员失败');
+=======
+    const errorMessage =
+      error?.response?.data?.message || error?.message || '移除团队成员失败';
+    ElMessage.error(errorMessage);
+>>>>>>> Stashed changes
   }
 };
 
@@ -1251,6 +1468,53 @@ const getPermissionLabel = (level: string) => {
   return labels[level] || level;
 };
 
+<<<<<<< Updated upstream
+=======
+// 格式化日期时间
+const formatDateTime = (dateTime: null | string | undefined) => {
+  if (!dateTime) return '-';
+  try {
+    const date = new Date(dateTime);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    console.error('日期格式化失败:', error);
+    return dateTime;
+  }
+};
+
+// 权限详情对话框相关
+const permissionDialogVisible = ref(false);
+const currentMemberPermissions = ref<any[]>([]);
+const currentMemberName = ref('');
+
+// 查看成员权限详情
+const handleViewPermissions = async (row: any) => {
+  try {
+    currentMemberName.value = row.userRealName || row.userName || '未知用户';
+    permissionDialogVisible.value = true;
+
+    if (row.permissions && row.permissions.length > 0) {
+      currentMemberPermissions.value = row.permissions;
+    } else if (row.id) {
+      const response = await getMemberPermissionsApi(row.id);
+      currentMemberPermissions.value = response || [];
+    } else {
+      currentMemberPermissions.value = [];
+    }
+  } catch (error) {
+    console.error('获取成员权限失败:', error);
+    ElMessage.error('获取成员权限失败');
+    currentMemberPermissions.value = [];
+  }
+};
+
+>>>>>>> Stashed changes
 // 检查权限
 const checkPermissions = async () => {
   try {
@@ -1462,7 +1726,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件名称"
@@ -1482,7 +1748,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.受理日期"
@@ -1503,7 +1771,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件来源：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件来源：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件来源"
@@ -1523,7 +1793,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">受理法院：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >受理法院：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.受理法院"
@@ -1543,7 +1815,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案由：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案由：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案由"
@@ -1563,7 +1837,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">案件进度：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >案件进度：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.案件进度"
@@ -1583,7 +1859,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">是否简化审：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >是否简化审：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.是否简化审"
@@ -1617,7 +1895,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">立案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >立案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.立案日期"
@@ -1638,7 +1918,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">结案日期：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >结案日期：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.结案日期"
@@ -1659,7 +1941,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">破产时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >破产时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.破产时间"
@@ -1680,7 +1964,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">终结时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >终结时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.终结时间"
@@ -1701,7 +1987,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">注销时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >注销时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.注销时间"
@@ -1722,7 +2010,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">归档时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >归档时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.归档时间"
@@ -1743,7 +2033,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权申报截止时间：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权申报截止时间：</span
+                      >
                       <template v-if="isEditing">
                         <ElDatePicker
                           v-model="editedData.债权申报截止时间"
@@ -1778,7 +2070,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人负责人：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人负责人：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人负责人"
@@ -1798,7 +2092,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人类型"
@@ -1818,7 +2114,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">管理人状态：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >管理人状态：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.管理人状态"
@@ -1838,7 +2136,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">律师事务所：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >律师事务所：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.律师事务所"
@@ -1872,7 +2172,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人名称：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人名称：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人名称"
@@ -1892,7 +2194,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">债权人类型：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >债权人类型：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.债权人类型"
@@ -1912,7 +2216,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系电话：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系电话：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系电话"
@@ -1932,7 +2238,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">联系邮箱：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >联系邮箱：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.联系邮箱"
@@ -1952,7 +2260,9 @@ const checkPermissions = async () => {
                     <div
                       class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
                     >
-                      <span class="detail-info-label font-medium text-gray-600">办公地址：</span>
+                      <span class="detail-info-label font-medium text-gray-600"
+                        >办公地址：</span
+                      >
                       <template v-if="isEditing">
                         <ElInput
                           v-model="editedData.办公地址"
@@ -2047,7 +2357,10 @@ const checkPermissions = async () => {
               :case-id="caseId"
             />
             <StageSixProcess v-else-if="currentStage === 6" :case-id="caseId" />
-            <StageSevenProcess v-else-if="currentStage === 7" :case-id="caseId" />
+            <StageSevenProcess
+              v-else-if="currentStage === 7"
+              :case-id="caseId"
+            />
           </div>
         </div>
       </ElCard>
@@ -2176,6 +2489,7 @@ const checkPermissions = async () => {
               <template #default="scope">
                 <ElTag
                   :type="
+<<<<<<< Updated upstream
                     scope.row.status === 'PUBLISHED'
                       ? 'success'
                       : scope.row.status === 'RETRACTED'
@@ -2191,6 +2505,13 @@ const checkPermissions = async () => {
                         ? '已撤回'
                         : '草稿'
                   }}
+=======
+                    scope.row.status === 'PUBLISHED' ? 'success' : 'warning'
+                  "
+                  class="status-tag"
+                >
+                  {{ scope.row.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+>>>>>>> Stashed changes
                 </ElTag>
               </template>
             </ElTableColumn>
@@ -2282,14 +2603,69 @@ const checkPermissions = async () => {
               align-items: center;
             "
           >
+<<<<<<< Updated upstream
             <h2 style="color: #333; margin: 0; font-size: 18px">
               工作团队成员管理
             </h2>
+=======
+            <div style="display: flex; gap: 12px; align-items: center">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 48px;
+                  height: 48px;
+                  background: rgb(255 255 255 / 20%);
+                  border-radius: 50%;
+                "
+              >
+                <Icon
+                  icon="lucide:users"
+                  style="font-size: 24px; color: white"
+                />
+              </div>
+              <div>
+                <h2
+                  style="
+                    margin: 0;
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: white;
+                  "
+                >
+                  {{ teamDetails?.teamName || '工作团队成员管理' }}
+                </h2>
+                <p
+                  style="
+                    margin: 4px 0 0;
+                    font-size: 14px;
+                    color: rgb(255 255 255 / 80%);
+                  "
+                >
+                  {{ teamDetails?.teamDescription || '' }}
+                </p>
+                <p
+                  style="
+                    margin: 2px 0 0;
+                    font-size: 14px;
+                    color: rgb(255 255 255 / 80%);
+                  "
+                >
+                  共 {{ teamMembers.length }} 位成员
+                </p>
+              </div>
+            </div>
+>>>>>>> Stashed changes
             <div style="display: flex; gap: 10px">
               <ElButton
                 type="primary"
                 @click="handleAddMember"
                 v-if="isCreator"
+<<<<<<< Updated upstream
+=======
+                style="color: #667eea; background: white; border: none"
+>>>>>>> Stashed changes
               >
                 <Icon icon="lucide:plus" class="mr-1" />
                 添加成员
@@ -2298,6 +2674,7 @@ const checkPermissions = async () => {
           </div>
         </div>
 
+<<<<<<< Updated upstream
         <div v-if="workTeamLoading" class="loading-container">
           <ElSkeleton :rows="5" animated />
         </div>
@@ -2307,10 +2684,33 @@ const checkPermissions = async () => {
             <template #header>
               <div class="category-header">
                 <Icon icon="lucide:users" class="mr-2 text-blue-500" />
+=======
+        <div
+          v-if="workTeamLoading"
+          class="loading-container"
+          style="padding: 40px"
+        >
+          <ElSkeleton :rows="8" animated />
+        </div>
+
+        <div v-else class="case-info-content" style="padding: 20px">
+          <ElCard
+            class="category-card mb-4"
+            shadow="hover"
+            style="border: none"
+          >
+            <template #header>
+              <div
+                class="category-header"
+                style="display: flex; gap: 8px; align-items: center"
+              >
+                <Icon icon="lucide:users" class="text-blue-500" />
+>>>>>>> Stashed changes
                 <span class="text-md font-semibold">团队成员列表</span>
               </div>
             </template>
             <div class="category-content">
+<<<<<<< Updated upstream
               <ElTable :data="teamMembers" style="width: 100%">
                 <ElTableColumn prop="userName" label="成员姓名" width="150" />
                 <ElTableColumn prop="userCode" label="用户编码" width="150" />
@@ -2319,6 +2719,34 @@ const checkPermissions = async () => {
                   label="团队角色"
                   width="150"
                 />
+=======
+              <ElTable
+                :data="teamMembers"
+                style="width: 100%"
+                :header-cell-style="{
+                  background: '#f5f7fa',
+                  color: '#606266',
+                  fontWeight: '600',
+                }"
+                :row-style="{ height: '56px' }"
+                stripe
+              >
+                <ElTableColumn prop="userRealName" label="真实姓名" width="120">
+                  <template #default="{ row }">
+                    {{ row.userRealName || row.userName || '-' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="userName" label="用户名" width="120">
+                  <template #default="{ row }">
+                    {{ row.userName || '-' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="teamRole" label="团队角色" width="120">
+                  <template #default="{ row }">
+                    {{ row.teamRole || '-' }}
+                  </template>
+                </ElTableColumn>
+>>>>>>> Stashed changes
                 <ElTableColumn
                   prop="permissionLevel"
                   label="权限级别"
@@ -2339,7 +2767,35 @@ const checkPermissions = async () => {
                 </ElTableColumn>
                 <ElTableColumn label="操作" width="200" v-if="isCreator">
                   <template #default="{ row }">
+<<<<<<< Updated upstream
                     <ElButton size="small" @click="handleEditMember(row)">
+=======
+                    {{ formatDateTime(row.createTime) }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn
+                  label="操作"
+                  width="200"
+                  fixed="right"
+                  v-if="isCreator"
+                >
+                  <template #default="{ row }">
+                    <ElButton
+                      size="small"
+                      @click="handleViewPermissions(row)"
+                      type="info"
+                      plain
+                    >
+                      <Icon icon="lucide:shield" class="mr-1" />
+                      权限
+                    </ElButton>
+                    <ElButton
+                      size="small"
+                      @click="handleEditMember(row)"
+                      type="primary"
+                      plain
+                    >
+>>>>>>> Stashed changes
                       <Icon icon="lucide:pencil" class="mr-1" />
                       编辑
                     </ElButton>
@@ -2365,7 +2821,40 @@ const checkPermissions = async () => {
                 class="empty-state"
                 style="padding: 40px; text-align: center"
               >
+<<<<<<< Updated upstream
                 <ElEmpty description="暂无团队成员" />
+=======
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 120px;
+                    height: 120px;
+                    margin: 0 auto 20px;
+                    background: linear-gradient(
+                      135deg,
+                      #667eea 0%,
+                      #764ba2 100%
+                    );
+                    border-radius: 50%;
+                  "
+                >
+                  <Icon
+                    icon="lucide:users"
+                    style="font-size: 48px; color: white"
+                  />
+                </div>
+                <ElEmpty description="暂无团队成员" :image-size="0">
+                  <template #description>
+                    <p
+                      style="margin-top: 16px; font-size: 14px; color: #909399"
+                    >
+                      暂无团队成员，点击上方"添加成员"按钮开始添加
+                    </p>
+                  </template>
+                </ElEmpty>
+>>>>>>> Stashed changes
               </div>
             </div>
           </ElCard>
@@ -2443,8 +2932,67 @@ const checkPermissions = async () => {
           </ElFormItem>
         </ElForm>
         <template #footer>
+<<<<<<< Updated upstream
           <ElButton @click="memberDialogVisible = false">取消</ElButton>
           <ElButton type="primary" @click="handleSaveMember">确定</ElButton>
+=======
+          <div style="display: flex; gap: 12px; justify-content: flex-end">
+            <ElButton @click="memberDialogVisible = false" size="large">
+              取消
+            </ElButton>
+            <ElButton
+              type="primary"
+              @click="handleSaveMember"
+              :loading="savingMember"
+              size="large"
+            >
+              <Icon v-if="!savingMember" icon="lucide:check" class="mr-1" />
+              确定
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
+      <!-- 权限详情对话框 -->
+      <ElDialog
+        v-model="permissionDialogVisible"
+        :title="`${currentMemberName} 的权限详情`"
+        width="800px"
+        destroy-on-close
+      >
+        <div v-if="currentMemberPermissions.length > 0">
+          <ElTable :data="currentMemberPermissions" style="width: 100%">
+            <ElTableColumn prop="moduleType" label="模块类型" width="200" />
+            <ElTableColumn prop="permissionType" label="权限类型" width="150" />
+            <ElTableColumn prop="isAllowed" label="是否允许" width="100">
+              <template #default="{ row }">
+                <ElTag :type="row.isAllowed ? 'success' : 'danger'">
+                  {{ row.isAllowed ? '允许' : '禁止' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <ElTag :type="row.status === 'ACTIVE' ? 'success' : 'danger'">
+                  {{ row.status === 'ACTIVE' ? '激活' : '禁用' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn prop="createTime" label="创建时间" width="180">
+              <template #default="{ row }">
+                {{ formatDateTime(row.createTime) }}
+              </template>
+            </ElTableColumn>
+          </ElTable>
+        </div>
+        <div v-else class="empty-permissions">
+          <ElEmpty description="暂无权限信息" />
+        </div>
+        <template #footer>
+          <ElButton type="primary" @click="permissionDialogVisible = false">
+            关闭
+          </ElButton>
+>>>>>>> Stashed changes
         </template>
       </ElDialog>
 

@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import type { Approval } from '#/api/core/approval';
+
+import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { approvalApi, type Approval } from '#/api/core/approval';
-import ApprovalCard from '#/components/ApprovalCard.vue';
+
 import { Icon } from '@iconify/vue';
-import { ElButton, ElTag, ElCard, ElTimeline, ElTimelineItem, ElEmpty, ElMessage, ElMessageBox, ElInput } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElEmpty,
+  ElMessage,
+  ElMessageBox,
+  ElTag,
+  ElTimeline,
+  ElTimelineItem,
+} from 'element-plus';
+
+import { approvalApi } from '#/api/core/approval';
 
 const route = useRoute();
 const router = useRouter();
@@ -69,14 +81,18 @@ const handleApprove = async () => {
 const handleReject = async () => {
   if (!approval.value) return;
   try {
-    const { value: opinion } = await ElMessageBox.prompt('请输入驳回原因', '确认驳回', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPattern: /\S+/,
-      inputErrorMessage: '驳回原因不能为空',
-      inputType: 'textarea',
-      inputPlaceholder: '请输入驳回原因',
-    });
+    const { value: opinion } = await ElMessageBox.prompt(
+      '请输入驳回原因',
+      '确认驳回',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '驳回原因不能为空',
+        inputType: 'textarea',
+        inputPlaceholder: '请输入驳回原因',
+      },
+    );
     await approvalApi.reject(approval.value.id, opinion);
     ElMessage.success('已驳回');
     loadApprovalDetail();
@@ -241,7 +257,9 @@ onMounted(() => {
               </div>
               <div v-if="approval.approveTime" class="info-item">
                 <span class="label">审核时间:</span>
-                <span class="value">{{ formatTime(approval.approveTime) }}</span>
+                <span class="value">{{
+                  formatTime(approval.approveTime)
+                }}</span>
               </div>
               <div v-if="approval.description" class="info-item full-width">
                 <span class="label">描述:</span>
@@ -268,7 +286,9 @@ onMounted(() => {
               >
                 <div class="log-item">
                   <div class="log-header">
-                    <span class="log-action">{{ getActionText(log.action) }}</span>
+                    <span class="log-action">{{
+                      getActionText(log.action)
+                    }}</span>
                     <span class="log-operator">{{ log.operatorName }}</span>
                   </div>
                   <div v-if="log.opinion" class="log-opinion">

@@ -3,7 +3,16 @@ import type { CaseApi } from '#/api/core/case';
 
 import { ref, watch } from 'vue';
 
-import { ElButton, ElCard, ElDialog, ElEmpty, ElMessage, ElTimeline, ElTimelineItem, ElTag } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElDialog,
+  ElEmpty,
+  ElMessage,
+  ElTag,
+  ElTimeline,
+  ElTimelineItem,
+} from 'element-plus';
 
 import { approveCaseApi, getReviewLogsApi, rejectCaseApi } from '#/api/core/case';
 
@@ -28,12 +37,15 @@ const form = ref({
 });
 const loading = ref(false);
 
-watch(() => props.visible, (newVal) => {
-  visible.value = newVal;
-  if (newVal && props.caseData) {
-    loadReviewLogs();
-  }
-});
+watch(
+  () => props.visible,
+  (newVal) => {
+    visible.value = newVal;
+    if (newVal && props.caseData) {
+      loadReviewLogs();
+    }
+  },
+);
 
 watch(visible, (newVal) => {
   emit('update:visible', newVal);
@@ -43,12 +55,18 @@ const loadReviewLogs = async () => {
   if (!props.caseData?.案件单据号) return;
 
   try {
+<<<<<<< Updated upstream
     const response = await getReviewLogsApi(props.caseData.案件单据号);
     if (response.status === '1') {
       reviewLogs.value = response.data || [];
     } else {
       reviewLogs.value = [];
     }
+=======
+    const response = await getReviewLogsApi(props.caseData.id);
+    reviewLogs.value =
+      response.code === 200 && response.data ? response.data || [] : [];
+>>>>>>> Stashed changes
   } catch (error) {
     console.error('加载审核日志失败', error);
     reviewLogs.value = [];
@@ -203,7 +221,7 @@ const formatTime = (time: string) => {
               class="form-textarea"
               placeholder="请输入审核意见"
               rows="4"
-            />
+            ></textarea>
           </div>
           <div class="action-buttons">
             <ElButton type="success" :loading="loading" @click="handleApprove">
@@ -214,9 +232,7 @@ const formatTime = (time: string) => {
               <i class="i-lucide-x mr-1"></i>
               驳回
             </ElButton>
-            <ElButton @click="handleCancel">
-              取消
-            </ElButton>
+            <ElButton @click="handleCancel"> 取消 </ElButton>
           </div>
         </div>
       </ElCard>

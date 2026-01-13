@@ -6,10 +6,7 @@ import { onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
-  ElCheckbox,
-  ElCheckboxGroup,
   ElDialog,
-  ElEmpty,
   ElForm,
   ElFormItem,
   ElInput,
@@ -18,18 +15,25 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag,
-  ElTabs,
   ElTabPane,
+  ElTabs,
+  ElTag,
 } from 'element-plus';
 
 import {
+  assignRolesToUserPostApi,
+  assignRolesToUserPutApi,
   checkUserRoleApi,
   getAllRolesApi,
+<<<<<<< Updated upstream
   getUserRoleIdsApi,
   getUsersByRoleCodeApi,
   removeRoleApi,
   updateTBUserRoleApi,
+=======
+  getUserRolesListApi,
+  removeRolesFromUserApi,
+>>>>>>> Stashed changes
 } from '#/api/core/permission';
 
 const activeTab = ref('roleUsers');
@@ -55,12 +59,13 @@ const checkRoleForm = ref({
   userId: 1,
   roleCode: 'ADMIN',
 });
-const checkResult = ref<PermissionApi.CheckRoleResponse['data'] | null>(null);
+const checkResult = ref<null | PermissionApi.CheckRoleResponse['data']>(null);
 
 const loadRoles = async () => {
   loading.value = true;
   try {
     const response = await getAllRolesApi();
+<<<<<<< Updated upstream
     if (response.status === '1') {
       // 将API返回的下划线命名字段转换为驼峰命名
       roles.value = (response.data || []).map(role => ({
@@ -70,23 +75,34 @@ const loadRoles = async () => {
         roleDesc: role.role_desc,
         isSystem: role.is_system,
         sortOrder: role.sort_order
+=======
+    if (response.code === 200) {
+      // 新API返回的是驼峰命名，直接映射并将id转换为roleId以适配现有代码
+      roles.value = (response.data.roles || []).map((role) => ({
+        roleId: role.id,
+        roleCode: role.roleCode,
+        roleName: role.roleName,
+        roleDesc: role.roleDesc,
+        isSystem: role.isSystem,
+        status: role.status,
+        sortOrder: role.sortOrder,
+>>>>>>> Stashed changes
       }));
       ElMessage.success('角色列表加载成功');
     } else {
       ElMessage.error(response.error || '加载角色列表失败');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('加载角色列表失败');
   } finally {
     loading.value = false;
   }
 };
 
-
-
 const loadRoleUsers = async () => {
   loading.value = true;
   try {
+<<<<<<< Updated upstream
     const response = await getUsersByRoleCodeApi(currentRoleCode.value);
     if (response.status === '1') {
       // 将API返回的下划线命名字段转换为驼峰命名
@@ -122,40 +138,70 @@ const loadRoleUsers = async () => {
         uPur5: user.u_pur5,
         roles: user.roles,
         permissions: user.permissions
+=======
+    // 调用新的API获取用户角色列表
+    const response = await getUserRolesListApi();
+    if (response.code === 200) {
+      // 处理新的响应格式
+      roleUsers.value = (response.data || []).map((user) => ({
+        uPid: user.id,
+        uUser: user.username,
+        uName: user.realName,
+        uMobile: user.mobile,
+        uEmail: user.email,
+        // 处理角色列表，将多个角色名称用顿号分隔
+        userRoles: user.roles?.map((role) => role.roleName).join('、') || '',
+        // 保留其他必要字段
+        isValid: user.isValid,
+        status: user.status,
+        lastLoginTime: user.lastLoginTime,
+        lastLoginIp: user.lastLoginIp,
+>>>>>>> Stashed changes
       }));
       ElMessage.success('角色用户列表加载成功');
     } else {
       ElMessage.error(response.error || '加载角色用户列表失败');
     }
+<<<<<<< Updated upstream
   } catch (error) {
     ElMessage.error('加载角色用户列表失败');
+=======
+  } catch {
+    ElMessage.error('加载用户角色列表失败');
+>>>>>>> Stashed changes
   } finally {
     loading.value = false;
   }
 };
 
-
-
-
-
 const handleCheckRole = async () => {
   loading.value = true;
   try {
-    const response = await checkUserRoleApi(checkRoleForm.value.userId, checkRoleForm.value.roleCode);
+    const response = await checkUserRoleApi(
+      checkRoleForm.value.userId,
+      checkRoleForm.value.roleCode,
+    );
     if (response.status === '1') {
       checkResult.value = response.data;
       ElMessage.success('角色检查完成');
     } else {
       ElMessage.error(response.error || '角色检查失败');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('角色检查失败');
   } finally {
     loading.value = false;
   }
 };
 
+<<<<<<< Updated upstream
 const handleEditPermission = async (user: any) => {
+=======
+const handleEditPermission = (user: any) => {
+  // 记录用户是否有原始角色
+  const hasOriginalRoles = !!user.userRoles;
+
+>>>>>>> Stashed changes
   // 填充基本用户信息
   editPermissionForm.value = {
     u_pid: user.uPid,
@@ -164,6 +210,7 @@ const handleEditPermission = async (user: any) => {
     role_id: 0, // 默认值，将通过API获取
   };
 
+<<<<<<< Updated upstream
   try {
     // 调用API获取用户当前角色ID
     const response = await getUserRoleIdsApi(user.uPid);
@@ -173,6 +220,19 @@ const handleEditPermission = async (user: any) => {
     }
   } catch (error) {
     ElMessage.error('获取用户角色ID失败');
+=======
+  // 从用户信息中提取当前角色，并转换为角色ID数组
+  if (user.userRoles) {
+    // 将用户角色字符串分割为数组
+    const roleNames = user.userRoles.split('、');
+    // 从角色列表中查找对应的角色ID
+    roleNames.forEach((roleName) => {
+      const role = roles.value.find((r) => r.roleName === roleName);
+      if (role) {
+        editPermissionForm.value.role_ids.push(role.roleId);
+      }
+    });
+>>>>>>> Stashed changes
   }
 
   // 打开弹窗
@@ -181,10 +241,38 @@ const handleEditPermission = async (user: any) => {
 
 const handleRemoveUser = async (user: any) => {
   try {
+<<<<<<< Updated upstream
     // 从角色列表中找到当前角色对应的roleId
     const currentRole = roles.value.find(role => role.roleCode === currentRoleCode.value);
     if (!currentRole) {
       ElMessage.error('未找到当前角色信息');
+=======
+    // 显示确认对话框
+    await ElMessageBox.confirm('确定要移除该用户的角色吗？', '确认移除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
+    // 从用户信息中获取角色ID列表
+    // 注意：这里需要根据实际情况获取用户的角色ID列表
+    // 由于当前user对象中没有直接的角色ID，我们需要根据角色名称从roles列表中查找
+    const userRoleIds = [];
+    if (user.userRoles) {
+      // 将用户角色字符串分割为数组
+      const roleNames = user.userRoles.split('、');
+      // 从角色列表中查找对应的角色ID
+      roleNames.forEach((roleName) => {
+        const role = roles.value.find((r) => r.roleName === roleName);
+        if (role) {
+          userRoleIds.push(role.roleId);
+        }
+      });
+    }
+
+    if (userRoleIds.length === 0) {
+      ElMessage.error('未找到用户的角色信息');
+>>>>>>> Stashed changes
       return;
     }
 
@@ -202,13 +290,22 @@ const handleRemoveUser = async (user: any) => {
 };
 
 const handleUpdatePermission = async () => {
+<<<<<<< Updated upstream
   if (!editPermissionForm.value.role_id) {
     ElMessage.warning('请选择角色');
+=======
+  if (
+    !editPermissionForm.value.role_ids ||
+    editPermissionForm.value.role_ids.length === 0
+  ) {
+    ElMessage.warning('请选择至少一个角色');
+>>>>>>> Stashed changes
     return;
   }
 
   loading.value = true;
   try {
+<<<<<<< Updated upstream
     const response = await updateTBUserRoleApi(editPermissionForm.value);
     if (response.status === '1') {
       ElMessage.success('权限修改成功');
@@ -219,13 +316,52 @@ const handleUpdatePermission = async () => {
     }
   } catch (error) {
     ElMessage.error('权限修改失败');
+=======
+    // 根据用户是否有原始角色，调用不同的API方法
+    const response = editPermissionForm.value.hasOriginalRoles
+      ? await assignRolesToUserPutApi(editPermissionForm.value.u_pid, {
+          roleIds: editPermissionForm.value.role_ids, // 直接使用角色ID数组
+        })
+      : await assignRolesToUserPostApi(editPermissionForm.value.u_pid, {
+          roleIds: editPermissionForm.value.role_ids, // 直接使用角色ID数组
+        });
+
+    if (response.code === 200) {
+      // 根据操作类型显示不同的成功消息
+      ElMessage.success(
+        editPermissionForm.value.hasOriginalRoles
+          ? '权限修改成功'
+          : '权限分配成功',
+      );
+      editPermissionDialogVisible.value = false;
+      loadRoleUsers(); // 刷新角色用户列表
+    } else {
+      ElMessage.error(
+        response.message ||
+          (editPermissionForm.value.hasOriginalRoles
+            ? '权限修改失败'
+            : '权限分配失败'),
+      );
+    }
+  } catch {
+    ElMessage.error(
+      editPermissionForm.value.hasOriginalRoles
+        ? '权限修改失败'
+        : '权限分配失败',
+    );
+>>>>>>> Stashed changes
   } finally {
     loading.value = false;
   }
 };
 
-const getRoleTagType = (roleCode: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
-  const typeMap: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
+const getRoleTagType = (
+  roleCode: string,
+): 'danger' | 'info' | 'primary' | 'success' | 'warning' => {
+  const typeMap: Record<
+    string,
+    'danger' | 'info' | 'primary' | 'success' | 'warning'
+  > = {
     ADMIN: 'danger',
     REVIEWER: 'warning',
     LAWYER: 'success',
@@ -234,19 +370,27 @@ const getRoleTagType = (roleCode: string): 'primary' | 'success' | 'warning' | '
 };
 
 const getRoleName = (roleCode: string) => {
+<<<<<<< Updated upstream
+=======
+  // 如果roleCode为空，返回"所有角色"
+  if (!roleCode) {
+    return '所有角色';
+  }
+
+>>>>>>> Stashed changes
   // 先从roles数组中查找角色名称
-  const role = roles.value.find(r => r.roleCode === roleCode);
+  const role = roles.value.find((r) => r.roleCode === roleCode);
   if (role && role.roleName) {
     return role.roleName;
   }
-  
+
   // 保留原有映射作为 fallback
   const nameMap: Record<string, string> = {
     ADMIN: '管理员',
     REVIEWER: '审核员',
     LAWYER: '律师',
     SUPER_ADMIN: '超级管理员',
-    VIEWER: '只读用户'
+    VIEWER: '只读用户',
   };
   return nameMap[roleCode] || roleCode;
 };
@@ -263,7 +407,23 @@ onMounted(() => {
       <template #header>
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">权限管理</span>
+<<<<<<< Updated upstream
           <ElButton type="primary" @click="loadRoles">
+=======
+          <ElButton
+            type="primary"
+            @click="
+              () => {
+                // 根据当前激活的标签页调用对应的查询接口
+                if (activeTab === 'roles') {
+                  loadRoles();
+                } else if (activeTab === 'roleUsers') {
+                  loadRoleUsers();
+                }
+              }
+            "
+          >
+>>>>>>> Stashed changes
             <i class="i-lucide-refresh-cw mr-1"></i>
             刷新
           </ElButton>
@@ -271,16 +431,9 @@ onMounted(() => {
       </template>
 
       <ElTabs v-model="activeTab">
-
-
         <ElTabPane label="角色列表" name="roles">
           <div class="tab-content">
-            <ElTable
-              :data="roles"
-              v-loading="loading"
-              stripe
-              border
-            >
+            <ElTable :data="roles" v-loading="loading" stripe border>
               <ElTableColumn prop="roleId" label="角色ID" width="100" />
               <ElTableColumn prop="roleCode" label="角色" width="150" />
               <ElTableColumn prop="roleName" label="角色名称" width="150" />
@@ -294,7 +447,10 @@ onMounted(() => {
               </ElTableColumn>
               <ElTableColumn label="系统角色" width="100" align="center">
                 <template #default="{ row }">
-                  <ElTag :type="row.isSystem === '1' ? 'warning' : 'info'" size="small">
+                  <ElTag
+                    :type="row.isSystem === '1' ? 'warning' : 'info'"
+                    size="small"
+                  >
                     {{ row.isSystem === '1' ? '是' : '否' }}
                   </ElTag>
                 </template>
@@ -330,12 +486,7 @@ onMounted(() => {
               <template #header>
                 <span>{{ getRoleName(currentRoleCode) }} 列表</span>
               </template>
-              <ElTable
-                :data="roleUsers"
-                v-loading="loading"
-                stripe
-                border
-              >
+              <ElTable :data="roleUsers" v-loading="loading" stripe border>
                 <ElTableColumn label="序号" width="100">
                   <template #default="scope">
                     {{ scope.$index + 1 }}
@@ -347,14 +498,23 @@ onMounted(() => {
                 <ElTableColumn label="操作" width="200">
                   <template #default="scope">
                     <span
+<<<<<<< Updated upstream
                       class="cursor-pointer text-primary mr-4"
+=======
+                      class="mr-4 cursor-pointer"
+                      :style="
+                        scope.row.userRoles
+                          ? { color: '#409eff' }
+                          : { color: '#67c23a', fontWeight: 'bold' }
+                      "
+>>>>>>> Stashed changes
                       @click="handleEditPermission(scope.row)"
                     >
                       修改权限
                     </span>
                     <span
                       class="cursor-pointer"
-                      style="color: red;"
+                      style="color: red"
                       @click="handleRemoveUser(scope.row)"
                     >
                       移除
@@ -387,17 +547,21 @@ onMounted(() => {
                     style="width: 100%"
                   >
                     <ElOption
-                    v-for="role in roles"
-                    :key="role.roleId"
-                    :label="role.roleName"
-                    :value="role.roleCode"
-                  >
-                    {{ role.roleName }}
-                  </ElOption>
+                      v-for="role in roles"
+                      :key="role.roleId"
+                      :label="role.roleName"
+                      :value="role.roleCode"
+                    >
+                      {{ role.roleName }}
+                    </ElOption>
                   </ElSelect>
                 </ElFormItem>
                 <ElFormItem>
-                  <ElButton type="primary" @click="handleCheckRole" :loading="loading">
+                  <ElButton
+                    type="primary"
+                    @click="handleCheckRole"
+                    :loading="loading"
+                  >
                     检查角色
                   </ElButton>
                 </ElFormItem>
@@ -465,12 +629,15 @@ onMounted(() => {
       </ElForm>
       <template #footer>
         <ElButton @click="editPermissionDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" @click="handleUpdatePermission" :loading="loading">
+        <ElButton
+          type="primary"
+          @click="handleUpdatePermission"
+          :loading="loading"
+        >
           确定
         </ElButton>
       </template>
     </ElDialog>
-
   </div>
 </template>
 

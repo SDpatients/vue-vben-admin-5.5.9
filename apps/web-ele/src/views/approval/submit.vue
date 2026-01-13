@@ -1,9 +1,24 @@
 <script setup lang="ts">
+import type { FormInstance } from 'element-plus';
+
+import type { ApprovalSubmitDTO } from '#/api/core/approval';
+
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { approvalApi, type ApprovalSubmitDTO } from '#/api/core/approval';
+
 import { Icon } from '@iconify/vue';
-import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElMessage, type FormInstance } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElSelect,
+} from 'element-plus';
+
+import { approvalApi } from '#/api/core/approval';
 
 const router = useRouter();
 const formRef = ref<FormInstance>();
@@ -41,7 +56,7 @@ const handleSubmit = async () => {
         await approvalApi.submitApproval(form.value);
         ElMessage.success('提交成功');
         router.push('/approval/list');
-      } catch (error) {
+      } catch {
         ElMessage.error('提交失败');
       } finally {
         loading.value = false;
@@ -56,7 +71,9 @@ const handleCancel = () => {
 
 const rules = {
   type: [{ required: true, message: '请选择审核类型', trigger: 'change' }],
-  applicantName: [{ required: true, message: '请输入申请人姓名', trigger: 'blur' }],
+  applicantName: [
+    { required: true, message: '请输入申请人姓名', trigger: 'blur' },
+  ],
   approverId: [{ required: true, message: '请选择审核人', trigger: 'change' }],
   title: [{ required: true, message: '请输入审核标题', trigger: 'blur' }],
 };
@@ -65,7 +82,10 @@ const rules = {
 <template>
   <div class="approval-submit-page">
     <div class="page-header">
-      <ElButton :icon="Icon({ icon: 'lucide:arrow-left' })" @click="handleCancel">
+      <ElButton
+        :icon="Icon({ icon: 'lucide:arrow-left' })"
+        @click="handleCancel"
+      >
         返回
       </ElButton>
       <h2>提交审核</h2>
@@ -76,7 +96,11 @@ const rules = {
       <ElCard shadow="hover">
         <ElForm ref="formRef" :model="form" :rules="rules" label-width="100px">
           <ElFormItem label="审核类型" prop="type" required>
-            <ElSelect v-model="form.type" placeholder="请选择审核类型" style="width: 100%">
+            <ElSelect
+              v-model="form.type"
+              placeholder="请选择审核类型"
+              style="width: 100%"
+            >
               <ElOption label="案件审核" value="CASE" />
               <ElOption label="文书审核" value="DOCUMENT" />
               <ElOption label="信息审核" value="INFO" />
@@ -84,7 +108,10 @@ const rules = {
           </ElFormItem>
 
           <ElFormItem label="申请人" prop="applicantName" required>
-            <ElInput v-model="form.applicantName" placeholder="请输入申请人姓名" />
+            <ElInput
+              v-model="form.applicantName"
+              placeholder="请输入申请人姓名"
+            />
           </ElFormItem>
 
           <ElFormItem label="审核人" prop="approverId" required>

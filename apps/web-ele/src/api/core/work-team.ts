@@ -1,6 +1,18 @@
 import { requestClient8085 } from '#/api/request';
 
 export namespace WorkTeamApi {
+<<<<<<< Updated upstream
+=======
+  /** 团队状态枚举 */
+  export type TeamStatus = 'ACTIVE' | 'DELETED' | 'INACTIVE';
+
+  /** 权限级别枚举 */
+  export type PermissionLevel = 'ADMIN' | 'EDIT' | 'VIEW';
+
+  /** 成员激活状态 */
+  export type IsActive = 0 | 1;
+
+>>>>>>> Stashed changes
   /** 工作团队查询参数 */
   export interface WorkTeamQueryParams {
     pageNum?: number;
@@ -226,8 +238,37 @@ export namespace WorkTeamApi {
     slfy: string;
   }
 
+<<<<<<< Updated upstream
   /** 可访问案件列表响应 */
   export interface AccessibleCaseListResponse {
+=======
+  /** 分配成员权限请求 */
+  export interface AssignMemberPermissionsRequest {
+    permissions: {
+      isAllowed: IsActive;
+      moduleType: string;
+      permissionType: string;
+    }[];
+  }
+
+  /** 工作团队详情（包含成员和权限） */
+  export interface WorkTeamDetail {
+    id: number;
+    teamName: string;
+    teamLeaderId: number;
+    teamLeaderName?: string;
+    caseId: number;
+    caseName?: string;
+    teamDescription?: string;
+    status: TeamStatus;
+    createTime: string;
+    updateTime?: string;
+    members?: TeamMemberInfo[];
+  }
+
+  /** 工作团队详情响应 */
+  export interface WorkTeamDetailResponse {
+>>>>>>> Stashed changes
     code: number;
     message: string;
     data: AccessibleCaseInfo[];
@@ -259,6 +300,7 @@ export namespace WorkTeamApi {
 /**
  * 获取工作团队列表（包含详细信息）
  */
+<<<<<<< Updated upstream
 export async function getWorkTeamListApi(
   params: WorkTeamApi.WorkTeamQueryParams,
 ) {
@@ -267,22 +309,40 @@ export async function getWorkTeamListApi(
     {
       params,
     },
+=======
+export async function createWorkTeamApi(
+  data: WorkTeamApi.CreateWorkTeamRequest,
+) {
+  return requestClient8085.post<WorkTeamApi.CreateWorkTeamResponse>(
+    '/work-team',
+    data,
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 添加工作团队
  */
+<<<<<<< Updated upstream
 export async function addWorkTeamApi(data: WorkTeamApi.AddWorkTeamRequest) {
   return requestClient8085.post<WorkTeamApi.AddWorkTeamResponse>(
     '/work-team',
     data,
+=======
+export async function getWorkTeamListApi(
+  params: WorkTeamApi.WorkTeamQueryParams = {},
+) {
+  return requestClient8085.get<WorkTeamApi.WorkTeamListResponse>(
+    '/work-team/list',
+    { params },
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 更新工作团队
  */
+<<<<<<< Updated upstream
 export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
   const token = 'f438aa4e6ec2436a8b6adf70f0062670';
 
@@ -331,73 +391,145 @@ export async function update1(data: WorkTeamApi.UpdateWorkTeamRequest) {
         token,
       },
     },
+=======
+export async function getWorkTeamListWithDetailsApi(
+  params: WorkTeamApi.WorkTeamQueryParams = {},
+) {
+  return requestClient8085.get<WorkTeamApi.WorkTeamListResponse>(
+    '/work-team/list/details',
+    { params },
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 设置团队成员（批量）
  */
+<<<<<<< Updated upstream
 export async function setTeamMembersApi(
   data: WorkTeamApi.SetTeamMembersRequest,
 ) {
   return requestClient8085.post('/api/web/workteam/setTeamMembers', data);
+=======
+export async function getWorkTeamDetailApi(teamId: number) {
+  return requestClient8085.get<WorkTeamApi.WorkTeamDetailResponse>(
+    `/work-team/${teamId}`,
+  );
+>>>>>>> Stashed changes
 }
 
 /**
  * 获取团队成员列表
  */
+<<<<<<< Updated upstream
 export async function getTeamMembersApi(caseId: number) {
   return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(
     '/api/web/workteam/getTeamMembers',
     {
       params: { caseId },
     },
+=======
+export async function getWorkTeamDetailWithMembersApi(teamId: number) {
+  return requestClient8085.get<WorkTeamApi.WorkTeamDetailResponse>(
+    `/work-team/${teamId}/detail`,
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 获取激活的团队成员
  */
+<<<<<<< Updated upstream
 export async function getActiveTeamMembersApi(caseId: number) {
   return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(
     '/api/web/workteam/getActiveTeamMembers',
     {
       params: { caseId },
     },
+=======
+export async function updateWorkTeamApi(
+  teamId: number,
+  data: WorkTeamApi.UpdateWorkTeamRequest,
+) {
+  return requestClient8085.put<WorkTeamApi.UpdateWorkTeamResponse>(
+    `/work-team/${teamId}`,
+    data,
+  );
+}
+
+/**
+ * 删除工作团队
+ * DELETE /work-team/{teamId}
+ */
+export async function deleteWorkTeamApi(teamId: number) {
+  return requestClient8085.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/${teamId}`,
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 添加团队成员
  */
+<<<<<<< Updated upstream
 export async function addTeamMemberApi(data: WorkTeamApi.AddTeamMemberRequest) {
   return requestClient8085.post('/api/web/workteam/addTeamMember', data);
+=======
+export async function addTeamMemberApi(
+  teamId: number,
+  data: WorkTeamApi.AddTeamMemberRequest,
+) {
+  return requestClient8085.post<WorkTeamApi.AddTeamMemberResponse>(
+    `/work-team/${teamId}/member`,
+    data,
+  );
+>>>>>>> Stashed changes
 }
 
 /**
  * 更新团队成员
  */
+<<<<<<< Updated upstream
 export async function updateTeamMemberApi(
   data: WorkTeamApi.UpdateTeamMemberRequest,
 ) {
   return requestClient8085.post('/api/web/workteam/updateTeamMember', data);
+=======
+export async function getTeamMembersApi(teamId: number) {
+  return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(
+    `/work-team/${teamId}/members`,
+  );
+>>>>>>> Stashed changes
 }
 
 /**
  * 移除团队成员
  */
+<<<<<<< Updated upstream
 export async function removeTeamMemberApi(memberId: number) {
   return requestClient8085.post('/api/web/workteam/removeTeamMember', null, {
     params: { memberId },
   });
+=======
+export async function removeTeamMemberApi(teamId: number, memberId: number) {
+  return requestClient8085.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/${teamId}/member/${memberId}`,
+  );
+>>>>>>> Stashed changes
 }
 
 /**
  * 获取可访问的案件列表
  */
+<<<<<<< Updated upstream
 export async function getMyAccessibleCasesApi() {
   return requestClient8085.get<WorkTeamApi.AccessibleCaseListResponse>(
     '/api/web/workteam/getMyAccessibleCases',
+=======
+export async function deleteTeamMemberApi(memberId: number) {
+  return requestClient8085.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/work-team-member/${memberId}`,
+>>>>>>> Stashed changes
   );
 }
 
@@ -436,16 +568,21 @@ export async function saveMemberPermissionsApi(
  */
 export async function getMemberPermissionsApi(memberId: number) {
   return requestClient8085.get<WorkTeamApi.MemberPermissionListResponse>(
+<<<<<<< Updated upstream
     '/api/web/workteam/getMemberPermissions',
     {
       params: { memberId },
     },
+=======
+    `/work-team/work-team-member/${memberId}/permissions`,
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 检查案件访问权限
  */
+<<<<<<< Updated upstream
 export async function canAccessCaseApi(
   caseId: number,
   permission: string = 'VIEW',
@@ -455,12 +592,22 @@ export async function canAccessCaseApi(
     {
       params: { caseId, permission },
     },
+=======
+export async function updateMemberPermissionApi(
+  memberId: number,
+  data: WorkTeamApi.UpdateMemberPermissionRequest,
+) {
+  return requestClient8085.put<WorkTeamApi.CommonResponse>(
+    `/work-team/work-team-member/${memberId}/permission`,
+    data,
+>>>>>>> Stashed changes
   );
 }
 
 /**
  * 获取我的团队成员信息
  */
+<<<<<<< Updated upstream
 export async function getMyTeamMemberInfoApi(caseId: number) {
   return requestClient8085.get<WorkTeamApi.MyTeamMemberInfoResponse>(
     '/api/web/getMyTeamMemberInfo',
@@ -514,3 +661,50 @@ export async function getCaseListApi(params: WorkTeamApi.CaseListQueryParams) {
     },
   );
 }
+=======
+export async function assignMemberPermissionsApi(
+  memberId: number,
+  data: WorkTeamApi.AssignMemberPermissionsRequest,
+) {
+  return requestClient8085.post<WorkTeamApi.CommonResponse>(
+    `/work-team/work-team-member/${memberId}/permissions`,
+    data,
+  );
+}
+
+// 获取我的案件列表
+// GET /case/user/{userId}/list
+export async function selectMyCasesApi(
+  userId: number,
+  pageNum: number,
+  pageSize: number,
+) {
+  return requestClient8085.get<{
+    code: number;
+    data: {
+      list: any[];
+      total: number;
+    };
+    message: string;
+  }>(`/case/user/${userId}/list`, {
+    params: { pageNum, pageSize },
+  });
+}
+
+// 获取团队案件列表
+// GET /work-team/list
+export async function selectTeamCasesApi(pageNum: number, pageSize: number) {
+  return requestClient8085.get<{
+    code: number;
+    data: {
+      list: any[];
+      total: number;
+    };
+    message: string;
+  }>('/work-team/list', {
+    params: { pageNum, pageSize, status: 'ACTIVE' },
+  });
+}
+
+export type { WorkTeamApi };
+>>>>>>> Stashed changes

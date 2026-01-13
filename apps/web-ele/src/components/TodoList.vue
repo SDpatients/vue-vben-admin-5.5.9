@@ -1,9 +1,38 @@
 <script setup lang="ts">
+<<<<<<< Updated upstream
 import { ref, onMounted } from 'vue';
 import { todoApi, type Todo, type TodoDTO } from '#/api/core/todo';
 import { Icon } from '@iconify/vue';
 import { ElButton, ElCheckbox, ElTag, ElSelect, ElOption, ElRadioGroup, ElRadioButton, ElScrollbar, ElEmpty, ElMessage, ElDialog, ElInput, ElForm, ElFormItem, ElDatePicker } from 'element-plus';
+=======
+>>>>>>> Stashed changes
 import type { FormInstance } from 'element-plus';
+
+import type { Todo, TodoDTO } from '#/api/core/todo';
+
+import { onMounted, ref } from 'vue';
+
+import { Icon } from '@iconify/vue';
+import {
+  ElButton,
+  ElCheckbox,
+  ElDatePicker,
+  ElDialog,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElRadioButton,
+  ElRadioGroup,
+  ElScrollbar,
+  ElSelect,
+  ElTag,
+} from 'element-plus';
+
+import { todoApi } from '#/api/core/todo';
 
 const loading = ref(false);
 const todos = ref<Todo[]>([]);
@@ -14,7 +43,7 @@ const createDialogVisible = ref(false);
 const editDialogVisible = ref(false);
 const createFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
-const currentEditTodo = ref<Todo | null>(null);
+const currentEditTodo = ref<null | Todo>(null);
 
 const createForm = ref<TodoDTO>({
   title: '',
@@ -70,7 +99,7 @@ const toggleTodoStatus = async (item: Todo) => {
       item.status = 'COMPLETED';
       ElMessage.success('已完成');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('操作失败');
   }
 };
@@ -94,7 +123,7 @@ const handleCreate = async () => {
         ElMessage.success('创建成功');
         createDialogVisible.value = false;
         loadTodos();
-      } catch (error) {
+      } catch {
         ElMessage.error('创建失败');
       }
     }
@@ -121,7 +150,7 @@ const handleEdit = async () => {
         ElMessage.success('更新成功');
         editDialogVisible.value = false;
         loadTodos();
-      } catch (error) {
+      } catch {
         ElMessage.error('更新失败');
       }
     }
@@ -229,9 +258,22 @@ onMounted(() => {
                 <ElTag :type="getPriorityColor(item.priority)" size="small">
                   {{ getPriorityText(item.priority) }}
                 </ElTag>
+<<<<<<< Updated upstream
                 <ElTag type="info" size="small">
                   {{ getStatusText(item.status) }}
                 </ElTag>
+=======
+                <span
+                  class="todo-status"
+                  :class="{
+                    'status-pending': item.status === 'PENDING',
+                    'status-completed': item.status === 'COMPLETED',
+                    'status-cancelled': item.status === 'CANCELLED',
+                  }"
+                >
+                  {{ getStatusText(item.status) }}
+                </span>
+>>>>>>> Stashed changes
                 <span v-if="item.deadline" class="todo-deadline">
                   <Icon icon="lucide:clock" :size="12" />
                   {{ formatTime(item.deadline) }}
@@ -242,12 +284,20 @@ onMounted(() => {
               <ElButton circle size="small" @click="editTodo(item)">
                 <Icon icon="lucide:edit-2" :size="14" />
               </ElButton>
-              <ElButton circle size="small" type="danger" @click="deleteTodo(item.id)">
+              <ElButton
+                circle
+                size="small"
+                type="danger"
+                @click="deleteTodo(item.id)"
+              >
                 <Icon icon="lucide:trash-2" :size="14" />
               </ElButton>
             </div>
           </div>
-          <ElEmpty v-if="todos.length === 0 && !loading" description="暂无待办事项" />
+          <ElEmpty
+            v-if="todos.length === 0 && !loading"
+            description="暂无待办事项"
+          />
         </div>
       </ElScrollbar>
     </div>
@@ -258,7 +308,12 @@ onMounted(() => {
           <ElInput v-model="createForm.title" placeholder="请输入待办标题" />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="createForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="createForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
           <ElSelect v-model="createForm.priority" placeholder="请选择优先级">
@@ -290,7 +345,12 @@ onMounted(() => {
           <ElInput v-model="editForm.title" placeholder="请输入待办标题" />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="editForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="editForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
           <ElSelect v-model="editForm.priority" placeholder="请选择优先级">

@@ -31,6 +31,13 @@ import ReviewModal from './components/ReviewModal.vue';
 
 const accessStore = useAccessStore();
 const permissions = computed(() => accessStore.accessCodes || []);
+<<<<<<< Updated upstream
+=======
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  return userId ? Number.parseInt(userId, 10) : 0;
+});
+>>>>>>> Stashed changes
 
 // 响应式数据
 const caseList = ref<CaseApi.CaseInfo[]>([]);
@@ -45,7 +52,9 @@ const pagination = ref({
 });
 
 // 确保表格数据始终为数组
-const safeCaseList = computed(() => Array.isArray(caseList.value) ? caseList.value : []);
+const safeCaseList = computed(() =>
+  Array.isArray(caseList.value) ? caseList.value : [],
+);
 
 // 标签页控制
 const activeTab = ref('allCases');
@@ -112,6 +121,7 @@ const formatTimestamp = (timestamp: number | undefined) => {
 const generateMockData = () => {
   const mockCases: CaseApi.CaseInfo[] = [
     {
+<<<<<<< Updated upstream
       row: 1,
       案件单据号: 34,
       案号: 'dddd',
@@ -163,6 +173,60 @@ const generateMockData = () => {
       文件上传: '1',
       主要负责人: '',
       受理法院: '',
+=======
+      id: 1,
+      案号: '（2024）沪02破1号',
+      案由: '经营困难',
+      案件名称: '上海某实业公司破产重整案',
+      案件来源: '债权人申请',
+      案件进度: '第二阶段',
+      受理法院: '上海市第二中级人民法院',
+      主要负责人: '陈律师',
+      管理人: '上海某会计师事务所',
+      是否简化审: '是',
+      创建者: '系统管理员',
+      创建时间: '2024-05-10T10:00:00',
+      修改时间: '2024-05-10T10:00:00',
+      案件状态: '进行中',
+      指定法官: '孙法官',
+      承办人: '陈律师',
+    } as CaseApi.CaseInfo,
+    {
+      id: 2,
+      案号: '（2024）京01破2号',
+      案由: '资不抵债',
+      案件名称: '北京某科技公司破产清算案',
+      案件来源: '债务人申请',
+      案件进度: '第一阶段',
+      受理法院: '北京市第一中级人民法院',
+      主要负责人: '李律师',
+      管理人: '北京某律师事务所',
+      是否简化审: '否',
+      创建者: '系统管理员',
+      创建时间: '2024-06-20T14:30:00',
+      修改时间: '2024-06-20T14:30:00',
+      案件状态: '进行中',
+      指定法官: '王法官',
+      承办人: '李律师',
+    } as CaseApi.CaseInfo,
+    {
+      id: 3,
+      案号: '（2024）粤03破3号',
+      案由: '经营不善',
+      案件名称: '深圳某贸易公司破产和解案',
+      案件来源: '债权人申请',
+      案件进度: '第三阶段',
+      受理法院: '深圳市中级人民法院',
+      主要负责人: '张律师',
+      管理人: '深圳某破产清算有限公司',
+      是否简化审: '是',
+      创建者: '系统管理员',
+      创建时间: '2024-07-25T09:15:00',
+      修改时间: '2024-07-25T09:15:00',
+      案件状态: '进行中',
+      指定法官: '刘法官',
+      承办人: '张律师',
+>>>>>>> Stashed changes
     } as CaseApi.CaseInfo,
   ];
 
@@ -198,11 +262,79 @@ const fetchCaseList = async () => {
       response = await getCaseListApi(params);
     }
 
+<<<<<<< Updated upstream
     if (response.status === '1' && response.data) {
       caseList.value = response.data.records || [];
       pagination.value.itemCount = response.data.count || 0;
       pagination.value.pages = response.data.pages || 0;
       ElMessage.success('案件列表加载成功');
+=======
+    // 适配新的API响应格式
+    if (response.code === 200 && response.data) {
+      // 将API返回的英文字段映射为表格期望的中文prop名称
+      const mappedCases = response.data.list.map((item: any) => {
+        // 映射案件进度
+        const caseProgressMap: Record<string, string> = {
+          FIRST: '第一阶段',
+          SECOND: '第二阶段',
+          THIRD: '第三阶段',
+          FOURTH: '第四阶段',
+          FIFTH: '第五阶段',
+          SIXTH: '第六阶段',
+          SEVENTH: '第七阶段',
+        };
+
+        // 映射案件状态
+        const caseStatusMap: Record<string, string> = {
+          PENDING: '待处理',
+          IN_PROGRESS: '进行中',
+          COMPLETED: '已完成',
+          CLOSED: '已结案',
+          TERMINATED: '已终结',
+          ARCHIVED: '已归档',
+        };
+
+        // 映射审核状态
+        const reviewStatusMap: Record<string, string> = {
+          PENDING: '待审核',
+          APPROVED: '已通过',
+          REJECTED: '已驳回',
+        };
+
+        return {
+          id: item.id,
+          案号: item.caseNumber,
+          案由: item.caseReason,
+          案件名称: item.caseName,
+          案件来源: item.caseSource,
+          案件进度: caseProgressMap[item.caseProgress] || item.caseProgress,
+          受理法院: item.acceptanceCourt,
+          主要负责人: item.mainResponsiblePerson,
+          管理人: item.designatedInstitution,
+          是否简化审: item.isSimplifiedTrial ? '是' : '否',
+          创建者: item.creatorName,
+          创建时间: item.createTime,
+          修改时间: item.updateTime,
+          案件状态: caseStatusMap[item.caseStatus] || item.caseStatus,
+          指定法官: item.designatedJudge,
+          承办人: item.undertakingPersonnel,
+          审核状态: reviewStatusMap[item.reviewStatus] || item.reviewStatus,
+          审核时间: item.reviewTime,
+          审核意见: item.reviewOpinion,
+          审核次数: item.reviewCount,
+        };
+      });
+
+      caseList.value = mappedCases;
+      pagination.value.itemCount = response.data.total || 0;
+      pagination.value.pages = Math.ceil(
+        pagination.value.itemCount / pagination.value.pageSize,
+      );
+
+      if (mappedCases.length > 0) {
+        ElMessage.success(`成功加载 ${mappedCases.length} 条案件记录`);
+      }
+>>>>>>> Stashed changes
     } else {
       ElMessage.error(response.error || '获取案件列表失败，已使用模拟数据');
       generateMockData();
@@ -288,6 +420,54 @@ const getCaseProgressType = (progress: string) => {
   }
 };
 
+<<<<<<< Updated upstream
+=======
+// 获取案件状态标签类型
+const getCaseStatusType = (status: string) => {
+  switch (status) {
+    case '已完成': {
+      return 'success';
+    }
+    case '已归档': {
+      return 'info';
+    }
+    case '已终结': {
+      return 'warning';
+    }
+    case '已结案': {
+      return 'success';
+    }
+    case '待处理': {
+      return 'info';
+    }
+    case '进行中': {
+      return 'primary';
+    }
+    default: {
+      return 'info';
+    }
+  }
+};
+
+// 获取审核状态标签类型
+const getReviewStatusType = (status: string) => {
+  switch (status) {
+    case '已通过': {
+      return 'success';
+    }
+    case '已驳回': {
+      return 'danger';
+    }
+    case '待审核': {
+      return 'warning';
+    }
+    default: {
+      return 'info';
+    }
+  }
+};
+
+>>>>>>> Stashed changes
 // 查看案件详情
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
@@ -638,6 +818,74 @@ const canReview = (row: CaseApi.CaseInfo) => {
               show-overflow-tooltip
             />
 
+<<<<<<< Updated upstream
+=======
+            <!-- 案件状态 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案件状态')"
+              prop="案件状态"
+              label="案件状态"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag :type="getCaseStatusType(row['案件状态'])" size="small">
+                  {{ row['案件状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核状态 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核状态')"
+              prop="审核状态"
+              label="审核状态"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag
+                  :type="getReviewStatusType(row['审核状态'])"
+                  size="small"
+                >
+                  {{ row['审核状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核时间 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核时间')"
+              prop="审核时间"
+              label="审核时间"
+              min-width="180"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['审核时间']) }}
+              </template>
+            </ElTableColumn>
+
+            <!-- 审核意见 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核意见')"
+              prop="审核意见"
+              label="审核意见"
+              min-width="200"
+              show-overflow-tooltip
+            />
+
+            <!-- 审核次数 -->
+            <ElTableColumn
+              v-if="isColumnVisible('审核次数')"
+              prop="审核次数"
+              label="审核次数"
+              min-width="100"
+              align="center"
+              show-overflow-tooltip
+            />
+
+>>>>>>> Stashed changes
             <!-- 操作列 -->
             <ElTableColumn label="操作" min-width="200" fixed="right">
               <template #default="{ row }">

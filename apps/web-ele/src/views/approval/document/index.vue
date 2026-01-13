@@ -25,7 +25,7 @@ interface DocumentApproval {
   documentType: string;
   submitter: string;
   submitTime: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'approved' | 'pending' | 'rejected';
   content: string;
   remark?: string;
 }
@@ -117,10 +117,10 @@ const mockData: DocumentApproval[] = [
 const loadDocuments = async () => {
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     documentList.value = mockData;
     pagination.value.total = mockData.length;
-  } catch (error) {
+  } catch {
     ElMessage.error('加载文书列表失败');
   } finally {
     loading.value = false;
@@ -168,16 +168,21 @@ const handleReject = (row: DocumentApproval) => {
 const handleConfirmApproval = async () => {
   if (!currentDocument.value) return;
 
-  if (approvalForm.value.status === 'rejected' && !approvalForm.value.remark.trim()) {
+  if (
+    approvalForm.value.status === 'rejected' &&
+    !approvalForm.value.remark.trim()
+  ) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
   }
 
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const index = documentList.value.findIndex(doc => doc.id === currentDocument.value?.id);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const index = documentList.value.findIndex(
+      (doc) => doc.id === currentDocument.value?.id,
+    );
     if (index !== -1) {
       documentList.value[index].status = approvalForm.value.status;
       if (approvalForm.value.remark) {
@@ -185,9 +190,11 @@ const handleConfirmApproval = async () => {
       }
     }
 
-    ElMessage.success(approvalForm.value.status === 'approved' ? '审批通过' : '已驳回');
+    ElMessage.success(
+      approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
+    );
     dialogVisible.value = false;
-  } catch (error) {
+  } catch {
     ElMessage.error('审批失败');
   } finally {
     loading.value = false;
@@ -200,7 +207,7 @@ const handlePageChange = (page: number) => {
 };
 
 const getDocumentTypeName = (type: string) => {
-  const item = documentTypes.find(t => t.value === type);
+  const item = documentTypes.find((t) => t.value === type);
   return item?.label || type;
 };
 
@@ -311,7 +318,12 @@ onMounted(() => {
 
         <ElTableColumn prop="submitTime" label="提交时间" width="180" />
 
-        <ElTableColumn prop="status" label="审批状态" width="100" align="center">
+        <ElTableColumn
+          prop="status"
+          label="审批状态"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
             <ElTag :type="statusMap[row.status].type" size="small">
               {{ statusMap[row.status].text }}
@@ -379,7 +391,9 @@ onMounted(() => {
       <div v-if="currentDocument" class="document-detail">
         <ElForm :model="currentDocument" label-width="100px">
           <ElFormItem label="文书标题">
-            <span class="detail-value">{{ currentDocument.documentTitle }}</span>
+            <span class="detail-value">{{
+              currentDocument.documentTitle
+            }}</span>
           </ElFormItem>
 
           <ElFormItem label="文书类型">
@@ -414,7 +428,10 @@ onMounted(() => {
             </div>
           </ElFormItem>
 
-          <ElFormItem v-if="currentDocument.status === 'pending'" label="审批意见">
+          <ElFormItem
+            v-if="currentDocument.status === 'pending'"
+            label="审批意见"
+          >
             <ElInput
               v-model="approvalForm.remark"
               type="textarea"
@@ -430,7 +447,10 @@ onMounted(() => {
         <ElButton
           type="success"
           :loading="loading"
-          @click="approvalForm.status = 'approved'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'approved';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-check mr-1"></i>
           通过
@@ -438,7 +458,10 @@ onMounted(() => {
         <ElButton
           type="danger"
           :loading="loading"
-          @click="approvalForm.status = 'rejected'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'rejected';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-x mr-1"></i>
           驳回

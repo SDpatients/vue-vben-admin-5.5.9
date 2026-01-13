@@ -14,11 +14,11 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
-  ElSelect,
-  ElOption,
 } from 'element-plus';
 
 import {
@@ -227,7 +227,7 @@ const handleEditSubmit = async () => {
   try {
     // 从表单中提取管理人ID
     const { id, ...updateData } = editManagerForm;
-    
+
     const response = await updateManagerApi(id, updateData);
     if (response.code === 200) {
       ElMessage.success('更新管理人成功');
@@ -372,6 +372,20 @@ onMounted(() => {
           show-overflow-tooltip
         />
         <ElTableColumn
+<<<<<<< Updated upstream
+=======
+          label="负责人"
+          width="120"
+          align="center"
+          show-overflow-tooltip
+        >
+          <template #default>
+            <!-- 先不填数据，留空或显示占位符 -->
+            -
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+>>>>>>> Stashed changes
           prop="contactPhone"
           label="联系电话"
           width="130"
@@ -449,16 +463,45 @@ onMounted(() => {
           <ElInput v-model="addManagerForm.caseId" placeholder="请输入案件ID" type="number" />
         </ElFormItem>
         <ElFormItem label="管理人名称" prop="administratorName">
-          <ElInput v-model="addManagerForm.administratorName" placeholder="请输入管理人名称" />
+          <ElInput
+            v-model="addManagerForm.administratorName"
+            placeholder="请输入管理人名称"
+          />
         </ElFormItem>
+<<<<<<< Updated upstream
+=======
+        <ElFormItem label="管理人类型">
+          <ElSelect
+            v-model="addManagerForm.administratorType"
+            placeholder="请选择管理人类型"
+          >
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
+        </ElFormItem>
+>>>>>>> Stashed changes
         <ElFormItem label="联系电话">
-          <ElInput v-model="addManagerForm.contactPhone" placeholder="请输入联系电话" />
+          <ElInput
+            v-model="addManagerForm.contactPhone"
+            placeholder="请输入联系电话"
+          />
         </ElFormItem>
         <ElFormItem label="联系邮箱">
-          <ElInput v-model="addManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
+          <ElInput
+            v-model="addManagerForm.contactEmail"
+            placeholder="请输入联系邮箱"
+            type="email"
+          />
         </ElFormItem>
         <ElFormItem label="办公地址">
-          <ElInput v-model="addManagerForm.officeAddress" placeholder="请输入办公地址" />
+          <ElInput
+            v-model="addManagerForm.officeAddress"
+            placeholder="请输入办公地址"
+          />
         </ElFormItem>
         <ElFormItem label="负责人ID">
           <ElInput v-model="addManagerForm.responsiblePersonId" placeholder="请输入负责人ID" type="number" />
@@ -480,14 +523,40 @@ onMounted(() => {
       @close="handleCloseEditDialog"
     >
       <ElForm :model="editManagerForm" label-width="100px">
+<<<<<<< Updated upstream
+=======
+        <ElFormItem label="管理人类型">
+          <ElSelect
+            v-model="editManagerForm.administratorType"
+            placeholder="请选择管理人类型"
+          >
+            <ElOption
+              v-for="option in managerTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
+        </ElFormItem>
+>>>>>>> Stashed changes
         <ElFormItem label="联系电话">
-          <ElInput v-model="editManagerForm.contactPhone" placeholder="请输入联系电话" />
+          <ElInput
+            v-model="editManagerForm.contactPhone"
+            placeholder="请输入联系电话"
+          />
         </ElFormItem>
         <ElFormItem label="联系邮箱">
-          <ElInput v-model="editManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
+          <ElInput
+            v-model="editManagerForm.contactEmail"
+            placeholder="请输入联系邮箱"
+            type="email"
+          />
         </ElFormItem>
         <ElFormItem label="办公地址">
-          <ElInput v-model="editManagerForm.officeAddress" placeholder="请输入办公地址" />
+          <ElInput
+            v-model="editManagerForm.officeAddress"
+            placeholder="请输入办公地址"
+          />
         </ElFormItem>
       </ElForm>
       <template #footer>

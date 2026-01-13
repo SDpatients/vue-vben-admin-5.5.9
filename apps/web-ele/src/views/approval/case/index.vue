@@ -16,9 +16,9 @@ import {
   ElTable,
   ElTableColumn,
   ElTag,
-  ElTooltip,
   ElTimeline,
   ElTimelineItem,
+  ElTooltip,
 } from 'element-plus';
 
 interface CaseApproval {
@@ -30,8 +30,8 @@ interface CaseApproval {
   defendant: string;
   submitter: string;
   submitTime: string;
-  status: 'pending' | 'approved' | 'rejected';
-  priority: 'high' | 'medium' | 'low';
+  status: 'approved' | 'pending' | 'rejected';
+  priority: 'high' | 'low' | 'medium';
   description: string;
   remark?: string;
   timeline?: TimelineItem[];
@@ -40,7 +40,7 @@ interface CaseApproval {
 interface TimelineItem {
   time: string;
   content: string;
-  type: 'primary' | 'success' | 'warning' | 'info';
+  type: 'info' | 'primary' | 'success' | 'warning';
 }
 
 const loading = ref(false);
@@ -179,10 +179,10 @@ const mockData: CaseApproval[] = [
 const loadCases = async () => {
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     caseList.value = mockData;
     pagination.value.total = mockData.length;
-  } catch (error) {
+  } catch {
     ElMessage.error('加载案件列表失败');
   } finally {
     loading.value = false;
@@ -231,37 +231,45 @@ const handleReject = (row: CaseApproval) => {
 const handleConfirmApproval = async () => {
   if (!currentCase.value) return;
 
-  if (approvalForm.value.status === 'rejected' && !approvalForm.value.remark.trim()) {
+  if (
+    approvalForm.value.status === 'rejected' &&
+    !approvalForm.value.remark.trim()
+  ) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
   }
 
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const index = caseList.value.findIndex(c => c.id === currentCase.value?.id);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const index = caseList.value.findIndex(
+      (c) => c.id === currentCase.value?.id,
+    );
     if (index !== -1) {
       caseList.value[index].status = approvalForm.value.status;
       if (approvalForm.value.remark) {
         caseList.value[index].remark = approvalForm.value.remark;
       }
-      
+
       const newTimeline: TimelineItem = {
         time: new Date().toLocaleString('zh-CN'),
-        content: approvalForm.value.status === 'approved' ? '审批通过' : '审批驳回',
+        content:
+          approvalForm.value.status === 'approved' ? '审批通过' : '审批驳回',
         type: approvalForm.value.status === 'approved' ? 'success' : 'danger',
       };
-      
+
       if (!caseList.value[index].timeline) {
         caseList.value[index].timeline = [];
       }
       caseList.value[index].timeline!.push(newTimeline);
     }
 
-    ElMessage.success(approvalForm.value.status === 'approved' ? '审批通过' : '已驳回');
+    ElMessage.success(
+      approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
+    );
     dialogVisible.value = false;
-  } catch (error) {
+  } catch {
     ElMessage.error('审批失败');
   } finally {
     loading.value = false;
@@ -274,12 +282,12 @@ const handlePageChange = (page: number) => {
 };
 
 const getCaseTypeName = (type: string) => {
-  const item = caseTypes.find(t => t.value === type);
+  const item = caseTypes.find((t) => t.value === type);
   return item?.label || type;
 };
 
 const getPriorityInfo = (priority: string) => {
-  const item = priorities.find(p => p.value === priority);
+  const item = priorities.find((p) => p.value === priority);
   return item || { label: priority, type: 'info' as const };
 };
 
@@ -420,7 +428,12 @@ onMounted(() => {
 
         <ElTableColumn prop="submitTime" label="提交时间" width="170" />
 
-        <ElTableColumn prop="status" label="审批状态" width="100" align="center">
+        <ElTableColumn
+          prop="status"
+          label="审批状态"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
             <ElTag :type="statusMap[row.status].type" size="small">
               {{ statusMap[row.status].text }}
@@ -498,7 +511,10 @@ onMounted(() => {
                 </ElTag>
               </ElFormItem>
               <ElFormItem label="优先级">
-                <ElTag :type="getPriorityInfo(currentCase.priority).type" size="small">
+                <ElTag
+                  :type="getPriorityInfo(currentCase.priority).type"
+                  size="small"
+                >
                   {{ getPriorityInfo(currentCase.priority).label }}
                 </ElTag>
               </ElFormItem>
@@ -537,7 +553,10 @@ onMounted(() => {
             </div>
           </ElFormItem>
 
-          <ElFormItem v-if="currentCase.timeline && currentCase.timeline.length > 0" label="案件时间线">
+          <ElFormItem
+            v-if="currentCase.timeline && currentCase.timeline.length > 0"
+            label="案件时间线"
+          >
             <div class="timeline-box">
               <ElTimeline>
                 <ElTimelineItem
@@ -575,7 +594,10 @@ onMounted(() => {
         <ElButton
           type="success"
           :loading="loading"
-          @click="approvalForm.status = 'approved'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'approved';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-check mr-1"></i>
           通过
@@ -583,7 +605,10 @@ onMounted(() => {
         <ElButton
           type="danger"
           :loading="loading"
-          @click="approvalForm.status = 'rejected'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'rejected';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-x mr-1"></i>
           驳回

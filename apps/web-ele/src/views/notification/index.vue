@@ -1,9 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import type { Notification } from '#/api/core/notification';
+
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { notificationApi, type Notification } from '#/api/core/notification';
+
 import { Icon } from '@iconify/vue';
-import { ElButton, ElSelect, ElOption, ElCard, ElScrollbar, ElEmpty, ElMessage, ElMessageBox } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElEmpty,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElScrollbar,
+  ElSelect,
+} from 'element-plus';
+
+import { notificationApi } from '#/api/core/notification';
 
 const router = useRouter();
 const loading = ref(false);
@@ -17,9 +30,9 @@ const formatTime = (time: string) => {
   const date = new Date(time);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+  const minutes = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
 
   if (minutes < 1) return '刚刚';
   if (minutes < 60) return `${minutes}分钟前`;
@@ -32,11 +45,14 @@ const loadNotifications = async () => {
   loading.value = true;
   currentPage.value = 1;
   try {
-    const res = await notificationApi.getNotificationList(currentPage.value, pageSize.value);
+    const res = await notificationApi.getNotificationList(
+      currentPage.value,
+      pageSize.value,
+    );
     console.log('加载通知中心结果:', res);
     notifications.value = res.data || [];
     hasMore.value = res.data.length >= pageSize.value;
-    
+
     // 如果没有数据，添加一些模拟数据用于测试
     if (notifications.value.length === 0) {
       notifications.value = [
@@ -56,7 +72,7 @@ const loadNotifications = async () => {
           title: '案件更新',
           content: '您的案件已经更新',
           isRead: true,
-          createTime: new Date(Date.now() - 3600000).toISOString(),
+          createTime: new Date(Date.now() - 3_600_000).toISOString(),
         },
         {
           id: 3,
@@ -65,7 +81,7 @@ const loadNotifications = async () => {
           title: '审批通知',
           content: '您有新的审批请求',
           isRead: false,
-          createTime: new Date(Date.now() - 7200000).toISOString(),
+          createTime: new Date(Date.now() - 7_200_000).toISOString(),
         },
         {
           id: 4,
@@ -74,7 +90,7 @@ const loadNotifications = async () => {
           title: '待办提醒',
           content: '您有新的待办事项',
           isRead: false,
-          createTime: new Date(Date.now() - 10800000).toISOString(),
+          createTime: new Date(Date.now() - 10_800_000).toISOString(),
         },
         {
           id: 5,
@@ -83,7 +99,7 @@ const loadNotifications = async () => {
           title: '动态通知',
           content: '您有新的活动动态',
           isRead: true,
-          createTime: new Date(Date.now() - 14400000).toISOString(),
+          createTime: new Date(Date.now() - 14_400_000).toISOString(),
         },
       ];
       hasMore.value = false;
@@ -108,7 +124,7 @@ const loadNotifications = async () => {
         title: '案件更新',
         content: '您的案件已经更新',
         isRead: true,
-        createTime: new Date(Date.now() - 3600000).toISOString(),
+        createTime: new Date(Date.now() - 3_600_000).toISOString(),
       },
     ];
     hasMore.value = false;
@@ -121,7 +137,10 @@ const loadMore = async () => {
   loading.value = true;
   currentPage.value++;
   try {
-    const res = await notificationApi.getNotificationList(currentPage.value, pageSize.value);
+    const res = await notificationApi.getNotificationList(
+      currentPage.value,
+      pageSize.value,
+    );
     notifications.value = [...notifications.value, ...(res.data || [])];
     hasMore.value = res.data.length >= pageSize.value;
   } catch (error) {
@@ -148,7 +167,7 @@ const markAllAsRead = async () => {
       item.isRead = true;
     });
     ElMessage.success('已全部标记为已读');
-  } catch (error) {
+  } catch {
     ElMessage.error('操作失败');
   }
 };
@@ -234,11 +253,16 @@ onMounted(() => {
             >
               <div class="notification-content">
                 <div class="notification-header">
-                  <div class="notification-type" :style="{ color: getTypeColor(item.type) }">
+                  <div
+                    class="notification-type"
+                    :style="{ color: getTypeColor(item.type) }"
+                  >
                     <Icon icon="lucide:bell" :size="16" class="mr-1" />
                     {{ getTypeText(item.type) }}
                   </div>
-                  <div class="notification-time">{{ formatTime(item.createTime) }}</div>
+                  <div class="notification-time">
+                    {{ formatTime(item.createTime) }}
+                  </div>
                 </div>
                 <div class="notification-title">{{ item.title }}</div>
                 <div class="notification-text">{{ item.content }}</div>
@@ -257,7 +281,10 @@ onMounted(() => {
             <div v-if="hasMore" class="load-more">
               <ElButton link @click="loadMore">加载更多</ElButton>
             </div>
-            <ElEmpty v-if="notifications.length === 0 && !loading" description="暂无通知" />
+            <ElEmpty
+              v-if="notifications.length === 0 && !loading"
+              description="暂无通知"
+            />
           </div>
         </ElScrollbar>
       </div>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { onMounted, reactive, ref, watch } from 'vue';
+
 import * as echarts from 'echarts';
+import { ElMessage } from 'element-plus';
 
 import { getFundReportApi } from '#/api/core/fund';
 
@@ -32,30 +33,28 @@ let summaryChart: echarts.ECharts | null = null;
 let monthlyChart: echarts.ECharts | null = null;
 let trendChart: echarts.ECharts | null = null;
 
-
-
 // 初始化图表
 const initCharts = () => {
   // 账户余额报表 - 柱状图
-  const balanceChartDom = document.getElementById('balanceChart');
+  const balanceChartDom = document.querySelector('#balanceChart');
   if (balanceChartDom) {
     balanceChart = echarts.init(balanceChartDom);
   }
 
   // 收支汇总报表 - 饼图
-  const summaryChartDom = document.getElementById('summaryChart');
+  const summaryChartDom = document.querySelector('#summaryChart');
   if (summaryChartDom) {
     summaryChart = echarts.init(summaryChartDom);
   }
 
   // 月度收支报表 - 柱状图
-  const monthlyChartDom = document.getElementById('monthlyChart');
+  const monthlyChartDom = document.querySelector('#monthlyChart');
   if (monthlyChartDom) {
     monthlyChart = echarts.init(monthlyChartDom);
   }
 
   // 资金趋势报表 - 折线图
-  const trendChartDom = document.getElementById('trendChart');
+  const trendChartDom = document.querySelector('#trendChart');
   if (trendChartDom) {
     trendChart = echarts.init(trendChartDom);
   }
@@ -196,8 +195,8 @@ const renderMonthlyReport = (data: any) => {
       axisPointer: {
         type: 'shadow',
       },
-      formatter: function (params: any) {
-        let result = params[0].axisValue + '<br/>';
+      formatter(params: any) {
+        let result = `${params[0].axisValue}<br/>`;
         params.forEach((param: any) => {
           result += `${param.seriesName}: ${param.value} 元<br/>`;
         });
@@ -344,23 +343,28 @@ const fetchReportData = async () => {
       report_type: searchForm.report_type,
     });
     const reportData = response.data;
-    
+
     // 根据报表类型渲染不同的图表
     switch (searchForm.report_type) {
-      case 'balance':
+      case 'balance': {
         renderBalanceReport(reportData.balance);
         break;
-      case 'summary':
-        renderSummaryReport(reportData.summary);
-        break;
-      case 'monthly':
+      }
+      case 'monthly': {
         renderMonthlyReport(reportData.monthly);
         break;
-      case 'trend':
+      }
+      case 'summary': {
+        renderSummaryReport(reportData.summary);
+        break;
+      }
+      case 'trend': {
         renderTrendReport(reportData.trend);
         break;
-      default:
+      }
+      default: {
         renderBalanceReport(reportData.balance);
+      }
     }
   } catch (error) {
     ElMessage.error('获取报表数据失败');
@@ -370,25 +374,30 @@ const fetchReportData = async () => {
       balance: { accounts: [], balances: [] },
       summary: { categories: [], amounts: [] },
       monthly: { months: [], income: [], expense: [] },
-      trend: { dates: [], balances: [] }
+      trend: { dates: [], balances: [] },
     };
-    
+
     // 根据报表类型渲染不同的图表
     switch (searchForm.report_type) {
-      case 'balance':
+      case 'balance': {
         renderBalanceReport(emptyData.balance);
         break;
-      case 'summary':
-        renderSummaryReport(emptyData.summary);
-        break;
-      case 'monthly':
+      }
+      case 'monthly': {
         renderMonthlyReport(emptyData.monthly);
         break;
-      case 'trend':
+      }
+      case 'summary': {
+        renderSummaryReport(emptyData.summary);
+        break;
+      }
+      case 'trend': {
         renderTrendReport(emptyData.trend);
         break;
-      default:
+      }
+      default: {
         renderBalanceReport(emptyData.balance);
+      }
     }
   } finally {
     chartLoading.value = false;
@@ -415,7 +424,7 @@ watch(
   () => searchForm.report_type,
   () => {
     fetchReportData();
-  }
+  },
 );
 
 // 页面挂载时初始化图表

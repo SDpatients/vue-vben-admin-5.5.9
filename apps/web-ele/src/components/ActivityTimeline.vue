@@ -1,9 +1,20 @@
 <script setup lang="ts">
+<<<<<<< Updated upstream
 import { ref, onMounted, watch } from 'vue';
 import { activityApi, type Activity } from '#/api/core/activity';
 import { Icon } from '@iconify/vue';
 import { ElSelect, ElOption, ElButton, ElScrollbar, ElEmpty } from 'element-plus';
 import { useUserStore } from '@vben/stores';
+=======
+import type { Notification } from '#/api/core/notification';
+
+import { onMounted, ref, watch } from 'vue';
+
+import { Icon } from '@iconify/vue';
+import { ElButton, ElEmpty, ElScrollbar } from 'element-plus';
+
+import { notificationApi } from '#/api/core/notification';
+>>>>>>> Stashed changes
 
 // 定义事件
 const emit = defineEmits<{
@@ -24,9 +35,9 @@ const formatTime = (time: string) => {
   const date = new Date(time);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+  const minutes = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
 
   if (minutes < 1) return '刚刚';
   if (minutes < 60) return `${minutes}分钟前`;
@@ -39,11 +50,22 @@ const loadActivities = async () => {
   loading.value = true;
   currentPage.value = 1;
   try {
+<<<<<<< Updated upstream
     const res = await activityApi.getActivityList(
       selectedType.value || undefined,
       currentPage.value,
       pageSize.value,
     );
+=======
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      activities.value = [];
+      return;
+    }
+
+    const res = await notificationApi.getUnreadNotifications(Number(userId));
+>>>>>>> Stashed changes
     console.log('加载动态结果:', res);
     activities.value = res.data || [];
     hasMore.value = res.data.length >= pageSize.value;
@@ -92,11 +114,22 @@ const loadActivities = async () => {
       },
       {
         id: 2,
+<<<<<<< Updated upstream
         userId: 2,
         userName: '用户1',
         type: 'UPLOAD_FILE',
         content: '上传了文件：证据材料.pdf',
         createTime: new Date(Date.now() - 3600000).toISOString(),
+=======
+        userId: 1,
+        title: '您有新的待办事项',
+        content: '请及时处理案件编号为CASE-2026-001的待办事项',
+        type: 'TODO',
+        isRead: false,
+        priority: 'HIGH',
+        status: 'ACTIVE',
+        createTime: new Date(Date.now() - 3_600_000).toISOString(),
+>>>>>>> Stashed changes
       },
     ];
     hasMore.value = false;
@@ -105,6 +138,7 @@ const loadActivities = async () => {
   }
 };
 
+<<<<<<< Updated upstream
 const loadMore = async () => {
   loading.value = true;
   currentPage.value++;
@@ -123,6 +157,8 @@ const loadMore = async () => {
   }
 };
 
+=======
+>>>>>>> Stashed changes
 const getActivityIcon = (type: string) => {
   const iconMap: Record<string, string> = {
     CREATE_CASE: 'lucide:file-plus',
@@ -148,6 +184,7 @@ const getActivityColor = (type: string) => {
 // 我已知晓，删除活动
 const markAsKnown = async (id: number) => {
   try {
+<<<<<<< Updated upstream
     // 获取认证令牌
     const token = localStorage.getItem('token');
     // 调用后端接口，改为PUT请求并添加认证令牌
@@ -159,6 +196,11 @@ const markAsKnown = async (id: number) => {
     });
     // 从活动列表中移除该活动
     activities.value = activities.value.filter(item => item.id !== id);
+=======
+    await notificationApi.markAsRead(id);
+    // 从列表中移除该通知
+    activities.value = activities.value.filter((item) => item.id !== id);
+>>>>>>> Stashed changes
   } catch (error) {
     console.error('删除活动失败:', error);
   }
@@ -201,9 +243,13 @@ const markAllAsKnown = async () => {
 };
 
 // 监听活动数量变化，传递给父组件
-watch(activities, (newVal) => {
-  emit('update:count', newVal.length);
-}, { immediate: true });
+watch(
+  activities,
+  (newVal) => {
+    emit('update:count', newVal.length);
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   await loadActivities();
@@ -240,20 +286,42 @@ onMounted(async () => {
             :key="item.id"
             class="activity-item"
           >
-            <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-              <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
+            <div
+              class="activity-icon"
+              :style="{ backgroundColor: getActivityColor(item.type) }"
+            >
+              <Icon
+                :icon="getActivityIcon(item.type)"
+                :size="16"
+                color="#fff"
+              />
             </div>
             <div class="activity-content-wrapper">
               <div class="activity-user">{{ item.userName }}</div>
               <div class="activity-content">{{ item.content }}</div>
               <div class="activity-footer-row">
-                <div class="activity-time">{{ formatTime(item.createTime) }}</div>
-                <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
+                <div class="activity-time">
+                  {{ formatTime(item.createTime) }}
+                </div>
+                <ElButton
+                  size="small"
+                  type="danger"
+                  text
+                  @click="markAsKnown(item.id)"
+                >
+                  我已知晓
+                </ElButton>
               </div>
             </div>
-            <div v-if="index < activities.length - 1" class="activity-line" />
+            <div
+              v-if="index < activities.length - 1"
+              class="activity-line"
+            ></div>
           </div>
-          <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
+          <ElEmpty
+            v-if="activities.length === 0 && !loading"
+            description="暂无动态"
+          />
         </div>
       </ElScrollbar>
     </div>

@@ -1,14 +1,11 @@
 <script lang="ts" setup>
+import type { CaseApi } from '#/api/core/case';
 import type { Todo } from '#/api/core/todo';
-import { type CaseApi } from '#/api/core/case';
 
-import { ref, onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import {
-  AnalysisChartCard,
-  WorkbenchHeader,
-} from '@vben/common-ui';
+import { AnalysisChartCard, WorkbenchHeader } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
 
@@ -75,11 +72,11 @@ const loadTodoItems = async () => {
 const loadCaseList = async () => {
   loading.value = true;
   try {
-    const res = await getCaseListApi({ 
-      page: currentPage.value, 
+    const res = await getCaseListApi({
+      page: currentPage.value,
       size: pageSize.value,
       AJZT: caseStatus.value,
-      AH: searchKeyword.value
+      AH: searchKeyword.value,
     });
     caseList.value = res.data?.records || [];
     totalCases.value = res.data?.count || 0;
@@ -122,17 +119,17 @@ const getWeather = async () => {
     // 使用ip-api.com获取用户IP对应的经纬度（免费API，无需密钥）
     const ipResponse = await fetch('https://ipapi.co/json/');
     const ipData = await ipResponse.json();
-    
+
     // 获取经纬度
     const latitude = ipData.latitude || 30.6833; // 默认使用安吉经纬度
     const longitude = ipData.longitude || 119.6333;
-    
+
     // 使用Open-Meteo API获取天气数据（无需API密钥）
     const weatherResponse = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=Asia/Shanghai`
+      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=Asia/Shanghai`,
     );
     const weatherData = await weatherResponse.json();
-    
+
     // 天气代码映射
     const weatherCodeMap: Record<number, string> = {
       0: '晴',
@@ -164,7 +161,7 @@ const getWeather = async () => {
       96: '雷暴',
       99: '雷暴',
     };
-    
+
     weather.value = {
       condition: weatherCodeMap[weatherData.daily.weathercode[0]] || '未知',
       tempMin: `${Math.round(weatherData.daily.temperature_2m_min[0])}℃`,
@@ -184,7 +181,7 @@ const getWeather = async () => {
 const getGreeting = () => {
   const now = new Date();
   const hour = now.getHours();
-  
+
   if (hour >= 6 && hour < 12) {
     return '早安';
   } else if (hour >= 12 && hour < 18) {
@@ -216,12 +213,17 @@ onMounted(() => {
     >
       <template #title>
         <div class="flex items-center justify-between">
-          <span>{{ greeting }}, {{ userStore.userInfo?.realName }},
-            开始您一天的工作吧！</span>
+          <span
+            >{{ greeting }}, {{ userStore.userInfo?.realName }},
+            开始您一天的工作吧！</span
+          >
         </div>
       </template>
       <template #description>
-        {{ location ? location : '未知位置' }}，今日{{ weather.condition }}，{{ weather.tempMin }} ~ {{ weather.tempMax }}！
+        {{ location ? location : '未知位置' }}，今日{{ weather.condition }}，{{
+          weather.tempMin
+        }}
+        ~ {{ weather.tempMax }}！
       </template>
     </WorkbenchHeader>
 
@@ -232,11 +234,14 @@ onMounted(() => {
         <AnalysisChartCard title="我的案件" class="mb-5">
           <div class="case-header mb-4">
             <div class="case-tabs flex">
-              <button 
-                v-for="status in ['在办', '报结', '已结']" 
+              <button
+                v-for="status in ['在办', '报结', '已结']"
                 :key="status"
-                class="case-tab-btn mr-2 px-3 py-1 rounded-full text-sm"
-                :class="{ 'bg-blue-500 text-white': caseStatus === status, 'bg-gray-100 text-gray-700': caseStatus !== status }"
+                class="case-tab-btn mr-2 rounded-full px-3 py-1 text-sm"
+                :class="{
+                  'bg-blue-500 text-white': caseStatus === status,
+                  'bg-gray-100 text-gray-700': caseStatus !== status,
+                }"
                 @click="changeCaseStatus(status)"
               >
                 {{ status }}
@@ -247,50 +252,63 @@ onMounted(() => {
                 v-model="searchKeyword"
                 type="text"
                 placeholder="请输入案号"
-                class="case-search-input px-3 py-1 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="case-search-input rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 @keyup.enter="searchCases"
               />
-              <button 
-                class="ml-2 text-gray-500"
-                @click="searchCases"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <button class="ml-2 text-gray-500" @click="searchCases">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </button>
             </div>
           </div>
-          
+
           <div v-loading="loading" class="case-list">
-            <div v-if="caseList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div 
-                v-for="item in caseList" 
+            <div
+              v-if="caseList.length > 0"
+              class="grid grid-cols-1 gap-3 md:grid-cols-3"
+            >
+              <div
+                v-for="item in caseList"
                 :key="item.SEP_ID"
-                class="case-card p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                class="case-card cursor-pointer rounded-lg bg-white p-3 shadow transition-shadow hover:shadow-md"
                 @click="goToCaseDetail(item.SEP_ID)"
               >
-                <div class="case-title font-semibold text-base mb-2">{{ item.AH }}</div>
-                
+                <div class="case-title mb-2 text-base font-semibold">
+                  {{ item.AH }}
+                </div>
+
                 <!-- 承办法院 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">承办法院：</span>
                   <span>{{ item.FYQC }}</span>
                 </div>
-                
+
                 <!-- 承办法官 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">承办法官：</span>
                   <span>{{ item.CBFG }}</span>
                 </div>
-                
+
                 <!-- 立案日期 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">立案日期：</span>
                   <span>{{ formatDate(item.LARQ) }}</span>
                 </div>
-                
+
                 <!-- 案件状态和办理天数 -->
-                <div class="case-info flex justify-between mb-3 text-sm">
+                <div class="case-info mb-3 flex justify-between text-sm">
                   <div>
                     <span class="text-gray-500">案件状态：</span>
                     <span class="text-green-500">{{ item.AJZT }}</span>
@@ -300,50 +318,58 @@ onMounted(() => {
                     <span>已审理 {{ calculateDays(item.LARQ) }}</span>
                   </div>
                 </div>
-                
+
                 <!-- 当前节点 -->
-                <div class="case-progress flex justify-start items-center text-xs pt-2 border-t border-dashed border-gray-200">
+                <div
+                  class="case-progress flex items-center justify-start border-t border-dashed border-gray-200 pt-2 text-xs"
+                >
                   <span class="text-gray-500">当前阶段：</span>
                   <span class="text-blue-500">{{ item.AJJD }}</span>
                 </div>
               </div>
             </div>
-            
+
             <!-- 暂无数据 -->
-            <div v-else class="empty-case-list flex flex-col items-center justify-center py-10 text-gray-500">
-              <img 
-                src="/src/images/u=3126400111,3705029976&fm=253&fmt=auto&app=138&f=PNG.webp" 
-                alt="暂无数据" 
-                class="h-12 w-12 mb-2" 
+            <div
+              v-else
+              class="empty-case-list flex flex-col items-center justify-center py-10 text-gray-500"
+            >
+              <img
+                src="/src/images/u=3126400111,3705029976&fm=253&fmt=auto&app=138&f=PNG.webp"
+                alt="暂无数据"
+                class="mb-2 h-12 w-12"
               />
               <span>暂无案件数据</span>
             </div>
           </div>
-          
+
           <!-- 分页 -->
-          <div v-if="totalCases > 0" class="case-pagination mt-4 flex justify-center">
+          <div
+            v-if="totalCases > 0"
+            class="case-pagination mt-4 flex justify-center"
+          >
             <div class="flex items-center">
               <span class="pagination-text mr-4 text-sm text-gray-600">
                 共 {{ totalCases }} 条，第
               </span>
-              <button 
-                class="pagination-btn px-2 py-1 border border-gray-300 rounded-l"
+              <button
+                class="pagination-btn rounded-l border border-gray-300 px-2 py-1"
                 @click="handlePageChange(currentPage - 1)"
                 :disabled="currentPage === 1"
               >
                 &lt;
               </button>
-              <input 
-                type="number" 
-                v-model.number="currentPage" 
-                min="1" 
-                :max="Math.ceil(totalCases / pageSize)" 
-                class="pagination-input px-3 py-1 border-t border-b border-gray-300 text-center w-12"
+              <input
+                type="number"
+                v-model.number="currentPage"
+                min="1"
+                :max="Math.ceil(totalCases / pageSize)"
+                class="pagination-input w-12 border-b border-t border-gray-300 px-3 py-1 text-center"
                 @keyup.enter="handlePageChange(currentPage)"
                 @change="handlePageChange(currentPage)"
               />
-              <button 
-                class="pagination-btn px-2 py-1 border border-gray-300 rounded-r"
+              <button
+                class="pagination-btn rounded-r border border-gray-300 px-2 py-1"
                 @click="handlePageChange(currentPage + 1)"
                 :disabled="currentPage * pageSize >= totalCases"
               >
@@ -355,7 +381,7 @@ onMounted(() => {
             </div>
           </div>
         </AnalysisChartCard>
-        
+
         <!-- 待办事项管理板块 - 移到受理案件下方 -->
         <TodoList class="mb-5" title="待办事项管理" />
       </div>

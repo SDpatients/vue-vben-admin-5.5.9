@@ -13,8 +13,11 @@ import {
   ElRow,
 } from 'element-plus';
 
+<<<<<<< Updated upstream
 import { update1 } from '#/api/core/work-team';
 
+=======
+>>>>>>> Stashed changes
 const route = useRoute();
 const router = useRouter();
 
@@ -42,7 +45,9 @@ const saveData = async () => {
   try {
     // 从本地存储获取操作人信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
-    const sepeuser = chatUserInfo ? JSON.parse(chatUserInfo).user?.uUser : 'admin';
+    const sepeuser = chatUserInfo
+      ? JSON.parse(chatUserInfo).user?.uUser
+      : 'admin';
 
     // 准备API参数
     const updateParams = {

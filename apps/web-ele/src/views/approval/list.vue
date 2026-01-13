@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import type { Approval } from '#/api/core/approval';
+
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { approvalApi, type Approval } from '#/api/core/approval';
-import ApprovalCard from '#/components/ApprovalCard.vue';
+
 import { Icon } from '@iconify/vue';
-import { ElButton, ElSelect, ElOption, ElTabs, ElTabPane, ElScrollbar, ElEmpty, ElMessage } from 'element-plus';
+import {
+  ElButton,
+  ElEmpty,
+  ElOption,
+  ElScrollbar,
+  ElSelect,
+  ElTabPane,
+  ElTabs,
+} from 'element-plus';
+
+import { approvalApi } from '#/api/core/approval';
+import ApprovalCard from '#/components/ApprovalCard.vue';
 
 const router = useRouter();
 const loading = ref(false);
@@ -33,10 +45,23 @@ const loadApprovals = async (tab: string) => {
   try {
     let res;
     if (tab === 'pending') {
-      res = await approvalApi.getPendingApprovals(currentPage.value, pageSize.value);
+      res = await approvalApi.getPendingApprovals(
+        currentPage.value,
+        pageSize.value,
+      );
     } else {
-      const status = tab === 'approved' ? 'APPROVED' : tab === 'rejected' ? 'REJECTED' : 'CANCELLED';
-      res = await approvalApi.getApprovalList(undefined, selectedType.value || undefined, currentPage.value, pageSize.value);
+      const status =
+        tab === 'approved'
+          ? 'APPROVED'
+          : (tab === 'rejected'
+            ? 'REJECTED'
+            : 'CANCELLED');
+      res = await approvalApi.getApprovalList(
+        undefined,
+        selectedType.value || undefined,
+        currentPage.value,
+        pageSize.value,
+      );
     }
     approvals.value = res.data || [];
     hasMore.value = res.data.length >= pageSize.value;
@@ -53,10 +78,23 @@ const loadMore = async () => {
   try {
     let res;
     if (activeTab.value === 'pending') {
-      res = await approvalApi.getPendingApprovals(currentPage.value, pageSize.value);
+      res = await approvalApi.getPendingApprovals(
+        currentPage.value,
+        pageSize.value,
+      );
     } else {
-      const status = activeTab.value === 'approved' ? 'APPROVED' : activeTab.value === 'rejected' ? 'REJECTED' : 'CANCELLED';
-      res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
+      const status =
+        activeTab.value === 'approved'
+          ? 'APPROVED'
+          : (activeTab.value === 'rejected'
+            ? 'REJECTED'
+            : 'CANCELLED');
+      res = await approvalApi.getApprovalList(
+        status,
+        selectedType.value || undefined,
+        currentPage.value,
+        pageSize.value,
+      );
     }
     approvals.value = [...approvals.value, ...(res.data || [])];
     hasMore.value = res.data.length >= pageSize.value;
@@ -116,7 +154,10 @@ onMounted(() => {
           <ElOption label="文书审核" value="DOCUMENT" />
           <ElOption label="信息审核" value="INFO" />
         </ElSelect>
-        <ElButton :icon="Icon({ icon: 'lucide:refresh-cw' })" @click="handleRefresh">
+        <ElButton
+          :icon="Icon({ icon: 'lucide:refresh-cw' })"
+          @click="handleRefresh"
+        >
           刷新
         </ElButton>
       </div>
@@ -135,7 +176,10 @@ onMounted(() => {
                 <div v-if="hasMore" class="load-more">
                   <ElButton link @click="loadMore">加载更多</ElButton>
                 </div>
-                <ElEmpty v-if="approvals.length === 0 && !loading" description="暂无待审核任务" />
+                <ElEmpty
+                  v-if="approvals.length === 0 && !loading"
+                  description="暂无待审核任务"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -154,7 +198,10 @@ onMounted(() => {
                 <div v-if="hasMore" class="load-more">
                   <ElButton link @click="loadMore">加载更多</ElButton>
                 </div>
-                <ElEmpty v-if="approvals.length === 0 && !loading" description="暂无已通过的审核" />
+                <ElEmpty
+                  v-if="approvals.length === 0 && !loading"
+                  description="暂无已通过的审核"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -173,7 +220,10 @@ onMounted(() => {
                 <div v-if="hasMore" class="load-more">
                   <ElButton link @click="loadMore">加载更多</ElButton>
                 </div>
-                <ElEmpty v-if="approvals.length === 0 && !loading" description="暂无已驳回的审核" />
+                <ElEmpty
+                  v-if="approvals.length === 0 && !loading"
+                  description="暂无已驳回的审核"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -192,7 +242,10 @@ onMounted(() => {
                 <div v-if="hasMore" class="load-more">
                   <ElButton link @click="loadMore">加载更多</ElButton>
                 </div>
-                <ElEmpty v-if="approvals.length === 0 && !loading" description="暂无已取消的审核" />
+                <ElEmpty
+                  v-if="approvals.length === 0 && !loading"
+                  description="暂无已取消的审核"
+                />
               </div>
             </ElScrollbar>
           </div>
