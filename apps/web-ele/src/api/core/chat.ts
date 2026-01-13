@@ -1042,11 +1042,11 @@ export async function getUserListApi(params?: {
   console.log('🔧 getUserListApi 内部处理');
   console.log('🔧 原始传入参数:', params);
   console.log('🔧 最终API参数:', finalParams);
-  console.log('🔧 调用API URL:', `/users?${new URLSearchParams(finalParams as any).toString()}`);
+  console.log('🔧 调用API URL:', `/api/vi/users?${new URLSearchParams(finalParams as any).toString()}`);
   
   const response = await chatRequestClient.get<
     ChatApi.ApiResponse<ChatApi.UserListResponse>
-  >('/users', {
+  >('/api/vi/users', {
     params: finalParams,
   });
 
@@ -1067,7 +1067,7 @@ export async function getUserListApi(params?: {
 export async function getUserByIdApi(id: number) {
   const response = await chatRequestClient.get<
     ChatApi.ApiResponse<ChatApi.User>
-  >(`/users/${id}`);
+  >(`/api/vi/users/${id}`);
 
   if (response.code === 200) {
     return response.data;
