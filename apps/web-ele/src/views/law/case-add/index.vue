@@ -30,28 +30,20 @@ const formRef = ref();
 const loading = ref(false);
 
 // 表单数据
-const form = reactive<CaseApi.AddCaseRequest>({
-  ah: '',
-  ajmc: '',
-  slrq: undefined,
-  ajly: undefined,
-  slfy: undefined,
-  zdjg: '浙江浦源律师事务所', // 默认值为浙江浦源律师事务所
-  glrfzr: undefined,
-  sfjhs: '0', // 默认值为否
-  zqsbjzsj: undefined,
-  larq: undefined,
-  pcsj: undefined,
-  ay: undefined,
-  ajjd: undefined,
-  cbry: undefined,
-  beizhu: undefined,
-  wjsc: undefined,
-  sepLd: undefined,
-  sepMd: undefined,
-  sepNd: undefined,
-  selectedManagers: [], // 选中的管理人列表
-  teamMembers: [], // 工作团队成员列表
+const form = reactive<CaseApi.CreateCaseRequest>({
+  caseNumber: '',
+  caseName: '',
+  acceptanceDate: '',
+  caseSource: '',
+  acceptanceCourt: '',
+  designatedInstitution: '浙江浦源律师事务所',
+  mainResponsiblePerson: '',
+  isSimplifiedTrial: 0,
+  caseReason: '',
+  caseProgress: 'FIRST',
+  debtClaimDeadline: '',
+  filingDate: '',
+  remarks: '',
 });
 
 // 法院列表数据
@@ -367,11 +359,11 @@ const deleteTeamMember = (index: number) => {
 
 // 表单验证规则
 const rules = reactive({
-  ah: [
+  caseNumber: [
     { required: true, message: '请输入案号', trigger: 'blur' },
     { min: 1, max: 50, message: '案号长度在 1 到 50 个字符', trigger: 'blur' },
   ],
-  ajmc: [
+  caseName: [
     { required: true, message: '请输入案件名称', trigger: 'blur' },
     {
       min: 1,
@@ -380,46 +372,8 @@ const rules = reactive({
       trigger: 'blur',
     },
   ],
-  selectedManagers: [
-    {
-      required: true,
-      message: '请选择管理人',
-      trigger: 'change',
-      type: 'array',
-      min: 1,
-    },
-  ],
-  glrfzr: [
-    {
-      required: true,
-      message: '请选择主要负责人',
-      trigger: 'change',
-      validator: (rule: any, value: any, callback: any) => {
-        if (!form.selectedManagers || form.selectedManagers.length === 0) {
-          callback(new Error('请先选择管理人'));
-        } else if (value) {
-          callback();
-        } else {
-          callback(new Error('请选择主要负责人'));
-        }
-      },
-    },
-  ],
-  cbry: [
-    {
-      required: true,
-      message: '请选择承办人员',
-      trigger: 'change',
-      validator: (rule: any, value: any, callback: any) => {
-        if (!form.selectedManagers || form.selectedManagers.length === 0) {
-          callback(new Error('请先选择管理人'));
-        } else if (!value || value.length === 0) {
-          callback(new Error('请选择承办人员'));
-        } else {
-          callback();
-        }
-      },
-    },
+  acceptanceDate: [
+    { required: true, message: '请选择受理日期', trigger: 'change' },
   ],
 });
 
@@ -437,51 +391,22 @@ const submitForm = async () => {
     await formRef.value.validate();
     loading.value = true;
 
-    // 从localStorage获取chat_user_info
-    const chatUserInfoStr = localStorage.getItem('chat_user_info');
-    let sepAuser = '';
-    if (chatUserInfoStr) {
-      try {
-        const chatUserInfo = JSON.parse(chatUserInfoStr);
-        sepAuser = chatUserInfo.user?.uName || '';
-      } catch (error) {
-        console.error('解析chat_user_info失败:', error);
-      }
-    }
-
-    // 获取当前北京时间
-    const now = new Date();
-    const sepAdate = now.toISOString().slice(0, 19).replace('T', ' ');
-
-    // 准备提交数据，添加默认参数
-    const submitData = {
-      ...form,
-      sep_auser: sepAuser,
-      sep_adate: sepAdate,
-      // 将选中的管理人ID数组转换为字符串，用逗号分隔
-      glrid: form.selectedManagers?.join(',') || '',
-      // 将主要负责人ID转换为字符串
-      fzrid: form.glrfzr?.toString() || '',
-      // 将承办人员ID数组转换为字符串，用逗号分隔
-      cbry: form.cbry?.join(',') || '',
+    // 准备提交数据，适配新的API格式
+    const submitData: CaseApi.CreateCaseRequest = {
+      caseNumber: form.caseNumber,
+      caseName: form.caseName,
+      acceptanceDate: form.acceptanceDate,
+      caseSource: form.caseSource,
+      acceptanceCourt: form.acceptanceCourt,
+      designatedInstitution: form.designatedInstitution,
+      mainResponsiblePerson: form.mainResponsiblePerson,
+      isSimplifiedTrial: form.isSimplifiedTrial,
+      caseReason: form.caseReason,
+      caseProgress: form.caseProgress,
+      debtClaimDeadline: form.debtClaimDeadline,
+      filingDate: form.filingDate,
+      remarks: form.remarks,
     };
-
-    // 移除不需要提交的字段
-    delete submitData.selectedManagers;
-
-    // 处理空值：日期类型传递null，其他类型传递空字符串
-    const dateFields = new Set([
-      'larq',
-      'pcsj',
-      'sep_adate',
-      'slrq',
-      'zqsbjzsj',
-    ]);
-    Object.keys(submitData).forEach((key) => {
-      if (submitData[key] === undefined) {
-        submitData[key] = dateFields.has(key) ? null : '';
-      }
-    });
 
     // 设置3秒超时
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -492,13 +417,13 @@ const submitForm = async () => {
 
     // 1. 先提交案件基本信息
     const caseResult = await Promise.race([
-      addOneCaseApi(submitData),
+      createCaseApi(submitData),
       timeoutPromise,
     ]);
 
     // 处理案件创建响应
-    if (caseResult.status === '1') {
-      const caseId = caseResult.data || '';
+    if (caseResult.code === 200 && caseResult.data) {
+      const caseId = caseResult.data.caseId;
 
       // 2. 如果有文件需要上传，使用获取到的caseId批量上传文件
       if (uploadedFiles.value.length > 0) {
@@ -525,7 +450,7 @@ const submitForm = async () => {
       ElMessage.success('案件添加成功');
       router.push('/case-management');
     } else {
-      ElMessage.error(caseResult.error || '案件添加失败');
+      ElMessage.error(caseResult.message || '案件添加失败');
     }
   } catch (error: any) {
     if (error.message === '后端请求超时') {
@@ -578,9 +503,9 @@ const submitForm = async () => {
               <el-row :gutter="20">
                 <!-- 案号 -->
                 <el-col :span="8">
-                  <el-form-item label="案号" prop="ah">
+                  <el-form-item label="案号" prop="caseNumber">
                     <el-input
-                      v-model="form.ah"
+                      v-model="form.caseNumber"
                       placeholder="请输入案号"
                       maxlength="50"
                       show-word-limit
@@ -590,9 +515,9 @@ const submitForm = async () => {
 
                 <!-- 案件名称 -->
                 <el-col :span="8">
-                  <el-form-item label="案件名称" prop="ajmc">
+                  <el-form-item label="案件名称" prop="caseName">
                     <el-input
-                      v-model="form.ajmc"
+                      v-model="form.caseName"
                       placeholder="请输入案件名称"
                       maxlength="100"
                       show-word-limit
@@ -602,38 +527,39 @@ const submitForm = async () => {
 
                 <!-- 受理日期 -->
                 <el-col :span="8">
-                  <el-form-item label="受理日期">
+                  <el-form-item label="受理日期" prop="acceptanceDate">
                     <el-date-picker
-                      v-model="form.slrq"
+                      v-model="form.acceptanceDate"
                       type="date"
                       placeholder="请选择受理日期"
+                      format="YYYY-MM-DD"
                       value-format="YYYY-MM-DD"
-                      style="width: 100%"
+                      style="width: 100%;"
                     />
                   </el-form-item>
                 </el-col>
+              </el-row>
 
+              <el-row :gutter="20">
                 <!-- 案件来源 -->
                 <el-col :span="8">
-                  <el-form-item label="案件来源">
+                  <el-form-item label="案件来源" prop="caseSource">
                     <el-input
-                      v-model="form.ajly"
+                      v-model="form.caseSource"
                       placeholder="请输入案件来源"
                       maxlength="50"
-                      show-word-limit
                     />
                   </el-form-item>
                 </el-col>
 
                 <!-- 受理法院 -->
                 <el-col :span="8">
-                  <el-form-item label="受理法院">
+                  <el-form-item label="受理法院" prop="acceptanceCourt">
                     <el-select
-                      v-model="form.slfy"
+                      v-model="form.acceptanceCourt"
                       placeholder="请选择受理法院"
                       filterable
-                      clearable
-                      style="width: 100%"
+                      style="width: 100%;"
                     >
                       <el-option
                         v-for="court in courtList"
@@ -645,84 +571,267 @@ const submitForm = async () => {
                   </el-form-item>
                 </el-col>
 
-                <!-- 管理人 -->
+                <!-- 指定机构 -->
                 <el-col :span="8">
-                  <el-form-item label="管理人" prop="selectedManagers">
-                    <el-select
-                      v-model="form.selectedManagers"
-                      placeholder="请选择管理人（可多选）"
-                      multiple
-                      filterable
-                      clearable
-                      style="width: 100%"
-                    >
-                      <el-option
-                        v-for="manager in managerList"
-                        :key="manager.value"
-                        :label="manager.label"
-                        :value="manager.value"
-                      />
-                    </el-select>
+                  <el-form-item label="指定机构" prop="designatedInstitution">
+                    <el-input
+                      v-model="form.designatedInstitution"
+                      placeholder="请输入指定机构"
+                      maxlength="100"
+                    />
                   </el-form-item>
                 </el-col>
+              </el-row>
 
+              <el-row :gutter="20">
                 <!-- 主要负责人 -->
                 <el-col :span="8">
-                  <el-form-item label="主要负责人" prop="glrfzr">
-                    <el-select
-                      v-model="form.glrfzr"
-                      placeholder="请先选择管理人"
-                      :disabled="
-                        !form.selectedManagers ||
-                        form.selectedManagers.length === 0
-                      "
-                      filterable
-                      clearable
-                      style="width: 100%"
-                    >
-                      <el-option
-                        v-for="user in userList"
-                        :key="user.value"
-                        :label="user.label"
-                        :value="user.value"
-                      />
-                    </el-select>
+                  <el-form-item label="主要负责人" prop="mainResponsiblePerson">
+                    <el-input
+                      v-model="form.mainResponsiblePerson"
+                      placeholder="请输入主要负责人"
+                      maxlength="50"
+                    />
                   </el-form-item>
                 </el-col>
 
                 <!-- 是否简化审 -->
                 <el-col :span="8">
-                  <el-form-item label="是否简化审">
+                  <el-form-item label="是否简化审" prop="isSimplifiedTrial">
                     <el-select
-                      v-model="form.sfjhs"
-                      placeholder="请选择是否简化审"
-                      style="width: 100%"
+                      v-model="form.isSimplifiedTrial"
+                      placeholder="请选择"
+                      style="width: 100%;"
                     >
-                      <el-option label="是" value="1" />
-                      <el-option label="否" value="0" />
+                      <el-option :value="0" label="否" />
+                      <el-option :value="1" label="是" />
                     </el-select>
                   </el-form-item>
                 </el-col>
 
-                <!-- 债权申报截止日期 -->
+                <!-- 案件进度 -->
                 <el-col :span="8">
-                  <el-form-item label="债权申报截止日期">
+                  <el-form-item label="案件进度" prop="caseProgress">
+                    <el-select
+                      v-model="form.caseProgress"
+                      placeholder="请选择案件进度"
+                      style="width: 100%;"
+                    >
+                      <el-option value="FIRST" label="第一阶段" />
+                      <el-option value="SECOND" label="第二阶段" />
+                      <el-option value="THIRD" label="第三阶段" />
+                      <el-option value="FOURTH" label="第四阶段" />
+                      <el-option value="FIFTH" label="第五阶段" />
+                      <el-option value="SIXTH" label="第六阶段" />
+                      <el-option value="SEVENTH" label="第七阶段" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="20">
+                <!-- 案件原因 -->
+                <el-col :span="8">
+                  <el-form-item label="案件原因" prop="caseReason">
+                    <el-input
+                      v-model="form.caseReason"
+                      placeholder="请输入案件原因"
+                      maxlength="200"
+                    />
+                  </el-form-item>
+                </el-col>
+
+                <!-- 债权申报截止时间 -->
+                <el-col :span="8">
+                  <el-form-item label="债权申报截止时间" prop="debtClaimDeadline">
                     <el-date-picker
-                      v-model="form.zqsbjzsj"
-                      type="date"
-                      placeholder="请选择债权申报截止日期"
-                      value-format="YYYY-MM-DD"
-                      style="width: 100%"
+                      v-model="form.debtClaimDeadline"
+                      type="datetime"
+                      placeholder="请选择债权申报截止时间"
+                      format="YYYY-MM-DD HH:mm:ss"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      style="width: 100%;"
                     />
                   </el-form-item>
                 </el-col>
 
                 <!-- 立案日期 -->
                 <el-col :span="8">
-                  <el-form-item label="立案日期">
+                  <el-form-item label="立案日期" prop="filingDate">
                     <el-date-picker
-                      v-model="form.larq"
+                      v-model="form.filingDate"
                       type="date"
+                      placeholder="请选择立案日期"
+                      format="YYYY-MM-DD"
+                      value-format="YYYY-MM-DD"
+                      style="width: 100%;"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <!-- 备注 -->
+              <el-row :gutter="20">
+                <el-col :span="24">
+                  <el-form-item label="备注" prop="remarks">
+                    <el-input
+                      v-model="form.remarks"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="请输入备注信息"
+                      maxlength="500"
+                      show-word-limit
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </div>
+
+          <!-- 文件上传分组 -->
+          <div class="form-section mb-6">
+            <h3 class="section-title mb-4">文件上传</h3>
+            <div class="section-content rounded-lg bg-gray-50 p-4">
+              <el-row :gutter="20">
+                <el-col :span="24">
+                  <el-form-item label="案件文件">
+                    <div class="file-upload-container">
+                      <input
+                        ref="fileInput"
+                        type="file"
+                        accept=".doc,.docx,.pdf,.jpg,.png,.txt,.xls,.xlsx"
+                        style="display: none"
+                        @change="handleFileChange"
+                      />
+                      <el-button
+                        type="primary"
+                        @click="fileInput?.click()"
+                      >
+                        <i class="i-lucide-upload mr-1"></i>
+                        选择文件
+                      </el-button>
+                      <span class="ml-2 text-sm text-gray-500">
+                        支持PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式，单个文件不超过10MB
+                      </span>
+                    </div>
+
+                    <!-- 已上传文件列表 -->
+                    <div
+                      v-if="uploadedFiles.length > 0"
+                      class="file-list mt-4"
+                    >
+                      <div
+                        v-for="(file, index) in uploadedFiles"
+                        :key="index"
+                        class="file-item"
+                      >
+                        <i class="i-lucide-file-text mr-2"></i>
+                        <span class="file-name">{{ file.name }}</span>
+                        <el-button
+                          type="danger"
+                          size="small"
+                          link
+                          @click="removeFile(index)"
+                        >
+                          <i class="i-lucide-trash-2"></i>
+                        </el-button>
+                      </div>
+                    </div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="form-actions mt-6">
+            <el-button @click="resetForm">
+              <i class="i-lucide-rotate-ccw mr-1"></i>
+              重置
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="loading"
+              @click="submitForm"
+            >
+              <i class="i-lucide-save mr-1"></i>
+              提交
+            </el-button>
+          </div>
+        </el-form>
+      </el-card>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.section-content {
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.file-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.no-permission {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.case-add-card {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.case-form {
+  padding: 1rem;
+}
+</style>
                       placeholder="请选择立案日期"
                       value-format="YYYY-MM-DD"
                       style="width: 100%"

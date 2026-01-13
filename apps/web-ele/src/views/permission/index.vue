@@ -14,6 +14,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElSelect,
   ElTable,
@@ -26,10 +27,10 @@ import {
 import {
   checkUserRoleApi,
   getAllRolesApi,
-  getUserRoleIdsApi,
   getUserRolesListApi,
-  removeRoleApi,
-  updateTBUserRoleApi,
+  assignRolesToUserPostApi,
+  assignRolesToUserPutApi,
+  removeRolesFromUserApi,
 } from '#/api/core/permission';
 
 const activeTab = ref('roleUsers');
@@ -45,7 +46,8 @@ const editPermissionForm = ref({
   u_pid: 0,
   u_user: '',
   u_name: '',
-  role_id: 0,
+  role_ids: [] as number[], // 修改为数组，支持多选角色
+  hasOriginalRoles: false, // 记录用户是否有原始角色，用于决定使用POST还是PUT
 });
 
 const checkRoleDialogVisible = ref(false);
@@ -136,53 +138,119 @@ const handleCheckRole = async () => {
   }
 };
 
-const handleEditPermission = async (user: any) => {
+const handleEditPermission = (user: any) => {
+  // 记录用户是否有原始角色
+  const hasOriginalRoles = !!user.userRoles;
+  
   // 填充基本用户信息
   editPermissionForm.value = {
     u_pid: user.uPid,
     u_user: user.uUser,
     u_name: user.uName,
-    role_id: 0, // 默认值，将通过API获取
+    role_ids: [], // 初始化角色ID数组
+    hasOriginalRoles, // 设置是否有原始角色的标志
   };
 
-  try {
-    // 调用API获取用户当前角色ID
-    const response = await getUserRoleIdsApi(user.uPid);
-    if (response.status === '1') {
-      // 将获取到的角色ID设置到表单中
-      editPermissionForm.value.role_id = Number(response.data) || 0;
-    }
-  } catch (error) {
-    ElMessage.error('获取用户角色ID失败');
+  // 从用户信息中提取当前角色，并转换为角色ID数组
+  if (user.userRoles) {
+    // 将用户角色字符串分割为数组
+    const roleNames = user.userRoles.split('、');
+    // 从角色列表中查找对应的角色ID
+    roleNames.forEach(roleName => {
+      const role = roles.value.find(r => r.roleName === roleName);
+      if (role) {
+        editPermissionForm.value.role_ids.push(role.roleId);
+      }
+    });
   }
 
   // 打开弹窗
   editPermissionDialogVisible.value = true;
 };
 
-// 移除用户角色功能暂时保留，等待新的API接口
 const handleRemoveUser = async (user: any) => {
-  ElMessage.warning('该功能正在调整中，请稍后再试');
+  try {
+    // 显示确认对话框
+    await ElMessageBox.confirm(
+      '确定要移除该用户的角色吗？',
+      '确认移除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    // 从用户信息中获取角色ID列表
+    // 注意：这里需要根据实际情况获取用户的角色ID列表
+    // 由于当前user对象中没有直接的角色ID，我们需要根据角色名称从roles列表中查找
+    const userRoleIds = [];
+    if (user.userRoles) {
+      // 将用户角色字符串分割为数组
+      const roleNames = user.userRoles.split('、');
+      // 从角色列表中查找对应的角色ID
+      roleNames.forEach(roleName => {
+        const role = roles.value.find(r => r.roleName === roleName);
+        if (role) {
+          userRoleIds.push(role.roleId);
+        }
+      });
+    }
+
+    if (userRoleIds.length === 0) {
+      ElMessage.error('未找到用户的角色信息');
+      return;
+    }
+
+    loading.value = true;
+    // 调用移除用户角色API
+    const response = await removeRolesFromUserApi(user.uPid, {
+      roleIds: userRoleIds,
+    });
+
+    if (response.code === 200) {
+      ElMessage.success('角色移除成功');
+      loadRoleUsers(); // 刷新角色用户列表
+    } else {
+      ElMessage.error(response.message || '角色移除失败');
+    }
+  } catch (error) {
+    // 如果用户取消确认，不显示错误信息
+    if (error !== 'cancel') {
+      ElMessage.error('角色移除失败');
+    }
+  } finally {
+    loading.value = false;
+  }
 };
 
 const handleUpdatePermission = async () => {
-  if (!editPermissionForm.value.role_id) {
-    ElMessage.warning('请选择角色');
+  if (!editPermissionForm.value.role_ids || editPermissionForm.value.role_ids.length === 0) {
+    ElMessage.warning('请选择至少一个角色');
     return;
   }
 
   loading.value = true;
   try {
-    const response = await updateTBUserRoleApi(editPermissionForm.value);
-    if (response.status === '1') {
-      ElMessage.success('权限修改成功');
+    // 根据用户是否有原始角色，调用不同的API方法
+    const response = editPermissionForm.value.hasOriginalRoles 
+      ? await assignRolesToUserPutApi(editPermissionForm.value.u_pid, {
+          roleIds: editPermissionForm.value.role_ids, // 直接使用角色ID数组
+        })
+      : await assignRolesToUserPostApi(editPermissionForm.value.u_pid, {
+          roleIds: editPermissionForm.value.role_ids, // 直接使用角色ID数组
+        });
+
+    if (response.code === 200) {
+      // 根据操作类型显示不同的成功消息
+      ElMessage.success(editPermissionForm.value.hasOriginalRoles ? '权限修改成功' : '权限分配成功');
       editPermissionDialogVisible.value = false;
       loadRoleUsers(); // 刷新角色用户列表
     } else {
-      ElMessage.error(response.error || '权限修改失败');
+      ElMessage.error(response.message || (editPermissionForm.value.hasOriginalRoles ? '权限修改失败' : '权限分配失败'));
     }
   } catch (error) {
-    ElMessage.error('权限修改失败');
+    ElMessage.error(editPermissionForm.value.hasOriginalRoles ? '权限修改失败' : '权限分配失败');
   } finally {
     loading.value = false;
   }
@@ -232,7 +300,14 @@ onMounted(() => {
       <template #header>
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">权限管理</span>
-          <ElButton type="primary" @click="loadRoles">
+          <ElButton type="primary" @click="() => {
+            // 根据当前激活的标签页调用对应的查询接口
+            if (activeTab === 'roles') {
+              loadRoles();
+            } else if (activeTab === 'roleUsers') {
+              loadRoleUsers();
+            }
+          }">
             <i class="i-lucide-refresh-cw mr-1"></i>
             刷新
           </ElButton>
@@ -296,10 +371,11 @@ onMounted(() => {
                 <ElTableColumn label="操作" width="200">
                   <template #default="scope">
                     <span
-                      class="cursor-pointer text-primary mr-4"
+                      class="cursor-pointer mr-4"
+                      :style="scope.row.userRoles ? { color: '#409eff' } : { color: '#67c23a', fontWeight: 'bold' }"
                       @click="handleEditPermission(scope.row)"
                     >
-                      修改权限
+                      {{ scope.row.userRoles ? '修改权限' : '分配权限' }}
                     </span>
                     <span
                       class="cursor-pointer"
@@ -397,9 +473,12 @@ onMounted(() => {
         </ElFormItem>
         <ElFormItem label="角色">
           <ElSelect
-            v-model="editPermissionForm.role_id"
+            v-model="editPermissionForm.role_ids"
             placeholder="选择角色"
             style="width: 100%"
+            multiple
+            filterable
+            collapse-tags
           >
             <ElOption
               v-for="role in roles"

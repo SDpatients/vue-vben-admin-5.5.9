@@ -112,57 +112,58 @@ const formatTimestamp = (timestamp: number | undefined) => {
 const generateMockData = () => {
   const mockCases: CaseApi.CaseInfo[] = [
     {
-      row: 1,
-      案件单据号: 34,
-      案号: 'dddd',
-      案由: '',
-      案件来源: '',
-      创建者: '测试用户',
-      备注: '',
-      案件名称: '44124124',
-      管理人: '',
-      案件进度: '已结案',
-      创建时间: 1_766_943_984_000,
-      是否简化审: '',
-      主要负责人: '',
-      受理法院: '',
+      id: 1,
+      案号: "（2024）沪02破1号",
+      案由: "经营困难",
+      案件名称: "上海某实业公司破产重整案",
+      案件来源: "债权人申请",
+      案件进度: "第二阶段",
+      受理法院: "上海市第二中级人民法院",
+      主要负责人: "陈律师",
+      管理人: "上海某会计师事务所",
+      是否简化审: "是",
+      创建者: "系统管理员",
+      创建时间: "2024-05-10T10:00:00",
+      修改时间: "2024-05-10T10:00:00",
+      案件状态: "进行中",
+      指定法官: "孙法官",
+      承办人: "陈律师",
     } as CaseApi.CaseInfo,
     {
-      row: 2,
-      案件单据号: 33,
-      案号: 'fff',
-      案由: 'fffffffffff',
-      案件来源: '',
-      创建者: '测试用户',
-      备注: '',
-      案件名称: '333333333333333',
-      管理人: '',
-      修改时间: 1_766_937_600_000,
-      案件进度: '第五阶段',
-      创建时间: 1_766_943_057_000,
-      是否简化审: 'f',
-      修改者: '',
-      主要负责人: '',
-      受理法院: '',
+      id: 2,
+      案号: "（2024）京01破2号",
+      案由: "资不抵债",
+      案件名称: "北京某科技公司破产清算案",
+      案件来源: "债务人申请",
+      案件进度: "第一阶段",
+      受理法院: "北京市第一中级人民法院",
+      主要负责人: "李律师",
+      管理人: "北京某律师事务所",
+      是否简化审: "否",
+      创建者: "系统管理员",
+      创建时间: "2024-06-20T14:30:00",
+      修改时间: "2024-06-20T14:30:00",
+      案件状态: "进行中",
+      指定法官: "王法官",
+      承办人: "李律师",
     } as CaseApi.CaseInfo,
     {
-      row: 3,
-      案件单据号: 24,
-      案号: '123',
-      案由: '',
-      案件来源: '',
-      创建者: 'admin',
-      备注: '',
-      案件名称: '333',
-      管理人: '',
-      修改时间: 1_766_419_200_000,
-      案件进度: '第六阶段',
-      创建时间: 1_765_179_418_000,
-      是否简化审: '',
-      修改者: '2222',
-      文件上传: '1',
-      主要负责人: '',
-      受理法院: '',
+      id: 3,
+      案号: "（2024）粤03破3号",
+      案由: "经营不善",
+      案件名称: "深圳某贸易公司破产和解案",
+      案件来源: "债权人申请",
+      案件进度: "第三阶段",
+      受理法院: "深圳市中级人民法院",
+      主要负责人: "张律师",
+      管理人: "深圳某破产清算有限公司",
+      是否简化审: "是",
+      创建者: "系统管理员",
+      创建时间: "2024-07-25T09:15:00",
+      修改时间: "2024-07-25T09:15:00",
+      案件状态: "进行中",
+      指定法官: "刘法官",
+      承办人: "张律师",
     } as CaseApi.CaseInfo,
   ];
 
@@ -191,23 +192,58 @@ const fetchCaseList = async () => {
       );
     } else {
       // 获取全部案件（有权限的）
-      const params = {
-        page: pagination.value.page,
-        size: pagination.value.pageSize,
+      const params: CaseApi.CaseListQueryParams = {
+        pageNum: pagination.value.page,
+        pageSize: pagination.value.pageSize,
       };
       response = await getCaseListApi(params);
     }
 
-    if (response.status === '1' && response.data) {
-      caseList.value = response.data.records || [];
-      pagination.value.itemCount = response.data.count || 0;
-      pagination.value.pages = response.data.pages || 0;
+    // 适配新的API响应格式
+    if (response.code === 200 && response.data) {
+      // 将API返回的英文字段映射为表格期望的中文prop名称
+      const mappedCases = response.data.list.map((item: any) => {
+        // 映射案件进度
+        const caseProgressMap: Record<string, string> = {
+          'FIRST': '第一阶段',
+          'SECOND': '第二阶段',
+          'THIRD': '第三阶段',
+          'FOURTH': '第四阶段',
+          'FIFTH': '第五阶段',
+          'SIXTH': '第六阶段',
+          'SEVENTH': '第七阶段',
+        };
+
+        return {
+          'id': item.id,
+          '案号': item.caseNumber,
+          '案由': item.caseReason,
+          '案件名称': item.caseName,
+          '案件来源': item.caseSource,
+          '案件进度': caseProgressMap[item.caseProgress] || item.caseProgress,
+          '受理法院': item.acceptanceCourt,
+          '主要负责人': item.mainResponsiblePerson,
+          '管理人': item.designatedInstitution,
+          '是否简化审': item.isSimplifiedTrial ? '是' : '否',
+          '创建者': item.creatorName,
+          '创建时间': item.createTime,
+          '修改时间': item.updateTime,
+          '案件状态': item.caseStatus === 'IN_PROGRESS' ? '进行中' : item.caseStatus,
+          '指定法官': item.designatedJudge,
+          '承办人': item.undertakingPersonnel,
+        };
+      });
+
+      caseList.value = mappedCases;
+      pagination.value.itemCount = response.data.total || 0;
+      pagination.value.pages = Math.ceil(pagination.value.itemCount / pagination.value.pageSize);
       ElMessage.success('案件列表加载成功');
     } else {
-      ElMessage.error(response.error || '获取案件列表失败，已使用模拟数据');
+      ElMessage.error(response.message || '获取案件列表失败，已使用模拟数据');
       generateMockData();
     }
-  } catch {
+  } catch (error) {
+    console.error('获取案件列表失败:', error);
     ElMessage.error('后端API暂时不可用，请稍后再试');
     generateMockData();
   } finally {

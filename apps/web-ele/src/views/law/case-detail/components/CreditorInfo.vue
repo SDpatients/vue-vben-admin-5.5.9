@@ -18,9 +18,10 @@ import {
 } from 'element-plus';
 
 import {
-  addCreditorApi,
-  batchAddCreditorsApi,
-  getCreditorsApi,
+  createCreditorApi,
+  getCreditorListApi,
+  updateCreditorApi,
+  deleteCreditorApi,
 } from '#/api/core/creditor';
 
 const props = defineProps<{
@@ -81,18 +82,16 @@ const toCamelCase = (obj: any) => {
 const fetchCreditors = async () => {
   loading.value = true;
   try {
-    const response = await getCreditorsApi(
-      props.caseId,
-      currentPage.value,
-      pageSize.value,
-    );
-    if (response.status === '1') {
-      // 转换数据格式：下划线转驼峰
-      const camelCaseData = toCamelCase(response.data);
-      creditors.value = camelCaseData || [];
-      total.value = camelCaseData.length || 0;
+    const response = await getCreditorListApi({
+      caseId: Number(props.caseId),
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+    });
+    if (response.code === 200 && response.data) {
+      creditors.value = response.data.list || [];
+      total.value = response.data.total || 0;
     } else {
-      ElMessage.error(`获取债权人列表失败：${response.error || '未知错误'}`);
+      ElMessage.error(`获取债权人列表失败：${response.message || '未知错误'}`);
       creditors.value = [];
       total.value = 0;
     }
@@ -219,30 +218,25 @@ const handleSingleAdd = async () => {
 
   singleAddLoading.value = true;
   try {
-    // 构造请求数据
     const requestData = {
-      case_id: props.caseId,
-      creditor_name: singleForm.creditorName,
-      creditor_type: singleForm.creditorType,
-      contact_phone: singleForm.contactPhone,
-      contact_email: singleForm.contactEmail,
+      caseId: Number(props.caseId),
+      creditorName: singleForm.creditorName,
+      creditorType: singleForm.creditorType,
+      contactPhone: singleForm.contactPhone,
+      contactEmail: singleForm.contactEmail,
       address: singleForm.address,
-      id_number: singleForm.idNumber,
-      legal_representative: singleForm.legalRepresentative,
-      registered_capital: singleForm.registeredCapital,
-      status: '1', // 状态，默认为1
-      created_by: '', // 可能需要从上下文获取，暂时留空
+      idNumber: singleForm.idNumber,
+      legalRepresentative: singleForm.legalRepresentative,
+      registeredCapital: singleForm.registeredCapital ? Number(singleForm.registeredCapital) : undefined,
     };
 
-    const response = await addCreditorApi(requestData);
-    if (response.code === 0 || response.status === '1') {
+    const response = await createCreditorApi(requestData);
+    if (response.code === 200) {
       ElMessage.success('成功添加债权人');
       await fetchCreditors();
       closeSingleAddDialog();
     } else {
-      ElMessage.error(
-        `添加失败：${response.message || response.error || '未知错误'}`,
-      );
+      ElMessage.error(`添加失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('添加债权人失败:', error);

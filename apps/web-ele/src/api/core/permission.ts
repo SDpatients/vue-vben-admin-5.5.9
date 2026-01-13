@@ -298,6 +298,59 @@ export async function getUserRoleByUserIdApi(userId: number) {
  */
 export async function getUserRolesListApi() {
   return requestClient8085.get<PermissionApi.UserRolesListResponse>(
-    '/api/user-roles/list',
+    '/user-roles/list',
+  );
+}
+
+/**
+ * 为用户分配角色（POST）
+ */
+export async function assignRolesToUserPostApi(userId: number, data: {
+  roleIds: number[];
+}) {
+  return requestClient8085.post<{
+    code: number;
+    message: string;
+    data: null;
+  }>(
+    `/user-roles/${userId}/roles`,
+    data,
+  );
+}
+
+/**
+ * 为用户修改角色（PUT）
+ */
+export async function assignRolesToUserPutApi(userId: number, data: {
+  roleIds: number[];
+}) {
+  return requestClient8085.put<{
+    code: number;
+    message: string;
+    data: null;
+  }>(
+    `/user-roles/${userId}/roles`,
+    data,
+  );
+}
+
+/**
+ * 移除用户角色
+ */
+export async function removeRolesFromUserApi(userId: number, data: {
+  roleIds: number[];
+}) {
+  return requestClient8085.delete<{
+    code: number;
+    message: string;
+    data: null;
+  }>(
+    `/user-roles/${userId}/roles`,
+    {
+      data,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
   );
 }

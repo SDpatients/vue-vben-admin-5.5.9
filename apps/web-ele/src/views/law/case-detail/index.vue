@@ -36,26 +36,23 @@ import {
   updateCaseApi,
 } from '#/api/core/case';
 import {
-  deleteAnnouncementApi,
-  getAnnouncementDetailApi,
+  createAnnouncementApi,
   getAnnouncementListApi,
-  getAnnouncementViewsApi,
-  publishAnnouncementApi,
-  recordAnnouncementViewApi,
-  revokeAnnouncementApi,
+  getAnnouncementDetailApi,
   updateAnnouncementApi,
+  publishAnnouncementApi,
+  deleteAnnouncementApi,
+  createViewRecordApi,
 } from '#/api/core/case-announcement';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi } from '#/api/core/user';
 import {
   addTeamMemberApi,
-  canAccessCaseApi,
+  getWorkTeamDetailWithMembersApi,
   getActiveTeamRolesApi,
-  getMyTeamMemberInfoApi,
-  getTeamMembersApi,
   removeTeamMemberApi,
-  updateTeamMemberApi,
+  updateMemberPermissionApi,
 } from '#/api/core/work-team';
 
 import FileUploader from '../../../components/FileUploader.vue';
@@ -284,13 +281,13 @@ const formatDateOnly = (dateStr: string) => {
 const fetchAnnouncements = async () => {
   loadingAnnouncements.value = true;
   try {
-    const response = await getAnnouncementListApi(
-      currentPage.value,
-      pageSize.value,
-      parseInt(caseId.value),
-      statusFilter.value || undefined,
-    );
-    if (response.code === 200) {
+    const response = await getAnnouncementListApi({
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+      caseId: parseInt(caseId.value),
+      status: statusFilter.value || undefined,
+    });
+    if (response.code === 200 && response.data) {
       announcements.value = response.data.list || [];
       totalAnnouncements.value = response.data.total || 0;
     } else {
@@ -331,99 +328,38 @@ const saveAnnouncement = async () => {
     console.log('3. 条件判断结果:');
     console.log('   isEditing && announcementId:', isEditing && announcementId);
 
-    // 处理附件上传
-    const uploadedAttachments = [];
-    // 过滤出需要上传的文件（status为ready的文件）
-    const filesToUpload = announcementData.attachments.filter(
-      (file: any) => file.status === 'ready',
-    );
-
-    if (filesToUpload.length > 0) {
-      ElMessage.info(`正在上传${filesToUpload.length}个文件...`);
-
-      // 逐个上传文件
-      for (const file of filesToUpload) {
-        try {
-          // 公告附件使用统一文件上传接口，bizType为notice
-          const uploadResponse = await uploadFileApi(
-            file.raw,
-            'notice',
-            Number(caseId.value),
-          );
-          if (uploadResponse.status === '1') {
-            // 上传成功，将返回的文件信息添加到已上传列表
-            uploadedAttachments.push({
-              file_id: uploadResponse.data.id,
-              file_name: uploadResponse.data.originalFileName,
-              file_url: `http://192.168.0.120:8080/api/file/view/${uploadResponse.data.id}?token=${localStorage.getItem('token') || ''}`,
-            });
-            ElMessage.success(`文件${file.name}上传成功`);
-          } else {
-            ElMessage.error(
-              `文件${file.name}上传失败：${uploadResponse.msg || '未知错误'}`,
-            );
-            return; // 中断执行
-          }
-        } catch (error) {
-          console.error(`上传文件${file.name}失败:`, error);
-          ElMessage.error(`文件${file.name}上传失败`);
-          return; // 中断执行
-        }
-      }
-
-      // 过滤出已存在的文件（非ready状态）
-      const existingAttachments = announcementData.attachments.filter(
-        (file: any) => file.status !== 'ready',
-      );
-
-      // 将已存在的文件转换为后端需要的格式
-      const formattedExistingAttachments = existingAttachments.map(
-        (file: any) => ({
-          file_id: file.file_id || file.uid,
-          file_name: file.file_name || file.name,
-          file_url: file.file_url || file.url,
-        }),
-      );
-
-      // 更新公告数据中的附件，使用上传成功后的文件信息
-      announcementData.attachments = [
-        ...formattedExistingAttachments,
-        ...uploadedAttachments,
-      ];
-    } else {
-      // 没有需要上传的文件，将现有的附件转换为后端需要的格式
-      announcementData.attachments = announcementData.attachments.map(
-        (file: any) => ({
-          file_id: file.file_id || file.uid,
-          file_name: file.file_name || file.name,
-          file_url: file.file_url || file.url,
-        }),
-      );
-    }
+    // 准备请求数据
+    const requestData = {
+      caseId: Number(caseId.value),
+      title: announcementData.title,
+      content: announcementData.content,
+      announcementType: announcementData.announcement_type,
+      attachments: announcementData.attachments ? JSON.stringify(announcementData.attachments) : undefined,
+    };
 
     if (isEditing && announcementId) {
       console.log('4. 进入更新公告分支');
       // 更新现有公告
-      response = await updateAnnouncementApi(announcementId, announcementData);
+      response = await updateAnnouncementApi(announcementId, requestData);
       console.log('5. updateAnnouncementApi 响应:', response);
-      if (response.status === '1') {
+      if (response.code === 200) {
         ElMessage.success('公告更新成功');
         await fetchAnnouncements();
         closeAnnouncementDialog();
       } else {
-        ElMessage.error(`公告更新失败：${response.error || '未知错误'}`);
+        ElMessage.error(`公告更新失败：${response.message || '未知错误'}`);
       }
     } else {
       console.log('4. 进入发布新公告分支');
       // 发布新公告
-      response = await publishAnnouncementApi(caseId.value, announcementData);
-      console.log('5. publishAnnouncementApi 响应:', response);
-      if (response.status === '1') {
+      response = await createAnnouncementApi(requestData);
+      console.log('5. createAnnouncementApi 响应:', response);
+      if (response.code === 200) {
         ElMessage.success('公告发布成功');
         await fetchAnnouncements();
         closeAnnouncementDialog();
       } else {
-        ElMessage.error(`公告发布失败：${response.error || '未知错误'}`);
+        ElMessage.error(`公告发布失败：${response.message || '未知错误'}`);
       }
     }
   } catch (error) {
@@ -435,9 +371,13 @@ const saveAnnouncement = async () => {
 // 发布公告
 const publishAnnouncement = async (announcementId: string) => {
   try {
-    // 由于我们没有直接的发布API，我们可以跳转到编辑页面让用户修改状态
-    // 或者使用updateAnnouncementApi更新状态
-    ElMessage.info('请使用编辑功能修改公告状态');
+    const response = await publishAnnouncementApi(Number(announcementId));
+    if (response.code === 200) {
+      ElMessage.success('公告发布成功');
+      await fetchAnnouncements();
+    } else {
+      ElMessage.error(`发布公告失败：${response.message || '未知错误'}`);
+    }
   } catch (error) {
     console.error('发布公告失败:', error);
     ElMessage.error('发布公告失败');
@@ -455,18 +395,19 @@ const confirmRevokeAnnouncement = async () => {
   if (!currentRevokeAnnouncementId.value) return;
 
   try {
-    const response = await revokeAnnouncementApi(
+    // 使用更新API将状态改为DRAFT
+    const response = await updateAnnouncementApi(
       currentRevokeAnnouncementId.value,
-      revokeReason.value,
+      { status: 'DRAFT' as any },
     );
-    if (response.status === '1') {
+    if (response.code === 200) {
       ElMessage.success('公告撤销成功');
       await fetchAnnouncements();
       showRevokeDialog.value = false;
       revokeReason.value = '';
       currentRevokeAnnouncementId.value = null;
     } else {
-      ElMessage.error(`公告撤销失败：${response.error || '未知错误'}`);
+      ElMessage.error(`公告撤销失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('撤销公告失败:', error);
@@ -477,12 +418,12 @@ const confirmRevokeAnnouncement = async () => {
 // 删除公告
 const deleteAnnouncement = async (announcementId: string) => {
   try {
-    const response = await deleteAnnouncementApi(announcementId);
-    if (response.status === '1') {
+    const response = await deleteAnnouncementApi(Number(announcementId));
+    if (response.code === 200) {
       ElMessage.success('公告删除成功');
       await fetchAnnouncements();
     } else {
-      ElMessage.error(`公告删除失败：${response.error || '未知错误'}`);
+      ElMessage.error(`公告删除失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('删除公告失败:', error);
@@ -509,10 +450,10 @@ const editAnnouncement = (announcement: any) => {
   announcementData.title = announcement.title;
   announcementData.content = announcement.content;
   announcementData.announcement_type =
-    announcement.announcement_type || 'NORMAL';
-  announcementData.status = announcement.status || 'PUBLISHED';
-  announcementData.is_top = Boolean(announcement.is_top);
-  announcementData.top_expire_time = announcement.top_expire_time || '';
+    announcement.announcementType || announcement.announcement_type || 'ANNOUNCEMENT';
+  announcementData.status = announcement.status || 'DRAFT';
+  announcementData.is_top = Boolean(announcement.isTop || announcement.is_top);
+  announcementData.top_expire_time = announcement.topExpireTime || announcement.top_expire_time || '';
 
   // 处理attachments字段，确保是数组格式
   let attachments = announcement.attachments || [];
@@ -554,25 +495,35 @@ const viewAnnouncementDetail = async (announcement: any) => {
       console.error('解析用户信息失败:', error);
     }
 
-    // 调用浏览记录接口，传入ajid、viewer_id、viewer_name
-    await recordAnnouncementViewApi(
-      announcementId,
-      caseId.value,
-      viewerId,
-      viewerName,
-    );
+    // 调用查看记录接口
+    await createViewRecordApi({
+      announcementId: Number(announcementId),
+      announcementTitle: announcement.title,
+      caseId: Number(caseId.value),
+      viewerId: Number(viewerId) || undefined,
+      viewerName: viewerName || undefined,
+    });
 
-    const response = await getAnnouncementDetailApi(announcementId);
-    if (response.code === 200) {
+    const response = await getAnnouncementDetailApi(Number(announcementId));
+    if (response.code === 200 && response.data) {
       let detail = response.data;
-      
+
       // 确保attachments字段是数组
       if (!detail.attachments) {
         detail.attachments = [];
+      } else if (typeof detail.attachments === 'string') {
+        try {
+          detail.attachments = JSON.parse(detail.attachments);
+        } catch (error) {
+          console.error('解析attachments失败:', error);
+          detail.attachments = [];
+        }
       }
-      
+
       currentAnnouncementDetail.value = detail;
       ElMessage.success('公告详情加载成功');
+    } else {
+      ElMessage.error(`获取公告详情失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('获取公告详情失败:', error);
@@ -813,69 +764,27 @@ const startEditing = () => {
 const saveEditing = async () => {
   saveLoading.value = true;
   try {
-    const currentDate = new Date().toISOString().split('T')[0];
-
-    const updateData = {
-      AJID: caseId.value,
-      AH: editedData.案号 || '',
-      AJMC: editedData.案件名称 || '',
-      SLRQ: formatDateForApi(editedData.受理日期),
-      AJLY: editedData.案件来源 || '',
-      SLFY: editedData.受理法院 || '',
-      ZDJG: editedData.指定机构 || '',
-      GLRFZR: editedData.管理人负责人 || '',
-      SFJHS: editedData.是否简化审 || '',
-      AY: editedData.案由 || '',
-      AJJD: editedData.案件进度 || '',
-      ZQSBJZSJ: formatDateForApi(editedData.债权申报截止时间),
-      LARQ: formatDateForApi(editedData.立案日期),
-      JARQ: formatDateForApi(editedData.结案日期),
-      PCSJ: formatDateForApi(editedData.破产时间),
-      ZJSJ: formatDateForApi(editedData.终结时间),
-      ZXSJ: formatDateForApi(editedData.注销时间),
-      GDSJ: formatDateForApi(editedData.归档时间),
-      BEIZHU: editedData.备注 || '',
-      SEP_EUSER: editedData.修改者 || '',
-      SEP_EDATE: formatDateForApi(editedData.修改时间) || currentDate,
-      GLRID: caseId.value,
-      GLRLX: editedData.管理人类型 || '',
-      FZRID: editedData.负责人 || '',
-      LXDH: editedData.联系电话 || '',
-      LXYX: editedData.联系邮箱 || '',
-      BGDZ: editedData.办公地址 || '',
-      ZT: editedData.管理人状态 || '',
-      ZQRID: caseId.value,
-      ZQR: editedData.债权人名称 || '',
-      ZQRFL: editedData.债权人类型 || '',
-      ZJHM: editedData.证件号码 || '',
-      FDDBRQY: editedData.法定代表人 || '',
-      ZCDZ: editedData.注册地址 || '',
-      JYFWQY: editedData.经营范围 || '',
-      HYFL: editedData.行业分类 || '',
-      CLRQQY: formatDateForApi(editedData.成立日期),
-      ZCZBQY: editedData.注册资本 || '',
-      ZQSBID: caseId.value,
-      ZQRMC: editedData.申报债权人名称 || '',
-      ZQRLX: editedData.申报债权人类型 || '',
-      SBJE: editedData.申报金额 || '',
-      SBYJ: editedData.申报依据 || '',
-      JSR: editedData.接收人 || '',
-      SBLX: editedData.申报类型 || '',
-      BZ: editedData.申报备注 || '',
-      ZQQRID: caseId.value,
-      FYCDRQ: formatDateForApi(editedData.法院裁定日期),
-      CDWH: editedData.裁定文号 || '',
-      ZZJE: editedData.最终金额 || '',
+    // 适配新的API请求格式
+    const updateData: CaseApi.UpdateCaseRequest = {
+      caseName: editedData.案件名称 || caseDetail.value?.caseName,
+      caseReason: editedData.案由 || caseDetail.value?.caseReason,
+      remarks: editedData.备注 || caseDetail.value?.remarks,
+      filingDate: formatDateForApi(editedData.立案日期) || caseDetail.value?.filingDate,
+      caseProgress: editedData.案件进度 || caseDetail.value?.caseProgress,
+      mainResponsiblePerson: editedData.管理人负责人 || caseDetail.value?.mainResponsiblePerson,
+      designatedInstitution: editedData.指定机构 || caseDetail.value?.designatedInstitution,
+      acceptanceCourt: editedData.受理法院 || caseDetail.value?.acceptanceCourt,
+      debtClaimDeadline: formatDateForApi(editedData.债权申报截止时间) || caseDetail.value?.debtClaimDeadline,
     };
 
-    const response = await updateCaseApi(updateData);
+    const response = await updateCaseApi(parseInt(caseId.value, 10), updateData);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       Object.assign(caseDetail.value, editedData);
       isEditing.value = false;
       ElMessage.success('案件信息已保存');
     } else {
-      ElMessage.error(`保存失败：${response.error || '未知错误'}`);
+      ElMessage.error(`保存失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('保存案件信息失败:', error);
@@ -907,17 +816,14 @@ onMounted(async () => {
   loading.value = true;
   try {
     // 调用真实API获取案件详情
-    const response = await getCaseDetailApi(caseId.value);
+    const response = await getCaseDetailApi(parseInt(caseId.value, 10));
 
     // 使用类型断言处理响应数据
     const responseData = response as any;
 
-    // 检查API响应结构
-    // API响应数据: responseData
-
-    if (responseData.status === '1' || responseData.data?.status === '1') {
-      // 根据不同的响应结构获取数据
-      const caseData = responseData.data?.data || responseData.data;
+    // 检查API响应结构 - 适配新的API响应格式
+    if (responseData.code === 200 && responseData.data) {
+      const caseData = responseData.data;
 
       if (caseData) {
         caseDetail.value = caseData;
@@ -926,8 +832,7 @@ onMounted(async () => {
         throw new Error('API返回的数据结构异常');
       }
     } else {
-      const errorMsg =
-        responseData.error || responseData.data?.error || '未知错误';
+      const errorMsg = responseData.message || responseData.data?.error || '未知错误';
       ElMessage.error(`获取案件详情失败：${errorMsg}`);
 
       // 如果API调用失败，使用虚拟数据作为备用
@@ -1099,10 +1004,10 @@ const fetchTeamMembers = async () => {
   console.log('开始获取工作团队成员列表');
   workTeamLoading.value = true;
   try {
-    const response = await getTeamMembersApi(Number(caseId.value));
-    console.log('getTeamMembersApi响应:', response);
-    if (response.code === 200) {
-      teamMembers.value = response.data || [];
+    const response = await getWorkTeamDetailWithMembersApi(Number(caseId.value));
+    console.log('getWorkTeamDetailWithMembersApi响应:', response);
+    if (response.code === 200 && response.data) {
+      teamMembers.value = response.data.members || [];
       console.log('工作团队成员列表:', teamMembers.value);
     } else {
       teamMembers.value = [];
@@ -1201,13 +1106,12 @@ const handleSaveMember = async () => {
     };
 
     if (memberForm.value.id) {
-      await updateTeamMemberApi({
-        id: memberForm.value.id,
-        ...data,
+      await updateMemberPermissionApi(memberForm.value.id, {
+        permissionLevel: memberForm.value.permissionLevel,
       });
-      ElMessage.success('更新团队成员成功');
+      ElMessage.success('更新团队成员权限成功');
     } else {
-      await addTeamMemberApi(data);
+      await addTeamMemberApi(Number(caseId.value), data);
       ElMessage.success('添加团队成员成功');
     }
 

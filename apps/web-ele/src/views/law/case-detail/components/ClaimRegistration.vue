@@ -24,11 +24,11 @@ import {
 } from 'element-plus';
 
 import {
-  addClaimApi,
-  batchImportClaimsApi,
-  exportClaimsApi,
-  getClaimsApi,
-} from '#/api/core/claim';
+  createClaimRegistrationApi,
+  getClaimRegistrationListApi,
+  updateClaimRegistrationApi,
+  deleteClaimRegistrationApi,
+} from '#/api/core/claim-registration';
 
 const props = defineProps<{
   caseId: string;
@@ -95,16 +95,16 @@ const totalAmount = computed(() => {
 const fetchClaims = async () => {
   loading.value = true;
   try {
-    const response = await getClaimsApi(
-      props.caseId,
-      currentPage.value,
-      pageSize.value,
-    );
-    if (response.status === '1') {
-      claims.value = response.data.records || [];
-      total.value = response.data.count || 0;
+    const response = await getClaimRegistrationListApi({
+      caseId: Number(props.caseId),
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+    });
+    if (response.code === 200 && response.data) {
+      claims.value = response.data.list || [];
+      total.value = response.data.total || 0;
     } else {
-      ElMessage.error(`获取债权登记表失败：${response.error || '未知错误'}`);
+      ElMessage.error(`获取债权登记表失败：${response.message || '未知错误'}`);
       claims.value = [];
       total.value = 0;
     }
@@ -184,57 +184,51 @@ const handleAddClaim = async () => {
 
   addLoading.value = true;
   try {
-    // 转换为下划线格式的字段名
-    const formData = {
-      case_id: props.caseId,
-      case_name: claimForm.caseName,
+    const requestData = {
+      caseId: Number(props.caseId),
+      caseName: claimForm.caseName,
       debtor: claimForm.debtor,
-      polizi_account: claimForm.account,
-      creditor_name: claimForm.creditorName,
-      creditor_type: claimForm.creditorType,
-      credit_code: claimForm.creditCode,
-      legal_representative: claimForm.legalRepresentative,
-      service_address: claimForm.serviceAddress,
-      agent_name: claimForm.agentName,
-      agent_phone: claimForm.agentPhone,
-      agent_id_card: claimForm.agentIdCard,
-      agent_address: claimForm.agentAddress,
-      account_name: claimForm.accountName,
-      bank_account: claimForm.bankAccount,
-      bank_name: claimForm.bankName,
+      creditorName: claimForm.creditorName,
+      creditorType: claimForm.creditorType,
+      creditCode: claimForm.creditCode,
+      legalRepresentative: claimForm.legalRepresentative,
+      serviceAddress: claimForm.serviceAddress,
+      agentName: claimForm.agentName,
+      agentPhone: claimForm.agentPhone,
+      agentIdCard: claimForm.agentIdCard,
+      agentAddress: claimForm.agentAddress,
+      accountName: claimForm.accountName,
+      creditorBankAccount: claimForm.bankAccount,
+      bankName: claimForm.bankName,
       principal: Number.parseFloat(claimForm.principal) || 0,
       interest: Number.parseFloat(claimForm.interest) || 0,
       penalty: Number.parseFloat(claimForm.penalty) || 0,
-      other_losses: Number.parseFloat(claimForm.otherLosses) || 0,
-      total_amount: Number.parseFloat(totalAmount.value) || 0,
-      has_court_judgment: claimForm.hasCourtJudgment,
-      has_execution: claimForm.hasExecution,
-      has_collateral: claimForm.hasCollateral,
-      claim_nature: claimForm.claimNature,
-      claim_type: claimForm.claimType,
-      claim_facts: claimForm.claimFacts,
-      creditor_category: claimForm.creditorCategory,
-      claim_nature_manager: claimForm.claimNatureManager,
-      claim_identifier: claimForm.claimIdentifier,
-      evidence_list: claimForm.evidenceList,
-      evidence_materials: claimForm.evidenceMaterials,
-      evidence_attachments: JSON.stringify(claimForm.evidenceAttachments),
+      otherLosses: Number.parseFloat(claimForm.otherLosses) || 0,
+      totalAmount: Number.parseFloat(totalAmount.value) || 0,
+      hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
+      hasExecution: claimForm.hasExecution ? 1 : 0,
+      hasCollateral: claimForm.hasCollateral ? 1 : 0,
+      claimNature: claimForm.claimNature,
+      claimType: claimForm.claimType,
+      claimFacts: claimForm.claimFacts,
+      claimIdentifier: claimForm.claimIdentifier,
+      evidenceList: claimForm.evidenceList,
+      evidenceMaterials: claimForm.evidenceMaterials,
+      evidenceAttachments: claimForm.evidenceAttachments,
       remarks: claimForm.remarks,
-      registration_status: claimForm.registrationStatus,
-      created_by: 'admin', // 这里应该从登录信息中获取
     };
 
-    const response = await addClaimApi(formData);
-    if (response.status === '1') {
-      ElMessage.success('债权登记成功');
+    const response = await createClaimRegistrationApi(requestData);
+    if (response.code === 200) {
+      ElMessage.success('成功添加债权登记');
       await fetchClaims();
       closeAddDialog();
     } else {
-      ElMessage.error(`债权登记失败：${response.error || '未知错误'}`);
+      ElMessage.error(`添加失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
-    console.error('债权登记失败:', error);
-    ElMessage.error('债权登记失败');
+    console.error('添加债权登记失败:', error);
+    ElMessage.error('添加债权登记失败');
   } finally {
     addLoading.value = false;
   }
