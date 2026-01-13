@@ -261,7 +261,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchPermissions() {
     try {
       const result = await getPermissionsApi();
-      if (result && result.status === '1' && result.data) {
+      if (result && (result.status === '1' || result.code === 200) && result.data) {
         const { permissions, menus } = result.data;
         
         const accessCodes = permissions || [];
@@ -288,6 +288,9 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (error) {
       console.error('获取权限信息失败:', error);
+      // 处理404错误，即使获取权限失败，也继续执行后续逻辑
+      // 可以在这里设置默认权限或跳过权限检查
+      accessStore.setAccessCodes([]);
     }
     return null;
   }

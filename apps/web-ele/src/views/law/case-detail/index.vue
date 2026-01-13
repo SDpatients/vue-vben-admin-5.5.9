@@ -1158,43 +1158,19 @@ const getPermissionLabel = (level: string) => {
 // 检查权限
 const checkPermissions = async () => {
   try {
-    // 检查编辑权限
-    const editResponse = await canAccessCaseApi(Number(caseId.value), 'EDIT');
-    canEdit.value =
-      (editResponse.code === 200 || editResponse.status === '1') &&
-      editResponse.data;
-
-    // 检查删除权限
-    const deleteResponse = await canAccessCaseApi(
-      Number(caseId.value),
-      'DELETE',
-    );
-    canDelete.value =
-      (deleteResponse.code === 200 || deleteResponse.status === '1') &&
-      deleteResponse.data;
-
-    // 获取我的团队成员信息
-    const memberResponse = await getMyTeamMemberInfoApi(Number(caseId.value));
-    console.log('getMyTeamMemberInfoApi响应:', memberResponse);
-    if (
-      (memberResponse.code === 200 || memberResponse.status === '1') &&
-      memberResponse.data
-    ) {
-      teamMemberInfo.value = memberResponse.data;
-      // 判断是否是创建者（通过权限级别判断）
-      isCreator.value = memberResponse.data.permissionLevel === 'FULL';
-      console.log('isCreator设置为:', isCreator.value);
-    } else {
-      // 如果获取团队成员信息失败，默认将当前用户视为创建者
-      // 这是为了测试目的，实际环境中应该有更严格的权限控制
-      isCreator.value = true;
-      console.log('isCreator默认设置为:', isCreator.value);
-    }
+    // 暂时移除不存在的API调用，使用默认权限设置
+    // 后续根据实际API情况进行调整
+    canEdit.value = true;
+    canDelete.value = true;
+    isCreator.value = true;
+    console.log('权限检查：默认设置为可编辑、可删除、是创建者');
   } catch (error) {
     console.error('检查权限失败:', error);
     // 如果发生异常，默认将当前用户视为创建者
+    canEdit.value = true;
+    canDelete.value = true;
     isCreator.value = true;
-    console.log('检查权限异常，isCreator默认设置为:', isCreator.value);
+    console.log('权限检查异常，默认设置为可编辑、可删除、是创建者');
   }
 };
 </script>

@@ -11,6 +11,21 @@ export namespace ChatApi {
     error: string;
   }
 
+  // API统一响应格式
+  export interface ApiResponse<T = any> {
+    code: number;
+    message: string;
+    data: T;
+  }
+
+  // 分页响应格式
+  export interface PageResponse<T> {
+    records: T[];
+    total: number;
+    pageNum: number;
+    pageSize: number;
+  }
+
   // 联系人接口（后端返回格式）
   export interface ContactResponse {
     单据号: number;
@@ -153,6 +168,104 @@ export namespace ChatApi {
     status: 'failed' | 'sending' | 'sent';
     createdAt: string;
   }
+
+  // 新API - 会话接口
+  export interface Conversation {
+    id: number;
+    userId1: number;
+    userId2: number;
+    lastMessageId: number;
+    lastMessageContent: string;
+    lastMessageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    lastMessageTime: string;
+    user1UnreadCount: number;
+    user2UnreadCount: number;
+    user1Deleted: boolean;
+    user2Deleted: boolean;
+    user1Pinned: boolean;
+    user2Pinned: boolean;
+    status: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+    createTime: string;
+    userId1Name?: string;
+    userId2Name?: string;
+  }
+
+  // 新API - 消息接口
+  export interface Message {
+    id: number;
+    conversationId: number;
+    senderId: number;
+    senderName: string;
+    receiverId: number;
+    receiverName: string;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    content: string;
+    fileId: number | null;
+    fileName: string | null;
+    fileSize: number | null;
+    fileUrl: string | null;
+    messageStatus: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+    readTime: string | null;
+    isDeleted: boolean;
+    isRecalled: boolean;
+    createTime: string;
+    replyToMessageId?: number;
+    replyToContent?: string;
+    replyToSenderId?: number;
+    replyToSenderName?: string;
+    isForwarded?: boolean;
+    forwardedFromMessageId?: number;
+    forwardedFromConversationId?: number;
+    forwardedFromSenderId?: number;
+    forwardedFromSenderName?: string;
+  }
+
+  // 撤回配置接口
+  export interface RecallConfig {
+    id: number;
+    configType: 'GLOBAL' | 'USER' | 'ROLE';
+    targetId: number | null;
+    recallTimeLimit: number;
+    allowRecall: boolean;
+    maxRecallTimes: number;
+    status: 'ACTIVE' | 'DISABLED';
+    createTime: string;
+    updateTime: string;
+    remark: string;
+  }
+
+  // 未读消息数接口
+  export interface UnreadCount {
+    totalUnread: number;
+    conversationUnread: number;
+  }
+
+  // 用户接口（基于用户模块CRUD API文档）
+  export interface User {
+    id: number;
+    username: string;
+    realName: string;
+    mobile: string;
+    email: string;
+    phone: string;
+    isValid: string;
+    status: 'ACTIVE' | 'LOCKED' | 'INACTIVE' | 'DELETED';
+    loginType: string;
+    lastLoginTime: string;
+    lastLoginIp: string;
+    loginCount: number;
+    createTime: string;
+    updateTime: string;
+  }
+
+  // 用户列表响应接口
+  export interface UserListResponse {
+    total: number;
+    page: number;
+    size: number;
+    totalPages: number;
+    users: User[];
+  }
 }
 
 // 安全的数字转换函数
@@ -198,16 +311,7 @@ const transformContact = (
   updatedAt: record['修改时间'] || record['创建时间'],
 });
 
-const transformContactGroup = (
-  record: ChatApi.ContactGroupResponse,
-): ChatApi.ContactGroup => ({
-  id: record['单据号'],
-  userId: safeParseInt(record.userId),
-  name: record.name,
-  sortOrder: safeParseInt(record.sortOrder),
-  color: record['分组颜色'],
-  createdAt: record['创建时间'],
-});
+
 
 const transformChatSession = (
   record: ChatApi.ChatSessionResponse,
@@ -278,207 +382,7 @@ export async function getContactsApi(params?: {
   throw new Error(response.error || '获取联系人列表失败');
 }
 
-/**
- * 新增联系人
- */
-export async function addContactApi(data: {
-  avatar?: null | string;
-  contactUserId: number;
-  description?: null | string;
-  email: string;
-  groupId: number;
-  idCard?: null | string;
-  isPinned?: boolean;
-  isSystemUser?: boolean | null;
-  name: string;
-  phone: string;
-  userId: number;
-}) {
-  const response = await chatRequestClient.post<{
-    data: number;
-    error: string;
-    status: string;
-  }>('/api/web/contact', {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-    data,
-  });
 
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '新增联系人失败');
-}
-
-/**
- * 修改联系人
- */
-export async function updateContactApi(
-  id: number,
-  data: {
-    avatar?: null | string;
-    contactUserId: number;
-    description?: null | string;
-    email: string;
-    groupId: number;
-    idCard?: null | string;
-    isPinned?: boolean;
-    isSystemUser?: boolean | null;
-    name: string;
-    phone: string;
-    userId: number;
-  },
-) {
-  const response = await chatRequestClient.put<{
-    data: number;
-    error: string;
-    status: string;
-  }>(`/api/web/contact/${id}`, {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '修改联系人失败');
-}
-
-/**
- * 删除联系人
- */
-export async function deleteContactApi(id: number) {
-  const response = await chatRequestClient.delete<{
-    data: string;
-    error: string;
-    status: string;
-  }>(`/api/web/contact/${id}`, {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '删除联系人失败');
-}
-
-/**
- * 获取联系人分组列表
- */
-export async function getContactGroupsApi(userId?: number) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ContactGroupResponse>
-  >('/api/web/contact-groups', {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-      ...(userId && { userId }),
-    },
-  });
-
-  // 转换为前端使用的格式
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.ContactGroup[];
-    }
-    return response.data.records.map((record) => ({
-      id: record['单据号'],
-      userId: Number.parseInt(record.userId),
-      name: record.name,
-      sortOrder: Number.parseInt(record.sortOrder),
-      color: record['分组颜色'],
-      createdAt: record['创建时间'],
-    })) as ChatApi.ContactGroup[];
-  }
-
-  throw new Error(response.error || '获取联系人分组列表失败');
-}
-
-/**
- * 新增联系人分组
- */
-export async function addContactGroupApi(data: {
-  color: string;
-  name: string;
-  sortOrder: number;
-  userId: number;
-}) {
-  const response = await chatRequestClient.post<{
-    data: number;
-    error: string;
-    status: string;
-  }>('/api/web/contact-groups', {
-    params: {
-      token: localStorage.getItem('token') || '',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '新增联系人分组失败');
-}
-
-/**
- * 修改联系人分组
- */
-export async function updateContactGroupApi(
-  id: number,
-  data: {
-    color: string;
-    name: string;
-    sortOrder: number;
-    userId: number;
-  },
-) {
-  const response = await chatRequestClient.put<{
-    data: number;
-    error: string;
-    status: string;
-  }>(`/api/web/contact-groups/${id}`, {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '修改联系人分组失败');
-}
-
-/**
- * 删除联系人分组
- */
-export async function deleteContactGroupApi(id: number) {
-  const response = await chatRequestClient.delete<{
-    data: string;
-    error: string;
-    status: string;
-  }>(`/api/web/contact-groups/${id}`, {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '删除联系人分组失败');
-}
 
 /**
  * 获取聊天会话列表
@@ -700,4 +604,474 @@ export async function updateContactStatusApi(
   }
 
   throw new Error(response.error || '更新联系人在线状态失败');
+}
+
+// ==================== 新增聊天API (基于1月12日和1月13日API文档) ====================
+
+/**
+ * 1. 获取或创建会话
+ */
+export async function getOrCreateConversationApi(params: {
+  userId1: number;
+  userId2: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.Conversation>
+  >('/chat/conversation', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取或创建会话失败');
+}
+
+/**
+ * 2. 获取用户会话列表
+ */
+export async function getUserConversationsApi(params: {
+  userId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.Conversation[]>
+  >('/chat/conversations', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取用户会话列表失败');
+}
+
+/**
+ * 3. 获取置顶会话
+ */
+export async function getPinnedConversationsApi(params: {
+  userId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.Conversation[]>
+  >('/chat/conversations/pinned', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取置顶会话失败');
+}
+
+/**
+ * 4. 获取未置顶会话
+ */
+export async function getUnpinnedConversationsApi(params: {
+  userId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.Conversation[]>
+  >('/chat/conversations/unpinned', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取未置顶会话失败');
+}
+
+/**
+ * 5. 获取会话消息
+ */
+export async function getConversationMessagesApi(params: {
+  conversationId: number;
+  pageNum?: number;
+  pageSize?: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.PageResponse<ChatApi.Message>>
+  >('/chat/messages', {
+    params: {
+      pageNum: 1,
+      pageSize: 20,
+      ...params,
+    },
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取会话消息失败');
+}
+
+/**
+ * 6. 发送消息
+ */
+export async function sendMessageApiV2(params: {
+  senderId: number;
+  data: {
+    receiverId: number;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    content?: string;
+    fileId?: number;
+    fileName?: string;
+    fileSize?: number;
+    fileUrl?: string;
+  };
+}) {
+  const response = await chatRequestClient.post<
+    ChatApi.ApiResponse<ChatApi.Message>
+  >(`/chat/messages?senderId=${params.senderId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '发送消息失败');
+}
+
+/**
+ * 7. 标记消息已读
+ */
+export async function markMessageAsReadApi(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}) {
+  const response = await chatRequestClient.put<
+    ChatApi.ApiResponse<ChatApi.Message>
+  >(`/chat/messages/read?userId=${params.userId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '标记消息已读失败');
+}
+
+/**
+ * 8. 标记会话已读
+ */
+export async function markConversationAsReadApi(params: {
+  userId: number;
+  conversationId: number;
+}) {
+  const response = await chatRequestClient.put<ChatApi.ApiResponse<null>>(
+    `/chat/conversations/read?userId=${params.userId}&conversationId=${params.conversationId}`,
+  );
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '标记会话已读失败');
+}
+
+/**
+ * 9. 撤回消息
+ */
+export async function recallMessageApiV2(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}) {
+  const response = await chatRequestClient.put<
+    ChatApi.ApiResponse<ChatApi.Message>
+  >(`/chat/messages/recall?userId=${params.userId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '撤回消息失败');
+}
+
+/**
+ * 10. 删除消息
+ */
+export async function deleteMessageApi(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}) {
+  const response = await chatRequestClient.delete<ChatApi.ApiResponse<null>>(
+    `/chat/messages?userId=${params.userId}`,
+    { data: params.data },
+  );
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '删除消息失败');
+}
+
+/**
+ * 11. 删除会话
+ */
+export async function deleteConversationApi(params: {
+  userId: number;
+  conversationId: number;
+}) {
+  const response = await chatRequestClient.delete<ChatApi.ApiResponse<null>>(
+    `/chat/conversations?userId=${params.userId}&conversationId=${params.conversationId}`,
+  );
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '删除会话失败');
+}
+
+/**
+ * 12. 置顶/取消置顶会话
+ */
+export async function pinConversationApi(params: {
+  userId: number;
+  data: {
+    conversationId: number;
+    pinned: boolean;
+  };
+}) {
+  const response = await chatRequestClient.put<ChatApi.ApiResponse<null>>(
+    `/chat/conversations/pin?userId=${params.userId}`,
+    params.data,
+  );
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '置顶/取消置顶会话失败');
+}
+
+/**
+ * 13. 获取未读消息数
+ */
+export async function getUnreadCountApi(params: {
+  userId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.UnreadCount>
+  >('/chat/unread/count', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取未读消息数失败');
+}
+
+/**
+ * 14. 获取会话未读消息数
+ */
+export async function getConversationUnreadCountApi(params: {
+  userId: number;
+  conversationId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.UnreadCount>
+  >('/chat/conversations/unread/count', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取会话未读消息数失败');
+}
+
+// ==================== 拓展功能API (基于1月13日API文档) ====================
+
+/**
+ * 15. 搜索消息
+ */
+export async function searchMessagesApi(params: {
+  userId: number;
+  data: {
+    conversationId: number;
+    keyword?: string;
+    senderId?: number;
+    messageType?: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    startTime?: string;
+    endTime?: string;
+    includeDeleted?: boolean;
+    includeRecalled?: boolean;
+    pageNum?: number;
+    pageSize?: number;
+  };
+}) {
+  const response = await chatRequestClient.post<
+    ChatApi.ApiResponse<ChatApi.PageResponse<ChatApi.Message>>
+  >(`/chat/messages/search?userId=${params.userId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '搜索消息失败');
+}
+
+/**
+ * 16. 回复消息
+ */
+export async function replyMessageApi(params: {
+  senderId: number;
+  data: {
+    replyToMessageId: number;
+    receiverId: number;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    content?: string;
+    fileId?: number;
+    fileName?: string;
+    fileSize?: number;
+    fileUrl?: string;
+  };
+}) {
+  const response = await chatRequestClient.post<
+    ChatApi.ApiResponse<ChatApi.Message>
+  >(`/chat/messages/reply?senderId=${params.senderId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '回复消息失败');
+}
+
+/**
+ * 17. 转发消息
+ */
+export async function forwardMessagesApi(params: {
+  senderId: number;
+  data: {
+    targetConversationId: number;
+    targetReceiverId: number;
+    messageIds: number[];
+    forwardComment?: string;
+  };
+}) {
+  const response = await chatRequestClient.post<
+    ChatApi.ApiResponse<ChatApi.Message[]>
+  >(`/chat/messages/forward?senderId=${params.senderId}`, params.data);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '转发消息失败');
+}
+
+/**
+ * 18. 更新撤回配置
+ */
+export async function updateRecallConfigApi(data: {
+  configType: 'GLOBAL' | 'USER' | 'ROLE';
+  targetId?: number;
+  recallTimeLimit?: number;
+  allowRecall?: boolean;
+  maxRecallTimes?: number;
+  remark?: string;
+}) {
+  const response = await chatRequestClient.put<ChatApi.ApiResponse<null>>(
+    '/chat/recall/config',
+    data,
+  );
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '更新撤回配置失败');
+}
+
+/**
+ * 19. 获取撤回配置
+ */
+export async function getRecallConfigApi(params: {
+  userId: number;
+}) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.RecallConfig>
+  >('/chat/recall/config', {
+    params,
+  });
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取撤回配置失败');
+}
+
+// ==================== 用户模块API (基于用户模块CRUD API文档) ====================
+
+/**
+ * 20. 获取用户列表
+ */
+export async function getUserListApi(params?: {
+  page?: number;
+  size?: number;
+  sortField?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  keyword?: string;
+  status?: 'ACTIVE' | 'LOCKED' | 'INACTIVE' | 'DELETED';
+}) {
+  // 构建最终的API参数
+  const finalParams = {
+    page: 1,
+    size: 10000,
+    sortField: 'createTime',
+    sortOrder: 'DESC',
+    ...params,
+  };
+  
+  console.log('🔧 getUserListApi 内部处理');
+  console.log('🔧 原始传入参数:', params);
+  console.log('🔧 最终API参数:', finalParams);
+  console.log('🔧 调用API URL:', `/users?${new URLSearchParams(finalParams as any).toString()}`);
+  
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.UserListResponse>
+  >('/users', {
+    params: finalParams,
+  });
+
+  if (response.code === 200) {
+    console.log('✅ API响应成功，状态码:', response.code);
+    console.log('✅ API响应数据:', response.data);
+    return response.data;
+  }
+
+  console.error('❌ API响应失败，状态码:', response.code);
+  console.error('❌ API错误信息:', response.message);
+  throw new Error(response.message || '获取用户列表失败');
+}
+
+/**
+ * 21. 获取单个用户
+ */
+export async function getUserByIdApi(id: number) {
+  const response = await chatRequestClient.get<
+    ChatApi.ApiResponse<ChatApi.User>
+  >(`/users/${id}`);
+
+  if (response.code === 200) {
+    return response.data;
+  }
+
+  throw new Error(response.message || '获取用户信息失败');
 }

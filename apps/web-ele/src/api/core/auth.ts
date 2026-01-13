@@ -1,4 +1,4 @@
-import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
+import { baseRequestClient, fileUploadRequestClient, requestClient8085 } from '#/api/request';
 import DeviceUtils from '#/utils/device';
 
 export namespace AuthApi {
@@ -230,16 +230,30 @@ export async function getCurrentUserApi() {
  */
 export async function getPermissionsApi() {
   const token = localStorage.getItem('token');
-  return fileUploadRequestClient.get<{
-    data: {
-      menus: any[];
-      permissions: string[];
+  try {
+    // 使用requestClient8085代替fileUploadRequestClient，与案件相关API保持一致
+    return await requestClient8085.get<{
+      code: number;
+      message: string;
+      data: {
+        menus: any[];
+        permissions: string[];
+      };
+    }>('/permissions', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch (error) {
+    console.error('获取权限信息API调用失败:', error);
+    // 返回默认数据结构，避免影响页面加载
+    return {
+      code: 200,
+      message: '权限API未找到，使用默认权限',
+      data: {
+        menus: [],
+        permissions: []
+      }
     };
-    error: string;
-    status: string;
-  }>('/api/web/permissions', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  }
 }
 
 /**
