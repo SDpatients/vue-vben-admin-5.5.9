@@ -48,6 +48,42 @@ export const todoApi = {
     });
   },
 
+  // 获取待处理待办事项
+  getPendingTodos: () => {
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      throw new Error('无法获取用户ID');
+    }
+    return requestClient.get('/api/v1/todo/pending', {
+      params: { userId: Number(userId) },
+    });
+  },
+
+  // 获取已完成待办事项
+  getCompletedTodos: () => {
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      throw new Error('无法获取用户ID');
+    }
+    return requestClient.get('/api/v1/todo/COMPLETED', {
+      params: { userId: Number(userId) },
+    });
+  },
+
+  // 获取过期待办事项
+  getOverdueTodos: () => {
+    // 从本地存储获取userId
+    const userId = localStorage.getItem('chat_user_id');
+    if (!userId) {
+      throw new Error('无法获取用户ID');
+    }
+    return requestClient.get('/api/v1/todo/overdue', {
+      params: { userId: Number(userId) },
+    });
+  },
+
   getUserTodoList: (targetUserId: number, status?: string, priority?: string, pageNum: number = 0, pageSize: number = 10) => {
     return requestClient.get(`/api/v1/todo/list`, {
       params: { userId: targetUserId, status, priority, pageNum, pageSize },

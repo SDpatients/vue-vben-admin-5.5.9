@@ -27,7 +27,7 @@ import {
   checkUserRoleApi,
   getAllRolesApi,
   getUserRoleIdsApi,
-  getUsersByRoleCodeApi,
+  getUserRolesListApi,
   removeRoleApi,
   updateTBUserRoleApi,
 } from '#/api/core/permission';
@@ -38,8 +38,6 @@ const loading = ref(false);
 const roles = ref<PermissionApi.Role[]>([]);
 const userRoles = ref<PermissionApi.UserRole[]>([]);
 const roleUsers = ref<Array<any>>([]);
-
-const currentRoleCode = ref<string>('LAWYER');
 
 // 修改权限弹窗相关
 const editPermissionDialogVisible = ref(false);
@@ -61,19 +59,20 @@ const loadRoles = async () => {
   loading.value = true;
   try {
     const response = await getAllRolesApi();
-    if (response.status === '1') {
-      // 将API返回的下划线命名字段转换为驼峰命名
-      roles.value = (response.data || []).map(role => ({
-        roleId: role.role_id,
-        roleCode: role.role_code,
-        roleName: role.role_name,
-        roleDesc: role.role_desc,
-        isSystem: role.is_system,
-        sortOrder: role.sort_order
+    if (response.code === 200) {
+      // 新API返回的是驼峰命名，直接映射并将id转换为roleId以适配现有代码
+      roles.value = (response.data.roles || []).map(role => ({
+        roleId: role.id,
+        roleCode: role.roleCode,
+        roleName: role.roleName,
+        roleDesc: role.roleDesc,
+        isSystem: role.isSystem,
+        status: role.status,
+        sortOrder: role.sortOrder
       }));
       ElMessage.success('角色列表加载成功');
     } else {
-      ElMessage.error(response.error || '加载角色列表失败');
+      ElMessage.error(response.message || '加载角色列表失败');
     }
   } catch (error) {
     ElMessage.error('加载角色列表失败');
@@ -87,48 +86,30 @@ const loadRoles = async () => {
 const loadRoleUsers = async () => {
   loading.value = true;
   try {
-    const response = await getUsersByRoleCodeApi(currentRoleCode.value);
-    if (response.status === '1') {
-      // 将API返回的下划线命名字段转换为驼峰命名
+    // 调用新的API获取用户角色列表
+    const response = await getUserRolesListApi();
+    if (response.code === 200) {
+      // 处理新的响应格式
       roleUsers.value = (response.data || []).map(user => ({
-        uPid: user.u_pid,
-        uUser: user.u_user,
-        uName: user.u_name,
-        uPwd: user.u_pwd,
-        uDeptid: user.u_deptid,
-        uDept: user.u_dept,
-        uTel: user.u_tel,
-        uMobile: user.u_mobile,
-        uEmail: user.u_email,
-        uRemark: user.u_remark,
-        uValid: user.u_valid,
-        uStatus: user.u_status,
-        uLoginType: user.u_login_type,
-        uBindDevice: user.u_bind_device,
-        uLastLoginTime: user.u_last_login_time,
-        uLastLoginIp: user.u_last_login_ip,
-        uLoginCount: user.u_login_count,
-        uPwdErrorCount: user.u_pwd_error_count,
-        uPwdErrorTime: user.u_pwd_error_time,
-        uPwdExpireTime: user.u_pwd_expire_time,
-        sepAuser: user.sep_auser,
-        sepAdate: user.sep_adate,
-        sepEuser: user.sep_euser,
-        sepEdate: user.sep_edate,
-        uPur1: user.u_pur1,
-        uPur2: user.u_pur2,
-        uPur3: user.u_pur3,
-        uPur4: user.u_pur4,
-        uPur5: user.u_pur5,
-        roles: user.roles,
-        permissions: user.permissions
+        uPid: user.id,
+        uUser: user.username,
+        uName: user.realName,
+        uMobile: user.mobile,
+        uEmail: user.email,
+        // 处理角色列表，将多个角色名称用顿号分隔
+        userRoles: user.roles?.map(role => role.roleName).join('、') || '',
+        // 保留其他必要字段
+        isValid: user.isValid,
+        status: user.status,
+        lastLoginTime: user.lastLoginTime,
+        lastLoginIp: user.lastLoginIp
       }));
-      ElMessage.success('角色用户列表加载成功');
+      ElMessage.success('用户角色列表加载成功');
     } else {
-      ElMessage.error(response.error || '加载角色用户列表失败');
+      ElMessage.error(response.message || '加载用户角色列表失败');
     }
   } catch (error) {
-    ElMessage.error('加载角色用户列表失败');
+    ElMessage.error('加载用户角色列表失败');
   } finally {
     loading.value = false;
   }
@@ -179,26 +160,9 @@ const handleEditPermission = async (user: any) => {
   editPermissionDialogVisible.value = true;
 };
 
+// 移除用户角色功能暂时保留，等待新的API接口
 const handleRemoveUser = async (user: any) => {
-  try {
-    // 从角色列表中找到当前角色对应的roleId
-    const currentRole = roles.value.find(role => role.roleCode === currentRoleCode.value);
-    if (!currentRole) {
-      ElMessage.error('未找到当前角色信息');
-      return;
-    }
-
-    // 调用移除角色接口
-    const response = await removeRoleApi(user.uPid, currentRole.roleId);
-    if (response.status === '1') {
-      ElMessage.success('角色移除成功');
-      loadRoleUsers(); // 刷新角色用户列表
-    } else {
-      ElMessage.error(response.error || '角色移除失败');
-    }
-  } catch (error) {
-    ElMessage.error('角色移除失败');
-  }
+  ElMessage.warning('该功能正在调整中，请稍后再试');
 };
 
 const handleUpdatePermission = async () => {
@@ -234,6 +198,11 @@ const getRoleTagType = (roleCode: string): 'primary' | 'success' | 'warning' | '
 };
 
 const getRoleName = (roleCode: string) => {
+  // 如果roleCode为空，返回"所有角色"
+  if (!roleCode) {
+    return '所有角色';
+  }
+  
   // 先从roles数组中查找角色名称
   const role = roles.value.find(r => r.roleCode === roleCode);
   if (role && role.roleName) {
@@ -305,30 +274,9 @@ onMounted(() => {
 
         <ElTabPane label="角色用户" name="roleUsers">
           <div class="tab-content">
-            <div class="mb-4 flex items-center gap-4">
-              <div class="flex items-center gap-2">
-                  <span class="text-sm text-gray-600">角色：</span>
-                  <ElSelect
-                    v-model="currentRoleCode"
-                    placeholder="选择角色"
-                    style="width: 200px"
-                    @change="loadRoleUsers"
-                  >
-                    <ElOption
-                      v-for="role in roles"
-                      :key="role.roleId"
-                      :label="role.roleName"
-                      :value="role.roleCode"
-                    >
-                      {{ role.roleName }}
-                    </ElOption>
-                  </ElSelect>
-                </div>
-            </div>
-
             <ElCard>
               <template #header>
-                <span>{{ getRoleName(currentRoleCode) }} 列表</span>
+                <span>用户角色列表</span>
               </template>
               <ElTable
                 :data="roleUsers"
@@ -343,6 +291,7 @@ onMounted(() => {
                 </ElTableColumn>
                 <ElTableColumn prop="uUser" label="用户名" width="200" />
                 <ElTableColumn prop="uName" label="真实姓名" />
+                <ElTableColumn prop="userRoles" label="角色" />
                 <ElTableColumn prop="uMobile" label="联系电话" width="180" />
                 <ElTableColumn label="操作" width="200">
                   <template #default="scope">
