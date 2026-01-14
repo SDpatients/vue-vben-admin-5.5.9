@@ -5,15 +5,22 @@ import { useRoute } from 'vue-router';
 import ChatLayout from '../components/ChatLayout.vue';
 import { useChatStore } from '../stores/chat';
 import { useContactStore } from '../stores/contact';
+import { useWebSocket } from '../../../composables/useWebSocket';
 
 // 获取状态管理store
 const contactStore = useContactStore();
 const chatStore = useChatStore();
 const route = useRoute();
 
+// 使用WebSocket组合式函数
+const { connect: wsConnect, isConnected } = useWebSocket();
+
+// 从API导入
+import { getOrCreateConversationApi, getConversationMessagesApi } from '#/api/core/chat';
+
 // 从store获取数据
-const { fetchContacts, fetchUsers, getUserName, initMockData } = contactStore;
-const { sessions, fetchChatSessions, initMockData: initChatMockData } = chatStore;
+const { fetchContacts, fetchUsers, getUserName } = contactStore;
+const { sessions, fetchChatSessions, fetchChatMessages, sendMessage: storeSendMessage, markConversationAsRead, addMessage, setMessages } = chatStore;
 
 // 当前选中的联系人ID
 const selectedContactId = ref<number | null>(null);
@@ -47,53 +54,84 @@ const formattedMessages = computed(() => {
 });
 
 // 方法
-function handleContactClick(contactId: number) {
+async function handleContactClick(contactId: number) {
   console.log('===== 点击联系人 =====');
   console.log('联系人ID:', contactId);
   
-  // 1. 设置选中的联系人ID
   selectedContactId.value = contactId;
   
-  // 2. 调用users接口，获取用户列表数据 - 严格按照要求调用API
-  console.log('开始调用API: api/v1/users?page=1&size=10&sortField=createTime&sortOrder=DESC');
-  
-  fetchUsers({
-    page: 1,
-    size: 10,
-    sortField: 'createTime',
-    sortOrder: 'DESC'
-  }).then(userData => {
-    console.log('✅ API调用成功，返回数据:', userData);
-    // 更新联系人列表显示
-    console.log('联系人列表已更新，共', contactStore.contacts.length, '个联系人');
-  }).catch(error => {
-    console.error('❌ API调用失败:', error);
-    console.error('错误详情:', error.message || error);
-  });
-  
-  // 3. 加载聊天记录
-  loadMessages(contactId);
+  try {
+    // 获取当前登录用户ID
+    const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+    console.log('当前登录用户ID:', currentUserId);
+    
+    // 调用获取或创建会话API
+    console.log('开始调用API: GET /chat/conversation', { userId1: currentUserId, userId2: contactId });
+    const conversationResponse = await getOrCreateConversationApi({
+      userId1: currentUserId,
+      userId2: contactId
+    });
+    
+    console.log('✅ API调用成功，返回会话数据:', conversationResponse.data);
+    
+    // 使用返回的会话ID加载消息
+    await loadMessages(conversationResponse.data.data.id);
+    
+    // 标记会话为已读
+    await chatStore.markConversationAsRead(conversationResponse.data.data.id, currentUserId);
+  } catch (error) {
+    console.error('❌ 处理联系人点击失败:', error);
+    console.error('错误详情:', error instanceof Error ? error.message : error);
+  }
 }
 
-function handleSessionClick(contactId: number) {
+async function handleSessionClick(contactId: number) {
   selectedContactId.value = contactId;
-  loadMessages(contactId);
+  // 这里也需要调用获取或创建会话API，然后加载消息
+  try {
+    const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+    const conversationResponse = await getOrCreateConversationApi({
+      userId1: currentUserId,
+      userId2: contactId
+    });
+    await loadMessages(conversationResponse.data.data.id);
+  } catch (error) {
+    console.error('❌ 处理会话点击失败:', error);
+  }
 }
 
-function loadMessages(contactId: number) {
-  console.log('开始加载联系人', contactId, '的聊天记录...');
+async function loadMessages(conversationId: number) {
+  console.log('开始加载会话', conversationId, '的聊天记录...');
   
-  // 调用真实API获取聊天记录
-  chatStore.fetchChatMessages({
-    contactId: contactId,
-    page: 1,
-    size: 100,
-    sortField: 'createTime',
-    sortOrder: 'DESC'
-  });
-  
-  // 滚动到底部
-  setTimeout(scrollToBottom, 100);
+  try {
+    // 调用获取会话消息API
+    const messagesResponse = await getConversationMessagesApi({
+      conversationId,
+      pageNum: 1,
+      pageSize: 100
+    });
+    
+    console.log('✅ 消息加载成功，返回数据:', messagesResponse.data);
+    
+    // 格式化消息
+    const formattedMessages = messagesResponse.data.data.records.map((msg: any) => ({
+      ...msg,
+      isSent: msg.senderId === Number.parseInt(localStorage.getItem('chat_user_id') || '1'),
+      isRecalled: msg.isRecalled || false
+    }));
+    
+    // 更新store中的消息
+    chatStore.setMessages(messagesResponse.data.data.records);
+    
+    // 更新本地messages
+    messages.value = formattedMessages;
+    
+    // 滚动到底部
+    setTimeout(scrollToBottom, 100);
+  } catch (error) {
+    console.error('❌ 加载消息失败:', error);
+    console.error('错误详情:', error instanceof Error ? error.message : error);
+  }
 }
 
 // 监听chatStore中的messages变化，更新本地messages
@@ -111,45 +149,62 @@ watch(
   { immediate: true }
 );
 
-function sendMessage() {
+async function sendMessage() {
   if (!messageInput.value.trim() || !selectedContactId.value) return;
 
-  const newMessage = {
-    id: messages.value.length + 1,
-    senderId: 1,
-    receiverId: selectedContactId.value,
-    content: messageInput.value.trim(),
-    timestamp: new Date().toISOString(),
-    status: 'sending',
-    isSent: true,
-    isRecalled: false,
-  };
-
-  messages.value.push(newMessage);
-  messageInput.value = '';
-  scrollToBottom();
-
-  // 模拟消息发送成功
-  setTimeout(() => {
-    newMessage.status = 'sent';
-  }, 500);
-
-  // 模拟对方回复
-  setTimeout(() => {
-    if (!selectedContactId.value) return;
-    const replyMessage = {
-      id: messages.value.length + 1,
-      senderId: selectedContactId.value,
-      receiverId: 1,
-      content: `收到你的消息：${newMessage.content}`,
-      timestamp: new Date().toISOString(),
-      status: 'read',
-      isSent: false,
-      isRecalled: false,
-    };
-    messages.value.push(replyMessage);
+  const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+  
+  try {
+    await chatStore.sendMessage({
+      senderId: currentUserId,
+      receiverId: selectedContactId.value,
+      messageType: 'TEXT',
+      content: messageInput.value.trim(),
+    });
+    
+    messageInput.value = '';
     scrollToBottom();
-  }, 1000);
+    showSuccessMessage('消息发送成功');
+  } catch (error) {
+    console.error('发送消息失败:', error);
+    handleChatError(error);
+  }
+}
+
+function handleNewMessage(event: CustomEvent) {
+  const message = event.detail;
+  console.log('收到WebSocket新消息:', message);
+  
+  if (message.type === 'NEW_MESSAGE') {
+    addMessage({
+      id: message.data.id,
+      senderId: message.data.senderId,
+      receiverId: message.data.receiverId,
+      messageType: message.data.messageType.toLowerCase() as 'file' | 'image' | 'system' | 'text',
+      content: message.data.content,
+      fileUrl: message.data.fileUrl,
+      fileName: message.data.fileName,
+      fileSize: message.data.fileSize,
+      thumbnailUrl: null,
+      isRecalled: message.data.isRecalled,
+      recallTime: null,
+      readStatus: message.data.messageStatus === 'READ',
+      timestamp: message.data.createTime,
+      status: message.data.messageStatus === 'SENT' ? 'sent' : 'failed',
+      createdAt: message.data.createTime,
+    });
+    
+    scrollToBottom();
+  } else if (message.type === 'MESSAGE_READ') {
+    console.log('消息已读:', message.data);
+  } else if (message.type === 'MESSAGE_RECALLED') {
+    console.log('消息已撤回:', message.data);
+    const msgIndex = messages.value.findIndex((m) => m.id === message.data);
+    if (msgIndex !== -1) {
+      messages.value[msgIndex].isRecalled = true;
+      messages.value[msgIndex].content = '[消息已撤回]';
+    }
+  }
 }
 
 function handleKeyPress(event: KeyboardEvent) {
@@ -212,15 +267,30 @@ watch(
 );
 
 // 初始化数据
-onMounted(() => {
-  // 使用真实API获取数据，fetchContacts内部会调用getUserListApi获取用户列表
-  fetchContacts();
-  fetchChatSessions();
+onMounted(async () => {
+  await chatStore.initializeData();
   
-  // 如果路由中有id参数，自动选择联系人
+  // 初始化时获取联系人列表
+  try {
+    console.log('初始化时获取联系人列表...');
+    await fetchContacts();
+    console.log('联系人列表获取成功，共', contactStore.contacts.length, '个联系人');
+  } catch (error) {
+    console.error('获取联系人列表失败:', error);
+  }
+  
+  try {
+    await wsConnect();
+    console.log('WebSocket连接成功');
+  } catch (error) {
+    console.error('WebSocket连接失败:', error);
+  }
+  
+  window.addEventListener('chat-message', handleNewMessage as EventListener);
+  
   if (routeContactId.value) {
     selectedContactId.value = routeContactId.value;
-    loadMessages(routeContactId.value);
+    await loadMessages(routeContactId.value);
   }
 });
 
@@ -338,7 +408,7 @@ function getContactName(contactId: number) {
         <!-- 会话列表头部 -->
         <div class="session-header">
           <h3>会话</h3>
-          <el-button type="text" icon="el-icon-plus" size="small">
+          <el-button link icon="el-icon-plus" size="small">
             新建会话
           </el-button>
         </div>
@@ -459,7 +529,7 @@ function getContactName(contactId: number) {
                 v-if="message.isSent && !message.isRecalled"
                 class="message-actions"
               >
-                <el-button type="text" size="small" icon="el-icon-more" />
+                <el-button link size="small" icon="el-icon-more" />
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="recallMessage(message.id)">

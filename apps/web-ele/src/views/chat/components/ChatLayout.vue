@@ -107,9 +107,9 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="chat-header-actions">
-            <el-button type="text" icon="el-icon-phone"></el-button>
-            <el-button type="text" icon="el-icon-video-camera"></el-button>
-            <el-button type="text" icon="el-icon-more"></el-button>
+            <el-button link icon="el-icon-phone"></el-button>
+            <el-button link icon="el-icon-video-camera"></el-button>
+            <el-button link icon="el-icon-more"></el-button>
           </div>
         </header>
         
@@ -133,7 +133,7 @@ onUnmounted(() => {
         <div class="sidebar-header">
           <h3>用户详情</h3>
           <el-button 
-            type="text" 
+            type="link" 
             icon="el-icon-close" 
             @click="closeUserDetail"
           >

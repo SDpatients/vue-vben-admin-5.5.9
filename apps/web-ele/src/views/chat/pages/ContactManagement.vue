@@ -170,7 +170,7 @@ onMounted(() => {
           <div class="group-header">
             <h3>联系人分组</h3>
             <el-button
-              type="text"
+              type="link"
               icon="el-icon-plus"
               size="small"
               @click="showAddGroupDialog = true"
@@ -245,7 +245,7 @@ onMounted(() => {
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="scope">
                 <el-button
-                  type="text"
+                  type="link"
                   size="small"
                   icon="el-icon-chat-dot-round"
                   @click="handleChatWithContact(scope.row.id)"
@@ -253,7 +253,7 @@ onMounted(() => {
                   聊天
                 </el-button>
                 <el-button
-                  type="text"
+                  type="link"
                   size="small"
                   icon="el-icon-edit"
                   @click="handleEditContact(scope.row.id)"
@@ -261,7 +261,7 @@ onMounted(() => {
                   编辑
                 </el-button>
                 <el-button
-                  type="text"
+                  type="link"
                   size="small"
                   icon="el-icon-delete"
                   @click="handleDeleteContact(scope.row.id)"

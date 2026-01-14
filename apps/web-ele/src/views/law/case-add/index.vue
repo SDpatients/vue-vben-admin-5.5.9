@@ -525,7 +525,6 @@ const submitForm = async () => {
           </div>
         </el-form>
       </el-card>
-    </div>
   </div>
 </template>
 

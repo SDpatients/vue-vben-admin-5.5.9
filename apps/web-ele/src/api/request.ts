@@ -155,7 +155,7 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export { createRequestClient };
 
 export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779',
+  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779/api/v1',
   {
     responseReturn: 'body',
   },
@@ -172,3 +172,11 @@ export const requestClient8085 = createRequestClient(
 export const fileUploadRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
 });
+
+// 资金管理API客户端，指向192.168.0.120:8080
+export const fundRequestClient = createRequestClient(
+  'http://192.168.0.120:8080/api',
+  {
+    responseReturn: 'body',
+  },
+);

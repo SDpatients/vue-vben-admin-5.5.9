@@ -321,3 +321,173 @@ function transformChatSession(rawSession: ChatApi.ChatSessionResponse): ChatApi.
     createdAt: rawSession['创建时间'] || '',
   };
 }
+
+// 转换新API会话数据格式
+function transformConversation(conversation: ChatApi.Conversation): ChatApi.ChatSession {
+  const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+  const contactId = conversation.userId1 === currentUserId ? conversation.userId2 : conversation.userId1;
+  const unreadCount = conversation.userId1 === currentUserId ? conversation.user1UnreadCount : conversation.user2UnreadCount;
+  const isPinned = conversation.userId1 === currentUserId ? conversation.user1Pinned : conversation.user2Pinned;
+  
+  return {
+    id: conversation.id,
+    contactId: contactId,
+    lastMessage: conversation.lastMessageContent || '',
+    unreadCount: unreadCount,
+    isPinned: isPinned,
+    lastActivityTime: conversation.lastMessageTime || '',
+    createdAt: conversation.createTime || '',
+  };
+}
+
+// 获取或创建会话API
+export async function getOrCreateConversationApi(params: {
+  userId1: number;
+  userId2: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.Conversation>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.Conversation>>(`/chat/conversation`, {
+    params,
+  });
+}
+
+// 获取用户会话列表API
+export async function getConversationsApi(params: {
+  userId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.Conversation[]>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.Conversation[]>>(`/chat/conversations`, {
+    params,
+  });
+}
+
+// 获取置顶会话API
+export async function getPinnedConversationsApi(params: {
+  userId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.Conversation[]>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.Conversation[]>>(`/chat/conversations/pinned`, {
+    params,
+  });
+}
+
+// 获取未置顶会话API
+export async function getUnpinnedConversationsApi(params: {
+  userId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.Conversation[]>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.Conversation[]>>(`/chat/conversations/unpinned`, {
+    params,
+  });
+}
+
+// 获取会话消息API
+export async function getConversationMessagesApi(params: {
+  conversationId: number;
+  pageNum?: number;
+  pageSize?: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.PageResponse<ChatApi.Message>>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.PageResponse<ChatApi.Message>>>(`/chat/messages`, {
+    params,
+  });
+}
+
+// 发送消息API
+export async function sendMessageApi(params: {
+  senderId: number;
+  data: {
+    receiverId: number;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    content?: string;
+    fileId?: number;
+    fileName?: string;
+    fileSize?: number;
+    fileUrl?: string;
+  };
+}): Promise<ChatApi.ApiResponse<ChatApi.Message>> {
+  return chatRequestClient.post<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages?senderId=${params.senderId}`, params.data);
+}
+
+// 标记消息已读API
+export async function markMessageAsReadApi(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}): Promise<ChatApi.ApiResponse<ChatApi.Message>> {
+  return chatRequestClient.put<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages/read?userId=${params.userId}`, params.data);
+}
+
+// 标记会话已读API
+export async function markConversationAsReadApi(params: {
+  userId: number;
+  conversationId: number;
+}): Promise<ChatApi.ApiResponse<null>> {
+  return chatRequestClient.put<ChatApi.ApiResponse<null>>(`/chat/conversations/read`, null, {
+    params: {
+      userId: params.userId,
+      conversationId: params.conversationId,
+    },
+  });
+}
+
+// 撤回消息API
+export async function recallMessageApi(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}): Promise<ChatApi.ApiResponse<ChatApi.Message>> {
+  return chatRequestClient.put<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages/recall?userId=${params.userId}`, params.data);
+}
+
+// 删除消息API
+export async function deleteMessageApi(params: {
+  userId: number;
+  data: {
+    messageId: number;
+  };
+}): Promise<ChatApi.ApiResponse<null>> {
+  return chatRequestClient.delete<ChatApi.ApiResponse<null>>(`/chat/messages?userId=${params.userId}`, {
+    data: params.data,
+  });
+}
+
+// 删除会话API
+export async function deleteConversationApi(params: {
+  userId: number;
+  conversationId: number;
+}): Promise<ChatApi.ApiResponse<null>> {
+  return chatRequestClient.delete<ChatApi.ApiResponse<null>>(`/chat/conversations`, {
+    params: {
+      userId: params.userId,
+      conversationId: params.conversationId,
+    },
+  });
+}
+
+// 置顶/取消置顶会话API
+export async function pinConversationApi(params: {
+  userId: number;
+  data: {
+    conversationId: number;
+    pinned: boolean;
+  };
+}): Promise<ChatApi.ApiResponse<null>> {
+  return chatRequestClient.put<ChatApi.ApiResponse<null>>(`/chat/conversations/pin?userId=${params.userId}`, params.data);
+}
+
+// 获取未读消息数API
+export async function getUnreadCountApi(params: {
+  userId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.UnreadCount>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.UnreadCount>>(`/chat/unread/count`, {
+    params,
+  });
+}
+
+// 获取会话未读消息数API
+export async function getConversationUnreadCountApi(params: {
+  userId: number;
+  conversationId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.UnreadCount>> {
+  return chatRequestClient.get<ChatApi.ApiResponse<ChatApi.UnreadCount>>(`/chat/conversations/unread/count`, {
+    params,
+  });
+}

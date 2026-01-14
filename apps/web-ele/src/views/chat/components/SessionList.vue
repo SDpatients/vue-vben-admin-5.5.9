@@ -128,7 +128,7 @@ function togglePin(sessionId: number) {
     <div v-if="props.showHeader !== false" class="session-list-header">
       <h3>会话</h3>
       <el-button
-        type="text"
+        type="link"
         icon="el-icon-plus"
         size="small"
         @click="handleCreateSession"
@@ -177,7 +177,7 @@ function togglePin(sessionId: number) {
         </div>
         <div class="session-actions">
           <el-dropdown trigger="click">
-            <el-button type="text" size="small" icon="el-icon-more" />
+            <el-button link size="small" icon="el-icon-more" />
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click.stop="togglePin(session.id)">
