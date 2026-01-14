@@ -449,6 +449,7 @@ function scrollToBottom() {
   flex-direction: column;
   height: 100%;
   background-color: #f5f7fa;
+  overflow: hidden;
 }
 
 /* 聊天头部样式 */
@@ -460,6 +461,8 @@ function scrollToBottom() {
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
   box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
+  flex-shrink: 0;
+  height: 56px;
 }
 
 .header-left {
@@ -500,6 +503,8 @@ function scrollToBottom() {
   gap: 16px;
   padding: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
+  height: calc(100% - 56px - 200px);
 }
 
 .message-item {
@@ -588,6 +593,8 @@ function scrollToBottom() {
   padding: 12px 20px;
   background-color: #fff;
   border-top: 1px solid #e4e7ed;
+  flex-shrink: 0;
+  height: 200px;
 }
 
 .input-tools {
@@ -633,6 +640,7 @@ function scrollToBottom() {
   gap: 8px;
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .emoji-item {

@@ -11,9 +11,14 @@ import {
 } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
+import { ElTag, ElPagination, ElMessage } from 'element-plus';
 
-import { getCaseListApi } from '#/api/core/case';
+import { getUserCaseListApi } from '#/api/core/case';
 import { todoApi } from '#/api/core/todo';
+import {
+  getAnnouncementListApi,
+  createViewRecordApi
+} from '#/api/core/case-announcement';
 import TodoList from '#/components/TodoList.vue';
 
 const userStore = useUserStore();
@@ -31,7 +36,7 @@ const todoItems = ref<WorkbenchTodoItem[]>([]);
 const loading = ref(false);
 
 // 案件列表相关数据
-const caseList = ref<CaseApi.CaseInfo[]>([]);
+const caseList = ref<any[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(3); // 每页显示3个数据
 const totalCases = ref(0);
@@ -39,19 +44,120 @@ const searchKeyword = ref('');
 const caseStatus = ref('在办');
 
 // 计算办理天数
-const calculateDays = (createTime?: number) => {
-  if (!createTime) return '0天';
+const calculateDays = (filingDate?: string) => {
+  if (!filingDate) return '0天';
   const now = new Date();
-  const createDate = new Date(createTime);
+  const createDate = new Date(filingDate);
   const diffTime = Math.abs(now.getTime() - createDate.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return `${diffDays}天`;
 };
 
 // 格式化日期
-const formatDate = (time?: number) => {
-  if (!time) return '';
-  return new Date(time).toLocaleDateString('zh-CN');
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('zh-CN');
+};
+
+// 案件进度映射
+const caseProgressMap: Record<string, string> = {
+  'FIRST': '第一阶段',
+  'SECOND': '第二阶段',
+  'THIRD': '第三阶段',
+  'FOURTH': '第四阶段',
+  'FIFTH': '第五阶段',
+  'SIXTH': '第六阶段',
+  'SEVENTH': '第七阶段'
+};
+
+// 案件状态映射
+const caseStatusMap: Record<string, string> = {
+  'ONGOING': '在办',
+  'AWAITING': '报结',
+  'COMPLETED': '已结'
+};
+
+// 公告相关数据
+interface Announcement {
+  id: number;
+  caseId: number;
+  title: string;
+  content: string;
+  announcementType: string;
+  status: string;
+  publisherId: number;
+  publisherName: string;
+  publishTime: string;
+  viewCount: number;
+  isTop: boolean;
+  topExpireTime: string;
+  attachments: any[];
+  createTime: string;
+  updateTime: string;
+}
+
+const announcements = ref<Announcement[]>([]);
+const announcementLoading = ref(false);
+const announcementCurrentPage = ref(1);
+const announcementPageSize = ref(5);
+const announcementTotal = ref(0);
+
+const announcementTypeMap: Record<string, { label: string; type: string }> = {
+  NORMAL: { label: '普通', type: 'info' },
+  URGENT: { label: '紧急', type: 'danger' },
+  IMPORTANT: { label: '重要', type: 'warning' },
+};
+
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+// 加载公告列表
+const loadAnnouncements = async () => {
+  announcementLoading.value = true;
+  try {
+    const response = await getAnnouncementListApi(
+      announcementCurrentPage.value,
+      announcementPageSize.value
+    );
+    if (response.code === 200 && response.data) {
+      announcements.value = response.data.list || [];
+      announcementTotal.value = response.data.total || 0;
+    }
+  } catch (error) {
+    console.error('加载公告列表失败:', error);
+    ElMessage.error('加载公告列表失败');
+  } finally {
+    announcementLoading.value = false;
+  }
+};
+
+// 查看公告详情
+const viewAnnouncementDetail = async (announcement: Announcement) => {
+  try {
+    // 获取当前用户ID
+    const chatUserId = localStorage.getItem('chat_user_id');
+    const userId = Number(chatUserId) || 0;
+    
+    // 调用创建查看记录API
+    await createViewRecordApi({
+      announcementId: announcement.id,
+      caseId: announcement.caseId,
+      viewerId: userId,
+    });
+    // 这里可以添加查看详情的逻辑，比如弹出对话框
+    ElMessage.info('查看公告详情');
+  } catch (error) {
+    console.error('记录公告查看失败:', error);
+  }
 };
 
 const loadTodoItems = async () => {
@@ -77,14 +183,25 @@ const loadTodoItems = async () => {
 const loadCaseList = async () => {
   loading.value = true;
   try {
-    const res = await getCaseListApi({ 
-      page: currentPage.value, 
-      size: pageSize.value,
-      AJZT: caseStatus.value,
-      AH: searchKeyword.value
+    // 从本地存储获取userId
+    const chatUserId = localStorage.getItem('chat_user_id');
+    const userId = Number(chatUserId) || 0;
+    
+    // 映射案件状态到后端需要的英文状态
+    const statusMap: Record<string, string> = {
+      '在办': 'ONGOING',
+      '报结': 'AWAITING',
+      '已结': 'COMPLETED'
+    };
+    const caseStatusEn = statusMap[caseStatus.value] || 'ONGOING';
+    
+    const res = await getUserCaseListApi(userId, { 
+      pageNum: currentPage.value, 
+      pageSize: pageSize.value,
+      caseStatus: caseStatusEn
     });
-    caseList.value = res.data?.records || [];
-    totalCases.value = res.data?.count || 0;
+    caseList.value = res.data?.list || [];
+    totalCases.value = res.data?.total || 0;
   } catch (error) {
     console.error('加载案件数据失败:', error);
     caseList.value = [];
@@ -207,6 +324,7 @@ const initWeather = async () => {
 onMounted(() => {
   loadTodoItems();
   loadCaseList();
+  loadAnnouncements();
   initWeather();
 });
 </script>
@@ -267,46 +385,46 @@ onMounted(() => {
             <div v-if="caseList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div 
                 v-for="item in caseList" 
-                :key="item.SEP_ID"
+                :key="item.id"
                 class="case-card p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
-                @click="goToCaseDetail(item.SEP_ID)"
+                @click="goToCaseDetail(item.id)"
               >
-                <div class="case-title font-semibold text-base mb-2">{{ item.AH }}</div>
+                <div class="case-title font-semibold text-base mb-2">{{ item.caseNumber }}</div>
                 
                 <!-- 承办法院 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">承办法院：</span>
-                  <span>{{ item.FYQC }}</span>
+                  <span>{{ item.acceptanceCourt }}</span>
                 </div>
                 
                 <!-- 承办法官 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">承办法官：</span>
-                  <span>{{ item.CBFG }}</span>
+                  <span>{{ item.designatedJudge }}</span>
                 </div>
                 
                 <!-- 立案日期 -->
                 <div class="case-info mb-1 text-sm">
                   <span class="text-gray-500">立案日期：</span>
-                  <span>{{ formatDate(item.LARQ) }}</span>
+                  <span>{{ formatDate(item.filingDate) }}</span>
                 </div>
                 
                 <!-- 案件状态和办理天数 -->
                 <div class="case-info flex justify-between mb-3 text-sm">
                   <div>
                     <span class="text-gray-500">案件状态：</span>
-                    <span class="text-green-500">{{ item.AJZT }}</span>
+                    <span class="text-green-500">{{ caseStatusMap[item.caseStatus] }}</span>
                   </div>
                   <div>
                     <span class="text-gray-500">办理天数：</span>
-                    <span>已审理 {{ calculateDays(item.LARQ) }}</span>
+                    <span>已审理 {{ calculateDays(item.filingDate) }}</span>
                   </div>
                 </div>
                 
                 <!-- 当前节点 -->
                 <div class="case-progress flex justify-start items-center text-xs pt-2 border-t border-dashed border-gray-200">
                   <span class="text-gray-500">当前阶段：</span>
-                  <span class="text-blue-500">{{ item.AJJD }}</span>
+                  <span class="text-blue-500">{{ caseProgressMap[item.caseProgress] }}</span>
                 </div>
               </div>
             </div>
@@ -358,8 +476,92 @@ onMounted(() => {
           </div>
         </AnalysisChartCard>
         
-        <!-- 待办事项管理板块 - 移到受理案件下方 -->
-        <TodoList class="mb-5" title="待办事项管理" />
+        <!-- 待办事项和公告板块并排布局 -->
+        <div class="flex gap-5">
+          <!-- 待办事项管理板块 - 占2/3宽度 -->
+          <div class="flex-1 min-w-0">
+            <TodoList class="mb-5" title="待办事项管理" />
+          </div>
+          
+          <!-- 公告板块 - 占1/3宽度 -->
+          <div class="w-1/3 min-w-0">
+            <AnalysisChartCard title="公告列表" class="mb-5">
+              <div v-loading="announcementLoading" class="announcement-list">
+                <div v-if="announcements.length > 0" class="space-y-3">
+                  <div 
+                    v-for="item in announcements" 
+                    :key="item.id"
+                    class="announcement-card p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                    @click="viewAnnouncementDetail(item)"
+                  >
+                    <div class="announcement-header flex justify-between items-start mb-2">
+                      <h4 class="announcement-title font-semibold text-sm truncate">
+                        {{ item.title }}
+                      </h4>
+                      <ElTag 
+                        v-if="item.isTop" 
+                        size="small" 
+                        type="danger" 
+                        effect="light"
+                      >
+                        置顶
+                      </ElTag>
+                    </div>
+                    
+                    <div class="announcement-content text-xs text-gray-600 line-clamp-2 mb-2">
+                      {{ item.content }}
+                    </div>
+                    
+                    <div class="announcement-meta flex justify-between items-center text-xs text-gray-500">
+                      <div class="flex items-center">
+                        <ElTag 
+                          :type="announcementTypeMap[item.announcementType]?.type || 'info'" 
+                          size="small"
+                          effect="plain"
+                        >
+                          {{ announcementTypeMap[item.announcementType]?.label || '普通' }}
+                        </ElTag>
+                        <span class="ml-2">{{ item.publisherName }}</span>
+                      </div>
+                      <div class="flex items-center">
+                        <span class="mr-2">{{ formatDateTime(item.publishTime) }}</span>
+                        <span class="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {{ item.viewCount }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 暂无公告 -->
+                <div v-else class="empty-announcement flex flex-col items-center justify-center py-10 text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span>暂无公告</span>
+                </div>
+              </div>
+              
+              <!-- 公告分页 -->
+              <div v-if="announcementTotal > 0" class="announcement-pagination mt-4 flex justify-center">
+                <ElPagination
+                  v-model:current-page="announcementCurrentPage"
+                  v-model:page-size="announcementPageSize"
+                  :page-sizes="[5, 10, 20]"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  :total="announcementTotal"
+                  @size-change="loadAnnouncements"
+                  @current-change="loadAnnouncements"
+                  small
+                />
+              </div>
+            </AnalysisChartCard>
+          </div>
+        </div>
       </div>
     </div>
   </div>

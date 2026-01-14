@@ -200,6 +200,16 @@ export namespace CaseApi {
     caseProgress?: CaseProgress;
   }
 
+  /** 用户案件列表响应 */
+export interface UserCaseListResponse {
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: any[];
+    };
+  }
+
   /** 案件简单列表查询参数 */
   export interface SimpleCaseListQueryParams {
     page?: number;
@@ -417,6 +427,14 @@ export async function rejectCaseApi(caseId: number, opinion: string) {
  */
 export async function getReviewLogsApi(caseId: number) {
   return requestClient8085.get<CaseApi.CommonResponse>(`/case/${caseId}/review-logs`);
+}
+
+/**
+ * 根据用户ID查询案件列表(分页)
+ * GET /api/v1/case/user/{userId}/list
+ */
+export async function getUserCaseListApi(userId: number, params: { pageNum?: number; pageSize?: number; caseStatus?: string } = {}) {
+  return requestClient8085.get<CaseApi.UserCaseListResponse>(`/case/user/${userId}/list`, { params });
 }
 
 /**

@@ -1,3 +1,5 @@
+import { baseRequestClient, fileUploadRequestClient, requestClient8085 } from '#/api/request';
+import DeviceUtils from '#/utils/device';
 import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
 
 export namespace AuthApi {

@@ -11,6 +11,21 @@ export namespace ChatApi {
     error: string;
   }
 
+  // API统一响应格式
+  export interface ApiResponse<T = any> {
+    code: number;
+    message: string;
+    data: T;
+  }
+
+  // 分页响应格式
+  export interface PageResponse<T> {
+    records: T[];
+    total: number;
+    pageNum: number;
+    pageSize: number;
+  }
+
   // 联系人接口（后端返回格式）
   export interface ContactResponse {
     单据号: number;
@@ -153,6 +168,104 @@ export namespace ChatApi {
     status: 'failed' | 'sending' | 'sent';
     createdAt: string;
   }
+
+  // 新API - 会话接口
+  export interface Conversation {
+    id: number;
+    userId1: number;
+    userId2: number;
+    lastMessageId: number;
+    lastMessageContent: string;
+    lastMessageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    lastMessageTime: string;
+    user1UnreadCount: number;
+    user2UnreadCount: number;
+    user1Deleted: boolean;
+    user2Deleted: boolean;
+    user1Pinned: boolean;
+    user2Pinned: boolean;
+    status: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+    createTime: string;
+    userId1Name?: string;
+    userId2Name?: string;
+  }
+
+  // 新API - 消息接口
+  export interface Message {
+    id: number;
+    conversationId: number;
+    senderId: number;
+    senderName: string;
+    receiverId: number;
+    receiverName: string;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
+    content: string;
+    fileId: number | null;
+    fileName: string | null;
+    fileSize: number | null;
+    fileUrl: string | null;
+    messageStatus: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+    readTime: string | null;
+    isDeleted: boolean;
+    isRecalled: boolean;
+    createTime: string;
+    replyToMessageId?: number;
+    replyToContent?: string;
+    replyToSenderId?: number;
+    replyToSenderName?: string;
+    isForwarded?: boolean;
+    forwardedFromMessageId?: number;
+    forwardedFromConversationId?: number;
+    forwardedFromSenderId?: number;
+    forwardedFromSenderName?: string;
+  }
+
+  // 撤回配置接口
+  export interface RecallConfig {
+    id: number;
+    configType: 'GLOBAL' | 'USER' | 'ROLE';
+    targetId: number | null;
+    recallTimeLimit: number;
+    allowRecall: boolean;
+    maxRecallTimes: number;
+    status: 'ACTIVE' | 'DISABLED';
+    createTime: string;
+    updateTime: string;
+    remark: string;
+  }
+
+  // 未读消息数接口
+  export interface UnreadCount {
+    totalUnread: number;
+    conversationUnread: number;
+  }
+
+  // 用户接口（基于用户模块CRUD API文档）
+  export interface User {
+    id: number;
+    username: string;
+    realName: string;
+    mobile: string;
+    email: string;
+    phone: string;
+    isValid: string;
+    status: 'ACTIVE' | 'LOCKED' | 'INACTIVE' | 'DELETED';
+    loginType: string;
+    lastLoginTime: string;
+    lastLoginIp: string;
+    loginCount: number;
+    createTime: string;
+    updateTime: string;
+  }
+
+  // 用户列表响应接口
+  export interface UserListResponse {
+    total: number;
+    page: number;
+    size: number;
+    totalPages: number;
+    users: User[];
+  }
 }
 
 // 安全的数字转换函数
@@ -174,530 +287,37 @@ function safeParseBoolean(
   return value === '1' || value.toLowerCase() === 'true';
 }
 
-// 数据转换工具函数
-const transformContact = (
-  record: ChatApi.ContactResponse,
-): ChatApi.Contact => ({
-  id: record['单据号'],
-  userId: safeParseInt(record.userId),
-  contactUserId: safeParseInt(record.contactUserId),
-  name: record.name,
-  phone: record.phone,
-  email: record.email,
-  idCard: record.idCard,
-  avatar: record.avatar,
-  description: record.description,
-  isSystemUser: record.isSystemUser
-    ? safeParseBoolean(record.isSystemUser)
-    : null,
-  groupId: safeParseInt(record['分组ID']),
-  isOnline: safeParseBoolean(record['在线状态']),
-  lastOnlineTime: record['最后在线时间'],
-  isPinned: safeParseBoolean(record['是否置顶']),
-  createdAt: record['创建时间'],
-  updatedAt: record['修改时间'] || record['创建时间'],
-});
-
-const transformContactGroup = (
-  record: ChatApi.ContactGroupResponse,
-): ChatApi.ContactGroup => ({
-  id: record['单据号'],
-  userId: safeParseInt(record.userId),
-  name: record.name,
-  sortOrder: safeParseInt(record.sortOrder),
-  color: record['分组颜色'],
-  createdAt: record['创建时间'],
-});
-
-const transformChatSession = (
-  record: ChatApi.ChatSessionResponse,
-): ChatApi.ChatSession => ({
-  id: record['单据号'],
-  contactId: safeParseInt(record.contactId),
-  lastMessage: record.lastMessage,
-  unreadCount: safeParseInt(record.unreadCount),
-  isPinned: safeParseBoolean(record.isPinned),
-  lastActivityTime: record.lastActivityTime,
-  createdAt: record['创建时间'],
-});
-
-const transformChatMessage = (
-  record: ChatApi.ChatMessageResponse,
-): ChatApi.ChatMessage => {
-  const validMessageTypes = ['file', 'image', 'system', 'text'] as const;
-  const messageType = validMessageTypes.includes(record.messageType as any)
-    ? (record.messageType as any)
-    : 'text';
-
+// 转换联系人数据格式
+function transformContact(rawContact: ChatApi.ContactResponse): ChatApi.Contact {
   return {
-    id: record['单据号'],
-    senderId: safeParseInt(record.senderId),
-    receiverId: safeParseInt(record.receiverId),
-    messageType,
-    content: record.content,
-    fileUrl: record.fileUrl,
-    fileName: record.fileName,
-    fileSize: record.fileSize ? safeParseInt(record.fileSize) : null,
-    thumbnailUrl: record['图片缩略图'],
-    isRecalled: safeParseBoolean(record.isRecalled),
-    recallTime: record.recallTime,
-    readStatus: safeParseBoolean(record.readStatus),
-    timestamp: record.timestamp,
-    status: safeParseBoolean(record.status) ? 'sent' : 'failed',
-    createdAt: record['创建时间'],
+    id: safeParseInt(rawContact['单据号']),
+    userId: safeParseInt(rawContact.userId),
+    contactUserId: safeParseInt(rawContact.contactUserId),
+    name: rawContact.name || '',
+    phone: rawContact.phone || '',
+    email: rawContact.email || '',
+    idCard: rawContact.idCard,
+    avatar: rawContact.avatar,
+    description: rawContact.description || '',
+    isSystemUser: safeParseBoolean(rawContact.isSystemUser),
+    groupId: safeParseInt(rawContact['分组ID']),
+    isOnline: safeParseBoolean(rawContact['在线状态']),
+    lastOnlineTime: rawContact['最后在线时间'],
+    isPinned: safeParseBoolean(rawContact['是否置顶']),
+    createdAt: rawContact['创建时间'] || '',
+    updatedAt: rawContact['修改时间'] || '',
   };
-};
-
-/**
- * 获取联系人列表
- */
-export async function getContactsApi(params?: {
-  groupId?: number;
-  keyword?: string;
-  page?: number;
-  page_size?: number;
-  userId?: number;
-}) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ContactResponse>
-  >('/api/web/contact', {
-    params: {
-      token: localStorage.getItem('token') || '',
-      ...params,
-    },
-  });
-
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.Contact[];
-    }
-    return response.data.records.map(transformContact);
-  }
-
-  throw new Error(response.error || '获取联系人列表失败');
 }
 
-/**
- * 新增联系人
- */
-export async function addContactApi(data: {
-  avatar?: null | string;
-  contactUserId: number;
-  description?: null | string;
-  email: string;
-  groupId: number;
-  idCard?: null | string;
-  isPinned?: boolean;
-  isSystemUser?: boolean | null;
-  name: string;
-  phone: string;
-  userId: number;
-}) {
-  const response = await chatRequestClient.post<{
-    data: number;
-    error: string;
-    status: string;
-  }>('/api/web/contact', {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '新增联系人失败');
-}
-
-/**
- * 修改联系人
- */
-export async function updateContactApi(
-  id: number,
-  data: {
-    avatar?: null | string;
-    contactUserId: number;
-    description?: null | string;
-    email: string;
-    groupId: number;
-    idCard?: null | string;
-    isPinned?: boolean;
-    isSystemUser?: boolean | null;
-    name: string;
-    phone: string;
-    userId: number;
-  },
-) {
-  const response = await chatRequestClient.put<{
-    data: number;
-    error: string;
-    status: string;
-  }>(`/api/web/contact/${id}`, {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '修改联系人失败');
-}
-
-/**
- * 删除联系人
- */
-export async function deleteContactApi(id: number) {
-  const response = await chatRequestClient.delete<{
-    data: string;
-    error: string;
-    status: string;
-  }>(`/api/web/contact/${id}`, {
-    params: {
-      token: '7a7bad27c7be5cced8fd12b796ab2a49',
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '删除联系人失败');
-}
-
-/**
- * 获取联系人分组列表
- */
-export async function getContactGroupsApi(userId?: number) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ContactGroupResponse>
-  >('/api/web/contact-groups', {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-      ...(userId && { userId }),
-    },
-  });
-
-  // 转换为前端使用的格式
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.ContactGroup[];
-    }
-    return response.data.records.map((record) => ({
-      id: record['单据号'],
-      userId: Number.parseInt(record.userId),
-      name: record.name,
-      sortOrder: Number.parseInt(record.sortOrder),
-      color: record['分组颜色'],
-      createdAt: record['创建时间'],
-    })) as ChatApi.ContactGroup[];
-  }
-
-  throw new Error(response.error || '获取联系人分组列表失败');
-}
-
-/**
- * 新增联系人分组
- */
-export async function addContactGroupApi(data: {
-  color: string;
-  name: string;
-  sortOrder: number;
-  userId: number;
-}) {
-  const response = await chatRequestClient.post<{
-    data: number;
-    error: string;
-    status: string;
-  }>('/api/web/contact-groups', {
-    params: {
-      token: localStorage.getItem('token') || '',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '新增联系人分组失败');
-}
-
-/**
- * 修改联系人分组
- */
-export async function updateContactGroupApi(
-  id: number,
-  data: {
-    color: string;
-    name: string;
-    sortOrder: number;
-    userId: number;
-  },
-) {
-  const response = await chatRequestClient.put<{
-    data: number;
-    error: string;
-    status: string;
-  }>(`/api/web/contact-groups/${id}`, {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '修改联系人分组失败');
-}
-
-/**
- * 删除联系人分组
- */
-export async function deleteContactGroupApi(id: number) {
-  const response = await chatRequestClient.delete<{
-    data: string;
-    error: string;
-    status: string;
-  }>(`/api/web/contact-groups/${id}`, {
-    params: {
-      token: 'e94e143c594a7c829223c342c3b37bcb',
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '删除联系人分组失败');
-}
-
-/**
- * 获取聊天会话列表
- */
-export async function getChatSessionsApi(userId?: number) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ChatSessionResponse>
-  >('/api/web/sessions', {
-    params: {
-      token: localStorage.getItem('token') || '',
-      ...(userId && { userId }),
-    },
-  });
-
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.ChatSession[];
-    }
-    return response.data.records.map(transformChatSession);
-  }
-
-  throw new Error(response.error || '获取聊天会话列表失败');
-}
-
-/**
- * 获取聊天记录
- */
-export async function getChatMessagesApi(params: {
-  contactId: number;
-  page?: number;
-  page_size?: number;
-  userId: number;
-}) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
-  >(`/api/web/messages/${params.contactId}`, {
-    params: {
-      token: '7aa41b18fd545a069fe1b53ae01df1c4',
-      ...params,
-    },
-  });
-
-  // 转换为前端使用的格式
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.ChatMessage[];
-    }
-    return response.data.records.map((record) => ({
-      id: record['单据号'],
-      senderId: Number.parseInt(record.senderId),
-      receiverId: Number.parseInt(record.receiverId),
-      messageType: record.messageType as 'file' | 'image' | 'system' | 'text',
-      content: record.content,
-      fileUrl: record.fileUrl,
-      fileName: record.fileName,
-      fileSize: record.fileSize ? Number.parseInt(record.fileSize) : null,
-      thumbnailUrl: record['图片缩略图'],
-      isRecalled: record.isRecalled ? record.isRecalled === '1' : false,
-      recallTime: record.recallTime,
-      readStatus: record.readStatus === '1',
-      timestamp: record.timestamp,
-      status: record.status === '1' ? 'sent' : 'failed',
-      createdAt: record['创建时间'],
-    })) as ChatApi.ChatMessage[];
-  }
-
-  throw new Error(response.error || '获取聊天消息列表失败');
-}
-
-/**
- * 发送消息（HTTP备用）
- */
-export async function sendMessageApi(data: {
-  content: string;
-  fileName?: null | string;
-  fileSize?: null | number;
-  fileUrl?: null | string;
-  messageType: number;
-  receiverId: number;
-  senderId: number;
-  thumbnailUrl?: null | string;
-}) {
-  const response = await chatRequestClient.post<{
-    data: number;
-    error: string;
-    status: string;
-  }>('/api/web/messages', {
-    params: {
-      token: '7aa41b18fd545a069fe1b53ae01df1c4',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '发送消息失败');
-}
-
-/**
- * 撤回消息
- */
-export async function recallMessageApi(id: number) {
-  const response = await chatRequestClient.put<{
-    data: string;
-    error: string;
-    status: string;
-  }>(`/api/web/messages/${id}/recall`, {
-    params: {
-      token: '7aa41b18fd545a069fe1b53ae01df1c4',
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '撤回消息失败');
-}
-
-/**
- * 标记消息为已读
- */
-export async function markMessagesAsReadApi(data: {
-  contactId: number;
-  messageIds?: number[];
-  receiverId: number;
-}) {
-  const response = await chatRequestClient.put<{
-    data: string;
-    error: string;
-    status: string;
-  }>('/api/web/messages/read', {
-    params: {
-      token: localStorage.getItem('token') || '',
-    },
-    data,
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '标记消息为已读失败');
-}
-
-/**
- * 搜索聊天记录
- */
-export async function searchChatMessagesApi(params: {
-  end_time?: string;
-  keyword: string;
-  page?: number;
-  page_size?: number;
-  start_time?: string;
-  userId: number;
-}) {
-  const response = await chatRequestClient.get<
-    ChatApi.BaseResponse<ChatApi.ChatMessageResponse>
-  >('/api/web/messages/search', {
-    params: {
-      token: '7aa41b18fd545a069fe1b53ae01df1c4',
-      ...params,
-    },
-  });
-
-  // 转换为前端使用的格式
-  if (response.status === '1') {
-    if (!response.data?.records) {
-      console.warn('API返回数据缺少records字段:', response.data);
-      return [] as ChatApi.ChatMessage[];
-    }
-    return response.data.records.map((record) => ({
-      id: record['单据号'],
-      senderId: Number.parseInt(record.senderId),
-      receiverId: Number.parseInt(record.receiverId),
-      messageType: record.messageType as 'file' | 'image' | 'system' | 'text',
-      content: record.content,
-      fileUrl: record.fileUrl,
-      fileName: record.fileName,
-      fileSize: record.fileSize ? Number.parseInt(record.fileSize) : null,
-      thumbnailUrl: record['图片缩略图'],
-      isRecalled: record.isRecalled ? record.isRecalled === '1' : false,
-      recallTime: record.recallTime,
-      readStatus: record.readStatus === '1',
-      timestamp: record.timestamp,
-      status: record.status === '1' ? 'sent' : 'failed',
-      createdAt: record['创建时间'],
-    })) as ChatApi.ChatMessage[];
-  }
-
-  throw new Error(response.error || '搜索聊天记录失败');
-}
-
-/**
- * 更新联系人在线状态
- */
-export async function updateContactStatusApi(
-  contactUserId: number,
-  status: string,
-) {
-  const response = await chatRequestClient.get<{
-    data: any;
-    error: string;
-    status: string;
-  }>('/api/web/updatestatus', {
-    params: {
-      token: '37433bd455313db96e6cc8f8302f7196',
-      contactuserid: contactUserId,
-      status,
-    },
-  });
-
-  if (response.status === '1') {
-    return response.data;
-  }
-
-  throw new Error(response.error || '更新联系人在线状态失败');
+// 转换聊天会话数据格式
+function transformChatSession(rawSession: ChatApi.ChatSessionResponse): ChatApi.ChatSession {
+  return {
+    id: safeParseInt(rawSession['单据号']),
+    contactId: safeParseInt(rawSession.contactId),
+    lastMessage: rawSession.lastMessage || '',
+    unreadCount: safeParseInt(rawSession.unreadCount),
+    isPinned: safeParseBoolean(rawSession.isPinned),
+    lastActivityTime: rawSession.lastActivityTime || '',
+    createdAt: rawSession['创建时间'] || '',
+  };
 }

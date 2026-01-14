@@ -1481,24 +1481,12 @@ const checkPermissions = async () => {
       <!-- 内容类型切换 -->
       <div class="content-tabs mb-6">
         <ElRadioGroup v-model="activeTab" size="large" class="tabs-container">
-          <ElRadioButton value="caseInfo" class="tab-button">
-            案件基本信息
-          </ElRadioButton>
-          <ElRadioButton value="workTeam" class="tab-button">
-            工作团队
-          </ElRadioButton>
-          <ElRadioButton value="process" class="tab-button">
-            流程处理
-          </ElRadioButton>
-          <ElRadioButton value="creditorInfo" class="tab-button">
-            债权人信息
-          </ElRadioButton>
-          <ElRadioButton value="claimRegistration" class="tab-button">
-            债权登记表
-          </ElRadioButton>
-          <ElRadioButton value="announcement" class="tab-button">
-            公告管理
-          </ElRadioButton>
+          <ElRadioButton value="caseInfo" class="tab-button">案件基本信息</ElRadioButton>
+          <ElRadioButton value="workTeam" class="tab-button">工作团队</ElRadioButton>
+          <ElRadioButton value="process" class="tab-button">流程处理</ElRadioButton>
+          <ElRadioButton value="creditorInfo" class="tab-button">债权人信息</ElRadioButton>
+          <ElRadioButton value="claimRegistration" class="tab-button">债权登记表</ElRadioButton>
+          <ElRadioButton value="announcement" class="tab-button">公告管理</ElRadioButton>
         </ElRadioGroup>
       </div>
 

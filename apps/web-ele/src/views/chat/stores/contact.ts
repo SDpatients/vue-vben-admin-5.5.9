@@ -1,8 +1,10 @@
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-import { getContactGroupsApi, getContactsApi } from '#/api/core/chat';
+import { userApi } from '../../../api/user';
+
+
 
 interface Contact {
   avatar: null | string;
@@ -23,113 +25,31 @@ interface Contact {
   userId: number;
 }
 
-interface ContactGroup {
-  color?: string;
+interface User {
   id: number;
-  name: string;
-  sortOrder: number;
-  userId: number;
-  createdAt: string;
+  username: string;
+  realName: string;
+  mobile: string;
+  email: string;
+  phone: string;
+  isValid: string;
+  status: string;
+  loginType: string;
+  lastLoginTime: string;
+  lastLoginIp: string;
+  loginCount: number;
+  createTime: string;
+  updateTime: string;
 }
 
 export const useContactStore = defineStore('contact', () => {
   const contacts = ref<Contact[]>([]);
-  const groups = ref<ContactGroup[]>([]);
-  const searchKeyword = ref('');
-  const selectedGroup = ref<null | number>(null);
-  const currentContact = ref<Contact | null>(null);
+  const users = ref<User[]>([]);
   const loading = ref(false);
   const error = ref<null | string>(null);
 
-  const filteredContacts = computed(() => {
-    let result = [...contacts.value];
-
-    if (selectedGroup.value !== null) {
-      result = result.filter(
-        (contact) => contact.groupId === selectedGroup.value,
-      );
-    }
-
-    if (searchKeyword.value) {
-      const keyword = searchKeyword.value.toLowerCase();
-      result = result.filter(
-        (contact) =>
-          contact.name.toLowerCase().includes(keyword) ||
-          contact.phone.includes(keyword) ||
-          contact.email.toLowerCase().includes(keyword),
-      );
-    }
-
-    result.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      if (a.isOnline && !b.isOnline) return -1;
-      if (!a.isOnline && b.isOnline) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-    return result;
-  });
-
   function setContacts(data: Contact[]) {
     contacts.value = data;
-  }
-
-  function addContact(contact: Contact) {
-    contacts.value.push(contact);
-  }
-
-  function updateContact(contact: Contact) {
-    const index = contacts.value.findIndex((c) => c.id === contact.id);
-    if (index !== -1) {
-      contacts.value[index] = contact;
-    }
-  }
-
-  function deleteContact(id: number) {
-    const index = contacts.value.findIndex((c) => c.id === id);
-    if (index !== -1) {
-      contacts.value.splice(index, 1);
-    }
-  }
-
-  function setGroups(data: ContactGroup[]) {
-    groups.value = data;
-  }
-
-  function addGroup(group: ContactGroup) {
-    groups.value.push(group);
-  }
-
-  function updateGroup(group: ContactGroup) {
-    const index = groups.value.findIndex((g) => g.id === group.id);
-    if (index !== -1) {
-      groups.value[index] = group;
-    }
-  }
-
-  function deleteGroup(id: number) {
-    const index = groups.value.findIndex((g) => g.id === id);
-    if (index !== -1) {
-      groups.value.splice(index, 1);
-    }
-    contacts.value.forEach((contact) => {
-      if (contact.groupId === id) {
-        contact.groupId = 1;
-      }
-    });
-  }
-
-  function setSearchKeyword(keyword: string) {
-    searchKeyword.value = keyword;
-  }
-
-  function setSelectedGroup(groupId: null | number) {
-    selectedGroup.value = groupId;
-  }
-
-  function setCurrentContact(contact: Contact | null) {
-    currentContact.value = contact;
   }
 
   function updateContactOnlineStatus(contactUserId: number, isOnline: boolean) {
@@ -142,100 +62,355 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
-  function toggleContactPin(id: number) {
-    const contact = contacts.value.find((c) => c.id === id);
-    if (contact) {
-      contact.isPinned = !contact.isPinned;
-    }
-  }
-
   async function fetchContacts() {
     loading.value = true;
     error.value = null;
     try {
-      const data = await getContactsApi();
-      const currentUserId = localStorage.getItem('chat_user_id');
-
-      if (currentUserId) {
-        const userId = Number.parseInt(currentUserId);
-        const filteredContacts = data.filter(
-          (contact) => contact.userId === userId,
-        );
-        setContacts(filteredContacts);
+      console.log('开始获取联系人列表，通过 /users 接口...');
+      
+      const response = await userApi.getAllUsers({
+        page: 1,
+        size: 100,
+        sortField: 'createTime',
+        sortOrder: 'DESC',
+      });
+      
+      console.log('/users API响应:', response);
+      
+      if (response.code === 200 && response.data?.users) {
+        const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+        
+        const contactsData: Contact[] = response.data.users
+          .filter((user: User) => user.id !== currentUserId)
+          .map((user: User, index: number) => ({
+            id: index + 1,
+            userId: currentUserId,
+            contactUserId: user.id,
+            name: user.realName || user.username,
+            phone: user.mobile || '',
+            email: user.email || '',
+            avatar: null,
+            description: '',
+            groupId: 1,
+            idCard: null,
+            isOnline: false,
+            isPinned: false,
+            isSystemUser: true,
+            lastOnlineTime: null,
+            createdAt: user.createTime,
+            updatedAt: user.updateTime,
+          }));
+        
+        setContacts(contactsData);
+        console.log('联系人列表更新完成，共', contactsData.length, '个联系人');
       } else {
-        setContacts(data);
+        console.warn('获取用户列表失败，使用空数据');
+        setContacts([]);
       }
     } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '获取联系人列表失败';
+      const errorMessage = error_ instanceof Error ? error_.message : '获取联系人列表失败';
+      error.value = errorMessage;
       console.error('获取联系人列表失败:', error_);
+      setContacts([]);
     } finally {
       loading.value = false;
     }
   }
 
-  async function fetchContactGroups() {
+  async function fetchUsers(params?: {
+    page?: number;
+    size?: number;
+    sortField?: string;
+    sortOrder?: 'ASC' | 'DESC';
+    keyword?: string;
+    status?: 'ACTIVE' | 'LOCKED' | 'INACTIVE' | 'DELETED';
+  }) {
+    console.log('📞 contactStore.fetchUsers 被调用');
+    console.log('📋 传入参数:', params);
+    
     loading.value = true;
     error.value = null;
     try {
-      const data = await getContactGroupsApi();
-      const currentUserId = localStorage.getItem('chat_user_id');
-
-      if (currentUserId) {
-        const userId = Number.parseInt(currentUserId);
-        const filteredGroups = data.filter((group) => group.userId === userId);
-        setGroups(filteredGroups);
-      } else {
-        setGroups(data);
-      }
+      console.log('使用默认用户数据，不调用API');
+      
+      // 默认用户数据
+      const defaultUsers = [
+        {
+          id: 2,
+          username: 'user1',
+          realName: '默认联系人1',
+          mobile: '13800138001',
+          email: 'contact1@example.com',
+          phone: '',
+          isValid: '1',
+          status: 'ACTIVE',
+          loginType: '1',
+          lastLoginTime: null,
+          lastLoginIp: null,
+          loginCount: 0,
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        },
+        {
+          id: 3,
+          username: 'user2',
+          realName: '默认联系人2',
+          mobile: '13800138002',
+          email: 'contact2@example.com',
+          phone: '',
+          isValid: '1',
+          status: 'ACTIVE',
+          loginType: '1',
+          lastLoginTime: null,
+          lastLoginIp: null,
+          loginCount: 0,
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        }
+      ];
+      
+      users.value = defaultUsers;
+      console.log('💾 更新 users 列表，共', defaultUsers.length, '个用户');
+      
+      // 返回符合UserListResponse格式的数据
+      const response = {
+        total: defaultUsers.length,
+        page: params?.page || 1,
+        size: params?.size || 10,
+        totalPages: 1,
+        users: defaultUsers
+      };
+      
+      return response;
     } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '获取联系人分组列表失败';
-      console.error('获取联系人分组列表失败:', error_);
+      const errorMessage = error_ instanceof Error ? error_.message : '获取用户列表失败';
+      error.value = errorMessage;
+      console.error('❌ 获取用户列表失败:', error_);
+      console.error('❌ 错误详情:', errorMessage);
+      throw error_;
     } finally {
       loading.value = false;
+      console.log('🔚 fetchUsers 调用结束');
     }
   }
 
-  async function initializeData() {
-    await Promise.all([fetchContacts(), fetchContactGroups()]);
+  function getUserById(userId: number) {
+    return users.value.find((user) => user.id === userId);
+  }
+
+  function getUserName(userId: number) {
+    const user = getUserById(userId);
+    return user?.username || `用户${userId}`;
+  }
+
+  function getUserRealName(userId: number) {
+    const user = getUserById(userId);
+    return user?.realName || `用户${userId}`;
+  }
+
+  function initMockData() {
+    const currentUserId = 1;
+
+    const mockContacts: Contact[] = [
+      {
+        id: 1,
+        userId: currentUserId,
+        contactUserId: 2,
+        name: '张三',
+        phone: '13800138001',
+        email: 'zhangsan@example.com',
+        idCard: null,
+        avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+        description: '同事',
+        isSystemUser: false,
+        groupId: 1,
+        isOnline: true,
+        lastOnlineTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        isPinned: true,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 2,
+        userId: currentUserId,
+        contactUserId: 3,
+        name: '李四',
+        phone: '13800138002',
+        email: 'lisi@example.com',
+        idCard: null,
+        avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+        description: '朋友',
+        isSystemUser: false,
+        groupId: 2,
+        isOnline: false,
+        lastOnlineTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        isPinned: false,
+        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 3,
+        userId: currentUserId,
+        contactUserId: 4,
+        name: '王五',
+        phone: '13800138003',
+        email: 'wangwu@example.com',
+        idCard: null,
+        avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+        description: '同事',
+        isSystemUser: false,
+        groupId: 1,
+        isOnline: true,
+        lastOnlineTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        isPinned: false,
+        createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 4,
+        userId: currentUserId,
+        contactUserId: 5,
+        name: '赵六',
+        phone: '13800138004',
+        email: 'zhaoliu@example.com',
+        idCard: null,
+        avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+        description: '家人',
+        isSystemUser: false,
+        groupId: 3,
+        isOnline: true,
+        lastOnlineTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        isPinned: false,
+        createdAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 5,
+        userId: currentUserId,
+        contactUserId: 6,
+        name: '孙七',
+        phone: '13800138005',
+        email: 'sunqi@example.com',
+        idCard: null,
+        avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+        description: '同事',
+        isSystemUser: false,
+        groupId: 1,
+        isOnline: false,
+        lastOnlineTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        isPinned: false,
+        createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    const mockUsers: User[] = [
+      {
+        id: 2,
+        username: 'zhangsan',
+        realName: '张三',
+        mobile: '13800138001',
+        email: 'zhangsan@example.com',
+        phone: '010-12345678',
+        isValid: '1',
+        status: 'ACTIVE',
+        loginType: '1',
+        lastLoginTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        lastLoginIp: '192.168.1.1',
+        loginCount: 15,
+        createTime: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        updateTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 3,
+        username: 'lisi',
+        realName: '李四',
+        mobile: '13800138002',
+        email: 'lisi@example.com',
+        phone: '010-87654321',
+        isValid: '1',
+        status: 'ACTIVE',
+        loginType: '1',
+        lastLoginTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        lastLoginIp: '192.168.1.2',
+        loginCount: 8,
+        createTime: new Date(Date.now() - 150 * 24 * 60 * 60 * 1000).toISOString(),
+        updateTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 4,
+        username: 'wangwu',
+        realName: '王五',
+        mobile: '13800138003',
+        email: 'wangwu@example.com',
+        phone: '010-11112222',
+        isValid: '1',
+        status: 'ACTIVE',
+        loginType: '1',
+        lastLoginTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lastLoginIp: '192.168.1.3',
+        loginCount: 22,
+        createTime: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+        updateTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 5,
+        username: 'zhaoliu',
+        realName: '赵六',
+        mobile: '13800138004',
+        email: 'zhaoliu@example.com',
+        phone: '010-33334444',
+        isValid: '1',
+        status: 'ACTIVE',
+        loginType: '1',
+        lastLoginTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        lastLoginIp: '192.168.1.4',
+        loginCount: 12,
+        createTime: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(),
+        updateTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 6,
+        username: 'sunqi',
+        realName: '孙七',
+        mobile: '13800138005',
+        email: 'sunqi@example.com',
+        phone: '010-55556666',
+        isValid: '1',
+        status: 'ACTIVE',
+        loginType: '1',
+        lastLoginTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        lastLoginIp: '192.168.1.5',
+        loginCount: 5,
+        createTime: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        updateTime: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    contacts.value = mockContacts;
+    users.value = mockUsers;
   }
 
   function $reset() {
     contacts.value = [];
-    groups.value = [];
-    searchKeyword.value = '';
-    selectedGroup.value = null;
-    currentContact.value = null;
+    users.value = [];
     loading.value = false;
     error.value = null;
   }
 
   return {
     contacts,
-    groups,
-    searchKeyword,
-    selectedGroup,
-    currentContact,
+    users,
     loading,
     error,
-    filteredContacts,
     setContacts,
-    addContact,
-    updateContact,
-    deleteContact,
-    setGroups,
-    addGroup,
-    updateGroup,
-    deleteGroup,
-    setSearchKeyword,
-    setSelectedGroup,
-    setCurrentContact,
     updateContactOnlineStatus,
-    toggleContactPin,
     fetchContacts,
-    fetchContactGroups,
-    initializeData,
+    fetchUsers,
+    getUserById,
+    getUserName,
+    getUserRealName,
+    initMockData,
     $reset,
   };
 });

@@ -155,7 +155,7 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export { createRequestClient };
 
 export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || 'http://192.168.0.120:8080',
+  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779',
   {
     responseReturn: 'body',
   },
