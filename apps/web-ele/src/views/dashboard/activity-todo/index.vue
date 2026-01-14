@@ -96,7 +96,10 @@ const formatTime = (time: string) => {
 const loadActivities = async () => {
   loading.value = true;
   try {
-    const res = await activityApi.getMyActivityList(currentPage.value, pageSize.value);
+    const res = await activityApi.getMyActivityList(
+      currentPage.value,
+      pageSize.value,
+    );
     activities.value = res.data || [];
   } catch (error) {
     ElMessage.error('加载动态失败');
@@ -298,17 +301,15 @@ onMounted(() => {
   <div class="activity-todo-container">
     <div class="container-header">
       <h2>动态与待办事项管理</h2>
-      <ElAlert
-        title="权限说明"
-        type="info"
-        :closable="false"
-        show-icon
-      >
+      <ElAlert title="权限说明" type="info" :closable="false" show-icon>
         <template #default>
           <div class="permission-info">
             <p><strong>普通用户：</strong>只能查看和管理自己的动态和待办事项</p>
             <p><strong>审核员：</strong>可以查看所有用户的动态和待办事项</p>
-            <p><strong>管理员：</strong>可以查看所有用户的动态和待办事项，并可以为其他用户创建待办</p>
+            <p>
+              <strong>管理员：</strong
+              >可以查看所有用户的动态和待办事项，并可以为其他用户创建待办
+            </p>
           </div>
         </template>
       </ElAlert>
@@ -346,22 +347,41 @@ onMounted(() => {
                   :key="item.id"
                   class="activity-item"
                 >
-                  <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-                    <Icon :icon="getActivityIcon(item.type)" :size="18" color="#fff" />
+                  <div
+                    class="activity-icon"
+                    :style="{ backgroundColor: getActivityColor(item.type) }"
+                  >
+                    <Icon
+                      :icon="getActivityIcon(item.type)"
+                      :size="18"
+                      color="#fff"
+                    />
                   </div>
                   <div class="activity-content-wrapper">
                     <div class="activity-header-row">
                       <span class="activity-user">{{ item.userName }}</span>
-                      <ElTag size="small" :color="getActivityColor(item.type)" effect="plain">
+                      <ElTag
+                        size="small"
+                        :color="getActivityColor(item.type)"
+                        effect="plain"
+                      >
                         {{ getActivityTypeText(item.type) }}
                       </ElTag>
                     </div>
                     <div class="activity-content">{{ item.content }}</div>
-                    <div class="activity-time">{{ formatTime(item.createTime) }}</div>
+                    <div class="activity-time">
+                      {{ formatTime(item.createTime) }}
+                    </div>
                   </div>
-                  <div v-if="index < activities.length - 1" class="activity-line" />
+                  <div
+                    v-if="index < activities.length - 1"
+                    class="activity-line"
+                  />
                 </div>
-                <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
+                <ElEmpty
+                  v-if="activities.length === 0 && !loading"
+                  description="暂无动态"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -375,8 +395,16 @@ onMounted(() => {
                 <Icon icon="lucide:plus" :size="14" />
                 新建待办
               </ElButton>
-              <ElTooltip v-if="canCreateTodoForOthers" content="为其他用户创建待办事项" placement="top">
-                <ElButton type="success" size="small" @click="showCreateForUserModal">
+              <ElTooltip
+                v-if="canCreateTodoForOthers"
+                content="为其他用户创建待办事项"
+                placement="top"
+              >
+                <ElButton
+                  type="success"
+                  size="small"
+                  @click="showCreateForUserModal"
+                >
                   <Icon icon="lucide:user-plus" :size="14" />
                   为用户创建待办
                 </ElButton>
@@ -384,7 +412,11 @@ onMounted(() => {
             </div>
           </div>
           <div class="todo-filters">
-            <ElRadioGroup v-model="selectedStatus" @change="loadTodos" size="small">
+            <ElRadioGroup
+              v-model="selectedStatus"
+              @change="loadTodos"
+              size="small"
+            >
               <ElRadioButton value="">全部</ElRadioButton>
               <ElRadioButton value="PENDING">待处理</ElRadioButton>
               <ElRadioButton value="IN_PROGRESS">进行中</ElRadioButton>
@@ -429,7 +461,10 @@ onMounted(() => {
                       {{ item.description }}
                     </div>
                     <div class="todo-meta">
-                      <ElTag :type="getPriorityColor(item.priority)" size="small">
+                      <ElTag
+                        :type="getPriorityColor(item.priority)"
+                        size="small"
+                      >
                         {{ getPriorityText(item.priority) }}
                       </ElTag>
                       <ElTag type="info" size="small">
@@ -442,12 +477,20 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="todo-actions">
-                    <ElButton circle size="small" type="danger" @click="deleteTodo(item.id)">
+                    <ElButton
+                      circle
+                      size="small"
+                      type="danger"
+                      @click="deleteTodo(item.id)"
+                    >
                       <Icon icon="lucide:trash-2" :size="14" />
                     </ElButton>
                   </div>
                 </div>
-                <ElEmpty v-if="todos.length === 0 && !loading" description="暂无待办事项" />
+                <ElEmpty
+                  v-if="todos.length === 0 && !loading"
+                  description="暂无待办事项"
+                />
               </div>
             </ElScrollbar>
           </div>
@@ -461,7 +504,12 @@ onMounted(() => {
           <ElInput v-model="createForm.title" placeholder="请输入待办标题" />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="createForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="createForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
           <ElSelect v-model="createForm.priority" placeholder="请选择优先级">
@@ -487,8 +535,16 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <ElDialog v-model="createForUserDialogVisible" title="为用户创建待办" width="500px">
-      <ElForm ref="createForUserFormRef" :model="createForUserForm" label-width="80px">
+    <ElDialog
+      v-model="createForUserDialogVisible"
+      title="为用户创建待办"
+      width="500px"
+    >
+      <ElForm
+        ref="createForUserFormRef"
+        :model="createForUserForm"
+        label-width="80px"
+      >
         <ElFormItem label="选择用户" required>
           <ElSelect
             v-model="createForUserForm.targetUserId"
@@ -504,13 +560,24 @@ onMounted(() => {
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="标题" required>
-          <ElInput v-model="createForUserForm.title" placeholder="请输入待办标题" />
+          <ElInput
+            v-model="createForUserForm.title"
+            placeholder="请输入待办标题"
+          />
         </ElFormItem>
         <ElFormItem label="描述">
-          <ElInput v-model="createForUserForm.description" type="textarea" :rows="3" placeholder="请输入待办描述" />
+          <ElInput
+            v-model="createForUserForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入待办描述"
+          />
         </ElFormItem>
         <ElFormItem label="优先级">
-          <ElSelect v-model="createForUserForm.priority" placeholder="请选择优先级">
+          <ElSelect
+            v-model="createForUserForm.priority"
+            placeholder="请选择优先级"
+          >
             <ElOption label="高" value="HIGH" />
             <ElOption label="中" value="MEDIUM" />
             <ElOption label="低" value="LOW" />

@@ -77,7 +77,7 @@ const bankOptions = [
 
 // 监听案号变化，自动更新案件名称
 const handleCaseNoChange = (value: string) => {
-  const selectedCase = caseOptions.find(item => item.caseNo === value);
+  const selectedCase = caseOptions.find((item) => item.caseNo === value);
   if (selectedCase) {
     accountForm.caseName = selectedCase.caseName;
   }
@@ -85,13 +85,11 @@ const handleCaseNoChange = (value: string) => {
 
 // 监听案件名称变化，自动更新案号
 const handleCaseNameChange = (value: string) => {
-  const selectedCase = caseOptions.find(item => item.caseName === value);
+  const selectedCase = caseOptions.find((item) => item.caseName === value);
   if (selectedCase) {
     accountForm.caseNo = selectedCase.caseNo;
   }
 };
-
-
 
 // 获取账户列表
 const fetchFundAccounts = async () => {
@@ -114,7 +112,7 @@ const fetchFundAccounts = async () => {
   } finally {
     loading.value = false;
   }
-}
+};
 
 // 搜索
 const handleSearch = () => {
@@ -171,7 +169,7 @@ const resetForm = () => {
 // 保存账户
 const saveAccount = async () => {
   if (!formRef.value) return;
-  
+
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
       loading.value = true;
@@ -201,18 +199,14 @@ const saveAccount = async () => {
 const handleStatusChange = async (account: any) => {
   const newStatus = account.status === '正常' ? '冻结' : '正常';
   const actionText = newStatus === '冻结' ? '冻结' : '解冻';
-  
+
   try {
-    await ElMessageBox.confirm(
-      `确定要${actionText}该账户吗？`,
-      '操作确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
-    
+    await ElMessageBox.confirm(`确定要${actionText}该账户吗？`, '操作确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
     loading.value = true;
     await updateFundAccountStatusApi(account.accountId, newStatus);
     ElMessage.success(`账户${actionText}成功`);
@@ -294,11 +288,7 @@ onMounted(() => {
 
       <!-- 账户列表 -->
       <el-card shadow="hover" class="list-card">
-        <el-table
-          v-loading="loading"
-          :data="fundAccounts"
-          style="width: 100%"
-        >
+        <el-table v-loading="loading" :data="fundAccounts" style="width: 100%">
           <el-table-column type="index" label="序号" width="80" />
           <el-table-column prop="caseNo" label="案号" width="150" />
           <el-table-column prop="caseName" label="案件名称" width="200" />
@@ -308,14 +298,26 @@ onMounted(() => {
               <el-tag type="info">{{ scope.row.accountType }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="initialBalance" label="初始余额" width="150" align="right">
+          <el-table-column
+            prop="initialBalance"
+            label="初始余额"
+            width="150"
+            align="right"
+          >
             <template #default="scope">
               {{ (scope.row.initialBalance || 0).toFixed(2) }} 元
             </template>
           </el-table-column>
-          <el-table-column prop="currentBalance" label="当前余额" width="150" align="right">
+          <el-table-column
+            prop="currentBalance"
+            label="当前余额"
+            width="150"
+            align="right"
+          >
             <template #default="scope">
-              <span class="balance-text">{{ (scope.row.currentBalance || 0).toFixed(2) }} 元</span>
+              <span class="balance-text"
+                >{{ (scope.row.currentBalance || 0).toFixed(2) }} 元</span
+              >
             </template>
           </el-table-column>
           <el-table-column prop="bankName" label="银行" width="150" />
@@ -331,13 +333,21 @@ onMounted(() => {
           </el-table-column>
           <el-table-column prop="createTime" label="创建时间" width="180">
             <template #default="scope">
-              {{ scope.row.createTime ? new Date(scope.row.createTime).toLocaleString('zh-CN') : '-' }}
+              {{
+                scope.row.createTime
+                  ? new Date(scope.row.createTime).toLocaleString('zh-CN')
+                  : '-'
+              }}
             </template>
           </el-table-column>
           <el-table-column prop="createUser" label="创建人" width="100" />
           <el-table-column prop="updateTime" label="更新时间" width="180">
             <template #default="scope">
-              {{ scope.row.updateTime ? new Date(scope.row.updateTime).toLocaleString('zh-CN') : '-' }}
+              {{
+                scope.row.updateTime
+                  ? new Date(scope.row.updateTime).toLocaleString('zh-CN')
+                  : '-'
+              }}
             </template>
           </el-table-column>
           <el-table-column prop="updateUser" label="更新人" width="100" />
@@ -390,15 +400,23 @@ onMounted(() => {
         label-width="120px"
         :rules="{
           caseNo: [{ required: true, message: '请输入案号', trigger: 'blur' }],
-          caseName: [{ required: true, message: '请输入案件名称', trigger: 'blur' }],
-          accountName: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
-          accountType: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
-          initialBalance: [{ required: true, message: '请输入初始余额', trigger: 'blur' }],
+          caseName: [
+            { required: true, message: '请输入案件名称', trigger: 'blur' },
+          ],
+          accountName: [
+            { required: true, message: '请输入账户名称', trigger: 'blur' },
+          ],
+          accountType: [
+            { required: true, message: '请选择账户类型', trigger: 'change' },
+          ],
+          initialBalance: [
+            { required: true, message: '请输入初始余额', trigger: 'blur' },
+          ],
         }"
       >
         <el-form-item label="案号" prop="caseNo">
-          <el-select 
-            v-model="accountForm.caseNo" 
+          <el-select
+            v-model="accountForm.caseNo"
             placeholder="请选择案号"
             filterable
             allow-create
@@ -413,8 +431,8 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="案件名称" prop="caseName">
-          <el-select 
-            v-model="accountForm.caseName" 
+          <el-select
+            v-model="accountForm.caseName"
             placeholder="请选择案件名称"
             filterable
             allow-create
@@ -429,10 +447,16 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="账户名称" prop="accountName">
-          <el-input v-model="accountForm.accountName" placeholder="请输入账户名称" />
+          <el-input
+            v-model="accountForm.accountName"
+            placeholder="请输入账户名称"
+          />
         </el-form-item>
         <el-form-item label="账户类型" prop="accountType">
-          <el-select v-model="accountForm.accountType" placeholder="请选择账户类型">
+          <el-select
+            v-model="accountForm.accountType"
+            placeholder="请选择账户类型"
+          >
             <el-option
               v-for="option in accountTypeOptions"
               :key="option.value"
@@ -461,8 +485,8 @@ onMounted(() => {
           />
         </el-form-item>
         <el-form-item label="银行">
-          <el-select 
-            v-model="accountForm.bankName" 
+          <el-select
+            v-model="accountForm.bankName"
             placeholder="请选择银行"
             filterable
             allow-create
@@ -476,7 +500,10 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="银行账号">
-          <el-input v-model="accountForm.bankAccount" placeholder="请输入银行账号" />
+          <el-input
+            v-model="accountForm.bankAccount"
+            placeholder="请输入银行账号"
+          />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="accountForm.status" placeholder="请选择状态">

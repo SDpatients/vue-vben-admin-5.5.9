@@ -60,8 +60,6 @@ const flowTypeOptions = [
   { label: '支出', value: '支出' },
 ];
 
-
-
 // 获取流水列表
 const fetchFundFlows = async () => {
   loading.value = true;
@@ -94,17 +92,17 @@ const fetchAccounts = async () => {
       page: 1,
       size: 100,
     });
-    
+
     // 保存完整账户数据
     allAccounts.value = response.data.records;
-    
+
     // 生成账户选项
     accountOptions.value = allAccounts.value.map((account: any) => ({
       label: account.accountName,
       value: account.accountId,
       caseNo: account.caseNo,
     }));
-    
+
     // 生成案号列表（去重）
     const caseNoSet = new Set<string>();
     allAccounts.value.forEach((account: any) => {
@@ -112,7 +110,7 @@ const fetchAccounts = async () => {
         caseNoSet.add(account.caseNo);
       }
     });
-    caseNoOptions.value = Array.from(caseNoSet).map(caseNo => ({
+    caseNoOptions.value = Array.from(caseNoSet).map((caseNo) => ({
       label: caseNo,
       value: caseNo,
     }));
@@ -131,12 +129,15 @@ const fetchCategories = async () => {
     const response = await getFundCategoryListApi({});
     // 处理不同的响应格式
     let categories = [];
-    
+
     if (response && response.data) {
       if (Array.isArray(response.data)) {
         // 直接数组格式：{ "data": [ { "categoryId": 1, ... } ] }
         categories = response.data;
-      } else if (response.data.records && Array.isArray(response.data.records)) {
+      } else if (
+        response.data.records &&
+        Array.isArray(response.data.records)
+      ) {
         // 分页格式：{ "data": { "records": [ { "categoryId": 1, ... } ] } }
         categories = response.data.records;
       } else if (response.data.list && Array.isArray(response.data.list)) {
@@ -144,7 +145,7 @@ const fetchCategories = async () => {
         categories = response.data.list;
       }
     }
-    
+
     categoryOptions.value = categories;
   } catch (error) {
     ElMessage.error('获取分类列表失败');
@@ -155,30 +156,36 @@ const fetchCategories = async () => {
 
 // 根据流水类型过滤分类选项
 const getFilteredCategoryOptions = () => {
-  return categoryOptions.value.filter(category => 
-    category.categoryType === flowForm.flowType
-  ).map(category => ({
-    label: category.categoryName,
-    value: category.categoryId,
-  }));
+  return categoryOptions.value
+    .filter((category) => category.categoryType === flowForm.flowType)
+    .map((category) => ({
+      label: category.categoryName,
+      value: category.categoryId,
+    }));
 };
 
 // 根据账户ID获取账户名称
 const getAccountName = (accountId: number) => {
-  const account = accountOptions.value.find(option => option.value === accountId);
+  const account = accountOptions.value.find(
+    (option) => option.value === accountId,
+  );
   return account ? account.label : '未知账户';
 };
 
 // 根据分类ID获取分类名称
 const getCategoryName = (categoryId: number) => {
-  const category = categoryOptions.value.find(option => option.categoryId === categoryId);
+  const category = categoryOptions.value.find(
+    (option) => option.categoryId === categoryId,
+  );
   return category ? category.categoryName : '未知分类';
 };
 
 // 处理账户选择变化（搜索表单）
 const handleAccountChange = () => {
   if (searchForm.accountId) {
-    const selectedAccount = accountOptions.value.find(option => option.value === searchForm.accountId);
+    const selectedAccount = accountOptions.value.find(
+      (option) => option.value === searchForm.accountId,
+    );
     if (selectedAccount) {
       searchForm.caseNo = selectedAccount.caseNo;
     }
@@ -194,7 +201,9 @@ const handleCaseNoChange = () => {
 // 处理账户选择变化（新增表单）
 const handleFlowAccountChange = () => {
   if (flowForm.accountId) {
-    const selectedAccount = accountOptions.value.find(option => option.value === flowForm.accountId);
+    const selectedAccount = accountOptions.value.find(
+      (option) => option.value === flowForm.accountId,
+    );
     if (selectedAccount) {
       flowForm.caseNo = selectedAccount.caseNo;
     }
@@ -212,7 +221,7 @@ const getAvailableAccountOptions = (caseNo: string) => {
   if (!caseNo) {
     return accountOptions.value;
   }
-  return accountOptions.value.filter(option => option.caseNo === caseNo);
+  return accountOptions.value.filter((option) => option.caseNo === caseNo);
 };
 
 // 搜索
@@ -261,7 +270,7 @@ const resetForm = () => {
 // 保存流水
 const saveFlow = async () => {
   if (!formRef.value) return;
-  
+
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
       loading.value = true;
@@ -278,7 +287,11 @@ const saveFlow = async () => {
         dialogVisible.value = false;
         fetchFundFlows();
       } catch (error) {
-        ElMessage.error(flowForm.flowType === '收入' ? '资金流入记录失败' : '资金流出记录失败');
+        ElMessage.error(
+          flowForm.flowType === '收入'
+            ? '资金流入记录失败'
+            : '资金流出记录失败',
+        );
         console.error('保存资金流水失败:', error);
       } finally {
         loading.value = false;
@@ -407,11 +420,7 @@ onMounted(() => {
 
       <!-- 流水列表 -->
       <el-card shadow="hover" class="list-card">
-        <el-table
-          v-loading="loading"
-          :data="fundFlows"
-          style="width: 100%"
-        >
+        <el-table v-loading="loading" :data="fundFlows" style="width: 100%">
           <el-table-column type="index" label="序号" width="80" />
           <el-table-column prop="caseNo" label="案号" width="150" />
           <el-table-column prop="caseName" label="案件名称" width="200" />
@@ -436,31 +445,62 @@ onMounted(() => {
           </el-table-column>
           <el-table-column prop="amount" label="金额" width="150" align="right">
             <template #default="scope">
-              <span :class="scope.row.flowType === '收入' ? 'income-amount' : 'expense-amount'">
-                {{ scope.row.flowType === '收入' ? '+' : '-' }}{{ (scope.row.amount || 0).toFixed(2) }} 元
+              <span
+                :class="
+                  scope.row.flowType === '收入'
+                    ? 'income-amount'
+                    : 'expense-amount'
+                "
+              >
+                {{ scope.row.flowType === '收入' ? '+' : '-'
+                }}{{ (scope.row.amount || 0).toFixed(2) }} 元
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="balanceBefore" label="操作前余额" width="150" align="right">
+          <el-table-column
+            prop="balanceBefore"
+            label="操作前余额"
+            width="150"
+            align="right"
+          >
             <template #default="scope">
               {{ (scope.row.balanceBefore || 0).toFixed(2) }} 元
             </template>
           </el-table-column>
-          <el-table-column prop="balanceAfter" label="操作后余额" width="150" align="right">
+          <el-table-column
+            prop="balanceAfter"
+            label="操作后余额"
+            width="150"
+            align="right"
+          >
             <template #default="scope">
-              <span class="balance-text">{{ (scope.row.balanceAfter || 0).toFixed(2) }} 元</span>
+              <span class="balance-text"
+                >{{ (scope.row.balanceAfter || 0).toFixed(2) }} 元</span
+              >
             </template>
           </el-table-column>
           <el-table-column prop="transactionDate" label="交易日期" width="180">
             <template #default="scope">
-              {{ scope.row.transactionDate ? new Date(scope.row.transactionDate).toLocaleString('zh-CN') : '-' }}
+              {{
+                scope.row.transactionDate
+                  ? new Date(scope.row.transactionDate).toLocaleString('zh-CN')
+                  : '-'
+              }}
             </template>
           </el-table-column>
-          <el-table-column prop="description" label="交易描述" min-width="200" />
+          <el-table-column
+            prop="description"
+            label="交易描述"
+            min-width="200"
+          />
           <el-table-column prop="operator" label="操作人" width="100" />
           <el-table-column prop="operationTime" label="操作时间" width="180">
             <template #default="scope">
-              {{ scope.row.operationTime ? new Date(scope.row.operationTime).toLocaleString('zh-CN') : '-' }}
+              {{
+                scope.row.operationTime
+                  ? new Date(scope.row.operationTime).toLocaleString('zh-CN')
+                  : '-'
+              }}
             </template>
           </el-table-column>
           <el-table-column prop="relatedDocument" label="关联文档" width="150">
@@ -503,15 +543,21 @@ onMounted(() => {
         label-width="120px"
         :rules="{
           caseNo: [{ required: true, message: '请输入案号', trigger: 'blur' }],
-          accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
-          categoryId: [{ required: true, message: '请选择资金分类', trigger: 'change' }],
+          accountId: [
+            { required: true, message: '请选择账户', trigger: 'change' },
+          ],
+          categoryId: [
+            { required: true, message: '请选择资金分类', trigger: 'change' },
+          ],
           amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
-          transactionDate: [{ required: true, message: '请选择交易日期', trigger: 'change' }],
+          transactionDate: [
+            { required: true, message: '请选择交易日期', trigger: 'change' },
+          ],
         }"
       >
         <el-form-item label="案号" prop="caseNo">
-          <el-select 
-            v-model="flowForm.caseNo" 
+          <el-select
+            v-model="flowForm.caseNo"
             placeholder="请选择案号"
             @change="handleFlowCaseNoChange"
           >
@@ -524,8 +570,8 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="账户" prop="accountId">
-          <el-select 
-            v-model="flowForm.accountId" 
+          <el-select
+            v-model="flowForm.accountId"
             placeholder="请选择账户"
             @change="handleFlowAccountChange"
           >
@@ -583,7 +629,10 @@ onMounted(() => {
           />
         </el-form-item>
         <el-form-item label="关联文档">
-          <el-input v-model="flowForm.relatedDocument" placeholder="请输入关联文档路径或ID" />
+          <el-input
+            v-model="flowForm.relatedDocument"
+            placeholder="请输入关联文档路径或ID"
+          />
         </el-form-item>
       </el-form>
       <template #footer>

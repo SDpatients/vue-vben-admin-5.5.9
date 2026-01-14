@@ -187,7 +187,7 @@ onMounted(() => {
       <div class="api-info">
         <p>
           <strong>数据来源接口：</strong>
-          http://192.168.0.108:8081/api/web/SelectAllAFollow
+          http://192.168.0.108:8080/api/web/SelectAllAFollow
         </p>
         <p>
           <strong>参数：</strong>token=46f6aecb8e27d95780f18459be9c4807,

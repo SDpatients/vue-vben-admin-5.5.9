@@ -88,13 +88,17 @@ const editMemberFormData = reactive({
 const addTeamFormRules = {
   caseId: [{ required: true, message: '请选择案件', trigger: 'change' }],
   teamName: [{ required: true, message: '请输入团队名称', trigger: 'blur' }],
-  teamLeaderId: [{ required: true, message: '请选择团队负责人', trigger: 'change' }],
+  teamLeaderId: [
+    { required: true, message: '请选择团队负责人', trigger: 'change' },
+  ],
 };
 
 const addMemberFormRules = {
   userId: [{ required: true, message: '请选择工作人员', trigger: 'change' }],
   teamRole: [{ required: true, message: '请输入团队角色', trigger: 'blur' }],
-  permissionLevel: [{ required: true, message: '请选择权限级别', trigger: 'change' }],
+  permissionLevel: [
+    { required: true, message: '请选择权限级别', trigger: 'change' },
+  ],
 };
 
 const caseList = ref<{ label: string; value: string }[]>([]);
@@ -226,7 +230,7 @@ const fetchTeamLeaderList = async () => {
     // 这里需要根据实际情况获取管理人ID，暂时使用mock数据
     const administratorId = 1; // 实际应用中应该从当前用户或其他地方获取
     const data = await getUserByDeptIdApi(administratorId);
-    
+
     let staffList = [];
     if (data.data && Array.isArray(data.data)) {
       // 直接返回数组的响应结构
@@ -235,7 +239,7 @@ const fetchTeamLeaderList = async () => {
       // 包含data.list的响应结构
       staffList = data.data.list;
     }
-    
+
     teamLeaderList.value = staffList
       .filter((staff) => staff && staff.userId != null)
       .map((staff) => ({
@@ -295,7 +299,7 @@ const handleViewTeam = async (row: WorkTeamApi.WorkTeamInfo) => {
     currentTeam.value = data;
     teamMembers.value = data.members || [];
     activeTab.value = 'members';
-    
+
     if (row.teamLeaderId) {
       await fetchMemberList(row.teamLeaderId);
     }
@@ -311,7 +315,7 @@ const handleAddMember = () => {
     ElMessage.warning('请先选择一个工作团队');
     return;
   }
-  
+
   addMemberDialogVisible.value = true;
   Object.assign(addMemberFormData, {
     teamId: currentTeam.value.id,
@@ -399,11 +403,15 @@ const handleDeleteMember = async (row: WorkTeamApi.TeamMemberInfo) => {
 
 const handleDeleteTeam = async (row: WorkTeamApi.WorkTeamInfo) => {
   try {
-    await ElMessageBox.confirm('确定要删除该工作团队吗？删除后团队成员也将被删除。', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
+    await ElMessageBox.confirm(
+      '确定要删除该工作团队吗？删除后团队成员也将被删除。',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
 
     await deleteWorkTeamApi(row.id);
     ElMessage.success('工作团队删除成功');
@@ -477,8 +485,18 @@ onMounted(() => {
           </div>
 
           <ElTable v-loading="loading" :data="workTeamList" border stripe>
-            <ElTableColumn type="index" label="序号" width="60" align="center" />
-            <ElTableColumn prop="teamName" label="团队名称" width="150" align="center" />
+            <ElTableColumn
+              type="index"
+              label="序号"
+              width="60"
+              align="center"
+            />
+            <ElTableColumn
+              prop="teamName"
+              label="团队名称"
+              width="150"
+              align="center"
+            />
             <ElTableColumn
               prop="caseName"
               label="案件名称"
@@ -492,7 +510,12 @@ onMounted(() => {
               width="120"
               align="center"
             />
-            <ElTableColumn prop="memberCount" label="成员数量" width="100" align="center">
+            <ElTableColumn
+              prop="memberCount"
+              label="成员数量"
+              width="100"
+              align="center"
+            >
               <template #default="{ row }">
                 <span>{{ row.memberCount || 0 }}</span>
               </template>
@@ -503,9 +526,18 @@ onMounted(() => {
               min-width="200"
               show-overflow-tooltip
             />
-            <ElTableColumn prop="status" label="状态" width="100" align="center">
+            <ElTableColumn
+              prop="status"
+              label="状态"
+              width="100"
+              align="center"
+            >
               <template #default="{ row }">
-                <span :class="row.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-600'">
+                <span
+                  :class="
+                    row.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-600'
+                  "
+                >
                   {{ row.status === 'ACTIVE' ? '活跃' : '停用' }}
                 </span>
               </template>
@@ -516,13 +548,26 @@ onMounted(() => {
               width="180"
               align="center"
             />
-            <ElTableColumn label="操作" width="200" align="center" fixed="right">
+            <ElTableColumn
+              label="操作"
+              width="200"
+              align="center"
+              fixed="right"
+            >
               <template #default="{ row }">
-                <ElButton type="primary" size="small" @click="handleViewTeam(row)">
+                <ElButton
+                  type="primary"
+                  size="small"
+                  @click="handleViewTeam(row)"
+                >
                   <i class="i-lucide-users mr-1"></i>
                   查看成员
                 </ElButton>
-                <ElButton type="danger" size="small" @click="handleDeleteTeam(row)">
+                <ElButton
+                  type="danger"
+                  size="small"
+                  @click="handleDeleteTeam(row)"
+                >
                   <i class="i-lucide-trash-2 mr-1"></i>
                   删除
                 </ElButton>
@@ -548,9 +593,13 @@ onMounted(() => {
             <div class="rounded-lg bg-blue-50 p-4">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-lg font-semibold">{{ currentTeam.teamName }}</h3>
+                  <h3 class="text-lg font-semibold">
+                    {{ currentTeam.teamName }}
+                  </h3>
                   <p class="text-sm text-gray-600">
-                    案件：{{ currentTeam.caseName }} | 负责人：{{ currentTeam.teamLeaderName }}
+                    案件：{{ currentTeam.caseName }} | 负责人：{{
+                      currentTeam.teamLeaderName
+                    }}
                   </p>
                 </div>
                 <ElButton type="primary" @click="handleAddMember">
@@ -562,29 +611,74 @@ onMounted(() => {
           </div>
 
           <div v-else class="mb-4 rounded-lg bg-yellow-50 p-4 text-center">
-            <p class="text-yellow-700">请先从工作团队列表中选择一个团队查看工作人员</p>
+            <p class="text-yellow-700">
+              请先从工作团队列表中选择一个团队查看工作人员
+            </p>
           </div>
 
           <ElTable v-loading="membersLoading" :data="teamMembers" border stripe>
-            <ElTableColumn type="index" label="序号" width="60" align="center" />
-            <ElTableColumn prop="userName" label="用户名" width="120" align="center" />
-            <ElTableColumn prop="userRealName" label="真实姓名" width="120" align="center" />
-            <ElTableColumn prop="teamRole" label="团队角色" width="120" align="center" />
-            <ElTableColumn prop="permissionLevel" label="权限级别" width="100" align="center">
+            <ElTableColumn
+              type="index"
+              label="序号"
+              width="60"
+              align="center"
+            />
+            <ElTableColumn
+              prop="userName"
+              label="用户名"
+              width="120"
+              align="center"
+            />
+            <ElTableColumn
+              prop="userRealName"
+              label="真实姓名"
+              width="120"
+              align="center"
+            />
+            <ElTableColumn
+              prop="teamRole"
+              label="团队角色"
+              width="120"
+              align="center"
+            />
+            <ElTableColumn
+              prop="permissionLevel"
+              label="权限级别"
+              width="100"
+              align="center"
+            >
               <template #default="{ row }">
                 <span>{{ row.permissionLevel || 'VIEW' }}</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="isActive" label="激活状态" width="100" align="center">
+            <ElTableColumn
+              prop="isActive"
+              label="激活状态"
+              width="100"
+              align="center"
+            >
               <template #default="{ row }">
-                <span :class="row.isActive === 1 ? 'text-green-600' : 'text-gray-600'">
+                <span
+                  :class="
+                    row.isActive === 1 ? 'text-green-600' : 'text-gray-600'
+                  "
+                >
                   {{ row.isActive === 1 ? '已激活' : '未激活' }}
                 </span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="status" label="状态" width="100" align="center">
+            <ElTableColumn
+              prop="status"
+              label="状态"
+              width="100"
+              align="center"
+            >
               <template #default="{ row }">
-                <span :class="row.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-600'">
+                <span
+                  :class="
+                    row.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-600'
+                  "
+                >
                   {{ row.status === 'ACTIVE' ? '活跃' : '停用' }}
                 </span>
               </template>
@@ -595,13 +689,26 @@ onMounted(() => {
               width="180"
               align="center"
             />
-            <ElTableColumn label="操作" width="150" align="center" fixed="right">
+            <ElTableColumn
+              label="操作"
+              width="150"
+              align="center"
+              fixed="right"
+            >
               <template #default="{ row }">
-                <ElButton type="primary" size="small" @click="handleEditMember(row)">
+                <ElButton
+                  type="primary"
+                  size="small"
+                  @click="handleEditMember(row)"
+                >
                   <i class="i-lucide-edit mr-1"></i>
                   编辑
                 </ElButton>
-                <ElButton type="danger" size="small" @click="handleDeleteMember(row)">
+                <ElButton
+                  type="danger"
+                  size="small"
+                  @click="handleDeleteMember(row)"
+                >
                   <i class="i-lucide-trash-2 mr-1"></i>
                   删除
                 </ElButton>

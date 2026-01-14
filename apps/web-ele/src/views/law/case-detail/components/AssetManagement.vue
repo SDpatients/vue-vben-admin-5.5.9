@@ -345,11 +345,7 @@ const openDialog = () => {
   >
     <div class="asset-management-container">
       <ElRow :gutter="16" class="mb-4">
-        <ElCol
-          v-for="tab in tabs"
-          :key="tab.key"
-          :span="4"
-        >
+        <ElCol v-for="tab in tabs" :key="tab.key" :span="4">
           <ElCard
             :class="['asset-tab-card', { active: activeTab === tab.key }]"
             shadow="hover"
@@ -367,8 +363,11 @@ const openDialog = () => {
         <template #header>
           <div class="card-header">
             <div class="header-title">
-              <Icon :icon="tabs.find(t => t.key === activeTab)?.icon" class="mr-2" />
-              {{ tabs.find(t => t.key === activeTab)?.label }}
+              <Icon
+                :icon="tabs.find((t) => t.key === activeTab)?.icon"
+                class="mr-2"
+              />
+              {{ tabs.find((t) => t.key === activeTab)?.label }}
             </div>
             <ElButton type="primary" @click="handleAdd">
               <Icon icon="lucide:plus" class="mr-1" />
@@ -387,8 +386,13 @@ const openDialog = () => {
 
         <div v-else>
           <ElTable :data="currentList" stripe border>
-            <ElTableColumn type="index" label="序号" width="60" align="center" />
-            
+            <ElTableColumn
+              type="index"
+              label="序号"
+              width="60"
+              align="center"
+            />
+
             <ElTableColumn
               v-if="activeTab === 'property'"
               prop="propertyNo"
@@ -410,7 +414,7 @@ const openDialog = () => {
                 {{ getPropertyTypeLabel(row.propertyType) }}
               </template>
             </ElTableColumn>
-            
+
             <ElTableColumn
               v-if="activeTab === 'estate'"
               prop="estateNo"
@@ -429,7 +433,7 @@ const openDialog = () => {
               label="房产地址"
               min-width="200"
             />
-            
+
             <ElTableColumn
               v-if="activeTab === 'vehicle'"
               prop="vehicleNo"
@@ -448,7 +452,7 @@ const openDialog = () => {
               label="车牌号"
               min-width="120"
             />
-            
+
             <ElTableColumn
               v-if="activeTab === 'equipment'"
               prop="equipmentNo"
@@ -468,7 +472,7 @@ const openDialog = () => {
               min-width="80"
               align="center"
             />
-            
+
             <ElTableColumn
               v-if="activeTab === 'inventory'"
               prop="inventoryNo"
@@ -488,7 +492,7 @@ const openDialog = () => {
               min-width="100"
               align="center"
             />
-            
+
             <ElTableColumn
               v-if="activeTab === 'ip'"
               prop="ipNo"
@@ -507,7 +511,7 @@ const openDialog = () => {
               label="登记号"
               min-width="150"
             />
-            
+
             <ElTableColumn
               v-if="activeTab !== 'inventory'"
               label="当前价值"
@@ -518,7 +522,7 @@ const openDialog = () => {
                 {{ formatCurrency(row.currentValue) }}
               </template>
             </ElTableColumn>
-            
+
             <ElTableColumn
               v-if="activeTab === 'inventory'"
               label="总价值"
@@ -529,40 +533,49 @@ const openDialog = () => {
                 {{ formatCurrency(row.totalValue) }}
               </template>
             </ElTableColumn>
-            
-            <ElTableColumn
-              label="资产状态"
-              min-width="100"
-              align="center"
-            >
+
+            <ElTableColumn label="资产状态" min-width="100" align="center">
               <template #default="{ row }">
-                <ElTag :type="getPropertyStatusType(row.propertyStatus || row.estateStatus || row.vehicleStatus || row.equipmentStatus || row.inventoryStatus || row.ipStatus)">
-                  {{ getPropertyStatusLabel(row.propertyStatus || row.estateStatus || row.vehicleStatus || row.equipmentStatus || row.inventoryStatus || row.ipStatus) }}
+                <ElTag
+                  :type="
+                    getPropertyStatusType(
+                      row.propertyStatus ||
+                        row.estateStatus ||
+                        row.vehicleStatus ||
+                        row.equipmentStatus ||
+                        row.inventoryStatus ||
+                        row.ipStatus,
+                    )
+                  "
+                >
+                  {{
+                    getPropertyStatusLabel(
+                      row.propertyStatus ||
+                        row.estateStatus ||
+                        row.vehicleStatus ||
+                        row.equipmentStatus ||
+                        row.inventoryStatus ||
+                        row.ipStatus,
+                    )
+                  }}
                 </ElTag>
               </template>
             </ElTableColumn>
-            
-            <ElTableColumn
-              label="管理状态"
-              min-width="100"
-              align="center"
-            >
+
+            <ElTableColumn label="管理状态" min-width="100" align="center">
               <template #default="{ row }">
                 <ElTag :type="getManagementStatusType(row.managementStatus)">
                   {{ getManagementStatusLabel(row.managementStatus) }}
                 </ElTag>
               </template>
             </ElTableColumn>
-            
-            <ElTableColumn
-              label="创建时间"
-              min-width="150"
-            >
+
+            <ElTableColumn label="创建时间" min-width="150">
               <template #default="{ row }">
                 {{ formatDate(row.createTime) }}
               </template>
             </ElTableColumn>
-            
+
             <ElTableColumn
               label="操作"
               width="180"
@@ -591,13 +604,7 @@ const openDialog = () => {
                   @confirm="handleDelete(row)"
                 >
                   <template #reference>
-                    <ElButton
-                      type="danger"
-                      link
-                      size="small"
-                    >
-                      删除
-                    </ElButton>
+                    <ElButton type="danger" link size="small"> 删除 </ElButton>
                   </template>
                 </ElPopconfirm>
               </template>

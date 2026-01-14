@@ -57,7 +57,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const newTokens = resp.data;
       accessStore.setAccessToken(newTokens.accessToken);
       accessStore.setRefreshToken(newTokens.refreshToken);
-      
+
       const userInfo = {
         userId: newTokens.userId.toString(),
         username: newTokens.username,
@@ -70,7 +70,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
         roles: [],
       };
       authStore.userStore.setUserInfo(userInfo);
-      
+
       return newTokens.accessToken;
     }
     throw new Error('Failed to refresh token');

@@ -4,7 +4,7 @@
 
 ### 1.1 创建案件公告
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement`
 **请求方法**: POST
 **功能描述**: 创建新的案件公告
 
@@ -61,7 +61,7 @@
 
 ### 1.2 获取案件公告列表
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/list`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/list`
 **请求方法**: GET
 **功能描述**: 获取案件公告列表，支持分页和筛选
 
@@ -117,7 +117,7 @@
 
 ### 1.3 获取公告详情
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/{announcementId}`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/{announcementId}`
 **请求方法**: GET
 **功能描述**: 根据公告ID获取公告详情
 
@@ -166,7 +166,7 @@
 
 ### 1.4 更新案件公告
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/{announcementId}`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/{announcementId}`
 **请求方法**: PUT
 **功能描述**: 更新案件公告信息
 
@@ -209,7 +209,7 @@
 
 ### 1.5 发布公告
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/{announcementId}/publish`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/{announcementId}/publish`
 **请求方法**: POST
 **功能描述**: 发布案件公告，只有草稿状态的公告才能发布
 
@@ -254,7 +254,7 @@
 
 ### 1.6 置顶公告
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/{announcementId}/top`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/{announcementId}/top`
 **请求方法**: POST
 **功能描述**: 置顶案件公告
 
@@ -294,7 +294,7 @@
 
 ### 1.7 删除案件公告
 
-**API端点URL**: `http://localhost:8081/api/v1/case-announcement/{announcementId}`
+**API端点URL**: `http://localhost:8080/api/v1/case-announcement/{announcementId}`
 **请求方法**: DELETE
 **功能描述**: 删除案件公告，只有草稿状态的公告才能删除
 
@@ -335,7 +335,7 @@
 
 ### 2.1 创建公告查看记录
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record`
 **请求方法**: POST
 **功能描述**: 创建公告查看记录，同时更新公告的查看次数
 
@@ -404,7 +404,7 @@
 
 ### 2.2 获取公告查看记录详情
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/{recordId}`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/{recordId}`
 **请求方法**: GET
 **功能描述**: 根据记录ID获取公告查看记录详情
 
@@ -456,7 +456,7 @@
 
 ### 2.3 获取公告查看记录列表
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/list`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/list`
 **请求方法**: GET
 **功能描述**: 获取公告查看记录列表，支持分页和筛选
 
@@ -513,7 +513,7 @@
 
 ### 2.4 获取公告查看次数
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/count/announcement/{announcementId}`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/count/announcement/{announcementId}`
 **请求方法**: GET
 **功能描述**: 根据公告ID获取公告的查看次数
 
@@ -545,7 +545,7 @@
 
 ### 2.5 获取案件公告查看次数
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/count/case/{caseId}`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/count/case/{caseId}`
 **请求方法**: GET
 **功能描述**: 根据案件ID获取案件所有公告的查看次数
 
@@ -577,7 +577,7 @@
 
 ### 2.6 获取用户查看次数
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/count/viewer/{viewerId}`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/count/viewer/{viewerId}`
 **请求方法**: GET
 **功能描述**: 根据用户ID获取用户查看公告的次数
 
@@ -609,7 +609,7 @@
 
 ### 2.7 删除公告查看记录
 
-**API端点URL**: `http://localhost:8081/api/v1/announcement-view-record/{recordId}`
+**API端点URL**: `http://localhost:8080/api/v1/announcement-view-record/{recordId}`
 **请求方法**: DELETE
 **功能描述**: 根据记录ID删除公告查看记录
 
