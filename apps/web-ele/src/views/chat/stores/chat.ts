@@ -2,6 +2,23 @@ import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
+import {
+  getConversationsApi,
+  getConversationMessagesApi,
+  sendMessageApi,
+  recallMessageApi,
+  deleteMessageApi,
+  pinConversationApi,
+  deleteConversationApi,
+  markMessageAsReadApi,
+  markConversationAsReadApi,
+  getUnreadCountApi,
+  getConversationUnreadCountApi,
+  getOrCreateConversationApi,
+  getPinnedConversationsApi,
+  getUnpinnedConversationsApi,
+} from '../../../api/core/chat';
+
 
 
 interface Contact {
@@ -608,6 +625,26 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function setMessages(newMessages: ChatMessage[]) {
+    messages.value = newMessages.map(msg => ({
+      id: msg.id,
+      senderId: msg.senderId,
+      receiverId: msg.receiverId,
+      messageType: msg.messageType.toLowerCase() as 'file' | 'image' | 'system' | 'text',
+      content: msg.content,
+      fileUrl: msg.fileUrl,
+      fileName: msg.fileName,
+      fileSize: msg.fileSize,
+      thumbnailUrl: null,
+      isRecalled: msg.isRecalled || false,
+      recallTime: null,
+      readStatus: msg.messageStatus === 'READ',
+      timestamp: msg.createTime,
+      status: msg.messageStatus === 'SENT' ? 'sent' : 'failed',
+      createdAt: msg.createTime,
+    }));
+  }
+
   function markAsRead(contactId: number) {
     messages.value.forEach((msg) => {
       const currentUserId = getCurrentUserId();
@@ -634,39 +671,47 @@ export const useChatStore = defineStore('chat', () => {
     loading.value = true;
     error.value = null;
     try {
-      console.log('使用默认聊天会话数据，不调用API');
+      console.log('开始获取聊天会话列表...');
       
-      // 默认聊天会话数据
-      const defaultSessions = [
-        {
-          id: 1,
-          contactId: 2,
-          lastMessage: '你好，最近怎么样？',
-          unreadCount: 0,
-          isPinned: false,
-          lastActivityTime: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          contactId: 3,
-          lastMessage: '明天有时间吗？',
-          unreadCount: 2,
-          isPinned: true,
-          lastActivityTime: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-      ];
-
-      sessions.value = defaultSessions;
-      totalUnread.value = defaultSessions.reduce(
+      const currentUserId = userId || getCurrentUserId();
+      
+      const response = await getConversationsApi({
+        userId: currentUserId,
+      });
+      
+      if (response.code !== 200) {
+        throw new Error(response.message || '获取会话列表失败');
+      }
+      
+      console.log('获取会话列表成功:', response);
+      
+      const transformedSessions = response.data.map((conversation) => {
+        const contactId = conversation.userId1 === currentUserId ? conversation.userId2 : conversation.userId1;
+        const unreadCount = conversation.userId1 === currentUserId ? conversation.user1UnreadCount : conversation.user2UnreadCount;
+        const isPinned = conversation.userId1 === currentUserId ? conversation.user1Pinned : conversation.user2Pinned;
+        
+        return {
+          id: conversation.id,
+          contactId: contactId,
+          lastMessage: conversation.lastMessageContent || '',
+          unreadCount: unreadCount,
+          isPinned: isPinned,
+          lastActivityTime: conversation.lastMessageTime || '',
+          createdAt: conversation.createTime || '',
+        };
+      });
+      
+      sessions.value = transformedSessions;
+      totalUnread.value = transformedSessions.reduce(
         (sum, session) => sum + session.unreadCount,
         0,
       );
+      
+      console.log('会话列表更新完成，共', transformedSessions.length, '个会话');
     } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '获取聊天会话列表失败';
+      error.value = error_ instanceof Error ? error_.message : '获取聊天会话列表失败';
       console.error('获取聊天会话列表失败:', error_);
+      throw error_;
     } finally {
       loading.value = false;
     }
@@ -788,10 +833,14 @@ export const useChatStore = defineStore('chat', () => {
 
   async function deleteMessage(messageId: number, userId: number) {
     try {
-      await deleteMessageApi({
+      const response = await deleteMessageApi({
         userId,
         data: { messageId },
       });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '删除消息失败');
+      }
 
       messages.value = messages.value.filter((m) => m.id !== messageId);
     } catch (error_) {
@@ -862,10 +911,14 @@ export const useChatStore = defineStore('chat', () => {
 
   async function markConversationAsRead(conversationId: number, userId: number) {
     try {
-      await markConversationAsReadApi({
+      const response = await markConversationAsReadApi({
         userId,
         conversationId,
       });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '标记会话已读失败');
+      }
 
       const session = sessions.value.find((s) => s.id === conversationId);
       if (session) {
@@ -894,192 +947,145 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function searchMessages(params: {
-    conversationId: number;
-    keyword?: string;
-    senderId?: number;
-    messageType?: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
-    startTime?: string;
-    endTime?: string;
-    includeDeleted?: boolean;
-    includeRecalled?: boolean;
-    pageNum?: number;
-    pageSize?: number;
-  }) {
+  async function getOrCreateConversation(userId1: number, userId2: number) {
     try {
+      const response = await getOrCreateConversationApi({
+        userId1,
+        userId2,
+      });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '获取或创建会话失败');
+      }
+
+      const conversation = response.data;
       const currentUserId = getCurrentUserId();
-      const data = await searchMessagesApi({
-        userId: currentUserId,
-        data: params,
-      });
-
-      return data.records.map((msg) => ({
-        id: msg.id,
-        senderId: msg.senderId,
-        receiverId: msg.receiverId,
-        messageType: msg.messageType.toLowerCase() as
-          | 'file'
-          | 'image'
-          | 'system'
-          | 'text',
-        content: msg.content,
-        fileUrl: msg.fileUrl,
-        fileName: msg.fileName,
-        fileSize: msg.fileSize,
-        thumbnailUrl: null,
-        isRecalled: msg.isRecalled,
-        recallTime: null,
-        readStatus: msg.messageStatus === 'READ',
-        timestamp: msg.createTime,
-        status: msg.messageStatus === 'SENT' ? 'sent' : 'failed',
-        createdAt: msg.createTime,
-      }));
-    } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '搜索消息失败';
-      console.error('搜索消息失败:', error_);
-      throw error_;
-    }
-  }
-
-  async function replyMessage(params: {
-    senderId: number;
-    replyToMessageId: number;
-    receiverId: number;
-    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'VOICE' | 'VIDEO';
-    content?: string;
-    fileId?: number;
-    fileName?: string;
-    fileSize?: number;
-    fileUrl?: string;
-  }) {
-    try {
-      const message = await replyMessageApi({
-        senderId: params.senderId,
-        data: {
-          replyToMessageId: params.replyToMessageId,
-          receiverId: params.receiverId,
-          messageType: params.messageType,
-          content: params.content,
-          fileId: params.fileId,
-          fileName: params.fileName,
-          fileSize: params.fileSize,
-          fileUrl: params.fileUrl,
-        },
-      });
-
-      const chatMessage: ChatMessage = {
-        id: message.id,
-        senderId: message.senderId,
-        receiverId: message.receiverId,
-        messageType: message.messageType.toLowerCase() as
-          | 'file'
-          | 'image'
-          | 'system'
-          | 'text',
-        content: message.content,
-        fileUrl: message.fileUrl,
-        fileName: message.fileName,
-        fileSize: message.fileSize,
-        thumbnailUrl: null,
-        isRecalled: message.isRecalled,
-        recallTime: null,
-        readStatus: message.messageStatus === 'READ',
-        timestamp: message.createTime,
-        status: message.messageStatus === 'SENT' ? 'sent' : 'failed',
-        createdAt: message.createTime,
+      const contactId = conversation.userId1 === currentUserId ? conversation.userId2 : conversation.userId1;
+      const unreadCount = conversation.userId1 === currentUserId ? conversation.user1UnreadCount : conversation.user2UnreadCount;
+      const isPinned = conversation.userId1 === currentUserId ? conversation.user1Pinned : conversation.user2Pinned;
+      
+      const session: ChatSession = {
+        id: conversation.id,
+        contactId: contactId,
+        lastMessage: conversation.lastMessageContent || '',
+        unreadCount: unreadCount,
+        isPinned: isPinned,
+        lastActivityTime: conversation.lastMessageTime || '',
+        createdAt: conversation.createTime || '',
       };
 
-      addMessage(chatMessage);
-      return chatMessage;
+      addSession(session);
+      return session;
     } catch (error_) {
       error.value =
-        error_ instanceof Error ? error_.message : '回复消息失败';
-      console.error('回复消息失败:', error_);
+        error_ instanceof Error ? error_.message : '获取或创建会话失败';
+      console.error('获取或创建会话失败:', error_);
       throw error_;
     }
   }
 
-  async function forwardMessages(params: {
-    senderId: number;
-    targetConversationId: number;
-    targetReceiverId: number;
-    messageIds: number[];
-    forwardComment?: string;
-  }) {
-    try {
-      const messages = await forwardMessagesApi({
-        senderId: params.senderId,
-        data: {
-          targetConversationId: params.targetConversationId,
-          targetReceiverId: params.targetReceiverId,
-          messageIds: params.messageIds,
-          forwardComment: params.forwardComment,
-        },
-      });
-
-      return messages.map((msg) => ({
-        id: msg.id,
-        senderId: msg.senderId,
-        receiverId: msg.receiverId,
-        messageType: msg.messageType.toLowerCase() as
-          | 'file'
-          | 'image'
-          | 'system'
-          | 'text',
-        content: msg.content,
-        fileUrl: msg.fileUrl,
-        fileName: msg.fileName,
-        fileSize: msg.fileSize,
-        thumbnailUrl: null,
-        isRecalled: msg.isRecalled,
-        recallTime: null,
-        readStatus: msg.messageStatus === 'READ',
-        timestamp: msg.createTime,
-        status: msg.messageStatus === 'SENT' ? 'sent' : 'failed',
-        createdAt: msg.createTime,
-      }));
-    } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '转发消息失败';
-      console.error('转发消息失败:', error_);
-      throw error_;
-    }
-  }
-
-  async function fetchRecallConfig(userId?: number) {
+  async function fetchPinnedConversations(userId?: number) {
+    loading.value = true;
+    error.value = null;
     try {
       const currentUserId = userId || getCurrentUserId();
-      const config = await getRecallConfigApi({ userId: currentUserId });
-      return config;
+      
+      const response = await getPinnedConversationsApi({
+        userId: currentUserId,
+      });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '获取置顶会话失败');
+      }
+      
+      const transformedSessions = response.data.map((conversation) => {
+        const contactId = conversation.userId1 === currentUserId ? conversation.userId2 : conversation.userId1;
+        const unreadCount = conversation.userId1 === currentUserId ? conversation.user1UnreadCount : conversation.user2UnreadCount;
+        
+        return {
+          id: conversation.id,
+          contactId: contactId,
+          lastMessage: conversation.lastMessageContent || '',
+          unreadCount: unreadCount,
+          isPinned: true,
+          lastActivityTime: conversation.lastMessageTime || '',
+          createdAt: conversation.createTime || '',
+        };
+      });
+      
+      return transformedSessions;
     } catch (error_) {
-      error.value =
-        error_ instanceof Error ? error_.message : '获取撤回配置失败';
-      console.error('获取撤回配置失败:', error_);
+      error.value = error_ instanceof Error ? error_.message : '获取置顶会话失败';
+      console.error('获取置顶会话失败:', error_);
       throw error_;
+    } finally {
+      loading.value = false;
     }
   }
 
-  async function updateRecallConfig(data: {
-    configType: 'GLOBAL' | 'USER' | 'ROLE';
-    targetId?: number;
-    recallTimeLimit?: number;
-    allowRecall?: boolean;
-    maxRecallTimes?: number;
-    remark?: string;
-  }) {
+  async function fetchUnpinnedConversations(userId?: number) {
+    loading.value = true;
+    error.value = null;
     try {
-      await updateRecallConfigApi(data);
+      const currentUserId = userId || getCurrentUserId();
+      
+      const response = await getUnpinnedConversationsApi({
+        userId: currentUserId,
+      });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '获取未置顶会话失败');
+      }
+      
+      const transformedSessions = response.data.map((conversation) => {
+        const contactId = conversation.userId1 === currentUserId ? conversation.userId2 : conversation.userId1;
+        const unreadCount = conversation.userId1 === currentUserId ? conversation.user1UnreadCount : conversation.user2UnreadCount;
+        
+        return {
+          id: conversation.id,
+          contactId: contactId,
+          lastMessage: conversation.lastMessageContent || '',
+          unreadCount: unreadCount,
+          isPinned: false,
+          lastActivityTime: conversation.lastMessageTime || '',
+          createdAt: conversation.createTime || '',
+        };
+      });
+      
+      return transformedSessions;
+    } catch (error_) {
+      error.value = error_ instanceof Error ? error_.message : '获取未置顶会话失败';
+      console.error('获取未置顶会话失败:', error_);
+      throw error_;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function fetchConversationUnreadCount(conversationId: number, userId?: number) {
+    try {
+      const currentUserId = userId || getCurrentUserId();
+      const response = await getConversationUnreadCountApi({
+        userId: currentUserId,
+        conversationId,
+      });
+
+      if (response.code !== 200) {
+        throw new Error(response.message || '获取会话未读消息数失败');
+      }
+      
+      return response.data;
     } catch (error_) {
       error.value =
-        error_ instanceof Error ? error_.message : '更新撤回配置失败';
-      console.error('更新撤回配置失败:', error_);
+        error_ instanceof Error ? error_.message : '获取会话未读消息数失败';
+      console.error('获取会话未读消息数失败:', error_);
       throw error_;
     }
   }
 
   async function initializeData() {
     await fetchChatSessions();
+    await fetchUnreadCount();
   }
 
   function $reset() {
@@ -1119,13 +1125,12 @@ export const useChatStore = defineStore('chat', () => {
     markMessageAsRead,
     markConversationAsRead,
     fetchUnreadCount,
-    searchMessages,
-    replyMessage,
-    forwardMessages,
-    fetchRecallConfig,
-    updateRecallConfig,
+    getOrCreateConversation,
+    fetchPinnedConversations,
+    fetchUnpinnedConversations,
+    fetchConversationUnreadCount,
     initializeData,
-    initMockData,
+    setMessages,
     $reset,
   };
 });

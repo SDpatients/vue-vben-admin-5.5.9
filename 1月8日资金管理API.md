@@ -46,7 +46,7 @@
 ## 基础URL
 
 ```
-开发环境: http://localhost:8080/api
+开发环境: http://192.168.1.120:8080/api
 测试环境: http://test.example.com/api
 生产环境: http://prod.example.com/api
 ```

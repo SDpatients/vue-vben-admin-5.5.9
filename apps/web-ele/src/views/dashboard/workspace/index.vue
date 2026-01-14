@@ -365,7 +365,7 @@ onMounted(() => {
             <div class="case-search flex items-center">
               <input
                 v-model="searchKeyword"
-                type="text"
+                type="link"
                 placeholder="请输入案号"
                 class="case-search-input px-3 py-1 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 @keyup.enter="searchCases"

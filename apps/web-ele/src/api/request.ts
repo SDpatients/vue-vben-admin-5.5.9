@@ -57,9 +57,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const newTokens = resp.data;
       accessStore.setAccessToken(newTokens.accessToken);
       accessStore.setRefreshToken(newTokens.refreshToken);
-      accessStore.setAccessCodes(newTokens.permissions || []);
-      
-      // 更新用户信息
+
       const userInfo = {
         userId: newTokens.userId.toString(),
         username: newTokens.username,
@@ -70,10 +68,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
         token: newTokens.accessToken,
         refreshToken: newTokens.refreshToken,
         roles: [],
-        permissions: newTokens.permissions || [],
       };
       authStore.userStore.setUserInfo(userInfo);
-      
+
       return newTokens.accessToken;
     }
     throw new Error('Failed to refresh token');
@@ -158,7 +155,7 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export { createRequestClient };
 
 export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779',
+  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779/api/v1',
   {
     responseReturn: 'body',
   },
@@ -175,3 +172,11 @@ export const requestClient8085 = createRequestClient(
 export const fileUploadRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
 });
+
+// 资金管理API客户端，指向192.168.0.120:8080
+export const fundRequestClient = createRequestClient(
+  'http://192.168.0.120:8080/api',
+  {
+    responseReturn: 'body',
+  },
+);

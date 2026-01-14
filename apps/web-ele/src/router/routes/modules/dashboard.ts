@@ -51,15 +51,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'PermissionDoc',
-        path: '/permission-doc',
-        component: () => import('#/views/dashboard/permission-doc/index.vue'),
-        meta: {
-          icon: 'lucide:shield-check',
-          title: '权限说明',
-        },
-      },
-      {
         name: 'FileUploadTest',
         path: '/file-upload-test',
         component: () => import('#/views/test/file-upload-test.vue'),

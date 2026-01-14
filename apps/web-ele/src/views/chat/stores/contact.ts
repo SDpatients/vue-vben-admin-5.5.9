@@ -77,12 +77,25 @@ export const useContactStore = defineStore('contact', () => {
       
       console.log('/users API响应:', response);
       
-      if (response.code === 200 && response.data?.users) {
-        const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+      if (response.code === 200) {
+        console.log('API返回成功，code:', response.code);
+        console.log('API返回数据:', response.data);
         
-        const contactsData: Contact[] = response.data.users
-          .filter((user: User) => user.id !== currentUserId)
-          .map((user: User, index: number) => ({
+        if (response.data?.users) {
+          console.log('API返回用户列表，共', response.data.users.length, '个用户');
+          
+          const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+          console.log('当前用户ID:', currentUserId);
+          
+          // 输出原始用户列表
+          console.log('原始用户列表:', response.data.users);
+          
+          // 过滤掉当前用户
+          const filteredUsers = response.data.users.filter((user: User) => user.id !== currentUserId);
+          console.log('过滤后用户列表，共', filteredUsers.length, '个用户');
+          
+          // 转换为联系人数据
+          const contactsData: Contact[] = filteredUsers.map((user: User, index: number) => ({
             id: index + 1,
             userId: currentUserId,
             contactUserId: user.id,
@@ -100,20 +113,29 @@ export const useContactStore = defineStore('contact', () => {
             createdAt: user.createTime,
             updatedAt: user.updateTime,
           }));
-        
-        setContacts(contactsData);
-        console.log('联系人列表更新完成，共', contactsData.length, '个联系人');
+          
+          console.log('转换后联系人列表，共', contactsData.length, '个联系人');
+          
+          setContacts(contactsData);
+          console.log('联系人列表更新完成，共', contactsData.length, '个联系人');
+          console.log('contacts.value现在有', contacts.value.length, '个联系人');
+        } else {
+          console.warn('API返回数据中没有users字段');
+          setContacts([]);
+        }
       } else {
-        console.warn('获取用户列表失败，使用空数据');
+        console.warn('获取用户列表失败，code:', response.code, 'message:', response.message);
         setContacts([]);
       }
     } catch (error_) {
       const errorMessage = error_ instanceof Error ? error_.message : '获取联系人列表失败';
       error.value = errorMessage;
       console.error('获取联系人列表失败:', error_);
+      console.error('错误详情:', errorMessage);
       setContacts([]);
     } finally {
       loading.value = false;
+      console.log('fetchContacts函数执行完成');
     }
   }
 
@@ -131,57 +153,27 @@ export const useContactStore = defineStore('contact', () => {
     loading.value = true;
     error.value = null;
     try {
-      console.log('使用默认用户数据，不调用API');
+      console.log('开始调用 /users API...');
       
-      // 默认用户数据
-      const defaultUsers = [
-        {
-          id: 2,
-          username: 'user1',
-          realName: '默认联系人1',
-          mobile: '13800138001',
-          email: 'contact1@example.com',
-          phone: '',
-          isValid: '1',
-          status: 'ACTIVE',
-          loginType: '1',
-          lastLoginTime: null,
-          lastLoginIp: null,
-          loginCount: 0,
-          createTime: new Date().toISOString(),
-          updateTime: new Date().toISOString()
-        },
-        {
-          id: 3,
-          username: 'user2',
-          realName: '默认联系人2',
-          mobile: '13800138002',
-          email: 'contact2@example.com',
-          phone: '',
-          isValid: '1',
-          status: 'ACTIVE',
-          loginType: '1',
-          lastLoginTime: null,
-          lastLoginIp: null,
-          loginCount: 0,
-          createTime: new Date().toISOString(),
-          updateTime: new Date().toISOString()
-        }
-      ];
+      // 使用真实API调用，设置size为100以获取尽量多的用户
+      const response = await userApi.getAllUsers({
+        ...params,
+        size: params?.size || 100,
+        sortField: params?.sortField || 'createTime',
+        sortOrder: params?.sortOrder || 'DESC',
+      });
       
-      users.value = defaultUsers;
-      console.log('💾 更新 users 列表，共', defaultUsers.length, '个用户');
+      console.log('✅ API调用成功，返回数据:', response);
       
-      // 返回符合UserListResponse格式的数据
-      const response = {
-        total: defaultUsers.length,
-        page: params?.page || 1,
-        size: params?.size || 10,
-        totalPages: 1,
-        users: defaultUsers
-      };
+      if (response.code === 200 && response.data?.users) {
+        users.value = response.data.users;
+        console.log('💾 更新 users 列表，共', response.data.users.length, '个用户');
+      } else {
+        console.warn('⚠️ API返回异常，使用空数据');
+        users.value = [];
+      }
       
-      return response;
+      return response.data;
     } catch (error_) {
       const errorMessage = error_ instanceof Error ? error_.message : '获取用户列表失败';
       error.value = errorMessage;

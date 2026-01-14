@@ -32,10 +32,9 @@ import ReviewModal from './components/ReviewModal.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
-const permissions = computed(() => accessStore.accessCodes || []);
 const currentUserId = computed(() => {
   const userId = userStore.userInfo?.userId;
-  return userId ? parseInt(userId, 10) : 0;
+  return userId ? Number.parseInt(userId, 10) : 0;
 });
 
 // 响应式数据
@@ -51,7 +50,9 @@ const pagination = ref({
 });
 
 // 确保表格数据始终为数组
-const safeCaseList = computed(() => Array.isArray(caseList.value) ? caseList.value : []);
+const safeCaseList = computed(() =>
+  Array.isArray(caseList.value) ? caseList.value : [],
+);
 
 // 标签页控制
 const activeTab = ref('allCases');
@@ -124,57 +125,57 @@ const generateMockData = () => {
   const mockCases: CaseApi.CaseInfo[] = [
     {
       id: 1,
-      案号: "（2024）沪02破1号",
-      案由: "经营困难",
-      案件名称: "上海某实业公司破产重整案",
-      案件来源: "债权人申请",
-      案件进度: "第二阶段",
-      受理法院: "上海市第二中级人民法院",
-      主要负责人: "陈律师",
-      管理人: "上海某会计师事务所",
-      是否简化审: "是",
-      创建者: "系统管理员",
-      创建时间: "2024-05-10T10:00:00",
-      修改时间: "2024-05-10T10:00:00",
-      案件状态: "进行中",
-      指定法官: "孙法官",
-      承办人: "陈律师",
+      案号: '（2024）沪02破1号',
+      案由: '经营困难',
+      案件名称: '上海某实业公司破产重整案',
+      案件来源: '债权人申请',
+      案件进度: '第二阶段',
+      受理法院: '上海市第二中级人民法院',
+      主要负责人: '陈律师',
+      管理人: '上海某会计师事务所',
+      是否简化审: '是',
+      创建者: '系统管理员',
+      创建时间: '2024-05-10T10:00:00',
+      修改时间: '2024-05-10T10:00:00',
+      案件状态: '进行中',
+      指定法官: '孙法官',
+      承办人: '陈律师',
     } as CaseApi.CaseInfo,
     {
       id: 2,
-      案号: "（2024）京01破2号",
-      案由: "资不抵债",
-      案件名称: "北京某科技公司破产清算案",
-      案件来源: "债务人申请",
-      案件进度: "第一阶段",
-      受理法院: "北京市第一中级人民法院",
-      主要负责人: "李律师",
-      管理人: "北京某律师事务所",
-      是否简化审: "否",
-      创建者: "系统管理员",
-      创建时间: "2024-06-20T14:30:00",
-      修改时间: "2024-06-20T14:30:00",
-      案件状态: "进行中",
-      指定法官: "王法官",
-      承办人: "李律师",
+      案号: '（2024）京01破2号',
+      案由: '资不抵债',
+      案件名称: '北京某科技公司破产清算案',
+      案件来源: '债务人申请',
+      案件进度: '第一阶段',
+      受理法院: '北京市第一中级人民法院',
+      主要负责人: '李律师',
+      管理人: '北京某律师事务所',
+      是否简化审: '否',
+      创建者: '系统管理员',
+      创建时间: '2024-06-20T14:30:00',
+      修改时间: '2024-06-20T14:30:00',
+      案件状态: '进行中',
+      指定法官: '王法官',
+      承办人: '李律师',
     } as CaseApi.CaseInfo,
     {
       id: 3,
-      案号: "（2024）粤03破3号",
-      案由: "经营不善",
-      案件名称: "深圳某贸易公司破产和解案",
-      案件来源: "债权人申请",
-      案件进度: "第三阶段",
-      受理法院: "深圳市中级人民法院",
-      主要负责人: "张律师",
-      管理人: "深圳某破产清算有限公司",
-      是否简化审: "是",
-      创建者: "系统管理员",
-      创建时间: "2024-07-25T09:15:00",
-      修改时间: "2024-07-25T09:15:00",
-      案件状态: "进行中",
-      指定法官: "刘法官",
-      承办人: "张律师",
+      案号: '（2024）粤03破3号',
+      案由: '经营不善',
+      案件名称: '深圳某贸易公司破产和解案',
+      案件来源: '债权人申请',
+      案件进度: '第三阶段',
+      受理法院: '深圳市中级人民法院',
+      主要负责人: '张律师',
+      管理人: '深圳某破产清算有限公司',
+      是否简化审: '是',
+      创建者: '系统管理员',
+      创建时间: '2024-07-25T09:15:00',
+      修改时间: '2024-07-25T09:15:00',
+      案件状态: '进行中',
+      指定法官: '刘法官',
+      承办人: '张律师',
     } as CaseApi.CaseInfo,
   ];
 
@@ -222,60 +223,62 @@ const fetchCaseList = async () => {
       const mappedCases = response.data.list.map((item: any) => {
         // 映射案件进度
         const caseProgressMap: Record<string, string> = {
-          'FIRST': '第一阶段',
-          'SECOND': '第二阶段',
-          'THIRD': '第三阶段',
-          'FOURTH': '第四阶段',
-          'FIFTH': '第五阶段',
-          'SIXTH': '第六阶段',
-          'SEVENTH': '第七阶段',
+          FIRST: '第一阶段',
+          SECOND: '第二阶段',
+          THIRD: '第三阶段',
+          FOURTH: '第四阶段',
+          FIFTH: '第五阶段',
+          SIXTH: '第六阶段',
+          SEVENTH: '第七阶段',
         };
 
         // 映射案件状态
         const caseStatusMap: Record<string, string> = {
-          'PENDING': '待处理',
-          'IN_PROGRESS': '进行中',
-          'COMPLETED': '已完成',
-          'CLOSED': '已结案',
-          'TERMINATED': '已终结',
-          'ARCHIVED': '已归档',
+          PENDING: '待处理',
+          IN_PROGRESS: '进行中',
+          COMPLETED: '已完成',
+          CLOSED: '已结案',
+          TERMINATED: '已终结',
+          ARCHIVED: '已归档',
         };
 
         // 映射审核状态
         const reviewStatusMap: Record<string, string> = {
-          'PENDING': '待审核',
-          'APPROVED': '已通过',
-          'REJECTED': '已驳回',
+          PENDING: '待审核',
+          APPROVED: '已通过',
+          REJECTED: '已驳回',
         };
 
         return {
-          'id': item.id,
-          '案号': item.caseNumber,
-          '案由': item.caseReason,
-          '案件名称': item.caseName,
-          '案件来源': item.caseSource,
-          '案件进度': caseProgressMap[item.caseProgress] || item.caseProgress,
-          '受理法院': item.acceptanceCourt,
-          '主要负责人': item.mainResponsiblePerson,
-          '管理人': item.designatedInstitution,
-          '是否简化审': item.isSimplifiedTrial ? '是' : '否',
-          '创建者': item.creatorName,
-          '创建时间': item.createTime,
-          '修改时间': item.updateTime,
-          '案件状态': caseStatusMap[item.caseStatus] || item.caseStatus,
-          '指定法官': item.designatedJudge,
-          '承办人': item.undertakingPersonnel,
-          '审核状态': reviewStatusMap[item.reviewStatus] || item.reviewStatus,
-          '审核时间': item.reviewTime,
-          '审核意见': item.reviewOpinion,
-          '审核次数': item.reviewCount,
+          id: item.id,
+          案号: item.caseNumber,
+          案由: item.caseReason,
+          案件名称: item.caseName,
+          案件来源: item.caseSource,
+          案件进度: caseProgressMap[item.caseProgress] || item.caseProgress,
+          受理法院: item.acceptanceCourt,
+          主要负责人: item.mainResponsiblePerson,
+          管理人: item.designatedInstitution,
+          是否简化审: item.isSimplifiedTrial ? '是' : '否',
+          创建者: item.creatorName,
+          创建时间: item.createTime,
+          修改时间: item.updateTime,
+          案件状态: caseStatusMap[item.caseStatus] || item.caseStatus,
+          指定法官: item.designatedJudge,
+          承办人: item.undertakingPersonnel,
+          审核状态: reviewStatusMap[item.reviewStatus] || item.reviewStatus,
+          审核时间: item.reviewTime,
+          审核意见: item.reviewOpinion,
+          审核次数: item.reviewCount,
         };
       });
 
       caseList.value = mappedCases;
       pagination.value.itemCount = response.data.total || 0;
-      pagination.value.pages = Math.ceil(pagination.value.itemCount / pagination.value.pageSize);
-      
+      pagination.value.pages = Math.ceil(
+        pagination.value.itemCount / pagination.value.pageSize,
+      );
+
       if (mappedCases.length > 0) {
         ElMessage.success(`成功加载 ${mappedCases.length} 条案件记录`);
       }
@@ -381,23 +384,23 @@ const getCaseProgressType = (progress: string) => {
 // 获取案件状态标签类型
 const getCaseStatusType = (status: string) => {
   switch (status) {
+    case '已完成': {
+      return 'success';
+    }
+    case '已归档': {
+      return 'info';
+    }
+    case '已终结': {
+      return 'warning';
+    }
+    case '已结案': {
+      return 'success';
+    }
     case '待处理': {
       return 'info';
     }
     case '进行中': {
       return 'primary';
-    }
-    case '已完成': {
-      return 'success';
-    }
-    case '已结案': {
-      return 'success';
-    }
-    case '已终结': {
-      return 'warning';
-    }
-    case '已归档': {
-      return 'info';
     }
     default: {
       return 'info';
@@ -408,14 +411,14 @@ const getCaseStatusType = (status: string) => {
 // 获取审核状态标签类型
 const getReviewStatusType = (status: string) => {
   switch (status) {
-    case '待审核': {
-      return 'warning';
-    }
     case '已通过': {
       return 'success';
     }
     case '已驳回': {
       return 'danger';
+    }
+    case '待审核': {
+      return 'warning';
     }
     default: {
       return 'info';
@@ -439,17 +442,9 @@ const showReviewModal = (row: CaseApi.CaseInfo) => {
   reviewModalVisible.value = true;
 };
 
-// 检查是否有权限
-const hasPermission = (perm: string | string[]) => {
-  if (Array.isArray(perm)) {
-    return perm.some((p) => permissions.value.includes(p));
-  }
-  return permissions.value.includes(perm);
-};
-
 // 检查是否可以审核
 const canReview = (row: CaseApi.CaseInfo) => {
-  return hasPermission('case:review');
+  return true;
 };
 </script>
 
@@ -460,11 +455,7 @@ const canReview = (row: CaseApi.CaseInfo) => {
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">案件管理</span>
           <div class="flex items-center space-x-2">
-            <ElButton
-              v-permission="'case:add'"
-              type="primary"
-              @click="router.push('/case-add')"
-            >
+            <ElButton type="primary" @click="router.push('/case-add')">
               <i class="i-lucide-plus mr-1"></i>
               新增案件
             </ElButton>
@@ -785,10 +776,7 @@ const canReview = (row: CaseApi.CaseInfo) => {
               show-overflow-tooltip
             >
               <template #default="{ row }">
-                <ElTag
-                  :type="getCaseStatusType(row['案件状态'])"
-                  size="small"
-                >
+                <ElTag :type="getCaseStatusType(row['案件状态'])" size="small">
                   {{ row['案件状态'] || '未设置' }}
                 </ElTag>
               </template>

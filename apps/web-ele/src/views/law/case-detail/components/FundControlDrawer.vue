@@ -24,13 +24,16 @@ import {
 } from 'element-plus';
 
 import {
-  getFundAccountListApi,
-  addFundAccountApi,
-  updateFundAccountApi,
-  updateFundAccountStatusApi,
-  getFundFlowListApi,
-  addFundInflowApi,
-  addFundOutflowApi,
+  getFundAccountList,
+  createFundAccount,
+  updateFundAccount,
+  updateFundAccountStatus,
+} from '#/api/core/fund-account';
+import {
+  getFundFlowList,
+  createFundFlow,
+} from '#/api/core/fund-flow';
+import {
   getFundCategoryListApi,
 } from '#/api/core/fund';
 
@@ -119,20 +122,20 @@ const accountForm = reactive({
   currentBalance: 0,
   bankName: '',
   bankAccount: '',
-  status: '正常',
+  status: 'ACTIVE',
   createUser: 'admin',
   updateUser: 'admin',
 });
 
 const accountTypeOptions = [
-  { label: '基本账户', value: '基本账户' },
-  { label: '专用账户', value: '专用账户' },
-  { label: '临时账户', value: '临时账户' },
+  { label: '基本户', value: '基本户' },
+  { label: '一般户', value: '一般户' },
+  { label: '专用户', value: '专用户' },
 ];
 
 const statusOptions = [
-  { label: '正常', value: '正常' },
-  { label: '冻结', value: '冻结' },
+  { label: '正常', value: 'ACTIVE' },
+  { label: '冻结', value: 'INACTIVE' },
 ];
 
 const bankOptions = [
@@ -147,15 +150,14 @@ const bankOptions = [
 const fetchFundAccounts = async () => {
   accountLoading.value = true;
   try {
-    const response = await getFundAccountListApi({
-      page: accountCurrentPage.value,
-      size: accountPageSize.value,
-      caseNo: props.caseNo,
-      caseName: props.caseName,
-      accountName: accountSearchForm.accountName,
+    const response = await getFundAccountList({
+      pageNum: accountCurrentPage.value,
+      pageSize: accountPageSize.value,
+      caseId: Number(props.caseId),
+      status: 'ACTIVE',
     });
-    fundAccounts.value = response.data.records;
-    accountTotal.value = response.data.count;
+    fundAccounts.value = response.data.list;
+    accountTotal.value = response.data.total;
   } catch (error) {
     ElMessage.error('获取账户列表失败');
     console.error('获取账户列表失败:', error);
@@ -205,7 +207,7 @@ const resetAccountForm = () => {
     currentBalance: 0,
     bankName: '',
     bankAccount: '',
-    status: '正常',
+    status: 'ACTIVE',
     createUser: 'admin',
     updateUser: 'admin',
   });
@@ -219,10 +221,27 @@ const saveAccount = async () => {
       accountLoading.value = true;
       try {
         if (accountEditMode.value) {
-          await updateFundAccountApi(accountForm);
+          await updateFundAccount(accountForm.accountId, {
+            accountId: accountForm.accountId,
+            caseId: Number(props.caseId),
+            caseName: accountForm.caseName,
+            accountName: accountForm.accountName,
+            accountType: accountForm.accountType,
+            bankName: accountForm.bankName,
+            bankAccount: accountForm.bankAccount,
+          });
           ElMessage.success('账户更新成功');
         } else {
-          await addFundAccountApi(accountForm);
+          await createFundAccount({
+            accountId: accountForm.accountId || 0,
+            caseId: Number(props.caseId),
+            caseName: accountForm.caseName,
+            accountName: accountForm.accountName,
+            accountType: accountForm.accountType,
+            initialBalance: accountForm.initialBalance,
+            bankName: accountForm.bankName,
+            bankAccount: accountForm.bankAccount,
+          });
           ElMessage.success('账户新增成功');
         }
         accountDialogVisible.value = false;
@@ -238,8 +257,8 @@ const saveAccount = async () => {
 };
 
 const handleAccountStatusChange = async (account: any) => {
-  const newStatus = account.status === '正常' ? '冻结' : '正常';
-  const actionText = newStatus === '冻结' ? '冻结' : '解冻';
+  const newStatus = account.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  const actionText = newStatus === 'INACTIVE' ? '冻结' : '解冻';
   
   try {
     await ElMessageBox.confirm(
@@ -253,7 +272,7 @@ const handleAccountStatusChange = async (account: any) => {
     );
     
     accountLoading.value = true;
-    await updateFundAccountStatusApi(account.accountId, newStatus);
+    await updateFundAccountStatus(account.id, { status: newStatus });
     ElMessage.success(`账户${actionText}成功`);
     fetchFundAccounts();
   } catch (error) {
@@ -299,7 +318,7 @@ const flowFormRef = ref();
 const flowForm = reactive({
   caseNo: props.caseNo,
   accountId: '',
-  flowType: '收入',
+  flowType: 'INCOME',
   categoryId: '',
   amount: 0,
   transactionDate: new Date().toISOString().slice(0, 16),
@@ -309,24 +328,30 @@ const flowForm = reactive({
 });
 
 const flowTypeOptions = [
-  { label: '收入', value: '收入' },
-  { label: '支出', value: '支出' },
+  { label: '收入', value: 'INCOME' },
+  { label: '支出', value: 'EXPENSE' },
 ];
 
 const fetchFundFlows = async () => {
   flowLoading.value = true;
   try {
-    const response = await getFundFlowListApi({
-      page: flowCurrentPage.value,
-      size: flowPageSize.value,
-      caseNo: props.caseNo,
-      accountId: flowSearchForm.accountId,
-      flowType: flowSearchForm.flowType,
-      startDate: flowSearchForm.startDate,
-      endDate: flowSearchForm.endDate,
+    let flowTypeParam;
+    if (flowSearchForm.flowType === 'INCOME') {
+      flowTypeParam = 'INCOME';
+    } else if (flowSearchForm.flowType === 'EXPENSE') {
+      flowTypeParam = 'EXPENSE';
+    }
+
+    const response = await getFundFlowList({
+      pageNum: flowCurrentPage.value,
+      pageSize: flowPageSize.value,
+      caseId: Number(props.caseId),
+      accountId: flowSearchForm.accountId ? Number(flowSearchForm.accountId) : undefined,
+      flowType: flowTypeParam,
+      status: 'ACTIVE',
     });
-    fundFlows.value = response.data.records;
-    flowTotal.value = response.data.count;
+    fundFlows.value = response.data.list;
+    flowTotal.value = response.data.total;
   } catch (error) {
     ElMessage.error('获取资金流水列表失败');
     console.error('获取资金流水列表失败:', error);
@@ -339,18 +364,19 @@ const fetchFundFlows = async () => {
 
 const fetchAccounts = async () => {
   try {
-    const response = await getFundAccountListApi({
-      page: 1,
-      size: 100,
-      caseNo: props.caseNo,
+    const response = await getFundAccountList({
+      pageNum: 1,
+      pageSize: 100,
+      caseId: Number(props.caseId),
+      status: 'ACTIVE',
     });
     
-    allAccounts.value = response.data.records;
+    allAccounts.value = response.data.list;
     
     accountOptions.value = allAccounts.value.map((account: any) => ({
       label: account.accountName,
-      value: account.accountId,
-      caseNo: account.caseNo,
+      value: account.id,
+      caseNo: account.caseName,
     }));
   } catch (error) {
     ElMessage.error('获取账户列表失败');
@@ -426,7 +452,7 @@ const handleFlowReset = () => {
 };
 
 const openAddFlowDialog = (flowType: string) => {
-  flowDialogTitle.value = flowType === '收入' ? '新增资金流入' : '新增资金流出';
+  flowDialogTitle.value = flowType === 'INCOME' ? '新增资金流入' : '新增资金流出';
   resetFlowForm();
   flowForm.flowType = flowType;
   flowDialogVisible.value = true;
@@ -439,7 +465,7 @@ const resetFlowForm = () => {
   Object.assign(flowForm, {
     caseNo: props.caseNo,
     accountId: '',
-    flowType: '收入',
+    flowType: 'INCOME',
     categoryId: '',
     amount: 0,
     transactionDate: new Date().toISOString().slice(0, 16),
@@ -456,18 +482,31 @@ const saveFlow = async () => {
     if (valid) {
       flowLoading.value = true;
       try {
-        if (flowForm.flowType === '收入') {
-          await addFundInflowApi(flowForm);
-          ElMessage.success('资金流入记录成功');
-        } else {
-          await addFundOutflowApi(flowForm);
-          ElMessage.success('资金流出记录成功');
-        }
+        const account = allAccounts.value.find((a: any) => a.id === flowForm.accountId);
+        const balanceBefore = account ? account.currentBalance : 0;
+        const balanceAfter = flowForm.flowType === '收入' 
+          ? balanceBefore + flowForm.amount 
+          : balanceBefore - flowForm.amount;
+
+        await createFundFlow({
+          caseId: Number(props.caseId),
+          caseName: props.caseName,
+          accountId: Number(flowForm.accountId),
+          flowType: flowForm.flowType === '收入' ? 'INCOME' : 'EXPENSE',
+          amount: flowForm.amount,
+          balanceBefore,
+          balanceAfter,
+          transactionDate: new Date(flowForm.transactionDate).toISOString(),
+          description: flowForm.description,
+          relatedDocument: flowForm.relatedDocument,
+          remark: flowForm.remark || '',
+        });
+        ElMessage.success('资金流水记录成功');
         flowDialogVisible.value = false;
         fetchFundFlows();
         fetchFundAccounts();
       } catch (error) {
-        ElMessage.error(flowForm.flowType === '收入' ? '资金流入记录失败' : '资金流出记录失败');
+        ElMessage.error('资金流水记录失败');
         console.error('保存资金流水失败:', error);
       } finally {
         flowLoading.value = false;
@@ -559,9 +598,9 @@ onMounted(() => {
                 <ElTableColumn prop="status" label="状态" width="100">
                   <template #default="scope">
                     <ElTag
-                      :type="scope.row.status === '正常' ? 'success' : 'warning'"
+                      :type="scope.row.status === 'ACTIVE' ? 'success' : 'warning'"
                     >
-                      {{ scope.row.status }}
+                      {{ scope.row.status === 'ACTIVE' ? '正常' : '冻结' }}
                     </ElTag>
                   </template>
                 </ElTableColumn>
@@ -580,12 +619,12 @@ onMounted(() => {
                       编辑
                     </ElButton>
                     <ElButton
-                      :type="scope.row.status === '正常' ? 'warning' : 'success'"
+                      :type="scope.row.status === 'ACTIVE' ? 'warning' : 'success'"
                       size="small"
                       @click="handleAccountStatusChange(scope.row)"
                       style="margin-left: 8px"
                     >
-                      {{ scope.row.status === '正常' ? '冻结' : '解冻' }}
+                      {{ scope.row.status === 'ACTIVE' ? '冻结' : '解冻' }}
                     </ElButton>
                   </template>
                 </ElTableColumn>
@@ -665,11 +704,11 @@ onMounted(() => {
                     <Icon icon="lucide:refresh-cw" class="mr-1" />
                     重置
                   </ElButton>
-                  <ElButton type="success" @click="openAddFlowDialog('收入')">
+                  <ElButton type="success" @click="openAddFlowDialog('INCOME')">
                     <Icon icon="lucide:plus" class="mr-1" />
                     资金流入
                   </ElButton>
-                  <ElButton type="warning" @click="openAddFlowDialog('支出')">
+                  <ElButton type="warning" @click="openAddFlowDialog('EXPENSE')">
                     <Icon icon="lucide:minus" class="mr-1" />
                     资金流出
                   </ElButton>
@@ -692,9 +731,9 @@ onMounted(() => {
                 <ElTableColumn prop="flowType" label="流水类型" width="100">
                   <template #default="scope">
                     <ElTag
-                      :type="scope.row.flowType === '收入' ? 'success' : 'warning'"
+                      :type="scope.row.flowType === 'INCOME' ? 'success' : 'warning'"
                     >
-                      {{ scope.row.flowType }}
+                      {{ scope.row.flowType === 'INCOME' ? '收入' : '支出' }}
                     </ElTag>
                   </template>
                 </ElTableColumn>
@@ -705,8 +744,8 @@ onMounted(() => {
                 </ElTableColumn>
                 <ElTableColumn prop="amount" label="金额" width="150" align="right">
                   <template #default="scope">
-                    <span :class="scope.row.flowType === '收入' ? 'income-amount' : 'expense-amount'">
-                      {{ scope.row.flowType === '收入' ? '+' : '-' }}{{ formatAmount(scope.row.amount) }} 元
+                    <span :class="scope.row.flowType === 'INCOME' ? 'income-amount' : 'expense-amount'">
+                      {{ scope.row.flowType === 'INCOME' ? '+' : '-' }}{{ formatAmount(scope.row.amount) }} 元
                     </span>
                   </template>
                 </ElTableColumn>

@@ -26,7 +26,7 @@
 ## 基础URL
 
 ```
-http://localhost:8081/api/v1
+http://localhost:8080/api/v1
 ```
 
 生产环境请替换为实际的服务器地址。
@@ -87,7 +87,7 @@ Authorization: Bearer {token}
 #### 请求示例
 
 ```bash
-curl -X POST "http://localhost:8081/api/v1/file/upload" \
+curl -X POST "http://localhost:8080/api/v1/file/upload" \
   -F "file=@test.txt" \
   -F "bizType=case" \
   -F "bizId=1"
@@ -145,7 +145,7 @@ curl -X POST "http://localhost:8081/api/v1/file/upload" \
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8081/api/v1/file/download/1" \
+curl -X GET "http://localhost:8080/api/v1/file/download/1" \
   --output downloaded_file.txt
 ```
 
@@ -180,7 +180,7 @@ curl -X GET "http://localhost:8081/api/v1/file/download/1" \
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8081/api/v1/file/1"
+curl -X GET "http://localhost:8080/api/v1/file/1"
 ```
 
 #### 响应示例
@@ -237,7 +237,7 @@ curl -X GET "http://localhost:8081/api/v1/file/1"
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8081/api/v1/file/list?pageNum=1&pageSize=10&bizType=case&status=ACTIVE"
+curl -X GET "http://localhost:8080/api/v1/file/list?pageNum=1&pageSize=10&bizType=case&status=ACTIVE"
 ```
 
 #### 响应示例
@@ -295,7 +295,7 @@ curl -X GET "http://localhost:8081/api/v1/file/list?pageNum=1&pageSize=10&bizTyp
 #### 请求示例
 
 ```bash
-curl -X DELETE "http://localhost:8081/api/v1/file/1"
+curl -X DELETE "http://localhost:8080/api/v1/file/1"
 ```
 
 #### 响应示例
@@ -334,7 +334,7 @@ curl -X DELETE "http://localhost:8081/api/v1/file/1"
 #### 请求示例
 
 ```bash
-curl -X DELETE "http://localhost:8081/api/v1/file/batch" \
+curl -X DELETE "http://localhost:8080/api/v1/file/batch" \
   -H "Content-Type: application/json" \
   -d "[1, 2, 3]"
 ```
@@ -381,7 +381,7 @@ curl -X DELETE "http://localhost:8081/api/v1/file/batch" \
 #### 请求示例
 
 ```bash
-curl -X PUT "http://localhost:8081/api/v1/file/1/rename?newFileName=new_name.txt"
+curl -X PUT "http://localhost:8080/api/v1/file/1/rename?newFileName=new_name.txt"
 ```
 
 #### 响应示例
@@ -442,7 +442,7 @@ curl -X PUT "http://localhost:8081/api/v1/file/1/rename?newFileName=new_name.txt
 #### 请求示例
 
 ```bash
-curl -X PUT "http://localhost:8081/api/v1/file/1/status?status=ARCHIVED"
+curl -X PUT "http://localhost:8080/api/v1/file/1/status?status=ARCHIVED"
 ```
 
 #### 响应示例
@@ -503,7 +503,7 @@ curl -X PUT "http://localhost:8081/api/v1/file/1/status?status=ARCHIVED"
 #### 请求示例
 
 ```bash
-curl -X PUT "http://localhost:8081/api/v1/file/batch/status?status=ACTIVE" \
+curl -X PUT "http://localhost:8080/api/v1/file/batch/status?status=ACTIVE" \
   -H "Content-Type: application/json" \
   -d "[1, 2, 3]"
 ```
@@ -546,7 +546,7 @@ curl -X PUT "http://localhost:8081/api/v1/file/batch/status?status=ACTIVE" \
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8081/api/v1/file/statistics?bizType=case"
+curl -X GET "http://localhost:8080/api/v1/file/statistics?bizType=case"
 ```
 
 #### 响应示例
@@ -602,7 +602,7 @@ curl -X GET "http://localhost:8081/api/v1/file/statistics?bizType=case"
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8081/api/v1/file/preview/1" \
+curl -X GET "http://localhost:8080/api/v1/file/preview/1" \
   --output preview_file.txt
 ```
 

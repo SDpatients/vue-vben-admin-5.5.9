@@ -171,7 +171,7 @@ watch(
     <!-- 顶部联系人信息 -->
     <header class="chat-header">
       <div class="header-left">
-        <el-button type="text" icon="el-icon-back" @click="goBack">
+        <el-button link icon="el-icon-back" @click="goBack">
           返回
         </el-button>
         <el-avatar :src="props.contactAvatar" size="small" />
@@ -187,9 +187,9 @@ watch(
         </div>
       </div>
       <div class="header-right">
-        <el-button type="text" icon="el-icon-phone" />
-        <el-button type="text" icon="el-icon-video-camera" />
-        <el-button type="text" icon="el-icon-more">
+        <el-button link icon="el-icon-phone" />
+        <el-button link icon="el-icon-video-camera" />
+        <el-button link icon="el-icon-more">
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item>查看详情</el-dropdown-item>
@@ -242,7 +242,7 @@ watch(
               v-if="message.isSent && !message.isRecalled"
               class="message-actions"
             >
-              <el-button type="text" size="small" icon="el-icon-more" />
+              <el-button link size="small" icon="el-icon-more" />
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item @click="recallMessage(message.id)">
@@ -268,7 +268,7 @@ watch(
     <footer class="message-input-area">
       <!-- 功能按钮 -->
       <div class="input-tools">
-        <el-button type="text" icon="el-icon-plus" @click="toggleFileUpload">
+        <el-button link icon="el-icon-plus" @click="toggleFileUpload">
           <template #dropdown v-if="showFileUpload">
             <el-dropdown-menu>
               <el-dropdown-item>
@@ -283,12 +283,12 @@ watch(
           </template>
         </el-button>
         <el-button
-          type="text"
+          type="link"
           icon="el-icon-emoji"
           @click="toggleEmojiPicker"
         />
-        <el-button type="text" icon="el-icon-camera" />
-        <el-button type="text" icon="el-icon-mic" />
+        <el-button link icon="el-icon-camera" />
+        <el-button link icon="el-icon-mic" />
       </div>
 
       <!-- 消息输入框 -->
