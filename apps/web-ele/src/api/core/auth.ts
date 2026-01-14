@@ -1,5 +1,4 @@
 import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
-import DeviceUtils from '#/utils/device';
 
 export namespace AuthApi {
   /** 登录接口参数 */
@@ -14,12 +13,11 @@ export namespace AuthApi {
     code: number;
     message: string;
     data: {
+      accessToken: string;
+      realName: string;
+      refreshToken: string;
       userId: number;
       username: string;
-      realName: string;
-      accessToken: string;
-      refreshToken: string;
-      permissions: string[];
     };
   }
 
@@ -107,33 +105,29 @@ export async function refreshTokenApi() {
 
   const result = await baseRequestClient.post<{
     code: number;
-    message: string;
     data: {
+      accessToken: string;
+      realName: string;
+      refreshToken: string;
       userId: number;
       username: string;
-      realName: string;
-      accessToken: string;
-      refreshToken: string;
-      permissions: string[];
     };
+    message: string;
   }>('/api/v1/auth/refresh-token', {
     refreshToken,
   });
 
-  // 更新本地存储中的token信息
   if (result && result.code === 200 && result.data) {
     const newTokens = result.data;
     localStorage.setItem('token', newTokens.accessToken);
     localStorage.setItem('refreshToken', newTokens.refreshToken);
 
-    // 更新用户信息
     const userInfo = {
       userId: newTokens.userId,
       username: newTokens.username,
       realName: newTokens.realName,
       accessToken: newTokens.accessToken,
       refreshToken: newTokens.refreshToken,
-      permissions: newTokens.permissions,
     };
     localStorage.setItem('chat_user_info', JSON.stringify(userInfo));
   }
@@ -148,11 +142,15 @@ export async function logoutApi() {
   const token = localStorage.getItem('token');
   const result = await baseRequestClient.post<{
     code: number;
-    message: string;
     data: null;
-  }>('/api/v1/auth/logout', {}, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+    message: string;
+  }>(
+    '/api/v1/auth/logout',
+    {},
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
 
   // 清除本地存储中的聊天相关信息和token
   localStorage.removeItem('chat_user_info');
@@ -165,13 +163,6 @@ export async function logoutApi() {
   localStorage.removeItem('refreshTokenExpire');
 
   return result;
-}
-
-/**
- * 获取用户权限码
- */
-export async function getAccessCodesApi() {
-  return fileUploadRequestClient.get<string[]>('/auth/codes');
 }
 
 /**
@@ -221,23 +212,6 @@ export async function getCurrentUserApi() {
     error: string;
     status: string;
   }>('/api/web/currentUser', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-}
-
-/**
- * 获取用户权限信息
- */
-export async function getPermissionsApi() {
-  const token = localStorage.getItem('token');
-  return fileUploadRequestClient.get<{
-    data: {
-      menus: any[];
-      permissions: string[];
-    };
-    error: string;
-    status: string;
-  }>('/api/web/permissions', {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 }

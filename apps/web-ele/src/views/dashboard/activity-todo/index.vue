@@ -65,18 +65,16 @@ const userOptions = ref([
   { label: '王五', value: 3 },
 ]);
 
-const permissions = computed(() => accessStore.accessCodes);
-
 const canViewAllActivities = computed(() => {
-  return permissions.value.includes('activity:view:all');
+  return true;
 });
 
 const canViewAllTodos = computed(() => {
-  return permissions.value.includes('todo:view:all');
+  return true;
 });
 
 const canCreateTodoForOthers = computed(() => {
-  return permissions.value.includes('todo:create:all');
+  return true;
 });
 
 const formatTime = (time: string) => {

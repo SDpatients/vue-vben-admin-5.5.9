@@ -1,11 +1,8 @@
 import { createRequestClient } from '#/api/request';
 
-const announcementRequestClient = createRequestClient(
-  'http://localhost:8081',
-  {
-    responseReturn: 'body',
-  },
-);
+const announcementRequestClient = createRequestClient('http://localhost:8080', {
+  responseReturn: 'body',
+});
 
 announcementRequestClient.addRequestInterceptor({
   fulfilled: async (config) => {
@@ -48,8 +45,8 @@ export namespace CaseAnnouncementApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: Announcement[];
+      total: number;
     };
   }
 
@@ -197,21 +194,31 @@ export namespace CaseAnnouncementApi {
  * 创建案件公告
  * POST /api/v1/case-announcement
  */
-export async function createAnnouncementApi(data: CaseAnnouncementApi.CreateAnnouncementRequest) {
-  return announcementRequestClient.post<CaseAnnouncementApi.CreateAnnouncementResponse>('/api/v1/case-announcement', data);
+export async function createAnnouncementApi(
+  data: CaseAnnouncementApi.CreateAnnouncementRequest,
+) {
+  return announcementRequestClient.post<CaseAnnouncementApi.CreateAnnouncementResponse>(
+    '/api/v1/case-announcement',
+    data,
+  );
 }
 
 /**
  * 获取案件公告列表
  * GET /api/v1/case-announcement/list
  */
-export async function getAnnouncementListApi(params: {
-  pageNum?: number;
-  pageSize?: number;
-  caseId?: number;
-  status?: string;
-} = {}) {
-  return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementListResponse>('/api/v1/case-announcement/list', { params });
+export async function getAnnouncementListApi(
+  params: {
+    caseId?: number;
+    pageNum?: number;
+    pageSize?: number;
+    status?: string;
+  } = {},
+) {
+  return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementListResponse>(
+    '/api/v1/case-announcement/list',
+    { params },
+  );
 }
 
 /**
@@ -219,31 +226,52 @@ export async function getAnnouncementListApi(params: {
  * GET /api/v1/case-announcement/{announcementId}
  */
 export async function getAnnouncementDetailApi(announcementId: number) {
-  return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementDetailResponse>(`/api/v1/case-announcement/${announcementId}`);
+  return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementDetailResponse>(
+    `/api/v1/case-announcement/${announcementId}`,
+  );
 }
 
 /**
  * 更新案件公告
  * PUT /api/v1/case-announcement/{announcementId}
  */
-export async function updateAnnouncementApi(announcementId: number, data: CaseAnnouncementApi.UpdateAnnouncementRequest) {
-  return announcementRequestClient.put<CaseAnnouncementApi.UpdateAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}`, data);
+export async function updateAnnouncementApi(
+  announcementId: number,
+  data: CaseAnnouncementApi.UpdateAnnouncementRequest,
+) {
+  return announcementRequestClient.put<CaseAnnouncementApi.UpdateAnnouncementResponse>(
+    `/api/v1/case-announcement/${announcementId}`,
+    data,
+  );
 }
 
 /**
  * 发布公告
  * POST /api/v1/case-announcement/{announcementId}/publish
  */
-export async function publishAnnouncementApi(announcementId: number, data: CaseAnnouncementApi.PublishAnnouncementRequest = {}) {
-  return announcementRequestClient.post<CaseAnnouncementApi.PublishAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}/publish`, null, { params: data });
+export async function publishAnnouncementApi(
+  announcementId: number,
+  data: CaseAnnouncementApi.PublishAnnouncementRequest = {},
+) {
+  return announcementRequestClient.post<CaseAnnouncementApi.PublishAnnouncementResponse>(
+    `/api/v1/case-announcement/${announcementId}/publish`,
+    null,
+    { params: data },
+  );
 }
 
 /**
  * 置顶公告
  * POST /api/v1/case-announcement/{announcementId}/top
  */
-export async function topAnnouncementApi(announcementId: number, data: CaseAnnouncementApi.TopAnnouncementRequest) {
-  return announcementRequestClient.post<CaseAnnouncementApi.TopAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}/top`, data);
+export async function topAnnouncementApi(
+  announcementId: number,
+  data: CaseAnnouncementApi.TopAnnouncementRequest,
+) {
+  return announcementRequestClient.post<CaseAnnouncementApi.TopAnnouncementResponse>(
+    `/api/v1/case-announcement/${announcementId}/top`,
+    data,
+  );
 }
 
 /**
@@ -251,15 +279,22 @@ export async function topAnnouncementApi(announcementId: number, data: CaseAnnou
  * DELETE /api/v1/case-announcement/{announcementId}
  */
 export async function deleteAnnouncementApi(announcementId: number) {
-  return announcementRequestClient.delete<CaseAnnouncementApi.DeleteAnnouncementResponse>(`/api/v1/case-announcement/${announcementId}`);
+  return announcementRequestClient.delete<CaseAnnouncementApi.DeleteAnnouncementResponse>(
+    `/api/v1/case-announcement/${announcementId}`,
+  );
 }
 
 /**
  * 创建公告查看记录
  * POST /api/v1/announcement-view-record
  */
-export async function createViewRecordApi(data: CaseAnnouncementApi.CreateViewRecordRequest) {
-  return announcementRequestClient.post<CaseAnnouncementApi.CreateViewRecordResponse>('/api/v1/announcement-view-record', data);
+export async function createViewRecordApi(
+  data: CaseAnnouncementApi.CreateViewRecordRequest,
+) {
+  return announcementRequestClient.post<CaseAnnouncementApi.CreateViewRecordResponse>(
+    '/api/v1/announcement-view-record',
+    data,
+  );
 }
 
 /**
@@ -267,21 +302,28 @@ export async function createViewRecordApi(data: CaseAnnouncementApi.CreateViewRe
  * GET /api/v1/announcement-view-record/{recordId}
  */
 export async function getViewRecordDetailApi(recordId: number) {
-  return announcementRequestClient.get<CaseAnnouncementApi.CreateViewRecordResponse>(`/api/v1/announcement-view-record/${recordId}`);
+  return announcementRequestClient.get<CaseAnnouncementApi.CreateViewRecordResponse>(
+    `/api/v1/announcement-view-record/${recordId}`,
+  );
 }
 
 /**
  * 获取公告查看记录列表
  * GET /api/v1/announcement-view-record/list
  */
-export async function getViewRecordListApi(params: {
-  page?: number;
-  size?: number;
-  announcementId?: number;
-  caseId?: number;
-  viewerId?: number;
-} = {}) {
-  return announcementRequestClient.get<CaseAnnouncementApi.ViewRecordListResponse>('/api/v1/announcement-view-record/list', { params });
+export async function getViewRecordListApi(
+  params: {
+    announcementId?: number;
+    caseId?: number;
+    page?: number;
+    size?: number;
+    viewerId?: number;
+  } = {},
+) {
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewRecordListResponse>(
+    '/api/v1/announcement-view-record/list',
+    { params },
+  );
 }
 
 /**
@@ -289,7 +331,9 @@ export async function getViewRecordListApi(params: {
  * GET /api/v1/announcement-view-record/count/announcement/{announcementId}
  */
 export async function getAnnouncementViewCountApi(announcementId: number) {
-  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(`/api/v1/announcement-view-record/count/announcement/${announcementId}`);
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(
+    `/api/v1/announcement-view-record/count/announcement/${announcementId}`,
+  );
 }
 
 /**
@@ -297,7 +341,9 @@ export async function getAnnouncementViewCountApi(announcementId: number) {
  * GET /api/v1/announcement-view-record/count/case/{caseId}
  */
 export async function getCaseViewCountApi(caseId: number) {
-  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(`/api/v1/announcement-view-record/count/case/${caseId}`);
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(
+    `/api/v1/announcement-view-record/count/case/${caseId}`,
+  );
 }
 
 /**
@@ -305,7 +351,9 @@ export async function getCaseViewCountApi(caseId: number) {
  * GET /api/v1/announcement-view-record/count/viewer/{viewerId}
  */
 export async function getViewerViewCountApi(viewerId: number) {
-  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(`/api/v1/announcement-view-record/count/viewer/${viewerId}`);
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewCountResponse>(
+    `/api/v1/announcement-view-record/count/viewer/${viewerId}`,
+  );
 }
 
 /**
@@ -313,17 +361,26 @@ export async function getViewerViewCountApi(viewerId: number) {
  * DELETE /api/v1/announcement-view-record/{recordId}
  */
 export async function deleteViewRecordApi(recordId: number) {
-  return announcementRequestClient.delete<CaseAnnouncementApi.CommonResponse>(`/api/v1/announcement-view-record/${recordId}`);
+  return announcementRequestClient.delete<CaseAnnouncementApi.CommonResponse>(
+    `/api/v1/announcement-view-record/${recordId}`,
+  );
 }
 
 /**
  * 获取公告浏览记录列表
  * GET /api/v1/announcement-view-record/list
  */
-export async function getAnnouncementViewsApi(announcementId: number, page: number = 1, size: number = 10) {
-  return announcementRequestClient.get<CaseAnnouncementApi.ViewRecordListResponse>('/api/v1/announcement-view-record/list', {
-    params: { announcementId, page, size }
-  });
+export async function getAnnouncementViewsApi(
+  announcementId: number,
+  page: number = 1,
+  size: number = 10,
+) {
+  return announcementRequestClient.get<CaseAnnouncementApi.ViewRecordListResponse>(
+    '/api/v1/announcement-view-record/list',
+    {
+      params: { announcementId, page, size },
+    },
+  );
 }
 
 export type { CaseAnnouncementApi };

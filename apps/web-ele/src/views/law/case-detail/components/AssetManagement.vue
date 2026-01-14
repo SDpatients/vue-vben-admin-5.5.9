@@ -337,7 +337,7 @@ const openDialog = () => {
 <template>
   <ElDialog
     :model-value="visible"
-    title="资金管理"
+    title="资产管理"
     width="90%"
     :close-on-click-modal="false"
     @open="openDialog"

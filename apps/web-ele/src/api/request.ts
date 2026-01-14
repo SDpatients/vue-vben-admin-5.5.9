@@ -57,9 +57,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const newTokens = resp.data;
       accessStore.setAccessToken(newTokens.accessToken);
       accessStore.setRefreshToken(newTokens.refreshToken);
-      accessStore.setAccessCodes(newTokens.permissions || []);
       
-      // 更新用户信息
       const userInfo = {
         userId: newTokens.userId.toString(),
         username: newTokens.username,
@@ -70,7 +68,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
         token: newTokens.accessToken,
         refreshToken: newTokens.refreshToken,
         roles: [],
-        permissions: newTokens.permissions || [],
       };
       authStore.userStore.setUserInfo(userInfo);
       

@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import type { ClaimConfirmationApi } from '#/api/core/claim-confirmation';
+import type { ClaimRegistrationApi } from '#/api/core/claim-registration';
+import type { ClaimReviewApi } from '#/api/core/claim-review';
+
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
+  ElAlert,
   ElButton,
   ElCard,
   ElCheckbox,
@@ -18,52 +23,37 @@ import {
   ElOption,
   ElPagination,
   ElPopconfirm,
+  ElRadioButton,
+  ElRadioGroup,
   ElRow,
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag,
-  ElTabs,
   ElTabPane,
+  ElTabs,
+  ElTag,
   ElUpload,
 } from 'element-plus';
 
+import { batchImportClaimsApi, exportClaimsApi } from '#/api/core/claim';
+import {
+  finalizeClaimConfirmationApi,
+  submitObjectionApi,
+  submitVoteApi,
+} from '#/api/core/claim-confirmation';
 import {
   createClaimRegistrationApi,
-  getClaimRegistrationListApi,
-  updateClaimRegistrationApi,
   deleteClaimRegistrationApi,
   getClaimRegistrationDetailApi,
-  updateClaimRegistrationStatusApi,
+  getClaimRegistrationListApi,
   receiveClaimMaterialApi,
-  type ClaimRegistrationApi,
+  updateClaimRegistrationApi,
+  updateClaimRegistrationStatusApi,
 } from '#/api/core/claim-registration';
-
 import {
-  batchImportClaimsApi,
-  exportClaimsApi,
-} from '#/api/core/claim';
-
-import {
-  getClaimReviewsByClaimIdApi,
   createClaimReviewApi,
-  updateClaimReviewApi,
   submitClaimReviewApi,
-  type ClaimReviewApi,
 } from '#/api/core/claim-review';
-
-import {
-  getClaimConfirmationByClaimIdApi,
-  createClaimConfirmationApi,
-  updateClaimConfirmationApi,
-  submitVoteApi,
-  submitObjectionApi,
-  handleNegotiationApi,
-  submitCourtRulingApi,
-  updateLawsuitStatusApi,
-  finalizeClaimConfirmationApi,
-  type ClaimConfirmationApi,
-} from '#/api/core/claim-confirmation';
 
 const props = defineProps<{
   caseId: string;
@@ -80,14 +70,23 @@ const showEditDialog = ref(false);
 const showDetailDialog = ref(false);
 const showReviewDialog = ref(false);
 const showConfirmationDialog = ref(false);
+const showStageOneDialog = ref(false);
+const showStageTwoDialog = ref(false);
+const showStageThreeDialog = ref(false);
 const addLoading = ref(false);
 const editLoading = ref(false);
 const showImportDialog = ref(false);
 const importLoading = ref(false);
+const stageOneLoading = ref(false);
+const stageTwoLoading = ref(false);
+const stageThreeLoading = ref(false);
 
-const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null);
+const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(
+  null,
+);
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
-const currentConfirmation = ref<ClaimConfirmationApi.ClaimConfirmationInfo | null>(null);
+const currentConfirmation =
+  ref<ClaimConfirmationApi.ClaimConfirmationInfo | null>(null);
 const activeTab = ref('basic');
 
 const claimForm = reactive({
@@ -201,7 +200,8 @@ const confirmationForm = reactive({
   lawsuitNotes: '',
   finalConfirmedAmount: 0,
   finalConfirmationDate: '',
-  finalConfirmationBasis: 'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
+  finalConfirmationBasis:
+    'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
   confirmationAttachments: '',
   confirmationStatus: 'PENDING' as ClaimConfirmationApi.ConfirmationStatus,
   remarks: '',
@@ -525,7 +525,10 @@ const handleEditClaim = async () => {
       remarks: claimForm.remarks,
     };
 
-    const response = await updateClaimRegistrationApi(currentClaim.value.id, requestData);
+    const response = await updateClaimRegistrationApi(
+      currentClaim.value.id,
+      requestData,
+    );
     if (response.code === 200) {
       ElMessage.success('修改成功');
       await fetchClaims();
@@ -574,7 +577,10 @@ const handleReceiveMaterial = async (row: any) => {
   }
 };
 
-const handleUpdateStatus = async (row: any, status: ClaimRegistrationApi.RegistrationStatus) => {
+const handleUpdateStatus = async (
+  row: any,
+  status: ClaimRegistrationApi.RegistrationStatus,
+) => {
   try {
     const response = await updateClaimRegistrationStatusApi(row.id, status);
     if (response.code === 200) {
@@ -740,7 +746,9 @@ const handleSubmitReview = async () => {
   if (!currentClaim.value || !currentClaim.value.reviewInfo) return;
 
   try {
-    const response = await submitClaimReviewApi(currentClaim.value.reviewInfo.id);
+    const response = await submitClaimReviewApi(
+      currentClaim.value.reviewInfo.id,
+    );
     if (response.code === 200) {
       ElMessage.success('提交审查成功');
       await fetchClaims();
@@ -805,7 +813,8 @@ const resetConfirmationForm = () => {
     lawsuitNotes: '',
     finalConfirmedAmount: 0,
     finalConfirmationDate: '',
-    finalConfirmationBasis: 'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
+    finalConfirmationBasis:
+      'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
     confirmationAttachments: '',
     confirmationStatus: 'PENDING' as ClaimConfirmationApi.ConfirmationStatus,
     remarks: '',
@@ -867,6 +876,290 @@ const handleFinalizeConfirmation = async () => {
     console.error('最终确认失败:', error);
     ElMessage.error('最终确认失败');
   }
+};
+
+const openStageOneDialog = async (row: any) => {
+  try {
+    const response = await getClaimRegistrationDetailApi(row.id);
+    if (response.code === 200 && response.data) {
+      currentClaim.value = response.data;
+      showStageOneDialog.value = true;
+    } else {
+      ElMessage.error('获取债权详情失败');
+    }
+  } catch (error) {
+    console.error('获取债权详情失败:', error);
+    ElMessage.error('获取债权详情失败');
+  }
+};
+
+const closeStageOneDialog = () => {
+  showStageOneDialog.value = false;
+  currentClaim.value = null;
+};
+
+const handleStageOneSubmit = async () => {
+  if (!currentClaim.value) return;
+
+  stageOneLoading.value = true;
+  try {
+    const requestData = {
+      receiver: '当前用户',
+      completeness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
+    };
+
+    const response = await receiveClaimMaterialApi(
+      currentClaim.value.id,
+      requestData,
+    );
+    if (response.code === 200) {
+      const statusResponse = await updateClaimRegistrationStatusApi(
+        currentClaim.value.id,
+        'REGISTERED',
+      );
+      if (statusResponse.code === 200) {
+        ElMessage.success('债权申报登记成功');
+        await fetchClaims();
+        closeStageOneDialog();
+      } else {
+        ElMessage.error(
+          `状态更新失败：${statusResponse.message || '未知错误'}`,
+        );
+      }
+    } else {
+      ElMessage.error(`操作失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('债权申报登记失败:', error);
+    ElMessage.error('债权申报登记失败');
+  } finally {
+    stageOneLoading.value = false;
+  }
+};
+
+const openStageTwoDialog = async (row: any) => {
+  try {
+    const response = await getClaimRegistrationDetailApi(row.id);
+    if (response.code === 200 && response.data) {
+      currentClaim.value = response.data;
+      if (response.data.reviewInfo) {
+        Object.assign(reviewForm, response.data.reviewInfo);
+      } else {
+        reviewForm.declaredPrincipal = response.data.principal || 0;
+        reviewForm.declaredInterest = response.data.interest || 0;
+        reviewForm.declaredPenalty = response.data.penalty || 0;
+        reviewForm.declaredOtherLosses = response.data.otherLosses || 0;
+        reviewForm.declaredTotalAmount = response.data.totalAmount || 0;
+        reviewForm.confirmedPrincipal = response.data.principal || 0;
+        reviewForm.confirmedInterest = response.data.interest || 0;
+        reviewForm.confirmedPenalty = response.data.penalty || 0;
+        reviewForm.confirmedOtherLosses = response.data.otherLosses || 0;
+        reviewForm.confirmedTotalAmount = response.data.totalAmount || 0;
+      }
+      showStageTwoDialog.value = true;
+    } else {
+      ElMessage.error('获取债权详情失败');
+    }
+  } catch (error) {
+    console.error('获取债权详情失败:', error);
+    ElMessage.error('获取债权详情失败');
+  }
+};
+
+const closeStageTwoDialog = () => {
+  showStageTwoDialog.value = false;
+  resetReviewForm();
+  currentClaim.value = null;
+};
+
+const handleStageTwoSubmit = async () => {
+  if (!currentClaim.value) return;
+
+  if (!reviewForm.reviewConclusion) {
+    ElMessage.warning('请选择审查结论');
+    return;
+  }
+
+  stageTwoLoading.value = true;
+  try {
+    const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+      claimRegistrationId: currentClaim.value.id,
+      caseId: currentClaim.value.caseId,
+      creditorName: currentClaim.value.creditorName,
+      reviewDate: reviewForm.reviewDate,
+      reviewer: reviewForm.reviewer,
+      reviewRound: reviewForm.reviewRound,
+      reviewBasis: reviewForm.reviewBasis,
+      declaredPrincipal: reviewForm.declaredPrincipal,
+      declaredInterest: reviewForm.declaredInterest,
+      declaredPenalty: reviewForm.declaredPenalty,
+      declaredOtherLosses: reviewForm.declaredOtherLosses,
+      declaredTotalAmount: reviewForm.declaredTotalAmount,
+      confirmedPrincipal: reviewForm.confirmedPrincipal,
+      confirmedInterest: reviewForm.confirmedInterest,
+      confirmedPenalty: reviewForm.confirmedPenalty,
+      confirmedOtherLosses: reviewForm.confirmedOtherLosses,
+      confirmedTotalAmount: reviewForm.confirmedTotalAmount,
+      unconfirmedPrincipal: reviewForm.unconfirmedPrincipal,
+      unconfirmedInterest: reviewForm.unconfirmedInterest,
+      unconfirmedPenalty: reviewForm.unconfirmedPenalty,
+      unconfirmedOtherLosses: reviewForm.unconfirmedOtherLosses,
+      unconfirmedTotalAmount: reviewForm.unconfirmedTotalAmount,
+      adjustmentReason: reviewForm.adjustmentReason,
+      unconfirmedReason: reviewForm.unconfirmedReason,
+      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason,
+      expiredReason: reviewForm.expiredReason,
+      evidenceAuthenticity: reviewForm.evidenceAuthenticity,
+      evidenceRelevance: reviewForm.evidenceRelevance,
+      evidenceLegality: reviewForm.evidenceLegality,
+      evidenceReviewNotes: reviewForm.evidenceReviewNotes,
+      confirmedClaimNature: reviewForm.confirmedClaimNature,
+      isJointLiability: reviewForm.isJointLiability ? 1 : 0,
+      isConditional: reviewForm.isConditional ? 1 : 0,
+      isTerm: reviewForm.isTerm ? 1 : 0,
+      collateralType: reviewForm.collateralType,
+      collateralProperty: reviewForm.collateralProperty,
+      collateralAmount: reviewForm.collateralAmount,
+      collateralTerm: reviewForm.collateralTerm,
+      collateralValidity: reviewForm.collateralValidity,
+      reviewConclusion: reviewForm.reviewConclusion,
+      reviewSummary: reviewForm.reviewSummary,
+      reviewReport: reviewForm.reviewReport,
+      reviewAttachments: reviewForm.reviewAttachments,
+      reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
+      remarks: reviewForm.remarks,
+    };
+
+    const response = await createClaimReviewApi(requestData);
+    if (response.code === 200) {
+      const reviewId = response.data?.reviewId;
+      if (reviewId) {
+        const submitResponse = await submitClaimReviewApi(reviewId);
+        if (submitResponse.code === 200) {
+          ElMessage.success('债权审查提交成功');
+          await fetchClaims();
+          closeStageTwoDialog();
+        } else {
+          ElMessage.error(
+            `提交审查失败：${submitResponse.message || '未知错误'}`,
+          );
+        }
+      } else {
+        ElMessage.success('债权审查保存成功');
+        await fetchClaims();
+        closeStageTwoDialog();
+      }
+    } else {
+      ElMessage.error(`保存失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('债权审查失败:', error);
+    ElMessage.error('债权审查失败');
+  } finally {
+    stageTwoLoading.value = false;
+  }
+};
+
+const openStageThreeDialog = async (row: any) => {
+  try {
+    const response = await getClaimRegistrationDetailApi(row.id);
+    if (response.code === 200 && response.data) {
+      currentClaim.value = response.data;
+      if (response.data.confirmationInfo) {
+        Object.assign(confirmationForm, response.data.confirmationInfo);
+      }
+      showStageThreeDialog.value = true;
+    } else {
+      ElMessage.error('获取债权详情失败');
+    }
+  } catch (error) {
+    console.error('获取债权详情失败:', error);
+    ElMessage.error('获取债权详情失败');
+  }
+};
+
+const closeStageThreeDialog = () => {
+  showStageThreeDialog.value = false;
+  resetConfirmationForm();
+  currentClaim.value = null;
+};
+
+const handleStageThreeSubmit = async () => {
+  if (!currentClaim.value) return;
+
+  if (!confirmationForm.voteResult) {
+    ElMessage.warning('请选择表决结果');
+    return;
+  }
+
+  stageThreeLoading.value = true;
+  try {
+    const response = await submitVoteApi(currentClaim.value.id, {
+      voteResult: confirmationForm.voteResult,
+      voteNotes: confirmationForm.voteNotes,
+    });
+    if (response.code === 200) {
+      if (confirmationForm.hasObjection) {
+        const objectionResponse = await submitObjectionApi(
+          currentClaim.value.id,
+        );
+        if (objectionResponse.code === 200) {
+          ElMessage.success('债权确认与异议提交成功');
+          await fetchClaims();
+          closeStageThreeDialog();
+        } else {
+          ElMessage.error(
+            `提交异议失败：${objectionResponse.message || '未知错误'}`,
+          );
+        }
+      } else {
+        const finalizeResponse = await finalizeClaimConfirmationApi(
+          currentClaim.value.id,
+        );
+        if (finalizeResponse.code === 200) {
+          ElMessage.success('债权最终确认成功');
+          await fetchClaims();
+          closeStageThreeDialog();
+        } else {
+          ElMessage.error(
+            `最终确认失败：${finalizeResponse.message || '未知错误'}`,
+          );
+        }
+      }
+    } else {
+      ElMessage.error(`提交表决失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('债权确认失败:', error);
+    ElMessage.error('债权确认失败');
+  } finally {
+    stageThreeLoading.value = false;
+  }
+};
+
+const getClaimStageStatus = (row: any) => {
+  const registrationStatus = row.registration_status;
+  const reviewStatus = row.reviewInfo?.reviewStatus;
+  const confirmationStatus = row.confirmationInfo?.confirmationStatus;
+
+  if (registrationStatus === 'PENDING') {
+    return { stage: 1, label: '待登记', type: 'warning' };
+  } else if (
+    registrationStatus === 'REGISTERED' &&
+    (!reviewStatus || reviewStatus === 'PENDING')
+  ) {
+    return { stage: 2, label: '待审查', type: 'primary' };
+  } else if (
+    reviewStatus === 'COMPLETED' &&
+    (!confirmationStatus || confirmationStatus === 'PENDING')
+  ) {
+    return { stage: 3, label: '待确认', type: 'info' };
+  } else if (confirmationStatus === 'CONFIRMED') {
+    return { stage: 4, label: '已完成', type: 'success' };
+  } else if (registrationStatus === 'REJECTED') {
+    return { stage: 0, label: '已驳回', type: 'danger' };
+  }
+  return { stage: 0, label: '未知', type: 'info' };
 };
 
 onMounted(() => {
@@ -937,14 +1230,16 @@ onMounted(() => {
             </template>
           </ElTableColumn>
           <ElTableColumn
-            v-if="claims.some(c => c.reviewInfo)"
+            v-if="claims.some((c) => c.reviewInfo)"
             label="审查状态"
             width="100"
           >
             <template #default="scope">
               <ElTag
                 v-if="scope.row.reviewInfo"
-                :type="getReviewStatusTag(scope.row.reviewInfo.reviewStatus).type"
+                :type="
+                  getReviewStatusTag(scope.row.reviewInfo.reviewStatus).type
+                "
                 size="small"
               >
                 {{ getReviewStatusTag(scope.row.reviewInfo.reviewStatus).text }}
@@ -952,72 +1247,90 @@ onMounted(() => {
             </template>
           </ElTableColumn>
           <ElTableColumn
-            v-if="claims.some(c => c.confirmationInfo)"
+            v-if="claims.some((c) => c.confirmationInfo)"
             label="确认状态"
             width="100"
           >
             <template #default="scope">
               <ElTag
                 v-if="scope.row.confirmationInfo"
-                :type="getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).type"
+                :type="
+                  getConfirmationStatusTag(
+                    scope.row.confirmationInfo.confirmationStatus,
+                  ).type
+                "
                 size="small"
               >
-                {{ getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).text }}
+                {{
+                  getConfirmationStatusTag(
+                    scope.row.confirmationInfo.confirmationStatus,
+                  ).text
+                }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" width="300" fixed="right">
+          <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
-              <ElButton link type="primary" size="small" @click="openDetailDialog(scope.row)">
+              <ElButton
+                link
+                type="primary"
+                size="small"
+                @click="openDetailDialog(scope.row)"
+              >
                 详情
               </ElButton>
-              <ElButton link type="primary" size="small" @click="openEditDialog(scope.row)">
+              <ElButton
+                link
+                type="primary"
+                size="small"
+                @click="openEditDialog(scope.row)"
+              >
                 编辑
               </ElButton>
+
               <ElButton
                 v-if="scope.row.registration_status === 'PENDING'"
                 link
                 type="success"
                 size="small"
-                @click="handleUpdateStatus(scope.row, 'REGISTERED')"
+                @click="openStageOneDialog(scope.row)"
               >
-                登记
+                债权申报登记
               </ElButton>
               <ElButton
-                v-if="scope.row.registration_status === 'PENDING'"
-                link
-                type="danger"
-                size="small"
-                @click="handleUpdateStatus(scope.row, 'REJECTED')"
-              >
-                驳回
-              </ElButton>
-              <ElButton
-                v-if="scope.row.registration_status === 'REGISTERED'"
+                v-if="
+                  scope.row.registration_status === 'REGISTERED' &&
+                  (!scope.row.reviewInfo ||
+                    scope.row.reviewInfo.reviewStatus === 'PENDING')
+                "
                 link
                 type="primary"
                 size="small"
-                @click="openReviewDialog(scope.row)"
+                @click="openStageTwoDialog(scope.row)"
               >
-                审查
+                债权审查
               </ElButton>
               <ElButton
-                v-if="scope.row.reviewInfo && scope.row.reviewInfo.reviewStatus === 'COMPLETED'"
+                v-if="
+                  scope.row.reviewInfo &&
+                  scope.row.reviewInfo.reviewStatus === 'COMPLETED' &&
+                  (!scope.row.confirmationInfo ||
+                    scope.row.confirmationInfo.confirmationStatus === 'PENDING')
+                "
                 link
-                type="primary"
+                type="warning"
                 size="small"
-                @click="openConfirmationDialog(scope.row)"
+                @click="openStageThreeDialog(scope.row)"
               >
-                确认
+                债权确认
               </ElButton>
+
               <ElPopconfirm
                 title="确定要删除这条债权登记吗？"
                 @confirm="handleDeleteClaim(scope.row)"
               >
                 <template #reference>
-                  <ElButton link type="danger" size="small">
-                    删除
-                  </ElButton>
+                  <ElButton link type="danger" size="small"> 删除 </ElButton>
                 </template>
               </ElPopconfirm>
             </template>
@@ -1485,20 +1798,50 @@ onMounted(() => {
         <ElTabs v-model="activeTab">
           <ElTabPane label="基本信息" name="basic">
             <ElDescriptions :column="2" border>
-              <ElDescriptionsItem label="债权编号">{{ currentClaim.claimNo }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="案件名称">{{ currentClaim.caseName }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="债权人">{{ currentClaim.creditorName }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="债权人类型">{{ currentClaim.creditorType }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="统一社会信用代码">{{ currentClaim.creditCode }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="法定代表人">{{ currentClaim.legalRepresentative }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="申报本金">{{ currentClaim.principal }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="申报利息">{{ currentClaim.interest }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="申报罚金">{{ currentClaim.penalty }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="申报其他损失">{{ currentClaim.otherLosses }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="申报总金额">{{ currentClaim.totalAmount }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="债权编号">
+                {{ currentClaim.claimNo }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="案件名称">
+                {{ currentClaim.caseName }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="债权人">
+                {{ currentClaim.creditorName }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="债权人类型">
+                {{ currentClaim.creditorType }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="统一社会信用代码">
+                {{ currentClaim.creditCode }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="法定代表人">
+                {{ currentClaim.legalRepresentative }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="申报本金">
+                {{ currentClaim.principal }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="申报利息">
+                {{ currentClaim.interest }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="申报罚金">
+                {{ currentClaim.penalty }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="申报其他损失">
+                {{ currentClaim.otherLosses }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="申报总金额">
+                {{ currentClaim.totalAmount }}
+              </ElDescriptionsItem>
               <ElDescriptionsItem label="登记状态">
-                <ElTag :type="getRegistrationStatusTag(currentClaim.registrationStatus).type">
-                  {{ getRegistrationStatusTag(currentClaim.registrationStatus).text }}
+                <ElTag
+                  :type="
+                    getRegistrationStatusTag(currentClaim.registrationStatus)
+                      .type
+                  "
+                >
+                  {{
+                    getRegistrationStatusTag(currentClaim.registrationStatus)
+                      .text
+                  }}
                 </ElTag>
               </ElDescriptionsItem>
             </ElDescriptions>
@@ -1506,18 +1849,38 @@ onMounted(() => {
           <ElTabPane label="审查信息" name="review">
             <div v-if="currentClaim.reviewInfo">
               <ElDescriptions :column="2" border>
-                <ElDescriptionsItem label="审查日期">{{ currentClaim.reviewInfo.reviewDate }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="审查人">{{ currentClaim.reviewInfo.reviewer }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="审查轮次">{{ currentClaim.reviewInfo.reviewRound }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="审查日期">
+                  {{ currentClaim.reviewInfo.reviewDate }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="审查人">
+                  {{ currentClaim.reviewInfo.reviewer }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="审查轮次">
+                  {{ currentClaim.reviewInfo.reviewRound }}
+                </ElDescriptionsItem>
                 <ElDescriptionsItem label="审查结论">
                   <ElTag>{{ currentClaim.reviewInfo.reviewConclusion }}</ElTag>
                 </ElDescriptionsItem>
-                <ElDescriptionsItem label="申报总金额">{{ currentClaim.reviewInfo.declaredTotalAmount }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="确认总金额">{{ currentClaim.reviewInfo.confirmedTotalAmount }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="不予确认总金额">{{ currentClaim.reviewInfo.unconfirmedTotalAmount }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="申报总金额">
+                  {{ currentClaim.reviewInfo.declaredTotalAmount }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认总金额">
+                  {{ currentClaim.reviewInfo.confirmedTotalAmount }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认总金额">
+                  {{ currentClaim.reviewInfo.unconfirmedTotalAmount }}
+                </ElDescriptionsItem>
                 <ElDescriptionsItem label="审查状态">
-                  <ElTag :type="getReviewStatusTag(currentClaim.reviewInfo.reviewStatus).type">
-                    {{ getReviewStatusTag(currentClaim.reviewInfo.reviewStatus).text }}
+                  <ElTag
+                    :type="
+                      getReviewStatusTag(currentClaim.reviewInfo.reviewStatus)
+                        .type
+                    "
+                  >
+                    {{
+                      getReviewStatusTag(currentClaim.reviewInfo.reviewStatus)
+                        .text
+                    }}
                   </ElTag>
                 </ElDescriptionsItem>
               </ElDescriptions>
@@ -1527,20 +1890,50 @@ onMounted(() => {
           <ElTabPane label="确认信息" name="confirmation">
             <div v-if="currentClaim.confirmationInfo">
               <ElDescriptions :column="2" border>
-                <ElDescriptionsItem label="会议类型">{{ currentClaim.confirmationInfo.meetingType }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="会议日期">{{ currentClaim.confirmationInfo.meetingDate }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="会议地点">{{ currentClaim.confirmationInfo.meetingLocation }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="表决结果">{{ currentClaim.confirmationInfo.voteResult }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="会议类型">
+                  {{ currentClaim.confirmationInfo.meetingType }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="会议日期">
+                  {{ currentClaim.confirmationInfo.meetingDate }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="会议地点">
+                  {{ currentClaim.confirmationInfo.meetingLocation }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="表决结果">
+                  {{ currentClaim.confirmationInfo.voteResult }}
+                </ElDescriptionsItem>
                 <ElDescriptionsItem label="是否有异议">
-                  <ElTag :type="currentClaim.confirmationInfo.hasObjection ? 'danger' : 'success'">
-                    {{ currentClaim.confirmationInfo.hasObjection ? '是' : '否' }}
+                  <ElTag
+                    :type="
+                      currentClaim.confirmationInfo.hasObjection
+                        ? 'danger'
+                        : 'success'
+                    "
+                  >
+                    {{
+                      currentClaim.confirmationInfo.hasObjection ? '是' : '否'
+                    }}
                   </ElTag>
                 </ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认金额">{{ currentClaim.confirmationInfo.finalConfirmedAmount }}</ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认日期">{{ currentClaim.confirmationInfo.finalConfirmationDate }}</ElDescriptionsItem>
+                <ElDescriptionsItem label="最终确认金额">
+                  {{ currentClaim.confirmationInfo.finalConfirmedAmount }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="最终确认日期">
+                  {{ currentClaim.confirmationInfo.finalConfirmationDate }}
+                </ElDescriptionsItem>
                 <ElDescriptionsItem label="确认状态">
-                  <ElTag :type="getConfirmationStatusTag(currentClaim.confirmationInfo.confirmationStatus).type">
-                    {{ getConfirmationStatusTag(currentClaim.confirmationInfo.confirmationStatus).text }}
+                  <ElTag
+                    :type="
+                      getConfirmationStatusTag(
+                        currentClaim.confirmationInfo.confirmationStatus,
+                      ).type
+                    "
+                  >
+                    {{
+                      getConfirmationStatusTag(
+                        currentClaim.confirmationInfo.confirmationStatus,
+                      ).text
+                    }}
                   </ElTag>
                 </ElDescriptionsItem>
               </ElDescriptions>
@@ -1954,12 +2347,18 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="审查日期">
-                <ElInput v-model="reviewForm.reviewDate" placeholder="请输入审查日期" />
+                <ElInput
+                  v-model="reviewForm.reviewDate"
+                  placeholder="请输入审查日期"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="审查人">
-                <ElInput v-model="reviewForm.reviewer" placeholder="请输入审查人" />
+                <ElInput
+                  v-model="reviewForm.reviewer"
+                  placeholder="请输入审查人"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2019,7 +2418,10 @@ onMounted(() => {
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="申报其他损失">
-                <ElInput v-model="reviewForm.declaredOtherLosses" type="number" />
+                <ElInput
+                  v-model="reviewForm.declaredOtherLosses"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2027,7 +2429,10 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="申报总金额">
-                <ElInput v-model="reviewForm.declaredTotalAmount" type="number" />
+                <ElInput
+                  v-model="reviewForm.declaredTotalAmount"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2039,7 +2444,10 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="确认本金">
-                <ElInput v-model="reviewForm.confirmedPrincipal" type="number" />
+                <ElInput
+                  v-model="reviewForm.confirmedPrincipal"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
@@ -2057,7 +2465,10 @@ onMounted(() => {
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="确认其他损失">
-                <ElInput v-model="reviewForm.confirmedOtherLosses" type="number" />
+                <ElInput
+                  v-model="reviewForm.confirmedOtherLosses"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2065,7 +2476,10 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="确认总金额">
-                <ElInput v-model="reviewForm.confirmedTotalAmount" type="number" />
+                <ElInput
+                  v-model="reviewForm.confirmedTotalAmount"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2077,12 +2491,18 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="不予确认本金">
-                <ElInput v-model="reviewForm.unconfirmedPrincipal" type="number" />
+                <ElInput
+                  v-model="reviewForm.unconfirmedPrincipal"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="不予确认利息">
-                <ElInput v-model="reviewForm.unconfirmedInterest" type="number" />
+                <ElInput
+                  v-model="reviewForm.unconfirmedInterest"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2090,12 +2510,18 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="不予确认罚金">
-                <ElInput v-model="reviewForm.unconfirmedPenalty" type="number" />
+                <ElInput
+                  v-model="reviewForm.unconfirmedPenalty"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="不予确认其他损失">
-                <ElInput v-model="reviewForm.unconfirmedOtherLosses" type="number" />
+                <ElInput
+                  v-model="reviewForm.unconfirmedOtherLosses"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2103,7 +2529,10 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="不予确认总金额">
-                <ElInput v-model="reviewForm.unconfirmedTotalAmount" type="number" />
+                <ElInput
+                  v-model="reviewForm.unconfirmedTotalAmount"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2259,7 +2688,10 @@ onMounted(() => {
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="会议日期">
-                <ElInput v-model="confirmationForm.meetingDate" placeholder="请输入会议日期" />
+                <ElInput
+                  v-model="confirmationForm.meetingDate"
+                  placeholder="请输入会议日期"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2267,7 +2699,10 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="会议地点">
-                <ElInput v-model="confirmationForm.meetingLocation" placeholder="请输入会议地点" />
+                <ElInput
+                  v-model="confirmationForm.meetingLocation"
+                  placeholder="请输入会议地点"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
@@ -2297,24 +2732,35 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="8">
               <ElFormItem label="是否有异议">
-                <ElCheckbox v-model="confirmationForm.hasObjection">是</ElCheckbox>
+                <ElCheckbox v-model="confirmationForm.hasObjection">
+                  是
+                </ElCheckbox>
               </ElFormItem>
             </ElCol>
           </ElRow>
 
-          <div v-if="confirmationForm.hasObjection" class="section-divider mb-4">
+          <div
+            v-if="confirmationForm.hasObjection"
+            class="section-divider mb-4"
+          >
             <h4 class="section-title">异议信息</h4>
           </div>
 
           <ElRow v-if="confirmationForm.hasObjection" :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="异议人">
-                <ElInput v-model="confirmationForm.objector" placeholder="请输入异议人" />
+                <ElInput
+                  v-model="confirmationForm.objector"
+                  placeholder="请输入异议人"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="异议金额">
-                <ElInput v-model="confirmationForm.objectionAmount" type="number" />
+                <ElInput
+                  v-model="confirmationForm.objectionAmount"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2335,12 +2781,18 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="最终确认金额">
-                <ElInput v-model="confirmationForm.finalConfirmedAmount" type="number" />
+                <ElInput
+                  v-model="confirmationForm.finalConfirmedAmount"
+                  type="number"
+                />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="最终确认日期">
-                <ElInput v-model="confirmationForm.finalConfirmationDate" placeholder="请输入最终确认日期" />
+                <ElInput
+                  v-model="confirmationForm.finalConfirmationDate"
+                  placeholder="请输入最终确认日期"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2384,11 +2836,642 @@ onMounted(() => {
             提交异议
           </ElButton>
           <ElButton
-            v-if="currentClaim?.confirmationInfo && currentClaim.confirmationInfo.confirmationStatus !== 'CONFIRMED'"
+            v-if="
+              currentClaim?.confirmationInfo &&
+              currentClaim.confirmationInfo.confirmationStatus !== 'CONFIRMED'
+            "
             type="success"
             @click="handleFinalizeConfirmation"
           >
             最终确认
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="showStageOneDialog"
+      title="阶段一：债权申报登记"
+      width="70%"
+      destroy-on-close
+    >
+      <div v-if="currentClaim" class="stage-dialog-container">
+        <div class="stage-header mb-4">
+          <div class="stage-title">
+            <Icon icon="lucide:file-text" class="mr-2" />
+            债权申报登记
+          </div>
+          <ElTag type="warning" size="large">阶段一</ElTag>
+        </div>
+
+        <ElDescriptions :column="2" border class="mb-4">
+          <ElDescriptionsItem label="债权编号">
+            {{ currentClaim.claimNo }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权人">
+            {{ currentClaim.creditorName }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="申报总金额">
+            {{ currentClaim.totalAmount }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记状态">
+            <ElTag
+              :type="
+                getRegistrationStatusTag(currentClaim.registrationStatus).type
+              "
+            >
+              {{
+                getRegistrationStatusTag(currentClaim.registrationStatus).text
+              }}
+            </ElTag>
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <ElAlert title="操作说明" type="info" :closable="false" class="mb-4">
+          <p>
+            此步骤将接收债权申报材料并完成债权登记。确认材料完整性后，债权状态将更新为"已登记"。
+          </p>
+        </ElAlert>
+
+        <div class="stage-actions">
+          <ElFormItem label="材料完整性">
+            <ElRadioGroup v-model="claimForm.materialCompleteness">
+              <ElRadioButton label="COMPLETE">完整</ElRadioButton>
+              <ElRadioButton label="INCOMPLETE">不完整</ElRadioButton>
+              <ElRadioButton label="PENDING">待补充</ElRadioButton>
+            </ElRadioGroup>
+          </ElFormItem>
+          <ElFormItem label="材料接收人">
+            <ElInput
+              v-model="claimForm.materialReceiver"
+              placeholder="请输入材料接收人"
+            />
+          </ElFormItem>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeStageOneDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleStageOneSubmit"
+            :loading="stageOneLoading"
+          >
+            <Icon icon="lucide:check" class="mr-1" />
+            确认登记
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="showStageTwoDialog"
+      title="阶段二：债权审查"
+      width="90%"
+      destroy-on-close
+    >
+      <div v-if="currentClaim" class="stage-dialog-container">
+        <div class="stage-header mb-4">
+          <div class="stage-title">
+            <Icon icon="lucide:search" class="mr-2" />
+            债权审查
+          </div>
+          <ElTag type="primary" size="large">阶段二</ElTag>
+        </div>
+
+        <ElDescriptions :column="2" border class="mb-4">
+          <ElDescriptionsItem label="债权编号">
+            {{ currentClaim.claimNo }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权人">
+            {{ currentClaim.creditorName }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="申报总金额">
+            {{ currentClaim.totalAmount }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记状态">
+            <ElTag
+              :type="
+                getRegistrationStatusTag(currentClaim.registrationStatus).type
+              "
+            >
+              {{
+                getRegistrationStatusTag(currentClaim.registrationStatus).text
+              }}
+            </ElTag>
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <ElAlert title="操作说明" type="info" :closable="false" class="mb-4">
+          <p>
+            此步骤将对债权进行审查，包括金额确认、证据审查等。请填写完整的审查信息并提交。
+          </p>
+        </ElAlert>
+
+        <ElForm label-width="180px">
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="审查日期">
+                <ElInput
+                  v-model="reviewForm.reviewDate"
+                  placeholder="请输入审查日期"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="审查人">
+                <ElInput
+                  v-model="reviewForm.reviewer"
+                  placeholder="请输入审查人"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="审查轮次">
+                <ElInput v-model="reviewForm.reviewRound" type="number" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="审查结论">
+                <ElSelect
+                  v-model="reviewForm.reviewConclusion"
+                  placeholder="请选择审查结论"
+                  style="width: 100%"
+                >
+                  <ElOption label="确认" value="CONFIRMED" />
+                  <ElOption label="部分确认" value="PARTIAL_CONFIRMED" />
+                  <ElOption label="不予确认" value="UNCONFIRMED" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem label="审查依据">
+            <ElInput
+              v-model="reviewForm.reviewBasis"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入审查依据"
+            />
+          </ElFormItem>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">申报金额</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报本金">
+                <ElInput v-model="reviewForm.declaredPrincipal" type="number" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="申报利息">
+                <ElInput v-model="reviewForm.declaredInterest" type="number" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报罚金">
+                <ElInput v-model="reviewForm.declaredPenalty" type="number" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="申报其他损失">
+                <ElInput
+                  v-model="reviewForm.declaredOtherLosses"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报总金额">
+                <ElInput
+                  v-model="reviewForm.declaredTotalAmount"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">确认金额</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="确认本金">
+                <ElInput
+                  v-model="reviewForm.confirmedPrincipal"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="确认利息">
+                <ElInput v-model="reviewForm.confirmedInterest" type="number" />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="确认罚金">
+                <ElInput v-model="reviewForm.confirmedPenalty" type="number" />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="确认其他损失">
+                <ElInput
+                  v-model="reviewForm.confirmedOtherLosses"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="确认总金额">
+                <ElInput
+                  v-model="reviewForm.confirmedTotalAmount"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">不予确认金额</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="不予确认本金">
+                <ElInput
+                  v-model="reviewForm.unconfirmedPrincipal"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="不予确认利息">
+                <ElInput
+                  v-model="reviewForm.unconfirmedInterest"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="不予确认罚金">
+                <ElInput
+                  v-model="reviewForm.unconfirmedPenalty"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="不予确认其他损失">
+                <ElInput
+                  v-model="reviewForm.unconfirmedOtherLosses"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="不予确认总金额">
+                <ElInput
+                  v-model="reviewForm.unconfirmedTotalAmount"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem label="金额调整理由">
+            <ElInput
+              v-model="reviewForm.adjustmentReason"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入金额调整理由"
+            />
+          </ElFormItem>
+
+          <ElFormItem label="不予确认理由">
+            <ElInput
+              v-model="reviewForm.unconfirmedReason"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入不予确认理由"
+            />
+          </ElFormItem>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">证据审查</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="8">
+              <ElFormItem label="证据真实性">
+                <ElSelect
+                  v-model="reviewForm.evidenceAuthenticity"
+                  placeholder="请选择"
+                  style="width: 100%"
+                >
+                  <ElOption label="真实" value="AUTHENTIC" />
+                  <ElOption label="可疑" value="SUSPICIOUS" />
+                  <ElOption label="虚假" value="FAKE" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="证据关联性">
+                <ElSelect
+                  v-model="reviewForm.evidenceRelevance"
+                  placeholder="请选择"
+                  style="width: 100%"
+                >
+                  <ElOption label="相关" value="RELEVANT" />
+                  <ElOption label="不相关" value="IRRELEVANT" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="8">
+              <ElFormItem label="证据合法性">
+                <ElSelect
+                  v-model="reviewForm.evidenceLegality"
+                  placeholder="请选择"
+                  style="width: 100%"
+                >
+                  <ElOption label="合法" value="LEGAL" />
+                  <ElOption label="不合法" value="ILLEGAL" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem label="证据审查说明">
+            <ElInput
+              v-model="reviewForm.evidenceReviewNotes"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入证据审查说明"
+            />
+          </ElFormItem>
+
+          <ElFormItem label="审查总结">
+            <ElInput
+              v-model="reviewForm.reviewSummary"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入审查总结"
+            />
+          </ElFormItem>
+
+          <ElFormItem label="备注">
+            <ElInput
+              v-model="reviewForm.remarks"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入备注"
+            />
+          </ElFormItem>
+        </ElForm>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeStageTwoDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleStageTwoSubmit"
+            :loading="stageTwoLoading"
+          >
+            <Icon icon="lucide:check" class="mr-1" />
+            提交审查
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="showStageThreeDialog"
+      title="阶段三：债权确认"
+      width="90%"
+      destroy-on-close
+    >
+      <div v-if="currentClaim" class="stage-dialog-container">
+        <div class="stage-header mb-4">
+          <div class="stage-title">
+            <Icon icon="lucide:check-circle" class="mr-2" />
+            债权确认
+          </div>
+          <ElTag type="warning" size="large">阶段三</ElTag>
+        </div>
+
+        <ElDescriptions :column="2" border class="mb-4">
+          <ElDescriptionsItem label="债权编号">
+            {{ currentClaim.claimNo }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权人">
+            {{ currentClaim.creditorName }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="申报总金额">
+            {{ currentClaim.totalAmount }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="确认总金额">
+            <ElTag type="success">
+              {{ currentClaim.reviewInfo?.confirmedTotalAmount || 0 }}
+            </ElTag>
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <ElAlert title="操作说明" type="info" :closable="false" class="mb-4">
+          <p>
+            此步骤将在债权人会议上对债权进行表决确认。如有异议，可提交异议处理流程。
+          </p>
+        </ElAlert>
+
+        <ElForm label-width="180px">
+          <div class="section-divider mb-4">
+            <h4 class="section-title">债权人会议信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="会议类型">
+                <ElSelect
+                  v-model="confirmationForm.meetingType"
+                  placeholder="请选择会议类型"
+                  style="width: 100%"
+                >
+                  <ElOption label="第一次债权人会议" value="FIRST" />
+                  <ElOption label="第二次债权人会议" value="SECOND" />
+                  <ElOption label="临时债权人会议" value="TEMPORARY" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="会议日期">
+                <ElInput
+                  v-model="confirmationForm.meetingDate"
+                  placeholder="请输入会议日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="会议地点">
+                <ElInput
+                  v-model="confirmationForm.meetingLocation"
+                  placeholder="请输入会议地点"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="表决结果">
+                <ElSelect
+                  v-model="confirmationForm.voteResult"
+                  placeholder="请选择表决结果"
+                  style="width: 100%"
+                >
+                  <ElOption label="同意" value="AGREE" />
+                  <ElOption label="不同意" value="DISAGREE" />
+                  <ElOption label="弃权" value="ABSTAIN" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem label="表决说明">
+            <ElInput
+              v-model="confirmationForm.voteNotes"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入表决说明"
+            />
+          </ElFormItem>
+
+          <ElRow :gutter="20">
+            <ElCol :span="8">
+              <ElFormItem label="是否有异议">
+                <ElCheckbox v-model="confirmationForm.hasObjection">
+                  是
+                </ElCheckbox>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div
+            v-if="confirmationForm.hasObjection"
+            class="section-divider mb-4"
+          >
+            <h4 class="section-title">异议信息</h4>
+          </div>
+
+          <ElRow v-if="confirmationForm.hasObjection" :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="异议人">
+                <ElInput
+                  v-model="confirmationForm.objector"
+                  placeholder="请输入异议人"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="异议金额">
+                <ElInput
+                  v-model="confirmationForm.objectionAmount"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem v-if="confirmationForm.hasObjection" label="异议理由">
+            <ElInput
+              v-model="confirmationForm.objectionReason"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入异议理由"
+            />
+          </ElFormItem>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">最终确认</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="最终确认金额">
+                <ElInput
+                  v-model="confirmationForm.finalConfirmedAmount"
+                  type="number"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="最终确认日期">
+                <ElInput
+                  v-model="confirmationForm.finalConfirmationDate"
+                  placeholder="请输入最终确认日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="最终确认依据">
+                <ElSelect
+                  v-model="confirmationForm.finalConfirmationBasis"
+                  placeholder="请选择最终确认依据"
+                  style="width: 100%"
+                >
+                  <ElOption label="债权人会议" value="MEETING" />
+                  <ElOption label="法院裁定" value="COURT" />
+                  <ElOption label="和解" value="SETTLEMENT" />
+                  <ElOption label="其他" value="OTHER" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElFormItem label="备注">
+            <ElInput
+              v-model="confirmationForm.remarks"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入备注"
+            />
+          </ElFormItem>
+        </ElForm>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeStageThreeDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleStageThreeSubmit"
+            :loading="stageThreeLoading"
+          >
+            <Icon icon="lucide:check" class="mr-1" />
+            提交确认
           </ElButton>
         </span>
       </template>
@@ -2454,5 +3537,47 @@ onMounted(() => {
 .upload-icon {
   font-size: 48px;
   color: #409eff;
+}
+
+.stage-dialog-container {
+  max-height: 600px;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.stage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.stage-title {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.stage-actions {
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+  .stage-header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .stage-dialog-container {
+    padding: 10px;
+  }
 }
 </style>

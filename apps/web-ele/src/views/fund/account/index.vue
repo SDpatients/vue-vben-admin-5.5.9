@@ -490,10 +490,8 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveAccount">确定</el-button>
-        </div>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveAccount">确定</el-button>
       </template>
     </el-dialog>
   </div>

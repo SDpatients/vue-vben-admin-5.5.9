@@ -14,11 +14,6 @@ import { getManagerListApi } from '#/api/core/manager';
 
 
 const accessStore = useAccessStore();
-const permissions = accessStore.accessCodes || [];
-
-const hasPermission = (perm: string) => {
-  return permissions.includes(perm);
-};
 
 const router = useRouter();
 
@@ -264,19 +259,7 @@ const submitForm = async () => {
 
 <template>
   <div class="p-6">
-    <div v-if="!hasPermission('case:add')" class="no-permission">
-      <ElResult
-        icon="warning"
-        title="无权访问"
-        sub-title="您没有创建案件的权限"
-      >
-        <template #extra>
-          <el-button type="primary" @click="router.back()">返回</el-button>
-        </template>
-      </ElResult>
-    </div>
-    <div v-else>
-      <div class="mb-6 flex items-center justify-between">
+    <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">新增破产案件</h1>
         <button
           class="text-gray-500 transition-colors hover:text-gray-700"

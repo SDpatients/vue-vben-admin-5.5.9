@@ -66,6 +66,11 @@ const addTeamFormData = reactive({
   teamDescription: '',
 });
 
+// 团队负责人列表
+const teamLeaderList = ref<{ label: string; value: string }[]>([]);
+const teamLeaderSearchLoading = ref(false);
+const selectedDeptId = ref<number | undefined>(undefined);
+
 const addMemberFormData = reactive({
   teamId: 0,
   caseId: 0,
@@ -214,6 +219,37 @@ const fetchMemberList = async (administratorId: number) => {
   }
 };
 
+// 获取团队负责人列表
+const fetchTeamLeaderList = async () => {
+  teamLeaderSearchLoading.value = true;
+  try {
+    // 这里需要根据实际情况获取管理人ID，暂时使用mock数据
+    const administratorId = 1; // 实际应用中应该从当前用户或其他地方获取
+    const data = await getUserByDeptIdApi(administratorId);
+    
+    let staffList = [];
+    if (data.data && Array.isArray(data.data)) {
+      // 直接返回数组的响应结构
+      staffList = data.data;
+    } else if (data.data && data.data.list && Array.isArray(data.data.list)) {
+      // 包含data.list的响应结构
+      staffList = data.data.list;
+    }
+    
+    teamLeaderList.value = staffList
+      .filter((staff) => staff && staff.userId != null)
+      .map((staff) => ({
+        label: staff.name,
+        value: staff.userId.toString(),
+      }));
+  } catch (error) {
+    teamLeaderList.value = [];
+    ElMessage.error('获取团队负责人列表失败');
+  } finally {
+    teamLeaderSearchLoading.value = false;
+  }
+};
+
 const handleAddTeam = async () => {
   addTeamDialogVisible.value = true;
   Object.assign(addTeamFormData, {
@@ -223,6 +259,7 @@ const handleAddTeam = async () => {
     teamDescription: '',
   });
   await fetchCaseList();
+  await fetchTeamLeaderList();
 };
 
 const handleCloseAddTeamDialog = () => {
@@ -613,11 +650,21 @@ onMounted(() => {
           />
         </ElFormItem>
         <ElFormItem label="团队负责人" prop="teamLeaderId">
-          <ElInput
+          <ElSelect
             v-model="addTeamFormData.teamLeaderId"
-            placeholder="请输入团队负责人ID"
-            type="number"
-          />
+            placeholder="请选择团队负责人"
+            style="width: 100%"
+            filterable
+            clearable
+            :loading="teamLeaderSearchLoading"
+          >
+            <ElOption
+              v-for="leader in teamLeaderList"
+              :key="leader.value"
+              :label="leader.label"
+              :value="leader.value"
+            />
+          </ElSelect>
         </ElFormItem>
         <ElFormItem label="团队描述" prop="teamDescription">
           <ElInput
