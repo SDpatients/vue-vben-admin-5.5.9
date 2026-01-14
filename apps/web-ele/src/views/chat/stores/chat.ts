@@ -2,26 +2,7 @@ import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-import {
-  deleteConversationApi,
-  deleteMessageApi,
-  forwardMessagesApi,
-  getConversationMessagesApi,
-  getConversationUnreadCountApi,
-  getPinnedConversationsApi,
-  getRecallConfigApi,
-  getUnreadCountApi,
-  getUnpinnedConversationsApi,
-  getUserConversationsApi,
-  markConversationAsReadApi,
-  markMessageAsReadApi,
-  pinConversationApi,
-  recallMessageApiV2,
-  replyMessageApi,
-  searchMessagesApi,
-  sendMessageApiV2,
-  updateRecallConfigApi,
-} from '#/api/core/chat';
+
 
 interface Contact {
   avatar: null | string;
@@ -653,33 +634,32 @@ export const useChatStore = defineStore('chat', () => {
     loading.value = true;
     error.value = null;
     try {
-      const currentUserId = userId || getCurrentUserId();
-      const [pinnedSessions, unpinnedSessions] = await Promise.all([
-        getPinnedConversationsApi({ userId: currentUserId }),
-        getUnpinnedConversationsApi({ userId: currentUserId }),
-      ]);
+      console.log('使用默认聊天会话数据，不调用API');
+      
+      // 默认聊天会话数据
+      const defaultSessions = [
+        {
+          id: 1,
+          contactId: 2,
+          lastMessage: '你好，最近怎么样？',
+          unreadCount: 0,
+          isPinned: false,
+          lastActivityTime: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          contactId: 3,
+          lastMessage: '明天有时间吗？',
+          unreadCount: 2,
+          isPinned: true,
+          lastActivityTime: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        },
+      ];
 
-      const allSessions = [...pinnedSessions, ...unpinnedSessions].map(
-        (conv) => ({
-          id: conv.id,
-          contactId:
-            conv.userId1 === currentUserId ? conv.userId2 : conv.userId1,
-          lastMessage: conv.lastMessageContent,
-          unreadCount:
-            conv.userId1 === currentUserId
-              ? conv.user1UnreadCount
-              : conv.user2UnreadCount,
-          isPinned:
-            conv.userId1 === currentUserId
-              ? conv.user1Pinned
-              : conv.user2Pinned,
-          lastActivityTime: conv.lastMessageTime,
-          createdAt: conv.createTime,
-        }),
-      );
-
-      sessions.value = allSessions;
-      totalUnread.value = allSessions.reduce(
+      sessions.value = defaultSessions;
+      totalUnread.value = defaultSessions.reduce(
         (sum, session) => sum + session.unreadCount,
         0,
       );

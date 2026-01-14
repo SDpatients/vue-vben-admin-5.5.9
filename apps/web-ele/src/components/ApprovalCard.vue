@@ -158,14 +158,14 @@ const getTypeText = (type: string) => {
 
 .approval-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
 .approval-title {
-  font-weight: 500;
   font-size: 15px;
+  font-weight: 500;
   color: #303133;
 }
 
@@ -186,14 +186,14 @@ const getTypeText = (type: string) => {
 }
 
 .info-row .label {
-  color: #909399;
-  width: 80px;
   flex-shrink: 0;
+  width: 80px;
+  color: #909399;
 }
 
 .info-row .value {
-  color: #606266;
   flex: 1;
+  color: #606266;
   word-break: break-all;
 }
 

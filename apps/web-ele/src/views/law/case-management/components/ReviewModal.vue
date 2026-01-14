@@ -5,7 +5,7 @@ import { ref, watch } from 'vue';
 
 import { ElButton, ElCard, ElDialog, ElEmpty, ElMessage, ElTimeline, ElTimelineItem, ElTag } from 'element-plus';
 
-import { approveCaseApi, getReviewLogsApi, rejectCaseApi } from '#/api/core/case';
+import { reviewCaseApi } from '#/api/core/case';
 
 interface Props {
   visible: boolean;
@@ -40,11 +40,11 @@ watch(visible, (newVal) => {
 });
 
 const loadReviewLogs = async () => {
-  if (!props.caseData?.案件单据号) return;
+  if (!props.caseData?.id) return;
 
   try {
-    const response = await getReviewLogsApi(props.caseData.案件单据号);
-    if (response.status === '1') {
+    const response = await getReviewLogsApi(props.caseData.id);
+    if (response.code === 200 && response.data) {
       reviewLogs.value = response.data || [];
     } else {
       reviewLogs.value = [];
@@ -63,13 +63,16 @@ const handleApprove = async () => {
 
   loading.value = true;
   try {
-    const response = await approveCaseApi(props.caseData?.案件单据号 || 0, form.value.opinion);
-    if (response.status === '1') {
+    const response = await reviewCaseApi(props.caseData?.id || 0, {
+      reviewStatus: 'APPROVED',
+      reviewOpinion: form.value.opinion,
+    });
+    if (response.code === 200) {
       ElMessage.success('审核通过');
       visible.value = false;
       emit('success');
     } else {
-      ElMessage.error(response.error || '审核失败');
+      ElMessage.error(response.message || '审核失败');
     }
   } catch (error: any) {
     ElMessage.error(error.message || '审核失败');
@@ -86,13 +89,16 @@ const handleReject = async () => {
 
   loading.value = true;
   try {
-    const response = await rejectCaseApi(props.caseData?.案件单据号 || 0, form.value.opinion);
-    if (response.status === '1') {
+    const response = await reviewCaseApi(props.caseData?.id || 0, {
+      reviewStatus: 'REJECTED',
+      reviewOpinion: form.value.opinion,
+    });
+    if (response.code === 200) {
       ElMessage.success('案件已驳回');
       visible.value = false;
       emit('success');
     } else {
-      ElMessage.error(response.error || '驳回失败');
+      ElMessage.error(response.message || '驳回失败');
     }
   } catch (error: any) {
     ElMessage.error(error.message || '驳回失败');
@@ -149,11 +155,11 @@ const formatTime = (time: string) => {
         <div class="case-info">
           <div class="info-item">
             <span class="label">案件名称：</span>
-            <span class="value">{{ caseData?.案号 }}</span>
+            <span class="value">{{ caseData?.caseName }}</span>
           </div>
           <div class="info-item">
             <span class="label">案号：</span>
-            <span class="value">{{ caseData?.案号 }}</span>
+            <span class="value">{{ caseData?.caseNumber }}</span>
           </div>
         </div>
       </ElCard>
@@ -232,9 +238,9 @@ const formatTime = (time: string) => {
       margin-bottom: 12px;
 
       .label {
+        flex-shrink: 0;
         width: 80px;
         color: #999;
-        flex-shrink: 0;
       }
 
       .value {
@@ -248,8 +254,8 @@ const formatTime = (time: string) => {
     .log-item {
       .log-header {
         display: flex;
-        align-items: center;
         gap: 8px;
+        align-items: center;
         margin-bottom: 4px;
 
         .reviewer {
@@ -266,10 +272,10 @@ const formatTime = (time: string) => {
 
       .log-opinion {
         padding: 8px;
-        background: #f5f7fa;
-        border-radius: 4px;
         font-size: 13px;
         color: #666;
+        background: #f5f7fa;
+        border-radius: 4px;
       }
     }
   }
@@ -288,15 +294,15 @@ const formatTime = (time: string) => {
       .form-textarea {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid #dcdfe6;
-        border-radius: 4px;
         font-size: 14px;
         line-height: 1.5;
         color: #606266;
+        resize: vertical;
         background-color: #fff;
         background-image: none;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
         transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-        resize: vertical;
       }
 
       .form-textarea:focus {
@@ -307,8 +313,8 @@ const formatTime = (time: string) => {
 
     .action-buttons {
       display: flex;
-      justify-content: flex-end;
       gap: 12px;
+      justify-content: flex-end;
     }
   }
 }

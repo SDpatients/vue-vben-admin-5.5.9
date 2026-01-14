@@ -21,7 +21,8 @@ import {
 import {
   getAnnouncementDetailApi,
   getAnnouncementListApi,
-  recordAnnouncementViewApi,
+  createViewRecordApi,
+  createAnnouncementApi,
 } from '#/api/core/case-announcement';
 
 interface Announcement {
@@ -93,10 +94,10 @@ const formatDate = (dateStr: string) => {
 const fetchAnnouncements = async () => {
   loading.value = true;
   try {
-    const response = await getAnnouncementListApi(
-      currentPage.value,
-      pageSize.value
-    );
+    const response = await getAnnouncementListApi({
+      pageNum: currentPage.value,
+      pageSize: pageSize.value
+    });
     if (response.code === 200) {
       announcements.value = response.data.list || [];
       total.value = response.data.total || 0;
@@ -172,8 +173,8 @@ const downloadFile = (attachment: {
  * 打开文件预览
  */
 const previewFile = (attachment: { file_id: string; file_name: string }) => {
-  const baseUrl = 'http://192.168.0.120:8080';
-  previewUrl.value = `${baseUrl}/api/file/view/${attachment.file_id}`;
+  const baseUrl = 'http://localhost:8080';
+  previewUrl.value = `${baseUrl}/api/v1/file/preview/${attachment.file_id}`;
   showPreviewDialog.value = true;
 };
 
@@ -229,10 +230,7 @@ const submitPublishForm = async () => {
     };
     
     // 调用发布公告API
-    const response = await announcementRequestClient.post<{ code: number; message: string; data: { announcementId: number } }>(
-      '/api/v1/case-announcement',
-      requestData
-    );
+    const response = await createAnnouncementApi(requestData);
     
     if (response.code === 200) {
       ElMessage.success('公告发布成功');
@@ -666,17 +664,17 @@ onMounted(() => {
 }
 
 .detail-content {
+  padding: 20px;
   background: #fafafa;
   border-radius: 8px;
-  padding: 20px;
 }
 
 .detail-meta {
-  margin-bottom: 24px;
   padding: 20px;
+  margin-bottom: 24px;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .meta-grid {
@@ -693,34 +691,34 @@ onMounted(() => {
 
 .meta-label {
   font-size: 12px;
-  color: #666;
   font-weight: 500;
+  color: #666;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .meta-value {
   font-size: 14px;
-  color: #333;
   font-weight: 500;
+  color: #333;
 }
 
 .section-title {
+  display: inline-block;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
   font-size: 16px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
   border-bottom: 2px solid #3b82f6;
-  display: inline-block;
 }
 
 .detail-body {
-  margin-bottom: 24px;
   padding: 20px;
+  margin-bottom: 24px;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .content-html {
@@ -738,7 +736,7 @@ onMounted(() => {
   padding: 20px;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .attachment-list {
@@ -749,8 +747,8 @@ onMounted(() => {
 
 .attachment-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px;
   background: #f9fafb;
   border-radius: 6px;
@@ -764,21 +762,21 @@ onMounted(() => {
 
 .attachment-info {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .attachment-icon {
-  color: #3b82f6;
   font-size: 16px;
+  color: #3b82f6;
 }
 
 .attachment-name {
-  font-size: 14px;
-  color: #333;
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
+  color: #333;
   white-space: nowrap;
 }
 
@@ -789,10 +787,10 @@ onMounted(() => {
 
 /* 预览容器样式 */
 .preview-container {
-  width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
 }
 
 .preview-iframe {

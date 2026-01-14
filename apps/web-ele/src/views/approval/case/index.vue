@@ -609,8 +609,8 @@ onMounted(() => {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 12px;
-        margin-bottom: 16px;
         padding: 16px;
+        margin-bottom: 16px;
         background-color: #f5f7fa;
         border-radius: 4px;
       }
@@ -623,33 +623,33 @@ onMounted(() => {
     }
 
     .detail-value {
-      color: #303133;
       font-weight: 500;
+      color: #303133;
     }
 
     .content-box {
+      min-height: 80px;
       padding: 12px;
-      background-color: #f5f7fa;
-      border-radius: 4px;
       line-height: 1.6;
       color: #606266;
-      min-height: 80px;
+      background-color: #f5f7fa;
+      border-radius: 4px;
     }
 
     .remark-box {
       padding: 12px;
-      background-color: #fef0f0;
-      border-radius: 4px;
       line-height: 1.6;
       color: #f56c6c;
+      background-color: #fef0f0;
+      border-radius: 4px;
     }
 
     .timeline-box {
+      max-height: 300px;
       padding: 16px;
+      overflow-y: auto;
       background-color: #f5f7fa;
       border-radius: 4px;
-      max-height: 300px;
-      overflow-y: auto;
     }
   }
 }
@@ -667,7 +667,7 @@ onMounted(() => {
 }
 
 :deep(.el-timeline-item__timestamp) {
-  color: #909399;
   font-size: 12px;
+  color: #909399;
 }
 </style>

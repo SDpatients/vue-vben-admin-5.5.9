@@ -22,6 +22,18 @@ export default defineConfig(async (): Promise<any> => {
             ws: true,
             rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
+          '/api/vi': {
+            changeOrigin: true,
+            target: 'http://192.168.0.120:8080',
+            ws: true,
+            rewrite: (path: string) => path,
+          },
+          '/users': {
+            changeOrigin: true,
+            target: 'http://192.168.0.120:8080',
+            ws: true,
+            rewrite: (path: string) => path,
+          },
           '/ws': {
             changeOrigin: true,
             target: 'http://192.168.0.120:8080',

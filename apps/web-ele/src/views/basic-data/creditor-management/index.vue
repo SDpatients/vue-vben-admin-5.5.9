@@ -24,12 +24,16 @@ import {
 } from 'element-plus';
 
 import {
-  addCreditorApi,
+  createCreditorApi,
   deleteCreditorApi,
-  editCreditorApi,
+  updateCreditorApi,
   getCreditorListApi,
-  getCaseListApi,
+  getCreditorDetailApi,
 } from '#/api/core/creditor';
+
+import {
+  getCaseListApi,
+} from '#/api/core/case';
 
 // 响应式数据
 const creditorList = ref<CreditorApi.CreditorInfo[]>([]);
@@ -285,7 +289,7 @@ const handleSubmit = async () => {
     await formRef.value.validate();
     formLoading.value = true;
 
-    const response = await addCreditorApi(formData);
+    const response = await createCreditorApi(formData);
 
     // 检查响应状态，兼容不同的响应格式
     if (response.code === 200 || response.status === '1') {
@@ -356,7 +360,8 @@ const handleEditSubmit = async () => {
     editFormLoading.value = true;
 
     // 调用编辑API
-    const response = await editCreditorApi(editFormData);
+    const { creditorId, ...updateData } = editFormData;
+    const response = await updateCreditorApi(creditorId, updateData);
 
     // 检查响应状态，兼容不同的响应格式
     if (response.code === 200 || response.status === '1') {

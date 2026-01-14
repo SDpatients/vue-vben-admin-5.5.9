@@ -209,8 +209,8 @@ onMounted(() => {
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -221,9 +221,9 @@ onMounted(() => {
 }
 
 .page-content {
+  padding: 20px;
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
 }
 
 .filter-bar {
@@ -237,8 +237,8 @@ onMounted(() => {
 }
 
 .load-more {
-  text-align: center;
   padding: 16px;
+  text-align: center;
   border-top: 1px solid #ebeef5;
 }
 

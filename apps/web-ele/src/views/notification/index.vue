@@ -272,8 +272,8 @@ onMounted(() => {
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
@@ -284,9 +284,9 @@ onMounted(() => {
 }
 
 .page-content {
+  padding: 20px;
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
 }
 
 .filter-bar {
@@ -298,12 +298,12 @@ onMounted(() => {
 }
 
 .notification-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 12px;
   cursor: pointer;
   transition: all 0.3s;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 
 .notification-item:hover {
@@ -311,8 +311,8 @@ onMounted(() => {
 }
 
 .notification-item.unread {
-  border-left: 4px solid #1890ff;
   background-color: #f0f9ff;
+  border-left: 4px solid #1890ff;
 }
 
 .notification-content {
@@ -322,8 +322,8 @@ onMounted(() => {
 
 .notification-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
 }
 
@@ -340,19 +340,19 @@ onMounted(() => {
 }
 
 .notification-title {
+  margin-bottom: 4px;
   font-size: 15px;
   font-weight: 500;
   color: #303133;
-  margin-bottom: 4px;
 }
 
 .notification-text {
-  font-size: 13px;
-  color: #606266;
+  display: -webkit-box;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
+  font-size: 13px;
+  color: #606266;
   -webkit-box-orient: vertical;
 }
 
@@ -363,8 +363,8 @@ onMounted(() => {
 }
 
 .load-more {
-  text-align: center;
   padding: 16px;
+  text-align: center;
   border-top: 1px solid #ebeef5;
 }
 

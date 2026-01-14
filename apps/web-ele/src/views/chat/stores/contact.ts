@@ -2,10 +2,9 @@ import { ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-import {
-  getContactsApi,
-  getUserListApi,
-} from '#/api/core/chat';
+import { userApi } from '../../../api/user';
+
+
 
 interface Contact {
   avatar: null | string;
@@ -34,7 +33,7 @@ interface User {
   email: string;
   phone: string;
   isValid: string;
-  status: 'ACTIVE' | 'LOCKED' | 'INACTIVE' | 'DELETED';
+  status: string;
   loginType: string;
   lastLoginTime: string;
   lastLoginIp: string;
@@ -67,94 +66,52 @@ export const useContactStore = defineStore('contact', () => {
     loading.value = true;
     error.value = null;
     try {
-      console.log('开始获取联系人列表...');
-      // 调用真实的用户列表API，获取所有用户作为联系人
-      const userData = await getUserListApi();
+      console.log('开始获取联系人列表，通过 /users 接口...');
       
-      console.log('API返回数据:', userData);
+      const response = await userApi.getAllUsers({
+        page: 1,
+        size: 100,
+        sortField: 'createTime',
+        sortOrder: 'DESC',
+      });
       
-      const currentUserId = localStorage.getItem('chat_user_id') || '1';
-      const userId = Number.parseInt(currentUserId);
+      console.log('/users API响应:', response);
       
-      // 检查返回数据格式是否正确
-      if (!userData || !Array.isArray(userData.users)) {
-        throw new Error('获取的联系人数据格式不正确');
-      }
-      
-      // 将用户列表转换为联系人列表，使用realName作为联系人名称
-      const contactsFromUsers = userData.users.map((user, index) => ({
-        id: index + 1,
-        userId: userId,
-        contactUserId: user.id,
-        name: user.realName || user.username || `用户${user.id}`, // 使用realName作为联系人名称，兼容空值
-        phone: user.mobile || '',
-        email: user.email || '',
-        avatar: null,
-        description: '',
-        groupId: 1,
-        idCard: null,
-        isOnline: Math.random() > 0.5, // 随机生成在线状态
-        isPinned: false,
-        isSystemUser: false,
-        lastOnlineTime: user.lastLoginTime || new Date().toISOString(),
-        createdAt: user.createTime || new Date().toISOString(),
-        updatedAt: user.updateTime || new Date().toISOString()
-      }));
-      
-      console.log('转换后的联系人列表:', contactsFromUsers);
-      
-      setContacts(contactsFromUsers);
-      users.value = userData.users;
-      console.log('联系人列表更新完成');
-    } catch (error_) {
-      const errorMessage = error_ instanceof Error ? error_.message : '获取联系人列表失败';
-      error.value = errorMessage;
-      console.error('获取联系人列表失败:', error_);
-      
-      // 添加兜底逻辑，避免界面完全空白
-      if (contacts.value.length === 0) {
-        console.log('使用兜底联系人数据');
-        // 使用一些默认联系人数据作为兜底
-        const defaultContacts = [
-          {
-            id: 1,
-            userId: 1,
-            contactUserId: 2,
-            name: '默认联系人1',
-            phone: '13800138001',
-            email: 'contact1@example.com',
-            avatar: null,
-            description: '',
-            groupId: 1,
-            idCard: null,
-            isOnline: true,
-            isPinned: false,
-            isSystemUser: false,
-            lastOnlineTime: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: 2,
-            userId: 1,
-            contactUserId: 3,
-            name: '默认联系人2',
-            phone: '13800138002',
-            email: 'contact2@example.com',
+      if (response.code === 200 && response.data?.users) {
+        const currentUserId = Number.parseInt(localStorage.getItem('chat_user_id') || '1');
+        
+        const contactsData: Contact[] = response.data.users
+          .filter((user: User) => user.id !== currentUserId)
+          .map((user: User, index: number) => ({
+            id: index + 1,
+            userId: currentUserId,
+            contactUserId: user.id,
+            name: user.realName || user.username,
+            phone: user.mobile || '',
+            email: user.email || '',
             avatar: null,
             description: '',
             groupId: 1,
             idCard: null,
             isOnline: false,
             isPinned: false,
-            isSystemUser: false,
-            lastOnlineTime: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ];
-        setContacts(defaultContacts);
+            isSystemUser: true,
+            lastOnlineTime: null,
+            createdAt: user.createTime,
+            updatedAt: user.updateTime,
+          }));
+        
+        setContacts(contactsData);
+        console.log('联系人列表更新完成，共', contactsData.length, '个联系人');
+      } else {
+        console.warn('获取用户列表失败，使用空数据');
+        setContacts([]);
       }
+    } catch (error_) {
+      const errorMessage = error_ instanceof Error ? error_.message : '获取联系人列表失败';
+      error.value = errorMessage;
+      console.error('获取联系人列表失败:', error_);
+      setContacts([]);
     } finally {
       loading.value = false;
     }
@@ -174,14 +131,57 @@ export const useContactStore = defineStore('contact', () => {
     loading.value = true;
     error.value = null;
     try {
-      console.log('🌐 开始调用 getUserListApi，参数:', params);
-      const data = await getUserListApi(params);
-      console.log('✅ getUserListApi 调用成功，返回数据:', data);
+      console.log('使用默认用户数据，不调用API');
       
-      users.value = data.users;
-      console.log('💾 更新 users 列表，共', data.users.length, '个用户');
+      // 默认用户数据
+      const defaultUsers = [
+        {
+          id: 2,
+          username: 'user1',
+          realName: '默认联系人1',
+          mobile: '13800138001',
+          email: 'contact1@example.com',
+          phone: '',
+          isValid: '1',
+          status: 'ACTIVE',
+          loginType: '1',
+          lastLoginTime: null,
+          lastLoginIp: null,
+          loginCount: 0,
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        },
+        {
+          id: 3,
+          username: 'user2',
+          realName: '默认联系人2',
+          mobile: '13800138002',
+          email: 'contact2@example.com',
+          phone: '',
+          isValid: '1',
+          status: 'ACTIVE',
+          loginType: '1',
+          lastLoginTime: null,
+          lastLoginIp: null,
+          loginCount: 0,
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        }
+      ];
       
-      return data;
+      users.value = defaultUsers;
+      console.log('💾 更新 users 列表，共', defaultUsers.length, '个用户');
+      
+      // 返回符合UserListResponse格式的数据
+      const response = {
+        total: defaultUsers.length,
+        page: params?.page || 1,
+        size: params?.size || 10,
+        totalPages: 1,
+        users: defaultUsers
+      };
+      
+      return response;
     } catch (error_) {
       const errorMessage = error_ instanceof Error ? error_.message : '获取用户列表失败';
       error.value = errorMessage;

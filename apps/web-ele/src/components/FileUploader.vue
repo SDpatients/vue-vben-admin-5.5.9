@@ -105,8 +105,8 @@ const fetchFileList = async () => {
   uploading.value = true;
   try {
     const response = await getFileListApi(props.bizType, props.bizId);
-    if (response.status === '1') {
-      const files = response.data || [];
+    if (response.code === 200) {
+      const files = response.data?.list || [];
       fileList.value = files.map((file: any) => ({
         uid: file.id || Date.now() + Math.random(),
         name: file.originalFileName,
@@ -116,7 +116,7 @@ const fetchFileList = async () => {
       }));
       emit('file-list-change', fileList.value);
     } else {
-      ElMessage.error(`获取文件列表失败：${response.msg || '未知错误'}`);
+      ElMessage.error(`获取文件列表失败：${response.message || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`获取文件列表失败：${error.message || '未知错误'}`);
@@ -164,7 +164,7 @@ const handleUpload = async (options: any) => {
     uploadProgress.value = 100;
     options.onProgress?.({ percent: 100 });
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       const uploadedFile = {
         uid: Date.now(),
         name: rawFile.name,
@@ -179,7 +179,7 @@ const handleUpload = async (options: any) => {
       options.onSuccess?.(uploadedFile);
       ElMessage.success('文件上传成功');
     } else {
-      const error = new Error(response.msg || '文件上传失败');
+      const error = new Error(response.message || '文件上传失败');
       options.onError?.(error);
       throw error;
     }
@@ -209,7 +209,7 @@ const handleRemove = async (file: UploadFile) => {
 
     const response = await deleteFileApi(fileId);
 
-    if (response.status === '1') {
+    if (response.code === 200) {
       const index = fileList.value.findIndex((item) => item.uid === file.uid);
       if (index !== -1) {
         fileList.value.splice(index, 1);
@@ -217,7 +217,7 @@ const handleRemove = async (file: UploadFile) => {
         ElMessage.success('文件已删除');
       }
     } else {
-      ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
+      ElMessage.error(`文件删除失败：${response.message || '未知错误'}`);
     }
   } catch (error: any) {
     ElMessage.error(`文件删除失败：${error.message || '未知错误'}`);

@@ -55,7 +55,7 @@ function handleContactClick(contactId: number) {
   selectedContactId.value = contactId;
   
   // 2. 调用users接口，获取用户列表数据 - 严格按照要求调用API
-  console.log('开始调用API: users?page=1&size=10&sortField=createTime&sortOrder=DESC');
+  console.log('开始调用API: api/v1/users?page=1&size=10&sortField=createTime&sortOrder=DESC');
   
   fetchUsers({
     page: 1,

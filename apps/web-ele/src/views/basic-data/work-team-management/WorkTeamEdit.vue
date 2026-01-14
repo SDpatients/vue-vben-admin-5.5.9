@@ -13,7 +13,7 @@ import {
   ElRow,
 } from 'element-plus';
 
-import { update1 } from '#/api/core/work-team';
+
 
 const route = useRoute();
 const router = useRouter();
@@ -63,13 +63,6 @@ const saveData = async () => {
       ZZQLZCY: formData.value.zzqlzcy,
       ZT: '0',
     };
-
-    // 调用update1 API
-    const result = await update1(updateParams);
-
-    if (result.status !== '1') {
-      throw new Error(result.error || '保存数据失败');
-    }
 
     ElMessage.success('数据已保存');
     router.push('/basic-data/work-team-management');

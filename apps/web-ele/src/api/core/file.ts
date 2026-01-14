@@ -10,13 +10,15 @@ export namespace FileApi {
     fileSize: number;
     fileExtension: string;
     mimeType: string;
-    fileHash: string;
+    fileHash: string | null;
     bizType: string;
     bizId: number;
     uploadTime: string;
-    uploadUser: string;
+    uploadUserId: number;
     fileStatus: number;
-    isDeleted: boolean;
+    status: string;
+    createTime: string;
+    updateTime: string;
   }
 
   /** 文件上传请求 */
@@ -28,55 +30,67 @@ export namespace FileApi {
 
   /** 文件上传响应 */
   export interface UploadResponse {
-    status: string;
-    msg: string;
+    code: number;
+    message: string;
     data: FileRecord;
   }
 
   /** 批量上传响应 */
   export interface BatchUploadResponse {
-    status: string;
-    msg: string;
+    code: number;
+    message: string;
     data: FileRecord[];
   }
 
   /** 文件列表响应 */
   export interface FileListResponse {
-    status: string;
-    msg: string;
-    data: FileRecord[];
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: FileRecord[];
+    };
   }
 
   /** 删除响应 */
   export interface DeleteResponse {
-    status: string;
-    msg: string;
+    code: number;
+    message: string;
+    data: null;
+  }
+
+  /** 文件统计响应 */
+  export interface StatisticsResponse {
+    code: number;
+    message: string;
+    data: {
+      totalFiles: number;
+      totalSize: number;
+      totalSizeMB: number;
+      statusCount: Record<string, number>;
+      extensionCount: Record<string, number>;
+    };
   }
 }
 
 /**
  * 单文件上传
  * @param file 文件对象
- * @param bizType 业务类型 (case, process, notice等)
+ * @param bizType 业务类型 (case, creditor, debtor, claim, announcement, fund, common等)
  * @param bizId 业务ID
- * @param category 分类标识（可选，用于归档等场景）
  */
 export async function uploadFileApi(
   file: File,
   bizType: string,
   bizId: number,
-  category?: string,
 ): Promise<FileApi.UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('bizType', bizType);
   formData.append('bizId', bizId.toString());
-  if (category) {
-    formData.append('category', category);
-  }
 
   return fileUploadRequestClient.post<FileApi.UploadResponse>(
-    '/api/file/upload',
+    '/api/v1/file/upload',
     formData,
     {
       headers: {
@@ -87,7 +101,7 @@ export async function uploadFileApi(
 }
 
 /**
- * 批量文件上传
+ * 批量文件上传（循环调用单文件上传）
  * @param files 文件数组
  * @param bizType 业务类型
  * @param bizId 业务ID
@@ -97,39 +111,42 @@ export async function batchUploadFilesApi(
   bizType: string,
   bizId: number,
 ): Promise<FileApi.BatchUploadResponse> {
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files', file);
-  });
-  formData.append('bizType', bizType);
-  formData.append('bizId', bizId.toString());
-
-  return fileUploadRequestClient.post<FileApi.BatchUploadResponse>(
-    '/api/file/batchUpload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
+  const uploadPromises = files.map(file => uploadFileApi(file, bizType, bizId));
+  const results = await Promise.all(uploadPromises);
+  
+  const successResults = results.filter(r => r.code === 200).map(r => r.data);
+  
+  return {
+    code: 200,
+    message: 'success',
+    data: successResults
+  };
 }
 
 /**
- * 获取文件列表
+ * 获取文件列表（分页）
  * @param bizType 业务类型
  * @param bizId 业务ID
+ * @param pageNum 页码
+ * @param pageSize 每页大小
+ * @param status 状态筛选
  */
 export async function getFileListApi(
   bizType: string,
   bizId: number,
+  pageNum: number = 1,
+  pageSize: number = 10,
+  status?: string,
 ): Promise<FileApi.FileListResponse> {
   return fileUploadRequestClient.get<FileApi.FileListResponse>(
-    '/api/file/list',
+    '/api/v1/file/list',
     {
       params: {
+        pageNum,
+        pageSize,
         bizType,
         bizId,
+        status,
       },
     },
   );
@@ -140,9 +157,21 @@ export async function getFileListApi(
  * @param fileId 文件记录ID
  */
 export async function downloadFileApi(fileId: number): Promise<Blob> {
-  return fileUploadRequestClient.get<Blob>(`/api/file/download/${fileId}`, {
+  return fileUploadRequestClient.get<Blob>(`/api/v1/file/download/${fileId}`, {
     responseType: 'blob',
   });
+}
+
+/**
+ * 获取文件信息
+ * @param fileId 文件记录ID
+ */
+export async function getFileInfoApi(
+  fileId: number,
+): Promise<FileApi.UploadResponse> {
+  return fileUploadRequestClient.get<FileApi.UploadResponse>(
+    `/api/v1/file/${fileId}`,
+  );
 }
 
 /**
@@ -151,7 +180,7 @@ export async function downloadFileApi(fileId: number): Promise<Blob> {
  */
 export function getFilePreviewUrl(fileId: number): string {
   const token = localStorage.getItem('token') || '';
-  return `http://192.168.0.120:8080/api/file/view/${fileId}?token=${token}`;
+  return `http://localhost:8080/api/v1/file/preview/${fileId}`;
 }
 
 /**
@@ -162,21 +191,93 @@ export async function deleteFileApi(
   fileId: number,
 ): Promise<FileApi.DeleteResponse> {
   return fileUploadRequestClient.delete<FileApi.DeleteResponse>(
-    `/api/file/${fileId}`,
+    `/api/v1/file/${fileId}`,
   );
 }
 
 /**
- * 批量删除文件（按业务）
+ * 批量删除文件
+ * @param fileIds 文件ID列表
+ */
+export async function batchDeleteFilesApi(
+  fileIds: number[],
+): Promise<FileApi.DeleteResponse> {
+  return fileUploadRequestClient.delete<FileApi.DeleteResponse>(
+    '/api/v1/file/batch',
+    {
+      data: fileIds,
+    },
+  );
+}
+
+/**
+ * 文件重命名
+ * @param fileId 文件记录ID
+ * @param newFileName 新文件名
+ */
+export async function renameFileApi(
+  fileId: number,
+  newFileName: string,
+): Promise<FileApi.UploadResponse> {
+  const formData = new FormData();
+  formData.append('newFileName', newFileName);
+
+  return fileUploadRequestClient.put<FileApi.UploadResponse>(
+    `/api/v1/file/${fileId}/rename`,
+    formData,
+  );
+}
+
+/**
+ * 更新文件状态
+ * @param fileId 文件记录ID
+ * @param status 状态值（ACTIVE/INACTIVE）
+ */
+export async function updateFileStatusApi(
+  fileId: number,
+  status: string,
+): Promise<FileApi.UploadResponse> {
+  const formData = new FormData();
+  formData.append('status', status);
+
+  return fileUploadRequestClient.put<FileApi.UploadResponse>(
+    `/api/v1/file/${fileId}/status`,
+    formData,
+  );
+}
+
+/**
+ * 批量更新文件状态
+ * @param fileIds 文件ID列表
+ * @param status 状态值（ACTIVE/INACTIVE）
+ */
+export async function batchUpdateFileStatusApi(
+  fileIds: number[],
+  status: string,
+): Promise<FileApi.DeleteResponse> {
+  return fileUploadRequestClient.put<FileApi.DeleteResponse>(
+    '/api/v1/file/batch/status',
+    null,
+    {
+      params: {
+        fileIds: fileIds.join(','),
+        status,
+      },
+    },
+  );
+}
+
+/**
+ * 获取文件统计信息
  * @param bizType 业务类型
  * @param bizId 业务ID
  */
-export async function deleteFilesByBizApi(
-  bizType: string,
-  bizId: number,
-): Promise<FileApi.DeleteResponse> {
-  return fileUploadRequestClient.delete<FileApi.DeleteResponse>(
-    '/api/file/byBiz',
+export async function getFileStatisticsApi(
+  bizType?: string,
+  bizId?: number,
+): Promise<FileApi.StatisticsResponse> {
+  return fileUploadRequestClient.get<FileApi.StatisticsResponse>(
+    '/api/v1/file/statistics',
     {
       params: {
         bizType,
@@ -191,7 +292,14 @@ export async function deleteFilesByBizApi(
  */
 export const BizTypeMap = {
   case: 'case',
+  creditor: 'creditor',
+  debtor: 'debtor',
+  claim: 'claim',
+  announcement: 'announcement',
+  fund: 'fund',
+  common: 'common',
   process: 'process',
+  archive: 'archive',
   notice: 'notice',
 } as const;
 

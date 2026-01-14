@@ -320,18 +320,15 @@ export async function uploadCaseFileApi(
   caseId: number,
   moduleType: string = 'case',
 ) {
-  const token = localStorage.getItem('token');
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('bizType', moduleType);
+  formData.append('bizId', caseId.toString());
+  
   return fileUploadRequestClient.post<any>(
-    '/api/file/upload',
+    '/api/v1/file/upload',
     formData,
     {
-      params: {
-        token,
-        caseId,
-        moduleType,
-      },
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -340,51 +337,42 @@ export async function uploadCaseFileApi(
 }
 
 /**
- * 批量上传案件文件
+ * 批量上传案件文件（循环调用单文件上传）
  */
 export async function batchUploadCaseFilesApi(
   files: File[],
   caseId: number,
   moduleType: string = 'case',
 ) {
-  const token = localStorage.getItem('token');
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files', file);
-  });
-  return fileUploadRequestClient.post<any>(
-    '/api/file/batch-upload',
-    formData,
-    {
-      params: {
-        token,
-        caseId,
-        moduleType,
-      },
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
+  const uploadPromises = files.map(file => uploadCaseFileApi(file, caseId, moduleType));
+  const results = await Promise.all(uploadPromises);
+  
+  const successResults = results.filter(r => r.code === 200).map(r => r.data);
+  
+  return {
+    code: 200,
+    message: 'success',
+    data: successResults
+  };
 }
 
 /**
- * 获取案件文件列表
+ * 获取案件文件列表（分页）
  */
 export async function getCaseFilesApi(
   caseId: number,
-  moduleType?: string,
-  page?: number,
-  size?: number,
+  moduleType: string = 'case',
+  pageNum: number = 1,
+  pageSize: number = 10,
+  status?: string,
 ) {
-  const token = localStorage.getItem('token');
-  return fileUploadRequestClient.get<any>('/api/file/list', {
+  return fileUploadRequestClient.get<any>('/api/v1/file/list', {
     params: {
-      token,
-      caseId,
-      moduleType,
-      page,
-      size,
+      pageNum,
+      pageSize,
+      bizType: moduleType,
+      bizId: caseId,
+      status,
     },
   });
 }
@@ -393,14 +381,8 @@ export async function getCaseFilesApi(
  * 删除案件文件
  */
 export async function deleteCaseFileApi(fileId: number) {
-  const token = localStorage.getItem('token');
   return fileUploadRequestClient.delete<any>(
-    `/api/file/${fileId}`,
-    {
-      params: {
-        token,
-      },
-    },
+    `/api/v1/file/${fileId}`,
   );
 }
 

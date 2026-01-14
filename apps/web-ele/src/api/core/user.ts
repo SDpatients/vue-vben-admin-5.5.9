@@ -20,6 +20,34 @@ export namespace UserApi {
     status: string;
     error: string;
   }
+
+  /** 员工信息 */
+  export interface StaffInfo {
+    id: number;
+    status: string;
+    isDeleted: boolean;
+    createTime: string;
+    updateTime: string;
+    createUserId: number;
+    updateUserId: number;
+    administratorId: number;
+    name: string;
+    staffType: string;
+    idNumber: string;
+    lawyerLicenseNumber: string;
+    contactPhone: string;
+    email: string;
+    responsibility: string;
+    appointmentDate: string;
+    userId: number;
+  }
+
+  /** 员工列表响应 */
+  export interface StaffListResponse {
+    code: number;
+    message: string;
+    data: StaffInfo[];
+  }
 }
 
 /**
@@ -46,18 +74,11 @@ export async function getUserInfoApi() {
 }
 
 /**
- * 根据部门ID获取用户列表
- * @param sepId 管理人ID (sep_id)
+ * 根据管理人ID获取员工列表
+ * @param administratorId 管理人ID
  */
-export async function getUserByDeptIdApi(sepId: number) {
-  const token = 'cb0d42b3fe5d7ba756e723a5a26724d7';
-  return requestClient8085.get<UserApi.UserListResponse>(
-    '/api/web/getUserByDeptid',
-    {
-      params: {
-        token,
-        sep_id: sepId,
-      },
-    },
+export async function getUserByDeptIdApi(administratorId: number) {
+  return requestClient8085.get<UserApi.StaffListResponse>(
+    `/administrator/${administratorId}/staff/list`,
   );
 }

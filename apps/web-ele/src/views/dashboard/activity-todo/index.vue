@@ -539,9 +539,9 @@ onMounted(() => {
 
 <style scoped>
 .activity-todo-container {
+  min-height: 100vh;
   padding: 20px;
   background: #f5f7fa;
-  min-height: 100vh;
 }
 
 .container-header {
@@ -549,7 +549,7 @@ onMounted(() => {
 }
 
 .container-header h2 {
-  margin: 0 0 16px 0;
+  margin: 0 0 16px;
   font-size: 24px;
   font-weight: 600;
   color: #1a1a1a;
@@ -567,15 +567,15 @@ onMounted(() => {
 .container-body {
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
 }
 
 .tab-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  justify-content: space-between;
   padding: 0 20px;
+  margin-bottom: 20px;
 }
 
 .tab-header h3 {
@@ -592,25 +592,25 @@ onMounted(() => {
 
 .activity-list {
   position: relative;
-  padding: 0 20px 20px 20px;
+  padding: 0 20px 20px;
 }
 
 .activity-item {
-  display: flex;
   position: relative;
+  display: flex;
   padding-bottom: 24px;
 }
 
 .activity-icon {
+  z-index: 1;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  flex-shrink: 0;
   margin-right: 16px;
-  z-index: 1;
+  border-radius: 50%;
 }
 
 .activity-content-wrapper {
@@ -620,22 +620,22 @@ onMounted(() => {
 
 .activity-header-row {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   margin-bottom: 6px;
 }
 
 .activity-user {
+  font-size: 14px;
   font-weight: 500;
   color: #1890ff;
-  font-size: 14px;
 }
 
 .activity-content {
-  color: #333;
   margin-bottom: 6px;
   font-size: 14px;
   line-height: 1.6;
+  color: #333;
 }
 
 .activity-time {
@@ -645,9 +645,9 @@ onMounted(() => {
 
 .activity-line {
   position: absolute;
-  left: 17px;
   top: 36px;
   bottom: 0;
+  left: 17px;
   width: 2px;
   background-color: #f0f0f0;
 }
@@ -655,28 +655,28 @@ onMounted(() => {
 .todo-filters {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
   padding: 0 20px;
+  margin-bottom: 16px;
 }
 
 .todo-items {
-  padding: 0 20px 20px 20px;
+  padding: 0 20px 20px;
 }
 
 .todo-item {
   display: flex;
   align-items: flex-start;
   padding: 16px;
+  margin-bottom: 12px;
+  background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
-  margin-bottom: 12px;
   transition: all 0.2s;
-  background: #fff;
 }
 
 .todo-item:hover {
   border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+  box-shadow: 0 2px 8px rgb(24 144 255 / 10%);
 }
 
 .todo-item.completed {
@@ -700,8 +700,8 @@ onMounted(() => {
 }
 
 .todo-checkbox {
-  margin-right: 12px;
   margin-top: 2px;
+  margin-right: 12px;
 }
 
 .todo-content {
@@ -710,32 +710,32 @@ onMounted(() => {
 }
 
 .todo-title {
-  font-weight: 500;
   margin-bottom: 6px;
   font-size: 15px;
+  font-weight: 500;
   color: #1a1a1a;
 }
 
 .todo-description {
-  font-size: 13px;
-  color: #666;
   margin-bottom: 10px;
+  font-size: 13px;
   line-height: 1.5;
+  color: #666;
 }
 
 .todo-meta {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .todo-deadline {
+  display: flex;
+  gap: 4px;
+  align-items: center;
   font-size: 12px;
   color: #999;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .todo-actions {
