@@ -28,11 +28,14 @@ export namespace WorkTeamApi {
     teamLeaderName?: string;
     caseId: number;
     caseName?: string;
+    caseNumber?: string;
     teamDescription?: string;
     status: TeamStatus;
     createTime: string;
     updateTime?: string;
     memberCount?: number;
+    teamMembers?: string;
+    creator?: string;
   }
 
   /** 工作团队列表响应 */

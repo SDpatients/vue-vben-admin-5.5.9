@@ -22,6 +22,7 @@ import {
   deleteFileApi,
   downloadFileApi,
   getFileListApi,
+  uploadFileApi,
 } from '#/api/core/file';
 
 interface TreeNode {
@@ -940,26 +941,7 @@ const uploadFiles = async () => {
     const category = selectedNode.value?.category || 'default';
     for (const file of uploadFileList.value) {
       if (file.raw) {
-        const formData = new FormData();
-        formData.append('file', file.raw);
-        formData.append('bizType', 'archive');
-        formData.append('bizId', props.caseId);
-
-        const response = await fetch(
-          'http://localhost:8080/api/v1/file/upload',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-            },
-            body: formData,
-          },
-        );
-
-        const result = await response.json();
-        if (result.code !== 200) {
-          throw new Error(`文件${file.name}上传失败`);
-        }
+        await uploadFileApi(file.raw, 'archive', Number(props.caseId));
       }
     }
     ElMessage.success('所有文件上传成功');

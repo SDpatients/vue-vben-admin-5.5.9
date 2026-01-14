@@ -159,7 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (result && result.status === '1' && result.data) {
         const backendUserInfo = result.data;
         const userInfo: UserInfo = {
-          userId: backendUserInfo.uUser,
+          userId: backendUserInfo.uPid,
           username: backendUserInfo.uUser,
           realName: backendUserInfo.uName,
           homePath: preferences.app.defaultHomePath,

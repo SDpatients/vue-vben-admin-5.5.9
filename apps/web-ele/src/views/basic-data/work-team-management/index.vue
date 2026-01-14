@@ -2,7 +2,6 @@
 import type { WorkTeamApi } from '#/api/core';
 
 import { onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 import {
   ElButton,
@@ -17,9 +16,12 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTabPane,
-  ElTabs,
 } from 'element-plus';
+
+import { getCaseListApi } from '#/api/core/case';
+import { createWorkTeamApi, getWorkTeamListApi } from '#/api/core/work-team';
+
+const router = useRouter();
 
 const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
 
@@ -62,7 +64,7 @@ const fetchWorkTeamList = async () => {
       // 使用模拟数据作为后备
       generateMockData();
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('后端API暂时不可用，请稍后再试');
     // 使用模拟数据作为后备
     generateMockData();
@@ -156,21 +158,15 @@ const addFormData = reactive({
 
 // 表单验证规则
 const addFormRules = {
-  caseId: [
-    { required: true, message: '请选择案号', trigger: 'change' },
-  ],
-  teamName: [
-    { required: true, message: '请输入团队名称', trigger: 'blur' },
-  ],
+  caseId: [{ required: true, message: '请选择案号', trigger: 'change' }],
+  teamName: [{ required: true, message: '请输入团队名称', trigger: 'blur' }],
   teamLeader: [
     { required: true, message: '请输入团队负责人', trigger: 'blur' },
   ],
   teamMembers: [
     { required: true, message: '请选择团队成员', trigger: 'change' },
   ],
-  status: [
-    { required: true, message: '请选择状态', trigger: 'change' },
-  ],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 };
 
 // 案件列表数据（案号列表）
@@ -185,7 +181,7 @@ const remoteSearchCase = async (query: string) => {
     caseList.value = [];
     return;
   }
-  
+
   caseSearchLoading.value = true;
   try {
     const response = await getCaseListApi({
@@ -193,16 +189,15 @@ const remoteSearchCase = async (query: string) => {
       size: 10,
       caseNumber: query,
     });
-    
-    if (response.code === 200 && response.data) {
-      caseList.value = response.data.list.map(caseItem => ({
-        label: caseItem.caseNumber,
-        value: caseItem.id.toString(),
-      }));
-    } else {
-      caseList.value = [];
-    }
-  } catch (error) {
+
+    caseList.value =
+      response.code === 200 && response.data
+        ? response.data.list.map((caseItem) => ({
+            label: caseItem.caseNumber,
+            value: caseItem.id.toString(),
+          }))
+        : [];
+  } catch {
     caseList.value = [];
     ElMessage.error('获取案号列表失败');
   } finally {
@@ -218,14 +213,14 @@ const fetchCaseList = async () => {
       page: 1,
       size: 10,
     });
-    
+
     if (response.code === 200 && response.data) {
-      caseList.value = response.data.list.map(caseItem => ({
+      caseList.value = response.data.list.map((caseItem) => ({
         label: caseItem.caseNumber,
         value: caseItem.id.toString(),
       }));
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('获取案号列表失败');
   } finally {
     caseSearchLoading.value = false;
@@ -264,7 +259,7 @@ const handleAddWorkTeam = async () => {
     teamMembers: [],
     status: 'ACTIVE',
   });
-  
+
   // 获取初始案号列表
   await fetchCaseList();
 };
@@ -279,19 +274,18 @@ const handleSaveAddWorkTeam = async () => {
   try {
     // 表单验证
     await (ElForm as any).validate();
-    
+
     // 转换表单数据为API所需格式
-    const apiData: WorkTeamApi.AddWorkTeamRequest = {
+    const apiData: WorkTeamApi.CreateWorkTeamRequest = {
       teamName: addFormData.teamName,
-      teamLeaderId: parseInt(addFormData.teamLeader) || 1, // 这里假设团队负责人输入的是ID，实际项目中可能需要从用户列表中选择
-      caseId: parseInt(addFormData.caseId),
+      teamLeaderId: Number.parseInt(addFormData.teamLeader) || 1, // 这里假设团队负责人输入的是ID，实际项目中可能需要从用户列表中选择
+      caseId: Number.parseInt(addFormData.caseId),
       teamDescription: addFormData.teamDescription,
-      memberArray: addFormData.teamMembers.map(member => parseInt(member)),
     };
-    
+
     // 调用API创建工作团队
-    const response = await addWorkTeamApi(apiData);
-    
+    const response = await createWorkTeamApi(apiData);
+
     if (response.code === 200) {
       ElMessage.success('工作团队保存成功');
       handleCloseAddDialog();
@@ -300,14 +294,14 @@ const handleSaveAddWorkTeam = async () => {
     } else {
       ElMessage.error(response.message || '创建工作团队失败');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('表单验证失败或API调用出错');
   }
 };
 
 // 编辑工作团队
 const handleEdit = (row: WorkTeamApi.WorkTeamInfo) => {
-  router.push(`/basic-data/work-team-management/edit/${row.SEP_ID}`);
+  router.push(`/basic-data/work-team-management/edit/${row.id}`);
 };
 
 // 删除工作团队
@@ -378,7 +372,6 @@ onMounted(() => {
           label="案号"
           width="180"
           align="center"
-          show-overflow-tooltip
         >
           <template #default="{ row }">
             <span v-if="row.caseNumber">{{ row.caseNumber }}</span>
@@ -390,7 +383,6 @@ onMounted(() => {
           label="案件名称"
           width="200"
           align="center"
-          show-overflow-tooltip
         >
           <template #default="{ row }">
             <span v-if="row.caseName">{{ row.caseName }}</span>
@@ -402,7 +394,6 @@ onMounted(() => {
           label="团队负责人"
           width="120"
           align="center"
-          show-overflow-tooltip
         >
           <template #default="{ row }">
             <span v-if="row.teamLeaderName">{{ row.teamLeaderName }}</span>
@@ -467,12 +458,7 @@ onMounted(() => {
             <span v-else class="text-gray-400">未设置</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="status"
-          label="状态"
-          width="100"
-          align="center"
-        >
+        <ElTableColumn prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <span>{{ row.status === 'ACTIVE' ? '活跃' : '停用' }}</span>
           </template>
@@ -572,7 +558,7 @@ onMounted(() => {
                 :value="member.value"
               />
             </ElSelect>
-            <div class="text-sm text-gray-500 mt-1">
+            <div class="mt-1 text-sm text-gray-500">
               提示：可输入关键词快速搜索成员，支持多选
             </div>
           </ElFormItem>

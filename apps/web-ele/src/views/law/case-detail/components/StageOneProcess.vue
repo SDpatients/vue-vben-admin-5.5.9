@@ -482,15 +482,22 @@ onMounted(() => {
       </div>
     </ElCard>
 
-    <TaskEdit
-      v-if="showTaskEdit"
-      :case-id="props.caseId"
-      :task-type="currentTaskType"
-      :task-data="currentTask"
-      :mode="currentMode"
-      @close="handleTaskEditClose"
-      @saved="handleTaskSaved"
-    />
+    <ElDialog
+      v-model="showTaskEdit"
+      :title="currentTask ? '编辑任务' : '新增任务'"
+      width="800px"
+      destroy-on-close
+      :close-on-click-modal="false"
+    >
+      <TaskEdit
+        :case-id="props.caseId"
+        :task-type="currentTaskType"
+        :task-data="currentTask"
+        :mode="currentMode"
+        @close="handleTaskEditClose"
+        @saved="handleTaskSaved"
+      />
+    </ElDialog>
   </div>
 </template>
 

@@ -2263,22 +2263,13 @@ const formRules = computed(() => {
 </script>
 
 <template>
-  <ElDialog
-    :title="dialogTitle"
-    model-value
-    width="800px"
-    destroy-on-close
-    @close="handleClose"
-  >
-    <div class="task-edit-container">
+  <div class="task-edit-container">
       <ElRadioGroup v-model="activeTab" class="tab-group">
         <ElRadioButton value="upload">
-          <Icon icon="lucide:upload" class="mr-1" />
-          上传文件
+          <Icon icon="lucide:upload" class="mr-1" />上传文件
         </ElRadioButton>
         <ElRadioButton value="data">
-          <Icon icon="lucide:database" class="mr-1" />
-          自定义数据
+          <Icon icon="lucide:database" class="mr-1" />自定义数据
         </ElRadioButton>
       </ElRadioGroup>
 
@@ -2444,59 +2435,56 @@ const formRules = computed(() => {
       </div>
     </div>
 
-    <template #footer>
-      <div class="dialog-footer">
-        <ElButton @click="handleClose" :disabled="loading">
-          <Icon icon="lucide:x" class="mr-1" />
-          取消
-        </ElButton>
-        <ElButton
-          v-if="props.mode === 'edit' || props.mode === 'add'"
-          type="primary"
-          @click="handleSave"
-          :loading="loading"
-        >
-          <Icon icon="lucide:save" class="mr-1" />
-          保存
-        </ElButton>
-        <ElButton
-          v-if="props.mode === 'view'"
-          type="primary"
-          @click="handleClose"
-        >
-          <Icon icon="lucide:x" class="mr-1" />
-          关闭
-        </ElButton>
-        <ElButton
-          v-if="props.mode === 'complete'"
-          type="success"
-          @click="handleSave"
-          :loading="loading"
-        >
-          <Icon icon="lucide:check" class="mr-1" />
-          确认完成
-        </ElButton>
-        <ElButton
-          v-if="props.mode === 'skip'"
-          type="warning"
-          @click="handleSave"
-          :loading="loading"
-        >
-          <Icon icon="lucide:skip-forward" class="mr-1" />
-          确认跳过
-        </ElButton>
-        <ElButton
-          v-if="props.mode === 'revoke'"
-          type="danger"
-          @click="handleRevoke"
-          :loading="loading"
-        >
-          <Icon icon="lucide:rotate-ccw" class="mr-1" />
-          确认撤回
-        </ElButton>
-      </div>
-    </template>
-  </ElDialog>
+    <div class="dialog-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px">
+      <ElButton @click="handleClose" :disabled="loading">
+        <Icon icon="lucide:x" class="mr-1" />
+        取消
+      </ElButton>
+      <ElButton
+        v-if="props.mode === 'edit' || props.mode === 'add'"
+        type="primary"
+        @click="handleSave"
+        :loading="loading"
+      >
+        <Icon icon="lucide:save" class="mr-1" />
+        保存
+      </ElButton>
+      <ElButton
+        v-if="props.mode === 'view'"
+        type="primary"
+        @click="handleClose"
+      >
+        <Icon icon="lucide:x" class="mr-1" />
+        关闭
+      </ElButton>
+      <ElButton
+        v-if="props.mode === 'complete'"
+        type="success"
+        @click="handleSave"
+        :loading="loading"
+      >
+        <Icon icon="lucide:check" class="mr-1" />
+        确认完成
+      </ElButton>
+      <ElButton
+        v-if="props.mode === 'skip'"
+        type="warning"
+        @click="handleSave"
+        :loading="loading"
+      >
+        <Icon icon="lucide:skip-forward" class="mr-1" />
+        确认跳过
+      </ElButton>
+      <ElButton
+        v-if="props.mode === 'revoke'"
+        type="danger"
+        @click="handleRevoke"
+        :loading="loading"
+      >
+        <Icon icon="lucide:rotate-ccw" class="mr-1" />
+        确认撤回
+      </ElButton>
+    </div>
 </template>
 
 <style scoped>

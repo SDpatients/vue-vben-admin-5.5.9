@@ -64,6 +64,8 @@ const claims = ref<any[]>([]);
 const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
+// 检查是否为开发环境
+const isDevelopment = ref(import.meta.env.DEV);
 
 const showAddDialog = ref(false);
 const showEditDialog = ref(false);
@@ -116,16 +118,17 @@ const claimForm = reactive({
   claimNature: '',
   claimType: '',
   claimFacts: '',
-  creditorCategory: '',
-  claimNatureManager: '',
   claimIdentifier: '',
   evidenceList: '',
   evidenceMaterials: '',
   evidenceAttachments: [],
+  registrationDate: '',
+  registrationDeadline: '',
+  materialReceiver: '',
+  materialReceiveDate: '',
+  materialCompleteness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
   remarks: '',
   registrationStatus: 'PENDING' as ClaimRegistrationApi.RegistrationStatus,
-  materialReceiver: '',
-  materialCompleteness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
 });
 
 const reviewForm = reactive({
@@ -218,6 +221,11 @@ const totalAmount = computed(() => {
 });
 
 const fetchClaims = async () => {
+  console.log('开始获取债权列表，参数:', {
+    caseId: Number(props.caseId),
+    pageNum: currentPage.value,
+    pageSize: pageSize.value,
+  });
   loading.value = true;
   try {
     const response = await getClaimRegistrationListApi({
@@ -225,9 +233,16 @@ const fetchClaims = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     });
+    console.log('获取债权列表响应:', response);
     if (response.code === 200 && response.data) {
       claims.value = response.data.list || [];
       total.value = response.data.total || 0;
+      console.log(
+        '更新债权列表，数量:',
+        claims.value.length,
+        '总数量:',
+        total.value,
+      );
     } else {
       ElMessage.error(`获取债权登记表失败：${response.message || '未知错误'}`);
       claims.value = [];
@@ -240,6 +255,7 @@ const fetchClaims = async () => {
     total.value = 0;
   } finally {
     loading.value = false;
+    console.log('获取债权列表完成，loading状态:', loading.value);
   }
 };
 
@@ -290,20 +306,38 @@ const resetForm = () => {
   claimForm.claimNature = '';
   claimForm.claimType = '';
   claimForm.claimFacts = '';
-  claimForm.creditorCategory = '';
-  claimForm.claimNatureManager = '';
   claimForm.claimIdentifier = '';
   claimForm.evidenceList = '';
   claimForm.evidenceMaterials = '';
   claimForm.evidenceAttachments = [];
+  claimForm.registrationDate = '';
+  claimForm.registrationDeadline = '';
+  claimForm.materialReceiver = '';
+  claimForm.materialReceiveDate = '';
+  claimForm.materialCompleteness = 'COMPLETE';
   claimForm.remarks = '';
   claimForm.registrationStatus = 'PENDING';
   fileList.value = [];
 };
 
 const handleAddClaim = async () => {
+  // 验证必填字段
   if (!claimForm.creditorName) {
     ElMessage.warning('请输入债权人姓名或名称');
+    return;
+  }
+  if (!claimForm.creditorType) {
+    ElMessage.warning('请选择债权人类型');
+    return;
+  }
+  if (!claimForm.claimType) {
+    ElMessage.warning('请选择债权种类');
+    return;
+  }
+  // 总金额由系统自动计算，无需验证claimForm.totalAmount
+  const calculatedTotalAmount = Number.parseFloat(totalAmount.value) || 0;
+  if (calculatedTotalAmount === 0) {
+    ElMessage.warning('申报总金额不能为0，请输入有效的金额信息');
     return;
   }
 
@@ -311,20 +345,20 @@ const handleAddClaim = async () => {
   try {
     const requestData = {
       caseId: Number(props.caseId),
-      caseName: claimForm.caseName,
-      debtor: claimForm.debtor,
+      caseName: claimForm.caseName || undefined,
+      debtor: claimForm.debtor || undefined,
       creditorName: claimForm.creditorName,
       creditorType: claimForm.creditorType,
-      creditCode: claimForm.creditCode,
-      legalRepresentative: claimForm.legalRepresentative,
-      serviceAddress: claimForm.serviceAddress,
-      agentName: claimForm.agentName,
-      agentPhone: claimForm.agentPhone,
-      agentIdCard: claimForm.agentIdCard,
-      agentAddress: claimForm.agentAddress,
-      accountName: claimForm.accountName,
-      creditorBankAccount: claimForm.bankAccount,
-      bankName: claimForm.bankName,
+      creditCode: claimForm.creditCode || undefined,
+      legalRepresentative: claimForm.legalRepresentative || undefined,
+      serviceAddress: claimForm.serviceAddress || undefined,
+      agentName: claimForm.agentName || undefined,
+      agentPhone: claimForm.agentPhone || undefined,
+      agentIdCard: claimForm.agentIdCard || undefined,
+      agentAddress: claimForm.agentAddress || undefined,
+      accountName: claimForm.accountName || undefined,
+      creditorBankAccount: claimForm.bankAccount || undefined,
+      bankName: claimForm.bankName || undefined,
       principal: Number.parseFloat(claimForm.principal) || 0,
       interest: Number.parseFloat(claimForm.interest) || 0,
       penalty: Number.parseFloat(claimForm.penalty) || 0,
@@ -333,17 +367,24 @@ const handleAddClaim = async () => {
       hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
       hasExecution: claimForm.hasExecution ? 1 : 0,
       hasCollateral: claimForm.hasCollateral ? 1 : 0,
-      claimNature: claimForm.claimNature,
+      claimNature: claimForm.claimNature || undefined,
       claimType: claimForm.claimType,
-      claimFacts: claimForm.claimFacts,
-      claimIdentifier: claimForm.claimIdentifier,
-      evidenceList: claimForm.evidenceList,
-      evidenceMaterials: claimForm.evidenceMaterials,
-      evidenceAttachments: claimForm.evidenceAttachments,
-      remarks: claimForm.remarks,
+      claimFacts: claimForm.claimFacts || undefined,
+      claimIdentifier: claimForm.claimIdentifier || undefined,
+      evidenceList: claimForm.evidenceList || undefined,
+      evidenceMaterials: claimForm.evidenceMaterials || undefined,
+      evidenceAttachments: claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0 ? claimForm.evidenceAttachments : null,
+      registrationDate: claimForm.registrationDate || null,
+      registrationDeadline: claimForm.registrationDeadline || null,
+      materialReceiver: claimForm.materialReceiver || undefined,
+      materialReceiveDate: claimForm.materialReceiveDate || null,
+      materialCompleteness: claimForm.materialCompleteness,
+      remarks: claimForm.remarks || undefined,
     };
 
+    console.log('提交新增债权请求:', requestData);
     const response = await createClaimRegistrationApi(requestData);
+    console.log('新增债权响应:', response);
     if (response.code === 200) {
       ElMessage.success('成功添加债权登记');
       await fetchClaims();
@@ -496,16 +537,16 @@ const handleEditClaim = async () => {
     const requestData = {
       creditorName: claimForm.creditorName,
       creditorType: claimForm.creditorType,
-      creditCode: claimForm.creditCode,
-      legalRepresentative: claimForm.legalRepresentative,
-      serviceAddress: claimForm.serviceAddress,
-      agentName: claimForm.agentName,
-      agentPhone: claimForm.agentPhone,
-      agentIdCard: claimForm.agentIdCard,
-      agentAddress: claimForm.agentAddress,
-      accountName: claimForm.accountName,
-      creditorBankAccount: claimForm.bankAccount,
-      bankName: claimForm.bankName,
+      creditCode: claimForm.creditCode || undefined,
+      legalRepresentative: claimForm.legalRepresentative || undefined,
+      serviceAddress: claimForm.serviceAddress || undefined,
+      agentName: claimForm.agentName || undefined,
+      agentPhone: claimForm.agentPhone || undefined,
+      agentIdCard: claimForm.agentIdCard || undefined,
+      agentAddress: claimForm.agentAddress || undefined,
+      accountName: claimForm.accountName || undefined,
+      creditorBankAccount: claimForm.bankAccount || undefined,
+      bankName: claimForm.bankName || undefined,
       principal: Number.parseFloat(claimForm.principal) || 0,
       interest: Number.parseFloat(claimForm.interest) || 0,
       penalty: Number.parseFloat(claimForm.penalty) || 0,
@@ -514,15 +555,15 @@ const handleEditClaim = async () => {
       hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
       hasExecution: claimForm.hasExecution ? 1 : 0,
       hasCollateral: claimForm.hasCollateral ? 1 : 0,
-      claimNature: claimForm.claimNature,
+      claimNature: claimForm.claimNature || undefined,
       claimType: claimForm.claimType,
-      claimFacts: claimForm.claimFacts,
-      claimIdentifier: claimForm.claimIdentifier,
-      evidenceList: claimForm.evidenceList,
-      evidenceMaterials: claimForm.evidenceMaterials,
-      evidenceAttachments: claimForm.evidenceAttachments,
+      claimFacts: claimForm.claimFacts || undefined,
+      claimIdentifier: claimForm.claimIdentifier || undefined,
+      evidenceList: claimForm.evidenceList || undefined,
+      evidenceMaterials: claimForm.evidenceMaterials || undefined,
+      evidenceAttachments: claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0 ? claimForm.evidenceAttachments : null,
       registrationStatus: claimForm.registrationStatus,
-      remarks: claimForm.remarks,
+      remarks: claimForm.remarks || undefined,
     };
 
     const response = await updateClaimRegistrationApi(
@@ -879,13 +920,25 @@ const handleFinalizeConfirmation = async () => {
 };
 
 const openStageOneDialog = async (row: any) => {
+  console.log(
+    '打开债权申报登记对话框，行数据:',
+    row.id,
+    '当前状态:',
+    row.registration_status,
+  );
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
+    console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
       showStageOneDialog.value = true;
+      console.log(
+        '成功打开债权申报登记对话框，currentClaim:',
+        currentClaim.value.id,
+      );
     } else {
       ElMessage.error('获取债权详情失败');
+      console.error('获取债权详情失败:', response.message);
     }
   } catch (error) {
     console.error('获取债权详情失败:', error);
@@ -899,51 +952,75 @@ const closeStageOneDialog = () => {
 };
 
 const handleStageOneSubmit = async () => {
-  if (!currentClaim.value) return;
+  console.log('开始债权申报登记提交，currentClaim:', currentClaim.value?.id);
+  if (!currentClaim.value) {
+    console.error('currentClaim为空，无法提交');
+    return;
+  }
 
   stageOneLoading.value = true;
+  console.log('设置stageOneLoading:', stageOneLoading.value);
   try {
     const requestData = {
       receiver: '当前用户',
       completeness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
     };
+    console.log('提交债权申报登记请求数据:', requestData);
 
     const response = await receiveClaimMaterialApi(
       currentClaim.value.id,
       requestData,
     );
+    console.log('接收债权材料响应:', response);
     if (response.code === 200) {
+      console.log('接收债权材料成功，开始更新登记状态');
       const statusResponse = await updateClaimRegistrationStatusApi(
         currentClaim.value.id,
         'REGISTERED',
       );
+      console.log('更新登记状态响应:', statusResponse);
       if (statusResponse.code === 200) {
         ElMessage.success('债权申报登记成功');
+        console.log('债权申报登记成功，开始刷新列表');
         await fetchClaims();
         closeStageOneDialog();
+        console.log('关闭债权申报登记对话框');
       } else {
         ElMessage.error(
           `状态更新失败：${statusResponse.message || '未知错误'}`,
         );
+        console.error('状态更新失败:', statusResponse.message);
       }
     } else {
       ElMessage.error(`操作失败：${response.message || '未知错误'}`);
+      console.error('操作失败:', response.message);
     }
   } catch (error) {
     console.error('债权申报登记失败:', error);
     ElMessage.error('债权申报登记失败');
   } finally {
     stageOneLoading.value = false;
+    console.log('设置stageOneLoading:', stageOneLoading.value);
   }
 };
 
 const openStageTwoDialog = async (row: any) => {
+  console.log(
+    '打开债权审查对话框，行数据:',
+    row.id,
+    '当前状态:',
+    row.registration_status,
+    '审查状态:',
+    row.reviewInfo?.reviewStatus,
+  );
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
+    console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
       if (response.data.reviewInfo) {
         Object.assign(reviewForm, response.data.reviewInfo);
+        console.log('使用现有审查信息填充表单');
       } else {
         reviewForm.declaredPrincipal = response.data.principal || 0;
         reviewForm.declaredInterest = response.data.interest || 0;
@@ -955,10 +1032,16 @@ const openStageTwoDialog = async (row: any) => {
         reviewForm.confirmedPenalty = response.data.penalty || 0;
         reviewForm.confirmedOtherLosses = response.data.otherLosses || 0;
         reviewForm.confirmedTotalAmount = response.data.totalAmount || 0;
+        console.log('使用申报信息初始化审查表单');
       }
       showStageTwoDialog.value = true;
+      console.log(
+        '成功打开债权审查对话框，currentClaim:',
+        currentClaim.value.id,
+      );
     } else {
       ElMessage.error('获取债权详情失败');
+      console.error('获取债权详情失败:', response.message);
     }
   } catch (error) {
     console.error('获取债权详情失败:', error);
@@ -973,14 +1056,20 @@ const closeStageTwoDialog = () => {
 };
 
 const handleStageTwoSubmit = async () => {
-  if (!currentClaim.value) return;
+  console.log('开始债权审查提交，currentClaim:', currentClaim.value?.id);
+  if (!currentClaim.value) {
+    console.error('currentClaim为空，无法提交');
+    return;
+  }
 
   if (!reviewForm.reviewConclusion) {
     ElMessage.warning('请选择审查结论');
+    console.warn('未选择审查结论');
     return;
   }
 
   stageTwoLoading.value = true;
+  console.log('设置stageTwoLoading:', stageTwoLoading.value);
   try {
     const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
       claimRegistrationId: currentClaim.value.id,
@@ -1029,48 +1118,75 @@ const handleStageTwoSubmit = async () => {
       reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
       remarks: reviewForm.remarks,
     };
+    console.log('提交债权审查请求数据:', requestData);
 
     const response = await createClaimReviewApi(requestData);
+    console.log('保存债权审查响应:', response);
     if (response.code === 200) {
       const reviewId = response.data?.reviewId;
+      console.log('保存审查成功，reviewId:', reviewId);
       if (reviewId) {
+        console.log('开始提交审查结果，reviewId:', reviewId);
         const submitResponse = await submitClaimReviewApi(reviewId);
+        console.log('提交审查响应:', submitResponse);
         if (submitResponse.code === 200) {
           ElMessage.success('债权审查提交成功');
+          console.log('债权审查提交成功，开始刷新列表');
           await fetchClaims();
           closeStageTwoDialog();
+          console.log('关闭债权审查对话框');
         } else {
           ElMessage.error(
             `提交审查失败：${submitResponse.message || '未知错误'}`,
           );
+          console.error('提交审查失败:', submitResponse.message);
         }
       } else {
         ElMessage.success('债权审查保存成功');
+        console.log('债权审查保存成功，开始刷新列表');
         await fetchClaims();
         closeStageTwoDialog();
+        console.log('关闭债权审查对话框');
       }
     } else {
       ElMessage.error(`保存失败：${response.message || '未知错误'}`);
+      console.error('保存失败:', response.message);
     }
   } catch (error) {
     console.error('债权审查失败:', error);
     ElMessage.error('债权审查失败');
   } finally {
     stageTwoLoading.value = false;
+    console.log('设置stageTwoLoading:', stageTwoLoading.value);
   }
 };
 
 const openStageThreeDialog = async (row: any) => {
+  console.log(
+    '打开债权确认对话框，行数据:',
+    row.id,
+    '审查状态:',
+    row.reviewInfo?.reviewStatus,
+    '确认状态:',
+    row.confirmationInfo?.confirmationStatus,
+  );
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
+    console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
       if (response.data.confirmationInfo) {
         Object.assign(confirmationForm, response.data.confirmationInfo);
+        console.log('使用现有确认信息填充表单');
       }
       showStageThreeDialog.value = true;
+      console.log(
+        '成功打开债权确认对话框，currentClaim:',
+        currentClaim.value.id,
+      );
     } else {
       ElMessage.error('获取债权详情失败');
+      console.error('获取债权详情失败:', response.message);
     }
   } catch (error) {
     console.error('获取债权详情失败:', error);
@@ -1085,55 +1201,75 @@ const closeStageThreeDialog = () => {
 };
 
 const handleStageThreeSubmit = async () => {
-  if (!currentClaim.value) return;
+  console.log('开始债权确认提交，currentClaim:', currentClaim.value?.id);
+  if (!currentClaim.value) {
+    console.error('currentClaim为空，无法提交');
+    return;
+  }
 
   if (!confirmationForm.voteResult) {
     ElMessage.warning('请选择表决结果');
+    console.warn('未选择表决结果');
     return;
   }
 
   stageThreeLoading.value = true;
+  console.log('设置stageThreeLoading:', stageThreeLoading.value);
   try {
     const response = await submitVoteApi(currentClaim.value.id, {
       voteResult: confirmationForm.voteResult,
       voteNotes: confirmationForm.voteNotes,
     });
+    console.log('提交表决响应:', response);
     if (response.code === 200) {
+      console.log('提交表决成功，hasObjection:', confirmationForm.hasObjection);
       if (confirmationForm.hasObjection) {
+        console.log('开始提交异议');
         const objectionResponse = await submitObjectionApi(
           currentClaim.value.id,
         );
+        console.log('提交异议响应:', objectionResponse);
         if (objectionResponse.code === 200) {
           ElMessage.success('债权确认与异议提交成功');
+          console.log('债权确认与异议提交成功，开始刷新列表');
           await fetchClaims();
           closeStageThreeDialog();
+          console.log('关闭债权确认对话框');
         } else {
           ElMessage.error(
             `提交异议失败：${objectionResponse.message || '未知错误'}`,
           );
+          console.error('提交异议失败:', objectionResponse.message);
         }
       } else {
+        console.log('开始最终确认债权');
         const finalizeResponse = await finalizeClaimConfirmationApi(
           currentClaim.value.id,
         );
+        console.log('最终确认响应:', finalizeResponse);
         if (finalizeResponse.code === 200) {
           ElMessage.success('债权最终确认成功');
+          console.log('债权最终确认成功，开始刷新列表');
           await fetchClaims();
           closeStageThreeDialog();
+          console.log('关闭债权确认对话框');
         } else {
           ElMessage.error(
             `最终确认失败：${finalizeResponse.message || '未知错误'}`,
           );
+          console.error('最终确认失败:', finalizeResponse.message);
         }
       }
     } else {
       ElMessage.error(`提交表决失败：${response.message || '未知错误'}`);
+      console.error('提交表决失败:', response.message);
     }
   } catch (error) {
     console.error('债权确认失败:', error);
     ElMessage.error('债权确认失败');
   } finally {
     stageThreeLoading.value = false;
+    console.log('设置stageThreeLoading:', stageThreeLoading.value);
   }
 };
 
@@ -1163,6 +1299,7 @@ const getClaimStageStatus = (row: any) => {
 };
 
 onMounted(() => {
+  console.log('ClaimRegistration组件已挂载，props.caseId:', props.caseId);
   fetchClaims();
 });
 </script>
@@ -1192,6 +1329,27 @@ onMounted(() => {
           </div>
         </div>
       </template>
+
+      <!-- 调试信息区域 -->
+      <ElAlert
+        v-if="isDevelopment"
+        title="调试信息"
+        type="info"
+        :closable="false"
+        class="mb-4"
+      >
+        <div class="debug-info">
+          <div>案件ID: {{ caseId }}</div>
+          <div>当前页面: {{ currentPage }}</div>
+          <div>每页条数: {{ pageSize }}</div>
+          <div>债权总数: {{ total }}</div>
+          <div>当前债权列表数量: {{ claims.length }}</div>
+          <div>组件状态: 已挂载</div>
+          <div class="mt-2 text-sm text-gray-500">
+            <strong>调试说明:</strong> 请打开浏览器控制台查看详细日志
+          </div>
+        </div>
+      </ElAlert>
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
@@ -1562,7 +1720,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="申报总金额">
+              <ElFormItem label="申报总金额" :required="false">
                 <ElInput
                   v-model="totalAmount"
                   placeholder="自动计算"
@@ -1590,6 +1748,71 @@ onMounted(() => {
             <ElCol :span="8">
               <ElFormItem label="是否有抵押物或质押物">
                 <ElCheckbox v-model="claimForm.hasCollateral">是</ElCheckbox>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">申报时间信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报日期">
+                <ElInput
+                  v-model="claimForm.registrationDate"
+                  type="datetime-local"
+                  placeholder="请选择申报日期"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="申报截止日期">
+                <ElInput
+                  v-model="claimForm.registrationDeadline"
+                  type="datetime-local"
+                  placeholder="请选择申报截止日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">材料接收信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="材料接收人">
+                <ElInput
+                  v-model="claimForm.materialReceiver"
+                  placeholder="请输入材料接收人"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="材料接收日期">
+                <ElInput
+                  v-model="claimForm.materialReceiveDate"
+                  type="datetime-local"
+                  placeholder="请选择材料接收日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="材料完整性">
+                <ElSelect
+                  v-model="claimForm.materialCompleteness"
+                  placeholder="请选择材料完整性"
+                  style="width: 100%"
+                >
+                  <ElOption label="完整" value="COMPLETE" />
+                  <ElOption label="不完整" value="INCOMPLETE" />
+                  <ElOption label="待补充" value="PENDING" />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -1635,48 +1858,11 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权人类别">
-                <ElInput
-                  v-model="claimForm.creditorCategory"
-                  placeholder="请输入债权人类别"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="债权性质(管理人自填)">
-                <ElInput
-                  v-model="claimForm.claimNatureManager"
-                  placeholder="请输入债权性质"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
               <ElFormItem label="债权标识">
-                <ElSelect
+                <ElInput
                   v-model="claimForm.claimIdentifier"
-                  placeholder="请选择债权标识"
-                  style="width: 100%"
-                >
-                  <ElOption label="已确认" value="已确认" />
-                  <ElOption label="待确认" value="待确认" />
-                  <ElOption label="有异议" value="有异议" />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="登记状态">
-                <ElSelect
-                  v-model="claimForm.registrationStatus"
-                  placeholder="请选择登记状态"
-                  style="width: 100%"
-                >
-                  <ElOption label="待审核" value="PENDING" />
-                  <ElOption label="已通过" value="APPROVED" />
-                  <ElOption label="已驳回" value="REJECTED" />
-                </ElSelect>
+                  placeholder="请输入债权标识"
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>

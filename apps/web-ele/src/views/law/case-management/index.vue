@@ -27,11 +27,13 @@ import {
 
 import { getCaseListApi } from '#/api/core/case';
 import { selectMyCasesApi, selectTeamCasesApi } from '#/api/core/work-team';
+import { useAuthStore } from '#/store/auth';
 
 import ReviewModal from './components/ReviewModal.vue';
 
 const accessStore = useAccessStore();
 const userStore = useUserStore();
+const authStore = useAuthStore();
 const currentUserId = computed(() => {
   const userId = userStore.userInfo?.userId;
   return userId ? Number.parseInt(userId, 10) : 0;
@@ -301,6 +303,10 @@ const handleTabChange = async (tabName: string) => {
   pagination.value.page = 1;
   loading.value = true;
   try {
+    // 当切换到我的案件时，先尝试获取用户信息
+    if (tabName === 'myCases') {
+      await authStore.fetchCurrentUser();
+    }
     await fetchCaseList();
   } catch (error) {
     console.error('切换标签页失败:', error);

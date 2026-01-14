@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>文件上传测试</h1>
+    <div class="form-group">
+        <label for="fileInput">选择文件:</label>
+        <input type="file" id="fileInput" accept="*/*">
+    </div>
+    <button onclick="testUpload()">测试上传</button>
+    <div class="result" id="result"></div>
+
+    <script>
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultDiv.innerHTML = '<span style="color: red;">请选择要上传的文件</span>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = `<span style="color: blue;">正在上传文件: ${file.name} (${(file.size / 1024).toFixed(2)}KB)...</span>`;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('bizType', 'archive');
+                formData.append('bizId', '1'); // 示例案件ID
+                
+                const response = await fetch('http://localhost:8080/api/v1/file/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+                    },
+                    body: formData,
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.code === 200) {
+                    resultDiv.innerHTML = `<span style="color: green;">上传成功! 文件ID: ${result.data.id}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: red;">上传失败: ${result.message || '未知错误'}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">错误: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

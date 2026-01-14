@@ -138,11 +138,11 @@ export namespace ClaimRegistrationApi {
     claimIdentifier?: string;
     evidenceList?: string;
     evidenceMaterials?: string;
-    evidenceAttachments?: string;
-    registrationDate?: string;
-    registrationDeadline?: string;
+    evidenceAttachments?: any[] | null;
+    registrationDate?: string | null;
+    registrationDeadline?: string | null;
     materialReceiver?: string;
-    materialReceiveDate?: string;
+    materialReceiveDate?: string | null;
     materialCompleteness?: MaterialCompleteness;
     remarks?: string;
   }
@@ -185,11 +185,11 @@ export namespace ClaimRegistrationApi {
     claimIdentifier?: string;
     evidenceList?: string;
     evidenceMaterials?: string;
-    evidenceAttachments?: string;
-    registrationDate?: string;
-    registrationDeadline?: string;
+    evidenceAttachments?: any[] | null;
+    registrationDate?: string | null;
+    registrationDeadline?: string | null;
     materialReceiver?: string;
-    materialReceiveDate?: string;
+    materialReceiveDate?: string | null;
     materialCompleteness?: MaterialCompleteness;
     registrationStatus?: RegistrationStatus;
     remarks?: string;
