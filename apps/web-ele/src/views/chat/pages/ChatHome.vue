@@ -83,14 +83,8 @@ function handleSessionClick(contactId: number) {
 function loadMessages(contactId: number) {
   console.log('开始加载联系人', contactId, '的聊天记录...');
   
-  // 调用真实API获取聊天记录
-  chatStore.fetchChatMessages({
-    contactId: contactId,
-    page: 1,
-    size: 100,
-    sortField: 'createTime',
-    sortOrder: 'DESC'
-  });
+  // 不调用真实API，直接使用已经初始化的模拟数据
+  console.log('使用模拟数据，不调用API');
   
   // 滚动到底部
   setTimeout(scrollToBottom, 100);
@@ -213,9 +207,13 @@ watch(
 
 // 初始化数据
 onMounted(() => {
-  // 使用真实API获取数据，fetchContacts内部会调用getUserListApi获取用户列表
+  // 先调用真实API获取数据
   fetchContacts();
   fetchChatSessions();
+  
+  // 调用模拟数据初始化函数，确保有数据显示
+  initMockData();
+  initChatMockData();
   
   // 如果路由中有id参数，自动选择联系人
   if (routeContactId.value) {

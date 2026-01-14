@@ -61,7 +61,7 @@ import RichTextEditor from '../../../components/RichTextEditor.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import ClaimRegistration from './components/ClaimRegistration.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
-import AssetManagement from './components/AssetManagement.vue';
+import FundControlDrawer from './components/FundControlDrawer.vue';
 import StageFiveProcess from './components/StageFiveProcess.vue';
 import StageFourProcess from './components/StageFourProcess.vue';
 import StageOneProcess from './components/StageOneProcess.vue';
@@ -202,7 +202,7 @@ const isText = ref(false);
 const textContent = ref('');
 const previewLoading = ref(false);
 
-const showAssetManagementDialog = ref(false);
+const fundControlDrawerRef = ref<InstanceType<typeof FundControlDrawer> | null>(null);
 
 // 预览附件
 const viewAttachment = async (attachment: any) => {
@@ -755,6 +755,10 @@ const goBack = () => {
 
 const openArchiveDrawer = () => {
   archiveDrawerRef.value?.openDrawer();
+};
+
+const openFundControlDrawer = () => {
+  fundControlDrawerRef.value?.openDrawer();
 };
 
 // 开始编辑
@@ -1339,9 +1343,9 @@ const checkPermissions = async () => {
       </ElButton>
       <h1 class="page-title">案件详情</h1>
       <div class="header-actions">
-        <ElButton type="primary" @click="showAssetManagementDialog = true">
+        <ElButton type="primary" @click="openFundControlDrawer">
           <Icon icon="lucide:landmark" class="mr-2" />
-          资金管理
+          资金管控
         </ElButton>
         <ElButton type="primary" @click="openArchiveDrawer">
           <Icon icon="lucide:archive" class="mr-2" />
@@ -2990,6 +2994,14 @@ const checkPermissions = async () => {
 
     <!-- 案件卷宗归档抽屉 -->
     <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
+
+    <!-- 资金管控抽屉 -->
+    <FundControlDrawer 
+      ref="fundControlDrawerRef" 
+      :case-id="caseId" 
+      :case-no="caseDetail?.案号 || ''"
+      :case-name="caseDetail?.案件名称 || ''"
+    />
   </div>
 </template>
 
@@ -3541,9 +3553,3 @@ const checkPermissions = async () => {
   color: #909399;
 }
 </style>
-
-<AssetManagement
-  v-model:visible="showAssetManagementDialog"
-  :case-id="caseId"
-  :case-name="caseDetail?.案件名称 || ''"
-/>

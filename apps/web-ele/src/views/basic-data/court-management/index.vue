@@ -37,7 +37,9 @@ let isMounted = false;
 const courtList = ref<CourtApi.CourtInfo[]>([]);
 
 // 确保表格数据始终为数组
-const safeCourtList = computed(() => Array.isArray(courtList.value) ? courtList.value : []);
+const safeCourtList = computed(() =>
+  Array.isArray(courtList.value) ? courtList.value : [],
+);
 
 // 加载状态
 const loading = ref(false);
@@ -75,12 +77,12 @@ const fetchCourtList = async () => {
       pageNum: pagination.page,
       pageSize: pagination.pageSize,
     };
-    
+
     // 只在有值时添加shortName参数
     if (searchForm.shortName) {
       params.shortName = searchForm.shortName;
     }
-    
+
     // 只在有值时添加courtLevel参数
     if (searchForm.courtLevel) {
       params.courtLevel = searchForm.courtLevel;
@@ -121,7 +123,8 @@ const fetchCourtList = async () => {
       courtList.value = processedData;
       // 使用API返回的分页信息
       pagination.itemCount = response.data.total || 0;
-      pagination.pages = Math.ceil(response.data.total / pagination.pageSize) || 1;
+      pagination.pages =
+        Math.ceil(response.data.total / pagination.pageSize) || 1;
       ElMessage.success('法院列表加载成功');
     } else {
       ElMessage.error(response.message || '获取法院列表失败');
@@ -133,7 +136,7 @@ const fetchCourtList = async () => {
   } catch (error) {
     // 检查组件是否仍挂载，避免卸载后更新状态
     if (!isMounted) return;
-    
+
     console.error('获取法院列表失败:', error);
     ElMessage.error('后端API暂时不可用，请稍后再试');
     // 清空列表数据
@@ -212,14 +215,18 @@ const editCourtForm = reactive({
 const addRules = reactive({
   fyqc: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
   fyjc: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
-  fyjb: [{ required: true, message: '请输入法院级别', trigger: 'blur' }],
+  fyjb: [
+    { required: true, message: '请选择法院级别', trigger: ['blur', 'change'] },
+  ],
 });
 
 // 表单验证规则 - 用于编辑表单
 const editRules = reactive({
   FYQC: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
   FYJC: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
-  FYJB: [{ required: true, message: '请输入法院级别', trigger: 'blur' }],
+  FYJB: [
+    { required: true, message: '请选择法院级别', trigger: ['blur', 'change'] },
+  ],
 });
 
 // 新增法院
@@ -256,10 +263,10 @@ const submitAddCourt = async () => {
     };
 
     const response = await addCourtApi(requestData);
-    
+
     // 检查组件是否仍挂载
     if (!isMounted) return;
-    
+
     if (response.code === 200) {
       ElMessage.success('法院添加成功');
       dialogVisible.value = false;
@@ -271,7 +278,7 @@ const submitAddCourt = async () => {
   } catch (error: any) {
     // 检查组件是否仍挂载
     if (!isMounted) return;
-    
+
     console.error('添加法院失败:', error);
     // 处理错误响应
     if (error.response?.data?.message) {
@@ -317,12 +324,12 @@ const submitEditCourt = async () => {
 
     // 获取法院ID，从编辑表单中获取
     const courtId = editCourtForm.SEP_ID;
-    
+
     const response = await updateCourtApi(courtId, requestData);
-    
+
     // 检查组件是否仍挂载
     if (!isMounted) return;
-    
+
     if (response.code === 200) {
       ElMessage.success('法院修改成功');
       editDialogVisible.value = false;
@@ -334,7 +341,7 @@ const submitEditCourt = async () => {
   } catch (error: any) {
     // 检查组件是否仍挂载
     if (!isMounted) return;
-    
+
     console.error('修改法院失败:', error);
     // 处理错误响应
     if (error.response?.data?.message) {
@@ -356,12 +363,12 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
 
     // 获取法院ID，优先使用row.id，兼容旧的sep_id
     const courtId = row.id || row.sep_id;
-    
+
     const response = await deleteCourtApi(courtId);
-    
+
     // 检查组件是否仍挂载
     if (!isMounted) return;
-    
+
     if (response.code === 200) {
       ElMessage.success('法院删除成功');
       // 刷新列表
@@ -374,7 +381,7 @@ const handleDelete = async (row: CourtApi.CourtInfo) => {
     if (error !== 'cancel') {
       // 检查组件是否仍挂载
       if (!isMounted) return;
-      
+
       console.error('删除法院失败:', error);
       // 处理错误响应
       if (error.response?.data?.message) {
@@ -454,62 +461,62 @@ onUnmounted(() => {
 
       <!-- 数据表格 -->
       <ElTable
-          v-loading="loading"
-          :data="safeCourtList"
-          :border="true"
-          :stripe="true"
-          :style="{ width: '100%' }"
-        >
-          <ElTableColumn type="index" label="序号" width="60" align="center" />
-          <ElTableColumn
-            prop="fyqc"
-            label="法院全称"
-            min-width="180"
-            show-overflow-tooltip
-          />
-          <ElTableColumn
-            prop="fyjc"
-            label="法院简称"
-            width="120"
-            align="center"
-          />
-          <ElTableColumn
-            prop="fyjb"
-            label="法院级别"
-            width="140"
-            align="center"
-          />
-          <ElTableColumn
-            prop="dz"
-            label="地址"
-            min-width="200"
-            show-overflow-tooltip
-          />
-          <ElTableColumn
-            prop="lxdh"
-            label="联系电话"
-            width="130"
-            align="center"
-          />
-          <ElTableColumn
-            prop="cbfg"
-            label="承办法官"
-            width="120"
-            align="center"
-          />
-          <ElTableColumn label="操作" width="150" align="center" fixed="right">
-            <template #default="{ row }">
-              <ElButton type="primary" size="small" @click="handleEdit(row)">
-                <i class="i-lucide-edit mr-1"></i>
-                编辑
-              </ElButton>
-              <ElButton type="danger" size="small" @click="handleDelete(row)">
-                <i class="i-lucide-trash-2 mr-1"></i>
-                删除
-              </ElButton>
-            </template>
-          </ElTableColumn>
-        </ElTable>
+        v-loading="loading"
+        :data="safeCourtList"
+        :border="true"
+        :stripe="true"
+        :style="{ width: '100%' }"
+      >
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+        <ElTableColumn
+          prop="fyqc"
+          label="法院全称"
+          min-width="180"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="fyjc"
+          label="法院简称"
+          width="120"
+          align="center"
+        />
+        <ElTableColumn
+          prop="fyjb"
+          label="法院级别"
+          width="140"
+          align="center"
+        />
+        <ElTableColumn
+          prop="dz"
+          label="地址"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <ElTableColumn
+          prop="lxdh"
+          label="联系电话"
+          width="130"
+          align="center"
+        />
+        <ElTableColumn
+          prop="cbfg"
+          label="承办法官"
+          width="120"
+          align="center"
+        />
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <ElButton type="primary" size="small" @click="handleEdit(row)">
+              <i class="i-lucide-edit mr-1"></i>
+              编辑
+            </ElButton>
+            <ElButton type="danger" size="small" @click="handleDelete(row)">
+              <i class="i-lucide-trash-2 mr-1"></i>
+              删除
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
 
       <!-- 分页 -->
       <div class="mt-4 flex justify-end">
@@ -539,7 +546,18 @@ onUnmounted(() => {
             <ElInput v-model="addCourtForm.fyjc" placeholder="请输入法院简称" />
           </ElFormItem>
           <ElFormItem label="法院级别" prop="fyjb">
-            <ElInput v-model="addCourtForm.fyjb" placeholder="请输入法院级别" />
+            <ElSelect
+              v-model="addCourtForm.fyjb"
+              placeholder="请选择法院级别"
+              clearable
+            >
+              <ElOption
+                v-for="option in courtLevelOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </ElSelect>
           </ElFormItem>
           <ElFormItem label="地址">
             <ElInput v-model="addCourtForm.dz" placeholder="请输入地址" />
