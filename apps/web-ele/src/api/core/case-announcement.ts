@@ -25,6 +25,8 @@ export namespace CaseAnnouncementApi {
   export interface Announcement {
     id: number;
     caseId: number;
+    caseNumber: string;
+    principalOfficer: string;
     title: string;
     content: string;
     announcementType: AnnouncementType;
@@ -60,6 +62,8 @@ export namespace CaseAnnouncementApi {
   /** 创建公告请求 */
   export interface CreateAnnouncementRequest {
     caseId: number;
+    caseNumber: string;
+    principalOfficer: string;
     title: string;
     content: string;
     announcementType: AnnouncementType;
@@ -77,6 +81,8 @@ export namespace CaseAnnouncementApi {
 
   /** 更新公告请求 */
   export interface UpdateAnnouncementRequest {
+    caseNumber?: string;
+    principalOfficer?: string;
     title?: string;
     content?: string;
     announcementType?: AnnouncementType;
@@ -255,8 +261,7 @@ export async function publishAnnouncementApi(
 ) {
   return announcementRequestClient.post<CaseAnnouncementApi.PublishAnnouncementResponse>(
     `/api/v1/case-announcement/${announcementId}/publish`,
-    null,
-    { params: data },
+    data,
   );
 }
 
@@ -271,6 +276,18 @@ export async function topAnnouncementApi(
   return announcementRequestClient.post<CaseAnnouncementApi.TopAnnouncementResponse>(
     `/api/v1/case-announcement/${announcementId}/top`,
     data,
+  );
+}
+
+/**
+ * 取消置顶公告
+ * DELETE /api/v1/case-announcement/{announcementId}/top
+ */
+export async function unTopAnnouncementApi(
+  announcementId: number,
+) {
+  return announcementRequestClient.delete<CaseAnnouncementApi.TopAnnouncementResponse>(
+    `/api/v1/case-announcement/${announcementId}/top`,
   );
 }
 

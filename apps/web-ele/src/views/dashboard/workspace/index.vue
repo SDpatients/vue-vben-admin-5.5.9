@@ -124,10 +124,10 @@ const formatDateTime = (dateStr: string) => {
 const loadAnnouncements = async () => {
   announcementLoading.value = true;
   try {
-    const response = await getAnnouncementListApi(
-      announcementCurrentPage.value,
-      announcementPageSize.value
-    );
+    const response = await getAnnouncementListApi({
+      pageNum: announcementCurrentPage.value,
+      pageSize: announcementPageSize.value
+    });
     if (response.code === 200 && response.data) {
       announcements.value = response.data.list || [];
       announcementTotal.value = response.data.total || 0;

@@ -82,3 +82,13 @@ export async function getUserByDeptIdApi(administratorId: number) {
     `/administrator/${administratorId}/staff/list`,
   );
 }
+
+/**
+ * 根据关键词获取用户列表
+ * @param keyword 搜索关键词
+ */
+export async function getUsersApi(keyword: string) {
+  return requestClient8085.get<UserApi.StaffListResponse>('/users', {
+    params: { keyword },
+  });
+}

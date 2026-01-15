@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
   ElCol,
-  ElDialog,
   ElEmpty,
-  ElForm,
-  ElFormItem,
-  ElInput,
   ElMessage,
   ElPagination,
   ElPopconfirm,
   ElRow,
-  ElSelect,
   ElSkeleton,
   ElTable,
   ElTableColumn,
@@ -23,25 +18,20 @@ import {
 } from 'element-plus';
 
 import {
-  getPropertyListApi,
-  getEstateListApi,
-  getVehicleListApi,
   getEquipmentListApi,
-  getInventoryListApi,
+  getEstateListApi,
   getIntellectualPropertyListApi,
+  getInventoryListApi,
+  getPropertyListApi,
+  getVehicleListApi,
 } from '#/api/core/asset';
 
 interface Props {
   caseId: string;
   caseName: string;
-  visible: boolean;
 }
 
 const props = defineProps<Props>();
-
-const emit = defineEmits<{
-  'update:visible': [value: boolean];
-}>();
 
 const activeTab = ref('property');
 const loading = ref(false);
@@ -67,20 +57,27 @@ const tabs = [
 
 const currentList = computed(() => {
   switch (activeTab.value) {
-    case 'property':
-      return propertyList.value;
-    case 'estate':
-      return estateList.value;
-    case 'vehicle':
-      return vehicleList.value;
-    case 'equipment':
+    case 'equipment': {
       return equipmentList.value;
-    case 'inventory':
+    }
+    case 'estate': {
+      return estateList.value;
+    }
+    case 'inventory': {
       return inventoryList.value;
-    case 'ip':
+    }
+    case 'ip': {
       return ipList.value;
-    default:
+    }
+    case 'property': {
+      return propertyList.value;
+    }
+    case 'vehicle': {
+      return vehicleList.value;
+    }
+    default: {
       return [];
+    }
   }
 });
 
@@ -208,34 +205,36 @@ const handleTabChange = (tab: string) => {
   activeTab.value = tab;
   currentPage.value = 1;
   switch (tab) {
-    case 'property':
-      fetchPropertyList();
-      break;
-    case 'estate':
-      fetchEstateList();
-      break;
-    case 'vehicle':
-      fetchVehicleList();
-      break;
-    case 'equipment':
+    case 'equipment': {
       fetchEquipmentList();
       break;
-    case 'inventory':
+    }
+    case 'estate': {
+      fetchEstateList();
+      break;
+    }
+    case 'inventory': {
       fetchInventoryList();
       break;
-    case 'ip':
+    }
+    case 'ip': {
       fetchIntellectualPropertyList();
       break;
+    }
+    case 'property': {
+      fetchPropertyList();
+      break;
+    }
+    case 'vehicle': {
+      fetchVehicleList();
+      break;
+    }
   }
 };
 
 const handlePageChange = (page: number) => {
   currentPage.value = page;
   handleTabChange(activeTab.value);
-};
-
-const handleClose = () => {
-  emit('update:visible', false);
 };
 
 const getPropertyTypeLabel = (type: string) => {
@@ -327,305 +326,282 @@ const handleDelete = async (row: any) => {
 const handleAdd = () => {
   ElMessage.info('新增功能待实现');
 };
-
-const openDialog = () => {
-  currentPage.value = 1;
-  handleTabChange(activeTab.value);
-};
 </script>
 
 <template>
-  <ElDialog
-    :model-value="visible"
-    title="资产管理"
-    width="90%"
-    :close-on-click-modal="false"
-    @open="openDialog"
-    @close="handleClose"
-  >
-    <div class="asset-management-container">
-      <ElRow :gutter="16" class="mb-4">
-        <ElCol v-for="tab in tabs" :key="tab.key" :span="4">
-          <ElCard
-            :class="['asset-tab-card', { active: activeTab === tab.key }]"
-            shadow="hover"
-            @click="handleTabChange(tab.key)"
+  <div class="asset-management-container">
+    <ElRow :gutter="16" class="mb-4">
+      <ElCol v-for="tab in tabs" :key="tab.key" :span="4">
+        <ElCard
+          class="asset-tab-card"
+          :class="[{ active: activeTab === tab.key }]"
+          shadow="hover"
+          @click="handleTabChange(tab.key)"
+        >
+          <div class="tab-content">
+            <Icon :icon="tab.icon" class="tab-icon" />
+            <div class="tab-label">{{ tab.label }}</div>
+          </div>
+        </ElCard>
+      </ElCol>
+    </ElRow>
+
+    <ElCard class="table-card" shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <div class="header-title">
+            <Icon
+              :icon="tabs.find((t) => t.key === activeTab)?.icon"
+              class="mr-2"
+            />
+            {{ tabs.find((t) => t.key === activeTab)?.label }}
+          </div>
+          <ElButton type="primary" @click="handleAdd">
+            <Icon icon="lucide:plus" class="mr-1" />
+            新增
+          </ElButton>
+        </div>
+      </template>
+
+      <div v-if="loading" class="loading-container">
+        <ElSkeleton :rows="5" animated />
+      </div>
+
+      <div v-else-if="currentList.length === 0" class="empty-container">
+        <ElEmpty description="暂无数据" />
+      </div>
+
+      <div v-else>
+        <ElTable :data="currentList" stripe border>
+          <ElTableColumn type="index" label="序号" width="60" align="center" />
+
+          <ElTableColumn
+            v-if="activeTab === 'property'"
+            prop="propertyNo"
+            label="财产编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'property'"
+            prop="propertyName"
+            label="财产名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'property'"
+            label="财产类型"
+            min-width="120"
           >
-            <div class="tab-content">
-              <Icon :icon="tab.icon" class="tab-icon" />
-              <div class="tab-label">{{ tab.label }}</div>
-            </div>
-          </ElCard>
-        </ElCol>
-      </ElRow>
+            <template #default="{ row }">
+              {{ getPropertyTypeLabel(row.propertyType) }}
+            </template>
+          </ElTableColumn>
 
-      <ElCard class="table-card" shadow="hover">
-        <template #header>
-          <div class="card-header">
-            <div class="header-title">
-              <Icon
-                :icon="tabs.find((t) => t.key === activeTab)?.icon"
-                class="mr-2"
-              />
-              {{ tabs.find((t) => t.key === activeTab)?.label }}
-            </div>
-            <ElButton type="primary" @click="handleAdd">
-              <Icon icon="lucide:plus" class="mr-1" />
-              新增
-            </ElButton>
-          </div>
-        </template>
+          <ElTableColumn
+            v-if="activeTab === 'estate'"
+            prop="estateNo"
+            label="房产编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'estate'"
+            prop="estateName"
+            label="房产名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'estate'"
+            prop="estateAddress"
+            label="房产地址"
+            min-width="200"
+          />
 
-        <div v-if="loading" class="loading-container">
-          <ElSkeleton :rows="5" animated />
+          <ElTableColumn
+            v-if="activeTab === 'vehicle'"
+            prop="vehicleNo"
+            label="车辆编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'vehicle'"
+            prop="vehicleName"
+            label="车辆名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'vehicle'"
+            prop="licensePlate"
+            label="车牌号"
+            min-width="120"
+          />
+
+          <ElTableColumn
+            v-if="activeTab === 'equipment'"
+            prop="equipmentNo"
+            label="设备编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'equipment'"
+            prop="equipmentName"
+            label="设备名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'equipment'"
+            prop="quantity"
+            label="数量"
+            min-width="80"
+            align="center"
+          />
+
+          <ElTableColumn
+            v-if="activeTab === 'inventory'"
+            prop="inventoryNo"
+            label="存货编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'inventory'"
+            prop="inventoryName"
+            label="存货名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'inventory'"
+            prop="quantity"
+            label="数量"
+            min-width="100"
+            align="center"
+          />
+
+          <ElTableColumn
+            v-if="activeTab === 'ip'"
+            prop="ipNo"
+            label="知识产权编号"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'ip'"
+            prop="ipName"
+            label="知识产权名称"
+            min-width="150"
+          />
+          <ElTableColumn
+            v-if="activeTab === 'ip'"
+            prop="registrationNo"
+            label="登记号"
+            min-width="150"
+          />
+
+          <ElTableColumn
+            v-if="activeTab !== 'inventory'"
+            label="当前价值"
+            min-width="120"
+            align="right"
+          >
+            <template #default="{ row }">
+              {{ formatCurrency(row.currentValue) }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn
+            v-if="activeTab === 'inventory'"
+            label="总价值"
+            min-width="120"
+            align="right"
+          >
+            <template #default="{ row }">
+              {{ formatCurrency(row.totalValue) }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="资产状态" min-width="100" align="center">
+            <template #default="{ row }">
+              <ElTag
+                :type="
+                  getPropertyStatusType(
+                    row.propertyStatus ||
+                      row.estateStatus ||
+                      row.vehicleStatus ||
+                      row.equipmentStatus ||
+                      row.inventoryStatus ||
+                      row.ipStatus,
+                  )
+                "
+              >
+                {{
+                  getPropertyStatusLabel(
+                    row.propertyStatus ||
+                      row.estateStatus ||
+                      row.vehicleStatus ||
+                      row.equipmentStatus ||
+                      row.inventoryStatus ||
+                      row.ipStatus,
+                  )
+                }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="管理状态" min-width="100" align="center">
+            <template #default="{ row }">
+              <ElTag :type="getManagementStatusType(row.managementStatus)">
+                {{ getManagementStatusLabel(row.managementStatus) }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="创建时间" min-width="150">
+            <template #default="{ row }">
+              {{ formatDate(row.createTime) }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="操作" width="180" align="center" fixed="right">
+            <template #default="{ row }">
+              <ElButton
+                type="primary"
+                link
+                size="small"
+                @click="handleViewDetail(row)"
+              >
+                查看
+              </ElButton>
+              <ElButton
+                type="primary"
+                link
+                size="small"
+                @click="handleEdit(row)"
+              >
+                编辑
+              </ElButton>
+              <ElPopconfirm
+                title="确定要删除这条记录吗？"
+                @confirm="handleDelete(row)"
+              >
+                <template #reference>
+                  <ElButton type="danger" link size="small"> 删除 </ElButton>
+                </template>
+              </ElPopconfirm>
+            </template>
+          </ElTableColumn>
+        </ElTable>
+
+        <div class="pagination-container mt-4">
+          <ElPagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @current-change="handlePageChange"
+            @size-change="handlePageChange"
+          />
         </div>
-
-        <div v-else-if="currentList.length === 0" class="empty-container">
-          <ElEmpty description="暂无数据" />
-        </div>
-
-        <div v-else>
-          <ElTable :data="currentList" stripe border>
-            <ElTableColumn
-              type="index"
-              label="序号"
-              width="60"
-              align="center"
-            />
-
-            <ElTableColumn
-              v-if="activeTab === 'property'"
-              prop="propertyNo"
-              label="财产编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'property'"
-              prop="propertyName"
-              label="财产名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'property'"
-              label="财产类型"
-              min-width="120"
-            >
-              <template #default="{ row }">
-                {{ getPropertyTypeLabel(row.propertyType) }}
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn
-              v-if="activeTab === 'estate'"
-              prop="estateNo"
-              label="房产编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'estate'"
-              prop="estateName"
-              label="房产名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'estate'"
-              prop="estateAddress"
-              label="房产地址"
-              min-width="200"
-            />
-
-            <ElTableColumn
-              v-if="activeTab === 'vehicle'"
-              prop="vehicleNo"
-              label="车辆编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'vehicle'"
-              prop="vehicleName"
-              label="车辆名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'vehicle'"
-              prop="licensePlate"
-              label="车牌号"
-              min-width="120"
-            />
-
-            <ElTableColumn
-              v-if="activeTab === 'equipment'"
-              prop="equipmentNo"
-              label="设备编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'equipment'"
-              prop="equipmentName"
-              label="设备名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'equipment'"
-              prop="quantity"
-              label="数量"
-              min-width="80"
-              align="center"
-            />
-
-            <ElTableColumn
-              v-if="activeTab === 'inventory'"
-              prop="inventoryNo"
-              label="存货编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'inventory'"
-              prop="inventoryName"
-              label="存货名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'inventory'"
-              prop="quantity"
-              label="数量"
-              min-width="100"
-              align="center"
-            />
-
-            <ElTableColumn
-              v-if="activeTab === 'ip'"
-              prop="ipNo"
-              label="知识产权编号"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'ip'"
-              prop="ipName"
-              label="知识产权名称"
-              min-width="150"
-            />
-            <ElTableColumn
-              v-if="activeTab === 'ip'"
-              prop="registrationNo"
-              label="登记号"
-              min-width="150"
-            />
-
-            <ElTableColumn
-              v-if="activeTab !== 'inventory'"
-              label="当前价值"
-              min-width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row.currentValue) }}
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn
-              v-if="activeTab === 'inventory'"
-              label="总价值"
-              min-width="120"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatCurrency(row.totalValue) }}
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn label="资产状态" min-width="100" align="center">
-              <template #default="{ row }">
-                <ElTag
-                  :type="
-                    getPropertyStatusType(
-                      row.propertyStatus ||
-                        row.estateStatus ||
-                        row.vehicleStatus ||
-                        row.equipmentStatus ||
-                        row.inventoryStatus ||
-                        row.ipStatus,
-                    )
-                  "
-                >
-                  {{
-                    getPropertyStatusLabel(
-                      row.propertyStatus ||
-                        row.estateStatus ||
-                        row.vehicleStatus ||
-                        row.equipmentStatus ||
-                        row.inventoryStatus ||
-                        row.ipStatus,
-                    )
-                  }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn label="管理状态" min-width="100" align="center">
-              <template #default="{ row }">
-                <ElTag :type="getManagementStatusType(row.managementStatus)">
-                  {{ getManagementStatusLabel(row.managementStatus) }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn label="创建时间" min-width="150">
-              <template #default="{ row }">
-                {{ formatDate(row.createTime) }}
-              </template>
-            </ElTableColumn>
-
-            <ElTableColumn
-              label="操作"
-              width="180"
-              align="center"
-              fixed="right"
-            >
-              <template #default="{ row }">
-                <ElButton
-                  type="primary"
-                  link
-                  size="small"
-                  @click="handleViewDetail(row)"
-                >
-                  查看
-                </ElButton>
-                <ElButton
-                  type="primary"
-                  link
-                  size="small"
-                  @click="handleEdit(row)"
-                >
-                  编辑
-                </ElButton>
-                <ElPopconfirm
-                  title="确定要删除这条记录吗？"
-                  @confirm="handleDelete(row)"
-                >
-                  <template #reference>
-                    <ElButton type="danger" link size="small"> 删除 </ElButton>
-                  </template>
-                </ElPopconfirm>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-
-          <div class="pagination-container mt-4">
-            <ElPagination
-              v-model:current-page="currentPage"
-              v-model:page-size="pageSize"
-              :total="total"
-              :page-sizes="[10, 20, 50, 100]"
-              layout="total, sizes, prev, pager, next, jumper"
-              @current-change="handlePageChange"
-              @size-change="handlePageChange"
-            />
-          </div>
-        </div>
-      </ElCard>
-    </div>
-  </ElDialog>
+      </div>
+    </ElCard>
+  </div>
 </template>
 
 <style scoped>

@@ -220,6 +220,55 @@ const totalAmount = computed(() => {
   return (principal + interest + penalty + otherLosses).toFixed(2);
 });
 
+// 第二阶段：审查阶段总金额计算
+const declaredTotalAmount = computed(() => {
+  const principal = Number(reviewForm.declaredPrincipal) || 0;
+  const interest = Number(reviewForm.declaredInterest) || 0;
+  const penalty = Number(reviewForm.declaredPenalty) || 0;
+  const otherLosses = Number(reviewForm.declaredOtherLosses) || 0;
+  return (principal + interest + penalty + otherLosses).toFixed(2);
+});
+
+const confirmedTotalAmount = computed(() => {
+  const principal = Number(reviewForm.confirmedPrincipal) || 0;
+  const interest = Number(reviewForm.confirmedInterest) || 0;
+  const penalty = Number(reviewForm.confirmedPenalty) || 0;
+  const otherLosses = Number(reviewForm.confirmedOtherLosses) || 0;
+  return (principal + interest + penalty + otherLosses).toFixed(2);
+});
+
+const unconfirmedTotalAmount = computed(() => {
+  const principal = Number(reviewForm.unconfirmedPrincipal) || 0;
+  const interest = Number(reviewForm.unconfirmedInterest) || 0;
+  const penalty = Number(reviewForm.unconfirmedPenalty) || 0;
+  const otherLosses = Number(reviewForm.unconfirmedOtherLosses) || 0;
+  return (principal + interest + penalty + otherLosses).toFixed(2);
+});
+
+// 第三阶段：确认阶段总金额计算
+const finalConfirmedAmount = computed(() => {
+  // 根据不同的确认依据计算最终确认金额
+  if (
+    confirmationForm.finalConfirmationBasis === 'COURT' &&
+    confirmationForm.courtRulingAmount
+  ) {
+    // 如果是法院裁定，使用法院裁定金额
+    return confirmationForm.courtRulingAmount.toFixed(2);
+  } else if (confirmationForm.hasLawsuit && confirmationForm.lawsuitAmount) {
+    // 如果有诉讼，使用诉讼金额
+    return confirmationForm.lawsuitAmount.toFixed(2);
+  } else if (
+    confirmationForm.hasObjection &&
+    confirmationForm.objectionAmount
+  ) {
+    // 如果有异议，使用异议金额
+    return confirmationForm.objectionAmount.toFixed(2);
+  } else {
+    // 默认使用当前确认金额
+    return Number(confirmationForm.finalConfirmedAmount).toFixed(2);
+  }
+});
+
 const fetchClaims = async () => {
   console.log('开始获取债权列表，参数:', {
     caseId: Number(props.caseId),
@@ -235,7 +284,33 @@ const fetchClaims = async () => {
     });
     console.log('获取债权列表响应:', response);
     if (response.code === 200 && response.data) {
-      claims.value = response.data.list || [];
+      // 将驼峰命名转换为下划线命名，以匹配表格组件的prop
+      const formattedList = (response.data.list || []).map((item: any) => ({
+        ...item,
+        creditor_name: item.creditorName,
+        creditor_type: item.creditorType,
+        credit_code: item.creditCode,
+        total_amount: item.totalAmount,
+        claim_nature: item.claimNature,
+        claim_type: item.claimType,
+        registration_status: item.registrationStatus,
+        material_completeness: item.materialCompleteness,
+        // 处理关联对象的状态
+        ...(item.reviewInfo && {
+          reviewInfo: {
+            ...item.reviewInfo,
+            review_status: item.reviewInfo.reviewStatus,
+            review_conclusion: item.reviewInfo.reviewConclusion,
+          },
+        }),
+        ...(item.confirmationInfo && {
+          confirmationInfo: {
+            ...item.confirmationInfo,
+            confirmation_status: item.confirmationInfo.confirmationStatus,
+          },
+        }),
+      }));
+      claims.value = formattedList;
       total.value = response.data.total || 0;
       console.log(
         '更新债权列表，数量:',
@@ -373,7 +448,11 @@ const handleAddClaim = async () => {
       claimIdentifier: claimForm.claimIdentifier || undefined,
       evidenceList: claimForm.evidenceList || undefined,
       evidenceMaterials: claimForm.evidenceMaterials || undefined,
-      evidenceAttachments: claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0 ? claimForm.evidenceAttachments : null,
+      evidenceAttachments:
+        claimForm.evidenceAttachments &&
+        claimForm.evidenceAttachments.length > 0
+          ? claimForm.evidenceAttachments
+          : null,
       registrationDate: claimForm.registrationDate || null,
       registrationDeadline: claimForm.registrationDeadline || null,
       materialReceiver: claimForm.materialReceiver || undefined,
@@ -512,7 +591,12 @@ const openEditDialog = async (row: any) => {
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
     if (response.code === 200 && response.data) {
-      Object.assign(claimForm, response.data);
+      // 确保evidenceAttachments始终是数组类型
+      const claimData = { ...response.data };
+      if (claimData.evidenceAttachments === null) {
+        claimData.evidenceAttachments = [];
+      }
+      Object.assign(claimForm, claimData);
       currentClaim.value = response.data;
       showEditDialog.value = true;
     } else {
@@ -561,7 +645,11 @@ const handleEditClaim = async () => {
       claimIdentifier: claimForm.claimIdentifier || undefined,
       evidenceList: claimForm.evidenceList || undefined,
       evidenceMaterials: claimForm.evidenceMaterials || undefined,
-      evidenceAttachments: claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0 ? claimForm.evidenceAttachments : null,
+      evidenceAttachments:
+        claimForm.evidenceAttachments &&
+        claimForm.evidenceAttachments.length > 0
+          ? claimForm.evidenceAttachments
+          : null,
       registrationStatus: claimForm.registrationStatus,
       remarks: claimForm.remarks || undefined,
     };
@@ -725,48 +813,48 @@ const handleSaveReview = async () => {
       claimRegistrationId: currentClaim.value.id,
       caseId: currentClaim.value.caseId,
       creditorName: currentClaim.value.creditorName,
-      reviewDate: reviewForm.reviewDate,
-      reviewer: reviewForm.reviewer,
-      reviewRound: reviewForm.reviewRound,
-      reviewBasis: reviewForm.reviewBasis,
-      declaredPrincipal: reviewForm.declaredPrincipal,
-      declaredInterest: reviewForm.declaredInterest,
-      declaredPenalty: reviewForm.declaredPenalty,
-      declaredOtherLosses: reviewForm.declaredOtherLosses,
-      declaredTotalAmount: reviewForm.declaredTotalAmount,
-      confirmedPrincipal: reviewForm.confirmedPrincipal,
-      confirmedInterest: reviewForm.confirmedInterest,
-      confirmedPenalty: reviewForm.confirmedPenalty,
-      confirmedOtherLosses: reviewForm.confirmedOtherLosses,
-      confirmedTotalAmount: reviewForm.confirmedTotalAmount,
-      unconfirmedPrincipal: reviewForm.unconfirmedPrincipal,
-      unconfirmedInterest: reviewForm.unconfirmedInterest,
-      unconfirmedPenalty: reviewForm.unconfirmedPenalty,
-      unconfirmedOtherLosses: reviewForm.unconfirmedOtherLosses,
-      unconfirmedTotalAmount: reviewForm.unconfirmedTotalAmount,
-      adjustmentReason: reviewForm.adjustmentReason,
-      unconfirmedReason: reviewForm.unconfirmedReason,
-      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason,
-      expiredReason: reviewForm.expiredReason,
+      reviewDate: reviewForm.reviewDate || null,
+      reviewer: reviewForm.reviewer || null,
+      reviewRound: Number(reviewForm.reviewRound) || 1,
+      reviewBasis: reviewForm.reviewBasis || null,
+      declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
+      declaredInterest: Number(reviewForm.declaredInterest) || 0,
+      declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
+      declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
+      declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
+      confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
+      confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
+      confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
+      confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
+      confirmedTotalAmount: Number(reviewForm.confirmedTotalAmount) || 0,
+      unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
+      unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
+      unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
+      unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
+      unconfirmedTotalAmount: Number(reviewForm.unconfirmedTotalAmount) || 0,
+      adjustmentReason: reviewForm.adjustmentReason || null,
+      unconfirmedReason: reviewForm.unconfirmedReason || null,
+      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
+      expiredReason: reviewForm.expiredReason || null,
       evidenceAuthenticity: reviewForm.evidenceAuthenticity,
-      evidenceRelevance: reviewForm.evidenceRelevance,
-      evidenceLegality: reviewForm.evidenceLegality,
-      evidenceReviewNotes: reviewForm.evidenceReviewNotes,
-      confirmedClaimNature: reviewForm.confirmedClaimNature,
+      evidenceRelevance: reviewForm.evidenceRelevance || null,
+      evidenceLegality: reviewForm.evidenceLegality || null,
+      evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
+      confirmedClaimNature: reviewForm.confirmedClaimNature || null,
       isJointLiability: reviewForm.isJointLiability ? 1 : 0,
       isConditional: reviewForm.isConditional ? 1 : 0,
       isTerm: reviewForm.isTerm ? 1 : 0,
-      collateralType: reviewForm.collateralType,
-      collateralProperty: reviewForm.collateralProperty,
-      collateralAmount: reviewForm.collateralAmount,
-      collateralTerm: reviewForm.collateralTerm,
+      collateralType: reviewForm.collateralType || null,
+      collateralProperty: reviewForm.collateralProperty || null,
+      collateralAmount: Number(reviewForm.collateralAmount) || null,
+      collateralTerm: reviewForm.collateralTerm || null,
       collateralValidity: reviewForm.collateralValidity,
       reviewConclusion: reviewForm.reviewConclusion,
-      reviewSummary: reviewForm.reviewSummary,
-      reviewReport: reviewForm.reviewReport,
-      reviewAttachments: reviewForm.reviewAttachments,
+      reviewSummary: reviewForm.reviewSummary || null,
+      reviewReport: reviewForm.reviewReport || null,
+      reviewAttachments: reviewForm.reviewAttachments || null,
       reviewStatus: reviewForm.reviewStatus,
-      remarks: reviewForm.remarks,
+      remarks: reviewForm.remarks || null,
     };
 
     const response = await createClaimReviewApi(requestData);
@@ -1075,48 +1163,48 @@ const handleStageTwoSubmit = async () => {
       claimRegistrationId: currentClaim.value.id,
       caseId: currentClaim.value.caseId,
       creditorName: currentClaim.value.creditorName,
-      reviewDate: reviewForm.reviewDate,
-      reviewer: reviewForm.reviewer,
-      reviewRound: reviewForm.reviewRound,
-      reviewBasis: reviewForm.reviewBasis,
-      declaredPrincipal: reviewForm.declaredPrincipal,
-      declaredInterest: reviewForm.declaredInterest,
-      declaredPenalty: reviewForm.declaredPenalty,
-      declaredOtherLosses: reviewForm.declaredOtherLosses,
-      declaredTotalAmount: reviewForm.declaredTotalAmount,
-      confirmedPrincipal: reviewForm.confirmedPrincipal,
-      confirmedInterest: reviewForm.confirmedInterest,
-      confirmedPenalty: reviewForm.confirmedPenalty,
-      confirmedOtherLosses: reviewForm.confirmedOtherLosses,
-      confirmedTotalAmount: reviewForm.confirmedTotalAmount,
-      unconfirmedPrincipal: reviewForm.unconfirmedPrincipal,
-      unconfirmedInterest: reviewForm.unconfirmedInterest,
-      unconfirmedPenalty: reviewForm.unconfirmedPenalty,
-      unconfirmedOtherLosses: reviewForm.unconfirmedOtherLosses,
-      unconfirmedTotalAmount: reviewForm.unconfirmedTotalAmount,
-      adjustmentReason: reviewForm.adjustmentReason,
-      unconfirmedReason: reviewForm.unconfirmedReason,
-      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason,
-      expiredReason: reviewForm.expiredReason,
+      reviewDate: reviewForm.reviewDate || null,
+      reviewer: reviewForm.reviewer || null,
+      reviewRound: Number(reviewForm.reviewRound) || 1,
+      reviewBasis: reviewForm.reviewBasis || null,
+      declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
+      declaredInterest: Number(reviewForm.declaredInterest) || 0,
+      declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
+      declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
+      declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
+      confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
+      confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
+      confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
+      confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
+      confirmedTotalAmount: Number(reviewForm.confirmedTotalAmount) || 0,
+      unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
+      unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
+      unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
+      unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
+      unconfirmedTotalAmount: Number(reviewForm.unconfirmedTotalAmount) || 0,
+      adjustmentReason: reviewForm.adjustmentReason || null,
+      unconfirmedReason: reviewForm.unconfirmedReason || null,
+      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
+      expiredReason: reviewForm.expiredReason || null,
       evidenceAuthenticity: reviewForm.evidenceAuthenticity,
-      evidenceRelevance: reviewForm.evidenceRelevance,
-      evidenceLegality: reviewForm.evidenceLegality,
-      evidenceReviewNotes: reviewForm.evidenceReviewNotes,
-      confirmedClaimNature: reviewForm.confirmedClaimNature,
+      evidenceRelevance: reviewForm.evidenceRelevance || null,
+      evidenceLegality: reviewForm.evidenceLegality || null,
+      evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
+      confirmedClaimNature: reviewForm.confirmedClaimNature || null,
       isJointLiability: reviewForm.isJointLiability ? 1 : 0,
       isConditional: reviewForm.isConditional ? 1 : 0,
       isTerm: reviewForm.isTerm ? 1 : 0,
-      collateralType: reviewForm.collateralType,
-      collateralProperty: reviewForm.collateralProperty,
-      collateralAmount: reviewForm.collateralAmount,
-      collateralTerm: reviewForm.collateralTerm,
+      collateralType: reviewForm.collateralType || null,
+      collateralProperty: reviewForm.collateralProperty || null,
+      collateralAmount: Number(reviewForm.collateralAmount) || null,
+      collateralTerm: reviewForm.collateralTerm || null,
       collateralValidity: reviewForm.collateralValidity,
       reviewConclusion: reviewForm.reviewConclusion,
-      reviewSummary: reviewForm.reviewSummary,
-      reviewReport: reviewForm.reviewReport,
-      reviewAttachments: reviewForm.reviewAttachments,
+      reviewSummary: reviewForm.reviewSummary || null,
+      reviewReport: reviewForm.reviewReport || null,
+      reviewAttachments: reviewForm.reviewAttachments || null,
       reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
-      remarks: reviewForm.remarks,
+      remarks: reviewForm.remarks || null,
     };
     console.log('提交债权审查请求数据:', requestData);
 
@@ -2533,9 +2621,13 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="审查日期">
-                <ElInput
+                <ElDatePicker
                   v-model="reviewForm.reviewDate"
-                  placeholder="请输入审查日期"
+                  type="datetime"
+                  placeholder="请选择审查日期"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
@@ -2617,7 +2709,9 @@ onMounted(() => {
               <ElFormItem label="申报总金额">
                 <ElInput
                   v-model="reviewForm.declaredTotalAmount"
+                  :value="declaredTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
@@ -2664,7 +2758,9 @@ onMounted(() => {
               <ElFormItem label="确认总金额">
                 <ElInput
                   v-model="reviewForm.confirmedTotalAmount"
+                  :value="confirmedTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
@@ -2717,7 +2813,9 @@ onMounted(() => {
               <ElFormItem label="不予确认总金额">
                 <ElInput
                   v-model="reviewForm.unconfirmedTotalAmount"
+                  :value="unconfirmedTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
@@ -3158,9 +3256,13 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="审查日期">
-                <ElInput
+                <ElDatePicker
                   v-model="reviewForm.reviewDate"
-                  placeholder="请输入审查日期"
+                  type="datetime"
+                  placeholder="请选择审查日期"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  style="width: 100%"
                 />
               </ElFormItem>
             </ElCol>
@@ -3242,7 +3344,9 @@ onMounted(() => {
               <ElFormItem label="申报总金额">
                 <ElInput
                   v-model="reviewForm.declaredTotalAmount"
+                  :value="declaredTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
@@ -3289,7 +3393,9 @@ onMounted(() => {
               <ElFormItem label="确认总金额">
                 <ElInput
                   v-model="reviewForm.confirmedTotalAmount"
+                  :value="confirmedTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
@@ -3342,7 +3448,9 @@ onMounted(() => {
               <ElFormItem label="不予确认总金额">
                 <ElInput
                   v-model="reviewForm.unconfirmedTotalAmount"
+                  :value="unconfirmedTotalAmount"
                   type="number"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>
