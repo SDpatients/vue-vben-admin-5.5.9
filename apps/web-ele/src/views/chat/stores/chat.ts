@@ -1,7 +1,8 @@
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { defineStore } from 'pinia';
 
+import { webSocketService } from '#/services/websocket';
 import {
   getConversationsApi,
   getConversationMessagesApi,
@@ -82,6 +83,79 @@ export const useChatStore = defineStore('chat', () => {
     const userId = localStorage.getItem('chat_user_id');
     return userId ? Number.parseInt(userId) : 1;
   };
+
+  const handleNewMessage = (data: any) => {
+    console.log('收到新消息:', data);
+    const messageData = data.data || data;
+    const chatMessage: ChatMessage = {
+      id: messageData.id || Date.now(),
+      senderId: messageData.senderId,
+      receiverId: messageData.receiverId,
+      messageType: messageData.messageType?.toLowerCase() as 'file' | 'image' | 'system' | 'text',
+      content: messageData.content || '',
+      fileUrl: messageData.fileUrl,
+      fileName: messageData.fileName,
+      fileSize: messageData.fileSize,
+      thumbnailUrl: null,
+      isRecalled: messageData.isRecalled || false,
+      recallTime: null,
+      readStatus: messageData.messageStatus === 'READ',
+      timestamp: messageData.createTime || new Date().toISOString(),
+      status: messageData.messageStatus === 'SENT' ? 'sent' : 'failed',
+      createdAt: messageData.createTime || new Date().toISOString(),
+    };
+    addMessage(chatMessage);
+  };
+
+  const handleMessageRead = (data: any) => {
+    console.log('消息已读:', data);
+    const messageData = data.data || data;
+    const msgIndex = messages.value.findIndex((m) => m.id === messageData.messageId);
+    if (msgIndex !== -1) {
+      messages.value[msgIndex].readStatus = true;
+    }
+  };
+
+  const handleMessageRecalled = (data: any) => {
+    console.log('消息已撤回:', data);
+    const messageData = data.data || data;
+    const msgIndex = messages.value.findIndex((m) => m.id === messageData.messageId);
+    if (msgIndex !== -1) {
+      messages.value[msgIndex].isRecalled = true;
+    }
+  };
+
+  const handleTyping = (data: any) => {
+    console.log('正在输入:', data);
+    if (data.userId && data.conversationId) {
+      typingStatus.value[data.userId] = true;
+      setTimeout(() => {
+        typingStatus.value[data.userId] = false;
+      }, 3000);
+    }
+  };
+
+  const setupWebSocketListeners = () => {
+    webSocketService.on('NEW_MESSAGE', handleNewMessage);
+    webSocketService.on('MESSAGE_READ', handleMessageRead);
+    webSocketService.on('MESSAGE_RECALLED', handleMessageRecalled);
+    webSocketService.on('TYPING', handleTyping);
+  };
+
+  const cleanupWebSocketListeners = () => {
+    webSocketService.off('NEW_MESSAGE', handleNewMessage);
+    webSocketService.off('MESSAGE_READ', handleMessageRead);
+    webSocketService.off('MESSAGE_RECALLED', handleMessageRecalled);
+    webSocketService.off('TYPING', handleTyping);
+  };
+
+  onMounted(() => {
+    setupWebSocketListeners();
+  });
+
+  onUnmounted(() => {
+    cleanupWebSocketListeners();
+  });
 
   const currentMessages = computed(() => {
     if (!currentContact.value) return [];
@@ -625,7 +699,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function setMessages(newMessages: ChatMessage[]) {
+  function setMessages(newMessages: any[]) {
     messages.value = newMessages.map(msg => ({
       id: msg.id,
       senderId: msg.senderId,
@@ -725,8 +799,10 @@ export const useChatStore = defineStore('chat', () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await getConversationMessagesApi(params);
-      messages.value = data.records.map((msg) => ({
+      const response = await getConversationMessagesApi(params);
+      // 处理新的数据格式，消息列表在data.list中
+      const records = response.data.data.list;
+      messages.value = records.map((msg) => ({
         id: msg.id,
         senderId: msg.senderId,
         receiverId: msg.receiverId,
@@ -767,7 +843,7 @@ export const useChatStore = defineStore('chat', () => {
     fileUrl?: string;
   }) {
     try {
-      const message = await sendMessageApiV2({
+      const response = await sendMessageApi({
         senderId: params.senderId,
         data: {
           receiverId: params.receiverId,
@@ -780,26 +856,30 @@ export const useChatStore = defineStore('chat', () => {
         },
       });
 
+      // 消息数据在response.data中，而不是直接在response中
+      const message = response.data || {};
+      const messageData = message.data || {};
+
       const chatMessage: ChatMessage = {
-        id: message.id,
-        senderId: message.senderId,
-        receiverId: message.receiverId,
-        messageType: message.messageType.toLowerCase() as
+        id: messageData.id || Date.now(), // 如果没有id，使用时间戳作为临时id
+        senderId: messageData.senderId || params.senderId,
+        receiverId: messageData.receiverId || params.receiverId,
+        messageType: (messageData.messageType || params.messageType).toLowerCase() as
           | 'file'
           | 'image'
           | 'system'
           | 'text',
-        content: message.content,
-        fileUrl: message.fileUrl,
-        fileName: message.fileName,
-        fileSize: message.fileSize,
+        content: messageData.content || params.content || '',
+        fileUrl: messageData.fileUrl || params.fileUrl,
+        fileName: messageData.fileName || params.fileName,
+        fileSize: messageData.fileSize || params.fileSize,
         thumbnailUrl: null,
-        isRecalled: message.isRecalled,
+        isRecalled: messageData.isRecalled || false,
         recallTime: null,
-        readStatus: message.messageStatus === 'READ',
-        timestamp: message.createTime,
-        status: message.messageStatus === 'SENT' ? 'sent' : 'failed',
-        createdAt: message.createTime,
+        readStatus: messageData.messageStatus === 'READ',
+        timestamp: messageData.createTime || new Date().toISOString(),
+        status: messageData.messageStatus === 'SENT' ? 'sent' : 'failed',
+        createdAt: messageData.createTime || new Date().toISOString(),
       };
 
       addMessage(chatMessage);
@@ -814,7 +894,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function recallMessage(messageId: number, userId: number) {
     try {
-      const message = await recallMessageApiV2({
+      const message = await recallMessageApi({
         userId,
         data: { messageId },
       });
@@ -847,6 +927,33 @@ export const useChatStore = defineStore('chat', () => {
       error.value =
         error_ instanceof Error ? error_.message : '删除消息失败';
       console.error('删除消息失败:', error_);
+      throw error_;
+    }
+  }
+
+  // 标记单条消息为已读
+  async function markMessageAsRead(messageId: number) {
+    try {
+      const userId = getCurrentUserId();
+      console.log('标记消息已读:', { messageId, userId });
+      
+      // 调用API标记消息为已读
+      await markMessageAsReadApi({
+        userId,
+        messageId
+      });
+      
+      // 更新本地消息状态
+      const msgIndex = messages.value.findIndex((msg) => msg.id === messageId);
+      if (msgIndex !== -1) {
+        messages.value[msgIndex].readStatus = true;
+      }
+      
+      console.log('消息已标记为已读');
+    } catch (error_) {
+      error.value =
+        error_ instanceof Error ? error_.message : '标记消息已读失败';
+      console.error('标记消息已读失败:', error_);
       throw error_;
     }
   }
@@ -1113,6 +1220,7 @@ export const useChatStore = defineStore('chat', () => {
     addSession,
     addMessage,
     markAsRead,
+    markMessageAsRead,
     setConnectionStatus,
     setTypingStatus,
     fetchChatSessions,
@@ -1131,6 +1239,8 @@ export const useChatStore = defineStore('chat', () => {
     fetchConversationUnreadCount,
     initializeData,
     setMessages,
+    setupWebSocketListeners,
+    cleanupWebSocketListeners,
     $reset,
   };
 });

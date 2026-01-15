@@ -28,6 +28,9 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "@iconify/vue": "catalog:",
+    "@stomp/stompjs": "^7.2.1",
+    "@types/sockjs-client": "^1.5.4",
+    "@types/stompjs": "^2.3.10",
     "@vben/access": "workspace:*",
     "@vben/common-ui": "workspace:*",
     "@vben/constants": "workspace:*",
@@ -50,6 +53,7 @@
     "element-plus": "catalog:",
     "markdown-it": "^14.1.0",
     "pinia": "catalog:",
+    "stompjs": "^2.3.3",
     "vue": "catalog:",
     "vue-router": "catalog:",
     "xlsx": "^0.18.5"

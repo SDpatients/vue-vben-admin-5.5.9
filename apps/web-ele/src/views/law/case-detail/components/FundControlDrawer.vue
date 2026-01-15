@@ -388,6 +388,7 @@ const fetchAccounts = async () => {
 
 const fetchCategories = async () => {
   try {
+    // 尝试从后端获取分类列表
     const response = await getFundCategoryListApi({});
     let categories = [];
     
@@ -401,21 +402,64 @@ const fetchCategories = async () => {
       }
     }
     
+    // 如果后端没有返回分类数据，使用默认分类
+    if (categories.length === 0) {
+      // 默认收入分类
+      categories.push(
+        // 收入分类
+        { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
+        { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
+        { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
+        { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
+        // 支出分类
+        { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
+        { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
+        { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
+        { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
+        { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
+        { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
+      );
+    }
+    
     categoryOptions.value = categories;
   } catch (error) {
-    ElMessage.error('获取分类列表失败');
-    console.error('获取分类列表失败:', error);
-    categoryOptions.value = [];
+    console.error('获取分类列表失败，使用默认分类:', error);
+    // 后端请求失败时，使用默认分类
+    categoryOptions.value = [
+      // 收入分类
+      { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
+      { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
+      { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
+      { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
+      // 支出分类
+      { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
+      { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
+      { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
+      { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
+      { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
+      { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
+    ];
   }
 };
 
 const getFilteredCategoryOptions = () => {
-  return categoryOptions.value.filter(category => 
+  // 根据流水类型过滤分类选项
+  const filtered = categoryOptions.value.filter(category => 
     category.categoryType === flowForm.flowType
   ).map(category => ({
     label: category.categoryName,
     value: category.categoryId,
   }));
+  
+  // 如果没有匹配的分类，添加一个默认的"其他"选项
+  if (filtered.length === 0) {
+    filtered.push({
+      label: flowForm.flowType === 'INCOME' ? '其他收入' : '其他支出',
+      value: flowForm.flowType === 'INCOME' ? 4 : 10,
+    });
+  }
+  
+  return filtered;
 };
 
 const getAccountName = (accountId: number) => {
@@ -796,19 +840,11 @@ onMounted(() => {
         :model="accountForm"
         label-width="120px"
         :rules="{
-          caseNo: [{ required: true, message: '请输入案号', trigger: 'blur' }],
-          caseName: [{ required: true, message: '请输入案件名称', trigger: 'blur' }],
           accountName: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
           accountType: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
           initialBalance: [{ required: true, message: '请输入初始余额', trigger: 'blur' }],
         }"
       >
-        <ElFormItem label="案号" prop="caseNo">
-          <ElInput v-model="accountForm.caseNo" disabled />
-        </ElFormItem>
-        <ElFormItem label="案件名称" prop="caseName">
-          <ElInput v-model="accountForm.caseName" disabled />
-        </ElFormItem>
         <ElFormItem label="账户名称" prop="accountName">
           <ElInput v-model="accountForm.accountName" placeholder="请输入账户名称" />
         </ElFormItem>
@@ -895,9 +931,6 @@ onMounted(() => {
           transactionDate: [{ required: true, message: '请选择交易日期', trigger: 'change' }],
         }"
       >
-        <ElFormItem label="案号">
-          <ElInput v-model="flowForm.caseNo" disabled />
-        </ElFormItem>
         <ElFormItem label="账户" prop="accountId">
           <ElSelect 
             v-model="flowForm.accountId" 

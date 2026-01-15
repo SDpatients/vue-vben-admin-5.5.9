@@ -128,7 +128,7 @@ function togglePin(sessionId: number) {
     <div v-if="props.showHeader !== false" class="session-list-header">
       <h3>会话</h3>
       <el-button
-        type="link"
+        type="text"
         icon="el-icon-plus"
         size="small"
         @click="handleCreateSession"

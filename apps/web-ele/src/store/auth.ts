@@ -12,6 +12,7 @@ import { defineStore } from 'pinia';
 
 import { getCurrentUserApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
+import { webSocketService } from '#/services/websocket';
 
 export const useAuthStore = defineStore('auth', () => {
   const accessStore = useAccessStore();
@@ -75,6 +76,15 @@ export const useAuthStore = defineStore('auth', () => {
             type: 'success',
           });
         }
+
+        const userId = backendUserInfo.userId;
+        localStorage.setItem('chat_user_id', userId.toString());
+        localStorage.setItem('chat_username', backendUserInfo.username);
+        localStorage.setItem('chat_user_info', JSON.stringify(backendUserInfo));
+
+        webSocketService.connect().catch((error) => {
+          console.error('WebSocket 连接失败:', error);
+        });
       } else {
         // 登录失败，显示错误信息
         const errorMsg =
@@ -105,6 +115,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await logoutApi();
     } catch {}
+
+    webSocketService.disconnect();
 
     localStorage.removeItem('chat_user_info');
     localStorage.removeItem('chat_user_id');

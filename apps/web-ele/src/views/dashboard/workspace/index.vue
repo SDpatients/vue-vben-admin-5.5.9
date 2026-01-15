@@ -11,13 +11,16 @@ import {
 } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
-import { ElTag, ElPagination, ElMessage } from 'element-plus';
+import { ElTag, ElPagination, ElMessage, ElButton, ElTable, ElTableColumn, ElDialog, ElLoading, ElEmpty } from 'element-plus';
+import { Icon } from '@iconify/vue';
 
 import { getUserCaseListApi } from '#/api/core/case';
 import { todoApi } from '#/api/core/todo';
 import {
   getAnnouncementListApi,
-  createViewRecordApi
+  getAnnouncementDetailApi,
+  createViewRecordApi,
+  getViewRecordListApi
 } from '#/api/core/case-announcement';
 import TodoList from '#/components/TodoList.vue';
 
@@ -102,7 +105,29 @@ const announcementCurrentPage = ref(1);
 const announcementPageSize = ref(5);
 const announcementTotal = ref(0);
 
+// 公告详情相关
+const showAnnouncementDetailDialog = ref(false);
+const announcementDetail = ref<Announcement | null>(null);
+const detailLoading = ref(false);
+
+// 浏览记录相关
+const showViewsDialog = ref(false);
+const viewsList = ref<any[]>([]);
+const viewsTotal = ref(0);
+const viewsCurrentPage = ref(1);
+const viewsPageSize = ref(10);
+const viewsLoading = ref(false);
+
+// 附件相关
+const showPreviewDialog = ref(false);
+const previewAttachment = ref<any>(null);
+const previewUrl = ref('');
+const previewLoading = ref(false);
+
 const announcementTypeMap: Record<string, { label: string; type: string }> = {
+  NOTICE: { label: '通知', type: 'info' },
+  ANNOUNCEMENT: { label: '公告', type: 'warning' },
+  WARNING: { label: '警告', type: 'danger' },
   NORMAL: { label: '普通', type: 'info' },
   URGENT: { label: '紧急', type: 'danger' },
   IMPORTANT: { label: '重要', type: 'warning' },
@@ -147,17 +172,90 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
     const chatUserId = localStorage.getItem('chat_user_id');
     const userId = Number(chatUserId) || 0;
     
-    // 调用创建查看记录API
-    await createViewRecordApi({
-      announcementId: announcement.id,
-      caseId: announcement.caseId,
-      viewerId: userId,
-    });
-    // 这里可以添加查看详情的逻辑，比如弹出对话框
-    ElMessage.info('查看公告详情');
+    // 调用创建查看记录API（单独try-catch，确保不影响详情获取）
+    try {
+      await createViewRecordApi({
+        announcementId: announcement.id,
+        caseId: announcement.caseId,
+        viewerId: userId,
+      });
+    } catch (recordError) {
+      console.error('记录公告查看失败:', recordError);
+      // 不显示错误，继续执行
+    }
+    
+    // 调用获取公告详情API
+    detailLoading.value = true;
+    const response = await getAnnouncementDetailApi(announcement.id);
+    if (response.code === 200 && response.data) {
+      // 转换数据格式，确保与法律模块一致
+      const detail = response.data;
+      announcementDetail.value = {
+        ...detail,
+        announcement_type: detail.announcementType,
+        is_top: detail.isTop ? 1 : 0,
+        top_expire_time: detail.topExpireTime,
+        publisher_name: detail.publisherName,
+        publish_time: detail.publishTime,
+        view_count: detail.viewCount,
+        caseNumber: detail.caseNumber,
+        principalOfficer: detail.principalOfficer
+      };
+      showAnnouncementDetailDialog.value = true;
+    } else {
+      ElMessage.error(`获取公告详情失败：${response.message || '未知错误'}`);
+    }
   } catch (error) {
-    console.error('记录公告查看失败:', error);
+    console.error('查看公告详情失败:', error);
+    ElMessage.error('查看公告详情失败');
+  } finally {
+    detailLoading.value = false;
   }
+};
+
+// 查看公告浏览记录
+const viewAnnouncementViews = async (announcement: any) => {
+  if (!announcement) return;
+  
+  try {
+    viewsLoading.value = true;
+    viewsCurrentPage.value = 1;
+    
+    const response = await getViewRecordListApi({
+      announcementId: announcement.id,
+      page: viewsCurrentPage.value - 1,
+      size: viewsPageSize.value
+    });
+    
+    if (response.code === 200 && response.data) {
+      const records = response.data || [];
+      viewsList.value = records;
+      viewsTotal.value = records.length;
+      showViewsDialog.value = true;
+    } else {
+      ElMessage.error(`获取浏览记录失败：${response.message || '未知错误'}`);
+      viewsList.value = [];
+    }
+  } catch (error) {
+    console.error('获取浏览记录失败:', error);
+    ElMessage.error('获取浏览记录失败');
+    viewsList.value = [];
+  } finally {
+    viewsLoading.value = false;
+  }
+};
+
+// 查看附件
+const viewAttachment = (attachment: any) => {
+  // 这里可以添加附件预览逻辑
+  previewAttachment.value = attachment;
+  showPreviewDialog.value = true;
+};
+
+// 下载附件
+const downloadAttachment = (attachment: any) => {
+  // 这里可以添加附件下载逻辑
+  ElMessage.info('下载功能待实现');
 };
 
 const loadTodoItems = async () => {
@@ -330,7 +428,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-5">
+  <div class="workspace-container">
+    <div class="p-5">
     <WorkbenchHeader
       :avatar="userStore.userInfo?.avatar || preferences.app.defaultAvatar"
     >
@@ -477,16 +576,16 @@ onMounted(() => {
         </AnalysisChartCard>
         
         <!-- 待办事项和公告板块并排布局 -->
-        <div class="flex gap-5">
-          <!-- 待办事项管理板块 - 占2/3宽度 -->
-          <div class="flex-1 min-w-0">
-            <TodoList class="mb-5" title="待办事项管理" />
+        <div class="flex gap-5" style="height: 550px;">
+          <!-- 待办事项管理板块 - 宽度减少160px -->
+          <div class="flex-1 min-w-0" style="flex: 1 1 calc(66.666% - 160px);">
+            <TodoList class="mb-5" title="待办事项管理" style="height: 100%;" />
           </div>
           
-          <!-- 公告板块 - 占1/3宽度 -->
-          <div class="w-1/3 min-w-0">
-            <AnalysisChartCard title="公告列表" class="mb-5">
-              <div v-loading="announcementLoading" class="announcement-list">
+          <!-- 公告板块 - 宽度增加160px -->
+          <div class="min-w-0" style="flex: 1 1 calc(33.333% + 160px);">
+            <AnalysisChartCard title="公告列表" class="mb-5" style="height: 100%;">
+              <div v-loading="announcementLoading" class="announcement-list" style="height: calc(100% - 72px); overflow-y: auto;">
                 <div v-if="announcements.length > 0" class="space-y-3">
                   <div 
                     v-for="item in announcements" 
@@ -498,14 +597,23 @@ onMounted(() => {
                       <h4 class="announcement-title font-semibold text-sm truncate">
                         {{ item.title }}
                       </h4>
-                      <ElTag 
-                        v-if="item.isTop" 
-                        size="small" 
-                        type="danger" 
-                        effect="light"
-                      >
-                        置顶
-                      </ElTag>
+                      <div class="flex items-center space-x-1">
+                        <ElTag 
+                          v-if="item.isTop" 
+                          size="small" 
+                          type="danger" 
+                          effect="light"
+                        >
+                          置顶
+                        </ElTag>
+                        <ElTag 
+                          size="small" 
+                          :type="item.status === 'PUBLISHED' ? 'success' : 'info'" 
+                          effect="light"
+                        >
+                          {{ item.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+                        </ElTag>
+                      </div>
                     </div>
                     
                     <div class="announcement-content text-xs text-gray-600 line-clamp-2 mb-2">
@@ -521,10 +629,10 @@ onMounted(() => {
                         >
                           {{ announcementTypeMap[item.announcementType]?.label || '普通' }}
                         </ElTag>
-                        <span class="ml-2">{{ item.publisherName }}</span>
+                        <span class="ml-2">{{ item.publisherName || '系统' }}</span>
                       </div>
                       <div class="flex items-center">
-                        <span class="mr-2">{{ formatDateTime(item.publishTime) }}</span>
+                        <span class="mr-2">{{ formatDateTime(item.publishTime || item.createTime) }}</span>
                         <span class="flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -556,7 +664,7 @@ onMounted(() => {
                   :total="announcementTotal"
                   @size-change="loadAnnouncements"
                   @current-change="loadAnnouncements"
-                  small
+                  size="small"
                 />
               </div>
             </AnalysisChartCard>
@@ -564,6 +672,213 @@ onMounted(() => {
         </div>
       </div>
     </div>
+  </div>
+  
+  <!-- 公告详情对话框 -->
+  <ElDialog
+    v-model="showAnnouncementDetailDialog"
+    title="公告详情"
+    width="80%"
+    destroy-on-close
+  >
+    <div class="announcement-detail-container">
+      <div v-loading="detailLoading" class="detail-content-wrapper">
+        <!-- 加载完成且有数据 -->
+        <div v-if="announcementDetail" class="detail-content">
+          <div class="detail-meta">
+            <div class="meta-row">
+              <span class="label">公告类型：</span>
+              <ElTag
+                :type="
+                  announcementDetail.announcement_type === 'URGENT'
+                    ? 'danger'
+                    : announcementDetail.announcement_type === 'IMPORTANT'
+                    ? 'warning'
+                    : 'info'
+                "
+                size="small"
+              >
+                {{ 
+                  announcementDetail.announcement_type === 'URGENT'
+                    ? '紧急'
+                    : announcementDetail.announcement_type === 'IMPORTANT'
+                    ? '重要'
+                    : '普通'
+                }}
+              </ElTag>
+            </div>
+            <div class="meta-row">
+              <span class="label">状态：</span>
+              <ElTag
+                :type="
+                  announcementDetail.status === 'PUBLISHED' ? 'success' : 'warning'
+                "
+                size="small"
+              >
+                {{ announcementDetail.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+              </ElTag>
+            </div>
+            <div class="meta-row">
+              <span class="label">发布人：</span>
+              <span>{{ announcementDetail.publisher_name || '系统' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">发布时间：</span>
+              <span>{{ formatDateTime(announcementDetail.publish_time || announcementDetail.createTime) }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">案号：</span>
+              <span>{{ announcementDetail.caseNumber || '无' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">主要负责人：</span>
+              <span>{{ announcementDetail.principalOfficer || '无' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="label">浏览次数：</span>
+              <span>{{ announcementDetail.view_count || 0 }}</span>
+              <ElButton
+                link
+                type="primary"
+                size="small"
+                @click="viewAnnouncementViews(announcementDetail)"
+                style="margin-left: 12px"
+              >
+                查看浏览记录
+              </ElButton>
+            </div>
+            <div class="meta-row">
+              <span class="label">是否置顶：</span>
+              <ElTag
+                :type="announcementDetail.is_top === 1 ? 'danger' : 'info'"
+                size="small"
+              >
+                {{ announcementDetail.is_top === 1 ? '已置顶' : '未置顶' }}
+              </ElTag>
+            </div>
+            <div
+              v-if="announcementDetail.is_top === 1 && announcementDetail.top_expire_time"
+              class="meta-row"
+            >
+              <span class="label">置顶过期时间：</span>
+              <span>{{ formatDateTime(announcementDetail.top_expire_time) }}</span>
+            </div>
+          </div>
+
+          <div class="detail-body">
+            <h4 class="section-title">公告内容</h4>
+            <div
+              class="content-html"
+              v-html="announcementDetail.content"
+            ></div>
+          </div>
+
+          <div
+            v-if="
+              announcementDetail.attachments &&
+              announcementDetail.attachments.length > 0
+            "
+            class="detail-attachments"
+          >
+            <h4 class="section-title">附件</h4>
+            <div class="attachment-list">
+              <div
+                v-for="(attachment, index) in announcementDetail.attachments"
+                :key="index"
+                class="attachment-item"
+              >
+                <Icon icon="lucide:paperclip" class="attachment-icon" />
+                <span class="attachment-name">{{ attachment.file_name }}</span>
+                <ElButton
+                  link
+                  type="primary"
+                  size="small"
+                  @click="viewAttachment(attachment)"
+                  style="margin-right: 8px"
+                >
+                  查看
+                </ElButton>
+                <ElButton
+                  link
+                  type="primary"
+                  size="small"
+                  @click="downloadAttachment(attachment)"
+                >
+                  下载
+                </ElButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ElDialog>
+
+  <!-- 浏览记录对话框 -->
+  <ElDialog
+    v-model="showViewsDialog"
+    title="浏览记录"
+    width="80%"
+    destroy-on-close
+  >
+    <div v-loading="viewsLoading" class="views-content-wrapper">
+      <ElTable :data="viewsList" border stripe style="width: 100%">
+        <ElTableColumn prop="viewerName" label="浏览人" width="120" />
+        <ElTableColumn prop="viewTime" label="浏览时间" width="180" />
+        <ElTableColumn prop="ipAddress" label="IP地址" width="150" />
+        <ElTableColumn prop="browserType" label="浏览器" width="120" />
+        <ElTableColumn prop="osType" label="操作系统" width="120" />
+        <ElTableColumn prop="deviceType" label="设备类型" width="100" />
+        <ElTableColumn prop="location" label="位置" min-width="150" />
+        <ElTableColumn prop="viewDuration" label="浏览时长（秒）" width="120" />
+      </ElTable>
+      
+      <div v-if="viewsList.length === 0" class="empty-state mt-10 text-center">
+        <ElEmpty description="暂无浏览记录" />
+      </div>
+      
+      <div v-if="viewsTotal > 0" class="views-pagination mt-4 flex justify-center">
+        <ElPagination
+          v-model:current-page="viewsCurrentPage"
+          v-model:page-size="viewsPageSize"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="viewsTotal"
+          @size-change="() => viewAnnouncementViews(announcementDetail.value)"
+          @current-change="() => viewAnnouncementViews(announcementDetail.value)"
+        />
+      </div>
+    </div>
+  </ElDialog>
+
+  <!-- 文件预览对话框 -->
+  <ElDialog
+    v-model="showPreviewDialog"
+    :title="previewAttachment?.file_name || '文件预览'"
+    width="90%"
+    destroy-on-close
+  >
+    <div class="file-preview-container">
+      <div v-loading="previewLoading" class="preview-content">
+        <div v-if="previewAttachment">
+          <!-- 不支持的文件类型 -->
+          <div class="unsupported-preview">
+            <Icon icon="lucide:file-question" class="unsupported-icon" />
+            <h3>不支持的文件类型</h3>
+            <p>该文件类型不支持在线预览，建议下载后查看</p>
+            <ElButton
+              type="primary"
+              @click="downloadAttachment(previewAttachment)"
+              style="margin-top: 16px"
+            >
+              <Icon icon="lucide:download" class="mr-1" />
+              下载文件
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ElDialog>
   </div>
 </template>
 
@@ -702,6 +1017,169 @@ onMounted(() => {
 
 .pagination-info {
   background-color: #fff;
+}
+
+/* 公告详情样式 */
+.announcement-detail-container {
+  padding: 20px 0;
+}
+
+.detail-content-wrapper {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.detail-content {
+  background: #fff;
+  border-radius: 4px;
+  padding: 20px;
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-row .label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 80px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.detail-body {
+  margin-bottom: 24px;
+}
+
+.content-html {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #303133;
+  word-break: break-word;
+}
+
+.content-html p {
+  margin-bottom: 12px;
+}
+
+.detail-attachments {
+  margin-bottom: 20px;
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.attachment-icon {
+  color: #409eff;
+  font-size: 16px;
+}
+
+.attachment-name {
+  flex: 1;
+  font-size: 14px;
+  color: #303133;
+}
+
+/* 浏览记录样式 */
+.views-content-wrapper {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.views-pagination {
+  margin-top: 16px;
+}
+
+/* 文件预览样式 */
+.file-preview-container {
+  padding: 20px 0;
+}
+
+.preview-content {
+  max-height: 700px;
+  overflow-y: auto;
+}
+
+.unsupported-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.unsupported-icon {
+  font-size: 64px;
+  color: #909399;
+  margin-bottom: 16px;
+}
+
+.unsupported-preview h3 {
+  font-size: 18px;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.unsupported-preview p {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+/* 滚动条样式 */
+.announcement-list::-webkit-scrollbar,
+.todo-items::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.announcement-list::-webkit-scrollbar-track,
+.todo-items::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.announcement-list::-webkit-scrollbar-thumb,
+.todo-items::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+  transition: all 0.3s;
+}
+
+.announcement-list::-webkit-scrollbar-thumb:hover,
+.todo-items::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* 清理不需要的样式 */

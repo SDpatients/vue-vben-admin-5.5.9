@@ -404,15 +404,7 @@ export async function sendMessageApi(params: {
   return chatRequestClient.post<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages?senderId=${params.senderId}`, params.data);
 }
 
-// 标记消息已读API
-export async function markMessageAsReadApi(params: {
-  userId: number;
-  data: {
-    messageId: number;
-  };
-}): Promise<ChatApi.ApiResponse<ChatApi.Message>> {
-  return chatRequestClient.put<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages/read?userId=${params.userId}`, params.data);
-}
+
 
 // 标记会话已读API
 export async function markConversationAsReadApi(params: {
@@ -424,6 +416,16 @@ export async function markConversationAsReadApi(params: {
       userId: params.userId,
       conversationId: params.conversationId,
     },
+  });
+}
+
+// 标记消息已读API
+export async function markMessageAsReadApi(params: {
+  userId: number;
+  messageId: number;
+}): Promise<ChatApi.ApiResponse<ChatApi.Message>> {
+  return chatRequestClient.put<ChatApi.ApiResponse<ChatApi.Message>>(`/chat/messages/read?userId=${params.userId}`, {
+    messageId: params.messageId
   });
 }
 

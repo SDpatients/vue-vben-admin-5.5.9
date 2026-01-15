@@ -45,7 +45,11 @@ const showSettings = ref(false);
 // 动态数据计数
 const dynamicCount = ref(0);
 
-const { connect, disconnect, onMessage } = useWebSocket();
+// 临时禁用旧的WebSocket连接，避免与新的STOMP WebSocket冲突
+// const { connect, disconnect, onMessage } = useWebSocket();
+const connect = () => console.log('旧WebSocket已禁用，使用新的STOMP WebSocket');
+const disconnect = () => console.log('旧WebSocket已禁用');
+const onMessage = (handler: (data: any) => void) => console.log('旧WebSocket已禁用');
 
 // 加载最新动态数量
 const loadDynamicCount = async () => {
