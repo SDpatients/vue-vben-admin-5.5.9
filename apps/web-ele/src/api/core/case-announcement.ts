@@ -1,6 +1,8 @@
 import { createRequestClient } from '#/api/request';
 
-const announcementRequestClient = createRequestClient('http://localhost:8080', {
+// 使用相对路径，让请求通过Vite代理处理
+// Vite配置中已将/api代理到http://192.168.0.120:8080
+const announcementRequestClient = createRequestClient('', {
   responseReturn: 'body',
 });
 

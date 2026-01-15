@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+
+import { useChatStore } from '../stores/chat';
+import { webSocketService } from '#/services/websocket';
 
 // Props
 const props = defineProps<{
@@ -7,6 +10,7 @@ const props = defineProps<{
   contactId: number;
   contactName: string;
   isOnline: boolean;
+  conversationId: number;
 }>();
 
 // Emits
@@ -14,105 +18,84 @@ const emit = defineEmits<{
   (e: 'back'): void;
 }>();
 
+// Store
+const chatStore = useChatStore();
+
 // 状态
 const messageInput = ref('');
-const messages = ref<any[]>([]);
 const showEmojiPicker = ref(false);
 const showFileUpload = ref(false);
+const messagesEndRef = ref<HTMLElement | null>(null);
+const typingTimeoutRef = ref<ReturnType<typeof setTimeout> | null>(null);
+const isTyping = ref(false);
 
-// 模拟数据
-const mockMessages = [
-  {
-    id: 1,
-    senderId: props.contactId,
-    receiverId: 2,
-    content: '你好，最近怎么样？',
-    timestamp: '2023-05-20T10:30:00',
-    status: 'read',
-    isSent: false,
-  },
-  {
-    id: 2,
-    senderId: 2,
-    receiverId: props.contactId,
-    content: '挺好的，你呢？',
-    timestamp: '2023-05-20T10:31:00',
-    status: 'sent',
-    isSent: true,
-  },
-  {
-    id: 3,
-    senderId: props.contactId,
-    receiverId: 2,
-    content: '我也不错，最近在忙项目',
-    timestamp: '2023-05-20T10:32:00',
-    status: 'read',
-    isSent: false,
-  },
-  {
-    id: 4,
-    senderId: 2,
-    receiverId: props.contactId,
-    content: '项目进展如何？',
-    timestamp: '2023-05-20T10:33:00',
-    status: 'sent',
-    isSent: true,
-  },
-];
+// 获取当前用户ID
+const getCurrentUserId = (): number => {
+  const userId = localStorage.getItem('chat_user_id');
+  return userId ? Number.parseInt(userId) : 1;
+};
 
 // 计算属性
+const currentUserId = computed(() => getCurrentUserId());
+
 const formattedMessages = computed(() => {
-  return messages.value.map((msg) => ({
+  return chatStore.currentMessages.map((msg) => ({
     ...msg,
     formattedTime: new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     }),
+    isSent: msg.senderId === currentUserId.value,
   }));
 });
 
+const isTypingWithContact = computed(() => {
+  return chatStore.typingStatus[props.contactId] || false;
+});
+
 // 方法
-function sendMessage() {
+async function sendMessage() {
   if (!messageInput.value.trim()) return;
 
-  const newMessage = {
-    id: messages.value.length + 1,
-    senderId: 2,
-    receiverId: props.contactId,
-    content: messageInput.value.trim(),
-    timestamp: new Date().toISOString(),
-    status: 'sending',
-    isSent: true,
-  };
-
-  messages.value.push(newMessage);
+  const content = messageInput.value.trim();
   messageInput.value = '';
 
-  // 模拟消息发送成功
-  setTimeout(() => {
-    newMessage.status = 'sent';
-  }, 500);
+  try {
+    await chatStore.sendMessage({
+      senderId: currentUserId.value,
+      receiverId: props.contactId,
+      messageType: 'TEXT',
+      content,
+    });
 
-  // 模拟对方回复
-  setTimeout(() => {
-    const replyMessage = {
-      id: messages.value.length + 1,
-      senderId: props.contactId,
-      receiverId: 2,
-      content: `收到你的消息：${newMessage.content}`,
-      timestamp: new Date().toISOString(),
-      status: 'read',
-      isSent: false,
-    };
-    messages.value.push(replyMessage);
-  }, 1000);
+    scrollToBottom();
+  } catch (error) {
+    console.error('发送消息失败:', error);
+  }
 }
 
 function handleKeyPress(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     sendMessage();
+  } else {
+    handleTyping();
   }
+}
+
+function handleTyping() {
+  if (!isTyping.value) {
+    isTyping.value = true;
+    webSocketService.sendTypingStatus(props.conversationId);
+  }
+
+  if (typingTimeoutRef.value) {
+    clearTimeout(typingTimeoutRef.value);
+  }
+
+  typingTimeoutRef.value = setTimeout(() => {
+    isTyping.value = false;
+  }, 3000);
 }
 
 function toggleEmojiPicker() {
@@ -132,33 +115,57 @@ function goBack() {
   emit('back');
 }
 
-function recallMessage(messageId: number) {
-  const message = messages.value.find((msg) => msg.id === messageId);
-  if (message && message.isSent) {
-    message.content = '[消息已撤回]';
-    message.isRecalled = true;
+async function recallMessage(messageId: number) {
+  try {
+    await chatStore.recallMessage(messageId, currentUserId.value);
+  } catch (error) {
+    console.error('撤回消息失败:', error);
+  }
+}
+
+async function deleteMessage(messageId: number) {
+  try {
+    await chatStore.deleteMessage(messageId, currentUserId.value);
+  } catch (error) {
+    console.error('删除消息失败:', error);
   }
 }
 
 // 滚动到底部
 function scrollToBottom() {
-  setTimeout(() => {
-    const messageContainer = document.querySelector('.message-list');
-    if (messageContainer) {
-      messageContainer.scrollTop = messageContainer.scrollHeight;
+  nextTick(() => {
+    if (messagesEndRef.value) {
+      messagesEndRef.value.scrollIntoView({ behavior: 'smooth' });
     }
-  }, 100);
+  });
 }
 
 // 生命周期钩子
-onMounted(() => {
-  messages.value = [...mockMessages];
-  scrollToBottom();
+onMounted(async () => {
+  try {
+    await chatStore.fetchChatMessages({
+      conversationId: props.conversationId,
+      pageNum: 1,
+      pageSize: 50,
+    });
+
+    await chatStore.markConversationAsRead(props.conversationId, currentUserId.value);
+
+    scrollToBottom();
+  } catch (error) {
+    console.error('加载消息失败:', error);
+  }
+});
+
+onUnmounted(() => {
+  if (typingTimeoutRef.value) {
+    clearTimeout(typingTimeoutRef.value);
+  }
 });
 
 // 监听消息变化，自动滚动到底部
 watch(
-  messages,
+  () => chatStore.currentMessages,
   () => {
     scrollToBottom();
   },
@@ -220,7 +227,10 @@ watch(
         />
         <div class="message-content">
           <div class="message-bubble">
-            <div class="message-text">{{ message.content }}</div>
+            <div v-if="message.isRecalled" class="message-text recalled">
+              消息已撤回
+            </div>
+            <div v-else class="message-text">{{ message.content }}</div>
             <div class="message-status">
               <span class="message-time">{{ message.formattedTime }}</span>
               <span v-if="message.isSent" class="message-delivery-status">
@@ -233,7 +243,7 @@ watch(
                   class="status-icon el-icon-check"
                 ></i>
                 <i
-                  v-else-if="message.status === 'read'"
+                  v-else-if="message.readStatus"
                   class="status-icon el-icon-check-double"
                 ></i>
               </span>
@@ -248,8 +258,9 @@ watch(
                   <el-dropdown-item @click="recallMessage(message.id)">
                     撤回
                   </el-dropdown-item>
-                  <el-dropdown-item>复制</el-dropdown-item>
-                  <el-dropdown-item>删除</el-dropdown-item>
+                  <el-dropdown-item @click="deleteMessage(message.id)">
+                    删除
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -262,6 +273,21 @@ watch(
           class="message-avatar"
         />
       </div>
+      
+      <!-- 正在输入提示 -->
+      <div v-if="isTypingWithContact" class="typing-indicator">
+        <el-avatar :src="props.contactAvatar" size="small" />
+        <div class="typing-bubble">
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 滚动锚点 -->
+      <div ref="messagesEndRef"></div>
     </main>
 
     <!-- 消息输入区域 -->
@@ -283,12 +309,12 @@ watch(
           </template>
         </el-button>
         <el-button
-          type="link"
+          type="text"
           icon="el-icon-emoji"
           @click="toggleEmojiPicker"
         />
-        <el-button link icon="el-icon-camera" />
-        <el-button link icon="el-icon-mic" />
+        <el-button type="text" icon="el-icon-camera" />
+        <el-button type="text" icon="el-icon-mic" />
       </div>
 
       <!-- 消息输入框 -->
@@ -546,6 +572,11 @@ watch(
   line-height: 1.4;
 }
 
+.message-text.recalled {
+  color: #909399;
+  font-style: italic;
+}
+
 .message-status {
   display: flex;
   gap: 4px;
@@ -578,6 +609,59 @@ watch(
 
 .message-bubble:hover .message-actions {
   opacity: 1;
+}
+
+/* 正在输入提示样式 */
+.typing-indicator {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 20px;
+}
+
+.typing-bubble {
+  padding: 12px 16px;
+  background-color: #fff;
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: #909399;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
 }
 
 /* 消息输入区域样式 */

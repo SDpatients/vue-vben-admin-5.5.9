@@ -222,7 +222,7 @@ onMounted(() => {
       </ElSelect>
     </div>
     <div class="todo-items">
-      <ElScrollbar max-height="400px">
+      <ElScrollbar :max-height="'calc(100% - 0px)'">
         <div v-loading="loading">
           <div
             v-for="item in todos"
@@ -373,7 +373,7 @@ onMounted(() => {
 }
 
 .todo-items {
-  max-height: 400px;
+  height: calc(100% - 112px); /* 100%减去header和filters的高度 */
 }
 
 .todo-item {

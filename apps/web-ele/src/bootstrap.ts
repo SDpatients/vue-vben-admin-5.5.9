@@ -36,11 +36,8 @@ async function bootstrap(namespace: string) {
   // });
   const app = createApp(App);
 
-  // 注册Element Plus
+  // 注册Element Plus，会自动注册v-loading指令
   app.use(ElementPlus);
-
-  // 注册Element Plus提供的v-loading指令
-  app.directive('loading', ElLoading.directive);
 
   // 注册Vben提供的v-loading和v-spinning指令
   registerLoadingDirective(app, {

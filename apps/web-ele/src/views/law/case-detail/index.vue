@@ -3255,6 +3255,14 @@ const checkPermissions = async () => {
       </div>
     </div>
   </ElDialog>
+
+  <!-- 资金管控抽屉 -->
+  <FundControlDrawer 
+    ref="fundControlDrawerRef" 
+    :case-id="caseId" 
+    :case-no="caseDetail?.案号 || ''"
+    :case-name="caseDetail?.案件名称 || ''"
+  />
 </template>
 
 <style scoped>

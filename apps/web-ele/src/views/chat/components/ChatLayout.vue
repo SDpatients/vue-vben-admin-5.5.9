@@ -133,12 +133,12 @@ onUnmounted(() => {
         <div class="sidebar-header">
           <h3>用户详情</h3>
           <el-button 
-            type="link" 
-            icon="el-icon-close" 
-            @click="closeUserDetail"
-          >
-            关闭
-          </el-button>
+              type="text" 
+              icon="el-icon-close" 
+              @click="closeUserDetail"
+            >
+              关闭
+            </el-button>
         </div>
         
         <!-- 详情面板内容 -->

@@ -1,7 +1,7 @@
 import { onUnmounted, ref } from 'vue';
 
 interface WebSocketMessage {
-  type: 'NEW_MESSAGE' | 'MESSAGE_READ' | 'MESSAGE_RECALLED';
+  type: 'NEW_MESSAGE' | 'MESSAGE_READ' | 'MESSAGE_RECALLED' | 'TYPING' | 'USER_ONLINE' | 'USER_OFFLINE';
   userId: number;
   title: string;
   content: string;
@@ -23,9 +23,11 @@ export function useWebSocket() {
 
   const getWebSocketUrl = (): string => {
     const token = getToken();
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    const userId = localStorage.getItem('chat_user_id') || '1';
+    // 使用聊天API的端口5779，而不是默认的8080
+    const baseUrl = 'http://localhost:5779';
     const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    return `${wsUrl}/ws?token=${token}`;
+    return `${wsUrl}/ws?token=${token}&userId=${userId}`;
   };
 
   const connect = () => {
@@ -57,6 +59,21 @@ export function useWebSocket() {
               window.dispatchEvent(event);
             } else if (message.type === 'MESSAGE_RECALLED') {
               const event = new CustomEvent('chat-message-recalled', {
+                detail: message,
+              });
+              window.dispatchEvent(event);
+            } else if (message.type === 'TYPING') {
+              const event = new CustomEvent('chat-typing', {
+                detail: message,
+              });
+              window.dispatchEvent(event);
+            } else if (message.type === 'USER_ONLINE') {
+              const event = new CustomEvent('chat-user-online', {
+                detail: message,
+              });
+              window.dispatchEvent(event);
+            } else if (message.type === 'USER_OFFLINE') {
+              const event = new CustomEvent('chat-user-offline', {
                 detail: message,
               });
               window.dispatchEvent(event);
