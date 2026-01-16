@@ -179,8 +179,17 @@ export async function getFileInfoApi(
  * @param fileId 文件记录ID
  */
 export function getFilePreviewUrl(fileId: number): string {
-  const token = localStorage.getItem('token') || '';
-  return `http://localhost:8080/api/v1/file/preview/${fileId}`;
+  return `/api/v1/file/preview/${fileId}`;
+}
+
+/**
+ * 获取完整的文件预览URL（带域名）
+ * @param fileId 文件记录ID
+ */
+export function getFullFilePreviewUrl(fileId: number): string {
+  // 从request-client获取baseURL，或者使用当前页面的域名
+  const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  return `${baseURL}/api/v1/file/preview/${fileId}`;
 }
 
 /**

@@ -23,6 +23,7 @@ import {
   getAnnouncementDetailApi,
   getAnnouncementListApi,
 } from '#/api/core/case-announcement';
+import { downloadFileApi } from '#/api/core/file';
 
 interface Announcement {
   id: number;
@@ -146,22 +147,29 @@ const handlePageSizeChange = (size: number) => {
 /**
  * 下载文件
  */
-const downloadFile = (attachment: {
+const downloadFile = async (attachment: {
   file_id: string;
   file_name: string;
   file_url: string;
 }) => {
   try {
+    // 使用后端提供的下载接口
+    const downloadResponse = await downloadFileApi(Number(attachment.file_id));
+    
+    // 创建下载链接
+    const blob = new Blob([downloadResponse], {
+      type: 'application/octet-stream',
+    });
     const link = document.createElement('a');
-    link.href = attachment.file_url;
+    const url = window.URL.createObjectURL(blob);
+    link.href = url;
     link.download = attachment.file_name;
-    link.target = '_blank';
-    link.style.display = 'none';
-
     document.body.append(link);
     link.click();
-
     link.remove();
+    window.URL.revokeObjectURL(url);
+
+    ElMessage.success('文件下载开始');
   } catch (error) {
     console.error('文件下载失败:', error);
     ElMessage.error('文件下载失败');
@@ -172,8 +180,8 @@ const downloadFile = (attachment: {
  * 打开文件预览
  */
 const previewFile = (attachment: { file_id: string; file_name: string }) => {
-  const baseUrl = 'http://localhost:8080';
-  previewUrl.value = `${baseUrl}/api/v1/file/preview/${attachment.file_id}`;
+  // 使用相对路径的预览URL
+  previewUrl.value = `/api/v1/file/preview/${attachment.file_id}`;
   showPreviewDialog.value = true;
 };
 

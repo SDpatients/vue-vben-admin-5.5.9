@@ -283,7 +283,7 @@ export async function getMemberPermissionsApi(memberId: number) {
  * 更新团队成员权限
  * PUT /work-team/work-team-member/{memberId}/permission
  */
-export async function updateMemberPermissionApi(memberId: number, data: WorkTeamApi.UpdateMemberPermissionRequest) {
+export async function updateMemberPermissionApi(memberId: number, data: any) {
   return requestClient8085.put<WorkTeamApi.CommonResponse>(`/work-team/work-team-member/${memberId}/permission`, data);
 }
 

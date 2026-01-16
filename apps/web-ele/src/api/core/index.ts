@@ -1,5 +1,6 @@
 export * from './activity';
 export * from './approval';
+export * from './archive';
 export * from './auth';
 export * from './bank-account';
 export * from './case';

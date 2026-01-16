@@ -104,6 +104,18 @@ const routes: RouteRecordRaw[] = [
           title: '公告列表',
         },
       },
+      {
+        name: 'LawArchiveManagement',
+        path: '/archive-management/:id',
+        component: () => import('#/views/law/archive-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:archive',
+          title: '案件卷宗归档',
+          hideInMenu: true,
+          hideInTab: true,
+        },
+      },
     ],
   },
 ];

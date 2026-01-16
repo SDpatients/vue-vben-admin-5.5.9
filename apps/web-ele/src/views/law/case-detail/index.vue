@@ -28,11 +28,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import {
-  downloadCaseFileApi,
-  getCaseDetailApi,
-  updateCaseApi,
-} from '#/api/core/case';
+import { getCaseDetailApi, updateCaseApi } from '#/api/core/case';
 import {
   createAnnouncementApi,
   createViewRecordApi,
@@ -45,7 +41,7 @@ import {
   unTopAnnouncementApi,
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
-import { deleteFileApi, downloadFileApi } from '#/api/core/file';
+import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
@@ -63,6 +59,7 @@ import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import AssetManagement from './components/AssetManagement.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
+import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 
 // 路由和状态管理
@@ -235,6 +232,8 @@ const viewAttachment = async (attachment: any) => {
     const fileName = attachment.file_name || '';
     const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
     const mimeType = attachment.type || '';
+    const fileId = attachment.file_id;
+    const token = localStorage.getItem('token');
 
     // 设置预览类型
     isImage.value =
@@ -247,18 +246,44 @@ const viewAttachment = async (attachment: any) => {
       ) || mimeType.startsWith('text/');
 
     // 根据文件类型生成预览URL或内容
-    if (isImage.value || isPdf.value) {
-      // 对于图片和PDF，下载文件内容并生成本地预览URL
-      const response = await downloadFileApi(attachment.file_id);
-      const blob = new Blob([response], { type: mimeType });
-      previewUrl.value = URL.createObjectURL(blob);
-      showPreviewDialog.value = true;
+    if (isImage.value) {
+      // 对于图片，使用fetch获取blob并转换为URL，以便添加认证头
+      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
+        showPreviewDialog.value = true;
+      } else {
+        throw new Error('预览失败');
+      }
+      previewLoading.value = false;
+    } else if (isPdf.value) {
+      // 对于PDF，由于直接使用iframe无法添加请求头，我们需要先获取blob再转换为URL
+      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
+        showPreviewDialog.value = true;
+      } else {
+        throw new Error('预览失败');
+      }
       previewLoading.value = false;
     } else if (isText.value) {
-      // 对于文本文件，下载并显示内容
-      const response = await downloadFileApi(attachment.file_id);
-      const blob = new Blob([response], { type: 'text/plain' });
-      const text = await blob.text();
+      // 对于文本文件，使用预览URL获取文本内容，并添加认证头
+      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const text = await response.text();
       textContent.value = text;
       showPreviewDialog.value = true;
       previewLoading.value = false;
@@ -277,6 +302,10 @@ const viewAttachment = async (attachment: any) => {
 // 关闭预览对话框
 const closePreviewDialog = () => {
   showPreviewDialog.value = false;
+  // 释放通过URL.createObjectURL创建的URL对象
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
   previewUrl.value = '';
   textContent.value = '';
   isImage.value = false;
@@ -545,6 +574,15 @@ const editAnnouncement = async (announcement: any) => {
       attachments = [];
     }
   }
+
+  // 处理附件字段映射，确保使用正确的file_id
+  attachments = attachments.map((attach: any) => ({
+    ...attach,
+    file_name: attach.name || attach.file_name || '未知文件',
+    file_id: attach.file_id || attach.id || attach.uid || Date.now(),
+    type: attach.type || 'application/octet-stream',
+  }));
+
   announcementData.attachments = attachments;
   announcementData.caseNumber =
     announcement.caseNumber || announcement.ah || '';
@@ -625,7 +663,7 @@ const viewAnnouncementDetail = async (announcement: any) => {
         detail.attachments = detail.attachments.map((attach: any) => ({
           ...attach,
           file_name: attach.name || attach.file_name || '未知文件',
-          file_id: attach.uid || attach.file_id || Date.now(),
+          file_id: attach.file_id || attach.id || attach.uid || Date.now(),
           type: attach.type || 'application/octet-stream',
         }));
       } catch (error) {
@@ -637,7 +675,7 @@ const viewAnnouncementDetail = async (announcement: any) => {
       detail.attachments = detail.attachments.map((attach: any) => ({
         ...attach,
         file_name: attach.name || attach.file_name || '未知文件',
-        file_id: attach.uid || attach.file_id || Date.now(),
+        file_id: attach.file_id || attach.id || attach.uid || Date.now(),
         type: attach.type || 'application/octet-stream',
       }));
     }
@@ -753,8 +791,54 @@ const handleAnnouncementFileBeforeUpload = (file: any) => {
   return true;
 };
 
-const handleAttachmentChange = (file: any, fileList: any[]) => {
+const handleAttachmentChange = async (file: any, fileList: any[]) => {
   console.log('附件变化:', file, fileList);
+
+  // 检查文件状态，如果是新上传的文件（status为ready）且有原始文件对象，则调用上传接口
+  if (file.status === 'ready' && file.raw) {
+    try {
+      // 确保案件ID有效
+      const currentCaseId = Number(caseId.value);
+      if (isNaN(currentCaseId) || currentCaseId <= 0) {
+        throw new Error('无效的案件ID');
+      }
+
+      // 调用文件上传接口，使用bizType为announcement，bizId为当前案件ID
+      const response = await uploadFileApi(
+        file.raw,
+        'announcement',
+        currentCaseId,
+      );
+
+      if (response.code === 200 && response.data) {
+        // 上传成功，更新文件信息
+        const uploadedFile = response.data;
+        // 更新fileList中的文件状态和信息
+        const updatedFileList = [...fileList];
+        const index = updatedFileList.findIndex(
+          (item) => item.uid === file.uid,
+        );
+        if (index !== -1) {
+          updatedFileList[index] = {
+            ...updatedFileList[index],
+            status: 'success',
+            response: uploadedFile,
+            file_id: uploadedFile.id,
+            file_name: uploadedFile.originalFileName,
+            type: uploadedFile.mimeType,
+            size: uploadedFile.fileSize,
+          };
+          // 更新公告数据中的附件列表
+          announcementData.attachments = updatedFileList;
+        }
+      } else {
+        ElMessage.error(`文件上传失败：${response.message || '未知错误'}`);
+      }
+    } catch (error: any) {
+      console.error('文件上传失败:', error);
+      ElMessage.error(`文件上传失败：${error.message || '未知错误'}`);
+    }
+  }
 };
 
 const handleAttachmentRemove = async (file: any, fileList: any[]) => {
@@ -778,7 +862,7 @@ const handleAttachmentRemove = async (file: any, fileList: any[]) => {
 const downloadAttachment = async (attachment: any) => {
   try {
     // 使用后端提供的下载接口
-    const downloadResponse = await downloadCaseFileApi(attachment.file_id);
+    const downloadResponse = await downloadFileApi(attachment.file_id);
 
     // 创建下载链接
     const blob = new Blob([downloadResponse], {
@@ -951,14 +1035,6 @@ const saveEditing = async () => {
       debtClaimDeadline:
         formatDateForApi(editedData.债权申报截止时间) ||
         caseDetail.value?.debtClaimDeadline,
-      // 添加缺失的字段映射
-      acceptanceDate:
-        formatDateForApi(editedData.受理日期) ||
-        caseDetail.value?.acceptanceDate,
-      caseSource: editedData.案件来源 || caseDetail.value?.caseSource,
-      designatedJudge: editedData.承办法官 || caseDetail.value?.designatedJudge,
-      undertakingPersonnel:
-        editedData.承办人 || caseDetail.value?.undertakingPersonnel,
     };
 
     await updateCaseApi(Number.parseInt(caseId.value, 10), updateData);
@@ -975,17 +1051,8 @@ const saveEditing = async () => {
 
 const formatDateForApi = (date: any): string | undefined => {
   if (!date) return undefined;
-  if (typeof date === 'string') {
-    // 处理datetime-local类型的输入值，如 "2023-01-15T14:30"
-    if (date.includes('T')) {
-      return date;
-    }
-    // 处理普通日期字符串，如 "2023-01-15"
-    return date;
-  }
-  if (date instanceof Date) {
-    return date.toISOString().split('T')[0];
-  }
+  if (typeof date === 'string') return date;
+  if (date instanceof Date) return date.toISOString().split('T')[0];
   return undefined;
 };
 
@@ -1193,7 +1260,7 @@ const loadAdministrators = async () => {
 };
 
 // 加载部门下的用户列表
-const loadUsersByDeptId = async (deptId: number) => {
+const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
   // 调试日志：检查传入的 deptId 值
   console.log(
     'loadUsersByDeptId 收到的 deptId:',
@@ -1230,21 +1297,27 @@ const loadUsersByDeptId = async (deptId: number) => {
       userList = response.data.data;
     }
 
-    availableUsers.value = userList
-      .filter((user) => user && user.userId != null)
-      .filter((user) => {
+    let filteredUsers = userList.filter((user) => user && user.userId != null);
+
+    // 如果不是编辑模式，则过滤掉已经存在于该团队的成员
+    if (!includeExisting) {
+      filteredUsers = filteredUsers.filter((user) => {
         // 过滤掉已经存在于该团队的成员
+        // 注意：这里使用teamMembers.value可能已经不准确，因为我们已经改为直接使用team.members
+        // 但这个函数主要用于添加成员时，此时teamMembers.value仍然是当前团队的成员列表
         const isMemberInTeam = teamMembers.value.some(
           (member) => member.userId === user.userId,
         );
         return !isMemberInTeam;
-      })
-      .map((user) => ({
-        ...user,
-        uPid: user.userId, // 映射 userId 到 uPid
-        uName: user.name, // 映射 name 到 uName
-        uUser: user.name, // 映射 name 到 uUser
-      }));
+      });
+    }
+
+    availableUsers.value = filteredUsers.map((user) => ({
+      ...user,
+      uPid: user.userId, // 映射 userId 到 uPid
+      uName: user.name, // 映射 name 到 uName
+      uUser: user.name, // 映射 name 到 uUser
+    }));
 
     console.log('处理后的availableUsers:', availableUsers.value);
   } catch (error) {
@@ -1257,11 +1330,13 @@ const loadUsersByDeptId = async (deptId: number) => {
 };
 
 // 监听部门ID变化，加载对应用户
-watch(selectedDeptId, (newVal) => {
-  if (newVal) {
+watch(selectedDeptId, async (newVal) => {
+  if (newVal && selectedTeamId.value) {
+    // 重新获取当前团队的成员列表，确保过滤的是最新数据
+    await fetchTeamMembers(selectedTeamId.value);
     loadUsersByDeptId(newVal);
-    selectedUser.value = null;
-    memberForm.value.userId = null;
+    selectedUser.value = [];
+    memberForm.value.userId = [];
   }
 });
 
@@ -1345,13 +1420,24 @@ const fetchTeamMembers = async (teamId: number) => {
 
 // 静态团队角色列表
 const fetchTeamRoles = () => {
-  // 使用静态角色列表替代后端接口调用
+  // 使用静态角色列表替代后端接口调用，移除"查看者"角色
   teamRoles.value = [
     { roleCode: 'LEADER', roleName: '团队负责人' },
     { roleCode: 'MEMBER', roleName: '团队成员' },
-    { roleCode: 'VIEWER', roleName: '查看者' },
   ];
 };
+
+// 监听团队角色变化，自动设置权限级别
+watch(
+  () => memberForm.value.teamRole,
+  (newRole) => {
+    if (newRole === 'LEADER') {
+      memberForm.value.permissionLevel = 'ADMIN'; // 负责人默认权限是管理
+    } else if (newRole === 'MEMBER') {
+      memberForm.value.permissionLevel = 'VIEW'; // 成员默认权限是查看
+    }
+  },
+);
 
 // 获取可用用户列表
 const fetchAvailableUsers = async () => {
@@ -1491,7 +1577,7 @@ const handleAddMember = async (teamId: number) => {
   memberDialogTitle.value = '添加成员';
   memberForm.value = {
     id: null,
-    userId: null,
+    userId: [],
     teamRole: '',
     permissionLevel: 'VIEW',
   };
@@ -1537,19 +1623,52 @@ const getTeamStatusLabel = (status: string) => {
 };
 
 // 编辑成员
-const handleEditMember = (row: any) => {
+const handleEditMember = async (row: any) => {
   memberDialogTitle.value = '编辑成员';
+
+  // 设置selectedTeamId，确保保存时能通过验证
+  selectedTeamId.value = row.teamId;
+
   memberForm.value = {
     id: row.id,
-    userId: row.userId,
+    userId: [row.userId], // 改为数组格式，兼容多选
     teamRole: row.teamRole,
     permissionLevel: row.permissionLevel,
   };
-  // 编辑模式下，我们需要根据userId找到对应的部门和用户信息
-  // 但由于当前没有提供通过userId获取用户详细信息的接口，暂时只设置userId
-  selectedDeptId.value = null;
-  selectedUser.value = null;
-  availableUsers.value = [];
+
+  // 编辑模式下，需要找到该成员所属的管理员机构并加载用户列表
+  // 1. 先获取所有管理员机构
+  if (administrators.value.length === 0) {
+    await loadAdministrators();
+  }
+
+  // 2. 选择第一个管理员机构作为默认值（在实际应用中，应该根据成员信息找到正确的机构）
+  if (administrators.value.length > 0) {
+    selectedDeptId.value = administrators.value[0].sepId;
+
+    // 3. 加载该机构下的用户列表，includeExisting为true表示包含已存在的成员
+    await loadUsersByDeptId(selectedDeptId.value, true);
+
+    // 4. 找到当前编辑的成员并设置到selectedUser中
+    const currentUser = availableUsers.value.find(
+      (user) => user.uPid === row.userId,
+    );
+    if (currentUser) {
+      selectedUser.value = [currentUser];
+    } else {
+      // 如果没找到，手动创建一个用户对象
+      selectedUser.value = [
+        {
+          uPid: row.userId,
+          uName: row.userRealName || row.userName || '未知用户',
+          uUser: row.userRealName || row.userName || '未知用户',
+          userId: row.userId,
+          name: row.userRealName || row.userName || '未知用户',
+        },
+      ];
+    }
+  }
+
   memberDialogVisible.value = true;
 };
 
@@ -1577,12 +1696,39 @@ const handleSaveMember = async () => {
     };
 
     if (memberForm.value.id) {
-      await updateMemberPermissionApi(memberForm.value.id, {
-        permissionLevel: memberForm.value.permissionLevel,
-      });
-      ElMessage.success('更新团队成员权限成功');
+      // 更新团队成员权限和角色
+      // 将英文转换为中文：permissionLevel -> permission_level，teamRole -> team_role
+      const updateData = {
+        permission_level:
+          memberForm.value.permissionLevel === 'VIEW'
+            ? '查看'
+            : memberForm.value.permissionLevel === 'EDIT'
+              ? '编辑'
+              : '管理',
+      };
+
+      // 如果有teamRole，也添加到更新数据中
+      if (memberForm.value.teamRole) {
+        updateData.team_role =
+          memberForm.value.teamRole === 'LEADER' ? '负责人' : '成员';
+      }
+
+      await updateMemberPermissionApi(memberForm.value.id, updateData);
+      ElMessage.success('更新团队成员成功');
     } else {
-      await addTeamMemberApi(selectedTeamId.value, data);
+      // 添加新成员时，确保userId是单个值，而不是数组
+      const addData = {
+        caseId: Number(caseId.value),
+        userId: data.userId[0], // 从数组中取出第一个元素
+        team_role: data.teamRole === 'LEADER' ? '负责人' : '成员',
+        permission_level:
+          data.permissionLevel === 'VIEW'
+            ? '查看'
+            : data.permissionLevel === 'EDIT'
+              ? '编辑'
+              : '管理',
+      };
+      await addTeamMemberApi(selectedTeamId.value, addData);
       ElMessage.success('添加团队成员成功');
     }
 
@@ -1854,31 +2000,72 @@ const checkPermissions = async () => {
 
             <!-- 详细信息 -->
             <div v-show="!isInfoCollapsed" class="detail-info-grid">
-              <!-- 查看模式 -->
-              <div v-if="!isEditing" class="detail-info-content">
+              <div class="detail-info-content">
                 <div class="detail-info-row">
                   <div class="detail-info-item">
                     <div class="detail-info-label">案件名称</div>
                     <div class="detail-info-value">
-                      {{ caseDetail.案件名称 }}
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案件名称"
+                          size="small"
+                          placeholder="请输入案件名称"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.案件名称 }}
+                      </template>
                     </div>
                   </div>
                   <div class="detail-info-item">
                     <div class="detail-info-label">案由</div>
-                    <div class="detail-info-value">{{ caseDetail.案由 }}</div>
+                    <div class="detail-info-value">
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案由"
+                          size="small"
+                          placeholder="请输入案由"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.案由 }}
+                      </template>
+                    </div>
                   </div>
                 </div>
                 <div class="detail-info-row">
                   <div class="detail-info-item">
                     <div class="detail-info-label">受理日期</div>
                     <div class="detail-info-value">
-                      {{ caseDetail.受理日期 }}
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.受理日期"
+                          size="small"
+                          placeholder="请输入受理日期"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.受理日期 }}
+                      </template>
                     </div>
                   </div>
                   <div class="detail-info-item">
                     <div class="detail-info-label">案件来源</div>
                     <div class="detail-info-value">
-                      {{ caseDetail.案件来源 }}
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.案件来源"
+                          size="small"
+                          placeholder="请输入案件来源"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.案件来源 }}
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -1886,214 +2073,64 @@ const checkPermissions = async () => {
                   <div class="detail-info-item">
                     <div class="detail-info-label">主要负责人</div>
                     <div class="detail-info-value">
-                      {{ caseDetail.管理人负责人 }}
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.管理人负责人"
+                          size="small"
+                          placeholder="请输入主要负责人"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.管理人负责人 }}
+                      </template>
                     </div>
                   </div>
                   <div class="detail-info-item">
                     <div class="detail-info-label">指定法官</div>
                     <div class="detail-info-value">
-                      {{ caseDetail.承办法官 }}
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.承办法官"
+                          size="small"
+                          placeholder="请输入指定法官"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.承办法官 }}
+                      </template>
                     </div>
                   </div>
                 </div>
                 <div class="detail-info-row">
                   <div class="detail-info-item">
                     <div class="detail-info-label">承办人</div>
-                    <div class="detail-info-value">{{ caseDetail.承办人 }}</div>
+                    <div class="detail-info-value">
+                      <template v-if="isEditing">
+                        <ElInput
+                          v-model="editedData.承办人"
+                          size="small"
+                          placeholder="请输入承办人"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ caseDetail.承办人 }}
+                      </template>
+                    </div>
                   </div>
                   <div class="detail-info-item">
                     <div class="detail-info-label">创建者</div>
                     <div class="detail-info-value">{{ caseDetail.创建者 }}</div>
                   </div>
                 </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">案件进度</div>
-                    <div class="detail-info-value">
-                      {{ caseDetail.案件进度 }}
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">债权申报截止时间</div>
-                    <div class="detail-info-value">
-                      {{ caseDetail.债权申报截止时间 }}
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">立案日期</div>
-                    <div class="detail-info-value">
-                      {{ caseDetail.立案日期 }}
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">指定机构</div>
-                    <div class="detail-info-value">
-                      {{ caseDetail.指定机构 }}
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item" style="min-width: 100%">
-                    <div class="detail-info-label">备注</div>
-                    <div class="detail-info-value">{{ caseDetail.备注 }}</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 编辑模式 -->
-              <div v-else class="edit-form-content">
-                <ElForm
-                  label-position="top"
-                  :model="editedData"
-                  class="edit-form"
-                >
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="案件名称" required>
-                        <ElInput
-                          v-model="editedData.案件名称"
-                          placeholder="请输入案件名称"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="案由" required>
-                        <ElInput
-                          v-model="editedData.案由"
-                          placeholder="请输入案由"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="案件进度" required>
-                        <ElSelect
-                          v-model="editedData.案件进度"
-                          placeholder="请选择案件进度"
-                        >
-                          <ElOption label="第一阶段" value="第一阶段" />
-                          <ElOption label="第二阶段" value="第二阶段" />
-                          <ElOption label="第三阶段" value="第三阶段" />
-                          <ElOption label="第四阶段" value="第四阶段" />
-                          <ElOption label="第五阶段" value="第五阶段" />
-                          <ElOption label="第六阶段" value="第六阶段" />
-                          <ElOption label="第七阶段" value="第七阶段" />
-                        </ElSelect>
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="主要负责人">
-                        <ElInput
-                          v-model="editedData.管理人负责人"
-                          placeholder="请输入主要负责人"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="指定法官">
-                        <ElInput
-                          v-model="editedData.承办法官"
-                          placeholder="请输入指定法官"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="承办人">
-                        <ElInput
-                          v-model="editedData.承办人"
-                          placeholder="请输入承办人"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="指定机构">
-                        <ElInput
-                          v-model="editedData.指定机构"
-                          placeholder="请输入指定机构"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="债权申报截止时间">
-                        <ElDatePicker
-                          v-model="editedData.债权申报截止时间"
-                          type="datetime"
-                          placeholder="请选择债权申报截止时间"
-                          style="width: 100%"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="受理日期">
-                        <ElDatePicker
-                          v-model="editedData.受理日期"
-                          type="datetime"
-                          placeholder="请选择受理日期"
-                          style="width: 100%"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="立案日期">
-                        <ElDatePicker
-                          v-model="editedData.立案日期"
-                          type="datetime"
-                          placeholder="请选择立案日期"
-                          style="width: 100%"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="案件来源">
-                        <ElInput
-                          v-model="editedData.案件来源"
-                          placeholder="请输入案件来源"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                    <ElCol :xs="24" :md="12">
-                      <ElFormItem label="受理法院">
-                        <ElInput
-                          v-model="editedData.受理法院"
-                          placeholder="请输入受理法院"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-
-                  <ElRow :gutter="20">
-                    <ElCol :xs="24">
-                      <ElFormItem label="备注">
-                        <ElInput
-                          v-model="editedData.备注"
-                          type="textarea"
-                          :rows="4"
-                          placeholder="请输入备注信息"
-                        />
-                      </ElFormItem>
-                    </ElCol>
-                  </ElRow>
-                </ElForm>
               </div>
             </div>
           </div>
         </ElCard>
+
+        <DebtorInfo :case-id="caseId" />
       </div>
 
       <!-- 流程处理 -->
@@ -2250,6 +2287,7 @@ const checkPermissions = async () => {
                       详情
                     </ElButton>
                     <ElButton
+                      v-if="scope.row.status !== 'PUBLISHED'"
                       type="primary"
                       link
                       size="small"
@@ -2593,15 +2631,6 @@ const checkPermissions = async () => {
                         <template #default="{ row }">
                           <ElButton
                             size="small"
-                            @click="handleViewPermissions(row)"
-                            type="info"
-                            plain
-                          >
-                            <Icon icon="lucide:shield" class="mr-1" />
-                            权限
-                          </ElButton>
-                          <ElButton
-                            size="small"
                             @click="handleEditMember(row)"
                             type="primary"
                             plain
@@ -2718,6 +2747,7 @@ const checkPermissions = async () => {
                   filterable
                   :loading="loadingAdministrators"
                   clearable
+                  :disabled="memberDialogTitle === '编辑成员'"
                 >
                   <ElOption
                     v-for="admin in administrators"
@@ -2735,7 +2765,9 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   filterable
                   :loading="loadingUsers"
-                  :disabled="!selectedDeptId"
+                  :disabled="
+                    !selectedDeptId || memberDialogTitle === '编辑成员'
+                  "
                   value-key="uPid"
                   clearable
                   multiple
@@ -2770,6 +2802,7 @@ const checkPermissions = async () => {
                   placeholder="选择权限"
                   style="width: 100%"
                   clearable
+                  :disabled="true"
                 >
                   <ElOption label="查看" value="VIEW" />
                   <ElOption label="编辑" value="EDIT" />
@@ -3708,38 +3741,10 @@ const checkPermissions = async () => {
 
 .detail-info-label {
   font-size: 14px;
-  color: #4b5563;
+  color: #6b7280;
   font-weight: 500;
   white-space: nowrap;
   width: 80px;
-}
-
-/* 编辑表单样式 */
-.edit-form-content {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 24px;
-  background-color: #ffffff;
-}
-
-.edit-form {
-  max-width: 100%;
-}
-
-.edit-form .el-form-item {
-  margin-bottom: 20px;
-}
-
-.edit-form .el-input__wrapper {
-  border-radius: 6px;
-}
-
-.edit-form .el-select .el-input__wrapper {
-  border-radius: 6px;
-}
-
-.edit-form .el-date-editor .el-input__wrapper {
-  border-radius: 6px;
 }
 
 .detail-info-value {
@@ -3989,5 +3994,9 @@ const checkPermissions = async () => {
 .unsupported-preview p {
   margin-bottom: 20px;
   color: #909399;
+}
+
+.debtor-info-content {
+  margin-bottom: 24px;
 }
 </style>

@@ -31,9 +31,9 @@ import {
 } from 'element-plus';
 
 import {
-  addDebtorApi,
+  createDebtorApi,
   deleteDebtorApi,
-  editDebtorApi,
+  updateDebtorApi,
   getDebtorListApi,
 } from '#/api/core/debtor';
 
@@ -421,7 +421,7 @@ const submitFormData = async () => {
       contactPerson: formData.value.LXR,
     };
 
-    const response = await addDebtorApi(requestData);
+    const response = await createDebtorApi(requestData);
 
     if (response.code === 200) {
       ElMessage.success('债务人添加成功');
@@ -569,7 +569,7 @@ const submitEditFormData = async () => {
     };
 
     // 调用编辑接口
-    const response = await editDebtorApi(debtorId, requestData);
+    const response = await updateDebtorApi(debtorId, requestData);
 
     if (response.code === 200) {
       ElMessage.success('债务人修改成功');

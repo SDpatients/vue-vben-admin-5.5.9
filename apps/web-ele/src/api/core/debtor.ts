@@ -1,10 +1,8 @@
-// AxiosResponse 类型未使用，已移除
+import { requestClient8085 } from '#/api/request';
 
-import { requestClient8085 } from '../request';
-
-declare namespace DebtorApi {
+export namespace DebtorApi {
   /** 债务人查询参数 */
-  interface DebtorQueryParams {
+  export interface DebtorQueryParams {
     pageNum?: number;
     pageSize?: number;
     caseId?: number;
@@ -14,64 +12,51 @@ declare namespace DebtorApi {
   }
 
   /** 债务人信息 */
-  interface DebtorInfo {
-    /** 债务人ID */
+  export interface DebtorInfo {
     id: number;
-    /** 案件ID */
     caseId: number;
-    /** 案件名称 */
-    caseName: string;
-    /** 案号 */
     caseNumber: string;
-    /** 企业名称 */
+    caseName: string;
     enterpriseName: string;
-    /** 统一社会信用代码 */
     unifiedSocialCreditCode: string;
-    /** 法定代表人 */
     legalRepresentative: string;
-    /** 联系电话 */
-    contactPhone: string;
-    /** 联系人 */
-    contactPerson: string;
-    /** 经营范围 */
+    registrationAuthority: string;
+    establishmentDate: string;
+    registeredCapital: number;
     businessScope: string;
-    /** 行业 */
+    enterpriseType: string;
     industry: string;
-    /** 注册地址 */
     registeredAddress: string;
-    /** 创建时间 */
+    contactPhone: string;
+    contactPerson: string;
     createTime: string;
-    /** 更新时间 */
     updateTime: string;
+    createUserId: number;
+    updateUserId: number;
+    isDeleted: boolean;
   }
 
   /** 债务人列表响应 */
-  interface DebtorListResponse {
-    /** 状态码 */
+  export interface DebtorListResponse {
     code: number;
-    /** 响应信息 */
     message: string;
-    /** 响应数据 */
     data: {
-      /** 总条数 */
       total: number;
-      /** 债务人记录列表 */
       list: DebtorInfo[];
+      pageNum: number;
+      pageSize: number;
     };
   }
 
   /** 债务人详情响应 */
-  interface DebtorDetailResponse {
-    /** 状态码 */
-    status: string;
-    /** 错误信息 */
-    error: string;
-    /** 债务人信息 */
+  export interface DebtorDetailResponse {
+    code: number;
+    message: string;
     data: DebtorInfo;
   }
 
-  /** 添加债务人请求体 */
-  interface AddDebtorRequest {
+  /** 创建债务人请求体 */
+  export interface CreateDebtorRequest {
     caseId: number;
     enterpriseName: string;
     unifiedSocialCreditCode: string;
@@ -87,17 +72,15 @@ declare namespace DebtorApi {
     contactPerson?: string;
   }
 
-  /** 添加债务人响应 */
-  interface AddDebtorResponse {
+  /** 创建债务人响应 */
+  export interface CreateDebtorResponse {
     code: number;
     message: string;
-    data: {
-      debtorId: number;
-    };
+    data: Record<string, any>;
   }
 
   /** 更新债务人请求体 */
-  interface UpdateDebtorRequest {
+  export interface UpdateDebtorRequest {
     enterpriseName?: string;
     legalRepresentative?: string;
     contactPhone?: string;
@@ -108,76 +91,65 @@ declare namespace DebtorApi {
   }
 
   /** 更新债务人响应 */
-  interface UpdateDebtorResponse {
+  export interface UpdateDebtorResponse {
     code: number;
     message: string;
-    data: null;
+    data: Record<string, any>;
+  }
+
+  /** 删除债务人响应 */
+  export interface DeleteDebtorResponse {
+    code: number;
+    message: string;
+    data: Record<string, any>;
+  }
+
+  /** 通用响应 */
+  export interface CommonResponse {
+    code: number;
+    message: string;
+    data: Record<string, any>;
   }
 }
 
 /**
  * 获取债务人列表
+ * GET /debtor/list
  */
-export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams) {
-  return requestClient8085.get<DebtorApi.DebtorListResponse>(
-    '/debtor/list',
-    { params },
-  );
+export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams = {}) {
+  return requestClient8085.get<DebtorApi.DebtorListResponse>('/debtor/list', { params });
 }
 
 /**
  * 获取债务人详情
+ * GET /debtor/{debtorId}
  */
-export async function getDebtorDetailApi(debtorId: string, token: string) {
-  return requestClient8085.get<DebtorApi.DebtorDetailResponse>(
-    '/api/web/selectDebtorById',
-    { params: { debtorId, token } },
-  );
+export async function getDebtorDetailApi(debtorId: number) {
+  return requestClient8085.get<DebtorApi.DebtorDetailResponse>(`/debtor/${debtorId}`);
 }
 
 /**
- * 添加债务人企业信息
+ * 创建债务人信息
+ * POST /debtor
  */
-export async function addDebtorApi(data: DebtorApi.AddDebtorRequest) {
-  // 直接传递JSON对象格式
-  return requestClient8085.post<DebtorApi.AddDebtorResponse>(
-    '/debtor',
-    data,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
+export async function createDebtorApi(data: DebtorApi.CreateDebtorRequest) {
+  return requestClient8085.post<DebtorApi.CreateDebtorResponse>('/debtor', data);
 }
 
 /**
- * 编辑债务人信息
+ * 更新债务人信息
+ * PUT /debtor/{debtorId}
  */
-export async function editDebtorApi(debtorId: number, data: DebtorApi.UpdateDebtorRequest) {
-  return requestClient8085.put<DebtorApi.UpdateDebtorResponse>(
-    `/debtor/${debtorId}`,
-    data,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
+export async function updateDebtorApi(debtorId: number, data: DebtorApi.UpdateDebtorRequest) {
+  return requestClient8085.put<DebtorApi.UpdateDebtorResponse>(`/debtor/${debtorId}`, data);
 }
 
 /**
  * 删除债务人信息
+ * DELETE /debtor/{debtorId}
  */
 export async function deleteDebtorApi(debtorId: number) {
-  return requestClient8085.delete<DebtorApi.UpdateDebtorResponse>(
-    `/debtor/${debtorId}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  );
+  return requestClient8085.delete<DebtorApi.DeleteDebtorResponse>(`/debtor/${debtorId}`);
 }
 
 export type { DebtorApi };
