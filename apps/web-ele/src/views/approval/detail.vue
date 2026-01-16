@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { approvalApi, type Approval } from '#/api/core/approval';
+import { approvalApi, type Approval, type Attachment } from '#/api/core/approval';
 import ApprovalCard from '#/components/ApprovalCard.vue';
 import { Icon } from '@iconify/vue';
-import { ElButton, ElTag, ElCard, ElTimeline, ElTimelineItem, ElEmpty, ElMessage, ElMessageBox, ElInput } from 'element-plus';
+import { ElButton, ElTag, ElCard, ElTimeline, ElTimelineItem, ElEmpty, ElMessage, ElMessageBox, ElInput, ElUpload, ElProgress, ElImage, ElDialog } from 'element-plus';
+import 'element-plus/es/components/upload/style/css';
+import 'element-plus/es/components/progress/style/css';
+import 'element-plus/es/components/image/style/css';
+import 'element-plus/es/components/dialog/style/css';
 
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
 const approval = ref<Approval | null>(null);
 const logs = ref<any[]>([]);
+
+// 附件相关状态
+const attachments = ref<Attachment[]>([]);
+const uploadFiles = ref<any[]>([]);
+const uploadProgress = ref(0);
+const isUploading = ref(false);
+const previewImage = ref('');
+const previewDialogVisible = ref(false);
 
 const formatTime = (time: string) => {
   if (!time) return '';
@@ -160,6 +172,83 @@ const getActionColor = (action: string) => {
   return colorMap[action] || '#999';
 };
 
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// 处理文件上传前的验证
+const handleBeforeUpload = (file: any) => {
+  // 限制文件大小为50MB
+  const maxSize = 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    ElMessage.error('文件大小不能超过50MB');
+    return false;
+  }
+  return true;
+};
+
+// 处理文件上传进度
+const handleUploadProgress = (event: any) => {
+  if (event.total) {
+    uploadProgress.value = Math.round((event.loaded / event.total) * 100);
+  }
+};
+
+// 处理文件上传成功
+const handleUploadSuccess = (response: any, file: any) => {
+  ElMessage.success('文件上传成功');
+  // 添加到附件列表
+  if (response.data) {
+    attachments.value.push(response.data);
+    approval.value!.attachments = attachments.value;
+  }
+  // 移除上传队列中的文件
+  uploadFiles.value = uploadFiles.value.filter(f => f.uid !== file.uid);
+  uploadProgress.value = 0;
+  isUploading.value = false;
+};
+
+// 处理文件上传失败
+const handleUploadError = (error: any, file: any) => {
+  ElMessage.error('文件上传失败');
+  // 移除上传队列中的文件
+  uploadFiles.value = uploadFiles.value.filter(f => f.uid !== file.uid);
+  uploadProgress.value = 0;
+  isUploading.value = false;
+};
+
+// 处理文件预览
+const handlePreview = (file: any, attachment?: Attachment) => {
+  const target = attachment || file.response?.data;
+  if (!target) return;
+  
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+  if (imageTypes.includes(target.fileType.toLowerCase())) {
+    previewImage.value = target.filePath;
+    previewDialogVisible.value = true;
+  } else {
+    // 非图片文件直接下载
+    handleDownload(target);
+  }
+};
+
+// 处理文件下载
+const handleDownload = (attachment: Attachment) => {
+  // 这里应该调用后端的下载接口
+  ElMessage.info('文件下载功能开发中');
+};
+
+// 处理文件删除
+const handleRemove = (file: any, attachment?: Attachment) => {
+  // 这里应该调用后端的删除接口
+  ElMessage.info('文件删除功能开发中');
+};
+
 onMounted(() => {
   loadApprovalDetail();
   loadApprovalLogs();
@@ -254,6 +343,90 @@ onMounted(() => {
             </div>
           </ElCard>
 
+          <!-- 附件上传和展示 -->
+          <ElCard shadow="hover" class="detail-card">
+            <template #header>
+              <span>审批附件</span>
+            </template>
+            
+            <!-- 附件上传区域 -->
+            <div class="attachment-upload-section">
+              <ElUpload
+                v-model:file-list="uploadFiles"
+                action="/api/upload"
+                :on-progress="handleUploadProgress"
+                :on-success="handleUploadSuccess"
+                :on-error="handleUploadError"
+                :before-upload="handleBeforeUpload"
+                :auto-upload="true"
+                multiple
+                :disabled="isUploading.value || approval.status !== 'PENDING'"
+                list-type="text"
+              >
+                <ElButton type="primary" :disabled="isUploading.value || approval.status !== 'PENDING'">
+                  <Icon icon="lucide:upload" :size="16" class="mr-1" />
+                  上传附件
+                </ElButton>
+                <div class="upload-hint">支持多文件上传，单个文件不超过50MB</div>
+              </ElUpload>
+              
+              <!-- 上传进度显示 -->
+              <div v-if="uploadProgress > 0" class="upload-progress">
+                <ElProgress :percentage="uploadProgress" :stroke-width="2" />
+              </div>
+            </div>
+            
+            <!-- 附件列表 -->
+            <div class="attachment-list" v-if="attachments.length > 0">
+              <h4 class="attachment-list-title">已上传附件</h4>
+              <div class="attachment-items">
+                <div v-for="attachment in attachments" :key="attachment.id" class="attachment-item">
+                  <div class="attachment-info">
+                    <div class="attachment-name">
+                      <Icon icon="lucide:file" :size="18" class="mr-2" />
+                      {{ attachment.fileName }}
+                    </div>
+                    <div class="attachment-meta">
+                      <span class="file-size">{{ formatFileSize(attachment.fileSize) }}</span>
+                      <span class="file-type">{{ attachment.fileType }}</span>
+                      <span class="upload-time">{{ formatTime(attachment.uploadTime) }}</span>
+                    </div>
+                  </div>
+                  <div class="attachment-actions">
+                    <ElButton 
+                      size="small" 
+                      type="text" 
+                      @click="handlePreview(null, attachment)"
+                      title="预览"
+                    >
+                      <Icon icon="lucide:eye" :size="16" />
+                    </ElButton>
+                    <ElButton 
+                      size="small" 
+                      type="text" 
+                      @click="handleDownload(attachment)"
+                      title="下载"
+                    >
+                      <Icon icon="lucide:download" :size="16" />
+                    </ElButton>
+                    <ElButton 
+                      v-if="approval.status === 'PENDING'"
+                      size="small" 
+                      type="text" 
+                      @click="handleRemove(null, attachment)"
+                      title="删除"
+                    >
+                      <Icon icon="lucide:trash-2" :size="16" />
+                    </ElButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 空状态 -->
+            <ElEmpty v-else description="暂无附件" />
+          </ElCard>
+
           <ElCard shadow="hover" class="detail-card">
             <template #header>
               <span>审核日志</span>
@@ -283,6 +456,15 @@ onMounted(() => {
             </ElTimeline>
           </ElCard>
         </div>
+        
+        <!-- 图片预览弹窗 -->
+        <ElDialog v-model="previewDialogVisible" title="图片预览" width="80%" append-to-body>
+          <ElImage
+            :src="previewImage"
+            fit="contain"
+            style="width: 100%; height: 60vh;"
+          />
+        </ElDialog>
       </div>
     </div>
   </div>
@@ -400,6 +582,85 @@ onMounted(() => {
 }
 
 .mr-1 {
-  margin-right: 4px;
-}
+    margin-right: 4px;
+  }
+
+  /* 附件上传相关样式 */
+  .attachment-upload-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px dashed #d9d9d9;
+  }
+
+  .upload-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #909399;
+  }
+
+  .upload-progress {
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  .attachment-list {
+    margin-top: 20px;
+  }
+
+  .attachment-list-title {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .attachment-items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .attachment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: #fafafa;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+  }
+
+  .attachment-item:hover {
+    background: #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .attachment-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .attachment-name {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: #303133;
+  }
+
+  .attachment-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: #909399;
+  }
+
+  .attachment-actions {
+    display: flex;
+    gap: 8px;
+  }
 </style>

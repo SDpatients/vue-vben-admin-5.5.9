@@ -61,6 +61,7 @@ import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
+import BankruptcyProcess from '../bankruptcy-process/index.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -1845,57 +1846,61 @@ const checkPermissions = async () => {
 </script>
 
 <template>
-  <div class="law-case-detail-wrapper">
+  <div class="law-case-detail-wrapper" style="background-color: white;">
     <div>
-      <!-- 页面标题和返回按钮 -->
-      <div class="page-header">
-        <ElButton type="primary" link @click="goBack">
-          <Icon icon="lucide:arrow-left" class="mr-2" />
-          返回案件列表
-        </ElButton>
-        <h1 class="page-title">案件详情</h1>
-        <div class="header-actions">
-          <ElButton type="primary" @click="openAssetManagementDialog">
-            <Icon icon="lucide:landmark" class="mr-2" />
-            资金管控
-          </ElButton>
-          <ElButton type="primary" @click="openArchiveDrawer">
-            <Icon icon="lucide:archive" class="mr-2" />
-            案件卷宗归档
-          </ElButton>
-          <ElButton
-            type="primary"
-            @click="router.push('/basic-data/work-plan-management')"
-          >
-            <Icon icon="lucide:calendar" class="mr-2" />
-            工作计划
-          </ElButton>
-        </div>
-      </div>
+      <!-- 白色卡片容器 -->
+      <ElCard shadow="hover" class="main-content-card" style="margin-bottom: -30px; padding-bottom: 0;">
+        <!-- 页面标题和返回按钮 -->
+        <template #header>
+          <div class="page-header">
+            <ElButton type="primary" link @click="goBack">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回案件列表
+            </ElButton>
+            <h1 class="page-title">{{ caseDetail?.案号 || '' }}-案件详情</h1>
+            <div class="header-actions">
+              <ElButton type="primary" @click="openFundControlDrawer">
+                <Icon icon="lucide:landmark" class="mr-2" />
+                资金管控
+              </ElButton>
+              <ElButton type="primary" @click="openArchiveDrawer">
+                <Icon icon="lucide:archive" class="mr-2" />
+                案件卷宗归档
+              </ElButton>
+              <ElButton
+                type="primary"
+                @click="router.push('/basic-data/work-plan-management')"
+              >
+                <Icon icon="lucide:calendar" class="mr-2" />
+                工作计划
+              </ElButton>
+            </div>
+          </div>
 
-      <!-- 内容类型切换 -->
-      <div class="content-tabs mb-6">
-        <ElRadioGroup v-model="activeTab" size="large" class="tabs-container">
-          <ElRadioButton value="caseInfo" class="tab-button">
-            案件基本信息
-          </ElRadioButton>
-          <ElRadioButton value="workTeam" class="tab-button">
-            工作团队
-          </ElRadioButton>
-          <ElRadioButton value="process" class="tab-button">
-            流程处理
-          </ElRadioButton>
-          <ElRadioButton value="creditorInfo" class="tab-button">
-            债权人信息
-          </ElRadioButton>
-          <ElRadioButton value="claimRegistration" class="tab-button">
-            债权登记表
-          </ElRadioButton>
-          <ElRadioButton value="announcement" class="tab-button">
-            公告管理
-          </ElRadioButton>
-        </ElRadioGroup>
-      </div>
+          <!-- 内容类型切换 -->
+          <div class="content-tabs mb-6">
+            <ElRadioGroup v-model="activeTab" size="large" class="tabs-container">
+              <ElRadioButton value="caseInfo" class="tab-button">
+                案件基本信息
+              </ElRadioButton>
+              <ElRadioButton value="workTeam" class="tab-button">
+                工作团队
+              </ElRadioButton>
+              <ElRadioButton value="process" class="tab-button">
+                流程处理
+              </ElRadioButton>
+              <ElRadioButton value="creditorInfo" class="tab-button">
+                债权人信息
+              </ElRadioButton>
+              <ElRadioButton value="claimRegistration" class="tab-button">
+                债权登记表
+              </ElRadioButton>
+              <ElRadioButton value="announcement" class="tab-button">
+                公告管理
+              </ElRadioButton>
+            </ElRadioGroup>
+          </div>
+        </template>
 
       <!-- 案件基本信息卡片 -->
       <div v-if="activeTab === 'caseInfo'">
@@ -2135,42 +2140,7 @@ const checkPermissions = async () => {
 
       <!-- 流程处理 -->
       <div v-if="activeTab === 'process'" class="process-content">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="card-header flex items-center justify-between">
-              <div class="flex items-center">
-                <Icon icon="lucide:flow-chart" class="mr-2 text-blue-500" />
-                <span class="text-lg font-semibold">破产流程处理</span>
-              </div>
-            </div>
-          </template>
-
-          <!-- 阶段切换 -->
-          <div class="stage-tabs mb-6">
-            <ElRadioGroup
-              v-model="currentStage"
-              size="large"
-              class="tabs-container"
-            >
-              <ElRadioButton
-                v-for="stage in stages"
-                :key="stage.id"
-                :value="stage.id"
-                class="tab-button"
-              >
-                {{ stage.name }}
-              </ElRadioButton>
-            </ElRadioGroup>
-          </div>
-
-          <!-- 阶段内容 -->
-          <div class="stage-content">
-            <component
-              :is="`stage-${currentStage}-process`"
-              :case-id="caseId"
-            />
-          </div>
-        </ElCard>
+        <BankruptcyProcess :case-id="caseId" />
       </div>
 
       <!-- 债权人信息 -->
@@ -2405,16 +2375,17 @@ const checkPermissions = async () => {
               </div>
             </div>
           </div>
+        </div>
 
-          <div
-            v-if="workTeamLoading"
-            class="loading-container"
-            style="padding: 40px"
-          >
-            <ElSkeleton :rows="8" animated />
-          </div>
+        <div
+          v-if="workTeamLoading"
+          class="loading-container"
+          style="padding: 40px"
+        >
+          <ElSkeleton :rows="8" animated />
+        </div>
 
-          <div v-else class="case-info-content" style="padding: 20px">
+        <div v-else class="case-info-content" style="padding: 20px">
             <!-- 工作团队列表 -->
             <div v-if="workTeams.length > 0">
               <div
@@ -2729,14 +2700,18 @@ const checkPermissions = async () => {
           </div>
         </div>
 
-        <!-- 添加/编辑成员对话框 -->
-        <ElDialog
-          v-model="memberDialogVisible"
-          :title="memberDialogTitle"
-          width="600px"
-          destroy-on-close
-          :close-on-click-modal="false"
-        >
+      </ElCard>
+    </div>
+  </div>
+
+  <!-- 添加/编辑成员对话框 -->
+  <ElDialog
+    v-model="memberDialogVisible"
+    :title="memberDialogTitle"
+    width="600px"
+    destroy-on-close
+    :close-on-click-modal="false"
+  >
           <div style="padding: 20px 0">
             <ElForm :model="memberForm" label-width="100px">
               <ElFormItem label="管理员机构" required>
@@ -3187,13 +3162,19 @@ const checkPermissions = async () => {
             </div>
           </div>
         </ElDialog>
-      </div>
-    </div>
 
     <!-- 案件卷宗归档抽屉 -->
     <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
 
-    <!-- 资金管理组件 -->
+    <!-- 资金管控抽屉 -->
+    <FundControlDrawer 
+      ref="fundControlDrawerRef" 
+      :case-id="caseId" 
+      :case-no="caseDetail?.案号 || ''"
+      :case-name="caseDetail?.案件名称 || ''"
+    />
+
+    <!-- 资金管理组件 - 保留但不再使用 -->
     <ElDialog
       v-model="showAssetManagementDialog"
       title="资产管理"
@@ -3630,7 +3611,6 @@ const checkPermissions = async () => {
         </div>
       </div>
     </ElDialog>
-  </div>
 </template>
 
 <style scoped>
@@ -3665,6 +3645,13 @@ const checkPermissions = async () => {
 .tab-button {
   margin-right: 8px;
   margin-bottom: 8px;
+}
+
+.main-content-card {
+  padding-bottom: 0;
+  margin-bottom: -30px;
+  --el-card-padding: var(--el-card-padding-t) var(--el-card-padding-r) 0 var(--el-card-padding-l);
+  --el-card-margin-bottom: -30px;
 }
 
 .case-info-card {

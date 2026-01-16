@@ -1,5 +1,15 @@
 import { requestClient } from '#/api/request';
 
+export interface Attachment {
+  id: number;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  filePath: string;
+  uploadTime: string;
+  uploader: string;
+}
+
 export interface Approval {
   id: number;
   approvalNo: string;
@@ -16,6 +26,7 @@ export interface Approval {
   approveTime?: string;
   createTime: string;
   updateTime: string;
+  attachments?: Attachment[];
 }
 
 export interface ApprovalSubmitDTO {

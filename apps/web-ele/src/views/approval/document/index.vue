@@ -32,10 +32,11 @@ interface DocumentApproval {
   id: number;
   documentTitle: string;
   documentType: string;
+  content: string;
   submitter: string;
   submitTime: string;
+  approvalTime?: string;
   status: 'pending' | 'approved' | 'rejected';
-  content: string;
   remark?: string;
   attachments: DocumentAttachment[];
 }
@@ -152,7 +153,7 @@ const mockData: DocumentApproval[] = [
     submitter: '赵六',
     submitTime: '2026-01-07 10:15:00',
     status: 'pending',
-    content: '针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。',
+    content: '针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。',
     attachments: [
       {
         id: 3,
@@ -170,6 +171,7 @@ const mockData: DocumentApproval[] = [
     documentType: 'evidence',
     submitter: '李四',
     submitTime: '2026-01-06 16:45:00',
+    approvalTime: '2026-01-06 17:30:00',
     status: 'approved',
     content: '包含合同原件、转账记录、证人证言等证据，证明被告未履行合同义务，给原告造成了经济损失。',
     attachments: [
@@ -205,6 +207,7 @@ const mockData: DocumentApproval[] = [
     documentType: 'legal_opinion',
     submitter: '王五',
     submitTime: '2026-01-06 09:20:00',
+    approvalTime: '2026-01-06 10:30:00',
     status: 'rejected',
     content: '关于劳动争议案件的法律意见。根据《中华人民共和国劳动法》和《中华人民共和国劳动合同法》相关规定，分析本案的法律适用和可能的判决结果。',
     remark: '需要补充相关证据材料',
@@ -321,7 +324,9 @@ const handleConfirmApproval = async () => {
     
     const index = documentList.value.findIndex(doc => doc.id === currentDocument.value?.id);
     if (index !== -1) {
+      const approvalTime = new Date().toLocaleString('zh-CN');
       documentList.value[index].status = approvalForm.value.status;
+      documentList.value[index].approvalTime = approvalTime;
       if (approvalForm.value.remark) {
         documentList.value[index].remark = approvalForm.value.remark;
       }
@@ -449,9 +454,23 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
+        <ElTableColumn prop="content" label="文书内容" min-width="250">
+          <template #default="{ row }">
+            <ElTooltip :content="row.content" placement="top">
+              <span class="truncate-text">{{ row.content }}</span>
+            </ElTooltip>
+          </template>
+        </ElTableColumn>
+
         <ElTableColumn prop="submitter" label="提交人" width="120" />
 
         <ElTableColumn prop="submitTime" label="提交时间" width="180" />
+
+        <ElTableColumn prop="approvalTime" label="审批时间" width="180">
+          <template #default="{ row }">
+            {{ row.approvalTime || '-' }}
+          </template>
+        </ElTableColumn>
 
         <ElTableColumn prop="status" label="审批状态" width="100" align="center">
           <template #default="{ row }">

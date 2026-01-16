@@ -507,7 +507,7 @@
       <FundControlDrawer 
         ref="fundControlDrawerRef" 
         :case-id="caseId" 
-        :case-no="caseDetail?.案号 || ''"
+        :case-no="caseDetail?.案件编号 || ''"
         :case-name="caseDetail?.案件名称 || ''"
       />
   </div>

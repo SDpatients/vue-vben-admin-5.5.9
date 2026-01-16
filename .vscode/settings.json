@@ -237,5 +237,6 @@
     "nolebase",
     "rollup",
     "vitest"
-  ]
+  ],
+  "editor.codeActions.triggerOnFocusChange": true
 }

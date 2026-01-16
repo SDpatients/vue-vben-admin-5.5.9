@@ -116,6 +116,18 @@ const routes: RouteRecordRaw[] = [
           hideInTab: true,
         },
       },
+      {
+        name: 'LawBankruptcyProcess',
+        path: '/bankruptcy-process/:id',
+        component: () => import('#/views/law/bankruptcy-process/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:workflow',
+          title: '破产案件流程处理',
+          hideInMenu: true,
+          hideInTab: true,
+        },
+      },
     ],
   },
 ];
