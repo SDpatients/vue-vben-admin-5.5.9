@@ -7,10 +7,8 @@ import {
   ElButton,
   ElCard,
   ElCol,
-  ElDatePicker,
   ElDialog,
   ElEmpty,
-  ElForm,
   ElFormItem,
   ElInput,
   ElMessage,
@@ -55,13 +53,13 @@ import {
 } from '#/api/core/work-team';
 
 import RichTextEditor from '../../../components/RichTextEditor.vue';
+import BankruptcyProcess from '../bankruptcy-process/index.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import AssetManagement from './components/AssetManagement.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
-import BankruptcyProcess from '../bankruptcy-process/index.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -151,10 +149,12 @@ const stages = [
 const activeTab = ref('caseInfo');
 
 // 监听activeTab变化，加载对应数据
-watch(activeTab, async (newTab) => {
+watch(activeTab, async (newTab, oldTab) => {
+  console.log('activeTab变化:', oldTab, '->', newTab);
   if (newTab === 'announcement') {
     await fetchAnnouncements();
   } else if (newTab === 'workTeam') {
+    console.log('切换到工作团队标签，开始加载数据');
     await fetchWorkTeams();
     fetchTeamRoles();
     await loadAdministrators();
@@ -166,11 +166,13 @@ watch(activeTab, async (newTab) => {
 const announcementData = reactive({
   title: '',
   content: '',
-  announcement_type: 'NORMAL',
-  status: 'PUBLISHED',
+  announcement_type: 'ANNOUNCEMENT',
+  status: 'DRAFT',
   is_top: false,
   top_expire_time: '',
   attachments: [],
+  caseNumber: '',
+  principalOfficer: '',
 });
 
 const announcements = ref<any[]>([]);
@@ -336,6 +338,12 @@ const formatDateOnly = (dateStr: string) => {
   });
 };
 
+const formatDateForApi = (dateStr: string) => {
+  if (!dateStr) return undefined;
+  const date = new Date(dateStr);
+  return date.toISOString().split('T')[0];
+};
+
 // 从后端获取公告列表
 const fetchAnnouncements = async () => {
   loadingAnnouncements.value = true;
@@ -379,28 +387,10 @@ const saveAnnouncement = async () => {
   try {
     let response;
 
-    // 添加调试日志
-    console.log('=== 保存公告调试信息 ===');
-    console.log('1. 函数开始，响应式变量值:');
-    console.log('   isEditingAnnouncement.value:', isEditingAnnouncement.value);
-    console.log('   currentAnnouncementId.value:', currentAnnouncementId.value);
-    console.log('   announcementData:', announcementData);
-
-    // 在条件判断之前保存编辑状态和当前公告ID
-    const isEditing = isEditingAnnouncement.value;
-    const announcementId = currentAnnouncementId.value;
-
-    console.log('2. 保存到本地变量后的值:');
-    console.log('   isEditing:', isEditing);
-    console.log('   announcementId:', announcementId);
-
-    console.log('3. 条件判断结果:');
-    console.log('   isEditing && announcementId:', isEditing && announcementId);
-
     // 准备请求数据
     const requestData = {
       caseId: Number(caseId.value),
-      caseNumber: isEditing
+      caseNumber: isEditingAnnouncement.value
         ? announcementData.caseNumber
         : caseDetail.value?.案号 || '',
       principalOfficer: announcementData.principalOfficer || '',
@@ -412,11 +402,9 @@ const saveAnnouncement = async () => {
         : undefined,
     };
 
-    if (isEditing && announcementId) {
-      console.log('4. 进入更新公告分支');
+    if (isEditingAnnouncement.value && currentAnnouncementId.value) {
       // 更新现有公告
-      response = await updateAnnouncementApi(announcementId, requestData);
-      console.log('5. updateAnnouncementApi 响应:', response);
+      response = await updateAnnouncementApi(currentAnnouncementId.value, requestData);
       if (response.code === 200) {
         ElMessage.success('公告更新成功');
         await fetchAnnouncements();
@@ -425,10 +413,8 @@ const saveAnnouncement = async () => {
         ElMessage.error(`公告更新失败：${response.message || '未知错误'}`);
       }
     } else {
-      console.log('4. 进入发布新公告分支');
       // 发布新公告
       response = await createAnnouncementApi(requestData);
-      console.log('5. createAnnouncementApi 响应:', response);
       if (response.code === 200) {
         ElMessage.success('公告发布成功');
         await fetchAnnouncements();
@@ -537,20 +523,13 @@ const deleteAnnouncement = async (announcementId: string) => {
 
 // 编辑公告
 const editAnnouncement = async (announcement: any) => {
-  console.log('=== 编辑公告调试信息 ===');
-  console.log('公告对象:', announcement);
-
   isEditingAnnouncement.value = true;
-
-  // 加载工作团队成员列表作为主要负责人候选
-  await loadAnnouncementPrincipalOfficerOptions();
 
   // 检查公告对象的ID字段，可能是id或announcement_id
   const announcementId =
     announcement.id ||
     announcement.announcement_id ||
     announcement.announcementId;
-  console.log('提取到的公告ID:', announcementId);
 
   currentAnnouncementId.value = announcementId;
   dialogTitle.value = '编辑公告';
@@ -594,21 +573,14 @@ const editAnnouncement = async (announcement: any) => {
 };
 
 const viewAnnouncementDetail = async (announcement: any) => {
-  console.log('=== 开始执行 viewAnnouncementDetail 函数 ===');
-  console.log('传入的 announcement 对象:', announcement);
-
   detailLoading.value = true;
-  console.log('设置 detailLoading 为 true:', detailLoading.value);
-
   showDetailDialog.value = true;
-  console.log('设置 showDetailDialog 为 true:', showDetailDialog.value);
 
   try {
     const announcementId =
       announcement.id ||
       announcement.announcement_id ||
       announcement.announcementId;
-    console.log('提取到的 announcementId:', announcementId);
 
     // 从localStorage获取用户信息
     const chatUserInfo = localStorage.getItem('chat_user_info');
@@ -624,7 +596,6 @@ const viewAnnouncementDetail = async (announcement: any) => {
     } catch (error) {
       console.error('解析用户信息失败:', error);
     }
-    console.log('获取到的查看者信息:', { viewerId, viewerName });
 
     // 调用查看记录接口
     await createViewRecordApi({
@@ -634,13 +605,9 @@ const viewAnnouncementDetail = async (announcement: any) => {
       viewerId: Number(viewerId) || undefined,
       viewerName: viewerName || undefined,
     });
-    console.log('查看记录接口调用成功');
 
     const response = await getAnnouncementDetailApi(Number(announcementId));
-    console.log('getAnnouncementDetailApi 响应:', response);
-
     let detail = response.data;
-    console.log('从响应中提取的 detail:', detail);
 
     // 将驼峰命名转换为下划线命名
     detail = {
@@ -652,7 +619,6 @@ const viewAnnouncementDetail = async (announcement: any) => {
       publish_time: detail.publishTime,
       view_count: detail.viewCount,
     };
-    console.log('转换后的 detail 数据:', detail);
 
     // 确保attachments字段是数组
     if (!detail.attachments) {
@@ -680,24 +646,15 @@ const viewAnnouncementDetail = async (announcement: any) => {
         type: attach.type || 'application/octet-stream',
       }));
     }
-    console.log('处理后的 attachments:', detail.attachments);
 
     currentAnnouncementDetail.value = detail;
-    console.log(
-      '设置 currentAnnouncementDetail:',
-      currentAnnouncementDetail.value,
-    );
-    console.log('当前 showDetailDialog 状态:', showDetailDialog.value);
-
     ElMessage.success('公告详情加载成功');
   } catch (error) {
     console.error('获取公告详情失败:', error);
     ElMessage.error('获取公告详情失败');
   } finally {
     detailLoading.value = false;
-    console.log('设置 detailLoading 为 false:', detailLoading.value);
   }
-  console.log('=== viewAnnouncementDetail 函数执行结束 ===');
 };
 
 // 打开新增公告对话框
@@ -709,9 +666,6 @@ const openNewAnnouncementDialog = async () => {
 
   // 自动设置案号
   announcementData.caseNumber = caseDetail.value?.案号 || '';
-
-  // 加载工作团队成员列表作为主要负责人候选
-  await loadAnnouncementPrincipalOfficerOptions();
 
   showAnnouncementDialog.value = true;
 };
@@ -793,8 +747,6 @@ const handleAnnouncementFileBeforeUpload = (file: any) => {
 };
 
 const handleAttachmentChange = async (file: any, fileList: any[]) => {
-  console.log('附件变化:', file, fileList);
-
   // 检查文件状态，如果是新上传的文件（status为ready）且有原始文件对象，则调用上传接口
   if (file.status === 'ready' && file.raw) {
     try {
@@ -843,8 +795,6 @@ const handleAttachmentChange = async (file: any, fileList: any[]) => {
 };
 
 const handleAttachmentRemove = async (file: any, fileList: any[]) => {
-  console.log('附件删除:', file, fileList);
-
   // 如果文件已经上传到服务器，调用后端删除接口
   if (file.file_id && file.file_id !== undefined) {
     try {
@@ -901,14 +851,11 @@ const viewAnnouncementViews = async (announcement: any) => {
       return;
     }
 
-    console.log('调用 getAnnouncementViewsApi，公告ID:', announcementId);
     const response = await getAnnouncementViewsApi(
       announcementId,
       viewsCurrentPage.value,
       viewsPageSize.value,
     );
-
-    console.log('getAnnouncementViewsApi 响应:', response);
 
     // 处理浏览记录数据，将驼峰命名转换为下划线命名，以匹配表格组件的预期
     let records = response.data || [];
@@ -934,7 +881,6 @@ const viewAnnouncementViews = async (announcement: any) => {
     viewsList.value = records;
     // API文档没有返回总数，这里使用列表长度
     viewsTotal.value = records.length;
-    console.log('处理后的浏览记录数据:', records);
   } catch (error) {
     console.error('获取浏览记录失败:', error);
     ElMessage.error('获取浏览记录失败');
@@ -973,8 +919,6 @@ const handleStatusFilterChange = () => {
   currentPage.value = 1;
   fetchAnnouncements();
 };
-
-// 破产流程阶段数据
 
 // 计算属性
 
@@ -1048,13 +992,6 @@ const saveEditing = async () => {
   } finally {
     saveLoading.value = false;
   }
-};
-
-const formatDateForApi = (date: any): string | undefined => {
-  if (!date) return undefined;
-  if (typeof date === 'string') return date;
-  if (date instanceof Date) return date.toISOString().split('T')[0];
-  return undefined;
 };
 
 // 取消编辑
@@ -1262,14 +1199,6 @@ const loadAdministrators = async () => {
 
 // 加载部门下的用户列表
 const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
-  // 调试日志：检查传入的 deptId 值
-  console.log(
-    'loadUsersByDeptId 收到的 deptId:',
-    deptId,
-    '类型:',
-    typeof deptId,
-  );
-
   if (!deptId || Number.isNaN(deptId)) {
     console.warn('无效的部门ID:', deptId);
     availableUsers.value = [];
@@ -1279,7 +1208,6 @@ const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
   loadingUsers.value = true;
   try {
     const response = await getUserByDeptIdApi(deptId);
-    console.log('getUserByDeptIdApi响应:', response);
 
     let userList = [];
     // 处理API响应结构：{ code: 200, message: "success", data: [成员数组] }
@@ -1304,8 +1232,6 @@ const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
     if (!includeExisting) {
       filteredUsers = filteredUsers.filter((user) => {
         // 过滤掉已经存在于该团队的成员
-        // 注意：这里使用teamMembers.value可能已经不准确，因为我们已经改为直接使用team.members
-        // 但这个函数主要用于添加成员时，此时teamMembers.value仍然是当前团队的成员列表
         const isMemberInTeam = teamMembers.value.some(
           (member) => member.userId === user.userId,
         );
@@ -1319,8 +1245,6 @@ const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
       uName: user.name, // 映射 name 到 uName
       uUser: user.name, // 映射 name 到 uUser
     }));
-
-    console.log('处理后的availableUsers:', availableUsers.value);
   } catch (error) {
     console.error('获取用户列表失败:', error);
     ElMessage.error('获取用户列表失败');
@@ -1357,22 +1281,49 @@ const resetSelections = () => {
 
 // 获取工作团队列表
 const fetchWorkTeams = async () => {
-  console.log('开始获取工作团队列表');
   workTeamLoading.value = true;
   try {
+    console.log('开始获取工作团队列表，caseId:', caseId.value, 'Number(caseId.value):', Number(caseId.value));
     const response = await getWorkTeamListWithDetailsApi({
       caseId: Number(caseId.value),
       pageNum: 1,
       pageSize: 100,
     });
-    console.log('getWorkTeamListWithDetailsApi响应:', response);
 
-    if (response.data && response.data.list) {
-      workTeams.value = response.data.list;
-      console.log('工作团队列表:', workTeams.value);
+    console.log('工作团队API返回:', response);
+    
+    // 检查响应格式
+    if (response && response.code === 200) {
+      if (response.data && response.data.list) {
+        console.log('工作团队列表:', response.data.list);
+        
+        // 处理API返回数据，确保members字段存在
+        const processedTeams = response.data.list.map((team: any) => {
+          // 兼容处理：如果返回的是teamMembers，转换为members
+          if (team.teamMembers && !team.members) {
+            try {
+              // 尝试将teamMembers字符串解析为数组
+              team.members = JSON.parse(team.teamMembers);
+            } catch (error) {
+              console.error('解析teamMembers失败:', error);
+              team.members = [];
+            }
+          }
+          // 确保members字段是数组
+          if (!team.members || !Array.isArray(team.members)) {
+            team.members = [];
+          }
+          return team;
+        });
+        
+        workTeams.value = processedTeams;
+      } else {
+        console.error('API返回数据结构异常，缺少data或data.list:', response.data);
+        workTeams.value = [];
+      }
     } else {
+      console.error('API返回错误:', response.code, response.message);
       workTeams.value = [];
-      console.log('该案件下没有工作团队');
     }
   } catch (error: any) {
     console.error('获取工作团队列表失败:', error);
@@ -1384,17 +1335,14 @@ const fetchWorkTeams = async () => {
     workTeams.value = [];
   } finally {
     workTeamLoading.value = false;
-    console.log('获取工作团队列表结束，loading:', workTeamLoading.value);
   }
 };
 
 // 获取指定团队的成员列表
 const fetchTeamMembers = async (teamId: number) => {
-  console.log('开始获取团队成员列表，teamId:', teamId);
   workTeamLoading.value = true;
   try {
     const response = await getWorkTeamDetailWithMembersApi(teamId);
-    console.log('getWorkTeamDetailWithMembersApi响应:', response);
 
     let members = [];
     if (response.members) {
@@ -1404,7 +1352,6 @@ const fetchTeamMembers = async (teamId: number) => {
     }
 
     teamMembers.value = members || [];
-    console.log('工作团队成员列表:', teamMembers.value);
   } catch (error: any) {
     console.error('获取工作团队成员列表失败:', error);
     const errorMessage =
@@ -1415,7 +1362,6 @@ const fetchTeamMembers = async (teamId: number) => {
     teamMembers.value = [];
   } finally {
     workTeamLoading.value = false;
-    console.log('获取工作团队成员列表结束，loading:', workTeamLoading.value);
   }
 };
 
@@ -1594,7 +1540,6 @@ const toggleTeamMembers = (teamId: number) => {
     expandedTeams.value.delete(teamId);
   } else {
     expandedTeams.value.add(teamId);
-    // 直接使用API返回的团队成员数据，不再单独获取
   }
 };
 
@@ -1703,9 +1648,9 @@ const handleSaveMember = async () => {
         permission_level:
           memberForm.value.permissionLevel === 'VIEW'
             ? '查看'
-            : memberForm.value.permissionLevel === 'EDIT'
+            : (memberForm.value.permissionLevel === 'EDIT'
               ? '编辑'
-              : '管理',
+              : '管理'),
       };
 
       // 如果有teamRole，也添加到更新数据中
@@ -1725,9 +1670,9 @@ const handleSaveMember = async () => {
         permission_level:
           data.permissionLevel === 'VIEW'
             ? '查看'
-            : data.permissionLevel === 'EDIT'
+            : (data.permissionLevel === 'EDIT'
               ? '编辑'
-              : '管理',
+              : '管理'),
       };
       await addTeamMemberApi(selectedTeamId.value, addData);
       ElMessage.success('添加团队成员成功');
@@ -1902,1002 +1847,742 @@ const checkPermissions = async () => {
           </div>
         </template>
 
-      <!-- 案件基本信息卡片 -->
-      <div v-if="activeTab === 'caseInfo'">
-        <ElCard class="case-info-card" shadow="hover">
-          <template #header>
-            <div class="card-header flex items-center justify-between">
-              <div class="flex items-center">
-                <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
-                <span class="text-lg font-semibold">案件基本信息</span>
-              </div>
-              <div class="flex space-x-2">
-                <template v-if="!isEditing && canEdit">
-                  <ElButton type="primary" @click="startEditing">
-                    <Icon icon="lucide:pencil" class="mr-1" />
-                    编辑
-                  </ElButton>
-                </template>
-                <template v-else-if="isEditing && canEdit">
-                  <ElButton
-                    type="success"
-                    @click="saveEditing"
-                    :loading="saveLoading"
-                  >
-                    <Icon icon="lucide:save" class="mr-1" />
-                    保存
-                  </ElButton>
-                  <ElButton @click="cancelEditing" :disabled="saveLoading">
-                    <Icon icon="lucide:x" class="mr-1" />
-                    取消
-                  </ElButton>
-                </template>
-                <ElButton link @click="isInfoCollapsed = !isInfoCollapsed">
-                  <Icon
-                    :icon="
-                      isInfoCollapsed
-                        ? 'lucide:chevron-down'
-                        : 'lucide:chevron-up'
-                    "
-                    class="ml-1"
-                  />
-                  {{ isInfoCollapsed ? '展开详情' : '收起详情' }}
-                </ElButton>
-              </div>
-            </div>
-          </template>
-
-          <div v-if="loading" class="loading-container">
-            <ElSkeleton :rows="5" animated />
-          </div>
-
-          <div v-else-if="caseDetail" class="case-info-content">
-            <!-- 关键信息概览 -->
-            <div class="key-info-overview mb-6">
-              <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="8" :md="6">
-                  <div
-                    class="key-info-item rounded-lg bg-green-50 p-4 text-center"
-                  >
-                    <div class="key-info-label mb-1 text-sm text-gray-500">
-                      案号
-                    </div>
-                    <div
-                      class="key-info-value text-xl font-bold text-green-600"
+        <!-- 案件基本信息卡片 -->
+        <div v-if="activeTab === 'caseInfo'">
+          <ElCard class="case-info-card" shadow="hover">
+            <template #header>
+              <div class="card-header flex items-center justify-between">
+                <div class="flex items-center">
+                  <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                  <span class="text-lg font-semibold">案件基本信息</span>
+                </div>
+                <div class="flex space-x-2">
+                  <template v-if="!isEditing && canEdit">
+                    <ElButton type="primary" @click="startEditing">
+                      <Icon icon="lucide:pencil" class="mr-1" />
+                      编辑
+                    </ElButton>
+                  </template>
+                  <template v-else-if="isEditing && canEdit">
+                    <ElButton
+                      type="success"
+                      @click="saveEditing"
+                      :loading="saveLoading"
                     >
-                      {{ caseDetail.案号 }}
-                    </div>
-                  </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="8" :md="6">
-                  <div
-                    class="key-info-item rounded-lg bg-purple-50 p-4 text-center"
-                  >
-                    <div class="key-info-label mb-1 text-sm text-gray-500">
-                      案件进度
-                    </div>
-                    <div class="key-info-value">
+                      <Icon icon="lucide:save" class="mr-1" />
+                      保存
+                    </ElButton>
+                    <ElButton @click="cancelEditing" :disabled="saveLoading">
+                      <Icon icon="lucide:x" class="mr-1" />
+                      取消
+                    </ElButton>
+                  </template>
+                  <ElButton link @click="isInfoCollapsed = !isInfoCollapsed">
+                    <Icon
+                      :icon="
+                        isInfoCollapsed
+                          ? 'lucide:chevron-down'
+                          : 'lucide:chevron-up'
+                      "
+                      class="ml-1"
+                    />
+                    {{ isInfoCollapsed ? '展开详情' : '收起详情' }}
+                  </ElButton>
+                </div>
+              </div>
+            </template>
+
+            <div v-if="loading" class="loading-container">
+              <ElSkeleton :rows="5" animated />
+            </div>
+
+            <div v-else-if="caseDetail" class="case-info-content">
+              <!-- 关键信息概览 -->
+              <div class="key-info-overview mb-6">
+                <ElRow :gutter="20">
+                  <ElCol :xs="24" :sm="8" :md="6">
+                    <div
+                      class="key-info-item rounded-lg bg-green-50 p-4 text-center"
+                    >
+                      <div class="key-info-label mb-1 text-sm text-gray-500">
+                        案号
+                      </div>
                       <div
-                        :style="getCaseStatusStyle(caseDetail.案件进度)"
-                        class="inline-block rounded-full px-4 py-1 text-base font-semibold"
+                        class="key-info-value text-xl font-bold text-green-600"
                       >
-                        {{ caseDetail.案件进度 }}
+                        {{ caseDetail.案号 }}
+                      </div>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="8" :md="6">
+                    <div
+                      class="key-info-item rounded-lg bg-purple-50 p-4 text-center"
+                    >
+                      <div class="key-info-label mb-1 text-sm text-gray-500">
+                        案件进度
+                      </div>
+                      <div class="key-info-value">
+                        <div
+                          :style="getCaseStatusStyle(caseDetail.案件进度)"
+                          class="inline-block rounded-full px-4 py-1 text-base font-semibold"
+                        >
+                          {{ caseDetail.案件进度 }}
+                        </div>
+                      </div>
+                    </div>
+                  </ElCol>
+                  <ElCol :xs="24" :sm="8" :md="6">
+                    <div
+                      class="key-info-item rounded-lg bg-orange-50 p-4 text-center"
+                    >
+                      <div class="key-info-label mb-1 text-sm text-gray-500">
+                        受理法院
+                      </div>
+                      <div
+                        class="key-info-value text-lg font-semibold text-orange-600"
+                      >
+                        {{ caseDetail.受理法院 }}
+                      </div>
+                    </div>
+                  </ElCol>
+                </ElRow>
+              </div>
+
+              <!-- 详细信息 -->
+              <div v-show="!isInfoCollapsed" class="detail-info-grid">
+                <div class="detail-info-content">
+                  <div class="detail-info-row">
+                    <div class="detail-info-item">
+                      <div class="detail-info-label">案件名称</div>
+                      <div class="detail-info-value">
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.案件名称"
+                            size="small"
+                            placeholder="请输入案件名称"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.案件名称 }}
+                        </template>
+                      </div>
+                    </div>
+                    <div class="detail-info-item">
+                      <div class="detail-info-label">案由</div>
+                      <div class="detail-info-value">
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.案由"
+                            size="small"
+                            placeholder="请输入案由"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.案由 }}
+                        </template>
                       </div>
                     </div>
                   </div>
-                </ElCol>
-                <ElCol :xs="24" :sm="8" :md="6">
-                  <div
-                    class="key-info-item rounded-lg bg-orange-50 p-4 text-center"
-                  >
-                    <div class="key-info-label mb-1 text-sm text-gray-500">
-                      受理法院
+                  <div class="detail-info-row">
+                    <div class="detail-info-item">
+                      <div class="detail-info-label">受理日期</div>
+                      <div class="detail-info-value">
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.受理日期"
+                            size="small"
+                            placeholder="请输入受理日期"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.受理日期 }}
+                        </template>
+                      </div>
                     </div>
-                    <div
-                      class="key-info-value text-lg font-semibold text-orange-600"
-                    >
-                      {{ caseDetail.受理法院 }}
+                    <div class="detail-info-item">
+                      <div class="detail-info-label">案件来源</div>
+                      <div class="detail-info-value">
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.案件来源"
+                            size="small"
+                            placeholder="请输入案件来源"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.案件来源 }}
+                        </template>
+                      </div>
                     </div>
-                  </div>
-                </ElCol>
-              </ElRow>
-            </div>
-
-            <!-- 详细信息 -->
-            <div v-show="!isInfoCollapsed" class="detail-info-grid">
-              <div class="detail-info-content">
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">案件名称</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.案件名称"
-                          size="small"
-                          placeholder="请输入案件名称"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.案件名称 }}
-                      </template>
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">案由</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.案由"
-                          size="small"
-                          placeholder="请输入案由"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.案由 }}
-                      </template>
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">受理日期</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.受理日期"
-                          size="small"
-                          placeholder="请输入受理日期"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.受理日期 }}
-                      </template>
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">案件来源</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.案件来源"
-                          size="small"
-                          placeholder="请输入案件来源"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.案件来源 }}
-                      </template>
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">主要负责人</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.管理人负责人"
-                          size="small"
-                          placeholder="请输入主要负责人"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.管理人负责人 }}
-                      </template>
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">指定法官</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.承办法官"
-                          size="small"
-                          placeholder="请输入指定法官"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.承办法官 }}
-                      </template>
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-info-row">
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">承办人</div>
-                    <div class="detail-info-value">
-                      <template v-if="isEditing">
-                        <ElInput
-                          v-model="editedData.承办人"
-                          size="small"
-                          placeholder="请输入承办人"
-                          style="width: 100%"
-                        />
-                      </template>
-                      <template v-else>
-                        {{ caseDetail.承办人 }}
-                      </template>
-                    </div>
-                  </div>
-                  <div class="detail-info-item">
-                    <div class="detail-info-label">创建者</div>
-                    <div class="detail-info-value">{{ caseDetail.创建者 }}</div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </ElCard>
+          </ElCard>
 
-        <DebtorInfo :case-id="caseId" />
-      </div>
+          <DebtorInfo :case-id="caseId" />
+        </div>
 
-      <!-- 流程处理 -->
-      <div v-if="activeTab === 'process'" class="process-content">
-        <BankruptcyProcess :case-id="caseId" />
-      </div>
+        <!-- 流程处理 -->
+        <div v-if="activeTab === 'process'" class="process-content">
+          <BankruptcyProcess :case-id="caseId" />
+        </div>
 
-      <!-- 债权人信息 -->
-      <div v-if="activeTab === 'creditorInfo'" class="creditor-info-content">
-        <CreditorInfo :case-id="caseId" />
-      </div>
+        <!-- 债权人信息 -->
+        <div v-if="activeTab === 'creditorInfo'" class="creditor-info-content">
+          <CreditorInfo :case-id="caseId" />
+        </div>
 
-      <!-- 债权登记表 -->
-      <div
-        v-if="activeTab === 'claimRegistration'"
-        class="claim-registration-content"
-      >
-        <ClaimRegistrationTabs :case-id="caseId" />
-      </div>
-
-      <!-- 公告管理 -->
-      <div v-if="activeTab === 'announcement'" class="announcement-content">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="card-header flex items-center justify-between">
-              <div class="flex items-center">
-                <Icon icon="lucide:megaphone" class="mr-2 text-blue-500" />
-                <span class="text-lg font-semibold">公告管理</span>
-              </div>
-              <div class="flex space-x-2">
-                <ElButton type="primary" @click="openNewAnnouncementDialog">
-                  <Icon icon="lucide:plus" class="mr-1" />
-                  发布新公告
-                </ElButton>
-              </div>
-            </div>
-          </template>
-
-          <!-- 公告列表 -->
-          <div class="announcements-container">
-            <!-- 公告列表内容将在这里展示 -->
-            <div v-if="loadingAnnouncements" class="loading-container">
-              <ElSkeleton :rows="5" animated />
-            </div>
-            <ElEmpty
-              v-else-if="announcements.length === 0"
-              description="暂无公告"
-            />
-            <div v-else>
-              <ElTable
-                :data="announcements"
-                border
-                style="width: 100%"
-                :row-key="(row) => row.id"
-              >
-                <ElTableColumn prop="title" label="公告标题" min-width="200" />
-                <ElTableColumn
-                  prop="announcement_type"
-                  label="公告类型"
-                  width="150"
-                />
-                <ElTableColumn
-                  prop="publisher_name"
-                  label="发布人"
-                  width="120"
-                />
-                <ElTableColumn
-                  prop="publish_time"
-                  label="发布时间"
-                  width="180"
-                />
-                <ElTableColumn prop="view_count" label="查看次数" width="100" />
-                <ElTableColumn prop="status" label="状态" width="100">
-                  <template #default="scope">
-                    <ElTag
-                      :type="
-                        scope.row.status === 'PUBLISHED' ? 'success' : 'info'
-                      "
-                    >
-                      {{ scope.row.status === 'PUBLISHED' ? '已发布' : '草稿' }}
-                    </ElTag>
-                  </template>
-                </ElTableColumn>
-                <ElTableColumn label="操作" width="350" fixed="right">
-                  <template #default="scope">
-                    <ElButton
-                      v-if="scope.row.status === 'DRAFT'"
-                      type="success"
-                      link
-                      size="small"
-                      @click="publishAnnouncement(scope.row.id)"
-                    >
-                      发布
-                    </ElButton>
-                    <ElButton
-                      v-if="scope.row.is_top === 0"
-                      type="warning"
-                      link
-                      size="small"
-                      @click="topAnnouncement(scope.row.id)"
-                    >
-                      置顶
-                    </ElButton>
-                    <ElButton
-                      v-if="scope.row.is_top === 1"
-                      type="warning"
-                      link
-                      size="small"
-                      @click="unTopAnnouncement(scope.row.id)"
-                    >
-                      取消置顶
-                    </ElButton>
-                    <ElButton
-                      type="primary"
-                      link
-                      size="small"
-                      @click="viewAnnouncementDetail(scope.row)"
-                    >
-                      详情
-                    </ElButton>
-                    <ElButton
-                      v-if="scope.row.status !== 'PUBLISHED'"
-                      type="primary"
-                      link
-                      size="small"
-                      @click="editAnnouncement(scope.row)"
-                    >
-                      编辑
-                    </ElButton>
-                    <ElPopconfirm
-                      title="确定要删除该公告吗？"
-                      @confirm="deleteAnnouncement(scope.row.id)"
-                      confirm-button-text="确定"
-                      cancel-button-text="取消"
-                    >
-                      <template #reference>
-                        <ElButton type="danger" link size="small">
-                          删除
-                        </ElButton>
-                      </template>
-                    </ElPopconfirm>
-                  </template>
-                </ElTableColumn>
-              </ElTable>
-
-              <!-- 分页 -->
-              <div class="pagination-container mt-4">
-                <ElPagination
-                  :current-page="currentPage"
-                  :page-sizes="[10, 20, 50, 100]"
-                  :page-size="pageSize"
-                  layout="total, sizes, prev, pager, next, jumper"
-                  :total="totalAnnouncements"
-                  @size-change="handlePageSizeChange"
-                  @current-change="handlePageChange"
-                />
-              </div>
-            </div>
-          </div>
-        </ElCard>
-      </div>
-
-      <!-- 工作团队卡片 -->
-      <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
+        <!-- 债权登记表 -->
         <div
-          style="
-            overflow: hidden;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
-          "
+          v-if="activeTab === 'claimRegistration'"
+          class="claim-registration-content"
         >
-          <!-- 标题和操作按钮 -->
-          <div
-            style="
-              padding: 20px;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              border-bottom: 1px solid #e9ecef;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-              "
-            >
-              <div style="display: flex; gap: 12px; align-items: center">
-                <div
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 48px;
-                    height: 48px;
-                    background: rgb(255 255 255 / 20%);
-                    border-radius: 50%;
-                  "
+          <ClaimRegistrationTabs :case-id="caseId" />
+        </div>
+
+        <!-- 公告管理 -->
+        <div v-if="activeTab === 'announcement'" class="announcement-content">
+          <ElCard shadow="hover">
+            <template #header>
+              <div class="card-header flex items-center justify-between">
+                <div class="flex items-center">
+                  <Icon icon="lucide:megaphone" class="mr-2 text-blue-500" />
+                  <span class="text-lg font-semibold">公告管理</span>
+                </div>
+                <div class="flex space-x-2">
+                  <ElButton type="primary" @click="openNewAnnouncementDialog">
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    发布新公告
+                  </ElButton>
+                </div>
+              </div>
+            </template>
+
+            <!-- 公告列表 -->
+            <div class="announcements-container">
+              <div v-if="loadingAnnouncements" class="loading-container">
+                <ElSkeleton :rows="5" animated />
+              </div>
+              <ElEmpty
+                v-else-if="announcements.length === 0"
+                description="暂无公告"
+              />
+              <div v-else>
+                <ElTable
+                  :data="announcements"
+                  border
+                  style="width: 100%"
+                  :row-key="(row) => row.id"
                 >
-                  <Icon
-                    icon="lucide:users"
-                    style="font-size: 24px; color: white"
+                  <ElTableColumn prop="title" label="公告标题" min-width="200" />
+                  <ElTableColumn
+                    prop="announcement_type"
+                    label="公告类型"
+                    width="150"
+                  />
+                  <ElTableColumn
+                    prop="publisher_name"
+                    label="发布人"
+                    width="120"
+                  />
+                  <ElTableColumn
+                    prop="publish_time"
+                    label="发布时间"
+                    width="180"
+                  />
+                  <ElTableColumn prop="view_count" label="查看次数" width="100" />
+                  <ElTableColumn prop="status" label="状态" width="100">
+                    <template #default="scope">
+                      <ElTag
+                        :type="
+                          scope.row.status === 'PUBLISHED' ? 'success' : 'info'
+                        "
+                      >
+                        {{ scope.row.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+                      </ElTag>
+                    </template>
+                  </ElTableColumn>
+                  <ElTableColumn label="操作" width="350" fixed="right">
+                    <template #default="scope">
+                      <ElButton
+                        v-if="scope.row.status === 'DRAFT'"
+                        type="success"
+                        link
+                        size="small"
+                        @click="publishAnnouncement(scope.row.id)"
+                      >
+                        发布
+                      </ElButton>
+                      <ElButton
+                        v-if="scope.row.is_top === 0"
+                        type="warning"
+                        link
+                        size="small"
+                        @click="topAnnouncement(scope.row.id)"
+                      >
+                        置顶
+                      </ElButton>
+                      <ElButton
+                        v-if="scope.row.is_top === 1"
+                        type="warning"
+                        link
+                        size="small"
+                        @click="unTopAnnouncement(scope.row.id)"
+                      >
+                        取消置顶
+                      </ElButton>
+                      <ElButton
+                        type="primary"
+                        link
+                        size="small"
+                        @click="viewAnnouncementDetail(scope.row)"
+                      >
+                        详情
+                      </ElButton>
+                      <ElButton
+                        v-if="scope.row.status !== 'PUBLISHED'"
+                        type="primary"
+                        link
+                        size="small"
+                        @click="editAnnouncement(scope.row)"
+                      >
+                        编辑
+                      </ElButton>
+                      <ElPopconfirm
+                        title="确定要删除该公告吗？"
+                        @confirm="deleteAnnouncement(scope.row.id)"
+                        confirm-button-text="确定"
+                        cancel-button-text="取消"
+                      >
+                        <template #reference>
+                          <ElButton type="danger" link size="small">
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElPopconfirm>
+                    </template>
+                  </ElTableColumn>
+                </ElTable>
+
+                <!-- 分页 -->
+                <div class="pagination-container mt-4">
+                  <ElPagination
+                    :current-page="currentPage"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :page-size="pageSize"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="totalAnnouncements"
+                    @size-change="handlePageSizeChange"
+                    @current-change="handlePageChange"
                   />
                 </div>
-                <div>
-                  <h2
-                    style="
-                      margin: 0;
-                      font-size: 20px;
-                      font-weight: 600;
-                      color: white;
-                    "
-                  >
-                    工作团队管理
-                  </h2>
-                  <p
-                    style="
-                      margin: 4px 0 0;
-                      font-size: 14px;
-                      color: rgb(255 255 255 / 80%);
-                    "
-                  >
-                    共 {{ workTeams.length }} 个工作团队
-                  </p>
-                </div>
-              </div>
-              <div style="display: flex; gap: 10px">
-                <ElButton
-                  type="primary"
-                  @click="openAddTeamDialog"
-                  v-if="isCreator"
-                  style="color: white; background: #4caf50; border: none"
-                >
-                  <Icon icon="lucide:plus" class="mr-1" />
-                  添加工作团队
-                </ElButton>
               </div>
             </div>
-          </div>
+          </ElCard>
         </div>
 
-        <div
-          v-if="workTeamLoading"
-          class="loading-container"
-          style="padding: 40px"
-        >
-          <ElSkeleton :rows="8" animated />
-        </div>
-
-        <div v-else class="case-info-content" style="padding: 20px">
-            <!-- 工作团队列表 -->
-            <div v-if="workTeams.length > 0">
+        <!-- 工作团队卡片 -->
+        <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
+          <div
+            style="
+              overflow: hidden;
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
+            "
+          >
+            <!-- 标题和操作按钮 -->
+            <div
+              style="
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-bottom: 1px solid #e9ecef;
+              "
+            >
               <div
-                v-for="team in workTeams"
-                :key="team.id"
                 style="
-                  margin-bottom: 20px;
-                  border: 1px solid #e5e7eb;
-                  border-radius: 8px;
-                  overflow: hidden;
-                  background: #fff;
-                  transition: all 0.3s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
                 "
-                :style="{
-                  boxShadow: isTeamExpanded(team.id)
-                    ? '0 4px 12px rgb(0 0 0 / 10%)'
-                    : '0 2px 4px rgb(0 0 0 / 5%)',
-                }"
               >
-                <!-- 团队基本信息 -->
-                <div
-                  style="
-                    padding: 20px;
-                    background: linear-gradient(
-                      135deg,
-                      #f5f7fa 0%,
-                      #c3cfe2 100%
-                    );
-                    border-bottom: 1px solid #e5e7eb;
-                  "
-                >
+                <div style="display: flex; gap: 12px; align-items: center">
                   <div
                     style="
                       display: flex;
                       align-items: center;
-                      justify-content: space-between;
+                      justify-content: center;
+                      width: 48px;
+                      height: 48px;
+                      background: rgb(255 255 255 / 20%);
+                      border-radius: 50%;
                     "
                   >
-                    <div style="display: flex; gap: 16px; align-items: center">
-                      <div
-                        style="
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          width: 56px;
-                          height: 56px;
-                          background: linear-gradient(
-                            135deg,
-                            #667eea 0%,
-                            #764ba2 100%
-                          );
-                          border-radius: 12px;
-                          box-shadow: 0 4px 8px rgb(102 126 234 / 30%);
-                        "
-                      >
-                        <Icon
-                          icon="lucide:building-2"
-                          style="font-size: 28px; color: white"
-                        />
-                      </div>
-                      <div>
-                        <h3
-                          style="
-                            margin: 0 0 8px;
-                            font-size: 18px;
-                            font-weight: 600;
-                            color: #1f2937;
-                          "
-                        >
-                          {{ team.teamName }}
-                        </h3>
-                        <div
-                          style="
-                            display: flex;
-                            gap: 16px;
-                            align-items: center;
-                            font-size: 14px;
-                            color: #6b7280;
-                          "
-                        >
-                          <span
-                            style="display: flex; gap: 4px; align-items: center"
-                          >
-                            <Icon icon="lucide:user" style="font-size: 16px" />
-                            负责人：{{ team.teamLeaderName || '-' }}
-                          </span>
-                          <span
-                            style="display: flex; gap: 4px; align-items: center"
-                          >
-                            <Icon icon="lucide:users" style="font-size: 16px" />
-                            成员数：{{ team.members?.length || 0 }}
-                          </span>
-                          <ElTag
-                            :type="getTeamStatusTagType(team.status)"
-                            size="small"
-                          >
-                            {{ getTeamStatusLabel(team.status) }}
-                          </ElTag>
-                        </div>
-                      </div>
-                    </div>
-                    <div style="display: flex; gap: 8px">
-                      <ElButton
-                        size="small"
-                        @click="toggleTeamMembers(team.id)"
-                        :type="isTeamExpanded(team.id) ? 'warning' : 'primary'"
-                      >
-                        <Icon
-                          :icon="
-                            isTeamExpanded(team.id)
-                              ? 'lucide:chevron-up'
-                              : 'lucide:chevron-down'
-                          "
-                          class="mr-1"
-                        />
-                        {{ isTeamExpanded(team.id) ? '收起成员' : '查看成员' }}
-                      </ElButton>
-                      <ElButton
-                        size="small"
-                        type="success"
-                        @click="handleAddMember(team.id)"
-                        v-if="isCreator"
-                      >
-                        <Icon icon="lucide:plus" class="mr-1" />
-                        添加成员
-                      </ElButton>
-                    </div>
+                    <Icon
+                      icon="lucide:users"
+                      style="font-size: 24px; color: white"
+                    />
+                  </div>
+                  <div>
+                    <h2
+                      style="
+                        margin: 0;
+                        font-size: 20px;
+                        font-weight: 600;
+                        color: white;
+                      "
+                    >
+                      工作团队管理
+                    </h2>
+                    <p
+                      style="
+                        margin: 4px 0 0;
+                        font-size: 14px;
+                        color: rgb(255 255 255 / 80%);
+                      "
+                    >
+                      共 {{ workTeams.length }} 个工作团队
+                    </p>
                   </div>
                 </div>
-
-                <!-- 团队成员列表（可展开/收起） -->
-                <div
-                  v-if="isTeamExpanded(team.id)"
-                  style="padding: 20px"
-                  class="team-members-section"
-                >
-                  <div
-                    v-if="team.members?.length > 0"
-                    style="
-                      background: #f9fafb;
-                      border-radius: 8px;
-                      padding: 16px;
-                    "
+                <div style="display: flex; gap: 10px">
+                  <ElButton
+                    type="primary"
+                    @click="openAddTeamDialog"
+                    v-if="isCreator"
+                    style="color: white; background: #4caf50; border: none"
                   >
-                    <ElTable
-                      :data="team.members"
-                      style="width: 100%"
-                      :header-cell-style="{
-                        background: '#f5f7fa',
-                        color: '#606266',
-                        fontWeight: '600',
-                      }"
-                      :row-style="{ height: '56px' }"
-                      stripe
-                    >
-                      <ElTableColumn
-                        prop="userRealName"
-                        label="真实姓名"
-                        width="120"
-                      >
-                        <template #default="{ row }">
-                          {{ row.userRealName || row.userName || '-' }}
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn prop="userName" label="用户名" width="120">
-                        <template #default="{ row }">
-                          {{ row.userName || '-' }}
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn
-                        prop="teamRole"
-                        label="团队角色"
-                        width="120"
-                      >
-                        <template #default="{ row }">
-                          {{ row.teamRole || '-' }}
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn
-                        prop="permissionLevel"
-                        label="权限级别"
-                        width="100"
-                      >
-                        <template #default="{ row }">
-                          <ElTag
-                            :type="getPermissionTagType(row.permissionLevel)"
-                          >
-                            {{ getPermissionLabel(row.permissionLevel) }}
-                          </ElTag>
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn prop="isActive" label="状态" width="80">
-                        <template #default="{ row }">
-                          <ElTag :type="row.isActive ? 'success' : 'danger'">
-                            {{ row.isActive ? '激活' : '禁用' }}
-                          </ElTag>
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn
-                        prop="createTime"
-                        label="加入时间"
-                        width="160"
-                      >
-                        <template #default="{ row }">
-                          {{ formatDateTime(row.createTime) }}
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn
-                        label="操作"
-                        width="200"
-                        fixed="right"
-                        v-if="isCreator"
-                      >
-                        <template #default="{ row }">
-                          <ElButton
-                            size="small"
-                            @click="handleEditMember(row)"
-                            type="primary"
-                            plain
-                          >
-                            <Icon icon="lucide:pencil" class="mr-1" />
-                            编辑
-                          </ElButton>
-                          <ElPopconfirm
-                            title="确定要移除该成员吗？"
-                            @confirm="handleRemoveMember(team.id, row.id)"
-                          >
-                            <template #reference>
-                              <ElButton
-                                size="small"
-                                type="danger"
-                                plain
-                                style="margin-left: 8px"
-                              >
-                                <Icon icon="lucide:trash-2" class="mr-1" />
-                                移除
-                              </ElButton>
-                            </template>
-                          </ElPopconfirm>
-                        </template>
-                      </ElTableColumn>
-                    </ElTable>
-                  </div>
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    添加工作团队
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                  <div v-else class="empty-state" style="padding: 40px 20px">
+          <!-- 工作团队列表 -->
+          <div v-if="workTeams.length > 0" style="margin-top: 20px">
+            <div
+              v-for="team in workTeams"
+              :key="team.id"
+              style="
+                margin-bottom: 20px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                overflow: hidden;
+                background: #fff;
+                transition: all 0.3s ease;
+              "
+              :style="{
+                boxShadow: isTeamExpanded(team.id)
+                  ? '0 4px 12px rgb(0 0 0 / 10%)'
+                  : '0 2px 4px rgb(0 0 0 / 5%)',
+              }"
+            >
+              <!-- 团队基本信息 -->
+              <div
+                style="
+                  padding: 20px;
+                  background: linear-gradient(
+                    135deg,
+                    #f5f7fa 0%,
+                    #c3cfe2 100%
+                  );
+                  border-bottom: 1px solid #e5e7eb;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                  "
+                >
+                  <div style="display: flex; gap: 16px; align-items: center">
                     <div
                       style="
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        width: 80px;
-                        height: 80px;
-                        margin: 0 auto 20px;
+                        width: 56px;
+                        height: 56px;
                         background: linear-gradient(
                           135deg,
                           #667eea 0%,
                           #764ba2 100%
                         );
-                        border-radius: 50%;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 8px rgb(102 126 234 / 30%);
                       "
                     >
                       <Icon
-                        icon="lucide:users"
-                        style="font-size: 36px; color: white"
+                        icon="lucide:building-2"
+                        style="font-size: 28px; color: white"
                       />
                     </div>
-                    <ElEmpty description="暂无团队成员" :image-size="0">
-                      <template #description>
-                        <p
-                          style="
-                            margin-top: 16px;
-                            font-size: 14px;
-                            color: #909399;
-                          "
+                    <div>
+                      <h3
+                        style="
+                          margin: 0 0 8px;
+                          font-size: 18px;
+                          font-weight: 600;
+                          color: #1f2937;
+                        "
+                      >
+                        {{ team.teamName }}
+                      </h3>
+                      <div
+                        style="
+                          display: flex;
+                          gap: 16px;
+                          align-items: center;
+                          font-size: 14px;
+                          color: #6b7280;
+                        "
+                      >
+                        <span
+                          style="display: flex; gap: 4px; align-items: center"
                         >
-                          该团队暂无成员，点击上方"添加成员"按钮开始添加
-                        </p>
-                      </template>
-                    </ElEmpty>
+                          <Icon icon="lucide:user" style="font-size: 16px" />
+                          负责人：{{ team.teamLeaderName || '-' }}
+                        </span>
+                        <span
+                          style="display: flex; gap: 4px; align-items: center"
+                        >
+                          <Icon icon="lucide:users" style="font-size: 16px" />
+                          成员数：{{ team.members?.length || 0 }}
+                        </span>
+                        <ElTag
+                          :type="getTeamStatusTagType(team.status)"
+                          size="small"
+                        >
+                          {{ getTeamStatusLabel(team.status) }}
+                        </ElTag>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 8px">
+                    <ElButton
+                      size="small"
+                      @click="toggleTeamMembers(team.id)"
+                      :type="isTeamExpanded(team.id) ? 'warning' : 'primary'"
+                    >
+                      <Icon
+                        :icon="
+                          isTeamExpanded(team.id)
+                            ? 'lucide:chevron-up'
+                            : 'lucide:chevron-down'
+                        "
+                        class="mr-1"
+                      />
+                      {{ isTeamExpanded(team.id) ? '收起成员' : '查看成员' }}
+                    </ElButton>
+                    <ElButton
+                      size="small"
+                      type="success"
+                      @click="handleAddMember(team.id)"
+                      v-if="isCreator"
+                    >
+                      <Icon icon="lucide:plus" class="mr-1" />
+                      添加成员
+                    </ElButton>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 空状态 -->
-            <div v-else class="empty-state" style="padding: 60px 20px">
+              <!-- 团队成员列表（可展开/收起） -->
               <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 120px;
-                  height: 120px;
-                  margin: 0 auto 20px;
-                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  border-radius: 50%;
-                "
+                v-if="isTeamExpanded(team.id)"
+                style="padding: 20px"
+                class="team-members-section"
               >
-                <Icon
-                  icon="lucide:users"
-                  style="font-size: 48px; color: white"
-                />
+                <div
+                  v-if="team.members?.length > 0"
+                  style="
+                    background: #f9fafb;
+                    border-radius: 8px;
+                    padding: 16px;
+                  "
+                >
+                  <ElTable
+                    :data="team.members"
+                    style="width: 100%"
+                    :header-cell-style="{
+                      background: '#f5f7fa',
+                      color: '#606266',
+                      fontWeight: '600',
+                    }"
+                    :row-style="{ height: '56px' }"
+                    stripe
+                  >
+                    <ElTableColumn
+                      prop="userRealName"
+                      label="真实姓名"
+                      width="120"
+                    >
+                      <template #default="{ row }">
+                        {{ row.userRealName || row.userName || '-' }}
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn prop="userName" label="用户名" width="120">
+                      <template #default="{ row }">
+                        {{ row.userName || '-' }}
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn
+                      prop="teamRole"
+                      label="团队角色"
+                      width="120"
+                    >
+                      <template #default="{ row }">
+                        {{ row.teamRole || '-' }}
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn
+                      prop="permissionLevel"
+                      label="权限级别"
+                      width="100"
+                    >
+                      <template #default="{ row }">
+                        <ElTag
+                          :type="getPermissionTagType(row.permissionLevel)"
+                        >
+                          {{ getPermissionLabel(row.permissionLevel) }}
+                        </ElTag>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn prop="isActive" label="状态" width="80">
+                      <template #default="{ row }">
+                        <ElTag :type="row.isActive ? 'success' : 'danger'">
+                          {{ row.isActive ? '激活' : '禁用' }}
+                        </ElTag>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn
+                      prop="createTime"
+                      label="加入时间"
+                      width="160"
+                    >
+                      <template #default="{ row }">
+                        {{ formatDateTime(row.createTime) }}
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn
+                      label="操作"
+                      width="200"
+                      fixed="right"
+                      v-if="isCreator"
+                    >
+                      <template #default="{ row }">
+                        <ElButton
+                          size="small"
+                          @click="handleEditMember(row)"
+                          type="primary"
+                          plain
+                        >
+                          <Icon icon="lucide:pencil" class="mr-1" />
+                          编辑
+                        </ElButton>
+                        <ElPopconfirm
+                          title="确定要移除该成员吗？"
+                          @confirm="handleRemoveMember(team.id, row.id)"
+                        >
+                          <template #reference>
+                            <ElButton
+                              size="small"
+                              type="danger"
+                              plain
+                              style="margin-left: 8px"
+                            >
+                              <Icon icon="lucide:trash-2" class="mr-1" />
+                              移除
+                            </ElButton>
+                          </template>
+                        </ElPopconfirm>
+                      </template>
+                    </ElTableColumn>
+                  </ElTable>
+                </div>
+                <div v-else style="text-align: center; padding: 20px; color: #909399">
+                  该团队暂无成员
+                </div>
               </div>
-              <ElEmpty description="暂无工作团队" :image-size="0">
-                <template #description>
-                  <p style="margin-top: 16px; font-size: 14px; color: #909399">
-                    该案件暂无工作团队，点击上方"添加工作团队"按钮开始创建
-                  </p>
-                </template>
-              </ElEmpty>
             </div>
+          </div>
+          <div v-else-if="!workTeamLoading" style="text-align: center; padding: 40px; color: #909399">
+            暂无工作团队，点击上方"添加工作团队"按钮创建
+          </div>
+          <div v-else style="display: flex; justify-content: center; padding: 40px">
+            <ElSkeleton :rows="5" animated />
           </div>
         </div>
 
-      </ElCard>
-    </div>
-  </div>
+        <!-- 案件卷宗归档抽屉 -->
+        <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
 
-  <!-- 添加/编辑成员对话框 -->
-  <ElDialog
-    v-model="memberDialogVisible"
-    :title="memberDialogTitle"
-    width="600px"
-    destroy-on-close
-    :close-on-click-modal="false"
-  >
-          <div style="padding: 20px 0">
-            <ElForm :model="memberForm" label-width="100px">
-              <ElFormItem label="管理员机构" required>
-                <ElSelect
-                  v-model="selectedDeptId"
-                  placeholder="请选择管理员机构"
-                  style="width: 100%"
-                  filterable
-                  :loading="loadingAdministrators"
-                  clearable
-                  :disabled="memberDialogTitle === '编辑成员'"
-                >
-                  <ElOption
-                    v-for="admin in administrators"
-                    :key="admin.sepId"
-                    :label="admin.administratorName"
-                    :value="admin.sepId"
-                  />
-                </ElSelect>
-              </ElFormItem>
+        <!-- 资金管控抽屉 -->
+        <FundControlDrawer 
+          ref="fundControlDrawerRef" 
+          :case-id="caseId" 
+          :case-no="caseDetail?.案号 || ''"
+          :case-name="caseDetail?.案件名称 || ''"
+        />
 
-              <ElFormItem label="成员" required>
-                <ElSelect
-                  v-model="selectedUser"
-                  placeholder="请选择成员"
-                  style="width: 100%"
-                  filterable
-                  :loading="loadingUsers"
-                  :disabled="
-                    !selectedDeptId || memberDialogTitle === '编辑成员'
-                  "
-                  value-key="uPid"
-                  clearable
-                  multiple
-                >
-                  <ElOption
-                    v-for="user in availableUsers"
-                    :key="user.uPid"
-                    :label="user.uName"
-                    :value="user"
-                  />
-                </ElSelect>
-              </ElFormItem>
-
-              <ElFormItem label="团队角色" required>
-                <ElSelect
-                  v-model="memberForm.teamRole"
-                  placeholder="选择角色"
-                  style="width: 100%"
-                  clearable
-                >
-                  <ElOption
-                    v-for="role in teamRoles"
-                    :key="role.roleCode"
-                    :label="role.roleName"
-                    :value="role.roleCode"
-                  />
-                </ElSelect>
-              </ElFormItem>
-              <ElFormItem label="权限级别" required>
-                <ElSelect
-                  v-model="memberForm.permissionLevel"
-                  placeholder="选择权限"
-                  style="width: 100%"
-                  clearable
-                  :disabled="true"
-                >
-                  <ElOption label="查看" value="VIEW" />
-                  <ElOption label="编辑" value="EDIT" />
-                  <ElOption label="管理" value="ADMIN" />
-                </ElSelect>
-              </ElFormItem>
-            </ElForm>
-          </div>
-          <template #footer>
-            <div style="display: flex; gap: 12px; justify-content: flex-end">
-              <ElButton @click="memberDialogVisible = false" size="large">
-                取消
-              </ElButton>
-              <ElButton
-                type="primary"
-                @click="handleSaveMember"
-                :loading="savingMember"
-                size="large"
-              >
-                <Icon v-if="!savingMember" icon="lucide:check" class="mr-1" />
-                确定
-              </ElButton>
-            </div>
-          </template>
+        <!-- 资金管理组件 - 保留但不再使用 -->
+        <ElDialog
+          v-model="showAssetManagementDialog"
+          title="资产管理"
+          width="90%"
+          :close-on-click-modal="false"
+        >
+          <AssetManagement
+            :case-id="caseId"
+            :case-name="caseDetail?.案件名称 || ''"
+          />
         </ElDialog>
 
-        <!-- 权限详情对话框 -->
+        <!-- 公告发布对话框 -->
         <ElDialog
-          v-model="permissionDialogVisible"
-          :title="`${currentMemberName} 的权限详情`"
-          width="800px"
+          v-model="showAnnouncementDialog"
+          :title="dialogTitle"
+          width="80%"
           destroy-on-close
         >
-          <div v-if="currentMemberPermissions.length > 0">
-            <ElTable :data="currentMemberPermissions" style="width: 100%">
-              <ElTableColumn prop="moduleType" label="模块类型" width="200" />
-              <ElTableColumn
-                prop="permissionType"
-                label="权限类型"
-                width="150"
-              />
-              <ElTableColumn prop="isAllowed" label="是否允许" width="100">
-                <template #default="{ row }">
-                  <ElTag :type="row.isAllowed ? 'success' : 'danger'">
-                    {{ row.isAllowed ? '允许' : '禁止' }}
-                  </ElTag>
-                </template>
-              </ElTableColumn>
-              <ElTableColumn prop="status" label="状态" width="100">
-                <template #default="{ row }">
-                  <ElTag :type="row.status === 'ACTIVE' ? 'success' : 'danger'">
-                    {{ row.status === 'ACTIVE' ? '激活' : '禁用' }}
-                  </ElTag>
-                </template>
-              </ElTableColumn>
-              <ElTableColumn prop="createTime" label="创建时间" width="180">
-                <template #default="{ row }">
-                  {{ formatDateTime(row.createTime) }}
-                </template>
-              </ElTableColumn>
-            </ElTable>
-          </div>
-          <div v-else class="empty-permissions">
-            <ElEmpty description="暂无权限信息" />
-          </div>
-          <template #footer>
-            <ElButton type="primary" @click="permissionDialogVisible = false">
-              关闭
-            </ElButton>
-          </template>
-        </ElDialog>
-
-        <!-- 添加工作团队对话框 -->
-        <ElDialog
-          v-model="addTeamDialogVisible"
-          title="添加工作团队"
-          width="600px"
-        >
-          <ElForm label-width="120px" style="margin-top: 20px">
-            <ElFormItem label="团队名称" required>
+          <div class="dialog-form">
+            <ElFormItem label="公告标题" required>
               <ElInput
-                v-model="addTeamForm.teamName"
-                placeholder="请输入团队名称"
-                style="width: 100%"
+                v-model="announcementData.title"
+                placeholder="请输入公告标题"
+                size="large"
               />
             </ElFormItem>
-            <ElFormItem label="团队负责人" required>
+            <ElFormItem label="公告类型" required>
               <ElSelect
-                v-model="addTeamForm.teamLeaderId"
-                placeholder="请选择团队负责人"
-                style="width: 100%"
-                remote
-                filterable
-                :remote-method="handleSearchLeader"
-                :loading="teamLeaderLoading"
+                v-model="announcementData.announcement_type"
+                placeholder="请选择公告类型"
+                size="large"
               >
-                <ElOption
-                  v-for="leader in teamLeaderList"
-                  :key="leader.value"
-                  :label="leader.label"
-                  :value="leader.value"
-                />
+                <ElOption label="普通公告" value="ANNOUNCEMENT" />
+                <ElOption label="重要公告" value="IMPORTANT" />
+                <ElOption label="紧急公告" value="URGENT" />
               </ElSelect>
             </ElFormItem>
-            <ElFormItem label="团队描述">
-              <ElInput
-                v-model="addTeamForm.teamDescription"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入团队描述"
-                style="width: 100%"
+            <ElFormItem label="公告内容" required>
+              <RichTextEditor
+                v-model="announcementData.content"
+                placeholder="请输入公告内容"
               />
             </ElFormItem>
-          </ElForm>
+          </div>
           <template #footer>
             <div class="dialog-footer">
-              <ElButton @click="addTeamDialogVisible = false">取消</ElButton>
-              <ElButton type="primary" @click="handleCreateWorkTeam">
-                确定
-              </ElButton>
+              <ElButton @click="closeAnnouncementDialog">取消</ElButton>
+              <ElButton type="primary" @click="saveAnnouncement">保存</ElButton>
             </div>
           </template>
         </ElDialog>
@@ -2905,13 +2590,12 @@ const checkPermissions = async () => {
         <!-- 公告详情对话框 -->
         <ElDialog
           v-model="showDetailDialog"
-          title="公告详情"
+          :title="currentAnnouncementDetail?.title || '公告详情'"
           width="80%"
           destroy-on-close
         >
           <div class="announcement-detail-container">
             <div v-loading="detailLoading" class="detail-content-wrapper">
-              <!-- 加载完成且有数据 -->
               <div v-if="currentAnnouncementDetail" class="detail-content">
                 <div class="detail-meta">
                   <div class="meta-row">
@@ -2920,37 +2604,15 @@ const checkPermissions = async () => {
                       :type="
                         currentAnnouncementDetail.announcement_type === 'URGENT'
                           ? 'danger'
-                          : currentAnnouncementDetail.announcement_type ===
-                              'IMPORTANT'
-                            ? 'warning'
-                            : 'info'
+                          : currentAnnouncementDetail.announcement_type === 'IMPORTANT'
+                          ? 'warning'
+                          : 'info'
                       "
                       size="small"
                     >
-                      {{
-                        currentAnnouncementDetail.announcement_type === 'URGENT'
-                          ? '紧急'
-                          : currentAnnouncementDetail.announcement_type ===
-                              'IMPORTANT'
-                            ? '重要'
-                            : '普通'
-                      }}
-                    </ElTag>
-                  </div>
-                  <div class="meta-row">
-                    <span class="label">状态：</span>
-                    <ElTag
-                      :type="
-                        currentAnnouncementDetail.status === 'PUBLISHED'
-                          ? 'success'
-                          : 'warning'
-                      "
-                      size="small"
-                    >
-                      {{
-                        currentAnnouncementDetail.status === 'PUBLISHED'
-                          ? '已发布'
-                          : '草稿'
+                      {{ 
+                        currentAnnouncementDetail.announcement_type === 'URGENT' ? '紧急' : 
+                        currentAnnouncementDetail.announcement_type === 'IMPORTANT' ? '重要' : '普通' 
                       }}
                     </ElTag>
                   </div>
@@ -2960,27 +2622,11 @@ const checkPermissions = async () => {
                   </div>
                   <div class="meta-row">
                     <span class="label">发布时间：</span>
-                    <span>{{
-                      formatDateOnly(currentAnnouncementDetail.publish_time)
-                    }}</span>
+                    <span>{{ formatDateOnly(currentAnnouncementDetail.publish_time) }}</span>
                   </div>
                   <div class="meta-row">
-                    <span class="label">案号：</span>
-                    <span>{{ currentAnnouncementDetail.caseNumber }}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span class="label">主要负责人：</span>
-                    <span>{{
-                      currentAnnouncementDetail.principalOfficer
-                    }}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span class="label">浏览次数：</span>
-                    <span>{{
-                      currentAnnouncementDetail.viewCount ||
-                      currentAnnouncementDetail.view_count ||
-                      0
-                    }}</span>
+                    <span class="label">查看次数：</span>
+                    <span>{{ currentAnnouncementDetail.view_count || 0 }}</span>
                     <ElButton
                       link
                       type="primary"
@@ -2990,35 +2636,6 @@ const checkPermissions = async () => {
                     >
                       查看浏览记录
                     </ElButton>
-                  </div>
-                  <div class="meta-row">
-                    <span class="label">是否置顶：</span>
-                    <ElTag
-                      :type="
-                        currentAnnouncementDetail.is_top === 1
-                          ? 'danger'
-                          : 'info'
-                      "
-                      size="small"
-                    >
-                      {{
-                        currentAnnouncementDetail.is_top === 1
-                          ? '已置顶'
-                          : '未置顶'
-                      }}
-                    </ElTag>
-                  </div>
-                  <div
-                    v-if="
-                      currentAnnouncementDetail.is_top === 1 &&
-                      currentAnnouncementDetail.top_expire_time
-                    "
-                    class="meta-row"
-                  >
-                    <span class="label">置顶过期时间：</span>
-                    <span>{{
-                      formatDate(currentAnnouncementDetail.top_expire_time)
-                    }}</span>
                   </div>
                 </div>
 
@@ -3040,16 +2657,12 @@ const checkPermissions = async () => {
                   <h4 class="section-title">附件</h4>
                   <div class="attachment-list">
                     <div
-                      v-for="(
-                        attachment, index
-                      ) in currentAnnouncementDetail.attachments"
+                      v-for="(attachment, index) in currentAnnouncementDetail.attachments"
                       :key="index"
                       class="attachment-item"
                     >
                       <Icon icon="lucide:paperclip" class="attachment-icon" />
-                      <span class="attachment-name">{{
-                        attachment.file_name
-                      }}</span>
+                      <span class="attachment-name">{{ attachment.file_name }}</span>
                       <ElButton
                         link
                         type="primary"
@@ -3162,531 +2775,90 @@ const checkPermissions = async () => {
             </div>
           </div>
         </ElDialog>
-
-    <!-- 案件卷宗归档抽屉 -->
-    <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
-
-    <!-- 资金管控抽屉 -->
-    <FundControlDrawer 
-      ref="fundControlDrawerRef" 
-      :case-id="caseId" 
-      :case-no="caseDetail?.案号 || ''"
-      :case-name="caseDetail?.案件名称 || ''"
-    />
-
-    <!-- 资金管理组件 - 保留但不再使用 -->
-    <ElDialog
-      v-model="showAssetManagementDialog"
-      title="资产管理"
-      width="90%"
-      :close-on-click-modal="false"
-    >
-      <AssetManagement
-        :case-id="caseId"
-        :case-name="caseDetail?.案件名称 || ''"
-      />
-    </ElDialog>
-
-    <!-- 独立的公告详情对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showDetailDialog"
-      :title="currentAnnouncementDetail?.title || '公告详情'"
-      width="70%"
-      destroy-on-close
-      @open="
-        console.log('=== 独立公告详情弹窗被打开 ===', {
-          showDetailDialog,
-          currentAnnouncementDetail,
-        })
-      "
-      @close="console.log('=== 独立公告详情弹窗被关闭 ===')"
-    >
-      <div class="announcement-detail-container">
-        <div v-loading="detailLoading" class="detail-content-wrapper">
-          <!-- 加载完成且有数据 -->
-          <div v-if="currentAnnouncementDetail" class="detail-content">
-            <div class="detail-meta">
-              <div class="meta-row">
-                <span class="label">公告类型：</span>
-                <ElTag
-                  :type="
-                    currentAnnouncementDetail.announcement_type === 'URGENT'
-                      ? 'danger'
-                      : currentAnnouncementDetail.announcement_type ===
-                          'IMPORTANT'
-                        ? 'warning'
-                        : 'info'
-                  "
-                  size="small"
-                >
-                  {{
-                    currentAnnouncementDetail.announcement_type === 'URGENT'
-                      ? '紧急'
-                      : currentAnnouncementDetail.announcement_type ===
-                          'IMPORTANT'
-                        ? '重要'
-                        : '普通'
-                  }}
-                </ElTag>
-              </div>
-              <div class="meta-row">
-                <span class="label">状态：</span>
-                <ElTag
-                  :type="
-                    currentAnnouncementDetail.status === 'PUBLISHED'
-                      ? 'success'
-                      : 'warning'
-                  "
-                  size="small"
-                >
-                  {{
-                    currentAnnouncementDetail.status === 'PUBLISHED'
-                      ? '已发布'
-                      : '草稿'
-                  }}
-                </ElTag>
-              </div>
-              <div class="meta-row">
-                <span class="label">发布人：</span>
-                <span>{{ currentAnnouncementDetail.publisher_name }}</span>
-              </div>
-              <div class="meta-row">
-                <span class="label">发布时间：</span>
-                <span>{{
-                  formatDateOnly(currentAnnouncementDetail.publish_time)
-                }}</span>
-              </div>
-              <div class="meta-row">
-                <span class="label">案号：</span>
-                <span>{{ currentAnnouncementDetail.caseNumber }}</span>
-              </div>
-              <div class="meta-row">
-                <span class="label">主要负责人：</span>
-                <span>{{ currentAnnouncementDetail.principalOfficer }}</span>
-              </div>
-              <div class="meta-row">
-                <span class="label">浏览次数：</span>
-                <span>{{
-                  currentAnnouncementDetail.viewCount ||
-                  currentAnnouncementDetail.view_count ||
-                  0
-                }}</span>
-                <ElButton
-                  link
-                  type="primary"
-                  size="small"
-                  @click="viewAnnouncementViews(currentAnnouncementDetail)"
-                  style="margin-left: 12px"
-                >
-                  查看浏览记录
-                </ElButton>
-              </div>
-              <div class="meta-row">
-                <span class="label">是否置顶：</span>
-                <ElTag
-                  :type="
-                    currentAnnouncementDetail.is_top === 1 ? 'danger' : 'info'
-                  "
-                  size="small"
-                >
-                  {{
-                    currentAnnouncementDetail.is_top === 1 ? '已置顶' : '未置顶'
-                  }}
-                </ElTag>
-              </div>
-              <div
-                v-if="
-                  currentAnnouncementDetail.is_top === 1 &&
-                  currentAnnouncementDetail.top_expire_time
-                "
-                class="meta-row"
-              >
-                <span class="label">置顶过期时间：</span>
-                <span>{{
-                  formatDate(currentAnnouncementDetail.top_expire_time)
-                }}</span>
-              </div>
-            </div>
-
-            <div class="detail-body">
-              <h4 class="section-title">公告内容</h4>
-              <div
-                class="content-html"
-                v-html="currentAnnouncementDetail.content"
-              ></div>
-            </div>
-
-            <div
-              v-if="
-                currentAnnouncementDetail.attachments &&
-                currentAnnouncementDetail.attachments.length > 0
-              "
-              class="detail-attachments"
-            >
-              <h4 class="section-title">附件</h4>
-              <div class="attachment-list">
-                <div
-                  v-for="(
-                    attachment, index
-                  ) in currentAnnouncementDetail.attachments"
-                  :key="index"
-                  class="attachment-item"
-                >
-                  <Icon icon="lucide:paperclip" class="attachment-icon" />
-                  <span class="attachment-name">{{
-                    attachment.file_name
-                  }}</span>
-                  <ElButton
-                    link
-                    type="primary"
-                    size="small"
-                    @click="viewAttachment(attachment)"
-                    style="margin-right: 8px"
-                  >
-                    查看
-                  </ElButton>
-                  <ElButton
-                    link
-                    type="primary"
-                    size="small"
-                    @click="downloadAttachment(attachment)"
-                  >
-                    下载
-                  </ElButton>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </ElDialog>
-
-    <!-- 独立的浏览记录对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showViewsDialog"
-      title="浏览记录"
-      width="70%"
-      destroy-on-close
-      @open="
-        console.log('=== 独立浏览记录弹窗被打开 ===', {
-          showViewsDialog,
-          viewsList,
-        })
-      "
-      @close="console.log('=== 独立浏览记录弹窗被关闭 ===')"
-    >
-      <div v-loading="viewsLoading" class="views-container">
-        <!-- 表格内容始终渲染，即使数据为空 -->
-        <ElTable :data="viewsList" border stripe style="width: 100%">
-          <ElTableColumn prop="viewer_name" label="浏览人" width="150" />
-          <ElTableColumn prop="view_time" label="浏览时间" width="180">
-            <template #default="scope">
-              {{ formatDate(scope.row.view_time) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="ip_address" label="IP地址" width="150" />
-        </ElTable>
-
-        <!-- 分页始终渲染，v-if 只控制是否显示 -->
-        <div v-if="viewsTotal > 0" class="pagination-container">
-          <ElPagination
-            v-model:current-page="viewsCurrentPage"
-            v-model:page-size="viewsPageSize"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            :total="viewsTotal"
-            @size-change="handleViewsPageSizeChange"
-            @current-change="handleViewsPageChange"
-          />
-        </div>
-
-        <!-- 空状态：无论加载状态如何，当列表为空时显示 -->
-        <div v-if="viewsList.length === 0" class="empty-state">
-          <ElEmpty description="暂无浏览记录" />
-        </div>
-      </div>
-    </ElDialog>
-
-    <!-- 独立的公告编辑对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showAnnouncementDialog"
-      :title="dialogTitle"
-      width="80%"
-      destroy-on-close
-    >
-      <div class="announcement-editor-container">
-        <div class="mb-4">
-          <ElForm label-width="80px">
-            <ElFormItem label="公告标题" required>
-              <ElInput
-                v-model="announcementData.title"
-                placeholder="请输入公告标题"
-                size="large"
-              />
-            </ElFormItem>
-            <ElFormItem label="公告内容" required>
-              <RichTextEditor
-                v-model="announcementData.content"
-                placeholder="请输入公告内容"
-                height="400px"
-              />
-            </ElFormItem>
-            <ElFormItem label="公告类型">
-              <ElSelect
-                v-model="announcementData.announcement_type"
-                size="large"
-              >
-                <ElOption label="公告" value="ANNOUNCEMENT" />
-                <ElOption label="通知" value="NOTICE" />
-                <ElOption label="警告" value="WARNING" />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="公告状态">
-              <ElTag type="info" size="large">草稿</ElTag>
-            </ElFormItem>
-            <ElFormItem label="案号">
-              <ElInput
-                v-model="announcementData.caseNumber"
-                placeholder="请输入案号"
-                size="large"
-                disabled
-              />
-            </ElFormItem>
-            <ElFormItem label="主要负责人">
-              <ElSelect
-                v-model="announcementData.principalOfficer"
-                placeholder="请选择主要负责人"
-                size="large"
-                filterable
-                clearable
-              >
-                <ElOption
-                  v-for="member in announcementPrincipalOfficerOptions"
-                  :key="member.value"
-                  :label="member.label"
-                  :value="member.value"
-                />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="公告附件">
-              <ElUpload
-                v-model:file-list="announcementData.attachments"
-                :auto-upload="false"
-                :on-change="handleAttachmentChange"
-                :on-remove="handleAttachmentRemove"
-                :before-upload="handleAnnouncementFileBeforeUpload"
-                :limit="10"
-                multiple
-                class="attachment-upload"
-              >
-                <ElButton type="primary" size="small">
-                  <Icon icon="lucide:paperclip" class="mr-1" />
-                  添加附件
-                </ElButton>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    支持上传文档、图片等文件，单个文件不超过50MB
-                  </div>
-                </template>
-              </ElUpload>
-            </ElFormItem>
-          </ElForm>
-        </div>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <ElButton @click="closeAnnouncementDialog">取消</ElButton>
-          <ElButton type="primary" @click="saveAnnouncement">确定</ElButton>
-        </span>
-      </template>
-    </ElDialog>
-
-    <!-- 独立的撤回公告对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showRevokeDialog"
-      title="撤回公告"
-      width="500px"
-      destroy-on-close
-    >
-      <div class="revoke-dialog-container">
-        <ElForm label-width="80px">
-          <ElFormItem label="撤回原因">
-            <ElInput
-              v-model="revokeReason"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入撤回原因（可选）"
-            />
-          </ElFormItem>
-        </ElForm>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <ElButton @click="showRevokeDialog = false">取消</ElButton>
-          <ElButton type="danger" @click="confirmRevokeAnnouncement">
-            确认撤回
-          </ElButton>
-        </span>
-      </template>
-    </ElDialog>
-
-    <!-- 独立的置顶公告对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showTopDialog"
-      title="置顶公告"
-      width="500px"
-      destroy-on-close
-    >
-      <div class="top-dialog-container">
-        <ElForm label-width="120px">
-          <ElFormItem label="置顶过期时间" required>
-            <ElDatePicker
-              v-model="topExpireTime"
-              type="datetime"
-              placeholder="选择置顶过期时间"
-              size="large"
-              value-format="YYYY-MM-DDTHH:mm:ss"
-              style="width: 100%"
-            />
-          </ElFormItem>
-          <div style="margin-top: 10px; font-size: 12px; color: #909399">
-            <Icon icon="lucide:info" style="margin-right: 4px" />
-            设置置顶过期时间后，公告将在该时间后自动取消置顶
-          </div>
-        </ElForm>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <ElButton @click="showTopDialog = false">取消</ElButton>
-          <ElButton type="primary" @click="confirmTopAnnouncement">
-            确认置顶
-          </ElButton>
-        </span>
-      </template>
-    </ElDialog>
-
-    <!-- 独立的文件预览对话框 - 确保在所有标签页都能显示 -->
-    <ElDialog
-      v-model="showPreviewDialog"
-      :title="previewAttachment?.file_name || '文件预览'"
-      width="80%"
-      destroy-on-close
-    >
-      <div class="preview-dialog-container">
-        <div v-loading="previewLoading" class="preview-content">
-          <template v-if="isImage">
-            <div class="image-preview">
-              <img :src="previewUrl" alt="图片预览" />
-            </div>
-          </template>
-          <template v-else-if="isPdf">
-            <div class="pdf-preview">
-              <iframe :src="previewUrl" width="100%" height="600px"></iframe>
-            </div>
-          </template>
-          <template v-else-if="isText">
-            <div class="text-preview">
-              <ElInput
-                v-model="textContent"
-                type="textarea"
-                :rows="20"
-                readonly
-                placeholder="文本内容"
-              />
-            </div>
-          </template>
-          <template v-else>
-            <div class="other-preview">
-              <ElEmpty description="不支持的文件类型预览" />
-              <div class="preview-actions">
-                <ElButton
-                  type="primary"
-                  @click="downloadAttachment(previewAttachment)"
-                >
-                  下载文件
-                </ElButton>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-    </ElDialog>
+      </ElCard>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.case-detail-container {
-  padding: 20px;
+/* 页面基础样式 */
+.law-case-detail-wrapper {
+  padding: 24px;
+  min-height: 100vh;
+  background-color: #f5f7fa;
 }
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
-  margin: 0;
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  margin: 0;
   color: #1f2937;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 内容标签样式 */
 .content-tabs {
-  margin-bottom: 24px;
+  display: flex;
+  margin-top: 16px;
 }
 
 .tabs-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  background: white;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .tab-button {
-  margin-right: 8px;
-  margin-bottom: 8px;
+  padding: 8px 24px;
+  font-weight: 500;
+  font-size: 16px;
 }
 
+/* 卡片样式 */
 .main-content-card {
-  padding-bottom: 0;
-  margin-bottom: -30px;
-  --el-card-padding: var(--el-card-padding-t) var(--el-card-padding-r) 0 var(--el-card-padding-l);
-  --el-card-margin-bottom: -30px;
-}
-
-.case-info-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   margin-bottom: 24px;
 }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.case-info-card {
+  margin-top: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.loading-container {
-  padding: 20px 0;
-}
-
+/* 关键信息概览样式 */
 .key-info-overview {
   margin-bottom: 24px;
 }
 
 .key-info-item {
-  background-color: #f9fafb;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .key-info-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .key-info-label {
-  font-size: 14px;
   color: #6b7280;
   margin-bottom: 8px;
 }
@@ -3697,6 +2869,7 @@ const checkPermissions = async () => {
   color: #1f2937;
 }
 
+/* 详细信息样式 */
 .detail-info-grid {
   margin-top: 24px;
 }
@@ -3742,6 +2915,7 @@ const checkPermissions = async () => {
   word-break: break-word;
 }
 
+/* 工作团队样式 */
 .work-team-content {
   margin-bottom: 24px;
 }
@@ -3750,6 +2924,7 @@ const checkPermissions = async () => {
   margin-top: 16px;
 }
 
+/* 流程处理样式 */
 .process-content {
   margin-bottom: 24px;
 }
@@ -3764,6 +2939,7 @@ const checkPermissions = async () => {
   padding: 20px;
 }
 
+/* 公告管理样式 */
 .announcement-content {
   margin-bottom: 24px;
 }
@@ -3787,7 +2963,7 @@ const checkPermissions = async () => {
   margin-bottom: 20px;
 }
 
-/* 公告详情弹窗样式 */
+/* 公告详情样式 */
 .announcement-detail-container {
   padding: 20px;
 }
@@ -3983,6 +3159,7 @@ const checkPermissions = async () => {
   color: #909399;
 }
 
+/* 其他组件样式 */
 .debtor-info-content {
   margin-bottom: 24px;
 }
