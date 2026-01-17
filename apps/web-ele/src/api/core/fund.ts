@@ -112,7 +112,7 @@ export namespace FundApi {
     error: string;
   }
 
-  /** 资金分类查询参数 */
+  /** 费用类型查询参数 */
   export interface FundCategoryQueryParams {
     page?: number;
     size?: number;
@@ -120,7 +120,7 @@ export namespace FundApi {
     categoryType?: string;
   }
 
-  /** 资金分类信息 */
+  /** 费用类型信息 */
   export interface FundCategoryInfo {
     categoryId: number;
     categoryName: string;
@@ -132,7 +132,7 @@ export namespace FundApi {
     createUser: string;
   }
 
-  /** 资金分类列表响应 */
+  /** 费用类型列表响应 */
   export interface FundCategoryListResponse {
     data: {
       count: number;
@@ -360,7 +360,7 @@ export async function updateFundAccountStatusApi(
 }
 
 /**
- * 获取资金分类列表
+ * 获取费用类型列表
  */
 export async function getFundCategoryListApi(
   params: FundApi.FundCategoryQueryParams,

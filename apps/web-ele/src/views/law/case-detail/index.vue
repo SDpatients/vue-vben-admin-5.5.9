@@ -42,6 +42,7 @@ import {
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
+import { getDocumentListApi, createDocumentApi, uploadDocumentAttachmentApi } from '#/api/core/document-service';
 import {
   addTeamMemberApi,
   createWorkTeamApi,
@@ -148,6 +149,77 @@ const stages = [
 // 页面内容类型切换
 const activeTab = ref('caseInfo');
 
+// 工作日志相关状态
+const workLogs = ref<any[]>([]);
+const showWorkLogDialog = ref(false);
+const isEditingWorkLog = ref(false);
+const savingWorkLog = ref(false);
+const currentWorkLogId = ref<number | null>(null);
+const workLogFormRef = ref();
+const workLogForm = reactive({
+  content: '',
+});
+
+const workLogFormRules = {
+  content: [{ required: true, message: '请输入日志内容', trigger: 'blur' }],
+};
+
+// 工作日志方法
+const openAddWorkLogDialog = () => {
+  isEditingWorkLog.value = false;
+  currentWorkLogId.value = null;
+  workLogForm.content = '';
+  showWorkLogDialog.value = true;
+};
+
+const editWorkLog = (log: any) => {
+  isEditingWorkLog.value = true;
+  currentWorkLogId.value = log.id;
+  workLogForm.content = log.content;
+  showWorkLogDialog.value = true;
+};
+
+const saveWorkLog = async () => {
+  try {
+    await workLogFormRef.value?.validate();
+    savingWorkLog.value = true;
+    
+    const newLog = {
+      id: currentWorkLogId.value || Date.now(),
+      content: workLogForm.content,
+      createTime: new Date().toISOString(),
+      creator: '当前用户', // 实际应用中应从登录状态获取
+      updater: isEditingWorkLog.value ? '当前用户' : undefined,
+    };
+    
+    if (isEditingWorkLog.value && currentWorkLogId.value) {
+      // 更新日志
+      const index = workLogs.value.findIndex(log => log.id === currentWorkLogId.value);
+      if (index !== -1) {
+        workLogs.value[index] = newLog;
+      }
+    } else {
+      // 添加新日志
+      workLogs.value.unshift(newLog);
+    }
+    
+    ElMessage.success('日志保存成功');
+    showWorkLogDialog.value = false;
+  } catch (error) {
+    console.error('保存日志失败:', error);
+  } finally {
+    savingWorkLog.value = false;
+  }
+};
+
+const deleteWorkLog = (id: number) => {
+  const index = workLogs.value.findIndex(log => log.id === id);
+  if (index !== -1) {
+    workLogs.value.splice(index, 1);
+    ElMessage.success('日志删除成功');
+  }
+};
+
 // 监听activeTab变化，加载对应数据
 watch(activeTab, async (newTab, oldTab) => {
   console.log('activeTab变化:', oldTab, '->', newTab);
@@ -159,6 +231,8 @@ watch(activeTab, async (newTab, oldTab) => {
     fetchTeamRoles();
     await loadAdministrators();
     fetchAvailableUsers();
+  } else if (newTab === 'documentService') {
+    await fetchDocumentList();
   }
 });
 
@@ -224,6 +298,293 @@ const showAssetManagementDialog = ref(false);
 
 // 公告主要负责人候选列表
 const announcementPrincipalOfficerOptions = ref<any[]>([]);
+
+// 文书送达相关
+const documentList = ref<any[]>([]);
+const documentLoading = ref(false);
+const documentPagination = ref({
+  page: 1,
+  size: 10,
+  total: 0,
+});
+
+// 新增文书送达弹窗
+const showAddDocumentDialog = ref(false);
+
+// 文书表单数据
+const documentForm = reactive({
+  caseId: '',
+  caseName: '',
+  documentName: '',
+  documentType: '',
+  recipient: '',
+  recipientType: '',
+  recipientPhone: '',
+  recipientAddress: '',
+  serviceMethod: '',
+  serviceContent: '',
+  attachment: '',
+  sendStatus: '已发送',
+});
+
+// 文书类型选项
+const documentTypeOptions = [
+  { label: '起诉状', value: '起诉状' },
+  { label: '答辩状', value: '答辩状' },
+  { label: '上诉状', value: '上诉状' },
+  { label: '申请书', value: '申请书' },
+  { label: '通知书', value: '通知书' },
+  { label: '判决书', value: '判决书' },
+  { label: '裁定书', value: '裁定书' },
+  { label: '调解书', value: '调解书' },
+  { label: '决定书', value: '决定书' },
+  { label: '其他', value: '其他' },
+];
+
+// 受送达人类型选项
+const recipientTypeOptions = [
+  { label: '原告', value: '原告' },
+  { label: '被告', value: '被告' },
+  { label: '第三人', value: '第三人' },
+  { label: '代理人', value: '代理人' },
+  { label: '证人', value: '证人' },
+  { label: '鉴定人', value: '鉴定人' },
+  { label: '其他', value: '其他' },
+];
+
+// 送达方式选项
+const serviceMethodOptions = [
+  { label: '电子送达', value: '电子送达' },
+  { label: '邮寄送达', value: '邮寄送达' },
+  { label: '直接送达', value: '直接送达' },
+  { label: '公告送达', value: '公告送达' },
+  { label: '委托送达', value: '委托送达' },
+];
+
+// 上传文件相关
+const uploadedFiles = ref<
+  { file: File; fileId: string; name: string; url: string }[]
+>([]);
+const fileUploadLoading = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+
+// 文书表单验证规则
+const documentFormRules = {
+  documentName: [{ required: true, message: '请输入文书名称', trigger: 'blur' }],
+  documentType: [{ required: true, message: '请选择文书类型', trigger: 'change' }],
+  recipient: [{ required: true, message: '请输入受送达人', trigger: 'blur' }],
+  recipientType: [{ required: true, message: '请选择受送达人类型', trigger: 'change' }],
+  recipientPhone: [
+    { required: true, message: '请输入联系电话', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' },
+  ],
+  recipientAddress: [{ required: true, message: '请输入送达地址', trigger: 'blur' }],
+  serviceMethod: [{ required: true, message: '请选择送达方式', trigger: 'change' }],
+  serviceContent: [{ required: true, message: '请输入送达内容', trigger: 'blur' }],
+};
+
+// 获取文书列表
+const fetchDocumentList = async () => {
+  documentLoading.value = true;
+  try {
+    const response = await getDocumentListApi({
+      caseId: Number(caseId.value),
+      page: documentPagination.value.page,
+      size: documentPagination.value.size,
+    });
+    documentList.value = response.data.records.map((doc: any) => ({
+      ...doc,
+      id: doc.SEP_ID || doc.id,
+    }));
+    documentPagination.value.total = response.data.count;
+  } catch (error) {
+    ElMessage.error('获取文书列表失败');
+    console.error('获取文书列表失败:', error);
+  } finally {
+    documentLoading.value = false;
+  }
+};
+
+// 打开新增文书送达弹窗
+const openAddDocumentDialog = () => {
+  // 重置表单
+  resetDocumentForm();
+  // 设置案件ID和名称
+  documentForm.caseId = caseId.value;
+  documentForm.caseName = caseDetail.value?.案件名称 || '';
+  showAddDocumentDialog.value = true;
+};
+
+// 重置文书表单
+const resetDocumentForm = () => {
+  documentForm.documentName = '';
+  documentForm.documentType = '';
+  documentForm.recipient = '';
+  documentForm.recipientType = '';
+  documentForm.recipientPhone = '';
+  documentForm.recipientAddress = '';
+  documentForm.serviceMethod = '';
+  documentForm.serviceContent = '';
+  documentForm.attachment = '';
+  documentForm.sendStatus = '已发送';
+  
+  // 清理文件
+  uploadedFiles.value.forEach((file) => {
+    if (file.url && file.url.startsWith('blob:')) {
+      URL.revokeObjectURL(file.url);
+    }
+  });
+  uploadedFiles.value = [];
+};
+
+// 关闭新增文书送达弹窗
+const closeAddDocumentDialog = () => {
+  showAddDocumentDialog.value = false;
+  resetDocumentForm();
+};
+
+// 提交文书表单
+const submitDocumentForm = async () => {
+  // 表单验证
+  // 实际应用中应添加表单验证
+  
+  // 提交数据
+  fileUploadLoading.value = true;
+  try {
+    // 获取用户信息
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    const chatUserInfo = chatUserInfoStr ? JSON.parse(chatUserInfoStr) : {};
+    const userName = chatUserInfo.uName || chatUserInfo.user?.uName || '';
+    const userTel = chatUserInfo.uTel || chatUserInfo.user?.uTel || '';
+    
+    // 创建文书
+    const response = await createDocumentApi({
+      ...documentForm,
+      caseId: Number(caseId.value),
+      status: documentForm.sendStatus,
+      createBy: userName,
+      updateBy: userName,
+      deliverer: userName,
+      delivererPhone: userTel,
+    });
+    
+    if (response.status === '1') {
+      const documentId = response.data.SEP_ID;
+      
+      // 上传附件（如果有）
+      if (uploadedFiles.value.length > 0) {
+        for (const uploadedFile of uploadedFiles.value) {
+          await uploadDocumentAttachmentApi(documentId, uploadedFile.file);
+        }
+      }
+      
+      ElMessage.success('文书送达创建成功');
+      showAddDocumentDialog.value = false;
+      // 刷新列表
+      fetchDocumentList();
+    } else {
+      ElMessage.error(response.error || '文书送达创建失败');
+    }
+  } catch (error) {
+    ElMessage.error('文书送达创建失败');
+    console.error('创建文书失败:', error);
+  } finally {
+    fileUploadLoading.value = false;
+  }
+};
+
+// 处理文件变化
+const handleFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    const file = input.files[0];
+    // 文件验证
+    const maxFileSize = 10 * 1024 * 1024;
+    const allowedTypes = new Set(['.doc', '.docx', '.jpg', '.pdf', '.png', '.xls', '.xlsx']);
+    const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
+    
+    if (!allowedTypes.has(fileExtension)) {
+      ElMessage.error('不支持的文件类型，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件');
+      return;
+    }
+    
+    if (file.size > maxFileSize) {
+      ElMessage.error(`文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`);
+      return;
+    }
+    
+    try {
+      fileUploadLoading.value = true;
+      
+      // 暂存文件
+      uploadedFiles.value.push({
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+        fileId: Date.now().toString(),
+      });
+      
+      documentForm.attachment = file.name;
+      
+      fileUploadLoading.value = false;
+      ElMessage.success('文件已暂存，将在提交表单时上传');
+    } catch (error: any) {
+      fileUploadLoading.value = false;
+      ElMessage.error(`文件处理失败：${error.message || '网络错误'}`);
+    }
+  }
+  input.value = '';
+};
+
+// 删除文件
+const removeFile = (index: number) => {
+  const file = uploadedFiles.value[index];
+  if (file && file.url && file.url.startsWith('blob:')) {
+    URL.revokeObjectURL(file.url);
+  }
+  
+  uploadedFiles.value.splice(index, 1);
+  documentForm.attachment = '';
+  
+  ElMessage.success('文件已删除');
+};
+
+// 下载文件
+const downloadFile = (file: any) => {
+  if (file.url) {
+    const a = document.createElement('a');
+    a.href = file.url;
+    a.download = file.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+  }
+};
+
+// 查看文书详情
+const viewDocumentDetail = (documentId: string) => {
+  // 跳转到文书详情页面
+  router.push(`/service-of-documents/${documentId}`);
+};
+
+// 查看送达记录
+const viewServiceRecords = (documentId: string) => {
+  // 跳转到送达记录页面
+  router.push(`/service-of-documents/${documentId}/records`);
+};
+
+// 分页变化处理
+const handleDocumentPageChange = (page: number) => {
+  documentPagination.value.page = page;
+  fetchDocumentList();
+};
+
+// 页面大小变化处理
+const handleDocumentPageSizeChange = (size: number) => {
+  documentPagination.value.size = size;
+  documentPagination.value.page = 1;
+  fetchDocumentList();
+};
 
 // 预览附件
 const viewAttachment = async (attachment: any) => {
@@ -1842,6 +2203,12 @@ const checkPermissions = async () => {
               <ElRadioButton value="claimRegistration" class="tab-button">
                 债权登记表
               </ElRadioButton>
+              <ElRadioButton value="documentService" class="tab-button">
+                文书送达
+              </ElRadioButton>
+              <ElRadioButton value="workLog" class="tab-button">
+                工作日志
+              </ElRadioButton>
               <ElRadioButton value="announcement" class="tab-button">
                 公告管理
               </ElRadioButton>
@@ -2045,6 +2412,103 @@ const checkPermissions = async () => {
           class="claim-registration-content"
         >
           <ClaimRegistrationTabs :case-id="caseId" />
+        </div>
+
+        <!-- 文书送达 -->
+        <div v-if="activeTab === 'documentService'" class="document-service-content">
+          <ElCard shadow="hover">
+            <template #header>
+              <div class="card-header flex items-center justify-between">
+                <div class="flex items-center">
+                  <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                  <span class="text-lg font-semibold">文书送达</span>
+                </div>
+                <div class="flex space-x-2">
+                  <ElButton type="primary" @click="openAddDocumentDialog">
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    新增送达
+                  </ElButton>
+                </div>
+              </div>
+            </template>
+
+            <!-- 文书送达列表 -->
+            <div class="document-list-container">
+              <div v-if="documentLoading" class="loading-container">
+                <ElSkeleton :rows="5" animated />
+              </div>
+              <ElEmpty
+                v-else-if="documentList.length === 0"
+                description="暂无文书送达记录"
+              />
+              <div v-else>
+                <ElTable
+                  :data="documentList"
+                  border
+                  style="width: 100%"
+                  :row-key="(row) => row.id"
+                >
+                  <ElTableColumn prop="caseId" label="案号" />
+                  <ElTableColumn prop="caseName" label="案件名称" />
+                  <ElTableColumn prop="documentName" label="文书名称" />
+                  <ElTableColumn prop="recipient" label="受送达人" />
+                  <ElTableColumn prop="recipientType" label="受送达人类型" />
+                  <ElTableColumn prop="serviceMethod" label="送达方式" />
+                  <ElTableColumn prop="status" label="送达状态">
+                    <template #default="scope">
+                      <ElTag
+                        :type="
+                          scope.row.status === '已送达'
+                            ? 'success'
+                            : scope.row.status === '待签收'
+                              ? 'warning'
+                              : scope.row.status === '已签收'
+                                ? 'primary'
+                                : 'danger'
+                        "
+                      >
+                        {{ scope.row.status }}
+                      </ElTag>
+                    </template>
+                  </ElTableColumn>
+                  <ElTableColumn prop="serviceDate" label="送达日期" />
+                  <ElTableColumn prop="deliverer" label="送达人" />
+                  <ElTableColumn label="操作" width="150" fixed="right">
+                    <template #default="scope">
+                      <ElButton
+                        type="primary"
+                        size="small"
+                        @click="viewDocumentDetail(scope.row.id)"
+                        class="mr-2"
+                      >
+                        查看详情
+                      </ElButton>
+                      <ElButton
+                        type="success"
+                        size="small"
+                        @click="viewServiceRecords(scope.row.id)"
+                      >
+                        送达记录
+                      </ElButton>
+                    </template>
+                  </ElTableColumn>
+                </ElTable>
+
+                <!-- 分页 -->
+                <div class="pagination-container mt-4">
+                  <ElPagination
+                    :current-page="documentPagination.page"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :page-size="documentPagination.size"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="documentPagination.total"
+                    @size-change="handleDocumentPageSizeChange"
+                    @current-change="handleDocumentPageChange"
+                  />
+                </div>
+              </div>
+            </div>
+          </ElCard>
         </div>
 
         <!-- 公告管理 -->
@@ -2531,6 +2995,135 @@ const checkPermissions = async () => {
           </div>
         </div>
 
+        <!-- 工作日志卡片 -->
+        <div v-if="activeTab === 'workLog'" style="margin: 20px 0">
+          <div style="overflow: hidden; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1)">
+            <!-- 标题和操作按钮 -->
+            <div style="padding: 20px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); border-bottom: 1px solid #e9ecef;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%;">
+                    <Icon icon="lucide:calendar-check" style="font-size: 24px; color: white" />
+                  </div>
+                  <div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: white;">
+                      工作日志管理
+                    </h2>
+                    <p style="margin: 4px 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.8);">
+                      记录案件处理过程中的重要工作内容
+                    </p>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 10px">
+                  <ElButton 
+                    type="primary" 
+                    @click="openAddWorkLogDialog"
+                    style="color: #4CAF50; background: white; border: none"
+                  >
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    添加日志
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+
+            <!-- 工作日志列表 -->
+            <div style="padding: 20px;">
+              <div v-if="workLogs.length > 0" class="work-log-list">
+                <div 
+                  v-for="log in workLogs" 
+                  :key="log.id"
+                  style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4CAF50; transition: all 0.3s ease;"
+                  :style="{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }"
+                >
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="font-size: 14px; font-weight: 600; color: #666;">
+                      {{ formatDate(log.createTime) }}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                      <ElButton 
+                        type="primary" 
+                        size="small" 
+                        @click="editWorkLog(log)"
+                        style="padding: 4px 12px; font-size: 12px;"
+                      >
+                        <Icon icon="lucide:pencil" class="mr-1" />
+                        编辑
+                      </ElButton>
+                      <ElPopconfirm 
+                        title="确定要删除这条日志吗？" 
+                        @confirm="deleteWorkLog(log.id)"
+                      >
+                        <template #reference>
+                          <ElButton 
+                            type="danger" 
+                            size="small"
+                            style="padding: 4px 12px; font-size: 12px;"
+                          >
+                            <Icon icon="lucide:trash-2" class="mr-1" />
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElPopconfirm>
+                    </div>
+                  </div>
+                  <div style="margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: #333; white-space: pre-wrap;">
+                    {{ log.content }}
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #999;">
+                    <span>创建人：{{ log.creator }}</span>
+                    <span v-if="log.updater">更新人：{{ log.updater }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else style="text-align: center; padding: 40px; color: #909399;">
+                <Icon icon="lucide:book-open" style="font-size: 64px; margin-bottom: 16px; color: #e0e0e0;" />
+                <p>暂无工作日志</p>
+                <ElButton 
+                  type="primary" 
+                  @click="openAddWorkLogDialog"
+                  style="margin-top: 16px;"
+                >
+                  <Icon icon="lucide:plus" class="mr-1" />
+                  添加第一条日志
+                </ElButton>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 添加/编辑日志对话框 -->
+        <ElDialog
+          v-model="showWorkLogDialog"
+          :title="isEditingWorkLog ? '编辑工作日志' : '添加工作日志'"
+          width="600px"
+          destroy-on-close
+        >
+          <ElForm
+            ref="workLogFormRef"
+            :model="workLogForm"
+            :rules="workLogFormRules"
+            label-width="80px"
+          >
+            <ElFormItem label="日志内容" prop="content">
+              <ElInput
+                v-model="workLogForm.content"
+                type="textarea"
+                :rows="6"
+                placeholder="请输入工作日志内容"
+                resize="vertical"
+              />
+            </ElFormItem>
+          </ElForm>
+
+          <template #footer>
+            <ElButton @click="showWorkLogDialog = false">取消</ElButton>
+            <ElButton type="primary" @click="saveWorkLog" :loading="savingWorkLog">
+              保存
+            </ElButton>
+          </template>
+        </ElDialog>
+
         <!-- 案件卷宗归档抽屉 -->
         <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
 
@@ -2925,6 +3518,227 @@ const checkPermissions = async () => {
             </div>
           </div>
         </ElDialog>
+
+        <!-- 新增文书送达弹窗 -->
+        <ElDialog
+          v-model="showAddDocumentDialog"
+          title="新增文书送达"
+          width="80%"
+          destroy-on-close
+          :close-on-click-modal="false"
+          :close-on-press-escape="false"
+        >
+          <div class="document-add-dialog">
+            <ElCard>
+              <ElForm
+                :model="documentForm"
+                :rules="documentFormRules"
+                label-width="120px"
+                class="document-form"
+              >
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="案号">
+                      <ElInput
+                        v-model="documentForm.caseId"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="案件名称">
+                      <ElInput
+                        v-model="documentForm.caseName"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="文书名称" prop="documentName">
+                      <ElInput
+                        v-model="documentForm.documentName"
+                        placeholder="请输入文书名称"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="文书类型" prop="documentType">
+                      <ElSelect
+                        v-model="documentForm.documentType"
+                        placeholder="请选择文书类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in documentTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">受送达人信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人" prop="recipient">
+                      <ElInput
+                        v-model="documentForm.recipient"
+                        placeholder="请输入受送达人姓名"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人类型" prop="recipientType">
+                      <ElSelect
+                        v-model="documentForm.recipientType"
+                        placeholder="请选择受送达人类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in recipientTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="联系电话" prop="recipientPhone">
+                      <ElInput
+                        v-model="documentForm.recipientPhone"
+                        placeholder="请输入联系电话"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="送达地址" prop="recipientAddress">
+                      <ElInput
+                        v-model="documentForm.recipientAddress"
+                        placeholder="请输入送达地址"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">送达信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="送达方式" prop="serviceMethod">
+                      <ElSelect
+                        v-model="documentForm.serviceMethod"
+                        placeholder="请选择送达方式"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in serviceMethodOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="发送状态">
+                      <ElSelect
+                        v-model="documentForm.sendStatus"
+                        placeholder="请选择发送状态"
+                        style="width: 100%"
+                      >
+                        <ElOption label="已发送" value="已发送" />
+                        <ElOption label="暂存送达" value="暂存送达" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElFormItem label="送达内容" prop="serviceContent">
+                  <RichTextEditor
+                    v-model="documentForm.serviceContent"
+                    placeholder="请输入送达内容"
+                  />
+                </ElFormItem>
+
+                <ElDivider content-position="left">文书附件</ElDivider>
+
+                <ElFormItem label="上传文书">
+                  <div class="file-upload-container">
+                    <input
+                      ref="fileInput"
+                      type="file"
+                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
+                      class="file-input"
+                      @change="handleFileChange"
+                    />
+                    <ElButton
+                      type="primary"
+                      @click="fileInput?.click()"
+                      :loading="fileUploadLoading"
+                    >
+                      <Icon icon="lucide:upload" class="mr-1" />
+                      选择文件
+                    </ElButton>
+                    <span class="ml-2 text-sm text-gray-500">
+                      支持上传文档、图片等文件，单个文件不超过10MB
+                    </span>
+                  </div>
+
+                  <div v-if="uploadedFiles.length > 0" class="mt-3">
+                    <ElTable :data="uploadedFiles" style="width: 100%">
+                      <ElTableColumn prop="name" label="文件名称" />
+                      <ElTableColumn prop="size" label="文件大小" width="120">
+                        <template #default="scope">
+                          {{ ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(2) }} MB
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn label="操作" width="150">
+                        <template #default="scope">
+                          <ElButton
+                            type="primary"
+                            size="small"
+                            @click="downloadFile(scope.row)"
+                          >
+                            下载
+                          </ElButton>
+                          <ElButton
+                            type="danger"
+                            size="small"
+                            @click="removeFile(scope.$index)"
+                          >
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElTableColumn>
+                    </ElTable>
+                  </div>
+                </ElFormItem>
+
+                <ElFormItem>
+                  <div class="form-actions flex justify-end gap-3">
+                    <ElButton @click="closeAddDocumentDialog">取消</ElButton>
+                    <ElButton @click="resetDocumentForm">重置</ElButton>
+                    <ElButton type="primary" @click="submitDocumentForm" :loading="fileUploadLoading">
+                      提交
+                    </ElButton>
+                  </div>
+                </ElFormItem>
+              </ElForm>
+            </ElCard>
+          </div>
+        </ElDialog>
       </ElCard>
     </div>
   </div>
@@ -3235,6 +4049,38 @@ const checkPermissions = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 文书送达样式 */
+.document-service-content {
+  margin-bottom: 24px;
+}
+
+.document-list-container {
+  margin-top: 16px;
+}
+
+/* 新增文书送达弹窗样式 */
+.document-add-dialog {
+  padding: 0;
+}
+
+.document-form {
+  padding: 20px 0;
+}
+
+.form-actions {
+  padding: 20px 0 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.file-upload-container {
+  display: flex;
+  align-items: center;
+}
+
+.file-input {
+  display: none;
 }
 
 /* 浏览记录样式 */

@@ -139,7 +139,7 @@ const fetchDocumentDetail = async () => {
         </div>
       </template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="案件编号">
+        <el-descriptions-item label="案号">
           {{ documentDetail.caseId }}
         </el-descriptions-item>
         <el-descriptions-item label="案件名称">

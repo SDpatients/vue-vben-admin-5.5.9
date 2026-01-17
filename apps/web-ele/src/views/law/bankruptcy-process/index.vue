@@ -56,6 +56,13 @@ const fileList = ref<UploadUserFile[]>([]);
 const uploadProgress = ref(0);
 const uploading = ref(false);
 
+// 为每个模块添加展开状态
+const expandedModules = ref<Record<string, boolean>>({});
+
+const toggleModule = (moduleId: string) => {
+  expandedModules.value[moduleId] = !expandedModules.value[moduleId];
+};
+
 const stages = [
   {
     title: '一、申请与受理阶段',
@@ -92,20 +99,13 @@ const stages = [
       },
       {
         id: '1-5',
-        title: '文书送达',
-        description: '法院向申请人、债务人送达破产申请受理通知书等',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '1-6',
         title: '裁定受理',
         description: '法院裁定受理时同时指定管理人',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '1-7',
+        id: '1-6',
         title: '驳回/撤回',
         description: '材料不全限期补正，逾期视为撤回',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
@@ -127,83 +127,55 @@ const stages = [
       },
       {
         id: '2-2',
-        title: '工作日志',
-        description: '管理人建立工作日志，每日记录接管进度',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-3',
-        title: '文书送达',
-        description: '管理人向债务人高管送达接管通知书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-4',
         title: '资产评估',
         description: '管理人委托评估机构对接管的资产进行全面评估',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-5',
+        id: '2-3',
         title: '调查管理',
         description: '调查债务人财产状况，追回可撤销/无效行为转移的财产',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-6',
+        id: '2-4',
         title: '请示批复',
         description: '管理人向法院提交关于行使破产撤销权的请示',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-7',
-        title: '工作日志',
-        description: '详细记录财产调查线索、司法协助对接情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-8',
+        id: '2-5',
         title: '重整价值识别',
         description: '分析债务人核心资产、技术优势、市场潜力',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-9',
+        id: '2-6',
         title: '权限限制',
         description: '通知债务人有关人员配合工作',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-10',
-        title: '文书送达',
-        description: '送达限制债务人有关人员权利通知书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-11',
+        id: '2-7',
         title: '案件办理',
         description: '将债务人高管配合义务纳入重点管控事项',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-12',
+        id: '2-8',
         title: '破产费用',
         description: '单独建立破产费用台账，分类登记各项费用',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '2-13',
+        id: '2-9',
         title: '请示批复',
         description: '破产费用超出初步预算的请示',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
@@ -225,57 +197,36 @@ const stages = [
       },
       {
         id: '3-2',
-        title: '文书送达',
-        description: '通过邮寄、全国企业破产重整案件信息网公告等方式送达',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-3',
         title: '案件办理',
         description: '设立债权申报登记点，专人负责接待与材料审核',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '3-4',
+        id: '3-3',
         title: '债权申报',
         description: '债权人提交债权证明材料，管理人登记造册',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '3-5',
-        title: '工作日志',
-        description: '记录每日债权申报数量、债权类型、材料完整性情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-6',
+        id: '3-4',
         title: '核查异议',
         description: '债权表提交债权人会议核查，对有异议的债权提起确认之诉',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '3-7',
+        id: '3-5',
         title: '案件办理',
         description: '管理人组建债权核查小组，逐笔审核债权真实性',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '3-8',
+        id: '3-6',
         title: '债权确认',
         description: '法院裁定确认无异议债权，作为财产分配依据',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-9',
-        title: '文书送达',
-        description: '法院送达债权确认裁定书',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -302,48 +253,34 @@ const stages = [
       },
       {
         id: '4-3',
-        title: '文书送达',
-        description: '送达债权人会议通知书、会议决议裁定书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-4',
-        title: '工作日志',
-        description: '记录会议争议焦点、债权人意见、表决票数统计情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-5',
         title: '破产费用',
         description: '向债权人会议公示破产费用支出明细及台账',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '4-6',
+        id: '4-4',
         title: '后续会议',
         description: '管理人/债权人委员会/占债权总额1/4以上债权人可提议召开',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '4-7',
+        id: '4-5',
         title: '债权人会议',
         description: '就变价方案、分配方案的核心内容向债权人逐项说明',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '4-8',
+        id: '4-6',
         title: '请示批复',
         description: '重整计划等重大事项表决存在争议的请示',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '4-9',
+        id: '4-7',
         title: '决议生效',
         description: '决议经出席会议有表决权债权人过半数通过',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
@@ -365,41 +302,27 @@ const stages = [
       },
       {
         id: '5-2',
-        title: '文书送达',
-        description: '法院送达破产宣告裁定书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '5-3',
-        title: '工作日志',
-        description: '记录破产宣告裁定送达时间、债务人反馈情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '5-4',
         title: '效力产生',
         description: '债务人成为破产人，财产成为破产财产',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '5-5',
+        id: '5-3',
         title: '案件办理',
         description: '将破产宣告后的财产管理、变价工作纳入核心议程',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '5-6',
+        id: '5-4',
         title: '程序衔接',
         description: '宣告前可转入重整/和解，宣告后原则上不可逆转',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '5-7',
+        id: '5-5',
         title: '重整价值识别',
         description: '管理人补充出具债务人重整价值最终评估报告',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
@@ -449,50 +372,29 @@ const stages = [
       },
       {
         id: '6-6',
-        title: '工作日志',
-        description: '记录财产拍卖时间、竞拍方信息、成交价格及款项到账情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-7',
         title: '分配方案',
         description: '管理人拟订分配方案，经债权人会议表决通过',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '6-8',
+        id: '6-7',
         title: '破产费用',
         description: '在分配方案中明确破产费用、共益债务的清偿金额及顺序',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '6-9',
+        id: '6-8',
         title: '请示批复',
         description: '分配方案表决通过后，管理人向法院提交请示',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '6-10',
+        id: '6-9',
         title: '财产分配',
         description: '按法定顺序分配，提存未决债权分配额',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-11',
-        title: '文书送达',
-        description: '管理人向各债权人送达破产财产分配通知书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-12',
-        title: '工作日志',
-        description: '记录分配款项支付时间、金额、收款人信息',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -519,64 +421,36 @@ const stages = [
       },
       {
         id: '7-3',
-        title: '工作日志',
-        description: '记录终结申请提交时间、法院接收情况',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-4',
         title: '法院裁定',
         description: '法院15日内裁定终结，予以公告',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '7-5',
-        title: '文书送达',
-        description: '法院送达终结破产程序裁定书',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-6',
+        id: '7-4',
         title: '注销登记',
         description: '管理人自终结裁定之日起10日内办理注销登记',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '7-7',
+        id: '7-5',
         title: '案件办理',
         description: '整理债务人注销所需材料，全程办理注销手续',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '7-8',
-        title: '文书送达',
-        description: '将企业注销证明复印件送达法院及债权人委员会备案',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-9',
+        id: '7-6',
         title: '管理人终止',
         description: '注销登记完毕，管理人职责终止',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
-        id: '7-10',
+        id: '7-7',
         title: '报结记录',
         description: '管理人完善破产案件报结记录',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-11',
-        title: '工作日志',
-        description: '记录管理人职责终止时间、履职报告提交情况',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -697,71 +571,84 @@ const goBack = () => {
         
         <div v-loading="loading" class="modules-grid">
           <ElCard
-            v-for="module in currentStage.modules"
-            :key="module.id"
-            class="module-card"
-            shadow="hover"
-          >
-            <template #header>
-              <div class="module-header">
+          v-for="module in currentStage.modules"
+          :key="module.id"
+          class="module-card"
+          shadow="hover"
+        >
+          <template #header>
+            <div 
+              class="module-header" 
+              @click="toggleModule(module.id)"
+            >
+              <div class="module-title-section">
                 <div class="module-title">{{ module.title }}</div>
-                <div class="module-actions">
-                  <ElButton
-                    type="primary"
-                    size="small"
-                    @click="openAddDialog(module, activeStage)"
-                  >
-                    <Icon icon="lucide:plus" class="mr-1" />
-                    新增
-                  </ElButton>
-                </div>
+                <Icon 
+                  :icon="expandedModules[module.id] ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
+                  class="expand-icon"
+                />
               </div>
-            </template>
-
-            <div class="module-description">{{ module.description }}</div>
-
-            <div v-if="module.data.length > 0" class="module-data">
-              <div
-                v-for="item in module.data"
-                :key="item.id"
-                class="data-item"
-              >
-                <div class="data-header">
-                  <div class="data-title">{{ item.title }}</div>
-                  <div class="data-actions">
-                    <ElPopconfirm
-                      title="确定要删除这条记录吗？"
-                      @confirm="handleDelete(module, item)"
-                    >
-                      <template #reference>
-                        <ElButton type="danger" size="small" text>
-                          <Icon icon="lucide:trash-2" />
-                        </ElButton>
-                      </template>
-                    </ElPopconfirm>
-                  </div>
-                </div>
-                <div class="data-content">
-                  <div class="data-row">
-                    <span class="data-label">内容:</span>
-                    <span class="data-value">{{ item.content }}</span>
-                  </div>
-                  <div class="data-row">
-                    <span class="data-label">创建人:</span>
-                    <span class="data-value">{{ item.creator }}</span>
-                  </div>
-                  <div class="data-row">
-                    <span class="data-label">日期:</span>
-                    <span class="data-value">{{ item.date }}</span>
-                  </div>
-                </div>
+              <div class="module-actions">
+                <ElButton
+                  type="primary"
+                  size="small"
+                  @click.stop="openAddDialog(module, activeStage)"
+                >
+                  <Icon icon="lucide:plus" class="mr-1" />
+                  新增
+                </ElButton>
               </div>
             </div>
+          </template>
 
-            <div v-else class="module-empty">
-              <ElEmpty description="暂无数据" :image-size="80" />
+          <div class="module-description">{{ module.description }}</div>
+
+          <transition name="slide-down">
+            <div v-show="expandedModules[module.id]" class="module-content">
+              <div v-if="module.data.length > 0" class="module-data">
+                <div
+                  v-for="item in module.data"
+                  :key="item.id"
+                  class="data-item"
+                >
+                  <div class="data-header">
+                    <div class="data-title">{{ item.title }}</div>
+                    <div class="data-actions">
+                      <ElPopconfirm
+                        title="确定要删除这条记录吗？"
+                        @confirm="handleDelete(module, item)"
+                      >
+                        <template #reference>
+                          <ElButton type="danger" size="small" text>
+                            <Icon icon="lucide:trash-2" />
+                          </ElButton>
+                        </template>
+                      </ElPopconfirm>
+                    </div>
+                  </div>
+                  <div class="data-content">
+                    <div class="data-row">
+                      <span class="data-label">内容:</span>
+                      <span class="data-value">{{ item.content }}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">创建人:</span>
+                      <span class="data-value">{{ item.creator }}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">日期:</span>
+                      <span class="data-value">{{ item.date }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="module-empty">
+                <ElEmpty description="暂无数据" :image-size="80" />
+              </div>
             </div>
-          </ElCard>
+          </transition>
+        </ElCard>
         </div>
       </div>
     </div>
@@ -972,9 +859,9 @@ const goBack = () => {
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   overflow: hidden;
-  min-height: 400px;
-  height: 400px;
-  max-height: 400px;
+  min-height: auto;
+  height: auto;
+  max-height: none;
 }
 
 .module-card:hover {
@@ -997,6 +884,47 @@ const goBack = () => {
   letter-spacing: 0.3px;
 }
 
+.module-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.expand-icon {
+  font-size: 14px;
+  color: #6b7280;
+  transition: transform 0.3s ease;
+}
+
+.module-header:hover .expand-icon {
+  color: #667eea;
+}
+
+/* 折叠动画 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.module-content {
+  overflow: hidden;
+}
+
+/* 确保模块卡片内容区域有适当的内边距 */
+.module-content {
+  padding-top: 16px;
+}
+
 .module-actions {
   display: flex;
   gap: 10px;
@@ -1015,6 +943,12 @@ const goBack = () => {
 .module-data {
   max-height: 220px;
   overflow-y: auto;
+}
+
+/* 当没有数据时，移除滚动条 */
+.module-empty + .module-data {
+  max-height: none;
+  overflow-y: visible;
 }
 
 .data-item {
@@ -1080,6 +1014,15 @@ const goBack = () => {
 .module-empty {
   padding: 40px 20px;
   text-align: center;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 当模块卡片只有空状态时，确保不出现滚动条 */
+.module-card:has(.module-empty) {
+  overflow: visible;
 }
 
 .file-upload-content {
@@ -1091,6 +1034,9 @@ const goBack = () => {
   color: #667eea;
   margin-bottom: 20px;
   animation: float 3s ease-in-out infinite;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @keyframes float {
@@ -1106,6 +1052,15 @@ const goBack = () => {
   font-size: 15px;
   color: #4b5563;
   font-weight: 500;
+  text-align: center;
+}
+
+:deep(.el-upload-dragger) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .upload-text em {

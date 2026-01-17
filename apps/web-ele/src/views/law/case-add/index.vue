@@ -11,6 +11,7 @@ import { ElLoading, ElMessage, ElResult } from 'element-plus';
 import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
 import { getManagerListApi } from '#/api/core/manager';
+import { getUsersApi } from '#/api/core/user';
 
 
 const accessStore = useAccessStore();
@@ -29,8 +30,10 @@ const form = reactive<CaseApi.CreateCaseRequest>({
   acceptanceDate: '',
   caseSource: '',
   acceptanceCourt: '',
+  designatedJudge: '',
   designatedInstitution: '浙江浦源律师事务所',
   mainResponsiblePerson: '',
+  undertakingPersonnel: undefined,
   isSimplifiedTrial: 0,
   caseReason: '',
   caseProgress: 'FIRST',
@@ -42,8 +45,9 @@ const form = reactive<CaseApi.CreateCaseRequest>({
 const courtList = ref<{ label: string; value: string }[]>([]);
 const managerList = ref<{ label: string; sepId: string; value: string }[]>([]);
 const userList = ref<{ label: string; value: number }[]>([]);
+const userListLoading = ref(false);
 
-const uploadedFiles = ref<{ file: File; name: string; url: string }[]>([]);
+const uploadedFiles = ref<{ file: File; name: string; url: string; fileId: number }[]>([]);
 const maxFileSize = 10 * 1024 * 1024;
 const allowedTypes = new Set([
   '.doc',
@@ -98,8 +102,27 @@ const fetchManagerList = async () => {
   }
 };
 
+const fetchUserList = async () => {
+  try {
+    userListLoading.value = true;
+    const response = await getUsersApi('');
+    if (response.code === 200 && response.data) {
+      userList.value = response.data.map((user: any) => ({
+        label: user.name,
+        value: user.id,
+      }));
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    ElMessage.error('获取用户列表失败');
+  } finally {
+    userListLoading.value = false;
+  }
+};
+
 fetchCourtList();
 fetchManagerList();
+fetchUserList();
 
 const validateFile = (file: File) => {
   const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
@@ -194,8 +217,10 @@ const submitForm = async () => {
       acceptanceDate: form.acceptanceDate,
       caseSource: form.caseSource?.trim(),
       acceptanceCourt: form.acceptanceCourt,
+      designatedJudge: form.designatedJudge?.trim(),
       designatedInstitution: form.designatedInstitution?.trim(),
       mainResponsiblePerson: form.mainResponsiblePerson?.trim(),
+      undertakingPersonnel: form.undertakingPersonnel,
       isSimplifiedTrial: form.isSimplifiedTrial,
       caseReason: form.caseReason?.trim(),
       caseProgress: form.caseProgress,
@@ -258,7 +283,7 @@ const submitForm = async () => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div class="h-full w-full p-6">
     <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">新增破产案件</h1>
         <button
@@ -269,7 +294,7 @@ const submitForm = async () => {
         </button>
       </div>
 
-      <el-card shadow="hover" class="case-add-card">
+      <el-card shadow="hover" class="case-add-card w-full">
         <el-form
           ref="formRef"
           :model="form"
@@ -348,6 +373,18 @@ const submitForm = async () => {
                 </el-col>
 
                 <el-col :span="8">
+                  <el-form-item label="承办法官" prop="designatedJudge">
+                    <el-input
+                      v-model="form.designatedJudge"
+                      placeholder="请输入承办法官"
+                      maxlength="50"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="20">
+                <el-col :span="8">
                   <el-form-item label="指定机构" prop="designatedInstitution">
                     <el-input
                       v-model="form.designatedInstitution"
@@ -356,9 +393,7 @@ const submitForm = async () => {
                     />
                   </el-form-item>
                 </el-col>
-              </el-row>
 
-              <el-row :gutter="20">
                 <el-col :span="8">
                   <el-form-item label="主要负责人" prop="mainResponsiblePerson">
                     <el-input
@@ -369,6 +404,27 @@ const submitForm = async () => {
                   </el-form-item>
                 </el-col>
 
+                <el-col :span="8">
+                  <el-form-item label="承办人员" prop="undertakingPersonnel">
+                    <el-select
+                      v-model="form.undertakingPersonnel"
+                      placeholder="请选择承办人员"
+                      filterable
+                      :loading="userListLoading"
+                      style="width: 100%;"
+                    >
+                      <el-option
+                        v-for="user in userList"
+                        :key="user.value"
+                        :label="user.label"
+                        :value="user.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="20">
                 <el-col :span="8">
                   <el-form-item label="是否简化审" prop="isSimplifiedTrial">
                     <el-select
@@ -588,8 +644,8 @@ const submitForm = async () => {
 }
 
 .case-add-card {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .case-form {

@@ -1163,15 +1163,5 @@ onMounted(() => {
   margin-left: 8px;
 }
 
-:deep(.el-upload-dragger) {
-  background-color: white;
-  border: 2px dashed #dee2e6;
-  border-radius: 8px;
-  padding: 24px;
-  transition: all 0.2s ease;
 
-  &:hover {
-    border-color: #667eea;
-  }
-}
 </style>

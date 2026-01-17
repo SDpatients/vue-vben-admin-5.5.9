@@ -296,7 +296,7 @@ const cancel = () => {
       >
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="案件编号" prop="caseId">
+            <el-form-item label="案号" prop="caseId">
               <el-select
                 v-model="form.caseId"
                 placeholder="请选择案件"

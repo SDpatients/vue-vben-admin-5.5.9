@@ -121,7 +121,7 @@ onMounted(() => {
       <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5">
         <el-input
           v-model="searchForm.caseId"
-          placeholder="案件编号"
+          placeholder="案号"
           clearable
         />
         <el-input
@@ -194,7 +194,7 @@ onMounted(() => {
         style="width: 100%"
         :loading="loading"
       >
-        <el-table-column prop="caseId" label="案件编号" />
+        <el-table-column prop="caseId" label="案号" />
         <el-table-column prop="caseName" label="案件名称" />
         <el-table-column prop="documentName" label="文书名称" />
         <el-table-column prop="recipient" label="受送达人" />

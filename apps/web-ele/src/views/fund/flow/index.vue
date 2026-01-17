@@ -275,13 +275,23 @@ const saveFlow = async () => {
     if (valid) {
       loading.value = true;
       try {
+        // 获取选中的分类名称作为费用类型
+        const selectedCategory = categoryOptions.value.find(category => category.categoryId === flowForm.categoryId);
+        const expenseType = selectedCategory ? selectedCategory.categoryName : '';
+        
+        // 创建包含expenseType字段的请求数据
+        const requestData = {
+          ...flowForm,
+          expenseType: expenseType
+        };
+        
         if (flowForm.flowType === '收入') {
           // 新增资金流入
-          await addFundInflowApi(flowForm);
+          await addFundInflowApi(requestData);
           ElMessage.success('资金流入记录成功');
         } else {
           // 新增资金流出
-          await addFundOutflowApi(flowForm);
+          await addFundOutflowApi(requestData);
           ElMessage.success('资金流出记录成功');
         }
         dialogVisible.value = false;
@@ -438,7 +448,7 @@ onMounted(() => {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="categoryId" label="资金分类" width="150">
+          <el-table-column prop="categoryId" label="费用类型" width="150">
             <template #default="scope">
               {{ getCategoryName(scope.row.categoryId) }}
             </template>
@@ -547,7 +557,7 @@ onMounted(() => {
             { required: true, message: '请选择账户', trigger: 'change' },
           ],
           categoryId: [
-            { required: true, message: '请选择资金分类', trigger: 'change' },
+            { required: true, message: '请选择费用类型', trigger: 'change' },
           ],
           amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
           transactionDate: [
@@ -593,8 +603,8 @@ onMounted(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="资金分类" prop="categoryId">
-          <el-select v-model="flowForm.categoryId" placeholder="请选择资金分类">
+        <el-form-item label="费用类型" prop="categoryId">
+          <el-select v-model="flowForm.categoryId" placeholder="请选择费用类型">
             <el-option
               v-for="option in getFilteredCategoryOptions()"
               :key="option.value"
