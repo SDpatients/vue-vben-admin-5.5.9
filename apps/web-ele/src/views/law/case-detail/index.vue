@@ -47,6 +47,7 @@ import {
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
+import { getDocumentListApi, createDocumentApi, getDocumentDetailApi, updateDocumentApi, deleteDocumentApi } from '#/api/core/document-service';
 import {
   addTeamMemberApi,
   createWorkTeamApi,
@@ -252,6 +253,7 @@ watch(activeTab, async (newTab, oldTab) => {
 
       break;
     }
+    // 加载文书送达列表
     // No default
   }
 });
@@ -331,9 +333,14 @@ const documentPagination = ref({
 // 新增文书送达弹窗
 const showAddDocumentDialog = ref(false);
 
+// 编辑状态
+const isEditingDocument = ref(false);
+const currentDocumentId = ref<number | null>(null);
+
 // 文书表单数据
 const documentForm = reactive({
   caseId: '',
+  caseNumber: '',
   caseName: '',
   documentName: '',
   documentType: '',
@@ -425,16 +432,17 @@ const fetchDocumentList = async () => {
   try {
     const response = await getDocumentListApi({
       caseId: Number(caseId.value),
-      page: documentPagination.value.page,
-      size: documentPagination.value.size,
+      pageNum: documentPagination.value.page,
+      pageSize: documentPagination.value.size,
     });
-    documentList.value = response.data.records.map((doc: any) => ({
-      ...doc,
-      id: doc.SEP_ID || doc.id,
-    }));
-    documentPagination.value.total = response.data.count;
-  } catch (error) {
-    ElMessage.error('获取文书列表失败');
+    if (response.code === 200) {
+      documentList.value = response.data.list;
+      documentPagination.value.total = response.data.total;
+    } else {
+      throw new Error(response.message || '获取文书列表失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取文书列表失败');
     console.error('获取文书列表失败:', error);
   } finally {
     documentLoading.value = false;
@@ -445,14 +453,43 @@ const fetchDocumentList = async () => {
 const openAddDocumentDialog = () => {
   // 重置表单
   resetDocumentForm();
-  // 设置案件ID和名称
+  // 设置案件ID、案号和名称
   documentForm.caseId = caseId.value;
+  documentForm.caseNumber = caseDetail.value?.案号 || '';
   documentForm.caseName = caseDetail.value?.案件名称 || '';
+  showAddDocumentDialog.value = true;
+};
+
+// 编辑文书
+const editDocument = (row: any) => {
+  // 设置编辑状态
+  isEditingDocument.value = true;
+  currentDocumentId.value = row.id;
+  
+  // 填充表单数据
+  documentForm.caseId = row.caseId;
+  documentForm.caseNumber = row.caseNumber;
+  documentForm.caseName = row.caseName;
+  documentForm.documentName = row.documentName;
+  documentForm.documentType = row.documentType;
+  documentForm.recipient = row.recipientName;
+  documentForm.recipientType = row.recipientType;
+  documentForm.recipientPhone = row.contactPhone;
+  documentForm.recipientAddress = row.deliveryAddress;
+  documentForm.serviceMethod = row.deliveryMethod;
+  documentForm.serviceContent = row.deliveryContent;
+  documentForm.attachment = row.documentAttachment;
+  documentForm.sendStatus = row.sendStatus;
+  
+  // 打开弹窗
   showAddDocumentDialog.value = true;
 };
 
 // 重置文书表单
 const resetDocumentForm = () => {
+  documentForm.caseId = '';
+  documentForm.caseNumber = '';
+  documentForm.caseName = '';
   documentForm.documentName = '';
   documentForm.documentType = '';
   documentForm.recipient = '';
@@ -471,6 +508,10 @@ const resetDocumentForm = () => {
     }
   });
   uploadedFiles.value = [];
+  
+  // 重置编辑状态
+  isEditingDocument.value = false;
+  currentDocumentId.value = null;
 };
 
 // 关闭新增文书送达弹窗
@@ -487,43 +528,41 @@ const submitDocumentForm = async () => {
   // 提交数据
   fileUploadLoading.value = true;
   try {
-    // 获取用户信息
-    const chatUserInfoStr = localStorage.getItem('chat_user_info');
-    const chatUserInfo = chatUserInfoStr ? JSON.parse(chatUserInfoStr) : {};
-    const userName = chatUserInfo.uName || chatUserInfo.user?.uName || '';
-    const userTel = chatUserInfo.uTel || chatUserInfo.user?.uTel || '';
-
-    // 创建文书
-    const response = await createDocumentApi({
-      ...documentForm,
-      caseId: Number(caseId.value),
-      status: documentForm.sendStatus,
-      createBy: userName,
-      updateBy: userName,
-      deliverer: userName,
-      delivererPhone: userTel,
-    });
-
-    if (response.status === '1') {
-      const documentId = response.data.SEP_ID;
-
-      // 上传附件（如果有）
-      if (uploadedFiles.value.length > 0) {
-        for (const uploadedFile of uploadedFiles.value) {
-          await uploadDocumentAttachmentApi(documentId, uploadedFile.file);
-        }
-      }
-
-      ElMessage.success('文书送达创建成功');
+    // 准备请求数据，映射表单字段到API字段
+    const requestData = {
+      caseId: Number(documentForm.caseId),
+      documentName: documentForm.documentName,
+      documentType: documentForm.documentType,
+      recipientName: documentForm.recipient,
+      recipientType: documentForm.recipientType,
+      contactPhone: documentForm.recipientPhone,
+      deliveryAddress: documentForm.recipientAddress,
+      deliveryMethod: documentForm.serviceMethod,
+      deliveryContent: documentForm.serviceContent,
+      documentAttachment: documentForm.attachment,
+      sendStatus: documentForm.sendStatus,
+    };
+    
+    let response;
+    if (isEditingDocument.value && currentDocumentId.value) {
+      // 更新文书
+      response = await updateDocumentApi(currentDocumentId.value, requestData);
+    } else {
+      // 创建文书
+      response = await createDocumentApi(requestData);
+    }
+    
+    if (response.code === 200) {
+      ElMessage.success(isEditingDocument.value ? '文书送达更新成功' : '文书送达创建成功');
       showAddDocumentDialog.value = false;
       // 刷新列表
       fetchDocumentList();
     } else {
-      ElMessage.error(response.error || '文书送达创建失败');
+      ElMessage.error(response.message || (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'));
     }
-  } catch (error) {
-    ElMessage.error('文书送达创建失败');
-    console.error('创建文书失败:', error);
+  } catch (error: any) {
+    ElMessage.error(error.message || (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'));
+    console.error(isEditingDocument.value ? '更新文书失败:' : '创建文书失败:', error);
   } finally {
     fileUploadLoading.value = false;
   }
@@ -609,16 +648,58 @@ const downloadFile = (file: any) => {
   }
 };
 
+// 文书详情弹窗相关
+const showDocumentDetailDialog = ref(false);
+const documentDetail = ref<any>(null);
+const documentDetailLoading = ref(false);
+
 // 查看文书详情
-const viewDocumentDetail = (documentId: string) => {
-  // 跳转到文书详情页面
-  router.push(`/service-of-documents/${documentId}`);
+const viewDocumentDetail = async (documentId: number) => {
+  documentDetailLoading.value = true;
+  try {
+    const response = await getDocumentDetailApi(documentId);
+    if (response.code === 200) {
+      documentDetail.value = response.data;
+      showDocumentDetailDialog.value = true;
+    } else {
+      throw new Error(response.message || '获取文书详情失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取文书详情失败');
+    console.error('获取文书详情失败:', error);
+  } finally {
+    documentDetailLoading.value = false;
+  }
 };
 
 // 查看送达记录
 const viewServiceRecords = (documentId: string) => {
   // 跳转到送达记录页面
   router.push(`/service-of-documents/${documentId}/records`);
+};
+
+// 删除文书送达记录
+const deleteDocument = async (documentId: number) => {
+  try {
+    // 先获取文书详情，检查状态
+    const document = documentList.value.find(item => item.id === documentId);
+    if (document && document.status === 'PENDING') {
+      ElMessage.warning('待审批中的文书不能删除');
+      return;
+    }
+    
+    const response = await deleteDocumentApi(documentId);
+    if (response.code === 200) {
+      ElMessage.success('文书送达记录删除成功');
+      // 刷新列表
+      fetchDocumentList();
+    } else {
+      ElMessage.error(response.message || '文书送达记录删除失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文书送达记录删除失败');
+    console.error('删除文书送达记录失败:', error);
+  }
 };
 
 // 分页变化处理
@@ -2263,13 +2344,13 @@ const checkPermissions = async () => {
 </script>
 
 <template>
-  <div class="law-case-detail-wrapper" style="background-color: white">
+  <div class="law-case-detail-wrapper">
     <div>
       <!-- 白色卡片容器 -->
       <ElCard
         shadow="hover"
         class="main-content-card"
-        style="margin-bottom: -30px; padding-bottom: 0"
+        style="margin-bottom: 0; padding-bottom: 0"
       >
         <!-- 页面标题和返回按钮 -->
         <template #header>
@@ -2568,32 +2649,56 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   :row-key="(row) => row.id"
                 >
-                  <ElTableColumn prop="caseId" label="案号" />
-                  <ElTableColumn prop="caseName" label="案件名称" />
                   <ElTableColumn prop="documentName" label="文书名称" />
-                  <ElTableColumn prop="recipient" label="受送达人" />
-                  <ElTableColumn prop="recipientType" label="受送达人类型" />
-                  <ElTableColumn prop="serviceMethod" label="送达方式" />
-                  <ElTableColumn prop="status" label="送达状态">
+                  <ElTableColumn prop="recipientName" label="受送达人" />
+                  <ElTableColumn prop="recipientType" label="受送达人类型">
+                    <template #default="scope">
+                      {{ scope.row.recipientType === 'CREDITOR' ? '债权人' : scope.row.recipientType === 'DEBTOR' ? '债务人' : scope.row.recipientType === 'COURT' ? '法院' : scope.row.recipientType }}
+                    </template>
+                  </ElTableColumn>
+                  <ElTableColumn prop="deliveryMethod" label="送达方式">
+                    <template #default="scope">
+                      {{ scope.row.deliveryMethod === 'ELECTRONIC' ? '电子送达' : scope.row.deliveryMethod === 'MAIL' ? '邮寄送达' : scope.row.deliveryMethod === 'IN_PERSON' ? '直接送达' : scope.row.deliveryMethod === 'PUBLICATION' ? '公告送达' : scope.row.deliveryMethod }}
+                    </template>
+                  </ElTableColumn>
+                  <ElTableColumn prop="sendStatus" label="送达状态">
                     <template #default="scope">
                       <ElTag
                         :type="
-                          scope.row.status === '已送达'
+                          scope.row.sendStatus === 'COMPLETED'
                             ? 'success'
-                            : scope.row.status === '待签收'
+                            : scope.row.sendStatus === 'PENDING'
                               ? 'warning'
-                              : scope.row.status === '已签收'
+                              : scope.row.sendStatus === 'SENT'
                                 ? 'primary'
-                                : 'danger'
+                                : scope.row.sendStatus === 'FAILED'
+                                  ? 'danger'
+                                  : 'info'
                         "
                       >
-                        {{ scope.row.status }}
+                        {{ scope.row.sendStatus === 'COMPLETED' ? '已送达' : scope.row.sendStatus === 'PENDING' ? '待送达' : scope.row.sendStatus === 'SENT' ? '已发送' : scope.row.sendStatus === 'FAILED' ? '送达失败' : scope.row.sendStatus }}
                       </ElTag>
                     </template>
                   </ElTableColumn>
-                  <ElTableColumn prop="serviceDate" label="送达日期" />
-                  <ElTableColumn prop="deliverer" label="送达人" />
-                  <ElTableColumn label="操作" width="150" fixed="right">
+                  <ElTableColumn prop="deliveryTime" label="送达日期" />
+                  <ElTableColumn prop="status" label="审核状态">
+                    <template #default="scope">
+                      <ElTag
+                        :type="
+                          scope.row.status === 'APPROVED'
+                            ? 'success'
+                            : scope.row.status === 'PENDING'
+                              ? 'warning'
+                              : scope.row.status === 'REJECTED'
+                                ? 'danger'
+                                : 'info'
+                        "
+                      >
+                        {{ scope.row.status === 'APPROVED' ? '已通过' : scope.row.status === 'PENDING' ? '待审批' : scope.row.status === 'REJECTED' ? '已驳回' : scope.row.status }}
+                      </ElTag>
+                    </template>
+                  </ElTableColumn>
+                  <ElTableColumn label="操作" width="200" fixed="right">
                     <template #default="scope">
                       <ElButton
                         type="primary"
@@ -2604,12 +2709,28 @@ const checkPermissions = async () => {
                         查看详情
                       </ElButton>
                       <ElButton
-                        type="success"
+                        type="warning"
                         size="small"
-                        @click="viewServiceRecords(scope.row.id)"
+                        @click="editDocument(scope.row)"
+                        class="mr-2"
+                        v-if="scope.row.sendStatus === '暂存送达'"
                       >
-                        送达记录
+                        编辑
                       </ElButton>
+                      <ElPopconfirm
+                        v-if="scope.row.status !== 'PENDING'"
+                        title="确定要删除该文书送达记录吗？"
+                        @confirm="deleteDocument(scope.row.id)"
+                      >
+                        <template #reference>
+                          <ElButton
+                            type="danger"
+                            size="small"
+                          >
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElPopconfirm>
                     </template>
                   </ElTableColumn>
                 </ElTable>
@@ -3097,7 +3218,7 @@ const checkPermissions = async () => {
         </div>
 
         <!-- 工作日志卡片 -->
-        <div v-if="activeTab === 'workLog'" style="margin: 20px 0">
+        <div v-if="activeTab === 'workLog'">
           <div
             style="
               overflow: hidden;
@@ -3759,7 +3880,7 @@ const checkPermissions = async () => {
                   <ElCol :span="12">
                     <ElFormItem label="案号">
                       <ElInput
-                        v-model="documentForm.caseId"
+                        v-model="documentForm.caseNumber"
                         placeholder="自动填充"
                         disabled
                       />
@@ -3967,6 +4088,153 @@ const checkPermissions = async () => {
             </ElCard>
           </div>
         </ElDialog>
+
+        <!-- 文书详情弹窗 -->
+        <ElDialog
+          v-model="showDocumentDetailDialog"
+          title="文书详情"
+          width="800px"
+          destroy-on-close
+        >
+          <template #footer>
+            <div class="dialog-footer">
+              <ElButton @click="showDocumentDetailDialog = false">关闭</ElButton>
+            </div>
+          </template>
+          
+          <div v-if="documentDetailLoading" class="loading-container">
+            <ElSkeleton :rows="8" animated />
+          </div>
+          
+          <div v-else-if="documentDetail" class="document-detail-container">
+            <div class="detail-section">
+              <h3 class="section-title">基本信息</h3>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="detail-label">文书名称：</span>
+                  <span class="detail-value">{{ documentDetail.documentName }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">文书类型：</span>
+                  <span class="detail-value">{{ documentDetail.documentType }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">案号：</span>
+                  <span class="detail-value">{{ documentDetail.caseNumber }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">案件名称：</span>
+                  <span class="detail-value">{{ documentDetail.caseName }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="detail-section">
+              <h3 class="section-title">送达信息</h3>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="detail-label">受送达人：</span>
+                  <span class="detail-value">{{ documentDetail.recipientName }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">受送达人类型：</span>
+                  <span class="detail-value">{{ documentDetail.recipientType === 'CREDITOR' ? '债权人' : documentDetail.recipientType === 'DEBTOR' ? '债务人' : documentDetail.recipientType === 'COURT' ? '法院' : documentDetail.recipientType }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">联系电话：</span>
+                  <span class="detail-value">{{ documentDetail.contactPhone || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">送达地址：</span>
+                  <span class="detail-value">{{ documentDetail.deliveryAddress || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">送达方式：</span>
+                  <span class="detail-value">{{ documentDetail.deliveryMethod === 'ELECTRONIC' ? '电子送达' : documentDetail.deliveryMethod === 'MAIL' ? '邮寄送达' : documentDetail.deliveryMethod === 'IN_PERSON' ? '直接送达' : documentDetail.deliveryMethod === 'PUBLICATION' ? '公告送达' : documentDetail.deliveryMethod }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">送达状态：</span>
+                  <span class="detail-value">
+                    <ElTag
+                      :type="
+                        documentDetail.sendStatus === 'COMPLETED'
+                          ? 'success'
+                          : documentDetail.sendStatus === 'PENDING'
+                            ? 'warning'
+                            : documentDetail.sendStatus === 'SENT'
+                              ? 'primary'
+                              : documentDetail.sendStatus === 'FAILED'
+                                ? 'danger'
+                                : 'info'
+                      "
+                    >
+                      {{ documentDetail.sendStatus === 'COMPLETED' ? '已送达' : documentDetail.sendStatus === 'PENDING' ? '待送达' : documentDetail.sendStatus === 'SENT' ? '已发送' : documentDetail.sendStatus === 'FAILED' ? '送达失败' : documentDetail.sendStatus }}
+                    </ElTag>
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">审核状态：</span>
+                  <span class="detail-value">
+                    <ElTag
+                      :type="
+                        documentDetail.status === 'APPROVED'
+                          ? 'success'
+                          : documentDetail.status === 'PENDING'
+                            ? 'warning'
+                            : documentDetail.status === 'REJECTED'
+                              ? 'danger'
+                              : 'info'
+                      "
+                    >
+                      {{ documentDetail.status === 'APPROVED' ? '已通过' : documentDetail.status === 'PENDING' ? '待审批' : documentDetail.status === 'REJECTED' ? '已驳回' : documentDetail.status }}
+                    </ElTag>
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="detail-section">
+              <h3 class="section-title">送达内容</h3>
+              <div class="detail-content" v-html="documentDetail.deliveryContent"></div>
+            </div>
+            
+            <div class="detail-section" v-if="documentDetail.documentAttachment">
+              <h3 class="section-title">附件信息</h3>
+              <div class="attachment-info">
+                <Icon icon="lucide:file-pdf" class="mr-2" />
+                <a :href="documentDetail.documentAttachment" target="_blank" rel="noopener noreferrer" class="attachment-link">
+                  查看附件
+                </a>
+              </div>
+            </div>
+            
+            <div class="detail-section">
+              <h3 class="section-title">时间信息</h3>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="detail-label">创建时间：</span>
+                  <span class="detail-value">{{ formatDateTime(documentDetail.createTime) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">送达时间：</span>
+                  <span class="detail-value">{{ formatDateTime(documentDetail.deliveryTime) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">发送时间：</span>
+                  <span class="detail-value">{{ formatDateTime(documentDetail.sendTime) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">更新时间：</span>
+                  <span class="detail-value">{{ formatDateTime(documentDetail.updateTime) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div v-else class="empty-detail">
+            <ElEmpty description="暂无文书详情" />
+          </div>
+        </ElDialog>
       </ElCard>
     </div>
   </div>
@@ -3975,9 +4243,9 @@ const checkPermissions = async () => {
 <style scoped>
 /* 页面基础样式 */
 .law-case-detail-wrapper {
-  padding: 24px;
+  padding: 0;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: white;
 }
 
 .page-header {
@@ -4005,7 +4273,8 @@ const checkPermissions = async () => {
 /* 内容标签样式 */
 .content-tabs {
   display: flex;
-  margin-top: 16px;
+  margin-top: 6px;
+  margin-bottom: 2px;
 }
 
 .tabs-container {
@@ -4024,13 +4293,13 @@ const checkPermissions = async () => {
 /* 卡片样式 */
 .main-content-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  margin-bottom: 24px;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
 }
 
 .case-info-card {
-  margin-top: 24px;
+  margin-top: 0px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
@@ -4109,7 +4378,7 @@ const checkPermissions = async () => {
 
 /* 工作团队样式 */
 .work-team-content {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .team-members-container {
@@ -4118,7 +4387,7 @@ const checkPermissions = async () => {
 
 /* 流程处理样式 */
 .process-content {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .stage-tabs {
@@ -4133,7 +4402,7 @@ const checkPermissions = async () => {
 
 /* 公告管理样式 */
 .announcement-content {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .announcements-container {
@@ -4281,7 +4550,7 @@ const checkPermissions = async () => {
 
 /* 文书送达样式 */
 .document-service-content {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .document-list-container {
@@ -4385,6 +4654,80 @@ const checkPermissions = async () => {
 
 /* 其他组件样式 */
 .debtor-info-content {
+  margin-bottom: 0;
+}
+
+/* 文书详情弹窗样式 */
+.document-detail-container {
+  padding: 10px 0;
+}
+
+.detail-section {
   margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #6b7280;
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.detail-content {
+  background-color: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  line-height: 1.6;
+}
+
+.attachment-info {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.attachment-link {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.attachment-link:hover {
+  text-decoration: underline;
+}
+
+.empty-detail {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
 }
 </style>

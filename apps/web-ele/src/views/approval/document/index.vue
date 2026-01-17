@@ -403,10 +403,10 @@ onMounted(() => {
             </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="关键词">
+          <ElFormItem label="案号">
             <ElInput
               v-model="searchForm.keyword"
-              placeholder="请输入文书标题或提交人"
+              placeholder="请输入案号"
               clearable
               style="width: 200px"
             />

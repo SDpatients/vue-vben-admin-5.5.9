@@ -22,15 +22,15 @@ export interface NotificationListResponse {
 }
 
 export const notificationApi = {
-  getNotificationList: (page: number = 1, pageSize: number = 20) => {
-    return requestClient.get<NotificationListResponse>('/api/notification/list', {
-      params: { page, pageSize },
+  getNotificationList: (userId: number, pageNum: number = 0, pageSize: number = 20) => {
+    return requestClient.get<NotificationListResponse>('/api/v1/notification/list', {
+      params: { userId, pageNum, pageSize },
     });
   },
 
   getUnreadCount: () => {
     return requestClient.get<{ code: string; message: string; data: number }>(
-      '/api/notification/unread/count',
+      '/api/v1/notification/count/unread',
     );
   },
 
@@ -45,10 +45,10 @@ export const notificationApi = {
   },
 
   markAllAsRead: () => {
-    return requestClient.put('/api/notification/read/all');
+    return requestClient.put('/api/v1/notification/read/all');
   },
 
   deleteNotification: (id: number) => {
-    return requestClient.delete(`/api/notification/${id}`);
+    return requestClient.delete(`/api/v1/notification/${id}`);
   },
 };

@@ -1,7 +1,10 @@
 import { createRequestClient } from '#/api/request';
+import { useAppConfig } from '@vben/hooks';
 
-// 文书服务管理专用客户端，使用指定的基础URL
-const documentRequestClient = createRequestClient('http://192.168.0.120:8080', {
+const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+// 文书服务管理专用客户端，使用默认配置
+const documentRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
 });
 
@@ -17,270 +20,150 @@ documentRequestClient.addRequestInterceptor({
 });
 
 export namespace DocumentServiceApi {
-  /** 文书信息 */
+  /** 文书送达信息 */
   export interface Document {
-    SEP_ID: string;
-    caseId: string;
+    id: number;
+    caseId: number;
+    caseNumber: string;
     caseName: string;
     documentName: string;
     documentType: string;
-    recipient: string;
+    recipientName: string;
     recipientType: string;
-    recipientPhone: string;
-    recipientAddress: string;
-    serviceMethod: string;
-    serviceDate: string;
-    deliverer: string;
-    delivererPhone: string;
-    status: string;
-    serviceContent: string;
+    contactPhone: string;
+    deliveryAddress: string;
+    deliveryMethod: string;
     sendStatus: string;
+    deliveryContent: string;
+    documentAttachment: string;
+    sendTime: string | null;
+    deliveryTime: string | null;
+    failureReason: string | null;
+    status: string;
     createTime: string;
     updateTime: string;
-  }
-
-  /** 文书附件信息 */
-  export interface DocumentAttachment {
-    SEP_ID: string;
-    fileName: string;
-    fileSize: number;
-    fileType: string;
-    uploadTime: string;
-  }
-
-  /** 送达记录信息 */
-  export interface ServiceRecord {
-    SEP_ID: string;
-    serviceMethod: string;
-    serviceDate: string;
-    serviceResult: string;
-    serviceContent: string;
-    operator: string;
-    remark: string;
+    createUserId: number;
+    updateUserId: number;
   }
 
   /** 文书列表响应 */
   export interface DocumentListResponse {
+    code: number;
+    message: string;
     data: {
-      count: number;
-      records: Document[];
+      total: number;
+      list: Document[];
     };
-    status: string;
-    error: string;
   }
 
   /** 文书详情响应 */
   export interface DocumentDetailResponse {
-    data: Document & {
-      attachments?: DocumentAttachment[];
-    };
-    status: string;
-    error: string;
+    code: number;
+    message: string;
+    data: Document;
   }
 
   /** 文书创建响应 */
   export interface DocumentCreateResponse {
+    code: number;
+    message: string;
     data: {
-      createTime: null | string;
-      SEP_ID: string;
+      deliveryId: number;
     };
-    status: string;
-    error: string;
   }
 
   /** 创建/更新文书请求体 */
   export interface DocumentRequest {
-    caseId: string;
-    caseName: string;
+    caseId: number;
     documentName: string;
-    documentType: string;
-    recipient: string;
-    recipientType: string;
-    recipientPhone: string;
-    recipientAddress: string;
-    serviceMethod: string;
-    serviceContent: string;
-    sendStatus: string;
-    status: string;
-    createBy: string;
-    updateBy: string;
-    deliverer: string;
-    delivererPhone: string;
+    documentType?: string;
+    recipientName: string;
+    recipientType?: string;
+    contactPhone?: string;
+    deliveryAddress?: string;
+    deliveryMethod?: string;
+    deliveryContent?: string;
+    documentAttachment?: string;
   }
 
-  /** 更新文书状态请求体 */
-  export interface UpdateDocumentStatusRequest {
-    status: string;
-    remark?: string;
-  }
-
-  /** 送达记录列表响应 */
-  export interface ServiceRecordListResponse {
-    data: {
-      count: number;
-      records: ServiceRecord[];
-    };
-    status: string;
-    error: string;
-  }
-
-  /** 添加送达记录请求体 */
-  export interface AddServiceRecordRequest {
-    serviceMethod: string;
-    serviceResult: string;
-    serviceContent: string;
-    operator: string;
-    remark?: string;
-  }
-
-  /** 送达统计数据响应 */
-  export interface ServiceStatisticsResponse {
-    data: {
-      failedCount: number;
-      methodDistribution: Record<string, number>;
-      pendingCount: number;
-      successCount: number;
-      totalCount: number;
-    };
-    status: string;
-    error: string;
+  /** 更新文书请求体 */
+  export interface UpdateDocumentRequest {
+    caseId?: number;
+    caseNumber?: string;
+    caseName?: string;
+    documentName?: string;
+    documentType?: string;
+    recipientName?: string;
+    recipientType?: string;
+    contactPhone?: string;
+    deliveryAddress?: string;
+    deliveryMethod?: string;
+    sendStatus?: string;
+    deliveryContent?: string;
+    documentAttachment?: string;
+    failureReason?: string;
   }
 }
 
 /**
- * 创建文书
+ * 创建文书送达
  */
 export async function createDocumentApi(
   data: DocumentServiceApi.DocumentRequest,
 ) {
   return documentRequestClient.post<DocumentServiceApi.DocumentCreateResponse>(
-    '/api/document/create',
+    '/api/v1/document-delivery',
     data,
   );
 }
 
 /**
- * 获取文书列表
+ * 获取文书送达列表（分页）
  */
 export async function getDocumentListApi(params?: {
-  caseId?: string;
-  documentName?: string;
-  page?: number;
-  senderType?: string;
+  pageNum?: number;
+  pageSize?: number;
+  caseId?: number;
+  caseNumber?: string;
+  documentType?: string;
+  recipientType?: string;
+  deliveryMethod?: string;
   sendStatus?: string;
-  size?: number;
   status?: string;
 }) {
   return documentRequestClient.get<DocumentServiceApi.DocumentListResponse>(
-    '/api/document/list',
+    '/api/v1/document-delivery/list',
     { params },
   );
 }
 
 /**
- * 获取文书详情
+ * 获取文书送达详情（含案件信息）
  */
-export async function getDocumentDetailApi(SEP_ID: string) {
+export async function getDocumentDetailApi(deliveryId: number) {
   return documentRequestClient.get<DocumentServiceApi.DocumentDetailResponse>(
-    `/api/document/${SEP_ID}`,
+    `/api/v1/document-delivery/${deliveryId}/detail`,
   );
 }
 
 /**
- * 更新文书状态
+ * 更新文书送达信息
  */
-export async function updateDocumentStatusApi(
-  SEP_ID: string,
-  data: DocumentServiceApi.UpdateDocumentStatusRequest,
+export async function updateDocumentApi(
+  deliveryId: number,
+  data: DocumentServiceApi.UpdateDocumentRequest,
 ) {
   return documentRequestClient.put<DocumentServiceApi.DocumentDetailResponse>(
-    `/api/document/${SEP_ID}/status`,
+    `/api/v1/document-delivery/${deliveryId}`,
     data,
   );
 }
 
 /**
- * 上传文书附件
+ * 删除文书送达记录
  */
-export async function uploadDocumentAttachmentApi(
-  documentId: string,
-  file: File,
-) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('documentId', documentId);
-
-  return documentRequestClient.post<DocumentServiceApi.DocumentAttachment>(
-    '/api/document/attachment/upload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
-}
-
-/**
- * 下载文书附件
- */
-export async function downloadDocumentAttachmentApi(SEP_ID: string) {
-  return documentRequestClient.get<Blob>(
-    `/api/document/attachment/download/${SEP_ID}`,
-    {
-      responseType: 'blob',
-    },
-  );
-}
-
-/**
- * 删除文书附件
- */
-export async function deleteDocumentAttachmentApi(SEP_ID: string) {
-  return documentRequestClient.delete<{ error: string; status: string }>(
-    `/api/document/attachment/${SEP_ID}`,
-  );
-}
-
-/**
- * 获取送达记录列表
- */
-export async function getServiceRecordListApi(
-  documentId: string,
-  params?: {
-    page?: number;
-    size?: number;
-  },
-) {
-  return documentRequestClient.get<DocumentServiceApi.ServiceRecordListResponse>(
-    `/api/document/${documentId}/records`,
-    { params },
-  );
-}
-
-/**
- * 添加送达记录
- */
-export async function addServiceRecordApi(
-  documentId: string,
-  data: DocumentServiceApi.AddServiceRecordRequest,
-) {
-  return documentRequestClient.post<{ error: string; status: string }>(
-    `/api/document/${documentId}/record/add`,
-    data,
-  );
-}
-
-/**
- * 获取送达统计数据
- */
-export async function getServiceStatisticsApi(params?: {
-  caseId?: string;
-  endTime?: string;
-  startTime?: string;
-}) {
-  return documentRequestClient.get<DocumentServiceApi.ServiceStatisticsResponse>(
-    '/api/document/statistics',
-    { params },
+export async function deleteDocumentApi(deliveryId: number) {
+  return documentRequestClient.delete<{ code: number; message: string; data: null }>(
+    `/api/v1/document-delivery/${deliveryId}`,
   );
 }

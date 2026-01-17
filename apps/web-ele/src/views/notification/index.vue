@@ -32,7 +32,11 @@ const loadNotifications = async () => {
   loading.value = true;
   currentPage.value = 1;
   try {
-    const res = await notificationApi.getNotificationList(currentPage.value, pageSize.value);
+    // 从本地存储获取userId
+    const userIdStr = localStorage.getItem('chat_user_id');
+    const userId = userIdStr ? Number(userIdStr) : 16; // 默认值16
+    
+    const res = await notificationApi.getNotificationList(userId, 0, pageSize.value);
     console.log('加载通知中心结果:', res);
     notifications.value = res.data || [];
     hasMore.value = res.data.length >= pageSize.value;
@@ -42,7 +46,7 @@ const loadNotifications = async () => {
       notifications.value = [
         {
           id: 1,
-          userId: 1,
+          userId: userId,
           type: 'SYSTEM',
           title: '系统通知',
           content: '您有新的系统消息',
@@ -51,7 +55,7 @@ const loadNotifications = async () => {
         },
         {
           id: 2,
-          userId: 1,
+          userId: userId,
           type: 'CASE',
           title: '案件更新',
           content: '您的案件已经更新',
@@ -60,7 +64,7 @@ const loadNotifications = async () => {
         },
         {
           id: 3,
-          userId: 1,
+          userId: userId,
           type: 'APPROVAL',
           title: '审批通知',
           content: '您有新的审批请求',
@@ -69,7 +73,7 @@ const loadNotifications = async () => {
         },
         {
           id: 4,
-          userId: 1,
+          userId: userId,
           type: 'TODO',
           title: '待办提醒',
           content: '您有新的待办事项',
@@ -78,7 +82,7 @@ const loadNotifications = async () => {
         },
         {
           id: 5,
-          userId: 1,
+          userId: userId,
           type: 'ACTIVITY',
           title: '动态通知',
           content: '您有新的活动动态',
@@ -90,11 +94,15 @@ const loadNotifications = async () => {
     }
   } catch (error) {
     console.error('加载通知中心失败:', error);
+    // 从本地存储获取userId用于模拟数据
+    const userIdStr = localStorage.getItem('chat_user_id');
+    const userId = userIdStr ? Number(userIdStr) : 16;
+    
     // 发生错误时，添加一些模拟数据用于测试
     notifications.value = [
       {
         id: 1,
-        userId: 1,
+        userId: userId,
         type: 'SYSTEM',
         title: '系统通知',
         content: '您有新的系统消息',
@@ -103,7 +111,7 @@ const loadNotifications = async () => {
       },
       {
         id: 2,
-        userId: 1,
+        userId: userId,
         type: 'CASE',
         title: '案件更新',
         content: '您的案件已经更新',
@@ -121,7 +129,11 @@ const loadMore = async () => {
   loading.value = true;
   currentPage.value++;
   try {
-    const res = await notificationApi.getNotificationList(currentPage.value, pageSize.value);
+    // 从本地存储获取userId
+    const userIdStr = localStorage.getItem('chat_user_id');
+    const userId = userIdStr ? Number(userIdStr) : 16; // 默认值16
+    
+    const res = await notificationApi.getNotificationList(userId, currentPage.value - 1, pageSize.value);
     notifications.value = [...notifications.value, ...(res.data || [])];
     hasMore.value = res.data.length >= pageSize.value;
   } catch (error) {
