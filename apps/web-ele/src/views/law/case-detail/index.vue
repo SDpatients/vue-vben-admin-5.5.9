@@ -404,7 +404,10 @@ const saveAnnouncement = async () => {
 
     if (isEditingAnnouncement.value && currentAnnouncementId.value) {
       // 更新现有公告
-      response = await updateAnnouncementApi(currentAnnouncementId.value, requestData);
+      response = await updateAnnouncementApi(
+        currentAnnouncementId.value,
+        requestData,
+      );
       if (response.code === 200) {
         ElMessage.success('公告更新成功');
         await fetchAnnouncements();
@@ -609,15 +612,19 @@ const viewAnnouncementDetail = async (announcement: any) => {
     const response = await getAnnouncementDetailApi(Number(announcementId));
     let detail = response.data;
 
-    // 将驼峰命名转换为下划线命名
+    // 将驼峰命名转换为下划线命名，并只保留需要的字段
     detail = {
-      ...detail,
+      id: detail.id,
+      title: detail.title,
+      content: detail.content,
       announcement_type: detail.announcementType,
+      status: detail.status,
       is_top: detail.isTop ? 1 : 0,
       top_expire_time: detail.topExpireTime,
       publisher_name: detail.publisherName,
       publish_time: detail.publishTime,
       view_count: detail.viewCount,
+      attachments: detail.attachments,
     };
 
     // 确保attachments字段是数组
@@ -1283,7 +1290,12 @@ const resetSelections = () => {
 const fetchWorkTeams = async () => {
   workTeamLoading.value = true;
   try {
-    console.log('开始获取工作团队列表，caseId:', caseId.value, 'Number(caseId.value):', Number(caseId.value));
+    console.log(
+      '开始获取工作团队列表，caseId:',
+      caseId.value,
+      'Number(caseId.value):',
+      Number(caseId.value),
+    );
     const response = await getWorkTeamListWithDetailsApi({
       caseId: Number(caseId.value),
       pageNum: 1,
@@ -1291,12 +1303,12 @@ const fetchWorkTeams = async () => {
     });
 
     console.log('工作团队API返回:', response);
-    
+
     // 检查响应格式
     if (response && response.code === 200) {
       if (response.data && response.data.list) {
         console.log('工作团队列表:', response.data.list);
-        
+
         // 处理API返回数据，确保members字段存在
         const processedTeams = response.data.list.map((team: any) => {
           // 兼容处理：如果返回的是teamMembers，转换为members
@@ -1315,10 +1327,13 @@ const fetchWorkTeams = async () => {
           }
           return team;
         });
-        
+
         workTeams.value = processedTeams;
       } else {
-        console.error('API返回数据结构异常，缺少data或data.list:', response.data);
+        console.error(
+          'API返回数据结构异常，缺少data或data.list:',
+          response.data,
+        );
         workTeams.value = [];
       }
     } else {
@@ -1634,45 +1649,24 @@ const handleSaveMember = async () => {
 
     savingMember.value = true;
 
-    const data = {
-      caseId: Number(caseId.value),
-      userId: memberForm.value.userId,
-      teamRole: memberForm.value.teamRole,
-      permissionLevel: memberForm.value.permissionLevel,
-    };
-
+    // 添加新成员
     if (memberForm.value.id) {
-      // 更新团队成员权限和角色
-      // 将英文转换为中文：permissionLevel -> permission_level，teamRole -> team_role
+      // 更新团队成员权限
+      // 使用英文参数名，符合API要求
       const updateData = {
-        permission_level:
-          memberForm.value.permissionLevel === 'VIEW'
-            ? '查看'
-            : (memberForm.value.permissionLevel === 'EDIT'
-              ? '编辑'
-              : '管理'),
+        permissionLevel: memberForm.value.permissionLevel,
+        permissionType: 'VIEW', // 默认为VIEW权限类型，可根据实际需求调整
       };
 
-      // 如果有teamRole，也添加到更新数据中
-      if (memberForm.value.teamRole) {
-        updateData.team_role =
-          memberForm.value.teamRole === 'LEADER' ? '负责人' : '成员';
-      }
-
       await updateMemberPermissionApi(memberForm.value.id, updateData);
-      ElMessage.success('更新团队成员成功');
+      ElMessage.success('更新团队成员权限成功');
     } else {
       // 添加新成员时，确保userId是单个值，而不是数组
       const addData = {
         caseId: Number(caseId.value),
-        userId: data.userId[0], // 从数组中取出第一个元素
-        team_role: data.teamRole === 'LEADER' ? '负责人' : '成员',
-        permission_level:
-          data.permissionLevel === 'VIEW'
-            ? '查看'
-            : (data.permissionLevel === 'EDIT'
-              ? '编辑'
-              : '管理'),
+        userId: memberForm.value.userId[0], // 从数组中取出第一个元素
+        teamRole: memberForm.value.teamRole,
+        permissionLevel: memberForm.value.permissionLevel,
       };
       await addTeamMemberApi(selectedTeamId.value, addData);
       ElMessage.success('添加团队成员成功');
@@ -1791,10 +1785,14 @@ const checkPermissions = async () => {
 </script>
 
 <template>
-  <div class="law-case-detail-wrapper" style="background-color: white;">
+  <div class="law-case-detail-wrapper" style="background-color: white">
     <div>
       <!-- 白色卡片容器 -->
-      <ElCard shadow="hover" class="main-content-card" style="margin-bottom: -30px; padding-bottom: 0;">
+      <ElCard
+        shadow="hover"
+        class="main-content-card"
+        style="margin-bottom: -30px; padding-bottom: 0"
+      >
         <!-- 页面标题和返回按钮 -->
         <template #header>
           <div class="page-header">
@@ -1824,7 +1822,11 @@ const checkPermissions = async () => {
 
           <!-- 内容类型切换 -->
           <div class="content-tabs mb-6">
-            <ElRadioGroup v-model="activeTab" size="large" class="tabs-container">
+            <ElRadioGroup
+              v-model="activeTab"
+              size="large"
+              class="tabs-container"
+            >
               <ElRadioButton value="caseInfo" class="tab-button">
                 案件基本信息
               </ElRadioButton>
@@ -2079,7 +2081,11 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   :row-key="(row) => row.id"
                 >
-                  <ElTableColumn prop="title" label="公告标题" min-width="200" />
+                  <ElTableColumn
+                    prop="title"
+                    label="公告标题"
+                    min-width="200"
+                  />
                   <ElTableColumn
                     prop="announcement_type"
                     label="公告类型"
@@ -2095,7 +2101,11 @@ const checkPermissions = async () => {
                     label="发布时间"
                     width="180"
                   />
-                  <ElTableColumn prop="view_count" label="查看次数" width="100" />
+                  <ElTableColumn
+                    prop="view_count"
+                    label="查看次数"
+                    width="100"
+                  />
                   <ElTableColumn prop="status" label="状态" width="100">
                     <template #default="scope">
                       <ElTag
@@ -2103,7 +2113,9 @@ const checkPermissions = async () => {
                           scope.row.status === 'PUBLISHED' ? 'success' : 'info'
                         "
                       >
-                        {{ scope.row.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+                        {{
+                          scope.row.status === 'PUBLISHED' ? '已发布' : '草稿'
+                        }}
                       </ElTag>
                     </template>
                   </ElTableColumn>
@@ -2288,11 +2300,7 @@ const checkPermissions = async () => {
               <div
                 style="
                   padding: 20px;
-                  background: linear-gradient(
-                    135deg,
-                    #f5f7fa 0%,
-                    #c3cfe2 100%
-                  );
+                  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
                   border-bottom: 1px solid #e5e7eb;
                 "
               >
@@ -2403,11 +2411,7 @@ const checkPermissions = async () => {
               >
                 <div
                   v-if="team.members?.length > 0"
-                  style="
-                    background: #f9fafb;
-                    border-radius: 8px;
-                    padding: 16px;
-                  "
+                  style="background: #f9fafb; border-radius: 8px; padding: 16px"
                 >
                   <ElTable
                     :data="team.members"
@@ -2434,11 +2438,7 @@ const checkPermissions = async () => {
                         {{ row.userName || '-' }}
                       </template>
                     </ElTableColumn>
-                    <ElTableColumn
-                      prop="teamRole"
-                      label="团队角色"
-                      width="120"
-                    >
+                    <ElTableColumn prop="teamRole" label="团队角色" width="120">
                       <template #default="{ row }">
                         {{ row.teamRole || '-' }}
                       </template>
@@ -2508,16 +2508,25 @@ const checkPermissions = async () => {
                     </ElTableColumn>
                   </ElTable>
                 </div>
-                <div v-else style="text-align: center; padding: 20px; color: #909399">
+                <div
+                  v-else
+                  style="text-align: center; padding: 20px; color: #909399"
+                >
                   该团队暂无成员
                 </div>
               </div>
             </div>
           </div>
-          <div v-else-if="!workTeamLoading" style="text-align: center; padding: 40px; color: #909399">
+          <div
+            v-else-if="!workTeamLoading"
+            style="text-align: center; padding: 40px; color: #909399"
+          >
             暂无工作团队，点击上方"添加工作团队"按钮创建
           </div>
-          <div v-else style="display: flex; justify-content: center; padding: 40px">
+          <div
+            v-else
+            style="display: flex; justify-content: center; padding: 40px"
+          >
             <ElSkeleton :rows="5" animated />
           </div>
         </div>
@@ -2526,9 +2535,9 @@ const checkPermissions = async () => {
         <ArchiveDrawer ref="archiveDrawerRef" :case-id="caseId" />
 
         <!-- 资金管控抽屉 -->
-        <FundControlDrawer 
-          ref="fundControlDrawerRef" 
-          :case-id="caseId" 
+        <FundControlDrawer
+          ref="fundControlDrawerRef"
+          :case-id="caseId"
           :case-no="caseDetail?.案号 || ''"
           :case-name="caseDetail?.案件名称 || ''"
         />
@@ -2544,6 +2553,41 @@ const checkPermissions = async () => {
             :case-id="caseId"
             :case-name="caseDetail?.案件名称 || ''"
           />
+        </ElDialog>
+
+        <!-- 公告置顶对话框 -->
+        <ElDialog
+          v-model="showTopDialog"
+          title="置顶公告"
+          width="500px"
+          destroy-on-close
+        >
+          <div class="top-dialog-container">
+            <ElForm label-width="120px">
+              <ElFormItem label="置顶过期时间" required>
+                <ElDatePicker
+                  v-model="topExpireTime"
+                  type="datetime"
+                  placeholder="选择置顶过期时间"
+                  size="large"
+                  value-format="YYYY-MM-DDTHH:mm:ss"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+              <div style="margin-top: 10px; font-size: 12px; color: #909399">
+                <Icon icon="lucide:info" style="margin-right: 4px" />
+                设置置顶过期时间后，公告将在该时间后自动取消置顶
+              </div>
+            </ElForm>
+          </div>
+          <template #footer>
+            <span class="dialog-footer">
+              <ElButton @click="showTopDialog = false">取消</ElButton>
+              <ElButton type="primary" @click="confirmTopAnnouncement">
+                确认置顶
+              </ElButton>
+            </span>
+          </template>
         </ElDialog>
 
         <!-- 公告发布对话框 -->
@@ -2604,15 +2648,20 @@ const checkPermissions = async () => {
                       :type="
                         currentAnnouncementDetail.announcement_type === 'URGENT'
                           ? 'danger'
-                          : currentAnnouncementDetail.announcement_type === 'IMPORTANT'
-                          ? 'warning'
-                          : 'info'
+                          : currentAnnouncementDetail.announcement_type ===
+                              'IMPORTANT'
+                            ? 'warning'
+                            : 'info'
                       "
                       size="small"
                     >
-                      {{ 
-                        currentAnnouncementDetail.announcement_type === 'URGENT' ? '紧急' : 
-                        currentAnnouncementDetail.announcement_type === 'IMPORTANT' ? '重要' : '普通' 
+                      {{
+                        currentAnnouncementDetail.announcement_type === 'URGENT'
+                          ? '紧急'
+                          : currentAnnouncementDetail.announcement_type ===
+                              'IMPORTANT'
+                            ? '重要'
+                            : '普通'
                       }}
                     </ElTag>
                   </div>
@@ -2622,7 +2671,9 @@ const checkPermissions = async () => {
                   </div>
                   <div class="meta-row">
                     <span class="label">发布时间：</span>
-                    <span>{{ formatDateOnly(currentAnnouncementDetail.publish_time) }}</span>
+                    <span>{{
+                      formatDateOnly(currentAnnouncementDetail.publish_time)
+                    }}</span>
                   </div>
                   <div class="meta-row">
                     <span class="label">查看次数：</span>
@@ -2657,12 +2708,16 @@ const checkPermissions = async () => {
                   <h4 class="section-title">附件</h4>
                   <div class="attachment-list">
                     <div
-                      v-for="(attachment, index) in currentAnnouncementDetail.attachments"
+                      v-for="(
+                        attachment, index
+                      ) in currentAnnouncementDetail.attachments"
                       :key="index"
                       class="attachment-item"
                     >
                       <Icon icon="lucide:paperclip" class="attachment-icon" />
-                      <span class="attachment-name">{{ attachment.file_name }}</span>
+                      <span class="attachment-name">{{
+                        attachment.file_name
+                      }}</span>
                       <ElButton
                         link
                         type="primary"
@@ -2735,6 +2790,101 @@ const checkPermissions = async () => {
               </div>
             </div>
           </div>
+        </ElDialog>
+
+        <!-- 添加/编辑成员对话框 -->
+        <ElDialog
+          v-model="memberDialogVisible"
+          :title="memberDialogTitle"
+          width="600px"
+          destroy-on-close
+          :close-on-click-modal="false"
+        >
+          <div style="padding: 20px 0">
+            <ElForm :model="memberForm" label-width="100px">
+              <ElFormItem label="管理员机构" required>
+                <ElSelect
+                  v-model="selectedDeptId"
+                  placeholder="请选择管理员机构"
+                  style="width: 100%"
+                  filterable
+                  :loading="loadingAdministrators"
+                  clearable
+                >
+                  <ElOption
+                    v-for="admin in administrators"
+                    :key="admin.sepId"
+                    :label="admin.lsswsid"
+                    :value="admin.sepId"
+                  />
+                </ElSelect>
+              </ElFormItem>
+
+              <ElFormItem label="成员" required>
+                <ElSelect
+                  v-model="selectedUser"
+                  placeholder="请选择成员"
+                  style="width: 100%"
+                  filterable
+                  :loading="loadingUsers"
+                  :disabled="!selectedDeptId"
+                  value-key="uPid"
+                  clearable
+                >
+                  <ElOption
+                    v-for="user in availableUsers"
+                    :key="user.uPid"
+                    :label="user.uName"
+                    :value="user"
+                  />
+                </ElSelect>
+              </ElFormItem>
+
+              <ElFormItem label="团队角色" required>
+                <ElSelect
+                  v-model="memberForm.teamRole"
+                  placeholder="选择角色"
+                  style="width: 100%"
+                  clearable
+                >
+                  <ElOption
+                    v-for="role in teamRoles"
+                    :key="role.roleCode"
+                    :label="role.roleName"
+                    :value="role.roleCode"
+                  />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="权限级别" required>
+                <ElSelect
+                  v-model="memberForm.permissionLevel"
+                  placeholder="选择权限"
+                  style="width: 100%"
+                  clearable
+                >
+                  <ElOption label="查看" value="VIEW" />
+                  <ElOption label="编辑" value="EDIT" />
+                  <ElOption label="管理" value="ADMIN" />
+                </ElSelect>
+              </ElFormItem>
+            </ElForm>
+          </div>
+          <template #footer>
+            <div style="display: flex; gap: 12px; justify-content: flex-end">
+              <ElButton @click="memberDialogVisible = false" size="large">
+                取消
+              </ElButton>
+              <ElButton
+                type="primary"
+                @click="handleSaveMember"
+                :loading="savingMember"
+                size="large"
+              >
+                <Icon v-if="!savingMember" icon="lucide:check" class="mr-1" />
+                确定
+              </ElButton>
+            </div>
+          </template>
         </ElDialog>
 
         <!-- 浏览记录对话框 -->

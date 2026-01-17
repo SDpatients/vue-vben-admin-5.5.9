@@ -168,7 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     try {
       const result = await getCurrentUserApi();
-      if (result && result.status === '1' && result.data) {
+      if (result && result.status === '200' && result.data) {
         const backendUserInfo = result.data;
         const userInfo: UserInfo = {
           userId: backendUserInfo.uPid,

@@ -1,11 +1,11 @@
-import { requestClient8085 } from '#/api/request';
+import { workTeamRequestClient } from '#/api/request';
 
 export namespace WorkTeamApi {
   /** 团队状态枚举 */
-  export type TeamStatus = 'ACTIVE' | 'INACTIVE' | 'DELETED';
+  export type TeamStatus = 'ACTIVE' | 'DELETED' | 'INACTIVE';
 
   /** 权限级别枚举 */
-  export type PermissionLevel = 'VIEW' | 'EDIT' | 'ADMIN';
+  export type PermissionLevel = 'ADMIN' | 'EDIT' | 'VIEW';
 
   /** 成员激活状态 */
   export type IsActive = 0 | 1;
@@ -43,8 +43,8 @@ export namespace WorkTeamApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: WorkTeamInfo[];
+      total: number;
     };
   }
 
@@ -147,9 +147,9 @@ export namespace WorkTeamApi {
   /** 分配成员权限请求 */
   export interface AssignMemberPermissionsRequest {
     permissions: {
+      isAllowed: IsActive;
       moduleType: string;
       permissionType: string;
-      isAllowed: IsActive;
     }[];
   }
 
@@ -187,24 +187,39 @@ export namespace WorkTeamApi {
  * 创建工作团队
  * POST /work-team
  */
-export async function createWorkTeamApi(data: WorkTeamApi.CreateWorkTeamRequest) {
-  return requestClient8085.post<WorkTeamApi.CreateWorkTeamResponse>('/work-team', data);
+export async function createWorkTeamApi(
+  data: WorkTeamApi.CreateWorkTeamRequest,
+) {
+  return workTeamRequestClient.post<WorkTeamApi.CreateWorkTeamResponse>(
+    '/work-team',
+    data,
+  );
 }
 
 /**
  * 工作团队列表（分页）
  * GET /work-team/list
  */
-export async function getWorkTeamListApi(params: WorkTeamApi.WorkTeamQueryParams = {}) {
-  return requestClient8085.get<WorkTeamApi.WorkTeamListResponse>('/work-team/list', { params });
+export async function getWorkTeamListApi(
+  params: WorkTeamApi.WorkTeamQueryParams = {},
+) {
+  return workTeamRequestClient.get<WorkTeamApi.WorkTeamListResponse>(
+    '/work-team/list',
+    { params },
+  );
 }
 
 /**
  * 工作团队列表（分页，包含详细信息）
  * GET /work-team/list/details
  */
-export async function getWorkTeamListWithDetailsApi(params: WorkTeamApi.WorkTeamQueryParams = {}) {
-  return requestClient8085.get<WorkTeamApi.WorkTeamListResponse>('/work-team/list/details', { params });
+export async function getWorkTeamListWithDetailsApi(
+  params: WorkTeamApi.WorkTeamQueryParams = {},
+) {
+  return workTeamRequestClient.get<WorkTeamApi.WorkTeamListResponse>(
+    '/work-team/list/details',
+    { params },
+  );
 }
 
 /**
@@ -212,7 +227,9 @@ export async function getWorkTeamListWithDetailsApi(params: WorkTeamApi.WorkTeam
  * GET /work-team/{teamId}
  */
 export async function getWorkTeamDetailApi(teamId: number) {
-  return requestClient8085.get<WorkTeamApi.WorkTeamDetailResponse>(`/work-team/${teamId}`);
+  return workTeamRequestClient.get<WorkTeamApi.WorkTeamDetailResponse>(
+    `/work-team/${teamId}`,
+  );
 }
 
 /**
@@ -220,15 +237,23 @@ export async function getWorkTeamDetailApi(teamId: number) {
  * GET /work-team/{teamId}/detail
  */
 export async function getWorkTeamDetailWithMembersApi(teamId: number) {
-  return requestClient8085.get<WorkTeamApi.WorkTeamDetailResponse>(`/work-team/${teamId}/detail`);
+  return workTeamRequestClient.get<WorkTeamApi.WorkTeamDetailResponse>(
+    `/work-team/${teamId}/detail`,
+  );
 }
 
 /**
  * 更新工作团队信息
  * PUT /work-team/{teamId}
  */
-export async function updateWorkTeamApi(teamId: number, data: WorkTeamApi.UpdateWorkTeamRequest) {
-  return requestClient8085.put<WorkTeamApi.UpdateWorkTeamResponse>(`/work-team/${teamId}`, data);
+export async function updateWorkTeamApi(
+  teamId: number,
+  data: WorkTeamApi.UpdateWorkTeamRequest,
+) {
+  return workTeamRequestClient.put<WorkTeamApi.UpdateWorkTeamResponse>(
+    `/work-team/${teamId}`,
+    data,
+  );
 }
 
 /**
@@ -236,15 +261,23 @@ export async function updateWorkTeamApi(teamId: number, data: WorkTeamApi.Update
  * DELETE /work-team/{teamId}
  */
 export async function deleteWorkTeamApi(teamId: number) {
-  return requestClient8085.delete<WorkTeamApi.CommonResponse>(`/work-team/${teamId}`);
+  return workTeamRequestClient.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/${teamId}`,
+  );
 }
 
 /**
  * 添加团队成员
  * POST /work-team/{teamId}/member
  */
-export async function addTeamMemberApi(teamId: number, data: WorkTeamApi.AddTeamMemberRequest) {
-  return requestClient8085.post<WorkTeamApi.AddTeamMemberResponse>(`/work-team/${teamId}/member`, data);
+export async function addTeamMemberApi(
+  teamId: number,
+  data: WorkTeamApi.AddTeamMemberRequest,
+) {
+  return workTeamRequestClient.post<WorkTeamApi.AddTeamMemberResponse>(
+    `/work-team/${teamId}/member`,
+    data,
+  );
 }
 
 /**
@@ -252,7 +285,9 @@ export async function addTeamMemberApi(teamId: number, data: WorkTeamApi.AddTeam
  * GET /work-team/{teamId}/members
  */
 export async function getTeamMembersApi(teamId: number) {
-  return requestClient8085.get<WorkTeamApi.TeamMemberListResponse>(`/work-team/${teamId}/members`);
+  return workTeamRequestClient.get<WorkTeamApi.TeamMemberListResponse>(
+    `/work-team/${teamId}/members`,
+  );
 }
 
 /**
@@ -260,7 +295,9 @@ export async function getTeamMembersApi(teamId: number) {
  * DELETE /work-team/{teamId}/member/{memberId}
  */
 export async function removeTeamMemberApi(teamId: number, memberId: number) {
-  return requestClient8085.delete<WorkTeamApi.CommonResponse>(`/work-team/${teamId}/member/${memberId}`);
+  return workTeamRequestClient.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/${teamId}/member/${memberId}`,
+  );
 }
 
 /**
@@ -268,7 +305,9 @@ export async function removeTeamMemberApi(teamId: number, memberId: number) {
  * DELETE /work-team/work-team-member/{memberId}
  */
 export async function deleteTeamMemberApi(memberId: number) {
-  return requestClient8085.delete<WorkTeamApi.CommonResponse>(`/work-team/work-team-member/${memberId}`);
+  return workTeamRequestClient.delete<WorkTeamApi.CommonResponse>(
+    `/work-team/work-team-member/${memberId}`,
+  );
 }
 
 /**
@@ -276,35 +315,53 @@ export async function deleteTeamMemberApi(memberId: number) {
  * GET /work-team/work-team-member/{memberId}/permissions
  */
 export async function getMemberPermissionsApi(memberId: number) {
-  return requestClient8085.get<WorkTeamApi.MemberPermissionListResponse>(`/work-team/work-team-member/${memberId}/permissions`);
+  return workTeamRequestClient.get<WorkTeamApi.MemberPermissionListResponse>(
+    `/work-team/work-team-member/${memberId}/permissions`,
+  );
 }
 
 /**
  * 更新团队成员权限
- * PUT /work-team/work-team-member/{memberId}/permission
+ * PUT /work-team/member/{memberId}/permission
  */
-export async function updateMemberPermissionApi(memberId: number, data: any) {
-  return requestClient8085.put<WorkTeamApi.CommonResponse>(`/work-team/work-team-member/${memberId}/permission`, data);
+export async function updateMemberPermissionApi(
+  memberId: number,
+  data: WorkTeamApi.UpdateMemberPermissionRequest & { permissionType: string },
+) {
+  return workTeamRequestClient.put<WorkTeamApi.CommonResponse>(
+    `/work-team/member/${memberId}/permission`,
+    data,
+  );
 }
 
 /**
  * 分配团队成员权限
- * POST /work-team/work-team-member/{memberId}/permissions
+ * POST /work-team/member/{memberId}/permissions
  */
-export async function assignMemberPermissionsApi(memberId: number, data: WorkTeamApi.AssignMemberPermissionsRequest) {
-  return requestClient8085.post<WorkTeamApi.CommonResponse>(`/work-team/work-team-member/${memberId}/permissions`, data);
+export async function assignMemberPermissionsApi(
+  memberId: number,
+  data: WorkTeamApi.AssignMemberPermissionsRequest,
+) {
+  return workTeamRequestClient.post<WorkTeamApi.CommonResponse>(
+    `/work-team/member/${memberId}/permissions`,
+    data,
+  );
 }
 
 // 获取我的案件列表
 // GET /case/user/{userId}/list
-export async function selectMyCasesApi(userId: number, pageNum: number, pageSize: number) {
-  return requestClient8085.get<{
+export async function selectMyCasesApi(
+  userId: number,
+  pageNum: number,
+  pageSize: number,
+) {
+  return workTeamRequestClient.get<{
     code: number;
-    message: string;
     data: {
-      total: number;
       list: any[];
+      total: number;
     };
+    message: string;
   }>(`/case/user/${userId}/list`, {
     params: { pageNum, pageSize },
   });
@@ -313,18 +370,16 @@ export async function selectMyCasesApi(userId: number, pageNum: number, pageSize
 // 获取团队案件列表
 // GET /work-team/list
 export async function selectTeamCasesApi(pageNum: number, pageSize: number) {
-  return requestClient8085.get<{
+  return workTeamRequestClient.get<{
     code: number;
-    message: string;
     data: {
-      total: number;
       list: any[];
+      total: number;
     };
+    message: string;
   }>('/work-team/list', {
     params: { pageNum, pageSize, status: 'ACTIVE' },
   });
 }
-
-
 
 export type { WorkTeamApi };

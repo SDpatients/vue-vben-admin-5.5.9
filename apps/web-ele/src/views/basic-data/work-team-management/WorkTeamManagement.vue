@@ -370,6 +370,7 @@ const handleSaveEditMember = async () => {
   try {
     await updateMemberPermissionApi(editMemberFormData.memberId, {
       permissionLevel: editMemberFormData.permissionLevel,
+      permissionType: 'VIEW', // 默认为VIEW权限类型，可根据实际需求调整
     });
     ElMessage.success('团队成员信息更新成功');
     handleCloseEditMemberDialog();

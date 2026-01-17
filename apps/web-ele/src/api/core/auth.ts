@@ -212,7 +212,7 @@ export async function getCurrentUserApi() {
     };
     error: string;
     status: string;
-  }>('/api/web/currentUser', {
+  }>('/api/v1/web/currentUser', {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 }
@@ -225,7 +225,7 @@ export async function selectLoginRecordApi(
   token: string,
 ) {
   return fileUploadRequestClient.get<AuthApi.LoginRecordResult>(
-    '/api/web/LoginRecord',
+    '/api/v1/web/LoginRecord',
     {
       params: data,
       headers: {

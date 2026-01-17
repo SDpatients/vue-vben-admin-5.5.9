@@ -987,7 +987,7 @@ onMounted(() => {
             v-model="flowForm.description"
             type="textarea"
             placeholder="请输入交易描述"
-            rows="3"
+            :rows="3"
           />
         </ElFormItem>
         <ElFormItem label="关联文档">

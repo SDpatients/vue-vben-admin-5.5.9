@@ -26,7 +26,7 @@ import {
 } from 'element-plus';
 
 import { getCaseListApi } from '#/api/core/case';
-import { selectMyCasesApi, selectTeamCasesApi } from '#/api/core/work-team';
+import { selectMyCasesApi } from '#/api/core/work-team';
 import { useAuthStore } from '#/store/auth';
 
 import ReviewModal from './components/ReviewModal.vue';
@@ -57,7 +57,7 @@ const safeCaseList = computed(() =>
 );
 
 // 标签页控制
-const activeTab = ref('allCases');
+const activeTab = ref('myCases');
 
 // 列显示控制
 const columnVisible = ref<string[]>([]);
@@ -201,12 +201,6 @@ const fetchCaseList = async () => {
       }
       response = await selectMyCasesApi(
         currentUserId.value,
-        pagination.value.page,
-        pagination.value.pageSize,
-      );
-    } else if (activeTab.value === 'teamCases') {
-      // 获取团队案件
-      response = await selectTeamCasesApi(
         pagination.value.page,
         pagination.value.pageSize,
       );
@@ -585,9 +579,6 @@ const canReview = (row: CaseApi.CaseInfo) => {
       <ElTabs v-model="activeTab" @tab-change="handleTabChange" class="mb-4">
         <ElTabPane label="我的案件" name="myCases">
           <span class="text-sm text-gray-500">仅显示您创建的案件</span>
-        </ElTabPane>
-        <ElTabPane label="团队案件" name="teamCases">
-          <span class="text-sm text-gray-500">显示您作为团队成员的案件</span>
         </ElTabPane>
         <ElTabPane label="全部案件" name="allCases">
           <span class="text-sm text-gray-500">显示所有有权限访问的案件</span>

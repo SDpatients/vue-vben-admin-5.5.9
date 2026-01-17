@@ -180,3 +180,11 @@ export const fundRequestClient = createRequestClient(
     responseReturn: 'body',
   },
 );
+
+// 工作团队API客户端，指向http://localhost:8080
+export const workTeamRequestClient = createRequestClient(
+  'http://localhost:8080/api/v1',
+  {
+    responseReturn: 'body',
+  },
+);
