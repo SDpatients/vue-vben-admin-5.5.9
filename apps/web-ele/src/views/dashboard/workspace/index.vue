@@ -34,6 +34,22 @@ import TodoList from '#/components/TodoList.vue';
 const userStore = useUserStore();
 const router = useRouter();
 
+// 从本地存储获取用户信息
+const getUserInfoFromLocal = () => {
+  try {
+    const chatUserInfoStr = localStorage.getItem('chat_user_info');
+    if (chatUserInfoStr) {
+      return JSON.parse(chatUserInfoStr);
+    }
+  } catch (error) {
+    console.error('获取本地用户信息失败:', error);
+  }
+  return null;
+};
+
+// 获取当前用户信息
+const currentUserInfo = ref(getUserInfoFromLocal());
+
 // 固定显示"您好"，不展示实际位置
 const location = ref('您好');
 const weather = ref({
@@ -492,12 +508,12 @@ onMounted(() => {
   <div class="workspace-container">
     <div class="p-5">
       <WorkbenchHeader
-        :avatar="userStore.userInfo?.avatar || preferences.app.defaultAvatar"
+        :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
       >
         <template #title>
           <div class="flex items-center justify-between">
             <span
-              >{{ greeting }}, {{ userStore.userInfo?.realName }},
+              >{{ greeting }}, {{ currentUserInfo?.realName }},
               开始您一天的工作吧！</span
             >
           </div>

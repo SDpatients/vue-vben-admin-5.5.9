@@ -93,8 +93,8 @@
               <ElRow :gutter="20">
                 <ElCol :span="8">
                   <div class="key-info-item p-4 rounded-lg border border-gray-200">
-                    <div class="key-info-label mb-1 text-sm text-gray-500">案件编号</div>
-                    <div class="key-info-value font-semibold text-xl">{{ caseDetail.案件编号 }}</div>
+                    <div class="key-info-label mb-1 text-sm text-gray-500">案号</div>
+                    <div class="key-info-value font-semibold text-xl">{{ caseDetail.案号 }}</div>
                   </div>
                 </ElCol>
                 <ElCol :span="8">
@@ -507,7 +507,7 @@
       <FundControlDrawer 
         ref="fundControlDrawerRef" 
         :case-id="caseId" 
-        :case-no="caseDetail?.案件编号 || ''"
+        :case-no="caseDetail?.案号 || ''"
         :case-name="caseDetail?.案件名称 || ''"
       />
   </div>

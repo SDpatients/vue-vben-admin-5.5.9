@@ -254,6 +254,8 @@ onMounted(() => {
               placeholder="请输入案号"
               clearable
               style="width: 200px"
+              @input="handleSearch"
+              @clear="handleSearch"
             />
           </el-form-item>
           <el-form-item label="案件名称">
@@ -262,6 +264,8 @@ onMounted(() => {
               placeholder="请输入案件名称"
               clearable
               style="width: 200px"
+              @input="handleSearch"
+              @clear="handleSearch"
             />
           </el-form-item>
           <el-form-item label="账户名称">
@@ -270,15 +274,11 @@ onMounted(() => {
               placeholder="请输入账户名称"
               clearable
               style="width: 200px"
+              @input="handleSearch"
+              @clear="handleSearch"
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handleSearch">
-              <i class="el-icon-search"></i> 搜索
-            </el-button>
-            <el-button @click="handleReset">
-              <i class="el-icon-refresh"></i> 重置
-            </el-button>
             <el-button type="success" @click="openAddDialog">
               <i class="el-icon-plus"></i> 新增账户
             </el-button>

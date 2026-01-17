@@ -81,8 +81,10 @@ export namespace CaseApi {
     acceptanceDate: string;
     caseSource?: string;
     acceptanceCourt?: string;
+    designatedJudge?: string;
     designatedInstitution?: string;
     mainResponsiblePerson?: string;
+    undertakingPersonnel?: number;
     isSimplifiedTrial?: number;
     caseReason?: string;
     caseProgress?: CaseProgress;

@@ -528,15 +528,19 @@ const saveFlow = async () => {
       try {
         const account = allAccounts.value.find((a: any) => a.id === flowForm.accountId);
         const balanceBefore = account ? account.currentBalance : 0;
-        const balanceAfter = flowForm.flowType === '收入' 
+        const balanceAfter = flowForm.flowType === 'INCOME' 
           ? balanceBefore + flowForm.amount 
           : balanceBefore - flowForm.amount;
+        
+        // 获取选中的分类名称作为费用类型
+        const selectedCategory = categoryOptions.value.find(category => category.categoryId === flowForm.categoryId);
+        const expenseType = selectedCategory ? selectedCategory.categoryName : '';
 
         await createFundFlow({
           caseId: Number(props.caseId),
           caseName: props.caseName,
           accountId: Number(flowForm.accountId),
-          flowType: flowForm.flowType === '收入' ? 'INCOME' : 'EXPENSE',
+          flowType: flowForm.flowType === 'INCOME' ? 'INCOME' : 'EXPENSE',
           amount: flowForm.amount,
           balanceBefore,
           balanceAfter,
@@ -544,11 +548,13 @@ const saveFlow = async () => {
           description: flowForm.description,
           relatedDocument: flowForm.relatedDocument,
           remark: flowForm.remark || '',
+          expenseType: expenseType,
         });
         ElMessage.success('资金流水记录成功');
         flowDialogVisible.value = false;
         fetchFundFlows();
         fetchFundAccounts();
+        fetchAccounts(); // 更新账户列表，确保下次使用最新余额
       } catch (error) {
         ElMessage.error('资金流水记录失败');
         console.error('保存资金流水失败:', error);
@@ -781,7 +787,7 @@ onMounted(() => {
                     </ElTag>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn prop="categoryId" label="资金分类" width="150">
+                <ElTableColumn prop="categoryId" label="费用类型" width="150">
                   <template #default="scope">
                     {{ getCategoryName(scope.row.categoryId) }}
                   </template>
@@ -926,7 +932,7 @@ onMounted(() => {
         label-width="120px"
         :rules="{
           accountId: [{ required: true, message: '请选择账户', trigger: 'change' }],
-          categoryId: [{ required: true, message: '请选择资金分类', trigger: 'change' }],
+          categoryId: [{ required: true, message: '请选择费用类型', trigger: 'change' }],
           amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
           transactionDate: [{ required: true, message: '请选择交易日期', trigger: 'change' }],
         }"
@@ -955,8 +961,8 @@ onMounted(() => {
             />
           </ElSelect>
         </ElFormItem>
-        <ElFormItem label="资金分类" prop="categoryId">
-          <ElSelect v-model="flowForm.categoryId" placeholder="请选择资金分类">
+        <ElFormItem label="费用类型" prop="categoryId">
+          <ElSelect v-model="flowForm.categoryId" placeholder="请选择费用类型">
             <ElOption
               v-for="option in getFilteredCategoryOptions()"
               :key="option.value"

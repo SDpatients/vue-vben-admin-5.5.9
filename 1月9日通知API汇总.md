@@ -46,7 +46,7 @@
 | userAccount | String | 否 | 用户账号，用于记录 | "testuser" |
 | userName | String | 否 | 用户姓名，用于记录 | "张三" |
 | title | String | 是 | 通知标题，最大200字符 | "您有新的待办事项" |
-| content | String | 否 | 通知内容，支持长文本 | "请及时处理案件编号为XXX的待办事项" |
+| content | String | 否 | 通知内容，支持长文本 | "请及时处理案号为XXX的待办事项" |
 | type | String | 是 | 通知类型，最大50字符 | "SYSTEM" |
 | isRead | Boolean | 否 | 是否已读，默认false | false |
 | readTime | LocalDateTime | 否 | 阅读时间，标记已读时自动设置 | null |
@@ -95,7 +95,7 @@
   "userAccount": "testuser",
   "userName": "张三",
   "title": "您有新的待办事项",
-  "content": "请及时处理案件编号为CASE-2026-001的待办事项，截止时间为2026-01-10",
+  "content": "请及时处理案号为CASE-2026-001的待办事项，截止时间为2026-01-10",
   "type": "TODO",
   "relatedId": 1001,
   "relatedType": "TODO",
@@ -122,7 +122,7 @@
     "userAccount": "testuser",
     "userName": "张三",
     "title": "您有新的待办事项",
-    "content": "请及时处理案件编号为CASE-2026-001的待办事项，截止时间为2026-01-10",
+    "content": "请及时处理案号为CASE-2026-001的待办事项，截止时间为2026-01-10",
     "type": "TODO",
     "isRead": false,
     "readTime": null,
@@ -198,7 +198,7 @@ GET /api/v1/notification/1
     "userAccount": "testuser",
     "userName": "张三",
     "title": "您有新的待办事项",
-    "content": "请及时处理案件编号为CASE-2026-001的待办事项",
+    "content": "请及时处理案号为CASE-2026-001的待办事项",
     "type": "TODO",
     "isRead": false,
     "readTime": null,
@@ -278,7 +278,7 @@ GET /api/v1/notification/list?userId=1&pageNum=0&pageSize=10
         "id": 1,
         "userId": 1,
         "title": "您有新的待办事项",
-        "content": "请及时处理案件编号为CASE-2026-001的待办事项",
+        "content": "请及时处理案号为CASE-2026-001的待办事项",
         "type": "TODO",
         "isRead": true,
         "priority": "HIGH",
@@ -350,7 +350,7 @@ GET /api/v1/notification/search?userId=1&type=TODO&isRead=false&status=ACTIVE&pa
         "id": 1,
         "userId": 1,
         "title": "您有新的待办事项",
-        "content": "请及时处理案件编号为CASE-2026-001的待办事项",
+        "content": "请及时处理案号为CASE-2026-001的待办事项",
         "type": "TODO",
         "isRead": false,
         "priority": "HIGH",
@@ -414,7 +414,7 @@ GET /api/v1/notification/unread?userId=1
       "id": 1,
       "userId": 1,
       "title": "您有新的待办事项",
-      "content": "请及时处理案件编号为CASE-2026-001的待办事项",
+      "content": "请及时处理案号为CASE-2026-001的待办事项",
       "type": "TODO",
       "isRead": false,
       "priority": "HIGH",
@@ -497,7 +497,7 @@ PUT /api/v1/notification/1/read
     "id": 1,
     "userId": 1,
     "title": "您有新的待办事项",
-    "content": "请及时处理案件编号为CASE-2026-001的待办事项",
+    "content": "请及时处理案号为CASE-2026-001的待办事项",
     "type": "TODO",
     "isRead": true,
     "readTime": "2026-01-09T12:00:00",

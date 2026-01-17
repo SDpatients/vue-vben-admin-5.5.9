@@ -62,7 +62,7 @@ const loadActivities = async () => {
         id: 2,
         userId: 1,
         title: '您有新的待办事项',
-        content: '请及时处理案件编号为CASE-2026-001的待办事项',
+        content: '请及时处理案号为CASE-2026-001的待办事项',
         type: 'TODO',
         isRead: false,
         priority: 'HIGH',
