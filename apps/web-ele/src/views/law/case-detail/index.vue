@@ -41,13 +41,14 @@ import {
 } from '#/api/core/case-announcement';
 import {
   createDocumentApi,
+  deleteDocumentApi,
+  getDocumentDetailApi,
   getDocumentListApi,
-  uploadDocumentAttachmentApi,
+  updateDocumentApi,
 } from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
-import { getDocumentListApi, createDocumentApi, getDocumentDetailApi, updateDocumentApi, deleteDocumentApi } from '#/api/core/document-service';
 import {
   addTeamMemberApi,
   createWorkTeamApi,
@@ -335,7 +336,7 @@ const showAddDocumentDialog = ref(false);
 
 // 编辑状态
 const isEditingDocument = ref(false);
-const currentDocumentId = ref<number | null>(null);
+const currentDocumentId = ref<null | number>(null);
 
 // 文书表单数据
 const documentForm = reactive({
@@ -465,7 +466,7 @@ const editDocument = (row: any) => {
   // 设置编辑状态
   isEditingDocument.value = true;
   currentDocumentId.value = row.id;
-  
+
   // 填充表单数据
   documentForm.caseId = row.caseId;
   documentForm.caseNumber = row.caseNumber;
@@ -480,7 +481,7 @@ const editDocument = (row: any) => {
   documentForm.serviceContent = row.deliveryContent;
   documentForm.attachment = row.documentAttachment;
   documentForm.sendStatus = row.sendStatus;
-  
+
   // 打开弹窗
   showAddDocumentDialog.value = true;
 };
@@ -508,7 +509,7 @@ const resetDocumentForm = () => {
     }
   });
   uploadedFiles.value = [];
-  
+
   // 重置编辑状态
   isEditingDocument.value = false;
   currentDocumentId.value = null;
@@ -542,7 +543,7 @@ const submitDocumentForm = async () => {
       documentAttachment: documentForm.attachment,
       sendStatus: documentForm.sendStatus,
     };
-    
+
     let response;
     if (isEditingDocument.value && currentDocumentId.value) {
       // 更新文书
@@ -551,18 +552,29 @@ const submitDocumentForm = async () => {
       // 创建文书
       response = await createDocumentApi(requestData);
     }
-    
+
     if (response.code === 200) {
-      ElMessage.success(isEditingDocument.value ? '文书送达更新成功' : '文书送达创建成功');
+      ElMessage.success(
+        isEditingDocument.value ? '文书送达更新成功' : '文书送达创建成功',
+      );
       showAddDocumentDialog.value = false;
       // 刷新列表
       fetchDocumentList();
     } else {
-      ElMessage.error(response.message || (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'));
+      ElMessage.error(
+        response.message ||
+          (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'),
+      );
     }
   } catch (error: any) {
-    ElMessage.error(error.message || (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'));
-    console.error(isEditingDocument.value ? '更新文书失败:' : '创建文书失败:', error);
+    ElMessage.error(
+      error.message ||
+        (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'),
+    );
+    console.error(
+      isEditingDocument.value ? '更新文书失败:' : '创建文书失败:',
+      error,
+    );
   } finally {
     fileUploadLoading.value = false;
   }
@@ -682,12 +694,12 @@ const viewServiceRecords = (documentId: string) => {
 const deleteDocument = async (documentId: number) => {
   try {
     // 先获取文书详情，检查状态
-    const document = documentList.value.find(item => item.id === documentId);
+    const document = documentList.value.find((item) => item.id === documentId);
     if (document && document.status === 'PENDING') {
       ElMessage.warning('待审批中的文书不能删除');
       return;
     }
-    
+
     const response = await deleteDocumentApi(documentId);
     if (response.code === 200) {
       ElMessage.success('文书送达记录删除成功');
@@ -2653,12 +2665,30 @@ const checkPermissions = async () => {
                   <ElTableColumn prop="recipientName" label="受送达人" />
                   <ElTableColumn prop="recipientType" label="受送达人类型">
                     <template #default="scope">
-                      {{ scope.row.recipientType === 'CREDITOR' ? '债权人' : scope.row.recipientType === 'DEBTOR' ? '债务人' : scope.row.recipientType === 'COURT' ? '法院' : scope.row.recipientType }}
+                      {{
+                        scope.row.recipientType === 'CREDITOR'
+                          ? '债权人'
+                          : scope.row.recipientType === 'DEBTOR'
+                            ? '债务人'
+                            : scope.row.recipientType === 'COURT'
+                              ? '法院'
+                              : scope.row.recipientType
+                      }}
                     </template>
                   </ElTableColumn>
                   <ElTableColumn prop="deliveryMethod" label="送达方式">
                     <template #default="scope">
-                      {{ scope.row.deliveryMethod === 'ELECTRONIC' ? '电子送达' : scope.row.deliveryMethod === 'MAIL' ? '邮寄送达' : scope.row.deliveryMethod === 'IN_PERSON' ? '直接送达' : scope.row.deliveryMethod === 'PUBLICATION' ? '公告送达' : scope.row.deliveryMethod }}
+                      {{
+                        scope.row.deliveryMethod === 'ELECTRONIC'
+                          ? '电子送达'
+                          : scope.row.deliveryMethod === 'MAIL'
+                            ? '邮寄送达'
+                            : scope.row.deliveryMethod === 'IN_PERSON'
+                              ? '直接送达'
+                              : scope.row.deliveryMethod === 'PUBLICATION'
+                                ? '公告送达'
+                                : scope.row.deliveryMethod
+                      }}
                     </template>
                   </ElTableColumn>
                   <ElTableColumn prop="sendStatus" label="送达状态">
@@ -2676,7 +2706,17 @@ const checkPermissions = async () => {
                                   : 'info'
                         "
                       >
-                        {{ scope.row.sendStatus === 'COMPLETED' ? '已送达' : scope.row.sendStatus === 'PENDING' ? '待送达' : scope.row.sendStatus === 'SENT' ? '已发送' : scope.row.sendStatus === 'FAILED' ? '送达失败' : scope.row.sendStatus }}
+                        {{
+                          scope.row.sendStatus === 'COMPLETED'
+                            ? '已送达'
+                            : scope.row.sendStatus === 'PENDING'
+                              ? '待送达'
+                              : scope.row.sendStatus === 'SENT'
+                                ? '已发送'
+                                : scope.row.sendStatus === 'FAILED'
+                                  ? '送达失败'
+                                  : scope.row.sendStatus
+                        }}
                       </ElTag>
                     </template>
                   </ElTableColumn>
@@ -2694,7 +2734,15 @@ const checkPermissions = async () => {
                                 : 'info'
                         "
                       >
-                        {{ scope.row.status === 'APPROVED' ? '已通过' : scope.row.status === 'PENDING' ? '待审批' : scope.row.status === 'REJECTED' ? '已驳回' : scope.row.status }}
+                        {{
+                          scope.row.status === 'APPROVED'
+                            ? '已通过'
+                            : scope.row.status === 'PENDING'
+                              ? '待审批'
+                              : scope.row.status === 'REJECTED'
+                                ? '已驳回'
+                                : scope.row.status
+                        }}
                       </ElTag>
                     </template>
                   </ElTableColumn>
@@ -2723,12 +2771,7 @@ const checkPermissions = async () => {
                         @confirm="deleteDocument(scope.row.id)"
                       >
                         <template #reference>
-                          <ElButton
-                            type="danger"
-                            size="small"
-                          >
-                            删除
-                          </ElButton>
+                          <ElButton type="danger" size="small"> 删除 </ElButton>
                         </template>
                       </ElPopconfirm>
                     </template>
@@ -4098,59 +4141,93 @@ const checkPermissions = async () => {
         >
           <template #footer>
             <div class="dialog-footer">
-              <ElButton @click="showDocumentDetailDialog = false">关闭</ElButton>
+              <ElButton @click="showDocumentDetailDialog = false">
+                关闭
+              </ElButton>
             </div>
           </template>
-          
+
           <div v-if="documentDetailLoading" class="loading-container">
             <ElSkeleton :rows="8" animated />
           </div>
-          
+
           <div v-else-if="documentDetail" class="document-detail-container">
             <div class="detail-section">
               <h3 class="section-title">基本信息</h3>
               <div class="detail-grid">
                 <div class="detail-item">
                   <span class="detail-label">文书名称：</span>
-                  <span class="detail-value">{{ documentDetail.documentName }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.documentName
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">文书类型：</span>
-                  <span class="detail-value">{{ documentDetail.documentType }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.documentType
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">案号：</span>
-                  <span class="detail-value">{{ documentDetail.caseNumber }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.caseNumber
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">案件名称：</span>
-                  <span class="detail-value">{{ documentDetail.caseName }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.caseName
+                  }}</span>
                 </div>
               </div>
             </div>
-            
+
             <div class="detail-section">
               <h3 class="section-title">送达信息</h3>
               <div class="detail-grid">
                 <div class="detail-item">
                   <span class="detail-label">受送达人：</span>
-                  <span class="detail-value">{{ documentDetail.recipientName }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.recipientName
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">受送达人类型：</span>
-                  <span class="detail-value">{{ documentDetail.recipientType === 'CREDITOR' ? '债权人' : documentDetail.recipientType === 'DEBTOR' ? '债务人' : documentDetail.recipientType === 'COURT' ? '法院' : documentDetail.recipientType }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.recipientType === 'CREDITOR'
+                      ? '债权人'
+                      : documentDetail.recipientType === 'DEBTOR'
+                        ? '债务人'
+                        : documentDetail.recipientType === 'COURT'
+                          ? '法院'
+                          : documentDetail.recipientType
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">联系电话：</span>
-                  <span class="detail-value">{{ documentDetail.contactPhone || '-' }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.contactPhone || '-'
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">送达地址：</span>
-                  <span class="detail-value">{{ documentDetail.deliveryAddress || '-' }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.deliveryAddress || '-'
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">送达方式：</span>
-                  <span class="detail-value">{{ documentDetail.deliveryMethod === 'ELECTRONIC' ? '电子送达' : documentDetail.deliveryMethod === 'MAIL' ? '邮寄送达' : documentDetail.deliveryMethod === 'IN_PERSON' ? '直接送达' : documentDetail.deliveryMethod === 'PUBLICATION' ? '公告送达' : documentDetail.deliveryMethod }}</span>
+                  <span class="detail-value">{{
+                    documentDetail.deliveryMethod === 'ELECTRONIC'
+                      ? '电子送达'
+                      : documentDetail.deliveryMethod === 'MAIL'
+                        ? '邮寄送达'
+                        : documentDetail.deliveryMethod === 'IN_PERSON'
+                          ? '直接送达'
+                          : documentDetail.deliveryMethod === 'PUBLICATION'
+                            ? '公告送达'
+                            : documentDetail.deliveryMethod
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">送达状态：</span>
@@ -4168,7 +4245,17 @@ const checkPermissions = async () => {
                                 : 'info'
                       "
                     >
-                      {{ documentDetail.sendStatus === 'COMPLETED' ? '已送达' : documentDetail.sendStatus === 'PENDING' ? '待送达' : documentDetail.sendStatus === 'SENT' ? '已发送' : documentDetail.sendStatus === 'FAILED' ? '送达失败' : documentDetail.sendStatus }}
+                      {{
+                        documentDetail.sendStatus === 'COMPLETED'
+                          ? '已送达'
+                          : documentDetail.sendStatus === 'PENDING'
+                            ? '待送达'
+                            : documentDetail.sendStatus === 'SENT'
+                              ? '已发送'
+                              : documentDetail.sendStatus === 'FAILED'
+                                ? '送达失败'
+                                : documentDetail.sendStatus
+                      }}
                     </ElTag>
                   </span>
                 </div>
@@ -4186,51 +4273,78 @@ const checkPermissions = async () => {
                               : 'info'
                       "
                     >
-                      {{ documentDetail.status === 'APPROVED' ? '已通过' : documentDetail.status === 'PENDING' ? '待审批' : documentDetail.status === 'REJECTED' ? '已驳回' : documentDetail.status }}
+                      {{
+                        documentDetail.status === 'APPROVED'
+                          ? '已通过'
+                          : documentDetail.status === 'PENDING'
+                            ? '待审批'
+                            : documentDetail.status === 'REJECTED'
+                              ? '已驳回'
+                              : documentDetail.status
+                      }}
                     </ElTag>
                   </span>
                 </div>
               </div>
             </div>
-            
+
             <div class="detail-section">
               <h3 class="section-title">送达内容</h3>
-              <div class="detail-content" v-html="documentDetail.deliveryContent"></div>
+              <div
+                class="detail-content"
+                v-html="documentDetail.deliveryContent"
+              ></div>
             </div>
-            
-            <div class="detail-section" v-if="documentDetail.documentAttachment">
+
+            <div
+              class="detail-section"
+              v-if="documentDetail.documentAttachment"
+            >
               <h3 class="section-title">附件信息</h3>
               <div class="attachment-info">
                 <Icon icon="lucide:file-pdf" class="mr-2" />
-                <a :href="documentDetail.documentAttachment" target="_blank" rel="noopener noreferrer" class="attachment-link">
+                <a
+                  :href="documentDetail.documentAttachment"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="attachment-link"
+                >
                   查看附件
                 </a>
               </div>
             </div>
-            
+
             <div class="detail-section">
               <h3 class="section-title">时间信息</h3>
               <div class="detail-grid">
                 <div class="detail-item">
                   <span class="detail-label">创建时间：</span>
-                  <span class="detail-value">{{ formatDateTime(documentDetail.createTime) }}</span>
+                  <span class="detail-value">{{
+                    formatDateTime(documentDetail.createTime)
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">送达时间：</span>
-                  <span class="detail-value">{{ formatDateTime(documentDetail.deliveryTime) }}</span>
+                  <span class="detail-value">{{
+                    formatDateTime(documentDetail.deliveryTime)
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">发送时间：</span>
-                  <span class="detail-value">{{ formatDateTime(documentDetail.sendTime) }}</span>
+                  <span class="detail-value">{{
+                    formatDateTime(documentDetail.sendTime)
+                  }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">更新时间：</span>
-                  <span class="detail-value">{{ formatDateTime(documentDetail.updateTime) }}</span>
+                  <span class="detail-value">{{
+                    formatDateTime(documentDetail.updateTime)
+                  }}</span>
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div v-else class="empty-detail">
             <ElEmpty description="暂无文书详情" />
           </div>
