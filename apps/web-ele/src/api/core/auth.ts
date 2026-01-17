@@ -1,5 +1,4 @@
-import { baseRequestClient, fileUploadRequestClient, requestClient8085 } from '#/api/request';
-import DeviceUtils from '#/utils/device';
+import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
 
 export namespace AuthApi {
   /** 登录接口参数 */
@@ -20,6 +19,26 @@ export namespace AuthApi {
       userId: number;
       username: string;
     };
+  }
+
+  /** 当前用户信息 */
+  export interface CurrentUser {
+    id: number;
+    username: string;
+    realName: string;
+    mobile: string;
+    email: string;
+    phone: string;
+    status: string;
+    roles: string[];
+    permissions: string[];
+  }
+
+  /** 当前用户信息返回值 */
+  export interface CurrentUserResult {
+    code: number;
+    message: string;
+    data: CurrentUser;
   }
 
   export interface RefreshTokenResult {
@@ -200,21 +219,23 @@ export async function sendSmsCodeApi(data: AuthApi.SendSmsCodeParams) {
  */
 export async function getCurrentUserApi() {
   const token = localStorage.getItem('token');
-  return fileUploadRequestClient.get<{
-    data: {
-      uDept: string;
-      uEmail: string;
-      uMobile: string;
-      uName: string;
-      uPid: string;
-      uTel: string;
-      uUser: string;
-    };
-    error: string;
-    status: string;
-  }>('/api/v1/web/currentUser', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  console.log('[getCurrentUserApi] 请求token:', token);
+
+  const result = await fileUploadRequestClient.get<AuthApi.CurrentUserResult>(
+    '/api/v1/auth/current-user',
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+
+  console.log('[getCurrentUserApi] 响应结果:', {
+    code: result?.code,
+    message: result?.message,
+    data: result?.data,
+    hasData: !!result?.data,
   });
+
+  return result;
 }
 
 /**

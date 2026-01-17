@@ -570,6 +570,14 @@ const viewAnnouncementDetail = async (announcement: any) => {
         detail.attachments = [];
       }
     }
+    
+    // 处理附件字段映射，确保使用正确的file_id
+    detail.attachments = detail.attachments.map((attach: any) => ({
+      ...attach,
+      file_name: attach.name || attach.file_name || attach.originalFileName || '未知文件',
+      file_id: attach.file_id || attach.id || attach.fileId || '',
+      type: attach.type || attach.mimeType || 'application/octet-stream',
+    }));
     console.log('处理后的 attachments:', detail.attachments);
 
     currentAnnouncementDetail.value = detail;

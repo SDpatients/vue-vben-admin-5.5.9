@@ -39,10 +39,14 @@ import {
   unTopAnnouncementApi,
   updateAnnouncementApi,
 } from '#/api/core/case-announcement';
+import {
+  createDocumentApi,
+  getDocumentListApi,
+  uploadDocumentAttachmentApi,
+} from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
-import { getDocumentListApi, createDocumentApi, uploadDocumentAttachmentApi } from '#/api/core/document-service';
 import {
   addTeamMemberApi,
   createWorkTeamApi,
@@ -50,7 +54,7 @@ import {
   getWorkTeamDetailWithMembersApi,
   getWorkTeamListWithDetailsApi,
   removeTeamMemberApi,
-  updateMemberPermissionApi,
+  updateTeamMemberApi,
 } from '#/api/core/work-team';
 
 import RichTextEditor from '../../../components/RichTextEditor.vue';
@@ -93,6 +97,9 @@ const memberDialogTitle = ref('添加成员');
 const memberForm = ref<any>({
   id: null,
   userId: [],
+  userName: '',
+  deptId: '',
+  deptName: '',
   teamRole: '',
   permissionLevel: 'VIEW',
 });
@@ -114,7 +121,7 @@ const administrators = ref<any[]>([]);
 const loadingAdministrators = ref(false);
 const loadingUsers = ref(false);
 const selectedDeptId = ref<null | number>(null);
-const selectedUser = ref<any[]>([]);
+const selectedUser = ref<any>(null);
 
 // 保存成员时的加载状态
 const savingMember = ref(false);
@@ -154,7 +161,7 @@ const workLogs = ref<any[]>([]);
 const showWorkLogDialog = ref(false);
 const isEditingWorkLog = ref(false);
 const savingWorkLog = ref(false);
-const currentWorkLogId = ref<number | null>(null);
+const currentWorkLogId = ref<null | number>(null);
 const workLogFormRef = ref();
 const workLogForm = reactive({
   content: '',
@@ -183,7 +190,7 @@ const saveWorkLog = async () => {
   try {
     await workLogFormRef.value?.validate();
     savingWorkLog.value = true;
-    
+
     const newLog = {
       id: currentWorkLogId.value || Date.now(),
       content: workLogForm.content,
@@ -191,10 +198,12 @@ const saveWorkLog = async () => {
       creator: '当前用户', // 实际应用中应从登录状态获取
       updater: isEditingWorkLog.value ? '当前用户' : undefined,
     };
-    
+
     if (isEditingWorkLog.value && currentWorkLogId.value) {
       // 更新日志
-      const index = workLogs.value.findIndex(log => log.id === currentWorkLogId.value);
+      const index = workLogs.value.findIndex(
+        (log) => log.id === currentWorkLogId.value,
+      );
       if (index !== -1) {
         workLogs.value[index] = newLog;
       }
@@ -202,7 +211,7 @@ const saveWorkLog = async () => {
       // 添加新日志
       workLogs.value.unshift(newLog);
     }
-    
+
     ElMessage.success('日志保存成功');
     showWorkLogDialog.value = false;
   } catch (error) {
@@ -213,7 +222,7 @@ const saveWorkLog = async () => {
 };
 
 const deleteWorkLog = (id: number) => {
-  const index = workLogs.value.findIndex(log => log.id === id);
+  const index = workLogs.value.findIndex((log) => log.id === id);
   if (index !== -1) {
     workLogs.value.splice(index, 1);
     ElMessage.success('日志删除成功');
@@ -223,16 +232,27 @@ const deleteWorkLog = (id: number) => {
 // 监听activeTab变化，加载对应数据
 watch(activeTab, async (newTab, oldTab) => {
   console.log('activeTab变化:', oldTab, '->', newTab);
-  if (newTab === 'announcement') {
-    await fetchAnnouncements();
-  } else if (newTab === 'workTeam') {
-    console.log('切换到工作团队标签，开始加载数据');
-    await fetchWorkTeams();
-    fetchTeamRoles();
-    await loadAdministrators();
-    fetchAvailableUsers();
-  } else if (newTab === 'documentService') {
-    await fetchDocumentList();
+  switch (newTab) {
+    case 'announcement': {
+      await fetchAnnouncements();
+
+      break;
+    }
+    case 'documentService': {
+      await fetchDocumentList();
+
+      break;
+    }
+    case 'workTeam': {
+      console.log('切换到工作团队标签，开始加载数据');
+      await fetchWorkTeams();
+      fetchTeamRoles();
+      await loadAdministrators();
+      fetchAvailableUsers();
+
+      break;
+    }
+    // No default
   }
 });
 
@@ -370,17 +390,33 @@ const fileInput = ref<HTMLInputElement | null>(null);
 
 // 文书表单验证规则
 const documentFormRules = {
-  documentName: [{ required: true, message: '请输入文书名称', trigger: 'blur' }],
-  documentType: [{ required: true, message: '请选择文书类型', trigger: 'change' }],
+  documentName: [
+    { required: true, message: '请输入文书名称', trigger: 'blur' },
+  ],
+  documentType: [
+    { required: true, message: '请选择文书类型', trigger: 'change' },
+  ],
   recipient: [{ required: true, message: '请输入受送达人', trigger: 'blur' }],
-  recipientType: [{ required: true, message: '请选择受送达人类型', trigger: 'change' }],
+  recipientType: [
+    { required: true, message: '请选择受送达人类型', trigger: 'change' },
+  ],
   recipientPhone: [
     { required: true, message: '请输入联系电话', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' },
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: '请输入正确的手机号码',
+      trigger: 'blur',
+    },
   ],
-  recipientAddress: [{ required: true, message: '请输入送达地址', trigger: 'blur' }],
-  serviceMethod: [{ required: true, message: '请选择送达方式', trigger: 'change' }],
-  serviceContent: [{ required: true, message: '请输入送达内容', trigger: 'blur' }],
+  recipientAddress: [
+    { required: true, message: '请输入送达地址', trigger: 'blur' },
+  ],
+  serviceMethod: [
+    { required: true, message: '请选择送达方式', trigger: 'change' },
+  ],
+  serviceContent: [
+    { required: true, message: '请输入送达内容', trigger: 'blur' },
+  ],
 };
 
 // 获取文书列表
@@ -427,7 +463,7 @@ const resetDocumentForm = () => {
   documentForm.serviceContent = '';
   documentForm.attachment = '';
   documentForm.sendStatus = '已发送';
-  
+
   // 清理文件
   uploadedFiles.value.forEach((file) => {
     if (file.url && file.url.startsWith('blob:')) {
@@ -447,7 +483,7 @@ const closeAddDocumentDialog = () => {
 const submitDocumentForm = async () => {
   // 表单验证
   // 实际应用中应添加表单验证
-  
+
   // 提交数据
   fileUploadLoading.value = true;
   try {
@@ -456,7 +492,7 @@ const submitDocumentForm = async () => {
     const chatUserInfo = chatUserInfoStr ? JSON.parse(chatUserInfoStr) : {};
     const userName = chatUserInfo.uName || chatUserInfo.user?.uName || '';
     const userTel = chatUserInfo.uTel || chatUserInfo.user?.uTel || '';
-    
+
     // 创建文书
     const response = await createDocumentApi({
       ...documentForm,
@@ -467,17 +503,17 @@ const submitDocumentForm = async () => {
       deliverer: userName,
       delivererPhone: userTel,
     });
-    
+
     if (response.status === '1') {
       const documentId = response.data.SEP_ID;
-      
+
       // 上传附件（如果有）
       if (uploadedFiles.value.length > 0) {
         for (const uploadedFile of uploadedFiles.value) {
           await uploadDocumentAttachmentApi(documentId, uploadedFile.file);
         }
       }
-      
+
       ElMessage.success('文书送达创建成功');
       showAddDocumentDialog.value = false;
       // 刷新列表
@@ -500,22 +536,34 @@ const handleFileChange = async (event: Event) => {
     const file = input.files[0];
     // 文件验证
     const maxFileSize = 10 * 1024 * 1024;
-    const allowedTypes = new Set(['.doc', '.docx', '.jpg', '.pdf', '.png', '.xls', '.xlsx']);
+    const allowedTypes = new Set([
+      '.doc',
+      '.docx',
+      '.jpg',
+      '.pdf',
+      '.png',
+      '.xls',
+      '.xlsx',
+    ]);
     const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
-    
+
     if (!allowedTypes.has(fileExtension)) {
-      ElMessage.error('不支持的文件类型，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件');
+      ElMessage.error(
+        '不支持的文件类型，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件',
+      );
       return;
     }
-    
+
     if (file.size > maxFileSize) {
-      ElMessage.error(`文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`);
+      ElMessage.error(
+        `文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`,
+      );
       return;
     }
-    
+
     try {
       fileUploadLoading.value = true;
-      
+
       // 暂存文件
       uploadedFiles.value.push({
         name: file.name,
@@ -523,9 +571,9 @@ const handleFileChange = async (event: Event) => {
         file,
         fileId: Date.now().toString(),
       });
-      
+
       documentForm.attachment = file.name;
-      
+
       fileUploadLoading.value = false;
       ElMessage.success('文件已暂存，将在提交表单时上传');
     } catch (error: any) {
@@ -542,10 +590,10 @@ const removeFile = (index: number) => {
   if (file && file.url && file.url.startsWith('blob:')) {
     URL.revokeObjectURL(file.url);
   }
-  
+
   uploadedFiles.value.splice(index, 1);
   documentForm.attachment = '';
-  
+
   ElMessage.success('文件已删除');
 };
 
@@ -589,6 +637,19 @@ const handleDocumentPageSizeChange = (size: number) => {
 // 预览附件
 const viewAttachment = async (attachment: any) => {
   try {
+    // 检查file_id是否存在且有效
+    if (!attachment.file_id) {
+      ElMessage.error('无效的文件ID');
+      return;
+    }
+
+    // 确保file_id是数字
+    const fileId = Number(attachment.file_id);
+    if (isNaN(fileId)) {
+      ElMessage.error('文件ID必须是数字');
+      return;
+    }
+
     previewLoading.value = true;
     previewAttachment.value = attachment;
 
@@ -596,7 +657,6 @@ const viewAttachment = async (attachment: any) => {
     const fileName = attachment.file_name || '';
     const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
     const mimeType = attachment.type || '';
-    const fileId = attachment.file_id;
     const token = localStorage.getItem('token');
 
     // 设置预览类型
@@ -997,10 +1057,18 @@ const viewAnnouncementDetail = async (announcement: any) => {
         // 处理附件字段映射，确保文件名字段正确
         detail.attachments = detail.attachments.map((attach: any) => ({
           ...attach,
-          file_name: attach.name || attach.file_name || '未知文件',
-          file_id: attach.file_id || attach.id || attach.uid || Date.now(),
-          type: attach.type || 'application/octet-stream',
+          file_name:
+            attach.name ||
+            attach.file_name ||
+            attach.originalFileName ||
+            '未知文件',
+          file_id: attach.file_id || attach.id || attach.fileId || '',
+          type: attach.type || attach.mimeType || 'application/octet-stream',
         }));
+        // 过滤掉没有有效file_id的附件
+        detail.attachments = detail.attachments.filter((attach: any) => {
+          return attach.file_id && !isNaN(Number(attach.file_id));
+        });
       } catch (error) {
         console.error('解析attachments失败:', error);
         detail.attachments = [];
@@ -1009,10 +1077,18 @@ const viewAnnouncementDetail = async (announcement: any) => {
       // 处理附件字段映射，确保文件名字段正确
       detail.attachments = detail.attachments.map((attach: any) => ({
         ...attach,
-        file_name: attach.name || attach.file_name || '未知文件',
-        file_id: attach.file_id || attach.id || attach.uid || Date.now(),
-        type: attach.type || 'application/octet-stream',
+        file_name:
+          attach.name ||
+          attach.file_name ||
+          attach.originalFileName ||
+          '未知文件',
+        file_id: attach.file_id || attach.id || attach.fileId || '',
+        type: attach.type || attach.mimeType || 'application/octet-stream',
       }));
+      // 过滤掉没有有效file_id的附件
+      detail.attachments = detail.attachments.filter((attach: any) => {
+        return attach.file_id && !isNaN(Number(attach.file_id));
+      });
     }
 
     currentAnnouncementDetail.value = detail;
@@ -1178,10 +1254,51 @@ const handleAttachmentRemove = async (file: any, fileList: any[]) => {
   announcementData.attachments = fileList;
 };
 
+const customUpload = async (options: any) => {
+  const { file, onSuccess, onError, onProgress } = options;
+  try {
+    const currentCaseId = Number(caseId.value);
+    if (isNaN(currentCaseId) || currentCaseId <= 0) {
+      throw new Error('无效的案件ID');
+    }
+
+    const response = await uploadFileApi(file, 'announcement', currentCaseId);
+
+    if (response.code === 200 && response.data) {
+      const uploadedFile = response.data;
+      onSuccess({
+        file_id: uploadedFile.id,
+        file_name: uploadedFile.originalFileName,
+        type: uploadedFile.mimeType,
+        size: uploadedFile.fileSize,
+        response: uploadedFile,
+      });
+    } else {
+      onError(new Error(response.message || '上传失败'));
+    }
+  } catch (error: any) {
+    console.error('文件上传失败:', error);
+    onError(error);
+  }
+};
+
 const downloadAttachment = async (attachment: any) => {
   try {
+    // 检查file_id是否存在且有效
+    if (!attachment.file_id) {
+      ElMessage.error('无效的文件ID');
+      return;
+    }
+
+    // 确保file_id是数字
+    const fileId = Number(attachment.file_id);
+    if (isNaN(fileId)) {
+      ElMessage.error('文件ID必须是数字');
+      return;
+    }
+
     // 使用后端提供的下载接口
-    const downloadResponse = await downloadFileApi(attachment.file_id);
+    const downloadResponse = await downloadFileApi(fileId);
 
     // 创建下载链接
     const blob = new Blob([downloadResponse], {
@@ -1625,24 +1742,20 @@ const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
 // 监听部门ID变化，加载对应用户
 watch(selectedDeptId, async (newVal) => {
   if (newVal && selectedTeamId.value) {
-    // 重新获取当前团队的成员列表，确保过滤的是最新数据
     await fetchTeamMembers(selectedTeamId.value);
     loadUsersByDeptId(newVal);
-    selectedUser.value = [];
+    selectedUser.value = null;
     memberForm.value.userId = [];
   }
 });
 
-// 监听用户变化，更新表单中的userId
 watch(selectedUser, (newVal) => {
-  memberForm.value.userId =
-    newVal && Array.isArray(newVal) ? newVal.map((user) => user.uPid) : [];
+  memberForm.value.userId = newVal ? [newVal.uPid] : [];
 });
 
-// 重置选择状态
 const resetSelections = () => {
   selectedDeptId.value = null;
-  selectedUser.value = [];
+  selectedUser.value = null;
   availableUsers.value = [];
   memberForm.value.userId = [];
 };
@@ -1754,10 +1867,23 @@ const fetchTeamRoles = () => {
 watch(
   () => memberForm.value.teamRole,
   (newRole) => {
-    if (newRole === 'LEADER') {
-      memberForm.value.permissionLevel = 'ADMIN'; // 负责人默认权限是管理
-    } else if (newRole === 'MEMBER') {
-      memberForm.value.permissionLevel = 'VIEW'; // 成员默认权限是查看
+    switch (newRole) {
+      case 'GUEST': {
+        memberForm.value.permissionLevel = 'VIEW';
+
+        break;
+      }
+      case 'LEADER': {
+        memberForm.value.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      case 'MEMBER': {
+        memberForm.value.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      // No default
     }
   },
 );
@@ -1901,11 +2027,18 @@ const handleAddMember = async (teamId: number) => {
   memberForm.value = {
     id: null,
     userId: [],
+    userName: '',
+    deptId: '',
+    deptName: '',
     teamRole: '',
     permissionLevel: 'VIEW',
   };
   resetSelections();
-  // 先获取该团队的成员列表，以便过滤掉已存在的成员
+
+  if (administrators.value.length === 0) {
+    await loadAdministrators();
+  }
+
   await fetchTeamMembers(teamId);
   memberDialogVisible.value = true;
 };
@@ -1948,47 +2081,39 @@ const getTeamStatusLabel = (status: string) => {
 const handleEditMember = async (row: any) => {
   memberDialogTitle.value = '编辑成员';
 
-  // 设置selectedTeamId，确保保存时能通过验证
   selectedTeamId.value = row.teamId;
 
   memberForm.value = {
     id: row.id,
-    userId: [row.userId], // 改为数组格式，兼容多选
+    userId: [row.userId],
+    userName: row.userRealName || row.userName || '',
+    deptId: '',
+    deptName: '',
     teamRole: row.teamRole,
     permissionLevel: row.permissionLevel,
   };
 
-  // 编辑模式下，需要找到该成员所属的管理员机构并加载用户列表
-  // 1. 先获取所有管理员机构
   if (administrators.value.length === 0) {
     await loadAdministrators();
   }
 
-  // 2. 选择第一个管理员机构作为默认值（在实际应用中，应该根据成员信息找到正确的机构）
   if (administrators.value.length > 0) {
     selectedDeptId.value = administrators.value[0].sepId;
+    memberForm.value.deptId = administrators.value[0].sepId.toString();
+    memberForm.value.deptName = administrators.value[0].lsswsid || '';
 
-    // 3. 加载该机构下的用户列表，includeExisting为true表示包含已存在的成员
     await loadUsersByDeptId(selectedDeptId.value, true);
 
-    // 4. 找到当前编辑的成员并设置到selectedUser中
     const currentUser = availableUsers.value.find(
       (user) => user.uPid === row.userId,
     );
-    if (currentUser) {
-      selectedUser.value = [currentUser];
-    } else {
-      // 如果没找到，手动创建一个用户对象
-      selectedUser.value = [
-        {
-          uPid: row.userId,
-          uName: row.userRealName || row.userName || '未知用户',
-          uUser: row.userRealName || row.userName || '未知用户',
-          userId: row.userId,
-          name: row.userRealName || row.userName || '未知用户',
-        },
-      ];
-    }
+    selectedUser.value = currentUser || {
+      uPid: row.userId,
+      uName: row.userRealName || row.userName || '未知用户',
+      uUser: row.userRealName || row.userName || '未知用户',
+      userId: row.userId,
+      name: row.userRealName || row.userName || '未知用户',
+    };
   }
 
   memberDialogVisible.value = true;
@@ -2001,8 +2126,7 @@ const handleSaveMember = async () => {
       !selectedTeamId.value ||
       !memberForm.value.userId ||
       memberForm.value.userId.length === 0 ||
-      !memberForm.value.teamRole ||
-      !memberForm.value.permissionLevel
+      !memberForm.value.teamRole
     ) {
       ElMessage.warning('请填写完整信息');
       return;
@@ -2010,22 +2134,16 @@ const handleSaveMember = async () => {
 
     savingMember.value = true;
 
-    // 添加新成员
     if (memberForm.value.id) {
-      // 更新团队成员权限
-      // 使用英文参数名，符合API要求
-      const updateData = {
+      await updateTeamMemberApi(memberForm.value.id, {
+        teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
-        permissionType: 'VIEW', // 默认为VIEW权限类型，可根据实际需求调整
-      };
-
-      await updateMemberPermissionApi(memberForm.value.id, updateData);
-      ElMessage.success('更新团队成员权限成功');
+      });
+      ElMessage.success('更新团队成员信息成功');
     } else {
-      // 添加新成员时，确保userId是单个值，而不是数组
       const addData = {
         caseId: Number(caseId.value),
-        userId: memberForm.value.userId[0], // 从数组中取出第一个元素
+        userId: memberForm.value.userId[0],
         teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
       };
@@ -2034,7 +2152,6 @@ const handleSaveMember = async () => {
     }
 
     memberDialogVisible.value = false;
-    // 重新获取工作团队列表，更新所有团队的成员信息
     await fetchWorkTeams();
   } catch (error: any) {
     console.error('保存团队成员失败:', error);
@@ -2415,7 +2532,10 @@ const checkPermissions = async () => {
         </div>
 
         <!-- 文书送达 -->
-        <div v-if="activeTab === 'documentService'" class="document-service-content">
+        <div
+          v-if="activeTab === 'documentService'"
+          class="document-service-content"
+        >
           <ElCard shadow="hover">
             <template #header>
               <div class="card-header flex items-center justify-between">
@@ -2664,19 +2784,333 @@ const checkPermissions = async () => {
 
         <!-- 工作团队卡片 -->
         <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
+          <ElCard shadow="hover" :body-style="{ padding: 0 }">
+            <!-- 标题和操作按钮 -->
+            <div
+              style="
+                padding: 20px;
+                border-bottom: 1px solid #e9ecef;
+                background: #ffffff;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                "
+              >
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      width: 48px;
+                      height: 48px;
+                      background: #f0f2f5;
+                      border-radius: 8px;
+                    "
+                  >
+                    <Icon
+                      icon="lucide:users"
+                      style="font-size: 24px; color: #409eff"
+                    />
+                  </div>
+                  <div>
+                    <h2
+                      style="
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #303133;
+                      "
+                    >
+                      工作团队管理
+                    </h2>
+                    <p style="margin: 4px 0 0; font-size: 14px; color: #909399">
+                      共 {{ workTeams.length }} 个工作团队
+                    </p>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 10px">
+                  <ElButton
+                    type="primary"
+                    @click="openAddTeamDialog"
+                    v-if="isCreator"
+                  >
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    添加工作团队
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+
+            <!-- 工作团队列表 -->
+            <div v-if="workTeams.length > 0" style="padding: 20px">
+              <div
+                v-for="team in workTeams"
+                :key="team.id"
+                style="
+                  margin-bottom: 16px;
+                  border: 1px solid #ebeef5;
+                  border-radius: 4px;
+                  overflow: hidden;
+                  background: #fff;
+                "
+              >
+                <!-- 团队基本信息 -->
+                <div
+                  style="
+                    padding: 16px;
+                    border-bottom: 1px solid #ebeef5;
+                    background: #fafafa;
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: space-between;
+                    "
+                  >
+                    <div style="display: flex; gap: 12px; align-items: center">
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          justify-content: center;
+                          width: 48px;
+                          height: 48px;
+                          background: #ecf5ff;
+                          border-radius: 8px;
+                        "
+                      >
+                        <Icon
+                          icon="lucide:building-2"
+                          style="font-size: 24px; color: #409eff"
+                        />
+                      </div>
+                      <div>
+                        <h3
+                          style="
+                            margin: 0 0 4px;
+                            font-size: 16px;
+                            font-weight: 600;
+                            color: #303133;
+                          "
+                        >
+                          {{ team.teamName }}
+                        </h3>
+                        <div
+                          style="
+                            display: flex;
+                            gap: 16px;
+                            align-items: center;
+                            font-size: 13px;
+                            color: #606266;
+                          "
+                        >
+                          <span
+                            style="display: flex; gap: 4px; align-items: center"
+                          >
+                            <Icon icon="lucide:user" style="font-size: 14px" />
+                            负责人：{{ team.teamLeaderName || '-' }}
+                          </span>
+                          <span
+                            style="display: flex; gap: 4px; align-items: center"
+                          >
+                            <Icon icon="lucide:users" style="font-size: 14px" />
+                            成员数：{{ team.members?.length || 0 }}
+                          </span>
+                          <ElTag
+                            :type="getTeamStatusTagType(team.status)"
+                            size="small"
+                          >
+                            {{ getTeamStatusLabel(team.status) }}
+                          </ElTag>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 8px">
+                      <ElButton
+                        size="small"
+                        @click="toggleTeamMembers(team.id)"
+                        type="default"
+                      >
+                        <Icon
+                          :icon="
+                            isTeamExpanded(team.id)
+                              ? 'lucide:chevron-up'
+                              : 'lucide:chevron-down'
+                          "
+                          class="mr-1"
+                        />
+                        {{ isTeamExpanded(team.id) ? '收起成员' : '查看成员' }}
+                      </ElButton>
+                      <ElButton
+                        size="small"
+                        type="primary"
+                        @click="handleAddMember(team.id)"
+                        v-if="isCreator"
+                      >
+                        <Icon icon="lucide:plus" class="mr-1" />
+                        添加成员
+                      </ElButton>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 团队成员列表（可展开/收起） -->
+                <div
+                  v-if="isTeamExpanded(team.id)"
+                  style="padding: 16px"
+                  class="team-members-section"
+                >
+                  <div v-if="team.members?.length > 0">
+                    <ElTable
+                      :data="team.members"
+                      style="width: 100%"
+                      size="small"
+                    >
+                      <ElTableColumn
+                        prop="userRealName"
+                        label="真实姓名"
+                        width="120"
+                      >
+                        <template #default="{ row }">
+                          {{ row.userRealName || row.userName || '-' }}
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn prop="userName" label="用户名" width="120">
+                        <template #default="{ row }">
+                          {{ row.userName || '-' }}
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn
+                        prop="teamRole"
+                        label="团队角色"
+                        width="120"
+                      >
+                        <template #default="{ row }">
+                          {{ row.teamRole || '-' }}
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn
+                        prop="permissionLevel"
+                        label="权限级别"
+                        width="100"
+                      >
+                        <template #default="{ row }">
+                          <ElTag
+                            :type="getPermissionTagType(row.permissionLevel)"
+                            size="small"
+                          >
+                            {{ getPermissionLabel(row.permissionLevel) }}
+                          </ElTag>
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn prop="isActive" label="状态" width="80">
+                        <template #default="{ row }">
+                          <ElTag
+                            :type="row.isActive ? 'success' : 'danger'"
+                            size="small"
+                          >
+                            {{ row.isActive ? '激活' : '禁用' }}
+                          </ElTag>
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn
+                        prop="createTime"
+                        label="加入时间"
+                        width="160"
+                      >
+                        <template #default="{ row }">
+                          {{ formatDateTime(row.createTime) }}
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn
+                        label="操作"
+                        width="150"
+                        fixed="right"
+                        v-if="isCreator"
+                      >
+                        <template #default="{ row }">
+                          <ElButton
+                            size="small"
+                            @click="handleEditMember(row)"
+                            type="primary"
+                            plain
+                          >
+                            <Icon icon="lucide:pencil" class="mr-1" />
+                            编辑
+                          </ElButton>
+                          <ElPopconfirm
+                            title="确定要移除该成员吗？"
+                            @confirm="handleRemoveMember(team.id, row.id)"
+                          >
+                            <template #reference>
+                              <ElButton
+                                size="small"
+                                type="danger"
+                                plain
+                                style="margin-left: 8px"
+                              >
+                                <Icon icon="lucide:trash-2" class="mr-1" />
+                                移除
+                              </ElButton>
+                            </template>
+                          </ElPopconfirm>
+                        </template>
+                      </ElTableColumn>
+                    </ElTable>
+                  </div>
+                  <div
+                    v-else
+                    style="
+                      text-align: center;
+                      padding: 20px;
+                      color: #909399;
+                      border: 1px dashed #ebeef5;
+                      border-radius: 4px;
+                      background: #fafafa;
+                    "
+                  >
+                    该团队暂无成员
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else-if="!workTeamLoading"
+              style="text-align: center; padding: 40px; color: #909399"
+            >
+              暂无工作团队，点击上方"添加工作团队"按钮创建
+            </div>
+            <div
+              v-else
+              style="display: flex; justify-content: center; padding: 40px"
+            >
+              <ElSkeleton :rows="5" animated />
+            </div>
+          </ElCard>
+        </div>
+
+        <!-- 工作日志卡片 -->
+        <div v-if="activeTab === 'workLog'" style="margin: 20px 0">
           <div
             style="
               overflow: hidden;
               background: white;
               border-radius: 8px;
-              box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
+              box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
             "
           >
             <!-- 标题和操作按钮 -->
             <div
               style="
                 padding: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
                 border-bottom: 1px solid #e9ecef;
               "
             >
@@ -2695,12 +3129,12 @@ const checkPermissions = async () => {
                       justify-content: center;
                       width: 48px;
                       height: 48px;
-                      background: rgb(255 255 255 / 20%);
+                      background: rgba(255, 255, 255, 0.2);
                       border-radius: 50%;
                     "
                   >
                     <Icon
-                      icon="lucide:users"
+                      icon="lucide:calendar-check"
                       style="font-size: 24px; color: white"
                     />
                   </div>
@@ -2713,312 +3147,24 @@ const checkPermissions = async () => {
                         color: white;
                       "
                     >
-                      工作团队管理
+                      工作日志管理
                     </h2>
                     <p
                       style="
                         margin: 4px 0 0;
                         font-size: 14px;
-                        color: rgb(255 255 255 / 80%);
+                        color: rgba(255, 255, 255, 0.8);
                       "
                     >
-                      共 {{ workTeams.length }} 个工作团队
+                      记录案件处理过程中的重要工作内容
                     </p>
                   </div>
                 </div>
                 <div style="display: flex; gap: 10px">
                   <ElButton
                     type="primary"
-                    @click="openAddTeamDialog"
-                    v-if="isCreator"
-                    style="color: white; background: #4caf50; border: none"
-                  >
-                    <Icon icon="lucide:plus" class="mr-1" />
-                    添加工作团队
-                  </ElButton>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 工作团队列表 -->
-          <div v-if="workTeams.length > 0" style="margin-top: 20px">
-            <div
-              v-for="team in workTeams"
-              :key="team.id"
-              style="
-                margin-bottom: 20px;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                overflow: hidden;
-                background: #fff;
-                transition: all 0.3s ease;
-              "
-              :style="{
-                boxShadow: isTeamExpanded(team.id)
-                  ? '0 4px 12px rgb(0 0 0 / 10%)'
-                  : '0 2px 4px rgb(0 0 0 / 5%)',
-              }"
-            >
-              <!-- 团队基本信息 -->
-              <div
-                style="
-                  padding: 20px;
-                  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                  border-bottom: 1px solid #e5e7eb;
-                "
-              >
-                <div
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                  "
-                >
-                  <div style="display: flex; gap: 16px; align-items: center">
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 56px;
-                        height: 56px;
-                        background: linear-gradient(
-                          135deg,
-                          #667eea 0%,
-                          #764ba2 100%
-                        );
-                        border-radius: 12px;
-                        box-shadow: 0 4px 8px rgb(102 126 234 / 30%);
-                      "
-                    >
-                      <Icon
-                        icon="lucide:building-2"
-                        style="font-size: 28px; color: white"
-                      />
-                    </div>
-                    <div>
-                      <h3
-                        style="
-                          margin: 0 0 8px;
-                          font-size: 18px;
-                          font-weight: 600;
-                          color: #1f2937;
-                        "
-                      >
-                        {{ team.teamName }}
-                      </h3>
-                      <div
-                        style="
-                          display: flex;
-                          gap: 16px;
-                          align-items: center;
-                          font-size: 14px;
-                          color: #6b7280;
-                        "
-                      >
-                        <span
-                          style="display: flex; gap: 4px; align-items: center"
-                        >
-                          <Icon icon="lucide:user" style="font-size: 16px" />
-                          负责人：{{ team.teamLeaderName || '-' }}
-                        </span>
-                        <span
-                          style="display: flex; gap: 4px; align-items: center"
-                        >
-                          <Icon icon="lucide:users" style="font-size: 16px" />
-                          成员数：{{ team.members?.length || 0 }}
-                        </span>
-                        <ElTag
-                          :type="getTeamStatusTagType(team.status)"
-                          size="small"
-                        >
-                          {{ getTeamStatusLabel(team.status) }}
-                        </ElTag>
-                      </div>
-                    </div>
-                  </div>
-                  <div style="display: flex; gap: 8px">
-                    <ElButton
-                      size="small"
-                      @click="toggleTeamMembers(team.id)"
-                      :type="isTeamExpanded(team.id) ? 'warning' : 'primary'"
-                    >
-                      <Icon
-                        :icon="
-                          isTeamExpanded(team.id)
-                            ? 'lucide:chevron-up'
-                            : 'lucide:chevron-down'
-                        "
-                        class="mr-1"
-                      />
-                      {{ isTeamExpanded(team.id) ? '收起成员' : '查看成员' }}
-                    </ElButton>
-                    <ElButton
-                      size="small"
-                      type="success"
-                      @click="handleAddMember(team.id)"
-                      v-if="isCreator"
-                    >
-                      <Icon icon="lucide:plus" class="mr-1" />
-                      添加成员
-                    </ElButton>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 团队成员列表（可展开/收起） -->
-              <div
-                v-if="isTeamExpanded(team.id)"
-                style="padding: 20px"
-                class="team-members-section"
-              >
-                <div
-                  v-if="team.members?.length > 0"
-                  style="background: #f9fafb; border-radius: 8px; padding: 16px"
-                >
-                  <ElTable
-                    :data="team.members"
-                    style="width: 100%"
-                    :header-cell-style="{
-                      background: '#f5f7fa',
-                      color: '#606266',
-                      fontWeight: '600',
-                    }"
-                    :row-style="{ height: '56px' }"
-                    stripe
-                  >
-                    <ElTableColumn
-                      prop="userRealName"
-                      label="真实姓名"
-                      width="120"
-                    >
-                      <template #default="{ row }">
-                        {{ row.userRealName || row.userName || '-' }}
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn prop="userName" label="用户名" width="120">
-                      <template #default="{ row }">
-                        {{ row.userName || '-' }}
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn prop="teamRole" label="团队角色" width="120">
-                      <template #default="{ row }">
-                        {{ row.teamRole || '-' }}
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn
-                      prop="permissionLevel"
-                      label="权限级别"
-                      width="100"
-                    >
-                      <template #default="{ row }">
-                        <ElTag
-                          :type="getPermissionTagType(row.permissionLevel)"
-                        >
-                          {{ getPermissionLabel(row.permissionLevel) }}
-                        </ElTag>
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn prop="isActive" label="状态" width="80">
-                      <template #default="{ row }">
-                        <ElTag :type="row.isActive ? 'success' : 'danger'">
-                          {{ row.isActive ? '激活' : '禁用' }}
-                        </ElTag>
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn
-                      prop="createTime"
-                      label="加入时间"
-                      width="160"
-                    >
-                      <template #default="{ row }">
-                        {{ formatDateTime(row.createTime) }}
-                      </template>
-                    </ElTableColumn>
-                    <ElTableColumn
-                      label="操作"
-                      width="200"
-                      fixed="right"
-                      v-if="isCreator"
-                    >
-                      <template #default="{ row }">
-                        <ElButton
-                          size="small"
-                          @click="handleEditMember(row)"
-                          type="primary"
-                          plain
-                        >
-                          <Icon icon="lucide:pencil" class="mr-1" />
-                          编辑
-                        </ElButton>
-                        <ElPopconfirm
-                          title="确定要移除该成员吗？"
-                          @confirm="handleRemoveMember(team.id, row.id)"
-                        >
-                          <template #reference>
-                            <ElButton
-                              size="small"
-                              type="danger"
-                              plain
-                              style="margin-left: 8px"
-                            >
-                              <Icon icon="lucide:trash-2" class="mr-1" />
-                              移除
-                            </ElButton>
-                          </template>
-                        </ElPopconfirm>
-                      </template>
-                    </ElTableColumn>
-                  </ElTable>
-                </div>
-                <div
-                  v-else
-                  style="text-align: center; padding: 20px; color: #909399"
-                >
-                  该团队暂无成员
-                </div>
-              </div>
-            </div>
-          </div>
-          <div
-            v-else-if="!workTeamLoading"
-            style="text-align: center; padding: 40px; color: #909399"
-          >
-            暂无工作团队，点击上方"添加工作团队"按钮创建
-          </div>
-          <div
-            v-else
-            style="display: flex; justify-content: center; padding: 40px"
-          >
-            <ElSkeleton :rows="5" animated />
-          </div>
-        </div>
-
-        <!-- 工作日志卡片 -->
-        <div v-if="activeTab === 'workLog'" style="margin: 20px 0">
-          <div style="overflow: hidden; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1)">
-            <!-- 标题和操作按钮 -->
-            <div style="padding: 20px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); border-bottom: 1px solid #e9ecef;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; gap: 12px; align-items: center">
-                  <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%;">
-                    <Icon icon="lucide:calendar-check" style="font-size: 24px; color: white" />
-                  </div>
-                  <div>
-                    <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: white;">
-                      工作日志管理
-                    </h2>
-                    <p style="margin: 4px 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.8);">
-                      记录案件处理过程中的重要工作内容
-                    </p>
-                  </div>
-                </div>
-                <div style="display: flex; gap: 10px">
-                  <ElButton 
-                    type="primary" 
                     @click="openAddWorkLogDialog"
-                    style="color: #4CAF50; background: white; border: none"
+                    style="color: #4caf50; background: white; border: none"
                   >
                     <Icon icon="lucide:plus" class="mr-1" />
                     添加日志
@@ -3028,37 +3174,51 @@ const checkPermissions = async () => {
             </div>
 
             <!-- 工作日志列表 -->
-            <div style="padding: 20px;">
+            <div style="padding: 20px">
               <div v-if="workLogs.length > 0" class="work-log-list">
-                <div 
-                  v-for="log in workLogs" 
+                <div
+                  v-for="log in workLogs"
                   :key="log.id"
-                  style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4CAF50; transition: all 0.3s ease;"
+                  style="
+                    margin-bottom: 16px;
+                    padding: 16px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    border-left: 4px solid #4caf50;
+                    transition: all 0.3s ease;
+                  "
                   :style="{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }"
                 >
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                    <div style="font-size: 14px; font-weight: 600; color: #666;">
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: space-between;
+                      margin-bottom: 12px;
+                    "
+                  >
+                    <div style="font-size: 14px; font-weight: 600; color: #666">
                       {{ formatDate(log.createTime) }}
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                      <ElButton 
-                        type="primary" 
-                        size="small" 
+                    <div style="display: flex; gap: 8px">
+                      <ElButton
+                        type="primary"
+                        size="small"
                         @click="editWorkLog(log)"
-                        style="padding: 4px 12px; font-size: 12px;"
+                        style="padding: 4px 12px; font-size: 12px"
                       >
                         <Icon icon="lucide:pencil" class="mr-1" />
                         编辑
                       </ElButton>
-                      <ElPopconfirm 
-                        title="确定要删除这条日志吗？" 
+                      <ElPopconfirm
+                        title="确定要删除这条日志吗？"
                         @confirm="deleteWorkLog(log.id)"
                       >
                         <template #reference>
-                          <ElButton 
-                            type="danger" 
+                          <ElButton
+                            type="danger"
                             size="small"
-                            style="padding: 4px 12px; font-size: 12px;"
+                            style="padding: 4px 12px; font-size: 12px"
                           >
                             <Icon icon="lucide:trash-2" class="mr-1" />
                             删除
@@ -3067,22 +3227,43 @@ const checkPermissions = async () => {
                       </ElPopconfirm>
                     </div>
                   </div>
-                  <div style="margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: #333; white-space: pre-wrap;">
+                  <div
+                    style="
+                      margin-bottom: 12px;
+                      font-size: 14px;
+                      line-height: 1.6;
+                      color: #333;
+                      white-space: pre-wrap;
+                    "
+                  >
                     {{ log.content }}
                   </div>
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #999;">
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      font-size: 12px;
+                      color: #999;
+                    "
+                  >
                     <span>创建人：{{ log.creator }}</span>
                     <span v-if="log.updater">更新人：{{ log.updater }}</span>
                   </div>
                 </div>
               </div>
-              <div v-else style="text-align: center; padding: 40px; color: #909399;">
-                <Icon icon="lucide:book-open" style="font-size: 64px; margin-bottom: 16px; color: #e0e0e0;" />
+              <div
+                v-else
+                style="text-align: center; padding: 40px; color: #909399"
+              >
+                <Icon
+                  icon="lucide:book-open"
+                  style="font-size: 64px; margin-bottom: 16px; color: #e0e0e0"
+                />
                 <p>暂无工作日志</p>
-                <ElButton 
-                  type="primary" 
+                <ElButton
+                  type="primary"
                   @click="openAddWorkLogDialog"
-                  style="margin-top: 16px;"
+                  style="margin-top: 16px"
                 >
                   <Icon icon="lucide:plus" class="mr-1" />
                   添加第一条日志
@@ -3118,7 +3299,11 @@ const checkPermissions = async () => {
 
           <template #footer>
             <ElButton @click="showWorkLogDialog = false">取消</ElButton>
-            <ElButton type="primary" @click="saveWorkLog" :loading="savingWorkLog">
+            <ElButton
+              type="primary"
+              @click="saveWorkLog"
+              :loading="savingWorkLog"
+            >
               保存
             </ElButton>
           </template>
@@ -3214,6 +3399,27 @@ const checkPermissions = async () => {
                 v-model="announcementData.content"
                 placeholder="请输入公告内容"
               />
+            </ElFormItem>
+            <ElFormItem label="附件">
+              <ElUpload
+                v-model:file-list="announcementData.attachments"
+                :http-request="customUpload"
+                :on-remove="handleAttachmentRemove"
+                :before-upload="handleAnnouncementFileBeforeUpload"
+                multiple
+                :limit="10"
+              >
+                <ElButton type="primary" size="small">
+                  <Icon icon="lucide:upload" class="mr-1" />
+                  上传附件
+                </ElButton>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    支持上传 doc、docx、pdf、txt、jpg、jpeg、png、gif
+                    格式文件，单个文件不超过 50MB
+                  </div>
+                </template>
+              </ElUpload>
             </ElFormItem>
           </div>
           <template #footer>
@@ -3395,7 +3601,7 @@ const checkPermissions = async () => {
         >
           <div style="padding: 20px 0">
             <ElForm :model="memberForm" label-width="100px">
-              <ElFormItem label="管理员机构" required>
+              <ElFormItem v-if="!memberForm.id" label="管理员机构" required>
                 <ElSelect
                   v-model="selectedDeptId"
                   placeholder="请选择管理员机构"
@@ -3413,7 +3619,7 @@ const checkPermissions = async () => {
                 </ElSelect>
               </ElFormItem>
 
-              <ElFormItem label="成员" required>
+              <ElFormItem v-if="!memberForm.id" label="成员" required>
                 <ElSelect
                   v-model="selectedUser"
                   placeholder="请选择成员"
@@ -3433,6 +3639,22 @@ const checkPermissions = async () => {
                 </ElSelect>
               </ElFormItem>
 
+              <ElFormItem v-if="memberForm.id" label="管理员机构">
+                <ElInput
+                  v-model="memberForm.deptName"
+                  placeholder="管理员机构"
+                  disabled
+                />
+              </ElFormItem>
+
+              <ElFormItem v-if="memberForm.id" label="成员">
+                <ElInput
+                  v-model="memberForm.userName"
+                  placeholder="成员"
+                  disabled
+                />
+              </ElFormItem>
+
               <ElFormItem label="团队角色" required>
                 <ElSelect
                   v-model="memberForm.teamRole"
@@ -3440,20 +3662,17 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   clearable
                 >
-                  <ElOption
-                    v-for="role in teamRoles"
-                    :key="role.roleCode"
-                    :label="role.roleName"
-                    :value="role.roleCode"
-                  />
+                  <ElOption label="负责人" value="LEADER" />
+                  <ElOption label="成员" value="MEMBER" />
+                  <ElOption label="访客" value="GUEST" />
                 </ElSelect>
               </ElFormItem>
-              <ElFormItem label="权限级别" required>
+              <ElFormItem label="权限级别">
                 <ElSelect
                   v-model="memberForm.permissionLevel"
-                  placeholder="选择权限"
+                  placeholder="权限级别"
                   style="width: 100%"
-                  clearable
+                  disabled
                 >
                   <ElOption label="查看" value="VIEW" />
                   <ElOption label="编辑" value="EDIT" />
@@ -3701,7 +3920,12 @@ const checkPermissions = async () => {
                       <ElTableColumn prop="name" label="文件名称" />
                       <ElTableColumn prop="size" label="文件大小" width="120">
                         <template #default="scope">
-                          {{ ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(2) }} MB
+                          {{
+                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
+                              2,
+                            )
+                          }}
+                          MB
                         </template>
                       </ElTableColumn>
                       <ElTableColumn label="操作" width="150">
@@ -3730,7 +3954,11 @@ const checkPermissions = async () => {
                   <div class="form-actions flex justify-end gap-3">
                     <ElButton @click="closeAddDocumentDialog">取消</ElButton>
                     <ElButton @click="resetDocumentForm">重置</ElButton>
-                    <ElButton type="primary" @click="submitDocumentForm" :loading="fileUploadLoading">
+                    <ElButton
+                      type="primary"
+                      @click="submitDocumentForm"
+                      :loading="fileUploadLoading"
+                    >
                       提交
                     </ElButton>
                   </div>

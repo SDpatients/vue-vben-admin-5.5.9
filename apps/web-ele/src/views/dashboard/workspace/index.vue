@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Todo } from '#/api/core/todo';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { AnalysisChartCard, WorkbenchHeader } from '@vben/common-ui';
@@ -20,7 +20,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getUserCaseListApi } from '#/api/core/case';
+import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
 import {
   createViewRecordApi,
   getAnnouncementDetailApi,
@@ -60,6 +60,12 @@ const weather = ref({
 
 const todoItems = ref<WorkbenchTodoItem[]>([]);
 const loading = ref(false);
+
+// 统计数据
+const todoCount = ref(0);
+const todoTotal = ref(0);
+const caseCount = ref(0);
+const teamCount = ref(0);
 
 // 案件列表相关数据
 const caseList = ref<any[]>([]);
@@ -180,7 +186,12 @@ const loadAnnouncements = async () => {
       pageSize: announcementPageSize.value,
     });
     if (response.code === 200 && response.data) {
-      announcements.value = response.data.list || [];
+      const list = response.data.list || [];
+      announcements.value = list.sort((a, b) => {
+        if (a.isTop && !b.isTop) return -1;
+        if (!a.isTop && b.isTop) return 1;
+        return 0;
+      });
       announcementTotal.value = response.data.total || 0;
     }
   } catch (error) {
@@ -216,6 +227,34 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
     if (response.code === 200 && response.data) {
       // 转换数据格式，确保与法律模块一致
       const detail = response.data;
+      // 处理附件，确保使用正确的file_id
+      let attachments = detail.attachments || [];
+      if (typeof attachments === 'string') {
+        try {
+          attachments = JSON.parse(attachments);
+        } catch (error) {
+          console.error('解析attachments失败:', error);
+          attachments = [];
+        }
+      }
+
+      // 处理附件字段映射，确保使用正确的file_id
+      const processedAttachments = attachments.map((attach: any) => ({
+        ...attach,
+        file_name:
+          attach.name ||
+          attach.file_name ||
+          attach.originalFileName ||
+          '未知文件',
+        file_id: attach.file_id || attach.id || attach.fileId || '',
+        type: attach.type || attach.mimeType || 'application/octet-stream',
+      }));
+
+      // 过滤掉没有有效file_id的附件
+      const validAttachments = processedAttachments.filter((attach: any) => {
+        return attach.file_id && !isNaN(Number(attach.file_id));
+      });
+
       announcementDetail.value = {
         ...detail,
         announcement_type: detail.announcementType,
@@ -226,6 +265,7 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
         view_count: detail.viewCount,
         caseNumber: detail.caseNumber,
         principalOfficer: detail.principalOfficer,
+        attachments: validAttachments,
       };
       showAnnouncementDetailDialog.value = true;
     } else {
@@ -274,6 +314,19 @@ const viewAnnouncementViews = async (announcement: any) => {
 // 查看附件
 const viewAttachment = async (attachment: any) => {
   try {
+    // 检查file_id是否存在且有效
+    if (!attachment.file_id) {
+      ElMessage.error('无效的文件ID');
+      return;
+    }
+
+    // 确保file_id是数字
+    const fileId = Number(attachment.file_id);
+    if (isNaN(fileId)) {
+      ElMessage.error('文件ID必须是数字');
+      return;
+    }
+
     previewLoading.value = true;
     previewAttachment.value = attachment;
 
@@ -281,7 +334,6 @@ const viewAttachment = async (attachment: any) => {
     const fileName = attachment.file_name || '';
     const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
     const mimeType = attachment.type || '';
-    const fileId = attachment.file_id;
 
     // 设置预览类型
     isImage.value =
@@ -313,8 +365,21 @@ const viewAttachment = async (attachment: any) => {
 // 下载附件
 const downloadAttachment = async (attachment: any) => {
   try {
+    // 检查file_id是否存在且有效
+    if (!attachment.file_id) {
+      ElMessage.error('无效的文件ID');
+      return;
+    }
+
+    // 确保file_id是数字
+    const fileId = Number(attachment.file_id);
+    if (isNaN(fileId)) {
+      ElMessage.error('文件ID必须是数字');
+      return;
+    }
+
     // 使用后端提供的下载接口
-    const downloadResponse = await downloadFileApi(Number(attachment.file_id));
+    const downloadResponse = await downloadFileApi(fileId);
 
     // 创建下载链接
     const blob = new Blob([downloadResponse], {
@@ -349,19 +414,25 @@ const loadTodoItems = async () => {
         : new Date().toLocaleDateString('zh-CN'),
       completed: item.status === 'COMPLETED',
     }));
+
+    // 更新待办统计
+    todoCount.value = res.data?.content?.length || 0;
+    todoTotal.value = res.data?.totalElements || 0;
   } catch (error) {
     console.error('加载待办事项失败:', error);
   }
 };
 
+// 判断用户是否为管理员
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin');
+});
+
 // 加载案件列表
 const loadCaseList = async () => {
   loading.value = true;
   try {
-    // 从本地存储获取userId
-    const chatUserId = localStorage.getItem('chat_user_id');
-    const userId = Number(chatUserId) || 0;
-
     // 映射案件状态到后端需要的英文状态
     const statusMap: Record<string, string> = {
       在办: 'ONGOING',
@@ -370,13 +441,48 @@ const loadCaseList = async () => {
     };
     const caseStatusEn = statusMap[caseStatus.value] || 'ONGOING';
 
-    const res = await getUserCaseListApi(userId, {
-      pageNum: currentPage.value,
-      pageSize: pageSize.value,
-      caseStatus: caseStatusEn,
-    });
+    let res;
+
+    // 管理员查看所有案件，律师只查看自己的案件
+    if (isAdmin.value) {
+      console.log('[loadCaseList] 管理员查看所有案件');
+      res = await getCaseListApi({
+        pageNum: currentPage.value,
+        pageSize: pageSize.value,
+        caseStatus: caseStatusEn,
+      });
+    } else {
+      // 从本地存储获取userId
+      const chatUserId = localStorage.getItem('chat_user_id');
+      const userId = Number(chatUserId) || 0;
+      console.log('[loadCaseList] 律师查看自己的案件，userId:', userId);
+
+      res = await getUserCaseListApi(userId, {
+        pageNum: currentPage.value,
+        pageSize: pageSize.value,
+        caseStatus: caseStatusEn,
+      });
+    }
+
     caseList.value = res.data?.list || [];
     totalCases.value = res.data?.total || 0;
+
+    // 更新案件统计（获取所有状态的案件总数）
+    if (isAdmin.value) {
+      const allCasesRes = await getCaseListApi({
+        pageNum: 1,
+        pageSize: 9999,
+      });
+      caseCount.value = allCasesRes.data?.total || 0;
+    } else {
+      const chatUserId = localStorage.getItem('chat_user_id');
+      const userId = Number(chatUserId) || 0;
+      const allCasesRes = await getUserCaseListApi(userId, {
+        pageNum: 1,
+        pageSize: 9999,
+      });
+      caseCount.value = allCasesRes.data?.total || 0;
+    }
   } catch (error) {
     console.error('加载案件数据失败:', error);
     caseList.value = [];
@@ -408,6 +514,25 @@ const handlePageChange = (page: number) => {
 // 跳转到案件详情
 const goToCaseDetail = (caseId: number) => {
   router.push(`/case-detail/${caseId}`);
+};
+
+// 加载工作团队数量
+const loadTeamCount = async () => {
+  try {
+    console.log('[loadTeamCount] 开始获取工作团队数量...');
+    const res = await getCurrentUserWorkTeamsApi();
+    console.log('[loadTeamCount] API返回结果:', res);
+    console.log('[loadTeamCount] res.data:', res.data);
+    console.log('[loadTeamCount] res.data类型:', typeof res.data);
+    console.log('[loadTeamCount] res.data是否为数组:', Array.isArray(res.data));
+    console.log('[loadTeamCount] res.data.length:', res.data?.length);
+
+    teamCount.value = res.data?.length || 0;
+    console.log('[loadTeamCount] 最终团队数量:', teamCount.value);
+  } catch (error) {
+    console.error('[loadTeamCount] 加载工作团队数量失败:', error);
+    teamCount.value = 0;
+  }
 };
 
 // 获取天气数据 - 根据用户IP地址获取
@@ -500,6 +625,7 @@ onMounted(() => {
   loadTodoItems();
   loadCaseList();
   loadAnnouncements();
+  loadTeamCount();
   initWeather();
 });
 </script>
@@ -509,13 +635,15 @@ onMounted(() => {
     <div class="p-5">
       <WorkbenchHeader
         :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
+        :todo-count="todoCount"
+        :todo-total="todoTotal"
+        :case-count="caseCount"
+        :team-count="teamCount"
       >
         <template #title>
           <div class="flex items-center justify-between">
-            <span
-              >{{ greeting }}, {{ currentUserInfo?.realName }},
-              开始您一天的工作吧！</span
-            >
+            <span>{{ greeting }}, {{ currentUserInfo?.realName }},
+              开始您一天的工作吧！</span>
           </div>
         </template>
         <template #description>

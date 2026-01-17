@@ -24,6 +24,9 @@ const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const { destroyWatermark, updateWatermark } = useWatermark();
 
+console.log('[basic.vue] userStore.userInfo:', userStore.userInfo);
+console.log('[basic.vue] userStore.userInfo?.realName:', userStore.userInfo?.realName);
+
 const menus = computed(() => [
   {
     handler: () => {

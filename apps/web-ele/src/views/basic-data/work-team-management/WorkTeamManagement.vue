@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { WorkTeamApi } from '#/api/core';
 
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 
 import {
   ElButton,
@@ -17,26 +17,27 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTabs,
   ElTabPane,
+  ElTabs,
 } from 'element-plus';
 
+import { getCaseListApi } from '#/api/core/case';
+import { getManagerListApi } from '#/api/core/manager';
+import { getUserByDeptIdApi } from '#/api/core/user';
 import {
+  addTeamMemberApi,
   createWorkTeamApi,
+  deleteTeamMemberApi,
   deleteWorkTeamApi,
   getWorkTeamDetailWithMembersApi,
   getWorkTeamListApi,
-  addTeamMemberApi,
-  updateMemberPermissionApi,
-  deleteTeamMemberApi,
+  updateTeamMemberApi,
 } from '#/api/core/work-team';
-import { getCaseListApi } from '#/api/core/case';
-import { getUserByDeptIdApi } from '#/api/core/user';
 
 const activeTab = ref('team');
 
 const workTeamList = ref<WorkTeamApi.WorkTeamInfo[]>([]);
-const currentTeam = ref<WorkTeamApi.WorkTeamDetail | null>(null);
+const currentTeam = ref<null | WorkTeamApi.WorkTeamDetail>(null);
 const teamMembers = ref<WorkTeamApi.TeamMemberInfo[]>([]);
 
 const loading = ref(false);
@@ -69,7 +70,6 @@ const addTeamFormData = reactive({
 // 团队负责人列表
 const teamLeaderList = ref<{ label: string; value: string }[]>([]);
 const teamLeaderSearchLoading = ref(false);
-const selectedDeptId = ref<number | undefined>(undefined);
 
 const addMemberFormData = reactive({
   teamId: 0,
@@ -81,9 +81,20 @@ const addMemberFormData = reactive({
 
 const editMemberFormData = reactive({
   memberId: 0,
+  userId: '',
+  userName: '',
+  deptId: '',
+  deptName: '',
   teamRole: '',
   permissionLevel: 'VIEW' as WorkTeamApi.PermissionLevel,
 });
+
+const administrators = ref<any[]>([]);
+const loadingAdministrators = ref(false);
+const selectedDeptId = ref<number | undefined>(undefined);
+const selectedUser = ref<any>(null);
+const availableUsers = ref<any[]>([]);
+const loadingUsers = ref(false);
 
 const addTeamFormRules = {
   caseId: [{ required: true, message: '请选择案件', trigger: 'change' }],
@@ -95,10 +106,7 @@ const addTeamFormRules = {
 
 const addMemberFormRules = {
   userId: [{ required: true, message: '请选择工作人员', trigger: 'change' }],
-  teamRole: [{ required: true, message: '请输入团队角色', trigger: 'blur' }],
-  permissionLevel: [
-    { required: true, message: '请选择权限级别', trigger: 'change' },
-  ],
+  teamRole: [{ required: true, message: '请选择团队角色', trigger: 'change' }],
 };
 
 const caseList = ref<{ label: string; value: string }[]>([]);
@@ -123,7 +131,7 @@ const fetchWorkTeamList = async () => {
 
     workTeamList.value = data.list || [];
     pagination.total = data.total || 0;
-  } catch (error) {
+  } catch {
     ElMessage.error('获取工作团队列表失败');
   } finally {
     loading.value = false;
@@ -173,7 +181,7 @@ const remoteSearchCase = async (query: string) => {
       label: caseItem.caseNumber,
       value: caseItem.id.toString(),
     }));
-  } catch (error) {
+  } catch {
     caseList.value = [];
     ElMessage.error('获取案件列表失败');
   } finally {
@@ -193,7 +201,7 @@ const fetchCaseList = async () => {
       label: caseItem.caseNumber,
       value: caseItem.id.toString(),
     }));
-  } catch (error) {
+  } catch {
     ElMessage.error('获取案件列表失败');
   } finally {
     caseSearchLoading.value = false;
@@ -212,16 +220,103 @@ const fetchMemberList = async (administratorId: number) => {
           label: user.name,
           value: user.userId.toString(),
         }));
+    } else if (data.data && Array.isArray(data.data)) {
+      memberList.value = data.data
+        .filter((user) => user && user.userId != null)
+        .map((user) => ({
+          label: user.name,
+          value: user.userId.toString(),
+        }));
     } else {
       memberList.value = [];
     }
-  } catch (error) {
+  } catch {
     memberList.value = [];
     ElMessage.error('获取工作人员列表失败');
   } finally {
     memberSearchLoading.value = false;
   }
 };
+
+const loadAdministrators = async () => {
+  loadingAdministrators.value = true;
+  try {
+    const response = await getManagerListApi({});
+    if (response.data && response.data.list) {
+      administrators.value = response.data.list
+        .filter((admin: any) => admin && admin.id != null)
+        .map((admin: any) => ({
+          ...admin,
+          sepId: admin.id,
+        }));
+    }
+  } catch (error) {
+    console.error('获取管理员机构失败:', error);
+    ElMessage.error('获取管理员机构失败');
+  } finally {
+    loadingAdministrators.value = false;
+  }
+};
+
+const loadUsersByDeptId = async (deptId: number, includeExisting = false) => {
+  if (!deptId || Number.isNaN(deptId)) {
+    availableUsers.value = [];
+    return;
+  }
+
+  loadingUsers.value = true;
+  try {
+    const response = await getUserByDeptIdApi(deptId);
+
+    let userList = [];
+    if (
+      response.code === 200 &&
+      response.data &&
+      Array.isArray(response.data)
+    ) {
+      userList = response.data;
+    } else if (response.data && Array.isArray(response.data)) {
+      userList = response.data;
+    } else if (response.data && Array.isArray(response.data.data)) {
+      userList = response.data.data;
+    }
+
+    let filteredUsers = userList.filter((user) => user && user.userId != null);
+
+    if (!includeExisting) {
+      filteredUsers = filteredUsers.filter((user) => {
+        const isMemberInTeam = teamMembers.value.some(
+          (member) => member.userId === user.userId,
+        );
+        return !isMemberInTeam;
+      });
+    }
+
+    availableUsers.value = filteredUsers.map((user) => ({
+      ...user,
+      uPid: user.userId,
+      uName: user.name,
+      uUser: user.name,
+    }));
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    ElMessage.error('获取用户列表失败');
+    availableUsers.value = [];
+  } finally {
+    loadingUsers.value = false;
+  }
+};
+
+watch(selectedDeptId, async (newVal) => {
+  if (newVal) {
+    await loadUsersByDeptId(newVal);
+    selectedUser.value = null;
+  }
+});
+
+watch(selectedUser, (newVal) => {
+  addMemberFormData.userId = newVal ? newVal.uPid.toString() : '';
+});
 
 // 获取团队负责人列表
 const fetchTeamLeaderList = async () => {
@@ -246,7 +341,7 @@ const fetchTeamLeaderList = async () => {
         label: staff.name,
         value: staff.userId.toString(),
       }));
-  } catch (error) {
+  } catch {
     teamLeaderList.value = [];
     ElMessage.error('获取团队负责人列表失败');
   } finally {
@@ -277,8 +372,8 @@ const handleSaveAddTeam = async () => {
 
     const apiData: WorkTeamApi.CreateWorkTeamRequest = {
       teamName: addTeamFormData.teamName,
-      teamLeaderId: parseInt(addTeamFormData.teamLeaderId),
-      caseId: parseInt(addTeamFormData.caseId),
+      teamLeaderId: Number.parseInt(addTeamFormData.teamLeaderId),
+      caseId: Number.parseInt(addTeamFormData.caseId),
       teamDescription: addTeamFormData.teamDescription,
     };
 
@@ -286,7 +381,7 @@ const handleSaveAddTeam = async () => {
     ElMessage.success('工作团队创建成功');
     handleCloseAddTeamDialog();
     fetchWorkTeamList();
-  } catch (error) {
+  } catch {
     ElMessage.error('表单验证失败或API调用出错');
   }
 };
@@ -303,18 +398,20 @@ const handleViewTeam = async (row: WorkTeamApi.WorkTeamInfo) => {
     if (row.teamLeaderId) {
       await fetchMemberList(row.teamLeaderId);
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('获取团队详情失败');
   } finally {
     membersLoading.value = false;
   }
 };
 
-const handleAddMember = () => {
+const handleAddMember = async () => {
   if (!currentTeam.value) {
     ElMessage.warning('请先选择一个工作团队');
     return;
   }
+
+  await loadAdministrators();
 
   addMemberDialogVisible.value = true;
   Object.assign(addMemberFormData, {
@@ -324,7 +421,59 @@ const handleAddMember = () => {
     teamRole: '',
     permissionLevel: 'VIEW',
   });
+
+  selectedDeptId.value = undefined;
+  selectedUser.value = null;
+  availableUsers.value = [];
 };
+
+watch(
+  () => addMemberFormData.teamRole,
+  (newRole) => {
+    switch (newRole) {
+      case 'GUEST': {
+        addMemberFormData.permissionLevel = 'VIEW';
+
+        break;
+      }
+      case 'LEADER': {
+        addMemberFormData.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      case 'MEMBER': {
+        addMemberFormData.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      // No default
+    }
+  },
+);
+
+watch(
+  () => editMemberFormData.teamRole,
+  (newRole) => {
+    switch (newRole) {
+      case 'GUEST': {
+        editMemberFormData.permissionLevel = 'VIEW';
+
+        break;
+      }
+      case 'LEADER': {
+        editMemberFormData.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      case 'MEMBER': {
+        editMemberFormData.permissionLevel = 'ADMIN';
+
+        break;
+      }
+      // No default
+    }
+  },
+);
 
 const handleCloseAddMemberDialog = () => {
   addMemberDialogVisible.value = false;
@@ -337,7 +486,7 @@ const handleSaveAddMember = async () => {
 
     const apiData: WorkTeamApi.AddTeamMemberRequest = {
       caseId: addMemberFormData.caseId,
-      userId: parseInt(addMemberFormData.userId),
+      userId: Number.parseInt(addMemberFormData.userId),
       teamRole: addMemberFormData.teamRole,
       permissionLevel: addMemberFormData.permissionLevel,
     };
@@ -348,18 +497,38 @@ const handleSaveAddMember = async () => {
     if (currentTeam.value) {
       await handleViewTeam(currentTeam.value as WorkTeamApi.WorkTeamInfo);
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('表单验证失败或API调用出错');
   }
 };
 
-const handleEditMember = (row: WorkTeamApi.TeamMemberInfo) => {
+const handleEditMember = async (row: WorkTeamApi.TeamMemberInfo) => {
+  await loadAdministrators();
+
   editMemberDialogVisible.value = true;
   Object.assign(editMemberFormData, {
     memberId: row.id,
+    userId: row.userId?.toString() || '',
+    userName: row.userRealName || row.userName || '',
+    deptId: '',
+    deptName: '',
     teamRole: row.teamRole || '',
     permissionLevel: row.permissionLevel || 'VIEW',
   });
+
+  if (administrators.value.length > 0) {
+    selectedDeptId.value = administrators.value[0].sepId;
+    await loadUsersByDeptId(selectedDeptId.value, true);
+
+    const currentUser = availableUsers.value.find(
+      (user) => user.uPid === row.userId,
+    );
+    if (currentUser) {
+      editMemberFormData.deptId = selectedDeptId.value?.toString() || '';
+      editMemberFormData.deptName =
+        administrators.value[0].administratorName || '';
+    }
+  }
 };
 
 const handleCloseEditMemberDialog = () => {
@@ -368,16 +537,16 @@ const handleCloseEditMemberDialog = () => {
 
 const handleSaveEditMember = async () => {
   try {
-    await updateMemberPermissionApi(editMemberFormData.memberId, {
+    await updateTeamMemberApi(editMemberFormData.memberId, {
+      teamRole: editMemberFormData.teamRole,
       permissionLevel: editMemberFormData.permissionLevel,
-      permissionType: 'VIEW', // 默认为VIEW权限类型，可根据实际需求调整
     });
     ElMessage.success('团队成员信息更新成功');
     handleCloseEditMemberDialog();
     if (currentTeam.value) {
       await handleViewTeam(currentTeam.value as WorkTeamApi.WorkTeamInfo);
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('API调用出错');
   }
 };
@@ -803,34 +972,56 @@ onMounted(() => {
         :rules="addMemberFormRules"
         label-width="120px"
       >
-        <ElFormItem label="工作人员" prop="userId">
+        <ElFormItem label="管理员机构" prop="deptId">
           <ElSelect
-            v-model="addMemberFormData.userId"
-            placeholder="请选择工作人员"
+            v-model="selectedDeptId"
+            placeholder="请选择管理员机构"
             style="width: 100%"
-            filterable
-            :loading="memberSearchLoading"
+            :loading="loadingAdministrators"
             clearable
           >
             <ElOption
-              v-for="member in memberList"
-              :key="member.value"
-              :label="member.label"
-              :value="member.value"
+              v-for="admin in administrators"
+              :key="admin.sepId"
+              :label="admin.administratorName"
+              :value="admin.sepId"
+            />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="工作人员" prop="userId">
+          <ElSelect
+            v-model="selectedUser"
+            placeholder="请先选择管理员机构"
+            style="width: 100%"
+            :loading="loadingUsers"
+            clearable
+            :disabled="!selectedDeptId"
+          >
+            <ElOption
+              v-for="user in availableUsers"
+              :key="user.uPid"
+              :label="user.uName"
+              :value="user"
             />
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="团队角色" prop="teamRole">
-          <ElInput
+          <ElSelect
             v-model="addMemberFormData.teamRole"
-            placeholder="请输入团队角色（如：律师、助理等）"
-          />
+            placeholder="请选择团队角色"
+            style="width: 100%"
+          >
+            <ElOption label="负责人" value="LEADER" />
+            <ElOption label="成员" value="MEMBER" />
+            <ElOption label="访客" value="GUEST" />
+          </ElSelect>
         </ElFormItem>
-        <ElFormItem label="权限级别" prop="permissionLevel">
+        <ElFormItem label="权限级别">
           <ElSelect
             v-model="addMemberFormData.permissionLevel"
-            placeholder="请选择权限级别"
+            placeholder="权限级别"
             style="width: 100%"
+            disabled
           >
             <ElOption label="查看" value="VIEW" />
             <ElOption label="编辑" value="EDIT" />
@@ -853,17 +1044,37 @@ onMounted(() => {
       :before-close="handleCloseEditMemberDialog"
     >
       <ElForm :model="editMemberFormData" label-width="120px">
-        <ElFormItem label="团队角色">
+        <ElFormItem label="管理员机构">
           <ElInput
-            v-model="editMemberFormData.teamRole"
-            placeholder="请输入团队角色"
+            v-model="editMemberFormData.deptName"
+            placeholder="管理员机构"
+            disabled
           />
+        </ElFormItem>
+        <ElFormItem label="工作人员">
+          <ElInput
+            v-model="editMemberFormData.userName"
+            placeholder="工作人员"
+            disabled
+          />
+        </ElFormItem>
+        <ElFormItem label="团队角色">
+          <ElSelect
+            v-model="editMemberFormData.teamRole"
+            placeholder="请选择团队角色"
+            style="width: 100%"
+          >
+            <ElOption label="负责人" value="LEADER" />
+            <ElOption label="成员" value="MEMBER" />
+            <ElOption label="访客" value="GUEST" />
+          </ElSelect>
         </ElFormItem>
         <ElFormItem label="权限级别">
           <ElSelect
             v-model="editMemberFormData.permissionLevel"
-            placeholder="请选择权限级别"
+            placeholder="权限级别"
             style="width: 100%"
+            disabled
           >
             <ElOption label="查看" value="VIEW" />
             <ElOption label="编辑" value="EDIT" />

@@ -99,7 +99,12 @@ const fetchAnnouncements = async () => {
       pageSize: pageSize.value,
     });
     if (response.code === 200) {
-      announcements.value = response.data.list || [];
+      const list = response.data.list || [];
+      announcements.value = list.sort((a, b) => {
+        if (a.isTop && !b.isTop) return -1;
+        if (!a.isTop && b.isTop) return 1;
+        return 0;
+      });
       total.value = response.data.total || 0;
     } else {
       ElMessage.error(`获取公告列表失败：${response.message || '未知错误'}`);
@@ -124,7 +129,38 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
   try {
     const response = await getAnnouncementDetailApi(announcement.id);
     if (response.code === 200) {
-      currentAnnouncement.value = response.data;
+      const data = response.data;
+      // 处理附件，确保使用正确的file_id
+      let attachments = data.attachments || [];
+      if (typeof attachments === 'string') {
+        try {
+          attachments = JSON.parse(attachments);
+        } catch (error) {
+          console.error('解析attachments失败:', error);
+          attachments = [];
+        }
+      }
+
+      // 处理附件字段映射，确保使用正确的file_id
+      const processedAttachments = attachments.map((attach: any) => ({
+        ...attach,
+        file_name:
+          attach.name ||
+          attach.file_name ||
+          attach.originalFileName ||
+          '未知文件',
+        file_id: attach.file_id || attach.id || attach.fileId || '',
+        type: attach.type || attach.mimeType || 'application/octet-stream',
+      }));
+
+      // 过滤掉没有有效file_id的附件
+      const validAttachments = processedAttachments.filter((attach: any) => {
+        return attach.file_id && !isNaN(Number(attach.file_id));
+      });
+
+      // 更新附件数据
+      data.attachments = validAttachments;
+      currentAnnouncement.value = data;
     }
   } catch (error) {
     console.error('获取公告详情失败:', error);
@@ -155,7 +191,7 @@ const downloadFile = async (attachment: {
   try {
     // 使用后端提供的下载接口
     const downloadResponse = await downloadFileApi(Number(attachment.file_id));
-    
+
     // 创建下载链接
     const blob = new Blob([downloadResponse], {
       type: 'application/octet-stream',
@@ -180,8 +216,21 @@ const downloadFile = async (attachment: {
  * 打开文件预览
  */
 const previewFile = (attachment: { file_id: string; file_name: string }) => {
+  // 检查file_id是否存在且有效
+  if (!attachment.file_id) {
+    ElMessage.error('无效的文件ID');
+    return;
+  }
+
+  // 确保file_id是数字
+  const fileId = Number(attachment.file_id);
+  if (isNaN(fileId)) {
+    ElMessage.error('文件ID必须是数字');
+    return;
+  }
+
   // 使用相对路径的预览URL
-  previewUrl.value = `/api/v1/file/preview/${attachment.file_id}`;
+  previewUrl.value = `/api/v1/file/preview/${fileId}`;
   showPreviewDialog.value = true;
 };
 
@@ -264,461 +313,481 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="announcement-container">
-    <ElCard shadow="hover">
-      <template #header>
-        <div class="card-header flex items-center justify-between">
-          <div class="flex items-center">
-            <Icon icon="lucide:bell" class="mr-2" />
-            <span class="text-lg font-semibold">公告列表</span>
-          </div>
-          <ElButton type="primary" @click="openPublishDialog">
-            <Icon icon="lucide:plus" class="mr-1" />
-            发布公告
-          </ElButton>
-        </div>
-      </template>
-
-      <div v-loading="loading" class="announcement-list">
-        <!-- 加载中状态：显示骨架屏占位 -->
-        <template v-if="loading">
-          <div v-for="i in 3" :key="i" class="announcement-item skeleton-item">
-            <div class="announcement-header">
-              <div class="title-section">
-                <div class="skeleton skeleton-title"></div>
-                <div class="skeleton skeleton-tag ml-2"></div>
-                <div class="skeleton skeleton-tag ml-2"></div>
-              </div>
-              <div class="skeleton skeleton-button"></div>
+  <div class="announcement-list-wrapper">
+    <div class="announcement-container">
+      <ElCard shadow="hover">
+        <template #header>
+          <div class="card-header flex items-center justify-between">
+            <div class="flex items-center">
+              <Icon icon="lucide:bell" class="mr-2" />
+              <span class="text-lg font-semibold">公告列表</span>
             </div>
-            <div class="announcement-meta">
-              <div class="skeleton skeleton-meta"></div>
-              <div class="skeleton skeleton-meta"></div>
-              <div class="skeleton skeleton-meta"></div>
-            </div>
+            <ElButton type="primary" @click="openPublishDialog">
+              <Icon icon="lucide:plus" class="mr-1" />
+              发布公告
+            </ElButton>
           </div>
         </template>
 
-        <!-- 空数据状态 -->
-        <div v-else-if="announcements.length === 0" class="empty-state">
-          <ElEmpty description="暂无公告" />
-        </div>
+        <div v-loading="loading" class="announcement-list">
+          <!-- 加载中状态：显示骨架屏占位 -->
+          <template v-if="loading">
+            <div
+              v-for="i in 3"
+              :key="i"
+              class="announcement-item skeleton-item"
+            >
+              <div class="announcement-header">
+                <div class="title-section">
+                  <div class="skeleton skeleton-title"></div>
+                  <div class="skeleton skeleton-tag ml-2"></div>
+                  <div class="skeleton skeleton-tag ml-2"></div>
+                </div>
+                <div class="skeleton skeleton-button"></div>
+              </div>
+              <div class="announcement-meta">
+                <div class="skeleton skeleton-meta"></div>
+                <div class="skeleton skeleton-meta"></div>
+                <div class="skeleton skeleton-meta"></div>
+              </div>
+            </div>
+          </template>
 
-        <!-- 有数据状态 -->
-        <template v-else>
-          <div
-            v-for="item in announcements"
-            :key="item.id"
-            class="announcement-item"
-          >
-            <div class="announcement-header">
-              <div class="title-section">
-                <Icon v-if="item.isTop" icon="lucide:pin" class="top-icon" />
-                <h3 class="announcement-title">{{ item.title }}</h3>
-                <ElTag
-                  :type="
-                    item.announcementType === 'ANNOUNCEMENT'
-                      ? 'info'
-                      : item.announcementType === 'NOTICE'
-                        ? 'warning'
-                        : item.announcementType === 'WARNING'
-                          ? 'danger'
-                          : 'info'
-                  "
-                  size="small"
-                  class="ml-2"
-                >
-                  {{
-                    item.announcementType === 'ANNOUNCEMENT'
-                      ? '公告'
-                      : item.announcementType === 'NOTICE'
-                        ? '通知'
-                        : item.announcementType === 'WARNING'
-                          ? '警告'
-                          : '普通'
-                  }}
-                </ElTag>
-                <ElTag
-                  :type="
-                    item.status === 'PUBLISHED'
-                      ? 'success'
-                      : item.status === 'DRAFT'
+          <!-- 空数据状态 -->
+          <div v-else-if="announcements.length === 0" class="empty-state">
+            <ElEmpty description="暂无公告" />
+          </div>
+
+          <!-- 有数据状态 -->
+          <template v-else>
+            <div
+              v-for="item in announcements"
+              :key="item.id"
+              class="announcement-item"
+            >
+              <div class="announcement-header">
+                <div class="title-section">
+                  <Icon v-if="item.isTop" icon="lucide:pin" class="top-icon" />
+                  <h3 class="announcement-title">{{ item.title }}</h3>
+                  <ElTag
+                    :type="
+                      item.announcementType === 'ANNOUNCEMENT'
                         ? 'info'
-                        : 'warning'
-                  "
+                        : item.announcementType === 'NOTICE'
+                          ? 'warning'
+                          : item.announcementType === 'WARNING'
+                            ? 'danger'
+                            : 'info'
+                    "
+                    size="small"
+                    class="ml-2"
+                  >
+                    {{
+                      item.announcementType === 'ANNOUNCEMENT'
+                        ? '公告'
+                        : item.announcementType === 'NOTICE'
+                          ? '通知'
+                          : item.announcementType === 'WARNING'
+                            ? '警告'
+                            : '普通'
+                    }}
+                  </ElTag>
+                  <ElTag
+                    :type="
+                      item.status === 'PUBLISHED'
+                        ? 'success'
+                        : item.status === 'DRAFT'
+                          ? 'info'
+                          : 'warning'
+                    "
+                    size="small"
+                    class="status-tag ml-2"
+                  >
+                    {{
+                      item.status === 'PUBLISHED'
+                        ? '已发布'
+                        : item.status === 'DRAFT'
+                          ? '草稿'
+                          : '已撤回'
+                    }}
+                  </ElTag>
+                </div>
+                <ElButton
+                  type="primary"
                   size="small"
-                  class="status-tag ml-2"
+                  @click="viewAnnouncementDetail(item)"
                 >
-                  {{
-                    item.status === 'PUBLISHED'
-                      ? '已发布'
-                      : item.status === 'DRAFT'
-                        ? '草稿'
-                        : '已撤回'
-                  }}
-                </ElTag>
+                  查看详情
+                </ElButton>
               </div>
-              <ElButton
-                type="primary"
-                size="small"
-                @click="viewAnnouncementDetail(item)"
-              >
-                查看详情
-              </ElButton>
+
+              <div class="announcement-meta">
+                <span class="meta-item">
+                  <Icon icon="lucide:user" class="icon" />
+                  发布人：{{ item.publisherName }}
+                </span>
+                <span class="meta-item">
+                  <Icon icon="lucide:calendar" class="icon" />
+                  发布时间：{{ formatDate(item.publishTime) }}
+                </span>
+                <span class="meta-item">
+                  <Icon icon="lucide:eye" class="icon" />
+                  浏览次数：{{ item.viewCount }}
+                </span>
+              </div>
             </div>
 
-            <div class="announcement-meta">
-              <span class="meta-item">
-                <Icon icon="lucide:user" class="icon" />
-                发布人：{{ item.publisherName }}
-              </span>
-              <span class="meta-item">
-                <Icon icon="lucide:calendar" class="icon" />
-                发布时间：{{ formatDate(item.publishTime) }}
-              </span>
-              <span class="meta-item">
-                <Icon icon="lucide:eye" class="icon" />
-                浏览次数：{{ item.viewCount }}
-              </span>
+            <div v-if="total > 0" class="pagination-container">
+              <ElPagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="total"
+                @size-change="handlePageSizeChange"
+                @current-change="handlePageChange"
+              />
             </div>
-          </div>
+          </template>
+        </div>
+      </ElCard>
 
-          <div v-if="total > 0" class="pagination-container">
-            <ElPagination
-              v-model:current-page="currentPage"
-              v-model:page-size="pageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="total"
-              @size-change="handlePageSizeChange"
-              @current-change="handlePageChange"
-            />
-          </div>
-        </template>
-      </div>
-    </ElCard>
-  </div>
+      <!-- 公告详情对话框 -->
+      <ElDialog
+        v-model="showDetailDialog"
+        :title="currentAnnouncement?.title || '公告详情'"
+        width="70%"
+        destroy-on-close
+      >
+        <div v-loading="detailLoading" class="announcement-detail-container">
+          <div v-if="currentAnnouncement" class="detail-content">
+            <!-- 元信息区域 -->
+            <div class="detail-meta">
+              <div class="meta-grid">
+                <div class="meta-item">
+                  <span class="meta-label">公告ID</span>
+                  <span class="meta-value">{{ currentAnnouncement.id }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">案件ID</span>
+                  <span class="meta-value">{{
+                    currentAnnouncement.caseId
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">公告类型</span>
+                  <span class="meta-value">{{
+                    currentAnnouncement.announcementType || '普通'
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">状态</span>
+                  <ElTag
+                    :type="
+                      currentAnnouncement.status === 'PUBLISHED'
+                        ? 'success'
+                        : currentAnnouncement.status === 'DRAFT'
+                          ? 'info'
+                          : 'warning'
+                    "
+                    size="small"
+                  >
+                    {{
+                      currentAnnouncement.status === 'PUBLISHED'
+                        ? '已发布'
+                        : currentAnnouncement.status === 'DRAFT'
+                          ? '草稿'
+                          : '已撤回'
+                    }}
+                  </ElTag>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">发布人</span>
+                  <span class="meta-value">{{
+                    currentAnnouncement.publisherName || '未设置'
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">发布时间</span>
+                  <span class="meta-value">{{
+                    currentAnnouncement.publishTime
+                      ? formatDate(currentAnnouncement.publishTime)
+                      : '未发布'
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">浏览次数</span>
+                  <span class="meta-value">{{
+                    currentAnnouncement.viewCount || 0
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">是否置顶</span>
+                  <ElTag
+                    :type="currentAnnouncement.isTop ? 'danger' : 'info'"
+                    size="small"
+                  >
+                    {{ currentAnnouncement.isTop ? '已置顶' : '未置顶' }}
+                  </ElTag>
+                </div>
+                <div
+                  v-if="
+                    currentAnnouncement.isTop &&
+                    currentAnnouncement.topExpireTime
+                  "
+                  class="meta-item"
+                >
+                  <span class="meta-label">置顶过期时间</span>
+                  <span class="meta-value">{{
+                    formatDate(currentAnnouncement.topExpireTime)
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">创建时间</span>
+                  <span class="meta-value">{{
+                    formatDate(currentAnnouncement.createTime)
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">更新时间</span>
+                  <span class="meta-value">{{
+                    formatDate(currentAnnouncement.updateTime)
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">是否删除</span>
+                  <ElTag
+                    :type="currentAnnouncement.isDeleted ? 'danger' : 'success'"
+                    size="small"
+                  >
+                    {{ currentAnnouncement.isDeleted ? '已删除' : '正常' }}
+                  </ElTag>
+                </div>
+              </div>
+            </div>
 
-  <!-- 公告详情对话框 -->
-  <ElDialog
-    v-model="showDetailDialog"
-    :title="currentAnnouncement?.title || '公告详情'"
-    width="70%"
-    destroy-on-close
-  >
-    <div v-loading="detailLoading" class="announcement-detail-container">
-      <div v-if="currentAnnouncement" class="detail-content">
-        <!-- 元信息区域 -->
-        <div class="detail-meta">
-          <div class="meta-grid">
-            <div class="meta-item">
-              <span class="meta-label">公告ID</span>
-              <span class="meta-value">{{ currentAnnouncement.id }}</span>
+            <!-- 内容区域 -->
+            <div class="detail-body">
+              <h4 class="section-title">公告内容</h4>
+              <div
+                class="content-html"
+                v-html="currentAnnouncement.content"
+              ></div>
             </div>
-            <div class="meta-item">
-              <span class="meta-label">案件ID</span>
-              <span class="meta-value">{{ currentAnnouncement.caseId }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">公告类型</span>
-              <span class="meta-value">{{
-                currentAnnouncement.announcementType || '普通'
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">状态</span>
-              <ElTag
-                :type="
-                  currentAnnouncement.status === 'PUBLISHED'
-                    ? 'success'
-                    : currentAnnouncement.status === 'DRAFT'
-                      ? 'info'
-                      : 'warning'
-                "
-                size="small"
-              >
-                {{
-                  currentAnnouncement.status === 'PUBLISHED'
-                    ? '已发布'
-                    : currentAnnouncement.status === 'DRAFT'
-                      ? '草稿'
-                      : '已撤回'
-                }}
-              </ElTag>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">发布人</span>
-              <span class="meta-value">{{
-                currentAnnouncement.publisherName || '未设置'
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">发布时间</span>
-              <span class="meta-value">{{
-                currentAnnouncement.publishTime
-                  ? formatDate(currentAnnouncement.publishTime)
-                  : '未发布'
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">浏览次数</span>
-              <span class="meta-value">{{
-                currentAnnouncement.viewCount || 0
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">是否置顶</span>
-              <ElTag
-                :type="currentAnnouncement.isTop ? 'danger' : 'info'"
-                size="small"
-              >
-                {{ currentAnnouncement.isTop ? '已置顶' : '未置顶' }}
-              </ElTag>
-            </div>
+
+            <!-- 附件区域 -->
             <div
               v-if="
-                currentAnnouncement.isTop && currentAnnouncement.topExpireTime
+                currentAnnouncement.attachments &&
+                currentAnnouncement.attachments !== 'string'
               "
-              class="meta-item"
+              class="detail-attachments"
             >
-              <span class="meta-label">置顶过期时间</span>
-              <span class="meta-value">{{
-                formatDate(currentAnnouncement.topExpireTime)
-              }}</span>
+              <h4 class="section-title">附件</h4>
+              <div class="attachment-list">
+                <div
+                  v-for="(attachment, index) in currentAnnouncement.attachments"
+                  :key="index"
+                  class="attachment-item"
+                >
+                  <div class="attachment-info">
+                    <Icon icon="lucide:paperclip" class="attachment-icon" />
+                    <span class="attachment-name">{{
+                      attachment.file_name || attachment.name || '附件'
+                    }}</span>
+                  </div>
+                  <div class="attachment-actions">
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="previewFile(attachment)"
+                    >
+                      预览
+                    </ElButton>
+                    <ElButton
+                      size="small"
+                      class="ml-2"
+                      @click="downloadFile(attachment)"
+                    >
+                      下载
+                    </ElButton>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="meta-item">
-              <span class="meta-label">创建时间</span>
-              <span class="meta-value">{{
-                formatDate(currentAnnouncement.createTime)
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">更新时间</span>
-              <span class="meta-value">{{
-                formatDate(currentAnnouncement.updateTime)
-              }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">是否删除</span>
-              <ElTag
-                :type="currentAnnouncement.isDeleted ? 'danger' : 'success'"
-                size="small"
-              >
-                {{ currentAnnouncement.isDeleted ? '已删除' : '正常' }}
-              </ElTag>
-            </div>
-          </div>
-        </div>
 
-        <!-- 内容区域 -->
-        <div class="detail-body">
-          <h4 class="section-title">公告内容</h4>
-          <div class="content-html" v-html="currentAnnouncement.content"></div>
-        </div>
-
-        <!-- 附件区域 -->
-        <div
-          v-if="
-            currentAnnouncement.attachments &&
-            currentAnnouncement.attachments !== 'string'
-          "
-          class="detail-attachments"
-        >
-          <h4 class="section-title">附件</h4>
-          <div class="attachment-list">
+            <!-- 附件为字符串时的特殊处理 -->
             <div
-              v-for="(attachment, index) in currentAnnouncement.attachments"
-              :key="index"
-              class="attachment-item"
+              v-else-if="currentAnnouncement.attachments === 'string'"
+              class="detail-attachments"
             >
-              <div class="attachment-info">
-                <Icon icon="lucide:paperclip" class="attachment-icon" />
-                <span class="attachment-name">{{
-                  attachment.file_name || attachment.name || '附件'
-                }}</span>
-              </div>
-              <div class="attachment-actions">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  @click="previewFile(attachment)"
-                >
-                  预览
-                </ElButton>
-                <ElButton
-                  size="small"
-                  class="ml-2"
-                  @click="downloadFile(attachment)"
-                >
-                  下载
-                </ElButton>
+              <h4 class="section-title">附件</h4>
+              <div class="attachment-list">
+                <div class="attachment-item">
+                  <div class="attachment-info">
+                    <Icon icon="lucide:paperclip" class="attachment-icon" />
+                    <span class="attachment-name">附件数据</span>
+                  </div>
+                  <div class="attachment-actions">
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      @click="copyAttachmentData"
+                    >
+                      复制附件数据
+                    </ElButton>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </ElDialog>
 
-        <!-- 附件为字符串时的特殊处理 -->
-        <div
-          v-else-if="currentAnnouncement.attachments === 'string'"
-          class="detail-attachments"
-        >
-          <h4 class="section-title">附件</h4>
-          <div class="attachment-list">
-            <div class="attachment-item">
-              <div class="attachment-info">
-                <Icon icon="lucide:paperclip" class="attachment-icon" />
-                <span class="attachment-name">附件数据</span>
-              </div>
-              <div class="attachment-actions">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  @click="copyAttachmentData"
-                >
-                  复制附件数据
-                </ElButton>
-              </div>
-            </div>
-          </div>
+      <!-- 文件预览对话框 -->
+      <ElDialog
+        v-model="showPreviewDialog"
+        title="文件预览"
+        width="80%"
+        height="80%"
+        destroy-on-close
+      >
+        <div class="preview-container">
+          <iframe
+            :src="previewUrl"
+            class="preview-iframe"
+            frameborder="0"
+          ></iframe>
         </div>
-      </div>
+      </ElDialog>
+
+      <!-- 发布公告对话框 -->
+      <ElDialog
+        v-model="showPublishDialog"
+        title="发布新公告"
+        width="800px"
+        destroy-on-close
+      >
+        <ElForm
+          ref="publishFormRef"
+          :model="publishForm"
+          label-width="120px"
+          class="publish-form"
+        >
+          <ElFormItem
+            label="案件ID"
+            prop="caseId"
+            :rules="[
+              { required: true, message: '请输入案件ID', trigger: 'blur' },
+              { type: 'number', message: '案件ID必须是数字', trigger: 'blur' },
+            ]"
+          >
+            <ElInput
+              v-model.number="publishForm.caseId"
+              placeholder="请输入案件ID"
+            />
+          </ElFormItem>
+
+          <ElFormItem
+            label="公告标题"
+            prop="title"
+            :rules="[
+              { required: true, message: '请输入公告标题', trigger: 'blur' },
+              {
+                max: 200,
+                message: '标题长度不能超过200个字符',
+                trigger: 'blur',
+              },
+            ]"
+          >
+            <ElInput
+              v-model="publishForm.title"
+              placeholder="请输入公告标题"
+              maxlength="200"
+              show-word-limit
+            />
+          </ElFormItem>
+
+          <ElFormItem
+            label="公告类型"
+            prop="announcementType"
+            :rules="[
+              { required: true, message: '请选择公告类型', trigger: 'change' },
+            ]"
+          >
+            <ElSelect
+              v-model="publishForm.announcementType"
+              placeholder="请选择公告类型"
+            >
+              <ElOption label="公告" value="ANNOUNCEMENT" />
+              <ElOption label="通知" value="NOTICE" />
+              <ElOption label="警告" value="WARNING" />
+            </ElSelect>
+          </ElFormItem>
+
+          <ElFormItem
+            label="公告内容"
+            prop="content"
+            :rules="[
+              { required: true, message: '请输入公告内容', trigger: 'blur' },
+            ]"
+          >
+            <ElInput
+              v-model="publishForm.content"
+              type="textarea"
+              :rows="8"
+              placeholder="请输入公告内容，支持HTML格式"
+            />
+          </ElFormItem>
+
+          <ElFormItem label="附件">
+            <ElUpload
+              :file-list="publishForm.attachments"
+              :on-change="
+                (file) => {
+                  // 处理附件上传，这里仅做模拟
+                  const newFile = {
+                    fileName: file.name,
+                    fileUrl: `http://example.com/files/${file.name}`,
+                    fileType: file.type,
+                  };
+                  publishForm.value.attachments.push(newFile);
+                }
+              "
+              :on-remove="
+                (file, fileList) => {
+                  publishForm.value.attachments = fileList;
+                }
+              "
+              accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"
+              multiple
+            >
+              <ElButton type="primary" size="small">
+                <Icon icon="lucide:upload" class="mr-1" />
+                上传附件
+              </ElButton>
+              <div class="upload-hint">
+                支持上传doc、docx、pdf、txt、jpg、jpeg、png、gif格式文件
+              </div>
+            </ElUpload>
+          </ElFormItem>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="showPublishDialog = false">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="submitPublishForm"
+              :loading="publishLoading"
+            >
+              发布
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
     </div>
-  </ElDialog>
-
-  <!-- 文件预览对话框 -->
-  <ElDialog
-    v-model="showPreviewDialog"
-    title="文件预览"
-    width="80%"
-    height="80%"
-    destroy-on-close
-  >
-    <div class="preview-container">
-      <iframe :src="previewUrl" class="preview-iframe" frameborder="0"></iframe>
-    </div>
-  </ElDialog>
-
-  <!-- 发布公告对话框 -->
-  <ElDialog
-    v-model="showPublishDialog"
-    title="发布新公告"
-    width="800px"
-    destroy-on-close
-  >
-    <ElForm
-      ref="publishFormRef"
-      :model="publishForm"
-      label-width="120px"
-      class="publish-form"
-    >
-      <ElFormItem
-        label="案件ID"
-        prop="caseId"
-        :rules="[
-          { required: true, message: '请输入案件ID', trigger: 'blur' },
-          { type: 'number', message: '案件ID必须是数字', trigger: 'blur' },
-        ]"
-      >
-        <ElInput
-          v-model.number="publishForm.caseId"
-          placeholder="请输入案件ID"
-        />
-      </ElFormItem>
-
-      <ElFormItem
-        label="公告标题"
-        prop="title"
-        :rules="[
-          { required: true, message: '请输入公告标题', trigger: 'blur' },
-          { max: 200, message: '标题长度不能超过200个字符', trigger: 'blur' },
-        ]"
-      >
-        <ElInput
-          v-model="publishForm.title"
-          placeholder="请输入公告标题"
-          maxlength="200"
-          show-word-limit
-        />
-      </ElFormItem>
-
-      <ElFormItem
-        label="公告类型"
-        prop="announcementType"
-        :rules="[
-          { required: true, message: '请选择公告类型', trigger: 'change' },
-        ]"
-      >
-        <ElSelect
-          v-model="publishForm.announcementType"
-          placeholder="请选择公告类型"
-        >
-          <ElOption label="公告" value="ANNOUNCEMENT" />
-          <ElOption label="通知" value="NOTICE" />
-          <ElOption label="警告" value="WARNING" />
-        </ElSelect>
-      </ElFormItem>
-
-      <ElFormItem
-        label="公告内容"
-        prop="content"
-        :rules="[
-          { required: true, message: '请输入公告内容', trigger: 'blur' },
-        ]"
-      >
-        <ElInput
-          v-model="publishForm.content"
-          type="textarea"
-          :rows="8"
-          placeholder="请输入公告内容，支持HTML格式"
-        />
-      </ElFormItem>
-
-      <ElFormItem label="附件">
-        <ElUpload
-          :file-list="publishForm.attachments"
-          :on-change="
-            (file) => {
-              // 处理附件上传，这里仅做模拟
-              const newFile = {
-                fileName: file.name,
-                fileUrl: `http://example.com/files/${file.name}`,
-                fileType: file.type,
-              };
-              publishForm.value.attachments.push(newFile);
-            }
-          "
-          :on-remove="
-            (file, fileList) => {
-              publishForm.value.attachments = fileList;
-            }
-          "
-          accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"
-          multiple
-        >
-          <ElButton type="primary" size="small">
-            <Icon icon="lucide:upload" class="mr-1" />
-            上传附件
-          </ElButton>
-          <div class="upload-hint">
-            支持上传doc、docx、pdf、txt、jpg、jpeg、png、gif格式文件
-          </div>
-        </ElUpload>
-      </ElFormItem>
-    </ElForm>
-
-    <template #footer>
-      <span class="dialog-footer">
-        <ElButton @click="showPublishDialog = false">取消</ElButton>
-        <ElButton
-          type="primary"
-          @click="submitPublishForm"
-          :loading="publishLoading"
-        >
-          发布
-        </ElButton>
-      </span>
-    </template>
-  </ElDialog>
+  </div>
 </template>
 
 <style scoped>

@@ -25,8 +25,7 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCaseListApi } from '#/api/core/case';
-import { selectMyCasesApi } from '#/api/core/work-team';
+import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
 import { useAuthStore } from '#/store/auth';
 
 import ReviewModal from './components/ReviewModal.vue';
@@ -36,7 +35,22 @@ const userStore = useUserStore();
 const authStore = useAuthStore();
 const currentUserId = computed(() => {
   const userId = userStore.userInfo?.userId;
-  return userId ? Number.parseInt(userId, 10) : 0;
+  console.log('[currentUserId] userStore.userInfo:', userStore.userInfo);
+  console.log('[currentUserId] userStore.userInfo?.userId:', userId);
+  if (userId) {
+    const parsedId = Number.parseInt(userId, 10);
+    console.log('[currentUserId] 从 store 获取 userId:', parsedId);
+    return parsedId;
+  }
+  const localStorageUserId = localStorage.getItem('chat_user_id');
+  console.log('[currentUserId] localStorage chat_user_id:', localStorageUserId);
+  if (localStorageUserId) {
+    const parsedId = Number.parseInt(localStorageUserId, 10);
+    console.log('[currentUserId] 从 localStorage 获取 userId:', parsedId);
+    return parsedId;
+  }
+  console.warn('[currentUserId] 未找到 userId，返回 0');
+  return 0;
 });
 
 // 响应式数据
@@ -56,8 +70,31 @@ const safeCaseList = computed(() =>
   Array.isArray(caseList.value) ? caseList.value : [],
 );
 
+// 判断用户是否为管理员
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin');
+});
+
+// 判断用户是否为律师
+const isLawyer = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('LAWYER') || roles.includes('律师');
+});
+
+// 根据角色确定默认标签页
+const getDefaultTab = () => {
+  if (isAdmin.value) {
+    return 'allCases';
+  }
+  return 'myCases';
+};
+
 // 标签页控制
-const activeTab = ref('myCases');
+const activeTab = ref(getDefaultTab());
+
+// 判断是否显示全部案件标签页
+const showAllCasesTab = computed(() => isAdmin.value);
 
 // 列显示控制
 const columnVisible = ref<string[]>([]);
@@ -188,35 +225,61 @@ const generateMockData = () => {
 
 // 获取案件列表
 const fetchCaseList = async () => {
+  console.log('[fetchCaseList] 开始获取案件列表');
+  console.log('[fetchCaseList] 当前标签页:', activeTab.value);
+  console.log('[fetchCaseList] 当前用户ID:', currentUserId.value);
+  console.log('[fetchCaseList] 分页参数:', {
+    page: pagination.value.page,
+    pageSize: pagination.value.pageSize,
+  });
+
   loading.value = true;
   try {
     let response;
 
     if (activeTab.value === 'myCases') {
       // 获取我的案件
+      console.log('[fetchCaseList] 调用 getUserCaseListApi');
       if (!currentUserId.value) {
-        ElMessage.error('未获取到用户信息，请重新登录');
+        console.warn('[fetchCaseList] 用户ID为空');
+        ElMessage.warning('请先登录以查看您的案件');
         loading.value = false;
         return;
       }
-      response = await selectMyCasesApi(
-        currentUserId.value,
-        pagination.value.page,
-        pagination.value.pageSize,
-      );
+      response = await getUserCaseListApi(currentUserId.value, {
+        pageNum: pagination.value.page,
+        pageSize: pagination.value.pageSize,
+      });
+      console.log('[fetchCaseList] getUserCaseListApi 返回:', response);
     } else {
       // 获取全部案件（有权限的）
+      console.log('[fetchCaseList] 调用 getCaseListApi');
       const params: CaseApi.CaseListQueryParams = {
         pageNum: pagination.value.page,
         pageSize: pagination.value.pageSize,
       };
       response = await getCaseListApi(params);
+      console.log('[fetchCaseList] getCaseListApi 返回:', response);
     }
+
+    console.log('[fetchCaseList] 响应数据:', {
+      code: response?.code,
+      message: response?.message,
+      data: response?.data,
+      hasData: !!response?.data,
+      hasList: !!response?.data?.list,
+      listLength: response?.data?.list?.length,
+    });
 
     // 适配新的API响应格式
     if (response.code === 200 && response.data) {
+      console.log('[fetchCaseList] 响应成功，开始映射数据');
+      console.log('[fetchCaseList] 原始案件列表:', response.data.list);
+
       // 将API返回的英文字段映射为表格期望的中文prop名称
       const mappedCases = response.data.list.map((item: any) => {
+        console.log('[fetchCaseList] 映射单个案件:', item);
+
         // 映射案件进度
         const caseProgressMap: Record<string, string> = {
           FIRST: '第一阶段',
@@ -231,6 +294,7 @@ const fetchCaseList = async () => {
         // 映射案件状态
         const caseStatusMap: Record<string, string> = {
           PENDING: '待处理',
+          ONGOING: '进行中',
           IN_PROGRESS: '进行中',
           COMPLETED: '已完成',
           CLOSED: '已结案',
@@ -245,7 +309,7 @@ const fetchCaseList = async () => {
           REJECTED: '已驳回',
         };
 
-        return {
+        const mappedItem = {
           id: item.id,
           案号: item.caseNumber,
           案由: item.caseReason,
@@ -266,8 +330,16 @@ const fetchCaseList = async () => {
           审核时间: item.reviewTime,
           审核意见: item.reviewOpinion,
           审核次数: item.reviewCount,
+          立案日期: item.filingDate,
+          债权申报截止日期: item.debtClaimDeadline,
+          备注: item.remarks,
         };
+
+        console.log('[fetchCaseList] 映射后的案件:', mappedItem);
+        return mappedItem;
       });
+
+      console.log('[fetchCaseList] 所有映射后的案件:', mappedCases);
 
       caseList.value = mappedCases;
       pagination.value.itemCount = response.data.total || 0;
@@ -275,35 +347,68 @@ const fetchCaseList = async () => {
         pagination.value.itemCount / pagination.value.pageSize,
       );
 
+      // 更新分页信息，使用 API 返回的值
+      if (response.data.pageNum) {
+        pagination.value.page = response.data.pageNum;
+      }
+      if (response.data.pageSize) {
+        pagination.value.pageSize = response.data.pageSize;
+      }
+
+      console.log('[fetchCaseList] 更新后的状态:', {
+        caseListLength: caseList.value.length,
+        itemCount: pagination.value.itemCount,
+        pages: pagination.value.pages,
+        page: pagination.value.page,
+        pageSize: pagination.value.pageSize,
+      });
+
       if (mappedCases.length > 0) {
         ElMessage.success(`成功加载 ${mappedCases.length} 条案件记录`);
       }
     } else {
+      console.error('[fetchCaseList] 响应格式错误:', response);
       ElMessage.error(response.message || '获取案件列表失败');
       generateMockData();
     }
   } catch (error) {
-    console.error('获取案件列表失败:', error);
+    console.error('[fetchCaseList] 获取案件列表失败:', error);
     ElMessage.error('获取案件列表失败，请检查网络连接');
     generateMockData();
   } finally {
     loading.value = false;
+    console.log('[fetchCaseList] 获取案件列表完成');
   }
 };
 
 // 处理标签页切换
 const handleTabChange = async (tabName: string) => {
+  console.log('[handleTabChange] 切换标签页:', tabName);
+
+  // 如果不是管理员且尝试访问全部案件，强制切换到我的案件
+  if (tabName === 'allCases' && !isAdmin.value) {
+    console.warn('[handleTabChange] 非管理员用户无权查看全部案件');
+    ElMessage.warning('您无权查看全部案件');
+    activeTab.value = 'myCases';
+    return;
+  }
+
   activeTab.value = tabName;
   pagination.value.page = 1;
   loading.value = true;
   try {
     // 当切换到我的案件时，先尝试获取用户信息
     if (tabName === 'myCases') {
+      console.log('[handleTabChange] 切换到我的案件，获取用户信息');
       await authStore.fetchCurrentUser();
+      console.log(
+        '[handleTabChange] 用户信息获取完成，当前用户ID:',
+        currentUserId.value,
+      );
     }
     await fetchCaseList();
   } catch (error) {
-    console.error('切换标签页失败:', error);
+    console.error('[handleTabChange] 切换标签页失败:', error);
   } finally {
     loading.value = false;
   }
@@ -336,6 +441,14 @@ const handleRefresh = async () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  console.log('[onMounted] 页面挂载，开始初始化');
+  console.log('[onMounted] 当前用户信息:', userStore.userInfo);
+  console.log(
+    '[onMounted] localStorage chat_user_id:',
+    localStorage.getItem('chat_user_id'),
+  );
+  console.log('[onMounted] 当前用户ID:', currentUserId.value);
+  console.log('[onMounted] 当前标签页:', activeTab.value);
   initColumnVisibility();
   fetchCaseList();
 });
@@ -363,9 +476,12 @@ const hideNonCoreColumns = () => {
 // 获取案件进度标签类型
 const getCaseProgressType = (progress: string) => {
   switch (progress) {
-    case '已结案': {
-      return 'success';
-    }
+    case 'FIFTH':
+    case 'FOURTH':
+    case 'SECOND':
+    case 'SEVENTH':
+    case 'SIXTH':
+    case 'THIRD':
     case '第一阶段':
     case '第七阶段':
     case '第三阶段':
@@ -374,6 +490,9 @@ const getCaseProgressType = (progress: string) => {
     case '第六阶段':
     case '第四阶段': {
       return 'primary';
+    }
+    case '已结案': {
+      return 'success';
     }
     default: {
       return 'info';
@@ -384,6 +503,10 @@ const getCaseProgressType = (progress: string) => {
 // 获取案件状态标签类型
 const getCaseStatusType = (status: string) => {
   switch (status) {
+    case 'ONGOING':
+    case '进行中': {
+      return 'primary';
+    }
     case '已完成': {
       return 'success';
     }
@@ -398,9 +521,6 @@ const getCaseStatusType = (status: string) => {
     }
     case '待处理': {
       return 'info';
-    }
-    case '进行中': {
-      return 'primary';
     }
     default: {
       return 'info';
@@ -580,7 +700,7 @@ const canReview = (row: CaseApi.CaseInfo) => {
         <ElTabPane label="我的案件" name="myCases">
           <span class="text-sm text-gray-500">仅显示您创建的案件</span>
         </ElTabPane>
-        <ElTabPane label="全部案件" name="allCases">
+        <ElTabPane v-if="showAllCasesTab" label="全部案件" name="allCases">
           <span class="text-sm text-gray-500">显示所有有权限访问的案件</span>
         </ElTabPane>
       </ElTabs>

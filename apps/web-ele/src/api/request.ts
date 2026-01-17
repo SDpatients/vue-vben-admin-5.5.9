@@ -96,6 +96,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      console.log('[RequestInterceptor] 请求配置:', {
+        url: config.url,
+        method: config.method,
+        hasToken: !!token,
+        headers: config.headers,
+      });
       return config;
     },
   });

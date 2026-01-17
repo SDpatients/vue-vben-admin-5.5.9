@@ -10,7 +10,7 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { ElNotification } from 'element-plus';
 import { defineStore } from 'pinia';
 
-import { getCurrentUserApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
+import { getCurrentUserApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
 import { webSocketService } from '#/services/websocket';
 
@@ -154,10 +154,41 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUserInfo() {
     let userInfo: null | UserInfo = null;
     try {
-      userInfo = await getUserInfoApi();
-      userStore.setUserInfo(userInfo);
+      console.log('[fetchUserInfo] 开始获取用户信息...');
+      const result = await getCurrentUserApi();
+      console.log('[fetchUserInfo] API返回结果:', result);
+
+      if (result && result.code === 200 && result.data) {
+        const backendUserInfo = result.data;
+
+        console.log('[fetchUserInfo] 后端用户信息:', backendUserInfo);
+
+        userInfo = {
+          userId: backendUserInfo.id.toString(),
+          username: backendUserInfo.username,
+          realName: backendUserInfo.realName,
+          homePath: preferences.app.defaultHomePath,
+          avatar: '',
+          desc: '',
+          token: accessStore.accessToken || '',
+          refreshToken: accessStore.refreshToken || '',
+          roles: backendUserInfo.roles || [],
+          permissions: backendUserInfo.permissions || [],
+        };
+
+        console.log('[fetchUserInfo] 转换后的用户信息:', userInfo);
+        userStore.setUserInfo(userInfo);
+        userStore.setUserRoles(backendUserInfo.roles || []);
+        accessStore.setAccessCodes(backendUserInfo.permissions || []);
+
+        console.log('[fetchUserInfo] userStore中的用户信息:', userStore.userInfo);
+        console.log('[fetchUserInfo] userStore中的角色:', userStore.userRoles);
+        console.log('[fetchUserInfo] accessStore中的权限码:', accessStore.accessCodes);
+      } else {
+        console.log('[fetchUserInfo] API返回数据格式不正确:', result);
+      }
     } catch (error) {
-      console.error('获取用户信息失败:', error);
+      console.error('[fetchUserInfo] 获取用户信息失败:', error);
     }
     return userInfo;
   }
@@ -166,26 +197,39 @@ export const useAuthStore = defineStore('auth', () => {
    * 获取当前用户信息（从后端API）
    */
   async function fetchCurrentUser() {
+    console.log('[fetchCurrentUser] 开始获取当前用户信息');
     try {
       const result = await getCurrentUserApi();
-      if (result && result.status === '200' && result.data) {
+      console.log('[fetchCurrentUser] API返回结果:', result);
+      if (result && result.code === 200 && result.data) {
+        console.log('[fetchCurrentUser] 响应成功，开始映射用户信息');
         const backendUserInfo = result.data;
+        console.log('[fetchCurrentUser] 后端用户信息:', backendUserInfo);
         const userInfo: UserInfo = {
-          userId: backendUserInfo.uPid,
-          username: backendUserInfo.uUser,
-          realName: backendUserInfo.uName,
+          userId: backendUserInfo.id.toString(),
+          username: backendUserInfo.username,
+          realName: backendUserInfo.realName,
           homePath: preferences.app.defaultHomePath,
           avatar: '',
           desc: '',
           token: accessStore.accessToken || '',
           refreshToken: accessStore.refreshToken || '',
-          roles: [],
+          roles: backendUserInfo.roles || [],
+          permissions: backendUserInfo.permissions || [],
         };
+        console.log('[fetchCurrentUser] 映射后的用户信息:', userInfo);
         userStore.setUserInfo(userInfo);
+        userStore.setUserRoles(backendUserInfo.roles || []);
+        accessStore.setAccessCodes(backendUserInfo.permissions || []);
+        console.log('[fetchCurrentUser] 用户信息已设置到 store');
+        console.log('[fetchCurrentUser] 用户角色:', backendUserInfo.roles);
+        console.log('[fetchCurrentUser] 用户权限:', backendUserInfo.permissions);
         return userInfo;
+      } else {
+        console.warn('[fetchCurrentUser] 响应格式不正确:', result);
       }
     } catch (error) {
-      console.error('获取当前用户信息失败:', error);
+      console.error('[fetchCurrentUser] 获取当前用户信息失败:', error);
     }
     return null;
   }

@@ -106,7 +106,7 @@ const fetchUserList = async () => {
   try {
     userListLoading.value = true;
     const response = await getUsersApi('');
-    if (response.code === 200 && response.data) {
+    if (response.code === 200 && Array.isArray(response.data)) {
       userList.value = response.data.map((user: any) => ({
         label: user.name,
         value: user.id,

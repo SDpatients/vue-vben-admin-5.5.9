@@ -144,6 +144,12 @@ export namespace WorkTeamApi {
     permissionLevel: PermissionLevel;
   }
 
+  /** 更新团队成员信息请求 */
+  export interface UpdateTeamMemberRequest {
+    teamRole?: string;
+    permissionLevel?: PermissionLevel;
+  }
+
   /** 分配成员权限请求 */
   export interface AssignMemberPermissionsRequest {
     permissions: {
@@ -335,6 +341,20 @@ export async function updateMemberPermissionApi(
 }
 
 /**
+ * 更新团队成员信息
+ * PUT /work-team/member/{memberId}
+ */
+export async function updateTeamMemberApi(
+  memberId: number,
+  data: WorkTeamApi.UpdateTeamMemberRequest,
+) {
+  return workTeamRequestClient.put<WorkTeamApi.CommonResponse>(
+    `/work-team/member/${memberId}`,
+    data,
+  );
+}
+
+/**
  * 分配团队成员权限
  * POST /work-team/member/{memberId}/permissions
  */
@@ -355,7 +375,8 @@ export async function selectMyCasesApi(
   pageNum: number,
   pageSize: number,
 ) {
-  return workTeamRequestClient.get<{
+  console.log('[selectMyCasesApi] 请求参数:', { userId, pageNum, pageSize });
+  const result = await workTeamRequestClient.get<{
     code: number;
     data: {
       list: any[];
@@ -365,6 +386,16 @@ export async function selectMyCasesApi(
   }>(`/case/user/${userId}/list`, {
     params: { pageNum, pageSize },
   });
+  console.log('[selectMyCasesApi] 响应结果:', {
+    code: result?.code,
+    message: result?.message,
+    data: result?.data,
+    hasData: !!result?.data,
+    hasList: !!result?.data?.list,
+    listLength: result?.data?.list?.length,
+    total: result?.data?.total,
+  });
+  return result;
 }
 
 // 获取团队案件列表
@@ -380,6 +411,16 @@ export async function selectTeamCasesApi(pageNum: number, pageSize: number) {
   }>('/work-team/list', {
     params: { pageNum, pageSize, status: 'ACTIVE' },
   });
+}
+
+// 获取当前用户参与的工作团队列表
+// GET /api/v1/web/currentUser/workTeams
+export async function getCurrentUserWorkTeamsApi() {
+  return workTeamRequestClient.get<{
+    code: number;
+    data: WorkTeamApi.WorkTeamInfo[];
+    message: string;
+  }>('/api/v1/web/currentUser/workTeams');
 }
 
 export type { WorkTeamApi };
