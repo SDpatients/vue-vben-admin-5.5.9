@@ -384,7 +384,7 @@ const fetchCaseList = async () => {
 // 处理标签页切换
 const handleTabChange = async (tabName: string) => {
   console.log('[handleTabChange] 切换标签页:', tabName);
-
+  
   // 如果不是管理员且尝试访问全部案件，强制切换到我的案件
   if (tabName === 'allCases' && !isAdmin.value) {
     console.warn('[handleTabChange] 非管理员用户无权查看全部案件');
@@ -392,7 +392,7 @@ const handleTabChange = async (tabName: string) => {
     activeTab.value = 'myCases';
     return;
   }
-
+  
   activeTab.value = tabName;
   pagination.value.page = 1;
   loading.value = true;

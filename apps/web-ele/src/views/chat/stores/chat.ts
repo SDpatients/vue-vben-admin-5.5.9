@@ -136,25 +136,15 @@ export const useChatStore = defineStore('chat', () => {
   };
 
   const setupWebSocketListeners = () => {
-    webSocketService.on('NEW_MESSAGE', handleNewMessage);
-    webSocketService.on('MESSAGE_READ', handleMessageRead);
-    webSocketService.on('MESSAGE_RECALLED', handleMessageRecalled);
-    webSocketService.on('TYPING', handleTyping);
   };
 
   const cleanupWebSocketListeners = () => {
-    webSocketService.off('NEW_MESSAGE', handleNewMessage);
-    webSocketService.off('MESSAGE_READ', handleMessageRead);
-    webSocketService.off('MESSAGE_RECALLED', handleMessageRecalled);
-    webSocketService.off('TYPING', handleTyping);
   };
 
   onMounted(() => {
-    setupWebSocketListeners();
   });
 
   onUnmounted(() => {
-    cleanupWebSocketListeners();
   });
 
   const currentMessages = computed(() => {

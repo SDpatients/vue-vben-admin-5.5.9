@@ -12,72 +12,8 @@ export function useWebSocket() {
   const connecting = ref(false);
 
   const connect = () => {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    if (connecting.value) {
-      return;
-    }
-
-    connecting.value = true;
-
-    const token = localStorage.getItem('token');
-    // 使用当前页面的协议和主机，通过代理连接WebSocket
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
-
-    try {
-      ws = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token || '')}`);
-
-      ws.onopen = () => {
-        console.log('WebSocket连接成功');
-        connected.value = true;
-        connecting.value = false;
-        reconnectAttempts = 0;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          messageHandlers.forEach((handler) => {
-            try {
-              handler(data);
-            } catch (error) {
-              console.error('消息处理器执行失败:', error);
-            }
-          });
-        } catch (error) {
-          console.error('解析WebSocket消息失败:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket错误:', error);
-        connected.value = false;
-        connecting.value = false;
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket连接关闭');
-        connected.value = false;
-        connecting.value = false;
-
-        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttempts++;
-          console.log(`尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-          reconnectTimer = window.setTimeout(() => {
-            connect();
-          }, RECONNECT_DELAY);
-        } else {
-          console.error('达到最大重连次数，停止重连');
-        }
-      };
-    } catch (error) {
-      console.error('WebSocket连接失败:', error);
-      connected.value = false;
-      connecting.value = false;
-    }
+    console.warn('WebSocket连接已禁用');
+    connecting.value = false;
   };
 
   const disconnect = () => {

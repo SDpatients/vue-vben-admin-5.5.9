@@ -81,10 +81,6 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('chat_user_id', userId.toString());
         localStorage.setItem('chat_username', backendUserInfo.username);
         localStorage.setItem('chat_user_info', JSON.stringify(backendUserInfo));
-
-        webSocketService.connect().catch((error) => {
-          console.error('WebSocket 连接失败:', error);
-        });
       } else {
         // 登录失败，显示错误信息
         const errorMsg =
@@ -115,8 +111,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await logoutApi();
     } catch {}
-
-    webSocketService.disconnect();
 
     localStorage.removeItem('chat_user_info');
     localStorage.removeItem('chat_user_id');
@@ -181,9 +175,15 @@ export const useAuthStore = defineStore('auth', () => {
         userStore.setUserRoles(backendUserInfo.roles || []);
         accessStore.setAccessCodes(backendUserInfo.permissions || []);
 
-        console.log('[fetchUserInfo] userStore中的用户信息:', userStore.userInfo);
+        console.log(
+          '[fetchUserInfo] userStore中的用户信息:',
+          userStore.userInfo,
+        );
         console.log('[fetchUserInfo] userStore中的角色:', userStore.userRoles);
-        console.log('[fetchUserInfo] accessStore中的权限码:', accessStore.accessCodes);
+        console.log(
+          '[fetchUserInfo] accessStore中的权限码:',
+          accessStore.accessCodes,
+        );
       } else {
         console.log('[fetchUserInfo] API返回数据格式不正确:', result);
       }
@@ -223,7 +223,10 @@ export const useAuthStore = defineStore('auth', () => {
         accessStore.setAccessCodes(backendUserInfo.permissions || []);
         console.log('[fetchCurrentUser] 用户信息已设置到 store');
         console.log('[fetchCurrentUser] 用户角色:', backendUserInfo.roles);
-        console.log('[fetchCurrentUser] 用户权限:', backendUserInfo.permissions);
+        console.log(
+          '[fetchCurrentUser] 用户权限:',
+          backendUserInfo.permissions,
+        );
         return userInfo;
       } else {
         console.warn('[fetchCurrentUser] 响应格式不正确:', result);

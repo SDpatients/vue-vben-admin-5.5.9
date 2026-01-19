@@ -6,13 +6,12 @@ import { useRouter } from 'vue-router';
 
 import { useAccessStore } from '@vben/stores';
 
-import { ElLoading, ElMessage, ElResult } from 'element-plus';
+import { ElLoading, ElMessage } from 'element-plus';
 
 import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUsersApi } from '#/api/core/user';
-
 
 const accessStore = useAccessStore();
 
@@ -31,7 +30,7 @@ const form = reactive<CaseApi.CreateCaseRequest>({
   caseSource: '',
   acceptanceCourt: '',
   designatedJudge: '',
-  designatedInstitution: '浙江浦源律师事务所',
+  designatedInstitution: '',
   mainResponsiblePerson: '',
   undertakingPersonnel: undefined,
   isSimplifiedTrial: 0,
@@ -47,7 +46,9 @@ const managerList = ref<{ label: string; sepId: string; value: string }[]>([]);
 const userList = ref<{ label: string; value: number }[]>([]);
 const userListLoading = ref(false);
 
-const uploadedFiles = ref<{ file: File; name: string; url: string; fileId: number }[]>([]);
+const uploadedFiles = ref<
+  { file: File; fileId: number; name: string; url: string }[]
+>([]);
 const maxFileSize = 10 * 1024 * 1024;
 const allowedTypes = new Set([
   '.doc',
@@ -60,16 +61,35 @@ const allowedTypes = new Set([
   '.xlsx',
 ]);
 
+const mainResponsiblePersonQuery = ref('');
+const undertakingPersonnelQuery = ref('');
 
+let debounceTimer: NodeJS.Timeout | null = null;
+
+const debounce = (func: Function, delay: number) => {
+  return (...args: any[]) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+      func(...args);
+    }, delay);
+  };
+};
+
+const sanitizeInput = (input: string): string => {
+  if (!input) return '';
+  return input.replaceAll(/[<>]/g, '').trim().slice(0, 50);
+};
 
 const fetchCourtList = async () => {
   try {
     courtListLoading.value = true;
     const response = await getCourtListApi({ page: 1, size: 100 });
-    if (response.status === '1' && response.data?.records) {
-      courtList.value = response.data.records.map((court: any) => ({
-        label: court.FYQC,
-        value: court.FYQC,
+    if (response.code === 200 && response.data?.list) {
+      courtList.value = response.data.list.map((court: any) => ({
+        label: court.fullName,
+        value: court.fullName,
       }));
     }
   } catch (error) {
@@ -102,13 +122,18 @@ const fetchManagerList = async () => {
   }
 };
 
-const fetchUserList = async () => {
+const fetchUserList = async (keyword: string = '') => {
   try {
     userListLoading.value = true;
-    const response = await getUsersApi('');
-    if (response.code === 200 && Array.isArray(response.data)) {
-      userList.value = response.data.map((user: any) => ({
-        label: user.name,
+    const sanitizedKeyword = sanitizeInput(keyword);
+    const response = await getUsersApi(sanitizedKeyword);
+    if (
+      response.code === 200 &&
+      response.data &&
+      Array.isArray(response.data.users)
+    ) {
+      userList.value = response.data.users.map((user: any) => ({
+        label: user.realName || user.username,
         value: user.id,
       }));
     }
@@ -119,6 +144,8 @@ const fetchUserList = async () => {
     userListLoading.value = false;
   }
 };
+
+const debouncedFetchUserList = debounce(fetchUserList, 300);
 
 fetchCourtList();
 fetchManagerList();
@@ -171,7 +198,11 @@ const rules = reactive({
   caseNumber: [
     { required: true, message: '请输入案号', trigger: 'blur' },
     { min: 1, max: 50, message: '案号长度在 1 到 50 个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9\u4e00-\u9fa5（）()（）\[\]【】\-_]+$/, message: '案号格式不正确', trigger: 'blur' },
+    {
+      pattern: /^[\w\u4E00-\u9FA5（）()[\]【】\-]+$/,
+      message: '案号格式不正确',
+      trigger: 'blur',
+    },
   ],
   caseName: [
     { required: true, message: '请输入案件名称', trigger: 'blur' },
@@ -285,302 +316,305 @@ const submitForm = async () => {
 <template>
   <div class="h-full w-full p-6">
     <div class="mb-6 flex items-center justify-between">
-        <h1 class="text-2xl font-bold">新增破产案件</h1>
-        <button
-          class="text-gray-500 transition-colors hover:text-gray-700"
-          @click="router.back()"
-        >
-          <i class="i-lucide-x text-xl"></i>
-        </button>
-      </div>
+      <h1 class="text-2xl font-bold">新增破产案件</h1>
+      <button
+        class="text-gray-500 transition-colors hover:text-gray-700"
+        @click="router.back()"
+      >
+        <i class="i-lucide-x text-xl"></i>
+      </button>
+    </div>
 
-      <el-card shadow="hover" class="case-add-card w-full">
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-width="140px"
-          class="case-form"
-        >
-          <div class="form-section mb-6">
-            <h3 class="section-title mb-4">案件基本信息</h3>
-            <div class="section-content rounded-lg bg-gray-50 p-4">
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="案号" prop="caseNumber">
-                    <el-input
-                      v-model="form.caseNumber"
-                      placeholder="请输入案号"
-                      maxlength="50"
-                      show-word-limit
+    <el-card shadow="hover" class="case-add-card w-full">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="140px"
+        class="case-form"
+      >
+        <div class="form-section mb-6">
+          <h3 class="section-title mb-4">案件基本信息</h3>
+          <div class="section-content rounded-lg bg-gray-50 p-4">
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="案号" prop="caseNumber">
+                  <el-input
+                    v-model="form.caseNumber"
+                    placeholder="请输入案号"
+                    maxlength="50"
+                    show-word-limit
+                  />
+                </el-form-item>
+              </el-col>
+
+              <el-col :span="8">
+                <el-form-item label="案件名称" prop="caseName">
+                  <el-input
+                    v-model="form.caseName"
+                    placeholder="请输入案件名称"
+                    maxlength="100"
+                    show-word-limit
+                  />
+                </el-form-item>
+              </el-col>
+
+              <el-col :span="8">
+                <el-form-item label="受理日期" prop="acceptanceDate">
+                  <el-date-picker
+                    v-model="form.acceptanceDate"
+                    type="date"
+                    placeholder="请选择受理日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="案件来源" prop="caseSource">
+                  <el-input
+                    v-model="form.caseSource"
+                    placeholder="请输入案件来源"
+                    maxlength="50"
+                  />
+                </el-form-item>
+              </el-col>
+
+              <el-col :span="8">
+                <el-form-item label="受理法院" prop="acceptanceCourt">
+                  <el-select
+                    v-model="form.acceptanceCourt"
+                    placeholder="请输入或选择受理法院"
+                    filterable
+                    allow-create
+                    :loading="courtListLoading"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="court in courtList"
+                      :key="court.value"
+                      :label="court.label"
+                      :value="court.value"
                     />
-                  </el-form-item>
-                </el-col>
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
-                <el-col :span="8">
-                  <el-form-item label="案件名称" prop="caseName">
-                    <el-input
-                      v-model="form.caseName"
-                      placeholder="请输入案件名称"
-                      maxlength="100"
-                      show-word-limit
+              <el-col :span="8">
+                <el-form-item label="承办法官" prop="designatedJudge">
+                  <el-input
+                    v-model="form.designatedJudge"
+                    placeholder="请输入承办法官"
+                    maxlength="50"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="指定机构" prop="designatedInstitution">
+                  <el-select
+                    v-model="form.designatedInstitution"
+                    placeholder="请输入或选择指定机构"
+                    filterable
+                    allow-create
+                    :loading="managerListLoading"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="manager in managerList"
+                      :key="manager.value"
+                      :label="manager.label"
+                      :value="manager.value"
                     />
-                  </el-form-item>
-                </el-col>
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
-                <el-col :span="8">
-                  <el-form-item label="受理日期" prop="acceptanceDate">
-                    <el-date-picker
-                      v-model="form.acceptanceDate"
-                      type="date"
-                      placeholder="请选择受理日期"
-                      format="YYYY-MM-DD"
-                      value-format="YYYY-MM-DD"
-                      style="width: 100%;"
+              <el-col :span="8">
+                <el-form-item label="主要负责人" prop="mainResponsiblePerson">
+                  <el-select
+                    v-model="form.mainResponsiblePerson"
+                    placeholder="请输入或选择主要负责人"
+                    filterable
+                    remote
+                    :remote-method="debouncedFetchUserList"
+                    :loading="userListLoading"
+                    allow-create
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="user in userList"
+                      :key="user.value"
+                      :label="user.label"
+                      :value="user.label"
                     />
-                  </el-form-item>
-                </el-col>
-              </el-row>
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="案件来源" prop="caseSource">
-                    <el-input
-                      v-model="form.caseSource"
-                      placeholder="请输入案件来源"
-                      maxlength="50"
+              <el-col :span="8">
+                <el-form-item label="承办人员" prop="undertakingPersonnel">
+                  <el-select
+                    v-model="form.undertakingPersonnel"
+                    placeholder="请输入或选择承办人员"
+                    filterable
+                    remote
+                    :remote-method="debouncedFetchUserList"
+                    :loading="userListLoading"
+                    allow-create
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="user in userList"
+                      :key="user.value"
+                      :label="user.label"
+                      :value="user.label"
                     />
-                  </el-form-item>
-                </el-col>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
 
-                <el-col :span="8">
-                  <el-form-item label="受理法院" prop="acceptanceCourt">
-                    <el-select
-                      v-model="form.acceptanceCourt"
-                      placeholder="请选择受理法院"
-                      filterable
-                      :loading="courtListLoading"
-                      style="width: 100%;"
-                    >
-                      <el-option
-                        v-for="court in courtList"
-                        :key="court.value"
-                        :label="court.label"
-                        :value="court.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="是否简化审" prop="isSimplifiedTrial">
+                  <el-select
+                    v-model="form.isSimplifiedTrial"
+                    placeholder="请选择"
+                    style="width: 100%"
+                  >
+                    <el-option :value="0" label="否" />
+                    <el-option :value="1" label="是" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
-                <el-col :span="8">
-                  <el-form-item label="承办法官" prop="designatedJudge">
-                    <el-input
-                      v-model="form.designatedJudge"
-                      placeholder="请输入承办法官"
-                      maxlength="50"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
+              <el-col :span="8">
+                <el-form-item label="案件进度" prop="caseProgress">
+                  <el-select
+                    v-model="form.caseProgress"
+                    placeholder="请选择案件进度"
+                    style="width: 100%"
+                  >
+                    <el-option value="FIRST" label="第一阶段" />
+                    <el-option value="SECOND" label="第二阶段" />
+                    <el-option value="THIRD" label="第三阶段" />
+                    <el-option value="FOURTH" label="第四阶段" />
+                    <el-option value="FIFTH" label="第五阶段" />
+                    <el-option value="SIXTH" label="第六阶段" />
+                    <el-option value="SEVENTH" label="第七阶段" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
 
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="指定机构" prop="designatedInstitution">
-                    <el-input
-                      v-model="form.designatedInstitution"
-                      placeholder="请输入指定机构"
-                      maxlength="100"
-                    />
-                  </el-form-item>
-                </el-col>
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="案件原因" prop="caseReason">
+                  <el-input
+                    v-model="form.caseReason"
+                    placeholder="请输入案件原因"
+                    maxlength="200"
+                  />
+                </el-form-item>
+              </el-col>
 
-                <el-col :span="8">
-                  <el-form-item label="主要负责人" prop="mainResponsiblePerson">
-                    <el-input
-                      v-model="form.mainResponsiblePerson"
-                      placeholder="请输入主要负责人"
-                      maxlength="50"
-                    />
-                  </el-form-item>
-                </el-col>
+              <el-col :span="8">
+                <el-form-item label="立案日期" prop="filingDate">
+                  <el-date-picker
+                    v-model="form.filingDate"
+                    type="date"
+                    placeholder="请选择立案日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
 
-                <el-col :span="8">
-                  <el-form-item label="承办人员" prop="undertakingPersonnel">
-                    <el-select
-                      v-model="form.undertakingPersonnel"
-                      placeholder="请选择承办人员"
-                      filterable
-                      :loading="userListLoading"
-                      style="width: 100%;"
-                    >
-                      <el-option
-                        v-for="user in userList"
-                        :key="user.value"
-                        :label="user.label"
-                        :value="user.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="是否简化审" prop="isSimplifiedTrial">
-                    <el-select
-                      v-model="form.isSimplifiedTrial"
-                      placeholder="请选择"
-                      style="width: 100%;"
-                    >
-                      <el-option :value="0" label="否" />
-                      <el-option :value="1" label="是" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-
-                <el-col :span="8">
-                  <el-form-item label="案件进度" prop="caseProgress">
-                    <el-select
-                      v-model="form.caseProgress"
-                      placeholder="请选择案件进度"
-                      style="width: 100%;"
-                    >
-                      <el-option value="FIRST" label="第一阶段" />
-                      <el-option value="SECOND" label="第二阶段" />
-                      <el-option value="THIRD" label="第三阶段" />
-                      <el-option value="FOURTH" label="第四阶段" />
-                      <el-option value="FIFTH" label="第五阶段" />
-                      <el-option value="SIXTH" label="第六阶段" />
-                      <el-option value="SEVENTH" label="第七阶段" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="20">
-                <el-col :span="8">
-                  <el-form-item label="案件原因" prop="caseReason">
-                    <el-input
-                      v-model="form.caseReason"
-                      placeholder="请输入案件原因"
-                      maxlength="200"
-                    />
-                  </el-form-item>
-                </el-col>
-
-                <el-col :span="8">
-                  <el-form-item label="债权申报截止时间" prop="debtClaimDeadline">
-                    <el-date-picker
-                      v-model="form.debtClaimDeadline"
-                      type="datetime"
-                      placeholder="请选择债权申报截止时间"
-                      format="YYYY-MM-DD HH:mm:ss"
-                      value-format="YYYY-MM-DD HH:mm:ss"
-                      style="width: 100%;"
-                    />
-                  </el-form-item>
-                </el-col>
-
-                <el-col :span="8">
-                  <el-form-item label="立案日期" prop="filingDate">
-                    <el-date-picker
-                      v-model="form.filingDate"
-                      type="date"
-                      placeholder="请选择立案日期"
-                      format="YYYY-MM-DD"
-                      value-format="YYYY-MM-DD"
-                      style="width: 100%;"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="20">
-                <el-col :span="24">
-                  <el-form-item label="备注" prop="remarks">
-                    <el-input
-                      v-model="form.remarks"
-                      type="textarea"
-                      :rows="4"
-                      placeholder="请输入备注信息"
-                      maxlength="500"
-                      show-word-limit
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </div>
+            <el-row :gutter="20">
+              <el-col :span="24">
+                <el-form-item label="备注" prop="remarks">
+                  <el-input
+                    v-model="form.remarks"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入备注信息"
+                    maxlength="500"
+                    show-word-limit
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
           </div>
+        </div>
 
-          <div class="form-section mb-6">
-            <h3 class="section-title mb-4">文件上传</h3>
-            <div class="section-content rounded-lg bg-gray-50 p-4">
-              <el-row :gutter="20">
-                <el-col :span="24">
-                  <el-form-item label="案件文件">
-                    <div class="file-upload-container">
-                      <input
-                        ref="fileInput"
-                        type="file"
-                        accept=".doc,.docx,.pdf,.jpg,.png,.txt,.xls,.xlsx"
-                        style="display: none"
-                        @change="handleFileChange"
-                      />
-                      <el-button
-                        type="primary"
-                        @click="fileInput?.click()"
-                      >
-                        <i class="i-lucide-upload mr-1"></i>
-                        选择文件
-                      </el-button>
-                      <span class="ml-2 text-sm text-gray-500">
-                        支持PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式，单个文件不超过10MB
-                      </span>
-                    </div>
+        <div class="form-section mb-6">
+          <h3 class="section-title mb-4">文件上传</h3>
+          <div class="section-content rounded-lg bg-gray-50 p-4">
+            <el-row :gutter="20">
+              <el-col :span="24">
+                <el-form-item label="案件文件">
+                  <div class="file-upload-container">
+                    <input
+                      ref="fileInput"
+                      type="file"
+                      accept=".doc,.docx,.pdf,.jpg,.png,.txt,.xls,.xlsx"
+                      style="display: none"
+                      @change="handleFileChange"
+                    />
+                    <el-button type="primary" @click="fileInput?.click()">
+                      <i class="i-lucide-upload mr-1"></i>
+                      选择文件
+                    </el-button>
+                    <span class="ml-2 text-sm text-gray-500">
+                      支持PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式，单个文件不超过10MB
+                    </span>
+                  </div>
 
+                  <div v-if="uploadedFiles.length > 0" class="file-list mt-4">
                     <div
-                      v-if="uploadedFiles.length > 0"
-                      class="file-list mt-4"
+                      v-for="(file, index) in uploadedFiles"
+                      :key="index"
+                      class="file-item"
                     >
-                      <div
-                        v-for="(file, index) in uploadedFiles"
-                        :key="index"
-                        class="file-item"
+                      <i class="i-lucide-file-text mr-2"></i>
+                      <span class="file-name">{{ file.name }}</span>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        link
+                        @click="removeFile(index)"
                       >
-                        <i class="i-lucide-file-text mr-2"></i>
-                        <span class="file-name">{{ file.name }}</span>
-                        <el-button
-                          type="danger"
-                          size="small"
-                          link
-                          @click="removeFile(index)"
-                        >
-                          <i class="i-lucide-trash-2"></i>
-                        </el-button>
-                      </div>
+                        <i class="i-lucide-trash-2"></i>
+                      </el-button>
                     </div>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </div>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </div>
+        </div>
 
-          <div class="form-actions mt-6">
-            <el-button @click="resetForm">
-              <i class="i-lucide-rotate-ccw mr-1"></i>
-              重置
-            </el-button>
-            <el-button
-              type="primary"
-              :loading="loading"
-              @click="submitForm"
-            >
-              <i class="i-lucide-save mr-1"></i>
-              提交
-            </el-button>
-          </div>
-        </el-form>
-      </el-card>
+        <div class="form-actions mt-6">
+          <el-button @click="resetForm">
+            <i class="i-lucide-rotate-ccw mr-1"></i>
+            重置
+          </el-button>
+          <el-button type="primary" :loading="loading" @click="submitForm">
+            <i class="i-lucide-save mr-1"></i>
+            提交
+          </el-button>
+        </div>
+      </el-form>
+    </el-card>
   </div>
 </template>
 

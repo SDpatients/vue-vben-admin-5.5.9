@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { useChatStore } from '../stores/chat';
-import { webSocketService } from '#/services/websocket';
 
 // Props
 const props = defineProps<{

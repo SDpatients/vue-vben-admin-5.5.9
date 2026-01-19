@@ -577,9 +577,6 @@ onUnmounted(() => {
   window.removeEventListener('ws-closed', handleWsClosed as EventListener);
   window.removeEventListener('ws-error', handleWsError as EventListener);
   window.removeEventListener('sync-status', handleSyncStatus as EventListener);
-  
-  // 断开WebSocket连接
-  wsDisconnect();
 });
 
 // 格式化时间

@@ -118,6 +118,15 @@ const addTeamForm = ref<any>({
 const teamLeaderList = ref<any[]>([]);
 const teamLeaderLoading = ref(false);
 
+// 团队负责人选择对话框相关
+const leaderSelectDialogVisible = ref(false);
+const administratorsForLeader = ref<any[]>([]);
+const administratorsStaffMap = ref<Map<number, any[]>>(new Map());
+const loadingAdministratorsForLeader = ref(false);
+const loadingStaffForLeader = ref(false);
+const selectedLeader = ref<any>(null);
+const selectedLeaderAdministratorId = ref<null | number>(null);
+
 // 管理员机构和用户选择相关
 const administrators = ref<any[]>([]);
 const loadingAdministrators = ref(false);
@@ -845,11 +854,10 @@ const formatDate = (dateStr: string) => {
 const formatDateOnly = (dateStr: string) => {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const formatDateForApi = (dateStr: string) => {
@@ -1515,6 +1523,24 @@ const getCaseStatusStyle = (status: string) => {
   return colorMap[status] || { backgroundColor: '#909399', color: '#000000' };
 };
 
+const getCaseStatusTagType = (status: string) => {
+  const typeMap: Record<string, any> = {
+    在办: 'primary',
+    报结: 'warning',
+    已结: 'success',
+  };
+  return typeMap[status] || 'info';
+};
+
+const getReviewStatusTagType = (status: string) => {
+  const typeMap: Record<string, any> = {
+    待审核: 'warning',
+    已通过: 'success',
+    已驳回: 'danger',
+  };
+  return typeMap[status] || 'info';
+};
+
 const goBack = () => {
   router.back();
 };
@@ -1542,7 +1568,6 @@ const startEditing = () => {
 const saveEditing = async () => {
   saveLoading.value = true;
   try {
-    // 适配新的API请求格式
     const updateData: any = {
       caseName: editedData.案件名称 || caseDetail.value?.caseName,
       caseReason: editedData.案由 || caseDetail.value?.caseReason,
@@ -1558,6 +1583,32 @@ const saveEditing = async () => {
       debtClaimDeadline:
         formatDateForApi(editedData.债权申报截止时间) ||
         caseDetail.value?.debtClaimDeadline,
+      undertakingPersonnel:
+        editedData.承办人员 || caseDetail.value?.undertakingPersonnel,
+      designatedJudge: editedData.指定法官 || caseDetail.value?.designatedJudge,
+      isSimplifiedTrial:
+        editedData.是否简化审 === '是'
+          ? 1
+          : (editedData.是否简化审 === '否'
+            ? 0
+            : caseDetail.value?.isSimplifiedTrial),
+      acceptanceDate:
+        formatDateForApi(editedData.受理日期) ||
+        caseDetail.value?.acceptanceDate,
+      closingDate:
+        formatDateForApi(editedData.结案日期) || caseDetail.value?.closingDate,
+      bankruptcyDate:
+        formatDateForApi(editedData.破产时间) ||
+        caseDetail.value?.bankruptcyDate,
+      terminationDate:
+        formatDateForApi(editedData.终结时间) ||
+        caseDetail.value?.terminationDate,
+      cancellationDate:
+        formatDateForApi(editedData.注销时间) ||
+        caseDetail.value?.cancellationDate,
+      archivingDate:
+        formatDateForApi(editedData.归档时间) ||
+        caseDetail.value?.archivingDate,
     };
 
     await updateCaseApi(Number.parseInt(caseId.value, 10), updateData);
@@ -1744,12 +1795,9 @@ const mapReviewStatus = (status: string): string => {
 // 映射案件状态
 const mapCaseStatus = (status: string): string => {
   const statusMap: Record<string, string> = {
-    PENDING: '待处理',
-    IN_PROGRESS: '进行中',
-    COMPLETED: '已完成',
-    CLOSED: '已结案',
-    TERMINATED: '已终结',
-    ARCHIVED: '已归档',
+    ONGOING: '在办',
+    AWAITING: '报结',
+    COMPLETED: '已结',
   };
   return statusMap[status] || status;
 };
@@ -2110,7 +2158,82 @@ const openAddTeamDialog = () => {
     teamLeaderId: null,
     teamDescription: '',
   };
+  selectedLeader.value = null;
   addTeamDialogVisible.value = true;
+};
+
+// 打开团队负责人选择对话框
+const openLeaderSelectDialog = () => {
+  selectedLeader.value = null;
+  selectedLeaderAdministratorId.value = null;
+  leaderSelectDialogVisible.value = true;
+  loadAdministratorsForLeader();
+};
+
+// 加载管理人列表（用于选择团队负责人）
+const loadAdministratorsForLeader = async () => {
+  loadingAdministratorsForLeader.value = true;
+  try {
+    const response = await getManagerListApi({});
+    if (response.data && response.data.list) {
+      administratorsForLeader.value = response.data.list
+        .filter((admin: any) => admin && admin.id != null)
+        .map((admin: any) => ({
+          ...admin,
+          sepId: admin.id,
+          lsswsid: admin.administratorName,
+        }));
+    }
+  } catch (error) {
+    console.error('加载管理人列表失败:', error);
+    ElMessage.error('加载管理人列表失败');
+  } finally {
+    loadingAdministratorsForLeader.value = false;
+  }
+};
+
+// 加载管理人对应的员工列表
+const loadStaffForLeader = async (administratorId: number) => {
+  loadingStaffForLeader.value = true;
+  selectedLeaderAdministratorId.value = administratorId;
+
+  try {
+    const response = await getUserByDeptIdApi(administratorId);
+    let staffList = [];
+
+    if (
+      response.code === 200 &&
+      response.data &&
+      Array.isArray(response.data)
+    ) {
+      staffList = response.data;
+    }
+
+    administratorsStaffMap.value.set(administratorId, staffList);
+  } catch (error) {
+    console.error('加载员工列表失败:', error);
+    ElMessage.error('加载员工列表失败');
+  } finally {
+    loadingStaffForLeader.value = false;
+  }
+};
+
+// 选择团队负责人
+const selectLeader = (staff: any, administratorId: number) => {
+  selectedLeader.value = staff;
+  selectedLeaderAdministratorId.value = administratorId;
+};
+
+// 确认选择团队负责人
+const confirmSelectLeader = () => {
+  if (!selectedLeader.value) {
+    ElMessage.warning('请选择团队负责人');
+    return;
+  }
+
+  addTeamForm.value.teamLeaderId = selectedLeader.value.userId;
+  leaderSelectDialogVisible.value = false;
+  ElMessage.success(`已选择负责人：${selectedLeader.value.name}`);
 };
 
 // 添加成员
@@ -2236,7 +2359,7 @@ const handleSaveMember = async () => {
     } else {
       const addData = {
         caseId: Number(caseId.value),
-        userId: memberForm.value.userId[0],
+        userId: memberForm.value.userId,
         teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
       };
@@ -2367,11 +2490,11 @@ const checkPermissions = async () => {
         <!-- 页面标题和返回按钮 -->
         <template #header>
           <div class="page-header">
-            <ElButton type="primary" link @click="goBack">
+            <ElButton link @click="goBack">
               <Icon icon="lucide:arrow-left" class="mr-2" />
               返回案件列表
             </ElButton>
-            <h1 class="page-title">{{ caseDetail?.案号 || '' }}-案件详情</h1>
+            <h1 class="page-title">{{ caseDetail?.案号 || '' }}</h1>
             <div class="header-actions">
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
@@ -2428,12 +2551,46 @@ const checkPermissions = async () => {
 
         <!-- 案件基本信息卡片 -->
         <div v-if="activeTab === 'caseInfo'">
-          <ElCard class="case-info-card" shadow="hover">
+          <ElCard
+            class="case-info-card"
+            :class="{ editing: isEditing }"
+            shadow="hover"
+          >
             <template #header>
-              <div class="card-header flex items-center justify-between">
+              <div
+                class="card-header flex items-center justify-between"
+                :class="{ editing: isEditing }"
+              >
                 <div class="flex items-center">
                   <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
                   <span class="text-lg font-semibold">案件基本信息</span>
+                  <ElTag
+                    v-if="caseDetail"
+                    :type="getReviewStatusTagType(caseDetail.审核状态)"
+                    class="ml-3"
+                    size="small"
+                  >
+                    审核状态：{{ caseDetail.审核状态 }}
+                  </ElTag>
+                  <ElTag
+                    v-if="caseDetail"
+                    :type="getCaseStatusTagType(caseDetail.案件状态)"
+                    class="ml-3"
+                    size="small"
+                  >
+                    案件状态：{{ caseDetail.案件状态 }}
+                  </ElTag>
+                  <ElTag
+                    v-if="caseDetail?.管理人负责人"
+                    type="info"
+                    class="ml-3"
+                    size="small"
+                  >
+                    主要负责人：{{ caseDetail.管理人负责人 }}
+                  </ElTag>
+                  <span v-if="isEditing" class="edit-indicator ml-3"
+                    >编辑中</span
+                  >
                 </div>
                 <div class="flex space-x-2">
                   <template v-if="!isEditing && canEdit">
@@ -2524,6 +2681,20 @@ const checkPermissions = async () => {
                       </div>
                     </div>
                   </ElCol>
+                  <ElCol :xs="24" :sm="8" :md="6">
+                    <div
+                      class="key-info-item rounded-lg bg-blue-50 p-4 text-center"
+                    >
+                      <div class="key-info-label mb-1 text-sm text-gray-500">
+                        承办人员
+                      </div>
+                      <div
+                        class="key-info-value text-lg font-semibold text-blue-600"
+                      >
+                        {{ caseDetail.承办人员 || '-' }}
+                      </div>
+                    </div>
+                  </ElCol>
                 </ElRow>
               </div>
 
@@ -2531,9 +2702,20 @@ const checkPermissions = async () => {
               <div v-show="!isInfoCollapsed" class="detail-info-grid">
                 <div class="detail-info-content">
                   <div class="detail-info-row">
-                    <div class="detail-info-item">
-                      <div class="detail-info-label">案件名称</div>
-                      <div class="detail-info-value">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        案件名称
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
                         <template v-if="isEditing">
                           <ElInput
                             v-model="editedData.案件名称"
@@ -2547,9 +2729,20 @@ const checkPermissions = async () => {
                         </template>
                       </div>
                     </div>
-                    <div class="detail-info-item">
-                      <div class="detail-info-label">案由</div>
-                      <div class="detail-info-value">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        案由
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
                         <template v-if="isEditing">
                           <ElInput
                             v-model="editedData.案由"
@@ -2565,25 +2758,49 @@ const checkPermissions = async () => {
                     </div>
                   </div>
                   <div class="detail-info-row">
-                    <div class="detail-info-item">
-                      <div class="detail-info-label">受理日期</div>
-                      <div class="detail-info-value">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        受理日期
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
                         <template v-if="isEditing">
-                          <ElInput
+                          <ElDatePicker
                             v-model="editedData.受理日期"
-                            size="small"
-                            placeholder="请输入受理日期"
+                            type="date"
+                            format="YYYY-MM-DD"
+                            value-format="YYYY-MM-DD"
+                            placeholder="请选择受理日期"
                             style="width: 100%"
                           />
                         </template>
                         <template v-else>
-                          {{ caseDetail.受理日期 }}
+                          {{ formatDateOnly(caseDetail.受理日期) }}
                         </template>
                       </div>
                     </div>
-                    <div class="detail-info-item">
-                      <div class="detail-info-label">案件来源</div>
-                      <div class="detail-info-value">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        案件来源
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
                         <template v-if="isEditing">
                           <ElInput
                             v-model="editedData.案件来源"
@@ -2597,9 +2814,329 @@ const checkPermissions = async () => {
                         </template>
                       </div>
                     </div>
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        主要负责人
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.管理人负责人"
+                            size="small"
+                            placeholder="请输入主要负责人"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.管理人负责人 || '-' }}
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="detail-info-row">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        承办人员
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.承办人员"
+                            size="small"
+                            placeholder="请输入承办人员"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.承办人员 }}
+                        </template>
+                      </div>
+                    </div>
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        指定法官
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.指定法官"
+                            size="small"
+                            placeholder="请输入指定法官"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.指定法官 }}
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="detail-info-row">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        是否简化审
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElSelect
+                            v-model="editedData.是否简化审"
+                            size="small"
+                            placeholder="请选择是否简化审"
+                            style="width: 100%"
+                          >
+                            <ElOption label="否" value="否" />
+                            <ElOption label="是" value="是" />
+                          </ElSelect>
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.是否简化审 }}
+                        </template>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </ElCard>
+
+          <ElCard
+            class="case-time-card"
+            :class="{ editing: isEditing }"
+            shadow="hover"
+            style="margin-top: 20px"
+          >
+            <template #header>
+              <div
+                class="card-header flex items-center justify-between"
+                :class="{ editing: isEditing }"
+              >
+                <div class="flex items-center">
+                  <Icon icon="lucide:clock" class="mr-2 text-blue-500" />
+                  <span class="text-lg font-semibold">案件相关时间</span>
+                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
+                </div>
+              </div>
+            </template>
+
+            <div v-if="loading" class="loading-container">
+              <ElSkeleton :rows="5" animated />
+            </div>
+
+            <div v-else-if="caseDetail" class="case-time-content">
+              <ElRow :gutter="20">
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      受理日期
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.受理日期"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择受理日期"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.受理日期) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      债权申报截止时间
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.债权申报截止时间"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择债权申报截止时间"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.债权申报截止时间) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      立案日期
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.立案日期"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择立案日期"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.立案日期) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      结案日期
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.结案日期"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择结案日期"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.结案日期) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      破产时间
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.破产时间"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择破产时间"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.破产时间) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      终结时间
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.终结时间"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择终结时间"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.终结时间) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      注销时间
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.注销时间"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择注销时间"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.注销时间) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+                <ElCol :xs="24" :sm="12" :md="8">
+                  <div class="time-item" :class="{ editing: isEditing }">
+                    <div class="time-label" :class="{ editing: isEditing }">
+                      归档时间
+                    </div>
+                    <div class="time-value" :class="{ editing: isEditing }">
+                      <template v-if="isEditing">
+                        <ElDatePicker
+                          v-model="editedData.归档时间"
+                          type="date"
+                          format="YYYY-MM-DD"
+                          value-format="YYYY-MM-DD"
+                          placeholder="请选择归档时间"
+                          style="width: 100%"
+                        />
+                      </template>
+                      <template v-else>
+                        {{ formatDateOnly(caseDetail.归档时间) }}
+                      </template>
+                    </div>
+                  </div>
+                </ElCol>
+              </ElRow>
             </div>
           </ElCard>
 
@@ -3755,6 +4292,223 @@ const checkPermissions = async () => {
           </div>
         </ElDialog>
 
+        <!-- 添加工作团队对话框 -->
+        <ElDialog
+          v-model="addTeamDialogVisible"
+          title="添加工作团队"
+          width="600px"
+          destroy-on-close
+          :close-on-click-modal="false"
+        >
+          <div style="padding: 20px 0">
+            <ElForm :model="addTeamForm" label-width="100px">
+              <ElFormItem label="团队名称" required>
+                <ElInput
+                  v-model="addTeamForm.teamName"
+                  placeholder="请输入团队名称"
+                  clearable
+                />
+              </ElFormItem>
+
+              <ElFormItem label="团队负责人" required>
+                <div style="display: flex; gap: 10px; width: 100%">
+                  <ElInput
+                    :value="
+                      selectedLeader?.name || addTeamForm.teamLeaderId || ''
+                    "
+                    placeholder="请选择团队负责人"
+                    readonly
+                    style="flex: 1"
+                  />
+                  <ElButton type="primary" @click="openLeaderSelectDialog">
+                    选择负责人
+                  </ElButton>
+                </div>
+              </ElFormItem>
+
+              <ElFormItem label="团队描述">
+                <ElInput
+                  v-model="addTeamForm.teamDescription"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入团队描述"
+                  clearable
+                />
+              </ElFormItem>
+            </ElForm>
+          </div>
+          <template #footer>
+            <div class="dialog-footer">
+              <ElButton @click="addTeamDialogVisible = false">取消</ElButton>
+              <ElButton type="primary" @click="handleCreateWorkTeam">
+                确定
+              </ElButton>
+            </div>
+          </template>
+        </ElDialog>
+
+        <!-- 团队负责人选择对话框 -->
+        <ElDialog
+          v-model="leaderSelectDialogVisible"
+          title="选择团队负责人"
+          width="900px"
+          destroy-on-close
+          :close-on-click-modal="false"
+        >
+          <div
+            v-loading="loadingAdministratorsForLeader"
+            style="min-height: 400px"
+          >
+            <div v-if="administratorsForLeader.length > 0">
+              <div
+                v-for="admin in administratorsForLeader"
+                :key="admin.sepId"
+                style="
+                  margin-bottom: 20px;
+                  border: 1px solid #ebeef5;
+                  border-radius: 4px;
+                  overflow: hidden;
+                "
+              >
+                <div
+                  style="
+                    padding: 12px 16px;
+                    background: #f5f7fa;
+                    border-bottom: 1px solid #ebeef5;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                  "
+                >
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <Icon
+                      icon="lucide:building-2"
+                      style="font-size: 18px; color: #409eff"
+                    />
+                    <span style="font-weight: 600; font-size: 15px">{{
+                      admin.lsswsid
+                    }}</span>
+                  </div>
+                  <ElButton
+                    size="small"
+                    type="primary"
+                    link
+                    @click="loadStaffForLeader(admin.sepId)"
+                    :loading="
+                      loadingStaffForLeader &&
+                      selectedLeaderAdministratorId === admin.sepId
+                    "
+                  >
+                    <Icon icon="lucide:users" class="mr-1" />
+                    查看员工
+                  </ElButton>
+                </div>
+
+                <div
+                  v-if="administratorsStaffMap.has(admin.sepId)"
+                  style="padding: 16px"
+                >
+                  <div
+                    v-if="administratorsStaffMap.get(admin.sepId)?.length > 0"
+                    style="
+                      display: grid;
+                      grid-template-columns: repeat(
+                        auto-fill,
+                        minmax(280px, 1fr)
+                      );
+                      gap: 12px;
+                    "
+                  >
+                    <div
+                      v-for="staff in administratorsStaffMap.get(admin.sepId)"
+                      :key="staff.id"
+                      class="staff-card"
+                      :class="[{ selected: selectedLeader?.id === staff.id }]"
+                      style="
+                        padding: 12px;
+                        border: 1px solid #dcdfe6;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                        background: #fff;
+                      "
+                      @click="selectLeader(staff, admin.sepId)"
+                    >
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 10px;
+                          margin-bottom: 8px;
+                        "
+                      >
+                        <div
+                          style="
+                            width: 40px;
+                            height: 40px;
+                            background: #ecf5ff;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                          "
+                        >
+                          <Icon
+                            icon="lucide:user"
+                            style="font-size: 20px; color: #409eff"
+                          />
+                        </div>
+                        <div style="flex: 1">
+                          <div
+                            style="
+                              font-weight: 600;
+                              font-size: 14px;
+                              color: #303133;
+                            "
+                          >
+                            {{ staff.name }}
+                          </div>
+                          <div style="font-size: 12px; color: #909399">
+                            {{ staff.staffType }}
+                          </div>
+                        </div>
+                        <Icon
+                          v-if="selectedLeader?.id === staff.id"
+                          icon="lucide:check-circle"
+                          style="font-size: 20px; color: #67c23a"
+                        />
+                      </div>
+                      <div
+                        style="
+                          font-size: 12px;
+                          color: #606266;
+                          line-height: 1.6;
+                        "
+                      >
+                        <div>联系电话：{{ staff.contactPhone || '-' }}</div>
+                        <div>邮箱：{{ staff.email || '-' }}</div>
+                        <div>入职日期：{{ staff.appointmentDate || '-' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <ElEmpty v-else description="暂无员工数据" :image-size="80" />
+                </div>
+              </div>
+            </div>
+            <ElEmpty v-else description="暂无管理人数据" :image-size="80" />
+          </div>
+          <template #footer>
+            <div class="dialog-footer">
+              <ElButton @click="leaderSelectDialogVisible = false">
+                取消
+              </ElButton>
+              <ElButton type="primary" @click="confirmSelectLeader">
+                确定
+              </ElButton>
+            </div>
+          </template>
+        </ElDialog>
+
         <!-- 添加/编辑成员对话框 -->
         <ElDialog
           v-model="memberDialogVisible"
@@ -4490,6 +5244,42 @@ const checkPermissions = async () => {
   word-break: break-word;
 }
 
+/* 案件相关时间样式 */
+.case-time-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.case-time-content {
+  padding: 8px 0;
+}
+
+.time-item {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.time-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.time-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.time-value {
+  font-size: 15px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
 /* 工作团队样式 */
 .work-team-content {
   margin-bottom: 0;
@@ -4843,5 +5633,217 @@ const checkPermissions = async () => {
   justify-content: center;
   align-items: center;
   padding: 40px;
+}
+
+/* 团队负责人选择对话框样式 */
+.staff-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.staff-card.selected {
+  border-color: #67c23a;
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.2);
+}
+
+/* 编辑模式美化样式 */
+.case-info-card.editing {
+  border: 2px solid #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.case-time-card.editing {
+  border: 2px solid #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.detail-info-item {
+  transition: all 0.3s ease;
+}
+
+.detail-info-item:hover {
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.detail-info-item.editing {
+  background: transparent;
+  border-radius: 4px;
+  padding: 16px;
+  border: 1px solid #dbeafe;
+}
+
+.detail-info-label.editing {
+  color: #374151;
+  font-weight: 500;
+}
+
+.detail-info-value.editing {
+  color: #111827;
+}
+
+.time-item {
+  transition: all 0.3s ease;
+}
+
+.time-item:hover {
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.time-item.editing {
+  background: transparent;
+  border: 1px solid #dbeafe;
+  transform: none;
+  box-shadow: none;
+}
+
+.time-item.editing:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.time-label.editing {
+  color: #374151;
+  font-weight: 500;
+}
+
+.time-value.editing {
+  color: #111827;
+}
+
+/* 编辑框美化 */
+:deep(.el-input__wrapper) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+  border-color: #3b82f6;
+  transform: scale(1.02);
+}
+
+:deep(.el-select .el-input__wrapper) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+:deep(.el-select .el-input__wrapper:hover) {
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+  border-color: #8b5cf6;
+}
+
+:deep(.el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+  border-color: #8b5cf6;
+  transform: scale(1.02);
+}
+
+:deep(.el-date-editor) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+:deep(.el-date-editor:hover) {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+}
+
+:deep(.el-date-editor.is-active) {
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+  border-color: #10b981;
+  transform: scale(1.02);
+}
+
+/* 编辑按钮美化 */
+:deep(.el-button--primary) {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.el-button--primary:hover) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+:deep(.el-button--success) {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.el-button--success:hover) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+/* 编辑状态指示器 */
+.edit-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #dbeafe;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1d4ed8;
+}
+
+.edit-indicator::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+}
+
+/* 编辑模式下的卡片头部 */
+.card-header.editing {
+  background: transparent;
+  border-radius: 8px 8px 0 0;
+  padding: 16px;
+  margin: -16px -16px 16px -16px;
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
 }
 </style>

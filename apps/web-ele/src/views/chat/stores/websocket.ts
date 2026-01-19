@@ -18,27 +18,9 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const contactStore = useContactStore();
 
   function connect(token: string) {
-    if (!token) {
-      console.error('WebSocket连接失败: 缺少token');
-      return;
-    }
-
-    try {
-      // 使用当前页面的协议和主机，通过代理连接WebSocket
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
-      socket.value = new WebSocket(`${wsUrl}?token=${token}`);
-
-      socket.value.onopen = handleConnect;
-      socket.value.onclose = handleDisconnect;
-      socket.value.onerror = handleError;
-      socket.value.onmessage = handleMessage;
-    } catch (error) {
-      console.error('WebSocket连接失败:', error);
-      isConnected.value = false;
-      chatStore.setConnectionStatus(false);
-      reconnect();
-    }
+    console.warn('WebSocket连接已禁用');
+    isConnected.value = false;
+    chatStore.setConnectionStatus(false);
   }
 
   function disconnect() {
