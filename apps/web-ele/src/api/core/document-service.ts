@@ -39,6 +39,7 @@ export namespace DocumentServiceApi {
     sendTime: string | null;
     deliveryTime: string | null;
     failureReason: string | null;
+    remark: string | null;
     status: string;
     createTime: string;
     updateTime: string;
@@ -165,5 +166,52 @@ export async function updateDocumentApi(
 export async function deleteDocumentApi(deliveryId: number) {
   return documentRequestClient.delete<{ code: number; message: string; data: null }>(
     `/api/v1/document-delivery/${deliveryId}`,
+  );
+}
+
+/**
+ * 获取所有文书送达分页列表（支持模糊查询）
+ */
+export async function getAllDocumentListApi(params?: {
+  pageNum?: number;
+  pageSize?: number;
+  documentType?: string;
+  status?: string;
+  caseNumber?: string;
+}) {
+  return documentRequestClient.get<DocumentServiceApi.DocumentListResponse>(
+    '/api/v1/document-delivery/all',
+    { params },
+  );
+}
+
+/**
+ * 更新文书送达状态和备注
+ */
+export async function updateDocumentStatusRemarkApi(
+  deliveryId: number,
+  data: {
+    status?: string;
+    remark?: string;
+  },
+) {
+  return documentRequestClient.put<{ code: number; message: string; data: null }>(
+    `/api/v1/document-delivery/${deliveryId}/status-remark`,
+    undefined,
+    { params: data },
+  );
+}
+
+/**
+ * 更新文书送达发送状态
+ */
+export async function updateDocumentSendStatusApi(
+  deliveryId: number,
+  sendStatus: string,
+) {
+  return documentRequestClient.put<{ code: number; message: string; data: null }>(
+    `/api/v1/document-delivery/${deliveryId}/send-status`,
+    undefined,
+    { params: { sendStatus } },
   );
 }
