@@ -57,8 +57,6 @@ const approvalForm = ref({
 
 const searchForm = ref({
   status: '',
-  caseType: '',
-  priority: '',
   keyword: '',
 });
 
@@ -268,8 +266,6 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.value = {
     status: '',
-    caseType: '',
-    priority: '',
     keyword: '',
   };
   pagination.value.current = 1;
@@ -415,38 +411,6 @@ onMounted(() => {
 
       <div class="mb-4">
         <ElForm :model="searchForm" inline>
-          <ElFormItem label="案件类型">
-            <ElSelect
-              v-model="searchForm.caseType"
-              placeholder="请选择案件类型"
-              clearable
-              style="width: 150px"
-            >
-              <ElOption
-                v-for="type in caseTypes"
-                :key="type.value"
-                :label="type.label"
-                :value="type.value"
-              />
-            </ElSelect>
-          </ElFormItem>
-
-          <ElFormItem label="优先级">
-            <ElSelect
-              v-model="searchForm.priority"
-              placeholder="请选择优先级"
-              clearable
-              style="width: 120px"
-            >
-              <ElOption
-                v-for="p in priorities"
-                :key="p.value"
-                :label="p.label"
-                :value="p.value"
-              />
-            </ElSelect>
-          </ElFormItem>
-
           <ElFormItem label="审批状态">
             <ElSelect
               v-model="searchForm.status"
@@ -463,10 +427,10 @@ onMounted(() => {
             </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="关键词">
+          <ElFormItem label="案件标题">
             <ElInput
               v-model="searchForm.keyword"
-              placeholder="请输入案号、标题或当事人"
+              placeholder="请输入案件标题"
               clearable
               style="width: 220px"
             />

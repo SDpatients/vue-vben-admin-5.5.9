@@ -19,6 +19,9 @@ import {
   ElTooltip,
 } from 'element-plus';
 
+import { getAllDocumentListApi, updateDocumentStatusRemarkApi } from '#/api/core/document-service';
+import type { DocumentServiceApi } from '#/api/core/document-service';
+
 interface DocumentAttachment {
   id: number;
   fileName: string;
@@ -28,16 +31,7 @@ interface DocumentAttachment {
   filePath: string;
 }
 
-interface DocumentApproval {
-  id: number;
-  documentTitle: string;
-  documentType: string;
-  content: string;
-  submitter: string;
-  submitTime: string;
-  approvalTime?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  remark?: string;
+interface DocumentApproval extends DocumentServiceApi.Document {
   attachments: DocumentAttachment[];
 }
 
@@ -95,7 +89,7 @@ const downloadFile = (file: DocumentAttachment) => {
 const searchForm = ref({
   status: '',
   documentType: '',
-  keyword: '',
+  caseNumber: '',
 });
 
 const pagination = ref({
@@ -104,18 +98,10 @@ const pagination = ref({
   total: 0,
 });
 
-const documentTypes = [
-  { label: '起诉状', value: 'complaint' },
-  { label: '答辩状', value: 'defense' },
-  { label: '证据清单', value: 'evidence' },
-  { label: '法律意见书', value: 'legal_opinion' },
-  { label: '其他', value: 'other' },
-];
-
 const statusMap = {
-  pending: { text: '待审批', type: 'warning' as const },
-  approved: { text: '已通过', type: 'success' as const },
-  rejected: { text: '已驳回', type: 'danger' as const },
+  PENDING: { text: '待审批', type: 'warning' as const },
+  APPROVED: { text: '已通过', type: 'success' as const },
+  REJECTED: { text: '已驳回', type: 'danger' as const },
 };
 
 const mockData: DocumentApproval[] = [
@@ -262,9 +248,21 @@ const mockData: DocumentApproval[] = [
 const loadDocuments = async () => {
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    documentList.value = mockData;
-    pagination.value.total = mockData.length;
+    const response = await getAllDocumentListApi({
+      pageNum: pagination.value.current,
+      pageSize: pagination.value.pageSize,
+      documentType: searchForm.value.documentType || undefined,
+      status: searchForm.value.status || undefined,
+      caseNumber: searchForm.value.caseNumber || undefined,
+    });
+
+    if (response.data) {
+      documentList.value = response.data.list.map((item: DocumentServiceApi.Document) => ({
+        ...item,
+        attachments: [],
+      }));
+      pagination.value.total = response.data.total;
+    }
   } catch (error) {
     ElMessage.error('加载文书列表失败');
   } finally {
@@ -281,7 +279,7 @@ const handleReset = () => {
   searchForm.value = {
     status: '',
     documentType: '',
-    keyword: '',
+    caseNumber: '',
   };
   pagination.value.current = 1;
   loadDocuments();
@@ -296,7 +294,7 @@ const handleApprove = (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
-    status: 'approved',
+    status: 'APPROVED',
   };
   dialogVisible.value = true;
 };
@@ -305,7 +303,7 @@ const handleReject = (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
-    status: 'rejected',
+    status: 'REJECTED',
   };
   dialogVisible.value = true;
 };
@@ -313,26 +311,28 @@ const handleReject = (row: DocumentApproval) => {
 const handleConfirmApproval = async () => {
   if (!currentDocument.value) return;
 
-  if (approvalForm.value.status === 'rejected' && !approvalForm.value.remark.trim()) {
+  if (approvalForm.value.status === 'REJECTED' && !approvalForm.value.remark.trim()) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
   }
 
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    await updateDocumentStatusRemarkApi(currentDocument.value.id, {
+      status: approvalForm.value.status,
+      remark: approvalForm.value.remark || undefined,
+    });
+
     const index = documentList.value.findIndex(doc => doc.id === currentDocument.value?.id);
     if (index !== -1) {
-      const approvalTime = new Date().toLocaleString('zh-CN');
       documentList.value[index].status = approvalForm.value.status;
-      documentList.value[index].approvalTime = approvalTime;
+      documentList.value[index].updateTime = new Date().toISOString();
       if (approvalForm.value.remark) {
         documentList.value[index].remark = approvalForm.value.remark;
       }
     }
 
-    ElMessage.success(approvalForm.value.status === 'approved' ? '审批通过' : '已驳回');
+    ElMessage.success(approvalForm.value.status === 'APPROVED' ? '审批通过' : '已驳回');
     dialogVisible.value = false;
   } catch (error) {
     ElMessage.error('审批失败');
@@ -344,11 +344,6 @@ const handleConfirmApproval = async () => {
 const handlePageChange = (page: number) => {
   pagination.value.current = page;
   loadDocuments();
-};
-
-const getDocumentTypeName = (type: string) => {
-  const item = documentTypes.find(t => t.value === type);
-  return item?.label || type;
 };
 
 onMounted(() => {
@@ -372,19 +367,12 @@ onMounted(() => {
       <div class="mb-4">
         <ElForm :model="searchForm" inline>
           <ElFormItem label="文书类型">
-            <ElSelect
+            <ElInput
               v-model="searchForm.documentType"
-              placeholder="请选择文书类型"
+              placeholder="请输入文书类型"
               clearable
               style="width: 180px"
-            >
-              <ElOption
-                v-for="type in documentTypes"
-                :key="type.value"
-                :label="type.label"
-                :value="type.value"
-              />
-            </ElSelect>
+            />
           </ElFormItem>
 
           <ElFormItem label="审批状态">
@@ -405,7 +393,7 @@ onMounted(() => {
 
           <ElFormItem label="案号">
             <ElInput
-              v-model="searchForm.keyword"
+              v-model="searchForm.caseNumber"
               placeholder="请输入案号"
               clearable
               style="width: 200px"
@@ -438,10 +426,10 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="documentTitle" label="文书标题" min-width="200">
+        <ElTableColumn prop="documentName" label="文书名称" min-width="200">
           <template #default="{ row }">
-            <ElTooltip :content="row.documentTitle" placement="top">
-              <span class="truncate-text">{{ row.documentTitle }}</span>
+            <ElTooltip :content="row.documentName" placement="top">
+              <span class="truncate-text">{{ row.documentName }}</span>
             </ElTooltip>
           </template>
         </ElTableColumn>
@@ -449,33 +437,33 @@ onMounted(() => {
         <ElTableColumn prop="documentType" label="文书类型" width="120">
           <template #default="{ row }">
             <ElTag type="info" size="small">
-              {{ getDocumentTypeName(row.documentType) }}
+              {{ row.documentType }}
             </ElTag>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="content" label="文书内容" min-width="250">
+        <ElTableColumn prop="deliveryContent" label="送达内容" min-width="250">
           <template #default="{ row }">
-            <ElTooltip :content="row.content" placement="top">
-              <span class="truncate-text">{{ row.content }}</span>
+            <ElTooltip :content="row.deliveryContent" placement="top">
+              <span class="truncate-text">{{ row.deliveryContent }}</span>
             </ElTooltip>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="submitter" label="提交人" width="120" />
+        <ElTableColumn prop="recipientName" label="收件人" width="120" />
 
-        <ElTableColumn prop="submitTime" label="提交时间" width="180" />
+        <ElTableColumn prop="createTime" label="创建时间" width="180" />
 
-        <ElTableColumn prop="approvalTime" label="审批时间" width="180">
+        <ElTableColumn prop="updateTime" label="更新时间" width="180">
           <template #default="{ row }">
-            {{ row.approvalTime || '-' }}
+            {{ row.updateTime || '-' }}
           </template>
         </ElTableColumn>
 
         <ElTableColumn prop="status" label="审批状态" width="100" align="center">
           <template #default="{ row }">
-            <ElTag :type="statusMap[row.status].type" size="small">
-              {{ statusMap[row.status].text }}
+            <ElTag :type="statusMap[row.status]?.type" size="small">
+              {{ statusMap[row.status]?.text || row.status }}
             </ElTag>
           </template>
         </ElTableColumn>
@@ -492,7 +480,7 @@ onMounted(() => {
               查看详情
             </ElButton>
             <ElButton
-              v-if="row.status === 'pending'"
+              v-if="row.status === 'PENDING'"
               type="success"
               size="small"
               link
@@ -502,7 +490,7 @@ onMounted(() => {
               通过
             </ElButton>
             <ElButton
-              v-if="row.status === 'pending'"
+              v-if="row.status === 'PENDING'"
               type="danger"
               size="small"
               link
@@ -534,34 +522,34 @@ onMounted(() => {
 
     <ElDialog
       v-model="dialogVisible"
-      :title="currentDocument?.status === 'pending' ? '审批文书' : '文书详情'"
+      :title="currentDocument?.status === 'PENDING' ? '审批文书' : '文书详情'"
       width="900px"
       destroy-on-close
     >
       <div v-if="currentDocument" class="document-detail">
         <div class="document-header">
           <div class="header-item">
-            <span class="label">文书标题：</span>
-            <span class="value">{{ currentDocument.documentTitle }}</span>
+            <span class="label">文书名称：</span>
+            <span class="value">{{ currentDocument.documentName }}</span>
           </div>
           <div class="header-item">
             <span class="label">文书类型：</span>
             <ElTag type="info" size="small">
-              {{ getDocumentTypeName(currentDocument.documentType) }}
+              {{ currentDocument.documentType }}
             </ElTag>
           </div>
           <div class="header-item">
-            <span class="label">提交人：</span>
-            <span class="value">{{ currentDocument.submitter }}</span>
+            <span class="label">收件人：</span>
+            <span class="value">{{ currentDocument.recipientName }}</span>
           </div>
           <div class="header-item">
-            <span class="label">提交时间：</span>
-            <span class="value">{{ currentDocument.submitTime }}</span>
+            <span class="label">创建时间：</span>
+            <span class="value">{{ currentDocument.createTime }}</span>
           </div>
           <div class="header-item">
             <span class="label">当前状态：</span>
-            <ElTag :type="statusMap[currentDocument.status].type" size="small">
-              {{ statusMap[currentDocument.status].text }}
+            <ElTag :type="statusMap[currentDocument.status]?.type" size="small">
+              {{ statusMap[currentDocument.status]?.text || currentDocument.status }}
             </ElTag>
           </div>
         </div>
@@ -569,17 +557,17 @@ onMounted(() => {
         <div class="document-content-container">
           <!-- 左侧：文书内容 -->
           <div class="content-section">
-            <div class="section-title">文书内容</div>
+            <div class="section-title">送达内容</div>
             <div 
               class="content-box"
               @click="showFullContent = true"
               :class="{ 'clickable': true }"
             >
               <div v-if="!showFullContent" class="content-preview">
-                {{ currentDocument.content }}
+                {{ currentDocument.deliveryContent }}
               </div>
               <div v-else class="content-full">
-                {{ currentDocument.content }}
+                {{ currentDocument.deliveryContent }}
                 <ElButton 
                   type="text" 
                   size="small" 
@@ -599,7 +587,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-if="currentDocument.status === 'pending'" class="approval-section">
+            <div v-if="currentDocument.status === 'PENDING'" class="approval-section">
               <div class="section-title">审批操作</div>
               <ElFormItem label="审批意见" class="approval-form-item">
                 <ElInput
@@ -709,12 +697,12 @@ onMounted(() => {
         </template>
       </ElDialog>
 
-      <template #footer v-if="currentDocument?.status === 'pending'">
+      <template #footer v-if="currentDocument?.status === 'PENDING'">
         <ElButton @click="dialogVisible = false">取消</ElButton>
         <ElButton
           type="success"
           :loading="loading"
-          @click="approvalForm.status = 'approved'; handleConfirmApproval()"
+          @click="approvalForm.status = 'APPROVED'; handleConfirmApproval()"
         >
           <i class="i-lucide-check mr-1"></i>
           通过
@@ -722,7 +710,7 @@ onMounted(() => {
         <ElButton
           type="danger"
           :loading="loading"
-          @click="approvalForm.status = 'rejected'; handleConfirmApproval()"
+          @click="approvalForm.status = 'REJECTED'; handleConfirmApproval()"
         >
           <i class="i-lucide-x mr-1"></i>
           驳回

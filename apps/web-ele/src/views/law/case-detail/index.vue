@@ -45,6 +45,7 @@ import {
   getDocumentDetailApi,
   getDocumentListApi,
   updateDocumentApi,
+  updateDocumentSendStatusApi,
 } from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
@@ -697,6 +698,23 @@ const viewDocumentDetail = async (documentId: number) => {
 const viewServiceRecords = (documentId: string) => {
   // 跳转到送达记录页面
   router.push(`/service-of-documents/${documentId}/records`);
+};
+
+// 发送文书
+const sendDocument = async (documentId: number) => {
+  try {
+    const response = await updateDocumentSendStatusApi(documentId, 'SENT');
+    if (response.code === 200) {
+      ElMessage.success('文书发送成功');
+      // 刷新列表
+      fetchDocumentList();
+    } else {
+      ElMessage.error(response.message || '文书发送失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文书发送失败');
+    console.error('发送文书失败:', error);
+  }
 };
 
 // 删除文书送达记录
@@ -3283,32 +3301,50 @@ const checkPermissions = async () => {
                       </ElTag>
                     </template>
                   </ElTableColumn>
-                  <ElTableColumn label="操作" width="200" fixed="right">
+                  <ElTableColumn label="操作" width="400" fixed="right">
                     <template #default="scope">
+                      <!-- 所有状态都显示查看详情按钮（黑色） -->
                       <ElButton
-                        type="primary"
+                        type="text"
+                        color="black"
                         size="small"
                         @click="viewDocumentDetail(scope.row.id)"
                         class="mr-2"
                       >
                         查看详情
                       </ElButton>
-                      <ElButton
-                        type="warning"
-                        size="small"
-                        @click="editDocument(scope.row)"
-                        class="mr-2"
-                        v-if="scope.row.sendStatus === '暂存送达'"
-                      >
-                        编辑
-                      </ElButton>
+
+                      <!-- 待送达状态：修改、发送 -->
+                      <template v-if="scope.row.sendStatus === 'PENDING'">
+                        <ElButton
+                          type="text"
+                          color="warning"
+                          size="small"
+                          @click="editDocument(scope.row)"
+                          class="mr-2"
+                        >
+                          修改
+                        </ElButton>
+                        <ElButton
+                          type="text"
+                          color="success"
+                          size="small"
+                          @click="sendDocument(scope.row.id)"
+                          class="mr-2"
+                        >
+                          发送
+                        </ElButton>
+                      </template>
+
+                      <!-- 所有状态都显示删除按钮（红色） -->
                       <ElPopconfirm
-                        v-if="scope.row.status !== 'PENDING'"
                         title="确定要删除该文书送达记录吗？"
                         @confirm="deleteDocument(scope.row.id)"
                       >
                         <template #reference>
-                          <ElButton type="danger" size="small"> 删除 </ElButton>
+                          <ElButton type="text" color="danger" size="small">
+                            删除
+                          </ElButton>
                         </template>
                       </ElPopconfirm>
                     </template>

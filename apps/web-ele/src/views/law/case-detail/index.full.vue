@@ -831,6 +831,7 @@ const saveEditing = async () => {
       debtClaimDeadline:
         formatDateForApi(editedData.债权申报截止时间) ||
         caseDetail.value?.debtClaimDeadline,
+      undertakingPersonnel: editedData.承办人 || caseDetail.value?.承办人,
     };
 
     await updateCaseApi(Number.parseInt(caseId.value, 10), updateData);
@@ -1655,6 +1656,20 @@ const checkPermissions = async () => {
                     </div>
                   </div>
                 </ElCol>
+                <ElCol :xs="24" :sm="8" :md="6">
+                  <div
+                    class="key-info-item rounded-lg bg-blue-50 p-4 text-center"
+                  >
+                    <div class="key-info-label mb-1 text-sm text-gray-500">
+                      承办人员
+                    </div>
+                    <div
+                      class="key-info-value text-lg font-semibold text-blue-600"
+                    >
+                      {{ caseDetail.承办人 || '-' }}
+                    </div>
+                  </div>
+                </ElCol>
               </ElRow>
             </div>
 
@@ -1784,6 +1799,29 @@ const checkPermissions = async () => {
                         <template v-else>
                           <span class="detail-info-value text-gray-900">{{
                             caseDetail.案件进度
+                          }}</span>
+                        </template>
+                      </div>
+                    </ElCol>
+                    <ElCol :xs="24" :sm="12" :md="8" :lg="6">
+                      <div
+                        class="detail-info-item flex items-center justify-between border-b border-gray-100 py-3"
+                      >
+                        <span
+                          class="detail-info-label font-medium text-gray-600"
+                          >承办人：</span
+                        >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.承办人"
+                            size="small"
+                            placeholder="请输入承办人"
+                            style="width: 160px"
+                          />
+                        </template>
+                        <template v-else>
+                          <span class="detail-info-value text-gray-900">{{
+                            caseDetail.承办人 || '-' 
                           }}</span>
                         </template>
                       </div>
