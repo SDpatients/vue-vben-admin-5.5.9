@@ -11,7 +11,78 @@ import { requestClient8085 } from '../request';
 const API_BASE_URL =
   import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8080';
 
+/**
+ * 案件阶段数据项
+ */
+export interface CaseStageItem {
+  id: number;
+  caseId: number;
+  stageNum: number;
+  stageName: string;
+  moduleCode: string;
+  moduleName: string;
+  title: string;
+  content: string;
+  processDate: string;
+  attachments: string;
+  fieldData: string;
+  status: string;
+  createTime: string;
+  updateTime: string;
+  createUserId: number;
+  updateUserId: number;
+  isDeleted: boolean;
+}
+
 export namespace CaseProcessApi {
+  /**
+   * 获取案件特定阶段数据
+   * @param caseId 案件ID
+   * @param stageNum 阶段编号(1-7)
+   * @returns 阶段数据列表
+   */
+  export async function getCaseStageDataApi(caseId: string | number, stageNum: number) {
+    return requestClient8085.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/stage/${stageNum}`);
+  }
+
+  /**
+   * 新增阶段数据
+   * @param data 阶段数据
+   * @returns 操作结果
+   */
+  export async function addCaseStageDataApi(data: Partial<CaseStageItem>) {
+    return requestClient8085.post<boolean>('/api/case-process-stage', data);
+  }
+
+  /**
+   * 更新阶段数据
+   * @param id 阶段数据ID
+   * @param data 阶段数据
+   * @returns 操作结果
+   */
+  export async function updateCaseStageDataApi(id: number, data: Partial<CaseStageItem>) {
+    return requestClient8085.put<boolean>(`/api/case-process-stage/${id}`, data);
+  }
+
+  /**
+   * 删除阶段数据
+   * @param id 阶段数据ID
+   * @returns 操作结果
+   */
+  export async function deleteCaseStageDataApi(id: number) {
+    return requestClient8085.delete<boolean>(`/api/case-process-stage/${id}`);
+  }
+
+  /**
+   * 获取案件特定模块数据
+   * @param caseId 案件ID
+   * @param moduleCode 模块编码
+   * @returns 模块数据列表
+   */
+  export async function getCaseModuleDataApi(caseId: string | number, moduleCode: string) {
+    return requestClient8085.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/module/${moduleCode}`);
+  }
+
   /** 工作团队信息 */
   export interface WorkTeamInfo {
     SEP_ID: number;

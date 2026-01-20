@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, defineProps } from 'vue';
+import { ref, computed, defineProps, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -27,6 +27,9 @@ import {
   type UploadUserFile,
 } from 'element-plus';
 
+import { CaseProcessApi } from '../../../api/core/case-process';
+import { batchUploadFilesApi } from '../../../api/core/file';
+
 const props = defineProps<{
   caseId: string;
 }>();
@@ -39,6 +42,8 @@ const showAddDialog = ref(false);
 const currentModule = ref<any>(null);
 const currentStageIndex = ref(0);
 const activeTab = ref('basic');
+const isEditMode = ref(false);
+const currentItem = ref<any>(null);
 
 const formRef = ref();
 const formData = ref({
@@ -58,6 +63,37 @@ const uploading = ref(false);
 
 // 为每个模块添加展开状态
 const expandedModules = ref<Record<string, boolean>>({});
+
+// 处理数据项点击事件
+const handleDataItemClick = async (item: any, module: any) => {
+  // 设置为编辑模式
+  isEditMode.value = true;
+  currentItem.value = item;
+  currentModule.value = module;
+  currentStageIndex.value = activeStage.value;
+  
+  // 填充表单数据
+  formData.value = {
+    title: item.title,
+    content: item.content,
+    date: item.date,
+  };
+  
+  // 处理附件数据
+  fileList.value = item.files ? item.files.map((file: any) => ({
+    uid: Date.now() + Math.random(),
+    name: file.fileName || file.name,
+    url: file.filePath || file.url,
+    size: file.fileSize || file.size,
+    type: file.fileType || file.type,
+    status: 'success',
+  })) : [];
+  
+  uploadProgress.value = 0;
+  uploading.value = false;
+  activeTab.value = 'basic';
+  showAddDialog.value = true;
+};
 
 const toggleModule = (moduleId: string) => {
   expandedModules.value[moduleId] = !expandedModules.value[moduleId];
@@ -460,13 +496,70 @@ const stages = [
 
 const currentStage = computed(() => stages[activeStage.value]);
 
-const handleStageChange = (index: number) => {
-  activeStage.value = index;
+// 加载指定阶段的数据
+const loadStageData = async (stageIndex: number) => {
+  loading.value = true;
+  try {
+    const stageNum = stageIndex + 1; // 阶段从1开始
+    const response = await CaseProcessApi.getCaseStageDataApi(props.caseId, stageNum);
+    
+    if (response.code === 200 && response.data) {
+      // 清空当前阶段所有模块的数据
+      stages[stageIndex].modules.forEach(module => {
+        module.data = [];
+      });
+      
+      // 将返回的数据分配到对应的模块
+      response.data.forEach(item => {
+        // 根据moduleCode或moduleName匹配对应的模块
+        const module = stages[stageIndex].modules.find(m => 
+          m.title.includes(item.moduleName) || item.moduleName.includes(m.title)
+        );
+        
+        if (module) {
+          module.data.push({
+            id: item.id,
+            title: item.title,
+            content: item.content,
+            creator: item.createUserId?.toString() || '',
+            date: item.processDate ? new Date(item.processDate).toISOString().split('T')[0] : '',
+            files: item.attachments ? JSON.parse(item.attachments) : [],
+            fieldData: item.fieldData ? JSON.parse(item.fieldData) : {},
+            createTime: item.createTime,
+            updateTime: item.updateTime
+          });
+        }
+      });
+    }
+  } catch (error) {
+    console.error('加载阶段数据失败:', error);
+    ElMessage.error('加载阶段数据失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
+const handleStageChange = (index: number) => {
+  activeStage.value = index;
+  loadStageData(index);
+};
+
+// 监听阶段变化
+watch(activeStage, (newIndex) => {
+  loadStageData(newIndex);
+});
+
+// 组件挂载时加载初始阶段数据
+onMounted(() => {
+  loadStageData(activeStage.value);
+});
+
 const openAddDialog = (module: any, stageIndex: number) => {
+  // 设置为新增模式
+  isEditMode.value = false;
   currentModule.value = module;
   currentStageIndex.value = stageIndex;
+  currentItem.value = null;
   formData.value = {
     title: '',
     content: '',
@@ -481,27 +574,107 @@ const openAddDialog = (module: any, stageIndex: number) => {
 
 const handleAddSubmit = async () => {
   try {
+    // 验证表单
     await formRef.value?.validate();
     
-    const newItem = {
-      id: Date.now(),
-      ...formData.value,
-      createTime: new Date().toISOString(),
-      files: fileList.value.map(file => ({
-        id: Date.now() + Math.random(),
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: file.url,
-      })),
+    let uploadedFiles = [];
+    
+    // 上传文件到服务器
+    if (fileList.value.length > 0) {
+      uploading.value = true;
+      
+      // 过滤出需要上传的文件（只上传本地文件，已有url的文件跳过）
+      const filesToUpload = fileList.value.filter(file => !file.url || file.url.startsWith('blob:'));
+      
+      if (filesToUpload.length > 0) {
+        // 先上传文件，获取真实的filePath
+        const uploadedFileRecords = await batchUploadFilesApi(
+          filesToUpload.map(file => file.raw as File),
+          'process', // 业务类型
+          Number(props.caseId) // 业务ID
+        );
+        
+        if (uploadedFileRecords.code === 200 && uploadedFileRecords.data) {
+          uploadedFiles = uploadedFileRecords.data;
+        } else {
+          ElMessage.error('文件上传失败');
+          uploading.value = false;
+          return;
+        }
+      }
+      
+      uploading.value = false;
+    }
+    
+    const stageNum = currentStageIndex.value + 1;
+    const stageName = stages[currentStageIndex.value].title;
+    
+    // 准备附件数据
+    const attachments = fileList.value.map((file, index) => {
+      // 检查是否是已上传的文件
+      if (file.url && !file.url.startsWith('blob:')) {
+        // 已上传的文件，使用原url
+        return {
+          fileName: file.name,
+          filePath: file.url,
+          fileType: file.type || '',
+          fileSize: file.size || 0,
+        };
+      } else {
+        // 新上传的文件，使用服务器返回的filePath
+        const uploadedFile = uploadedFiles[index];
+        return {
+          fileName: file.name,
+          filePath: uploadedFile?.filePath || '',
+          fileType: file.type || uploadedFile?.mimeType || '',
+          fileSize: file.size || uploadedFile?.fileSize || 0,
+        };
+      }
+    });
+    
+    const stageData = {
+      caseId: Number(props.caseId),
+      stageNum,
+      stageName: stageName.split('、')[1] || stageName,
+      moduleCode: `STAGE${stageNum}_${currentModule.value.title.replace(/\s+/g, '_').toUpperCase()}`,
+      moduleName: currentModule.value.title,
+      title: formData.value.title,
+      content: formData.value.content,
+      processDate: formData.value.date ? new Date(formData.value.date).toISOString() : undefined,
+      attachments: attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+      fieldData: JSON.stringify({}),
+      status: 'ACTIVE',
     };
     
-    currentModule.value.data.push(newItem);
+    let response;
+    if (isEditMode.value && currentItem.value) {
+      // 编辑模式，调用更新API
+      response = await CaseProcessApi.updateCaseStageDataApi(currentItem.value.id, stageData);
+    } else {
+      // 新增模式，调用新增API
+      response = await CaseProcessApi.addCaseStageDataApi(stageData);
+    }
     
-    ElMessage.success('添加成功');
-    showAddDialog.value = false;
-  } catch (error) {
-    console.error('验证失败:', error);
+    if (response.code === 200 && response.data) {
+      ElMessage.success(isEditMode.value ? '更新成功' : '添加成功');
+      showAddDialog.value = false;
+      // 重新加载当前阶段数据
+      loadStageData(currentStageIndex.value);
+    } else {
+      ElMessage.error(response.message || (isEditMode.value ? '更新失败' : '添加失败'));
+    }
+  } catch (error: any) {
+    uploading.value = false;
+    
+    // 检查是否是表单验证错误
+    if (error && typeof error === 'object' && ('title' in error || 'content' in error)) {
+      // 表单验证失败，Element Plus会自动显示错误信息，不需要额外处理
+      console.warn('表单验证失败:', error);
+    } else {
+      // 其他错误
+      console.error(isEditMode.value ? '更新失败:' : '添加失败:', error);
+      ElMessage.error(isEditMode.value ? '更新失败' : '添加失败');
+    }
   }
 };
 
@@ -533,11 +706,22 @@ const handleFileError = (error: any, file: UploadFile) => {
   uploadProgress.value = 0;
 };
 
-const handleDelete = (module: any, item: any) => {
-  const index = module.data.findIndex((d: any) => d.id === item.id);
-  if (index > -1) {
-    module.data.splice(index, 1);
-    ElMessage.success('删除成功');
+const handleDelete = async (module: any, item: any) => {
+  try {
+    const response = await CaseProcessApi.deleteCaseStageDataApi(item.id);
+    
+    if (response.code === 200 && response.data) {
+      const index = module.data.findIndex((d: any) => d.id === item.id);
+      if (index > -1) {
+        module.data.splice(index, 1);
+      }
+      ElMessage.success('删除成功');
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch (error) {
+    console.error('删除失败:', error);
+    ElMessage.error('删除失败');
   }
 };
 
@@ -610,6 +794,8 @@ const goBack = () => {
                   v-for="item in module.data"
                   :key="item.id"
                   class="data-item"
+                  @click="handleDataItemClick(item, module)"
+                  style="cursor: pointer;"
                 >
                   <div class="data-header">
                     <div class="data-title">{{ item.title }}</div>
@@ -655,7 +841,7 @@ const goBack = () => {
 
     <ElDialog
       v-model="showAddDialog"
-      :title="`新增 - ${currentModule?.title}`"
+      :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
       width="800px"
       destroy-on-close
     >
