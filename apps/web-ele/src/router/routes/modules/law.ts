@@ -15,7 +15,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         name: 'LawCaseManagement',
-        path: '/case-management',
+        path: 'case-management',
         component: () => import('#/views/law/case-management/index.vue'),
         meta: {
           affixTab: false,
@@ -25,7 +25,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawCaseDetail',
-        path: '/case-detail/:id',
+        path: 'case-detail/:id',
         component: () => import('#/views/law/case-detail/index.vue'),
         meta: {
           affixTab: false,
@@ -37,7 +37,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawCaseAdd',
-        path: '/case-add',
+        path: 'case-add',
         component: () => import('#/views/law/case-add/index.vue'),
         meta: {
           affixTab: false,
@@ -49,7 +49,7 @@ const routes: RouteRecordRaw[] = [
 
       {
         name: 'LawServiceOfDocuments',
-        path: '/service-of-documents',
+        path: 'service-of-documents',
         component: () => import('#/views/law/service-of-documents/index.vue'),
         meta: {
           affixTab: false,
@@ -59,7 +59,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawServiceOfDocumentsAdd',
-        path: '/service-of-documents/add',
+        path: 'service-of-documents/add',
         component: () => import('#/views/law/service-of-documents/add.vue'),
         meta: {
           affixTab: false,
@@ -70,7 +70,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawServiceOfDocumentsDetail',
-        path: '/service-of-documents/:id',
+        path: 'service-of-documents/:id',
         component: () => import('#/views/law/service-of-documents/detail.vue'),
         meta: {
           affixTab: false,
@@ -83,7 +83,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawServiceOfDocumentsRecords',
-        path: '/service-of-documents/:id/records',
+        path: 'service-of-documents/:id/records',
         component: () => import('#/views/law/service-of-documents/records.vue'),
         meta: {
           affixTab: false,
@@ -96,7 +96,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawAnnouncementList',
-        path: '/announcement-list',
+        path: 'announcement-list',
         component: () => import('#/views/law/announcement-list/index.vue'),
         meta: {
           affixTab: false,
@@ -106,7 +106,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawArchiveManagement',
-        path: '/archive-management/:id',
+        path: 'archive-management/:id',
         component: () => import('#/views/law/archive-management/index.vue'),
         meta: {
           affixTab: false,
@@ -118,7 +118,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'LawBankruptcyProcess',
-        path: '/bankruptcy-process/:id',
+        path: 'bankruptcy-process/:id',
         component: () => import('#/views/law/bankruptcy-process/index.vue'),
         meta: {
           affixTab: false,

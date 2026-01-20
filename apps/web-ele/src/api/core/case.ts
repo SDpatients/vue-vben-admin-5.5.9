@@ -438,9 +438,7 @@ export async function getReviewLogsApi(caseId: number) {
  * GET /api/v1/case/user/{userId}/list
  */
 export async function getUserCaseListApi(userId: number, params: { pageNum?: number; pageSize?: number; caseStatus?: string; caseNumber?: string } = {}) {
-  console.log('[getUserCaseListApi] 请求参数:', { userId, params });
   const result = await requestClient8085.get<CaseApi.UserCaseListResponse>(`/case/user/${userId}/list`, { params });
-  console.log('[getUserCaseListApi] 响应结果:', result);
   return result;
 }
 

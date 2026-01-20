@@ -44,7 +44,7 @@
           <template #header>
             <div class="card-header flex items-center justify-between">
               <div class="flex items-center">
-                <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                <Icon icon="lucide:file-text" class="mr-2 text-primary" />
                 <span class="text-lg font-semibold">案件基本信息</span>
               </div>
               <div class="flex space-x-2">
@@ -259,7 +259,7 @@
           <template #header>
             <div class="card-header flex items-center justify-between">
               <div class="flex items-center">
-                <Icon icon="lucide:users" class="mr-2 text-blue-500" />
+                <Icon icon="lucide:users" class="mr-2 text-primary" />
                 <span class="text-lg font-semibold">工作团队管理</span>
               </div>
             </div>
@@ -276,8 +276,26 @@
                   <ElTable :data="teamMembers" border stripe style="width: 100%">
                     <ElTableColumn prop="userId" label="用户ID" width="180" />
                     <ElTableColumn prop="userName" label="用户名" width="180" />
-                    <ElTableColumn prop="teamRole" label="团队角色" width="180" />
-                    <ElTableColumn prop="permissionLevel" label="权限级别" width="180" />
+                    <ElTableColumn label="团队角色" width="180">
+                      <template #default="scope">
+                        {{ {
+                          'LEADER': '团队负责人',
+                          'MEMBER': '团队成员',
+                          'VIEWER': '查看者',
+                          'GUEST': '访客'
+                        }[scope.row.teamRole] || scope.row.teamRole }}
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn label="权限级别" width="180">
+                      <template #default="scope">
+                        {{ {
+                          'VIEW': '查看',
+                          'EDIT': '编辑',
+                          'ADMIN': '管理',
+                          'FULL': '完全控制'
+                        }[scope.row.permissionLevel] || scope.row.permissionLevel }}
+                      </template>
+                    </ElTableColumn>
                     <ElTableColumn label="操作" width="200">
                       <template #default="scope">
                         <ElButton type="danger" size="small" link @click="removeTeamMember(scope.row.id)">
@@ -418,7 +436,7 @@
           <template #header>
             <div class="card-header flex items-center justify-between">
               <div class="flex items-center">
-                <Icon icon="lucide:bell" class="mr-2 text-blue-500" />
+                <Icon icon="lucide:bell" class="mr-2 text-primary" />
                 <span class="text-lg font-semibold">公告管理</span>
               </div>
               <div>

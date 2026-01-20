@@ -33,6 +33,7 @@ import {
   getBankAccountListApi,
   updateBankAccountApi,
 } from '#/api/core/bank-account';
+import { getCaseSimpleListApi } from '#/api/core/case';
 import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
@@ -71,15 +72,15 @@ const availableColumns = [
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '当前余额',
   '创建时间',
+  '开户行',
+  '当前余额',
   '更新时间',
   '状态',
   '账户号码',
   '账户名称',
   '账户类型',
   '银行名称',
-  '开户行',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -242,6 +243,8 @@ const viewBankAccountDetail = (row: BankAccountApi.BankAccountInfo) => {
 const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editingRow.value = row;
   // 填充编辑表单数据
+  editFormData.caseId = row.caseId || 0;
+  editFormData.caseNumber = row.caseNumber || '';
   editFormData.accountName = row.accountName;
   editFormData.accountNumber = row.accountNumber;
   editFormData.accountType = row.accountType;
@@ -250,6 +253,8 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editFormData.status = row.status;
   // 显示编辑弹窗
   editDialogVisible.value = true;
+  // 打开弹窗时加载案号列表
+  getCaseList();
 };
 
 // 关闭编辑账户弹窗
@@ -260,6 +265,9 @@ const handleCloseEditDialog = () => {
   if (editFormRef.value) {
     editFormRef.value.resetFields();
   }
+  // 重置案号相关字段
+  editFormData.caseId = 0;
+  editFormData.caseNumber = '';
 };
 
 // 提交编辑账户表单
@@ -279,7 +287,10 @@ const handleEditSubmit = async () => {
     };
 
     // 调用更新账户API
-    const response = await updateBankAccountApi(editingRow.value.id, submitData);
+    const response = await updateBankAccountApi(
+      editingRow.value.id,
+      submitData,
+    );
 
     if (response.code === 200) {
       ElMessage.success('银行账户更新成功');
@@ -400,8 +411,44 @@ const statusOptions = [
   { label: '停用', value: 'INACTIVE' },
 ];
 
+// 案件相关数据
+const caseList = ref<any[]>([]);
+const caseLoading = ref(false);
+
+// 获取案件列表
+const getCaseList = async (query = '') => {
+  caseLoading.value = true;
+  try {
+    const response = await getCaseSimpleListApi({
+      page: 1,
+      size: 10,
+      caseNumber: query,
+    });
+
+    caseList.value =
+      response.code === 200 && response.data?.list ? response.data.list : [];
+  } catch (error) {
+    console.error('获取案件列表失败:', error);
+    caseList.value = [];
+  } finally {
+    caseLoading.value = false;
+  }
+};
+
+// 处理案号选择
+const handleCaseSelect = (value: string) => {
+  formData.caseNumber = value;
+  // 根据选中的caseNumber值在caseList中找到对应的项，获取其id
+  const selectedCase = caseList.value.find((item) => item.caseNumber === value);
+  if (selectedCase) {
+    formData.caseId = selectedCase.id;
+  }
+};
+
 // 新增账户表单数据
 const formData = reactive({
+  caseId: 0, // 案件ID
+  caseNumber: '', // 案号，用于表单显示
   accountName: '',
   accountNumber: '',
   accountType: '',
@@ -425,6 +472,8 @@ const editingRow = ref<BankAccountApi.BankAccountInfo | null>(null);
 
 // 编辑账户表单数据
 const editFormData = reactive({
+  caseId: 0, // 案件ID
+  caseNumber: '', // 案号，用于表单显示
   accountName: '',
   accountNumber: '',
   accountType: '',
@@ -475,6 +524,8 @@ const currencyOptions = ref([
 // 打开新增账户弹窗
 const handleAddBankAccount = () => {
   dialogVisible.value = true;
+  // 打开弹窗时加载案号列表
+  getCaseList();
 };
 
 // 关闭新增账户弹窗
@@ -484,6 +535,9 @@ const handleCloseDialog = () => {
   if (formRef.value) {
     formRef.value.resetFields();
   }
+  // 重置案号相关字段
+  formData.caseId = 0;
+  formData.caseNumber = '';
 };
 
 // 提交新增账户表单
@@ -598,21 +652,36 @@ const handleSubmit = async () => {
         />
 
         <!-- 余额列 -->
-        <ElTableColumn prop="currentBalance" label="当前余额" width="150" align="right">
+        <ElTableColumn
+          prop="currentBalance"
+          label="当前余额"
+          width="150"
+          align="right"
+        >
           <template #default="{ row }">
             {{ formatCurrency(row.currentBalance) }}
           </template>
         </ElTableColumn>
 
         <!-- 创建时间列 -->
-        <ElTableColumn prop="createTime" label="创建时间" width="160" align="center">
+        <ElTableColumn
+          prop="createTime"
+          label="创建时间"
+          width="160"
+          align="center"
+        >
           <template #default="{ row }">
             {{ new Date(row.createTime).toLocaleString('zh-CN') }}
           </template>
         </ElTableColumn>
 
         <!-- 更新时间列 -->
-        <ElTableColumn prop="updateTime" label="更新时间" width="160" align="center">
+        <ElTableColumn
+          prop="updateTime"
+          label="更新时间"
+          width="160"
+          align="center"
+        >
           <template #default="{ row }">
             {{ new Date(row.updateTime).toLocaleString('zh-CN') }}
           </template>
@@ -682,6 +751,29 @@ const handleSubmit = async () => {
         >
           <ElRow :gutter="30">
             <ElCol :span="12">
+              <ElFormItem label="案号" prop="caseNumber">
+                <ElSelect
+                  v-model="formData.caseNumber"
+                  placeholder="请选择或搜索案号"
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="getCaseList"
+                  :loading="caseLoading"
+                  @change="handleCaseSelect"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="item in caseList"
+                    :key="item.id"
+                    :label="item.caseNumber"
+                    :value="item.caseNumber"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
               <ElFormItem label="账户名称" prop="accountName">
                 <ElInput
                   v-model="formData.accountName"
@@ -691,6 +783,8 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="开户行" prop="openingBank">
                 <ElSelect
@@ -858,6 +952,39 @@ const handleSubmit = async () => {
         >
           <ElRow :gutter="30">
             <ElCol :span="12">
+              <ElFormItem label="案号" prop="caseNumber">
+                <ElSelect
+                  v-model="editFormData.caseNumber"
+                  placeholder="请选择或搜索案号"
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="getCaseList"
+                  :loading="caseLoading"
+                  @change="
+                    (value) => {
+                      editFormData.caseNumber = value;
+                      const selectedCase = caseList.value.find(
+                        (item) => item.caseNumber === value,
+                      );
+                      if (selectedCase) {
+                        editFormData.caseId = selectedCase.id;
+                      }
+                    }
+                  "
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="item in caseList"
+                    :key="item.id"
+                    :label="item.caseNumber"
+                    :value="item.caseNumber"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
               <ElFormItem label="账户名称" prop="accountName">
                 <ElInput
                   v-model="editFormData.accountName"
@@ -867,6 +994,8 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="开户行" prop="openingBank">
                 <ElSelect

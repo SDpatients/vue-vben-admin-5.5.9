@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import type { DebtorApi } from '#/api/core/debtor';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
 import { onMounted, ref } from 'vue';
-
-import { requestClient8085 } from '#/api/request';
 
 import {
   ElButton,
@@ -27,17 +26,16 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag,
 } from 'element-plus';
 
+import { getCaseSimpleListApi } from '#/api/core/case';
 import {
   createDebtorApi,
   deleteDebtorApi,
-  updateDebtorApi,
   getDebtorListApi,
+  updateDebtorApi,
 } from '#/api/core/debtor';
-
-import { getCaseSimpleListApi } from '#/api/core/case';
+import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
 const debtorList = ref<DebtorApi.DebtorInfo[]>([]);
@@ -130,10 +128,11 @@ const fetchDebtorList = async () => {
       // 处理API响应，直接使用新的字段名
       const data = response.data || {};
       const list = data.list || [];
-      
+
       debtorList.value = list;
       pagination.value.itemCount = data.total || 0;
-      pagination.value.pages = Math.ceil((data.total || 0) / pagination.value.pageSize) || 1;
+      pagination.value.pages =
+        Math.ceil((data.total || 0) / pagination.value.pageSize) || 1;
       ElMessage.success(`成功加载 ${list.length} 条债务人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.message}`);
@@ -206,12 +205,9 @@ const getCaseList = async (query = '') => {
       size: 10,
       caseNumber: query,
     });
-    
-    if (response.code === 200 && response.data?.list) {
-      caseList.value = response.data.list;
-    } else {
-      caseList.value = [];
-    }
+
+    caseList.value =
+      response.code === 200 && response.data?.list ? response.data.list : [];
   } catch (error) {
     console.error('获取案件列表失败:', error);
     caseList.value = [];
@@ -234,7 +230,7 @@ const handleCaseSelect = (value: string) => {
 // 格式化日期显示
 const formatDate = (dateValue: any) => {
   if (!dateValue) return '-';
-  
+
   let date;
   if (typeof dateValue === 'number') {
     // 处理时间戳（毫秒或秒）
@@ -252,12 +248,12 @@ const formatDate = (dateValue: any) => {
     // 其他类型
     date = new Date(dateValue);
   }
-  
+
   // 检查日期是否有效
   if (isNaN(date.getTime())) {
     return '-';
   }
-  
+
   return date.toLocaleDateString('zh-CN');
 };
 
@@ -412,7 +408,9 @@ const submitFormData = async () => {
       legalRepresentative: formData.value.FDDBR,
       registrationAuthority: formData.value.DJJG,
       establishmentDate: formData.value.CLRQ,
-      registeredCapital: formData.value.ZCZB ? Number(formData.value.ZCZB) : undefined,
+      registeredCapital: formData.value.ZCZB
+        ? Number(formData.value.ZCZB)
+        : undefined,
       businessScope: formData.value.JYFW,
       enterpriseType: formData.value.QYLX,
       industry: formData.value.SSHY,
@@ -445,6 +443,52 @@ const submitFormData = async () => {
   }
 };
 
+// 导出债务人数据为Excel
+const exportDebtorData = () => {
+  if (debtorList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'caseNumber', title: '案号', width: 18 },
+    { field: 'caseName', title: '案件名称', width: 20 },
+    { field: 'enterpriseName', title: '企业名称', width: 18 },
+    { field: 'unifiedSocialCreditCode', title: '统一社会信用代码', width: 20 },
+    { field: 'legalRepresentative', title: '法定代表人', width: 12 },
+    { field: 'contactPhone', title: '联系电话', width: 12 },
+    { field: 'contactPerson', title: '联系人', width: 10 },
+    { field: 'businessScope', title: '经营范围', width: 20 },
+    { field: 'industry', title: '行业', width: 12 },
+    { field: 'registeredAddress', title: '注册地址', width: 20 },
+    {
+      field: 'createTime',
+      title: '创建时间',
+      width: 15,
+      formatter: (value) => formatDate(value),
+    },
+    {
+      field: 'updateTime',
+      title: '更新时间',
+      width: 15,
+      formatter: (value) => formatDate(value),
+    },
+  ];
+
+  try {
+    exportToExcel({
+      data: debtorList.value,
+      fileName: '债务人管理数据',
+      sheetName: '债务人',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
+};
+
 // 删除债务人相关
 const deleteDialogVisible = ref(false);
 const currentDeleteItem = ref<DebtorApi.DebtorInfo | null>(null);
@@ -471,11 +515,11 @@ const editFormData = ref({
   LXR: '',
   ZT: '',
 } as {
-  id: number;
   AJID: string;
   CLRQ: string;
   DJJG: string;
   FDDBR: string;
+  id: number;
   JYFW: string;
   LXDH: string;
   LXR: string;
@@ -494,11 +538,11 @@ const editFormData = ref({
 const handleEditDebtor = (row: any) => {
   // 直接从row中获取id字段作为债务人ID
   const debtorId = row.id;
-  
+
   // 调试信息，查看id是否获取到
   console.log('编辑债务人时获取的ID:', debtorId);
   console.log('原始行数据:', row);
-  
+
   // 复制行数据到编辑表单，使用新的字段名
   editFormData.value = {
     id: debtorId, // 存储债务人ID
@@ -508,7 +552,12 @@ const handleEditDebtor = (row: any) => {
     TYSHXYDM: row.unifiedSocialCreditCode || row.TYSHXYDM || row.tyshxydm || '',
     FDDBR: row.legalRepresentative || row.FDDBR || row.fddbr || '',
     DJJG: row.registrationAuthority || row.DJJG || row.djjg || '',
-    CLRQ: row.establishmentDate || row.CLRQ || row.clrq ? new Date(row.establishmentDate || row.CLRQ || row.clrq).toISOString().slice(0, 10) : '',
+    CLRQ:
+      row.establishmentDate || row.CLRQ || row.clrq
+        ? new Date(row.establishmentDate || row.CLRQ || row.clrq)
+            .toISOString()
+            .slice(0, 10)
+        : '',
     ZCZB: row.registeredCapital?.toString() || row.ZCZB || row.zczb || '',
     JYFW: row.businessScope || row.JYFW || row.jyfw || '',
     QYLX: row.enterpriseType || row.QYLX || row.qylx || '',
@@ -519,7 +568,7 @@ const handleEditDebtor = (row: any) => {
     ZT: row.status || row.ZT || row.zt || '',
     row: 0,
   };
-  
+
   editDialogVisible.value = true;
 };
 
@@ -601,14 +650,14 @@ const handleDeleteSubmit = async () => {
 
   try {
     const row = currentDeleteItem.value;
-    
+
     // 直接从row中获取id字段作为债务人ID
     const debtorId = row.id;
     if (!debtorId) {
       ElMessage.error('债务人ID获取失败');
       return;
     }
-    
+
     console.log('删除债务人时使用的ID:', debtorId);
     console.log('原始删除数据:', row);
 
@@ -685,7 +734,7 @@ const handleDeleteSubmit = async () => {
                               法定代表人
                             </ElCheckbox>
                             <ElCheckbox value="登记机关" name="登记机关">
-                              登记机关
+                              登记
                             </ElCheckbox>
                             <ElCheckbox value="成立日期" name="成立日期">
                               成立日期
@@ -725,6 +774,10 @@ const handleDeleteSubmit = async () => {
             <ElButton type="primary" @click="handleAddDebtor">
               <i class="i-lucide-plus mr-1"></i>
               新增债务人
+            </ElButton>
+            <ElButton type="success" @click="exportDebtorData">
+              <i class="i-lucide-download mr-1"></i>
+              导出数据
             </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
@@ -838,12 +891,22 @@ const handleDeleteSubmit = async () => {
           min-width="200"
           show-overflow-tooltip
         />
-        <ElTableColumn prop="createTime" label="创建时间" width="180" align="center">
+        <ElTableColumn
+          prop="createTime"
+          label="创建时间"
+          width="180"
+          align="center"
+        >
           <template #default="{ row }">
             {{ formatDate(row.createTime) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="updateTime" label="更新时间" width="180" align="center">
+        <ElTableColumn
+          prop="updateTime"
+          label="更新时间"
+          width="180"
+          align="center"
+        >
           <template #default="{ row }">
             {{ formatDate(row.updateTime) }}
           </template>
@@ -1083,7 +1146,7 @@ const handleDeleteSubmit = async () => {
                 <ElInput
                   v-model="editFormData.TYSHXYDM"
                   placeholder="请输入统一社会信用代码"
-                  style="white-space: nowrap;"
+                  style="white-space: nowrap"
                 />
               </ElFormItem>
             </ElCol>
@@ -1129,7 +1192,10 @@ const handleDeleteSubmit = async () => {
             <!-- 第三行 -->
             <ElCol :span="8">
               <ElFormItem label="经营范围">
-                <ElSelect v-model="editFormData.JYFW" placeholder="请选择经营范围">
+                <ElSelect
+                  v-model="editFormData.JYFW"
+                  placeholder="请选择经营范围"
+                >
                   <ElOption
                     v-for="option in businessScopeOptions"
                     :key="option.value"
@@ -1141,7 +1207,10 @@ const handleDeleteSubmit = async () => {
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="企业类型">
-                <ElSelect v-model="editFormData.QYLX" placeholder="请选择企业类型">
+                <ElSelect
+                  v-model="editFormData.QYLX"
+                  placeholder="请选择企业类型"
+                >
                   <ElOption
                     v-for="option in enterpriseTypeOptions"
                     :key="option.value"
@@ -1153,7 +1222,10 @@ const handleDeleteSubmit = async () => {
             </ElCol>
             <ElCol :span="8">
               <ElFormItem label="所属行业">
-                <ElSelect v-model="editFormData.SSHY" placeholder="请选择所属行业">
+                <ElSelect
+                  v-model="editFormData.SSHY"
+                  placeholder="请选择所属行业"
+                >
                   <ElOption
                     v-for="option in industryOptions"
                     :key="option.value"

@@ -22,7 +22,7 @@ export default defineConfig(async (): Promise<any> => {
             ws: true,
             rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
-          '/api/vi': {
+          '/api/v1': {
             changeOrigin: true,
             target: 'http://192.168.0.120:8080',
             ws: true,

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { ManagerApi } from '#/api/core';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
 import { onMounted, reactive, ref } from 'vue';
 
@@ -14,11 +15,11 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
-  ElSelect,
-  ElOption,
 } from 'element-plus';
 
 import {
@@ -27,6 +28,7 @@ import {
   getManagerListApi,
   updateManagerApi,
 } from '#/api/core/manager';
+import { exportToExcel } from '#/utils/export-excel';
 
 const userStore = useUserStore();
 
@@ -228,7 +230,7 @@ const handleEditSubmit = async () => {
   try {
     // 从表单中提取管理人ID
     const { id, ...updateData } = editManagerForm;
-    
+
     const response = await updateManagerApi(id, updateData);
     if (response.code === 200) {
       ElMessage.success('更新管理人成功');
@@ -290,6 +292,47 @@ const statusOptions = [
   { label: '禁止', value: '禁止' },
 ];
 
+// 导出管理人数据为Excel
+const exportManagerData = () => {
+  if (managerList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'administratorType', title: '管理人类型', width: 12 },
+    { field: 'administratorName', title: '管理人名称', width: 18 },
+    { field: 'contactPhone', title: '联系电话', width: 12 },
+    { field: 'contactEmail', title: '联系邮箱', width: 18 },
+    { field: 'officeAddress', title: '办公地址', width: 20 },
+    {
+      field: 'createTime',
+      title: '创建时间',
+      width: 15,
+      formatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'updateTime',
+      title: '更新时间',
+      width: 15,
+      formatter: (value) => formatDateTime(value),
+    },
+  ];
+
+  try {
+    exportToExcel({
+      data: managerList.value,
+      fileName: '管理人信息数据',
+      sheetName: '管理人',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
+};
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchManagerList();
@@ -306,6 +349,10 @@ onMounted(() => {
             <ElButton type="primary" @click="handleAdd">
               <i class="i-lucide-plus mr-1"></i>
               新增
+            </ElButton>
+            <ElButton type="success" @click="exportManagerData">
+              <i class="i-lucide-download mr-1"></i>
+              导出数据
             </ElButton>
             <ElButton @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>
@@ -387,7 +434,7 @@ onMounted(() => {
         >
           <template #default>
             <!-- 先不填数据，留空或显示占位符 -->
-            - 
+            -
           </template>
         </ElTableColumn>
         <ElTableColumn
@@ -467,10 +514,16 @@ onMounted(() => {
     >
       <ElForm :model="addManagerForm" label-width="100px" :rules="rules">
         <ElFormItem label="管理人名称" prop="administratorName">
-          <ElInput v-model="addManagerForm.administratorName" placeholder="请输入管理人名称" />
+          <ElInput
+            v-model="addManagerForm.administratorName"
+            placeholder="请输入管理人名称"
+          />
         </ElFormItem>
         <ElFormItem label="管理人类型">
-          <ElSelect v-model="addManagerForm.administratorType" placeholder="请选择管理人类型">
+          <ElSelect
+            v-model="addManagerForm.administratorType"
+            placeholder="请选择管理人类型"
+          >
             <ElOption
               v-for="option in managerTypeOptions"
               :key="option.value"
@@ -480,13 +533,23 @@ onMounted(() => {
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="联系电话">
-          <ElInput v-model="addManagerForm.contactPhone" placeholder="请输入联系电话" />
+          <ElInput
+            v-model="addManagerForm.contactPhone"
+            placeholder="请输入联系电话"
+          />
         </ElFormItem>
         <ElFormItem label="联系邮箱">
-          <ElInput v-model="addManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
+          <ElInput
+            v-model="addManagerForm.contactEmail"
+            placeholder="请输入联系邮箱"
+            type="email"
+          />
         </ElFormItem>
         <ElFormItem label="办公地址">
-          <ElInput v-model="addManagerForm.officeAddress" placeholder="请输入办公地址" />
+          <ElInput
+            v-model="addManagerForm.officeAddress"
+            placeholder="请输入办公地址"
+          />
         </ElFormItem>
       </ElForm>
       <template #footer>
@@ -506,7 +569,10 @@ onMounted(() => {
     >
       <ElForm :model="editManagerForm" label-width="100px">
         <ElFormItem label="管理人类型">
-          <ElSelect v-model="editManagerForm.administratorType" placeholder="请选择管理人类型">
+          <ElSelect
+            v-model="editManagerForm.administratorType"
+            placeholder="请选择管理人类型"
+          >
             <ElOption
               v-for="option in managerTypeOptions"
               :key="option.value"
@@ -516,13 +582,23 @@ onMounted(() => {
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="联系电话">
-          <ElInput v-model="editManagerForm.contactPhone" placeholder="请输入联系电话" />
+          <ElInput
+            v-model="editManagerForm.contactPhone"
+            placeholder="请输入联系电话"
+          />
         </ElFormItem>
         <ElFormItem label="联系邮箱">
-          <ElInput v-model="editManagerForm.contactEmail" placeholder="请输入联系邮箱" type="email" />
+          <ElInput
+            v-model="editManagerForm.contactEmail"
+            placeholder="请输入联系邮箱"
+            type="email"
+          />
         </ElFormItem>
         <ElFormItem label="办公地址">
-          <ElInput v-model="editManagerForm.officeAddress" placeholder="请输入办公地址" />
+          <ElInput
+            v-model="editManagerForm.officeAddress"
+            placeholder="请输入办公地址"
+          />
         </ElFormItem>
       </ElForm>
       <template #footer>

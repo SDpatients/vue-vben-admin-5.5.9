@@ -304,7 +304,7 @@ const handleDownload = async (file: UploadFile) => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:upload" class="mr-2 text-blue-500" />
+            <Icon icon="lucide:upload" class="mr-2 text-primary" />
             <span class="text-lg font-semibold">文件上传</span>
           </div>
           <div class="text-sm text-gray-500">
@@ -373,7 +373,7 @@ const handleDownload = async (file: UploadFile) => {
                   file.name.endsWith('.pdf')
                     ? 'text-red-500'
                     : file.name.endsWith('.doc') || file.name.endsWith('.docx')
-                      ? 'text-blue-500'
+                      ? 'text-primary'
                       : file.name.endsWith('.xls') ||
                           file.name.endsWith('.xlsx')
                         ? 'text-green-500'

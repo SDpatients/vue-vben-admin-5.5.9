@@ -425,7 +425,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:file-search" class="mr-2 text-blue-500" />
+            <Icon icon="lucide:file-search" class="mr-2 text-primary" />
             <span class="text-lg font-semibold">债权审查</span>
           </div>
           <div class="flex space-x-2">
@@ -490,7 +490,6 @@ onMounted(() => {
             <template #default="scope">
               <ElButton
                 link
-                type="primary"
                 size="small"
                 @click="openDetailDialog(scope.row)"
               >
@@ -502,7 +501,6 @@ onMounted(() => {
                   scope.row.reviewInfo.reviewStatus === 'PENDING'
                 "
                 link
-                type="success"
                 size="small"
                 @click="openReviewDialog(scope.row)"
               >

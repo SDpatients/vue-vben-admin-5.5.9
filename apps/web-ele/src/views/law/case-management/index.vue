@@ -225,23 +225,13 @@ const generateMockData = () => {
 
 // 获取案件列表
 const fetchCaseList = async () => {
-  console.log('[fetchCaseList] 开始获取案件列表');
-  console.log('[fetchCaseList] 当前标签页:', activeTab.value);
-  console.log('[fetchCaseList] 当前用户ID:', currentUserId.value);
-  console.log('[fetchCaseList] 分页参数:', {
-    page: pagination.value.page,
-    pageSize: pagination.value.pageSize,
-  });
-
   loading.value = true;
   try {
     let response;
 
     if (activeTab.value === 'myCases') {
       // 获取我的案件
-      console.log('[fetchCaseList] 调用 getUserCaseListApi');
       if (!currentUserId.value) {
-        console.warn('[fetchCaseList] 用户ID为空');
         ElMessage.warning('请先登录以查看您的案件');
         loading.value = false;
         return;
@@ -250,36 +240,19 @@ const fetchCaseList = async () => {
         pageNum: pagination.value.page,
         pageSize: pagination.value.pageSize,
       });
-      console.log('[fetchCaseList] getUserCaseListApi 返回:', response);
     } else {
       // 获取全部案件（有权限的）
-      console.log('[fetchCaseList] 调用 getCaseListApi');
       const params: CaseApi.CaseListQueryParams = {
         pageNum: pagination.value.page,
         pageSize: pagination.value.pageSize,
       };
       response = await getCaseListApi(params);
-      console.log('[fetchCaseList] getCaseListApi 返回:', response);
     }
-
-    console.log('[fetchCaseList] 响应数据:', {
-      code: response?.code,
-      message: response?.message,
-      data: response?.data,
-      hasData: !!response?.data,
-      hasList: !!response?.data?.list,
-      listLength: response?.data?.list?.length,
-    });
 
     // 适配新的API响应格式
     if (response.code === 200 && response.data) {
-      console.log('[fetchCaseList] 响应成功，开始映射数据');
-      console.log('[fetchCaseList] 原始案件列表:', response.data.list);
-
       // 将API返回的英文字段映射为表格期望的中文prop名称
       const mappedCases = response.data.list.map((item: any) => {
-        console.log('[fetchCaseList] 映射单个案件:', item);
-
         // 映射案件进度
         const caseProgressMap: Record<string, string> = {
           FIRST: '第一阶段',
@@ -335,11 +308,8 @@ const fetchCaseList = async () => {
           备注: item.remarks,
         };
 
-        console.log('[fetchCaseList] 映射后的案件:', mappedItem);
         return mappedItem;
       });
-
-      console.log('[fetchCaseList] 所有映射后的案件:', mappedCases);
 
       caseList.value = mappedCases;
       pagination.value.itemCount = response.data.total || 0;
@@ -355,39 +325,25 @@ const fetchCaseList = async () => {
         pagination.value.pageSize = response.data.pageSize;
       }
 
-      console.log('[fetchCaseList] 更新后的状态:', {
-        caseListLength: caseList.value.length,
-        itemCount: pagination.value.itemCount,
-        pages: pagination.value.pages,
-        page: pagination.value.page,
-        pageSize: pagination.value.pageSize,
-      });
-
       if (mappedCases.length > 0) {
         ElMessage.success(`成功加载 ${mappedCases.length} 条案件记录`);
       }
     } else {
-      console.error('[fetchCaseList] 响应格式错误:', response);
       ElMessage.error(response.message || '获取案件列表失败');
       generateMockData();
     }
   } catch (error) {
-    console.error('[fetchCaseList] 获取案件列表失败:', error);
     ElMessage.error('获取案件列表失败，请检查网络连接');
     generateMockData();
   } finally {
     loading.value = false;
-    console.log('[fetchCaseList] 获取案件列表完成');
   }
 };
 
 // 处理标签页切换
 const handleTabChange = async (tabName: string) => {
-  console.log('[handleTabChange] 切换标签页:', tabName);
-  
   // 如果不是管理员且尝试访问全部案件，强制切换到我的案件
   if (tabName === 'allCases' && !isAdmin.value) {
-    console.warn('[handleTabChange] 非管理员用户无权查看全部案件');
     ElMessage.warning('您无权查看全部案件');
     activeTab.value = 'myCases';
     return;
@@ -399,16 +355,11 @@ const handleTabChange = async (tabName: string) => {
   try {
     // 当切换到我的案件时，先尝试获取用户信息
     if (tabName === 'myCases') {
-      console.log('[handleTabChange] 切换到我的案件，获取用户信息');
       await authStore.fetchCurrentUser();
-      console.log(
-        '[handleTabChange] 用户信息获取完成，当前用户ID:',
-        currentUserId.value,
-      );
     }
     await fetchCaseList();
   } catch (error) {
-    console.error('[handleTabChange] 切换标签页失败:', error);
+    // 忽略错误，UI已显示loading状态
   } finally {
     loading.value = false;
   }
@@ -550,7 +501,7 @@ const getReviewStatusType = (status: string) => {
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
   if (row.id) {
-    router.push(`/case-detail/${row.id}`);
+    router.push(`/law/case-detail/${row.id}`);
   } else {
     ElMessage.warning('案件ID不存在，无法查看详情');
   }
@@ -564,7 +515,7 @@ const showReviewModal = (row: CaseApi.CaseInfo) => {
 
 // 检查是否可以审核
 const canReview = (row: CaseApi.CaseInfo) => {
-  return true;
+  return false;
 };
 </script>
 

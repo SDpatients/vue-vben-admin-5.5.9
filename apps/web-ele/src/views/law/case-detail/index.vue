@@ -329,6 +329,51 @@ const fundControlDrawerRef = ref<InstanceType<typeof FundControlDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
+// 批审相关
+const showReviewDialog = ref(false);
+const reviewForm = reactive({
+  reviewType: 'CASE_REVIEW',
+  reviewers: [],
+  reviewContent: '',
+  attachments: [],
+});
+
+const reviewTypeOptions = [
+  { label: '案件审批', value: 'CASE_REVIEW' },
+  { label: '流程审批', value: 'PROCESS_REVIEW' },
+  { label: '文书审批', value: 'DOCUMENT_REVIEW' },
+];
+
+const reviewerOptions = [
+  { label: '张三', value: '1' },
+  { label: '李四', value: '2' },
+  { label: '王五', value: '3' },
+  { label: '赵六', value: '4' },
+];
+
+const reviewHistory = ref([
+  {
+    id: 1,
+    reviewer: '张三',
+    reviewDate: '2023-05-10 14:30:00',
+    status: '已通过',
+    comment: '审批通过，无异议',
+  },
+  {
+    id: 2,
+    reviewer: '李四',
+    reviewDate: '2023-05-09 09:15:00',
+    status: '已通过',
+    comment: '同意审批',
+  },
+]);
+
+const submitReview = () => {
+  // 这里可以添加提交批审的逻辑
+  ElMessage.success('批审已提交');
+  showReviewDialog.value = false;
+};
+
 // 公告主要负责人候选列表
 const announcementPrincipalOfficerOptions = ref<any[]>([]);
 
@@ -1607,9 +1652,9 @@ const saveEditing = async () => {
       isSimplifiedTrial:
         editedData.是否简化审 === '是'
           ? 1
-          : (editedData.是否简化审 === '否'
+          : editedData.是否简化审 === '否'
             ? 0
-            : caseDetail.value?.isSimplifiedTrial),
+            : caseDetail.value?.isSimplifiedTrial,
       acceptanceDate:
         formatDateForApi(editedData.受理日期) ||
         caseDetail.value?.acceptanceDate,
@@ -1687,7 +1732,7 @@ onMounted(async () => {
           归档时间: caseData.archivingDate,
           结案日期: caseData.closingDate,
           指定机构: caseData.designatedInstitution,
-          承办人: caseData.undertakingPersonnel,
+          承办人员: caseData.undertakingPersonnel,
           创建者: caseData.creatorName,
           审核状态: mapReviewStatus(caseData.reviewStatus),
           审核时间: caseData.reviewTime,
@@ -1729,7 +1774,7 @@ onMounted(async () => {
         归档时间: '',
         结案日期: '',
         指定机构: '某律师事务所',
-        承办人: '李四',
+        承办人员: '李四',
         创建者: '管理员',
         审核状态: '待审核',
         审核时间: '',
@@ -1766,7 +1811,7 @@ onMounted(async () => {
       注销时间: '',
       结案日期: '',
       指定机构: '某律师事务所',
-      承办人: '李四',
+      承办人员: '李四',
       创建者: '管理员',
       审核状态: '待审核',
       审核时间: '',
@@ -2427,9 +2472,21 @@ const getPermissionLabel = (level: string) => {
   const labels: Record<string, string> = {
     VIEW: '查看',
     EDIT: '编辑',
+    ADMIN: '管理',
     FULL: '完全控制',
   };
   return labels[level] || level;
+};
+
+// 获取团队角色标签文本
+const getTeamRoleLabel = (role: string) => {
+  const labels: Record<string, string> = {
+    LEADER: '团队负责人',
+    MEMBER: '团队成员',
+    VIEWER: '查看者',
+    GUEST: '访客',
+  };
+  return labels[role] || role;
 };
 
 // 格式化日期时间
@@ -2529,6 +2586,10 @@ const checkPermissions = async () => {
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
               </ElButton>
+              <ElButton type="primary" @click="showReviewDialog = true">
+                <Icon icon="lucide:check-square" class="mr-2" />
+                提交批审
+              </ElButton>
             </div>
           </div>
 
@@ -2580,16 +2641,9 @@ const checkPermissions = async () => {
                 :class="{ editing: isEditing }"
               >
                 <div class="flex items-center">
-                  <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                  <Icon icon="lucide:file-text" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">案件基本信息</span>
-                  <ElTag
-                    v-if="caseDetail"
-                    :type="getReviewStatusTagType(caseDetail.审核状态)"
-                    class="ml-3"
-                    size="small"
-                  >
-                    审核状态：{{ caseDetail.审核状态 }}
-                  </ElTag>
+
                   <ElTag
                     v-if="caseDetail"
                     :type="getCaseStatusTagType(caseDetail.案件状态)"
@@ -2606,9 +2660,7 @@ const checkPermissions = async () => {
                   >
                     主要负责人：{{ caseDetail.管理人负责人 }}
                   </ElTag>
-                  <span v-if="isEditing" class="edit-indicator ml-3"
-                    >编辑中</span
-                  >
+                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
                 </div>
                 <div class="flex space-x-2">
                   <template v-if="!isEditing && canEdit">
@@ -2869,33 +2921,6 @@ const checkPermissions = async () => {
                         class="detail-info-label"
                         :class="{ editing: isEditing }"
                       >
-                        承办人员
-                      </div>
-                      <div
-                        class="detail-info-value"
-                        :class="{ editing: isEditing }"
-                      >
-                        <template v-if="isEditing">
-                          <ElInput
-                            v-model="editedData.承办人员"
-                            size="small"
-                            placeholder="请输入承办人员"
-                            style="width: 100%"
-                          />
-                        </template>
-                        <template v-else>
-                          {{ caseDetail.承办人员 }}
-                        </template>
-                      </div>
-                    </div>
-                    <div
-                      class="detail-info-item"
-                      :class="{ editing: isEditing }"
-                    >
-                      <div
-                        class="detail-info-label"
-                        :class="{ editing: isEditing }"
-                      >
                         指定法官
                       </div>
                       <div
@@ -2965,9 +2990,11 @@ const checkPermissions = async () => {
                 :class="{ editing: isEditing }"
               >
                 <div class="flex items-center">
-                  <Icon icon="lucide:clock" class="mr-2 text-blue-500" />
+                  <Icon icon="lucide:clock" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">案件相关时间</span>
-                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
+                  <span v-if="isEditing" class="edit-indicator ml-3"
+                    >编辑中</span
+                  >
                 </div>
               </div>
             </template>
@@ -3188,7 +3215,7 @@ const checkPermissions = async () => {
             <template #header>
               <div class="card-header flex items-center justify-between">
                 <div class="flex items-center">
-                  <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                  <Icon icon="lucide:file-text" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">文书送达</span>
                 </div>
                 <div class="flex space-x-2">
@@ -3374,7 +3401,7 @@ const checkPermissions = async () => {
             <template #header>
               <div class="card-header flex items-center justify-between">
                 <div class="flex items-center">
-                  <Icon icon="lucide:megaphone" class="mr-2 text-blue-500" />
+                  <Icon icon="lucide:megaphone" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">公告管理</span>
                 </div>
                 <div class="flex space-x-2">
@@ -3730,7 +3757,7 @@ const checkPermissions = async () => {
                         width="120"
                       >
                         <template #default="{ row }">
-                          {{ row.teamRole || '-' }}
+                          {{ getTeamRoleLabel(row.teamRole) }}
                         </template>
                       </ElTableColumn>
                       <ElTableColumn
@@ -5140,6 +5167,121 @@ const checkPermissions = async () => {
           </div>
         </ElDialog>
       </ElCard>
+
+      <!-- 批审对话框 -->
+      <ElDialog
+        v-model="showReviewDialog"
+        title="提交批审"
+        width="80%"
+        destroy-on-close
+      >
+        <div class="review-dialog-content">
+          <!-- 批审表单 -->
+          <ElCard class="review-form-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="text-lg font-semibold">批审信息</span>
+              </div>
+            </template>
+
+            <ElRow :gutter="20">
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="审批类型">
+                  <ElSelect
+                    v-model="reviewForm.reviewType"
+                    placeholder="请选择审批类型"
+                    style="width: 100%"
+                  >
+                    <ElOption
+                      v-for="option in reviewTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="审批人">
+                  <ElSelect
+                    v-model="reviewForm.reviewers"
+                    multiple
+                    placeholder="请选择审批人"
+                    style="width: 100%"
+                  >
+                    <ElOption
+                      v-for="option in reviewerOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24">
+                <ElFormItem label="审批内容">
+                  <ElInput
+                    v-model="reviewForm.reviewContent"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入审批内容"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24">
+                <ElFormItem label="附件">
+                  <ElUpload
+                    action="#"
+                    :auto-upload="false"
+                    :file-list="reviewForm.attachments"
+                    list-type="text"
+                  >
+                    <ElButton type="primary">
+                      <Icon icon="lucide:paperclip" class="mr-2" />
+                      上传附件
+                    </ElButton>
+                  </ElUpload>
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+
+          <!-- 审批历史 -->
+          <ElCard
+            class="review-history-card"
+            shadow="hover"
+            style="margin-top: 20px"
+          >
+            <template #header>
+              <div class="card-header">
+                <span class="text-lg font-semibold">审批历史</span>
+              </div>
+            </template>
+
+            <ElTable :data="reviewHistory" stripe style="width: 100%">
+              <ElTableColumn prop="reviewer" label="审批人" width="120" />
+              <ElTableColumn prop="reviewDate" label="审批时间" width="200" />
+              <ElTableColumn prop="status" label="审批状态" width="120">
+                <template #default="scope">
+                  <ElTag
+                    :type="scope.row.status === '已通过' ? 'success' : 'danger'"
+                  >
+                    {{ scope.row.status }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="comment" label="审批意见" />
+            </ElTable>
+          </ElCard>
+        </div>
+
+        <template #footer>
+          <div class="dialog-footer">
+            <ElButton @click="showReviewDialog = false">取消</ElButton>
+            <ElButton type="primary" @click="submitReview">提交批审</ElButton>
+          </div>
+        </template>
+      </ElDialog>
     </div>
   </div>
 </template>
@@ -5178,20 +5320,24 @@ const checkPermissions = async () => {
 .content-tabs {
   display: flex;
   margin-top: 6px;
-  margin-bottom: 2px;
+  margin-bottom: 24px;
 }
 
 .tabs-container {
-  background: white;
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  background: #f8fafc;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
 }
 
 .tab-button {
-  padding: 8px 24px;
+  min-width: 120px;
+  padding: 12px 24px;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 卡片样式 */
@@ -5855,6 +6001,204 @@ const checkPermissions = async () => {
   border-radius: 8px 8px 0 0;
   padding: 16px;
   margin: -16px -16px 16px -16px;
+}
+
+/* Element Plus 标签按钮样式优化 */
+:deep(.el-radio-group) {
+  display: flex;
+  width: 100%;
+  background: transparent;
+  border: none !important;
+}
+
+:deep(.el-radio-button) {
+  flex: 1;
+  text-align: center;
+  border: none !important;
+  background: transparent !important;
+  color: #64748b !important;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+:deep(.el-radio-button:hover) {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+  transform: translateY(-1px);
+  box-shadow: none !important;
+}
+
+:deep(.el-radio-button__inner) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 12px 24px !important;
+  margin: 0 !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+  font-size: inherit !important;
+  transition: none !important;
+  border-radius: 8px !important;
+  position: relative !important;
+  z-index: 1 !important;
+  overflow: visible !important;
+  background-clip: padding-box !important;
+}
+
+:deep(.el-radio-button__inner:hover) {
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+}
+
+:deep(.el-radio-button.is-active) {
+  background: #3b82f6 !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+  transform: translateY(-2px);
+  border: none !important;
+}
+
+:deep(.el-radio-button.is-active .el-radio-button__inner) {
+  background: transparent !important;
+  color: white !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+:deep(.el-radio-button.is-active:hover) {
+  background: #2563eb !important;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4) !important;
+}
+
+:deep(.el-radio-button:first-child) {
+  border-radius: 8px 0 0 8px !important;
+}
+
+:deep(.el-radio-button:first-child .el-radio-button__inner) {
+  border-radius: 8px 0 0 8px !important;
+  border-right: none !important;
+}
+
+:deep(.el-radio-button:last-child) {
+  border-radius: 0 8px 8px 0 !important;
+}
+
+:deep(.el-radio-button:last-child .el-radio-button__inner) {
+  border-radius: 0 8px 8px 0 !important;
+  border-left: none !important;
+}
+
+/* 中间按钮样式 */
+:deep(.el-radio-button:not(:first-child):not(:last-child)) {
+  border-radius: 0 !important;
+}
+
+:deep(
+  .el-radio-button:not(:first-child):not(:last-child) .el-radio-button__inner
+) {
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* 移除Element Plus默认的边框和背景 */
+:deep(.el-radio-group::before),
+:deep(.el-radio-group::after) {
+  display: none !important;
+}
+
+:deep(.el-radio-button::before) {
+  display: none !important;
+}
+
+/* 移除所有可能的边框样式 */
+:deep(.el-radio-button--default.is-active .el-radio-button__inner) {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:deep(.el-radio-button--default .el-radio-button__inner) {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:deep(.el-radio-button--default.is-active:not(:first-child)::before) {
+  display: none !important;
+}
+
+:deep(.el-radio-button--default:not(:first-child)::before) {
+  display: none !important;
+}
+
+/* 移除所有相邻按钮之间的边框 */
+:deep(.el-radio-button + .el-radio-button) {
+  border-left: none !important;
+  margin-left: 0 !important;
+}
+
+:deep(.el-radio-button + .el-radio-button .el-radio-button__inner) {
+  border-left: none !important;
+}
+
+/* 移除所有可能的边框，包括嵌套结构 */
+:deep(.el-radio-button),
+:deep(.el-radio-button *) {
+  border: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+}
+
+/* 确保没有任何边框样式 */
+:deep(.el-radio-button__inner) {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+}
+
+/* 移除所有伪元素的边框 */
+:deep(.el-radio-button::before),
+:deep(.el-radio-button::after),
+:deep(.el-radio-button__inner::before),
+:deep(.el-radio-button__inner::after) {
+  display: none !important;
+  border: none !important;
+  background: none !important;
+}
+
+/* 确保没有任何边框相关的样式 */
+:deep(.el-radio-button--default) {
+  border: none !important;
+}
+
+:deep(.el-radio-button--default.is-active) {
+  border: none !important;
+}
+
+:deep(.el-radio-button--default.is-active .el-radio-button__inner) {
+  border: none !important;
+}
+
+:deep(.el-radio-button--default .el-radio-button__inner:hover) {
+  border-color: transparent !important;
+  background-color: transparent !important;
+}
+
+:deep(.el-radio-button--default.is-active .el-radio-button__inner:hover) {
+  border-color: transparent !important;
+  background-color: transparent !important;
 }
 
 /* 过渡动画 */

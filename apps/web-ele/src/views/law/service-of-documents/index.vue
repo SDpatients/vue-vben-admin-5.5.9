@@ -49,18 +49,24 @@ const fetchDocumentList = async () => {
   try {
     const response = await getDocumentListApi({
       ...searchForm.value,
-      page: pagination.value.page,
-      size: pagination.value.size,
+      pageNum: pagination.value.page,
+      pageSize: pagination.value.size,
     });
-    documentList.value = response.data.records.map((doc: any) => ({
-      ...doc,
-      // 确保兼容性，同时支持SEP_ID和id
-      id: doc.SEP_ID,
-    }));
-    pagination.value.total = response.data.count;
+    if (response.data?.list && Array.isArray(response.data.list)) {
+      documentList.value = response.data.list.map((doc: any) => ({
+        ...doc,
+        id: doc.SEP_ID || doc.id,
+      }));
+      pagination.value.total = response.data.total || 0;
+    } else {
+      documentList.value = [];
+      pagination.value.total = 0;
+    }
   } catch (error) {
     ElMessage.error('获取文书列表失败');
     console.error('获取文书列表失败:', error);
+    documentList.value = [];
+    pagination.value.total = 0;
   } finally {
     loading.value = false;
   }

@@ -35,6 +35,7 @@ import {
   ElUpload,
 } from 'element-plus';
 
+import { getCurrentUserApi } from '#/api/core/auth';
 import { batchImportClaimsApi, exportClaimsApi } from '#/api/core/claim';
 import {
   finalizeClaimConfirmationApi,
@@ -1019,6 +1020,23 @@ const openStageOneDialog = async (row: any) => {
     console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
+
+      try {
+        const userResponse = await getCurrentUserApi();
+        if (userResponse.code === 200 && userResponse.data) {
+          claimForm.materialReceiver = userResponse.data.realName || '当前用户';
+          console.log(
+            '获取当前用户信息成功，接收人:',
+            claimForm.materialReceiver,
+          );
+        } else {
+          claimForm.materialReceiver = '当前用户';
+        }
+      } catch (error) {
+        console.error('获取当前用户信息失败:', error);
+        claimForm.materialReceiver = '当前用户';
+      }
+
       showStageOneDialog.value = true;
       console.log(
         '成功打开债权申报登记对话框，currentClaim:',
@@ -1046,11 +1064,16 @@ const handleStageOneSubmit = async () => {
     return;
   }
 
+  if (!claimForm.materialReceiver) {
+    ElMessage.warning('请输入接收人');
+    return;
+  }
+
   stageOneLoading.value = true;
   console.log('设置stageOneLoading:', stageOneLoading.value);
   try {
     const requestData = {
-      receiver: '当前用户',
+      receiver: claimForm.materialReceiver,
       completeness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
     };
     console.log('提交债权申报登记请求数据:', requestData);
@@ -1398,7 +1421,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+            <Icon icon="lucide:file-text" class="text-primary mr-2" />
             <span class="text-lg font-semibold">债权登记表</span>
           </div>
           <div class="flex space-x-2">
@@ -1517,27 +1540,16 @@ onMounted(() => {
           </ElTableColumn>
           <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
-              <ElButton
-                link
-                type="primary"
-                size="small"
-                @click="openDetailDialog(scope.row)"
-              >
+              <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 详情
               </ElButton>
-              <ElButton
-                link
-                type="primary"
-                size="small"
-                @click="openEditDialog(scope.row)"
-              >
+              <ElButton link size="small" @click="openEditDialog(scope.row)">
                 编辑
               </ElButton>
 
               <ElButton
                 v-if="scope.row.registration_status === 'PENDING'"
                 link
-                type="success"
                 size="small"
                 @click="openStageOneDialog(scope.row)"
               >
@@ -1550,7 +1562,6 @@ onMounted(() => {
                     scope.row.reviewInfo.reviewStatus === 'PENDING')
                 "
                 link
-                type="primary"
                 size="small"
                 @click="openStageTwoDialog(scope.row)"
               >
@@ -1564,7 +1575,6 @@ onMounted(() => {
                     scope.row.confirmationInfo.confirmationStatus === 'PENDING')
                 "
                 link
-                type="warning"
                 size="small"
                 @click="openStageThreeDialog(scope.row)"
               >
@@ -1576,7 +1586,7 @@ onMounted(() => {
                 @confirm="handleDeleteClaim(scope.row)"
               >
                 <template #reference>
-                  <ElButton link type="danger" size="small"> 删除 </ElButton>
+                  <ElButton link size="small"> 删除 </ElButton>
                 </template>
               </ElPopconfirm>
             </template>
@@ -2132,17 +2142,11 @@ onMounted(() => {
                 <ElDescriptionsItem label="审查轮次">
                   {{ currentClaim.reviewInfo.reviewRound }}
                 </ElDescriptionsItem>
+                <ElDescriptionsItem label="审查依据">
+                  {{ currentClaim.reviewInfo.reviewBasis }}
+                </ElDescriptionsItem>
                 <ElDescriptionsItem label="审查结论">
                   <ElTag>{{ currentClaim.reviewInfo.reviewConclusion }}</ElTag>
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="申报总金额">
-                  {{ currentClaim.reviewInfo.declaredTotalAmount }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="确认总金额">
-                  {{ currentClaim.reviewInfo.confirmedTotalAmount }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="不予确认总金额">
-                  {{ currentClaim.reviewInfo.unconfirmedTotalAmount }}
                 </ElDescriptionsItem>
                 <ElDescriptionsItem label="审查状态">
                   <ElTag
@@ -2156,6 +2160,177 @@ onMounted(() => {
                         .text
                     }}
                   </ElTag>
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">申报金额</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="申报本金">
+                  {{ currentClaim.reviewInfo.declaredPrincipal || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="申报利息">
+                  {{ currentClaim.reviewInfo.declaredInterest || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="申报罚金">
+                  {{ currentClaim.reviewInfo.declaredPenalty || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="申报其他损失">
+                  {{ currentClaim.reviewInfo.declaredOtherLosses || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="申报总金额">
+                  {{ currentClaim.reviewInfo.declaredTotalAmount }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">确认金额</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="确认本金">
+                  {{ currentClaim.reviewInfo.confirmedPrincipal || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认利息">
+                  {{ currentClaim.reviewInfo.confirmedInterest || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认罚金">
+                  {{ currentClaim.reviewInfo.confirmedPenalty || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认其他损失">
+                  {{ currentClaim.reviewInfo.confirmedOtherLosses || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认总金额">
+                  {{ currentClaim.reviewInfo.confirmedTotalAmount }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">不予确认金额</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="不予确认本金">
+                  {{ currentClaim.reviewInfo.unconfirmedPrincipal || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认利息">
+                  {{ currentClaim.reviewInfo.unconfirmedInterest || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认罚金">
+                  {{ currentClaim.reviewInfo.unconfirmedPenalty || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认其他损失">
+                  {{ currentClaim.reviewInfo.unconfirmedOtherLosses || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认总金额">
+                  {{ currentClaim.reviewInfo.unconfirmedTotalAmount }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">审查说明</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="金额调整理由" :span="2">
+                  {{ currentClaim.reviewInfo.adjustmentReason || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="不予确认理由" :span="2">
+                  {{ currentClaim.reviewInfo.unconfirmedReason || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="证据不足理由" :span="2">
+                  {{
+                    currentClaim.reviewInfo.insufficientEvidenceReason || '-'
+                  }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="超过诉讼时效理由" :span="2">
+                  {{ currentClaim.reviewInfo.expiredReason || '-' }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">证据审查</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="证据真实性">
+                  <ElTag>
+                    {{ currentClaim.reviewInfo.evidenceAuthenticity }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="证据关联性">
+                  <ElTag>{{ currentClaim.reviewInfo.evidenceRelevance }}</ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="证据合法性">
+                  <ElTag>{{ currentClaim.reviewInfo.evidenceLegality }}</ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="确认债权性质">
+                  {{ currentClaim.reviewInfo.confirmedClaimNature || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="是否连带责任" :span="2">
+                  <ElTag
+                    :type="
+                      currentClaim.reviewInfo.isJointLiability
+                        ? 'success'
+                        : 'info'
+                    "
+                  >
+                    {{ currentClaim.reviewInfo.isJointLiability ? '是' : '否' }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="是否附条件" :span="2">
+                  <ElTag
+                    :type="
+                      currentClaim.reviewInfo.isConditional ? 'success' : 'info'
+                    "
+                  >
+                    {{ currentClaim.reviewInfo.isConditional ? '是' : '否' }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="是否附期限" :span="2">
+                  <ElTag
+                    :type="currentClaim.reviewInfo.isTerm ? 'success' : 'info'"
+                  >
+                    {{ currentClaim.reviewInfo.isTerm ? '是' : '否' }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="证据审查说明" :span="2">
+                  {{ currentClaim.reviewInfo.evidenceReviewNotes || '-' }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">担保信息</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="担保类型">
+                  {{ currentClaim.reviewInfo.collateralType || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="担保财产">
+                  {{ currentClaim.reviewInfo.collateralProperty || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="担保金额">
+                  {{ currentClaim.reviewInfo.collateralAmount || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="担保期限">
+                  {{ currentClaim.reviewInfo.collateralTerm || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="担保有效性">
+                  <ElTag>
+                    {{ currentClaim.reviewInfo.collateralValidity }}
+                  </ElTag>
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">审查总结</h4>
+              </div>
+              <ElDescriptions :column="1" border>
+                <ElDescriptionsItem label="审查总结">
+                  {{ currentClaim.reviewInfo.reviewSummary || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="审查报告">
+                  {{ currentClaim.reviewInfo.reviewReport || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="备注">
+                  {{ currentClaim.reviewInfo.remarks || '-' }}
                 </ElDescriptionsItem>
               </ElDescriptions>
             </div>
@@ -2174,7 +2349,10 @@ onMounted(() => {
                   {{ currentClaim.confirmationInfo.meetingLocation }}
                 </ElDescriptionsItem>
                 <ElDescriptionsItem label="表决结果">
-                  {{ currentClaim.confirmationInfo.voteResult }}
+                  <ElTag>{{ currentClaim.confirmationInfo.voteResult }}</ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="表决说明">
+                  {{ currentClaim.confirmationInfo.voteNotes || '-' }}
                 </ElDescriptionsItem>
                 <ElDescriptionsItem label="是否有异议">
                   <ElTag
@@ -2188,12 +2366,6 @@ onMounted(() => {
                       currentClaim.confirmationInfo.hasObjection ? '是' : '否'
                     }}
                   </ElTag>
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认金额">
-                  {{ currentClaim.confirmationInfo.finalConfirmedAmount }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认日期">
-                  {{ currentClaim.confirmationInfo.finalConfirmationDate }}
                 </ElDescriptionsItem>
                 <ElDescriptionsItem label="确认状态">
                   <ElTag
@@ -2209,6 +2381,142 @@ onMounted(() => {
                       ).text
                     }}
                   </ElTag>
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                class="section-divider mb-4 mt-4"
+              >
+                <h4 class="section-title">异议信息</h4>
+              </div>
+              <ElDescriptions
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                :column="2"
+                border
+              >
+                <ElDescriptionsItem label="异议人">
+                  {{ currentClaim.confirmationInfo.objector || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="异议金额">
+                  {{ currentClaim.confirmationInfo.objectionAmount || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="异议日期">
+                  {{ currentClaim.confirmationInfo.objectionDate || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="异议理由" :span="2">
+                  {{ currentClaim.confirmationInfo.objectionReason || '-' }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                class="section-divider mb-4 mt-4"
+              >
+                <h4 class="section-title">协商信息</h4>
+              </div>
+              <ElDescriptions
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                :column="2"
+                border
+              >
+                <ElDescriptionsItem label="协商结果">
+                  {{ currentClaim.confirmationInfo.negotiationResult || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="协商日期">
+                  {{ currentClaim.confirmationInfo.negotiationDate || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="协商参与人" :span="2">
+                  {{
+                    currentClaim.confirmationInfo.negotiationParticipants || '-'
+                  }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                class="section-divider mb-4 mt-4"
+              >
+                <h4 class="section-title">法院裁定信息</h4>
+              </div>
+              <ElDescriptions
+                v-if="currentClaim.confirmationInfo.hasObjection"
+                :column="2"
+                border
+              >
+                <ElDescriptionsItem label="法院裁定文号">
+                  {{ currentClaim.confirmationInfo.courtRulingNo || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="法院裁定结果">
+                  <ElTag>
+                    {{ currentClaim.confirmationInfo.courtRulingResult }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="法院裁定金额">
+                  {{ currentClaim.confirmationInfo.courtRulingAmount || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="法院裁定日期">
+                  {{ currentClaim.confirmationInfo.courtRulingDate || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="法院裁定说明" :span="2">
+                  {{ currentClaim.confirmationInfo.courtRulingNotes || '-' }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div
+                v-if="currentClaim.confirmationInfo.hasLawsuit"
+                class="section-divider mb-4 mt-4"
+              >
+                <h4 class="section-title">诉讼信息</h4>
+              </div>
+              <ElDescriptions
+                v-if="currentClaim.confirmationInfo.hasLawsuit"
+                :column="2"
+                border
+              >
+                <ElDescriptionsItem label="诉讼案号">
+                  {{ currentClaim.confirmationInfo.lawsuitCaseNo || '-' }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="诉讼状态">
+                  <ElTag>
+                    {{ currentClaim.confirmationInfo.lawsuitStatus }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="诉讼结果">
+                  <ElTag>
+                    {{ currentClaim.confirmationInfo.lawsuitResult }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="诉讼金额">
+                  {{ currentClaim.confirmationInfo.lawsuitAmount || 0 }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="诉讼说明" :span="2">
+                  {{ currentClaim.confirmationInfo.lawsuitNotes || '-' }}
+                </ElDescriptionsItem>
+              </ElDescriptions>
+
+              <div class="section-divider mb-4 mt-4">
+                <h4 class="section-title">最终确认信息</h4>
+              </div>
+              <ElDescriptions :column="2" border>
+                <ElDescriptionsItem label="最终确认金额">
+                  {{ currentClaim.confirmationInfo.finalConfirmedAmount }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="最终确认日期">
+                  {{ currentClaim.confirmationInfo.finalConfirmationDate }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="最终确认依据">
+                  <ElTag>
+                    {{ currentClaim.confirmationInfo.finalConfirmationBasis }}
+                  </ElTag>
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="最终确认依据说明" :span="2">
+                  {{
+                    currentClaim.confirmationInfo.finalConfirmationBasis || '-'
+                  }}
+                </ElDescriptionsItem>
+                <ElDescriptionsItem label="备注" :span="2">
+                  {{ currentClaim.confirmationInfo.remarks || '-' }}
                 </ElDescriptionsItem>
               </ElDescriptions>
             </div>

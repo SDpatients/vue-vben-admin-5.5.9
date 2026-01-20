@@ -109,7 +109,7 @@ const fetchManagerList = async () => {
         .filter((manager: any) => manager.id)
         .map((manager: any) => ({
           label: manager.administratorName,
-          value: manager.id.toString(),
+          value: manager.administratorName,
           sepId: manager.id.toString(),
         }));
       console.log('加载到的管理人列表:', managerList.value);
@@ -295,7 +295,7 @@ const submitForm = async () => {
         ElMessage.success('案件添加成功');
       }
 
-      router.push(`/case-detail/${caseId}`);
+      router.push(`/law/case-detail/${caseId}`);
     } else {
       ElMessage.error(caseResult.message || '案件添加失败');
     }

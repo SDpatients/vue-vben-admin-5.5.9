@@ -21,7 +21,7 @@ import {
   ElTabs,
 } from 'element-plus';
 
-import { getCaseListApi } from '#/api/core/case';
+import { getCaseSimpleListApi } from '#/api/core/case';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi } from '#/api/core/user';
 import {
@@ -171,7 +171,7 @@ const remoteSearchCase = async (query: string) => {
 
   caseSearchLoading.value = true;
   try {
-    const data = await getCaseListApi({
+    const data = await getCaseSimpleListApi({
       page: 1,
       size: 10,
       caseNumber: query,
@@ -192,7 +192,7 @@ const remoteSearchCase = async (query: string) => {
 const fetchCaseList = async () => {
   caseSearchLoading.value = true;
   try {
-    const data = await getCaseListApi({
+    const data = await getCaseSimpleListApi({
       page: 1,
       size: 10,
     });
@@ -760,7 +760,7 @@ onMounted(() => {
 
         <ElTabPane label="工作人员列表" name="members">
           <div v-if="currentTeam" class="mb-4">
-            <div class="rounded-lg bg-blue-50 p-4">
+            <div class="rounded-lg bg-primary/5 p-4">
               <div class="flex items-center justify-between">
                 <div>
                   <h3 class="text-lg font-semibold">

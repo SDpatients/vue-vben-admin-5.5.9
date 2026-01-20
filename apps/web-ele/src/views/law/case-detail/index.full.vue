@@ -570,11 +570,15 @@ const viewAnnouncementDetail = async (announcement: any) => {
         detail.attachments = [];
       }
     }
-    
+
     // 处理附件字段映射，确保使用正确的file_id
     detail.attachments = detail.attachments.map((attach: any) => ({
       ...attach,
-      file_name: attach.name || attach.file_name || attach.originalFileName || '未知文件',
+      file_name:
+        attach.name ||
+        attach.file_name ||
+        attach.originalFileName ||
+        '未知文件',
       file_id: attach.file_id || attach.id || attach.fileId || '',
       type: attach.type || attach.mimeType || 'application/octet-stream',
     }));
@@ -1436,9 +1440,21 @@ const getPermissionLabel = (level: string) => {
   const labels: Record<string, string> = {
     VIEW: '查看',
     EDIT: '编辑',
+    ADMIN: '管理',
     FULL: '完全控制',
   };
   return labels[level] || level;
+};
+
+// 获取团队角色标签文本
+const getTeamRoleLabel = (role: string) => {
+  const labels: Record<string, string> = {
+    LEADER: '团队负责人',
+    MEMBER: '团队成员',
+    VIEWER: '查看者',
+    GUEST: '访客',
+  };
+  return labels[role] || role;
 };
 
 // 格式化日期时间
@@ -1564,7 +1580,7 @@ const checkPermissions = async () => {
           <template #header>
             <div class="card-header flex items-center justify-between">
               <div class="flex items-center">
-                <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                <Icon icon="lucide:file-text" class="text-primary mr-2" />
                 <span class="text-lg font-semibold">案件基本信息</span>
               </div>
               <div class="flex space-x-2">
@@ -1682,7 +1698,7 @@ const checkPermissions = async () => {
               <ElCard class="category-card mb-4" shadow="hover">
                 <template #header>
                   <div class="category-header">
-                    <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+                    <Icon icon="lucide:file-text" class="text-primary mr-2" />
                     <span class="text-md font-semibold">案件基本信息</span>
                   </div>
                 </template>
@@ -1821,7 +1837,7 @@ const checkPermissions = async () => {
                         </template>
                         <template v-else>
                           <span class="detail-info-value text-gray-900">{{
-                            caseDetail.承办人 || '-' 
+                            caseDetail.承办人 || '-'
                           }}</span>
                         </template>
                       </div>
@@ -2084,7 +2100,7 @@ const checkPermissions = async () => {
           <template #header>
             <div class="card-header flex items-center justify-between">
               <div class="flex items-center">
-                <Icon icon="lucide:bullhorn" class="mr-2 text-blue-500" />
+                <Icon icon="lucide:bullhorn" class="text-primary mr-2" />
                 <span class="text-lg font-semibold">公告管理</span>
               </div>
               <div class="flex items-center space-x-2">
@@ -2527,8 +2543,8 @@ const checkPermissions = async () => {
                         label="团队角色"
                         width="120"
                       >
-                        <template #default="{ row }">
-                          {{ row.teamRole || '-' }}
+                        <template #default="scope">
+                          {{ getTeamRoleLabel(row.teamRole) }}
                         </template>
                       </ElTableColumn>
                       <ElTableColumn
@@ -4152,4 +4168,3 @@ const checkPermissions = async () => {
   min-height: 200px;
 }
 </style>
-

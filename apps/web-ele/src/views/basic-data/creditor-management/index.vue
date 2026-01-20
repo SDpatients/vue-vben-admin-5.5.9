@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import type { CreditorApi } from '#/api/core/creditor';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
-import { onMounted, reactive, ref, computed } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
-
-import { requestClient8085 } from '#/api/request';
 
 import {
   ElButton,
@@ -23,17 +22,14 @@ import {
   ElTag,
 } from 'element-plus';
 
+import { getCaseSimpleListApi } from '#/api/core/case';
 import {
   createCreditorApi,
   deleteCreditorApi,
-  updateCreditorApi,
   getCreditorListApi,
-  getCreditorDetailApi,
+  updateCreditorApi,
 } from '#/api/core/creditor';
-
-import {
-  getCaseListApi,
-} from '#/api/core/case';
+import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
 const creditorList = ref<CreditorApi.CreditorInfo[]>([]);
@@ -54,7 +50,9 @@ const detailDialogVisible = ref(false);
 const currentCreditor = ref<CreditorApi.CreditorInfo | null>(null);
 
 // 确保表格数据始终为数组
-const safeCreditorList = computed(() => Array.isArray(creditorList.value) ? creditorList.value : []);
+const safeCreditorList = computed(() =>
+  Array.isArray(creditorList.value) ? creditorList.value : [],
+);
 
 // 债权人分类选项
 const creditorTypeOptions = [
@@ -93,17 +91,14 @@ const caseLoading = ref(false);
 const getCaseList = async (query = '') => {
   caseLoading.value = true;
   try {
-    const response = await getCaseListApi({
+    const response = await getCaseSimpleListApi({
       page: 1,
       size: 10,
       caseNumber: query,
     });
-    
-    if (response.code === 200 && response.data?.list) {
-      caseList.value = response.data.list;
-    } else {
-      caseList.value = [];
-    }
+
+    caseList.value =
+      response.code === 200 && response.data?.list ? response.data.list : [];
   } catch (error) {
     console.error('获取案件列表失败:', error);
     caseList.value = [];
@@ -124,9 +119,7 @@ const handleCaseSelect = (value: string) => {
 
 // 新增表单验证规则
 const addRules = {
-  caseNumber: [
-    { required: true, message: '请选择案号', trigger: 'change' },
-  ],
+  caseNumber: [{ required: true, message: '请选择案号', trigger: 'change' }],
   creditorName: [
     { required: true, message: '请输入债权人名称', trigger: 'blur' },
   ],
@@ -239,8 +232,11 @@ const fetchCreditorList = async () => {
     console.log('API响应:', response);
 
     if (response.code === 200 && response.data) {
-      creditorList.value = Array.isArray(response.data.list) ? response.data.list : [];
-      pagination.value.itemCount = response.data.total || creditorList.value.length;
+      creditorList.value = Array.isArray(response.data.list)
+        ? response.data.list
+        : [];
+      pagination.value.itemCount =
+        response.data.total || creditorList.value.length;
       ElMessage.success(`成功加载 ${creditorList.value.length} 条债权人记录`);
     } else {
       ElMessage.error(`API返回错误: ${response.message}`);
@@ -384,6 +380,53 @@ const handleEditSubmit = async () => {
   }
 };
 
+// 导出债权人数据为Excel
+const exportCreditorData = () => {
+  if (safeCreditorList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'caseNumber', title: '案号', width: 15 },
+    { field: 'caseName', title: '案件名称', width: 20 },
+    { field: 'creditorName', title: '债权人名称', width: 18 },
+    { field: 'creditorType', title: '债权人分类', width: 12 },
+    { field: 'idNumber', title: '证件号码', width: 15 },
+    { field: 'legalRepresentative', title: '法定代表人', width: 12 },
+    { field: 'address', title: '注册地址', width: 20 },
+    { field: 'contactPhone', title: '联系电话', width: 12 },
+    { field: 'contactEmail', title: '邮箱', width: 15 },
+    { field: 'registeredCapital', title: '注册资本', width: 10 },
+    { field: 'createdBy', title: '创建者', width: 10 },
+    {
+      field: 'createdTime',
+      title: '创建时间',
+      width: 15,
+      formatter: (value) => formatDate(value),
+    },
+    {
+      field: 'status',
+      title: '状态',
+      width: 8,
+      formatter: (value) => (value === 'ACTIVE' ? '活跃' : '非活跃'),
+    },
+  ];
+
+  try {
+    exportToExcel({
+      data: safeCreditorList.value,
+      fileName: '债权人管理数据',
+      sheetName: '债权人',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
+};
+
 // 删除债权人相关
 const deleteFormLoading = ref(false);
 
@@ -436,6 +479,10 @@ const handleDeleteSubmit = async (id: number) => {
             <ElButton type="primary" @click="handleAddCreditor">
               <i class="i-lucide-plus mr-1"></i>
               新增债权人
+            </ElButton>
+            <ElButton type="success" @click="exportCreditorData">
+              <i class="i-lucide-download mr-1"></i>
+              导出数据
             </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
@@ -575,14 +622,12 @@ const handleDeleteSubmit = async (id: number) => {
             {{ formatDate(scope.row.createdTime) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn
-          prop="status"
-          label="状态"
-          width="100"
-          align="center"
-        >
+        <ElTableColumn prop="status" label="状态" width="100" align="center">
           <template #default="scope">
-            <ElTag :type="scope.row.status === 'ACTIVE' ? 'success' : 'warning'" size="small">
+            <ElTag
+              :type="scope.row.status === 'ACTIVE' ? 'success' : 'warning'"
+              size="small"
+            >
               {{ scope.row.status === 'ACTIVE' ? '活跃' : '非活跃' }}
             </ElTag>
           </template>
@@ -1037,9 +1082,7 @@ const handleDeleteSubmit = async (id: number) => {
               </ElCol>
             </ElRow>
             <ElRow :gutter="30">
-              <ElCol :span="12">
-                
-              </ElCol>
+              <ElCol :span="12" />
             </ElRow>
           </ElCard>
         </ElForm>

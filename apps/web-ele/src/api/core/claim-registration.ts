@@ -69,11 +69,44 @@ export namespace ClaimRegistrationApi {
     reviewer: string;
     reviewRound: number;
     reviewBasis: string;
+    declaredPrincipal: number;
+    declaredInterest: number;
+    declaredPenalty: number;
+    declaredOtherLosses: number;
     declaredTotalAmount: number;
+    confirmedPrincipal: number;
+    confirmedInterest: number;
+    confirmedPenalty: number;
+    confirmedOtherLosses: number;
     confirmedTotalAmount: number;
+    unconfirmedPrincipal: number;
+    unconfirmedInterest: number;
+    unconfirmedPenalty: number;
+    unconfirmedOtherLosses: number;
     unconfirmedTotalAmount: number;
+    adjustmentReason: string;
+    unconfirmedReason: string;
+    insufficientEvidenceReason: string;
+    expiredReason: string;
+    evidenceAuthenticity: string;
+    evidenceRelevance: string;
+    evidenceLegality: string;
+    evidenceReviewNotes: string;
+    confirmedClaimNature: string;
+    isJointLiability: boolean;
+    isConditional: boolean;
+    isTerm: boolean;
+    collateralType: string;
+    collateralProperty: string;
+    collateralAmount: number;
+    collateralTerm: string;
+    collateralValidity: string;
     reviewConclusion: string;
+    reviewSummary: string;
+    reviewReport: string;
+    reviewAttachments: string;
     reviewStatus: string;
+    remarks: string;
   }
 
   /** 确认信息 */
@@ -83,11 +116,32 @@ export namespace ClaimRegistrationApi {
     meetingDate: string;
     meetingLocation: string;
     voteResult: string;
+    voteNotes: string;
     hasObjection: boolean;
+    objector: string;
+    objectionReason: string;
+    objectionAmount: number;
+    objectionDate: string;
+    negotiationResult: string;
+    negotiationDate: string;
+    negotiationParticipants: string;
+    courtRulingNo: string;
+    courtRulingResult: string;
+    courtRulingAmount: number;
+    courtRulingDate: string;
+    courtRulingNotes: string;
+    hasLawsuit: boolean;
+    lawsuitCaseNo: string;
+    lawsuitStatus: string;
+    lawsuitResult: string;
+    lawsuitAmount: number;
+    lawsuitNotes: string;
     finalConfirmedAmount: number;
     finalConfirmationDate: string;
     finalConfirmationBasis: string;
+    confirmationAttachments: string;
     confirmationStatus: string;
+    remarks: string;
   }
 
   /** 债权申报列表响应 */

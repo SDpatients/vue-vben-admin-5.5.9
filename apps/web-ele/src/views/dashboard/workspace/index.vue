@@ -513,7 +513,7 @@ const handlePageChange = (page: number) => {
 
 // 跳转到案件详情
 const goToCaseDetail = (caseId: number) => {
-  router.push(`/case-detail/${caseId}`);
+  router.push(`/law/case-detail/${caseId}`);
 };
 
 // 加载工作团队数量
@@ -665,7 +665,7 @@ onMounted(() => {
                   :key="status"
                   class="case-tab-btn mr-2 rounded-full px-3 py-1 text-sm"
                   :class="{
-                    'bg-blue-500 text-white': caseStatus === status,
+                    'bg-primary text-white': caseStatus === status,
                     'bg-gray-100 text-gray-700': caseStatus !== status,
                   }"
                   @click="changeCaseStatus(status)"
@@ -678,7 +678,7 @@ onMounted(() => {
                   v-model="searchKeyword"
                   type="link"
                   placeholder="请输入案号"
-                  class="case-search-input rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="case-search-input rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
                   @keyup.enter="searchCases"
                 />
                 <button class="ml-2 text-gray-500" @click="searchCases">
@@ -752,7 +752,7 @@ onMounted(() => {
                     class="case-progress flex items-center justify-start border-t border-dashed border-gray-200 pt-2 text-xs"
                   >
                     <span class="text-gray-500">当前阶段：</span>
-                    <span class="text-blue-500">{{
+                    <span class="text-primary">{{
                       caseProgressMap[item.caseProgress]
                     }}</span>
                   </div>

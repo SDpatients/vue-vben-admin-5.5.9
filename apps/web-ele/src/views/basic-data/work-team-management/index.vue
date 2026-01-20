@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { WorkTeamApi } from '#/api/core';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
 import { onMounted, reactive, ref } from 'vue';
 
@@ -20,6 +21,7 @@ import {
 
 import { getCaseListApi } from '#/api/core/case';
 import { createWorkTeamApi, getWorkTeamListApi } from '#/api/core/work-team';
+import { exportToExcel } from '#/utils/export-excel';
 
 const router = useRouter();
 
@@ -309,6 +311,44 @@ const handleDelete = (row: WorkTeamApi.WorkTeamInfo) => {
   ElMessage.warning(`删除工作团队 (功能开发中...)`);
 };
 
+// 导出工作团队数据为Excel
+const exportWorkTeamData = () => {
+  if (workTeamList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'caseNumber', title: '案号', width: 18 },
+    { field: 'caseName', title: '案件名称', width: 20 },
+    { field: 'teamLeaderName', title: '团队负责人', width: 12 },
+    { field: 'memberCount', title: '成员数量', width: 10 },
+    { field: 'teamMembers', title: '团队成员', width: 20 },
+    { field: 'teamDescription', title: '团队描述', width: 20 },
+    { field: 'creator', title: '创建者', width: 12 },
+    { field: 'createTime', title: '创建时间', width: 18 },
+    {
+      field: 'status',
+      title: '状态',
+      width: 8,
+      formatter: (value) => (value === 'ACTIVE' ? '活跃' : '停用'),
+    },
+  ];
+
+  try {
+    exportToExcel({
+      data: workTeamList.value,
+      fileName: '工作团队管理数据',
+      sheetName: '工作团队',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
+};
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchWorkTeamList();
@@ -325,6 +365,10 @@ onMounted(() => {
             <ElButton type="primary" @click="handleAddWorkTeam">
               <i class="i-lucide-plus mr-1"></i>
               新增团队
+            </ElButton>
+            <ElButton type="success" @click="exportWorkTeamData">
+              <i class="i-lucide-download mr-1"></i>
+              导出数据
             </ElButton>
             <ElButton type="primary" @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>

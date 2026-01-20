@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { CourtApi } from '#/api/core';
+import type { ExportColumnConfig } from '#/utils/export-excel';
 
-import { onMounted, onUnmounted, reactive, ref, computed } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { useUserStore } from '@vben/stores';
 
@@ -27,6 +28,7 @@ import {
   getCourtListApi,
   updateCourtApi,
 } from '#/api/core';
+import { exportToExcel } from '#/utils/export-excel';
 
 const userStore = useUserStore();
 
@@ -182,6 +184,36 @@ const handleReset = () => {
 const handleRefresh = () => {
   pagination.page = 1;
   fetchCourtList();
+};
+
+// 导出法院数据为Excel
+const exportCourtData = () => {
+  if (safeCourtList.value.length === 0) {
+    ElMessage.warning('当前没有数据可导出');
+    return;
+  }
+
+  const exportColumns: ExportColumnConfig[] = [
+    { field: 'fyqc', title: '法院全称', width: 18 },
+    { field: 'fyjc', title: '法院简称', width: 12 },
+    { field: 'fyjb', title: '法院级别', width: 14 },
+    { field: 'dz', title: '地址', width: 20 },
+    { field: 'lxdh', title: '联系电话', width: 12 },
+    { field: 'cbfg', title: '承办法官', width: 12 },
+  ];
+
+  try {
+    exportToExcel({
+      data: safeCourtList.value,
+      fileName: '法院管理数据',
+      sheetName: '法院',
+      columns: exportColumns,
+    });
+    ElMessage.success('数据导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('数据导出失败，请重试');
+  }
 };
 
 // 新增法院弹窗状态
@@ -415,6 +447,10 @@ onUnmounted(() => {
             <ElButton type="primary" @click="handleAddCourt">
               <i class="i-lucide-plus mr-1"></i>
               新增法院
+            </ElButton>
+            <ElButton type="success" @click="exportCourtData">
+              <i class="i-lucide-download mr-1"></i>
+              导出数据
             </ElButton>
             <ElButton type="primary" @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>

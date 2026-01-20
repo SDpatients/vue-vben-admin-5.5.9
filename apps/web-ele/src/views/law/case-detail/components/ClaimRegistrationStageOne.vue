@@ -19,19 +19,24 @@ import {
   ElOption,
   ElPagination,
   ElPopconfirm,
+  ElRow,
   ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus';
 
+import { getCaseReviewStatusApi } from '#/api/core/case';
 import {
+  createClaimRegistrationApi,
   deleteClaimRegistrationApi,
   getClaimRegistrationDetailApi,
   getClaimRegistrationListApi,
   receiveClaimMaterialApi,
   updateClaimRegistrationStatusApi,
 } from '#/api/core/claim-registration';
+import { getCreditorListApi } from '#/api/core/creditor';
+import { getDebtorListApi } from '#/api/core/debtor';
 
 const props = defineProps<{
   caseId: string;
@@ -62,9 +67,8 @@ const materialForm = reactive({
 });
 
 const claimForm = reactive({
-  caseName: '',
+  caseNumber: '',
   debtor: '',
-  account: '',
   creditorName: '',
   creditorType: '',
   creditCode: '',
@@ -102,6 +106,11 @@ const claimForm = reactive({
 });
 
 const fileList = ref<any[]>([]);
+
+const debtorList = ref<any[]>([]);
+const creditorList = ref<any[]>([]);
+const debtorListLoading = ref(false);
+const creditorListLoading = ref(false);
 
 const totalAmount = computed(() => {
   const principal = Number.parseFloat(claimForm.principal) || 0;
@@ -173,6 +182,54 @@ const handlePageSizeChange = (size: number) => {
   fetchClaims();
 };
 
+const fetchDebtorList = async () => {
+  debtorListLoading.value = true;
+  try {
+    const response = await getDebtorListApi({
+      caseId: Number(props.caseId),
+      pageNum: 1,
+      pageSize: 100,
+    });
+    if (response.code === 200 && response.data?.list) {
+      debtorList.value = response.data.list.map((debtor: any) => ({
+        label: debtor.enterpriseName,
+        value: debtor.id,
+        caseNumber: debtor.caseNumber,
+        caseName: debtor.caseName,
+      }));
+    }
+  } catch (error) {
+    console.error('获取债务人列表失败:', error);
+  } finally {
+    debtorListLoading.value = false;
+  }
+};
+
+const fetchCreditorList = async (keyword: string = '') => {
+  creditorListLoading.value = true;
+  try {
+    const response = await getCreditorListApi({
+      caseId: Number(props.caseId),
+      creditorName: keyword || undefined,
+      pageNum: 1,
+      pageSize: 100,
+    });
+    if (response.code === 200 && response.data?.list) {
+      creditorList.value = response.data.list.map((creditor: any) => ({
+        label: creditor.creditorName,
+        value: creditor.id,
+        creditorType: creditor.creditorType,
+        caseNumber: creditor.caseNumber,
+        caseName: creditor.caseName,
+      }));
+    }
+  } catch (error) {
+    console.error('获取债权人列表失败:', error);
+  } finally {
+    creditorListLoading.value = false;
+  }
+};
+
 const openDetailDialog = async (row: any) => {
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
@@ -193,7 +250,20 @@ const openMaterialDialog = async (row: any) => {
     const response = await getClaimRegistrationDetailApi(row.id);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
-      materialForm.receiver = '当前用户';
+      
+      try {
+        const userResponse = await getCurrentUserApi();
+        if (userResponse.code === 200 && userResponse.data) {
+          materialForm.receiver = userResponse.data.realName || '当前用户';
+          console.log('获取当前用户信息成功，接收人:', materialForm.receiver);
+        } else {
+          materialForm.receiver = '当前用户';
+        }
+      } catch (error) {
+        console.error('获取当前用户信息失败:', error);
+        materialForm.receiver = '当前用户';
+      }
+      
       materialForm.completeness = 'COMPLETE';
       showMaterialDialog.value = true;
     } else {
@@ -288,8 +358,29 @@ const handleDeleteClaim = async (row: any) => {
 };
 
 // 新增债权相关方法
-const openAddDialog = () => {
+const handleCreditorChange = (value: string) => {
+  const selectedCreditor = creditorList.value.find(
+    (creditor) => creditor.label === value,
+  );
+  if (selectedCreditor) {
+    claimForm.creditorType = selectedCreditor.creditorType;
+  }
+};
+
+const openAddDialog = async () => {
   showAddDialog.value = true;
+  await fetchDebtorList();
+  await fetchCreditorList();
+
+  // Fetch current case detail to get caseNumber
+  try {
+    const caseResponse = await getCaseReviewStatusApi(Number(props.caseId));
+    if (caseResponse.code === 200 && caseResponse.data?.caseNumber) {
+      claimForm.caseNumber = caseResponse.data.caseNumber;
+    }
+  } catch (error) {
+    console.error('获取案件详情失败:', error);
+  }
 };
 
 const closeAddDialog = () => {
@@ -298,9 +389,8 @@ const closeAddDialog = () => {
 };
 
 const resetForm = () => {
-  claimForm.caseName = '';
+  claimForm.caseNumber = '';
   claimForm.debtor = '';
-  claimForm.account = '';
   claimForm.creditorName = '';
   claimForm.creditorType = '';
   claimForm.creditCode = '';
@@ -363,7 +453,7 @@ const handleAddClaim = async () => {
   try {
     const requestData = {
       caseId: Number(props.caseId),
-      caseName: claimForm.caseName || undefined,
+      caseNumber: claimForm.caseNumber || undefined,
       debtor: claimForm.debtor || undefined,
       creditorName: claimForm.creditorName,
       creditorType: claimForm.creditorType,
@@ -454,7 +544,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:file-text" class="mr-2 text-blue-500" />
+            <Icon icon="lucide:file-text" class="mr-2 text-primary" />
             <span class="text-lg font-semibold">债权申报登记</span>
           </div>
           <div class="flex space-x-2">
@@ -533,17 +623,11 @@ onMounted(() => {
           </ElTableColumn>
           <ElTableColumn label="操作" width="350" fixed="right">
             <template #default="scope">
-              <ElButton
-                link
-                type="primary"
-                size="small"
-                @click="openDetailDialog(scope.row)"
-              >
+              <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
                 link
-                type="info"
                 size="small"
                 @click="openMaterialDialog(scope.row)"
               >
@@ -551,7 +635,6 @@ onMounted(() => {
               </ElButton>
               <ElButton
                 link
-                type="success"
                 size="small"
                 @click="handleRegisterClaim(scope.row)"
               >
@@ -562,7 +645,7 @@ onMounted(() => {
                 @confirm="handleDeleteClaim(scope.row)"
               >
                 <template #reference>
-                  <ElButton link type="danger" size="small"> 删除 </ElButton>
+                  <ElButton link size="small"> 删除 </ElButton>
                 </template>
               </ElPopconfirm>
             </template>
@@ -728,10 +811,11 @@ onMounted(() => {
         <ElForm label-width="180px">
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="案件名称">
+              <ElFormItem label="案号">
                 <ElInput
-                  v-model="claimForm.caseName"
-                  placeholder="请输入案件名称"
+                  v-model="claimForm.caseNumber"
+                  placeholder="请输入案号"
+                  disabled
                 />
               </ElFormItem>
             </ElCol>
@@ -740,10 +824,15 @@ onMounted(() => {
                 <ElSelect
                   v-model="claimForm.debtor"
                   placeholder="请选择债务人"
+                  :loading="debtorListLoading"
                   style="width: 100%"
                 >
-                  <ElOption label="债务人1" value="debtor1" />
-                  <ElOption label="债务人2" value="debtor2" />
+                  <ElOption
+                    v-for="debtor in debtorList"
+                    :key="debtor.value"
+                    :label="`${debtor.label} (${debtor.caseNumber})`"
+                    :value="debtor.label"
+                  />
                 </ElSelect>
               </ElFormItem>
             </ElCol>
@@ -751,21 +840,25 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="账号">
-                <ElInput v-model="claimForm.account" placeholder="请输入账号" />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
               <ElFormItem label="债权人姓名或名称" required>
-                <ElInput
+                <ElSelect
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
-                />
+                  placeholder="请选择或输入债权人姓名或名称"
+                  filterable
+                  allow-create
+                  :loading="creditorListLoading"
+                  @change="handleCreditorChange"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="creditor in creditorList"
+                    :key="creditor.value"
+                    :label="creditor.label"
+                    :value="creditor.label"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="债权人类型" required>
                 <ElSelect
@@ -780,6 +873,9 @@ onMounted(() => {
                 </ElSelect>
               </ElFormItem>
             </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="统一社会信用代码">
                 <ElInput
@@ -788,9 +884,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="法定代表人">
                 <ElInput
@@ -799,6 +892,9 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="送达地址">
                 <ElInput
@@ -807,9 +903,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="代理人姓名">
                 <ElInput
@@ -818,6 +911,9 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="代理人电话">
                 <ElInput
@@ -826,9 +922,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="代理人身份证号码">
                 <ElInput
@@ -837,6 +930,9 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="代理人联系地址">
                 <ElInput
@@ -845,9 +941,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="账户名称">
                 <ElInput
@@ -856,6 +949,9 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="银行账号">
                 <ElInput
@@ -864,9 +960,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="开户银行">
                 <ElInput

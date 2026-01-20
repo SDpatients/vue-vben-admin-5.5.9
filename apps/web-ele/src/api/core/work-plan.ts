@@ -62,6 +62,57 @@ export namespace WorkPlanApi {
     status: string;
     error: string;
   }
+
+  /** 创建工作计划请求体 */
+  export interface CreateWorkPlanRequest {
+    /** 案件ID */
+    caseId: number;
+    /** 计划类型 */
+    planType: string;
+    /** 计划内容 */
+    planContent: string;
+    /** 开始日期 */
+    startDate: string;
+    /** 结束日期 */
+    endDate: string;
+    /** 负责人ID */
+    responsibleUserId: number;
+  }
+
+  /** 创建工作计划响应 */
+  export interface CreateWorkPlanResponse {
+    code: number;
+    message: string;
+    data: {
+      planId: number;
+    };
+  }
+
+  /** 工作计划详情响应 */
+  export interface WorkPlanDetailResponse {
+    code: number;
+    message: string;
+    data: {
+      id: number;
+      caseId: number;
+      planType: string;
+      planContent: string;
+      startDate: string;
+      endDate: string;
+      responsibleUserId: number;
+      executionStatus: string;
+      status: string;
+      createTime: string;
+      updateTime: string;
+    };
+  }
+
+  /** 删除工作计划响应 */
+  export interface DeleteWorkPlanResponse {
+    code: number;
+    message: string;
+    data: null;
+  }
 }
 
 /**
@@ -100,5 +151,39 @@ export async function updateWorkPlanApi(
         token,
       },
     },
+  );
+}
+
+/**
+ * 创建工作计划
+ */
+export async function createWorkPlanApi(
+  data: WorkPlanApi.CreateWorkPlanRequest,
+) {
+  return requestClient8085.post<WorkPlanApi.CreateWorkPlanResponse>(
+    '/work-plan',
+    data,
+  );
+}
+
+/**
+ * 获取工作计划详情
+ */
+export async function getWorkPlanDetailApi(
+  planId: number,
+) {
+  return requestClient8085.get<WorkPlanApi.WorkPlanDetailResponse>(
+    `/work-plan/${planId}`,
+  );
+}
+
+/**
+ * 删除工作计划
+ */
+export async function deleteWorkPlanApi(
+  planId: number,
+) {
+  return requestClient8085.delete<WorkPlanApi.DeleteWorkPlanResponse>(
+    `/work-plan/${planId}`,
   );
 }
