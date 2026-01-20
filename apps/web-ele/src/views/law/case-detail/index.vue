@@ -1865,6 +1865,24 @@ const mapCaseStatus = (status: string): string => {
   return statusMap[status] || status;
 };
 
+// 根据案件进度获取初始阶段索引
+const getInitialStageIndex = (): number => {
+  if (!caseDetail.value) return 0;
+  
+  const progress = caseDetail.value.案件进度;
+  const progressIndexMap: Record<string, number> = {
+    '第一阶段': 0,
+    '第二阶段': 1,
+    '第三阶段': 2,
+    '第四阶段': 3,
+    '第五阶段': 4,
+    '第六阶段': 5,
+    '第七阶段': 6,
+  };
+  
+  return progressIndexMap[progress] || 0;
+};
+
 // 获取管理员机构列表
 const loadAdministrators = async () => {
   loadingAdministrators.value = true;
@@ -3190,7 +3208,7 @@ const checkPermissions = async () => {
 
         <!-- 流程处理 -->
         <div v-if="activeTab === 'process'" class="process-content">
-          <BankruptcyProcess :case-id="caseId" />
+          <BankruptcyProcess :case-id="caseId" :initial-stage="getInitialStageIndex()" />
         </div>
 
         <!-- 债权人信息 -->
@@ -3332,7 +3350,7 @@ const checkPermissions = async () => {
                     <template #default="scope">
                       <!-- 所有状态都显示查看详情按钮（黑色） -->
                       <ElButton
-                        type="text"
+                        link
                         color="black"
                         size="small"
                         @click="viewDocumentDetail(scope.row.id)"
@@ -3344,7 +3362,7 @@ const checkPermissions = async () => {
                       <!-- 待送达状态：修改、发送 -->
                       <template v-if="scope.row.sendStatus === 'PENDING'">
                         <ElButton
-                          type="text"
+                          link
                           color="warning"
                           size="small"
                           @click="editDocument(scope.row)"
@@ -3353,7 +3371,7 @@ const checkPermissions = async () => {
                           修改
                         </ElButton>
                         <ElButton
-                          type="text"
+                          link
                           color="success"
                           size="small"
                           @click="sendDocument(scope.row.id)"
@@ -3369,7 +3387,7 @@ const checkPermissions = async () => {
                         @confirm="deleteDocument(scope.row.id)"
                       >
                         <template #reference>
-                          <ElButton type="text" color="danger" size="small">
+                          <ElButton link color="danger" size="small">
                             删除
                           </ElButton>
                         </template>

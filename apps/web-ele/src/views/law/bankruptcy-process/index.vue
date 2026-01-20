@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, defineProps } from 'vue';
+import { ref, computed, defineProps, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -27,18 +27,24 @@ import {
   type UploadUserFile,
 } from 'element-plus';
 
+import { CaseProcessApi } from '../../../api/core/case-process';
+
+
 const props = defineProps<{
   caseId: string;
+  initialStage?: number;
 }>();
 
 const router = useRouter();
 const loading = ref(false);
 
-const activeStage = ref(0);
+const activeStage = ref(props.initialStage || 0);
 const showAddDialog = ref(false);
 const currentModule = ref<any>(null);
 const currentStageIndex = ref(0);
 const activeTab = ref('basic');
+const isEditMode = ref(false);
+const currentItem = ref<any>(null);
 
 const formRef = ref();
 const formData = ref({
@@ -52,12 +58,29 @@ const formRules = {
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }],
 };
 
-const fileList = ref<UploadUserFile[]>([]);
-const uploadProgress = ref(0);
-const uploading = ref(false);
+
 
 // 为每个模块添加展开状态
 const expandedModules = ref<Record<string, boolean>>({});
+
+// 处理数据项点击事件
+const handleDataItemClick = async (item: any, module: any) => {
+  // 设置为编辑模式
+  isEditMode.value = true;
+  currentItem.value = item;
+  currentModule.value = module;
+  currentStageIndex.value = activeStage.value;
+  
+  // 填充表单数据
+  formData.value = {
+    title: item.title,
+    content: item.content,
+    date: item.date,
+  };
+  
+  activeTab.value = 'basic';
+  showAddDialog.value = true;
+};
 
 const toggleModule = (moduleId: string) => {
   expandedModules.value[moduleId] = !expandedModules.value[moduleId];
@@ -460,84 +483,161 @@ const stages = [
 
 const currentStage = computed(() => stages[activeStage.value]);
 
-const handleStageChange = (index: number) => {
-  activeStage.value = index;
+// 加载指定阶段的数据
+const loadStageData = async (stageIndex: number) => {
+  loading.value = true;
+  try {
+    const stageNum = stageIndex + 1; // 阶段从1开始
+    // 根据需求，调用新的接口获取数据
+    const response = await CaseProcessApi.getCaseStageDataApi(props.caseId, stageNum);
+    
+    if (response.code === 200 && response.data) {
+      // 清空当前阶段所有模块的数据
+      stages[stageIndex].modules.forEach(module => {
+        module.data = [];
+      });
+      
+      // 将返回的数据分配到对应的模块
+      response.data.forEach(item => {
+        // 根据moduleCode或moduleName匹配对应的模块
+        const module = stages[stageIndex].modules.find(m => 
+          m.title.includes(item.moduleName) || item.moduleName.includes(m.title)
+        );
+        
+        if (module) {
+          // 解析attachments字段
+          let files = [];
+          if (item.attachments) {
+            try {
+              files = JSON.parse(item.attachments);
+            } catch (error) {
+              console.error('解析attachments失败:', error);
+              files = [];
+            }
+          }
+          
+          module.data.push({
+            id: item.id,
+            title: item.title,
+            content: item.content,
+            creator: item.createUserId?.toString() || '',
+            date: item.processDate ? new Date(item.processDate).toISOString().split('T')[0] : '',
+            files: files,
+            fieldData: item.fieldData ? JSON.parse(item.fieldData) : {},
+            createTime: item.createTime,
+            updateTime: item.updateTime
+          });
+        }
+      });
+    }
+  } catch (error) {
+    console.error('加载阶段数据失败:', error);
+    ElMessage.error('加载阶段数据失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
+const handleStageChange = (index: number) => {
+  activeStage.value = index;
+  loadStageData(index);
+};
+
+// 监听阶段变化
+watch(activeStage, (newIndex) => {
+  loadStageData(newIndex);
+});
+
+// 组件挂载时加载初始阶段数据
+onMounted(() => {
+  loadStageData(activeStage.value);
+});
+
 const openAddDialog = (module: any, stageIndex: number) => {
+  // 设置为新增模式
+  isEditMode.value = false;
   currentModule.value = module;
   currentStageIndex.value = stageIndex;
+  currentItem.value = null;
   formData.value = {
     title: '',
     content: '',
     date: '',
   };
-  fileList.value = [];
-  uploadProgress.value = 0;
-  uploading.value = false;
   activeTab.value = 'basic';
   showAddDialog.value = true;
 };
 
 const handleAddSubmit = async () => {
   try {
+    // 验证表单
     await formRef.value?.validate();
     
-    const newItem = {
-      id: Date.now(),
-      ...formData.value,
-      createTime: new Date().toISOString(),
-      files: fileList.value.map(file => ({
-        id: Date.now() + Math.random(),
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: file.url,
-      })),
+    const stageNum = currentStageIndex.value + 1;
+    const stageName = stages[currentStageIndex.value].title;
+    
+    const stageData = {
+      caseId: Number(props.caseId),
+      stageNum,
+      stageName: stageName.split('、')[1] || stageName,
+      moduleCode: `STAGE${stageNum}_${currentModule.value.title.replace(/\s+/g, '_').toUpperCase()}`,
+      moduleName: currentModule.value.title,
+      title: formData.value.title,
+      content: formData.value.content,
+      processDate: formData.value.date ? new Date(formData.value.date).toISOString() : undefined,
+      attachments: undefined,
+      fieldData: JSON.stringify({}),
+      status: 'ACTIVE',
     };
     
-    currentModule.value.data.push(newItem);
+    let response;
+    if (isEditMode.value && currentItem.value) {
+      // 编辑模式，调用更新API
+      response = await CaseProcessApi.updateCaseStageDataApi(currentItem.value.id, stageData);
+    } else {
+      // 新增模式，调用新增API
+      response = await CaseProcessApi.addCaseStageDataApi(stageData);
+    }
     
-    ElMessage.success('添加成功');
-    showAddDialog.value = false;
+    if (response.code === 200 && response.data) {
+      ElMessage.success(isEditMode.value ? '更新成功' : '添加成功');
+      showAddDialog.value = false;
+      // 重新加载当前阶段数据
+      loadStageData(currentStageIndex.value);
+    } else {
+      ElMessage.error(response.message || (isEditMode.value ? '更新失败' : '添加失败'));
+    }
+  } catch (error: any) {
+    // 检查是否是表单验证错误
+    if (error && typeof error === 'object' && ('title' in error || 'content' in error)) {
+      // 表单验证失败，Element Plus会自动显示错误信息，不需要额外处理
+      console.warn('表单验证失败:', error);
+    } else {
+      // 其他错误
+      console.error(isEditMode.value ? '更新失败:' : '添加失败:', error);
+      ElMessage.error(isEditMode.value ? '更新失败' : '添加失败');
+    }
+  }
+};
+
+
+
+const handleDelete = async (module: any, item: any) => {
+  try {
+    const response = await CaseProcessApi.deleteCaseStageDataApi(item.id);
+    
+    if (response.code === 200 && response.data) {
+      const index = module.data.findIndex((d: any) => d.id === item.id);
+      if (index > -1) {
+        module.data.splice(index, 1);
+      }
+      ElMessage.success('删除成功');
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
   } catch (error) {
-    console.error('验证失败:', error);
-  }
-};
-
-const handleFileUpload = (file: UploadFile, fileList: UploadFile[]) => {
-  console.log('上传文件:', file, fileList);
-  
-  const maxSize = 50 * 1024 * 1024;
-  if (file.size && file.size > maxSize) {
-    ElMessage.error(`文件大小不能超过50MB`);
-    return false;
-  }
-  
-  return true;
-};
-
-const handleFileProgress = (event: any) => {
-  uploadProgress.value = Math.round((event.loaded / event.total) * 100);
-};
-
-const handleFileSuccess = (response: any, file: UploadFile) => {
-  ElMessage.success(`${file.name} 上传成功`);
-  uploadProgress.value = 100;
-};
-
-const handleFileError = (error: any, file: UploadFile) => {
-  ElMessage.error(`${file.name} 上传失败`);
-  console.error('文件上传失败:', error);
-  uploading.value = false;
-  uploadProgress.value = 0;
-};
-
-const handleDelete = (module: any, item: any) => {
-  const index = module.data.findIndex((d: any) => d.id === item.id);
-  if (index > -1) {
-    module.data.splice(index, 1);
-    ElMessage.success('删除成功');
+    console.error('删除失败:', error);
+    ElMessage.error('删除失败');
   }
 };
 
@@ -610,6 +710,8 @@ const goBack = () => {
                   v-for="item in module.data"
                   :key="item.id"
                   class="data-item"
+                  @click="handleDataItemClick(item, module)"
+                  style="cursor: pointer;"
                 >
                   <div class="data-header">
                     <div class="data-title">{{ item.title }}</div>
@@ -639,6 +741,21 @@ const goBack = () => {
                       <span class="data-label">日期:</span>
                       <span class="data-value">{{ item.date }}</span>
                     </div>
+                    <!-- 附件展示区域 -->
+                    <div v-if="item.files && item.files.length > 0" class="data-row attachments-row">
+                      <span class="data-label">附件:</span>
+                      <div class="attachments-list">
+                        <div
+                          v-for="(file, index) in item.files"
+                          :key="index"
+                          class="attachment-item"
+                        >
+                          <Icon icon="lucide:paperclip" class="attachment-icon" />
+                          <span class="attachment-name">{{ file.fileName || file.name }}</span>
+                          <span class="attachment-size">{{ (file.fileSize || file.size) ? (file.fileSize || file.size) / 1024 / 1024 < 1 ? `${((file.fileSize || file.size) / 1024).toFixed(2)} KB` : `${((file.fileSize || file.size) / 1024 / 1024).toFixed(2)} MB` : '' }}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -655,90 +772,42 @@ const goBack = () => {
 
     <ElDialog
       v-model="showAddDialog"
-      :title="`新增 - ${currentModule?.title}`"
+      :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
       width="800px"
       destroy-on-close
     >
-      <ElTabs v-model="activeTab" class="dialog-tabs">
-        <!-- 基础数据标签页 -->
-        <ElTabPane label="基础数据" name="basic">
-          <ElForm
-            ref="formRef"
-            :model="formData"
-            :rules="formRules"
-            label-width="100px"
-          >
-            <ElFormItem label="标题" prop="title">
-              <ElInput v-model="formData.title" placeholder="请输入标题" />
-            </ElFormItem>
-            <ElFormItem label="内容" prop="content">
-              <ElInput
-                v-model="formData.content"
-                type="textarea"
-                :rows="6"
-                placeholder="请输入内容"
-              />
-            </ElFormItem>
-            <ElFormItem label="日期" prop="date">
-              <ElDatePicker
-                v-model="formData.date"
-                type="date"
-                placeholder="选择日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </ElFormItem>
-          </ElForm>
-        </ElTabPane>
-
-        <!-- 附件标签页 -->
-        <ElTabPane label="附件" name="attachments">
-          <div class="file-upload-content">
-            <ElUpload
-              v-model:file-list="fileList"
-              :auto-upload="false"
-              :on-change="handleFileUpload"
-              :on-progress="handleFileProgress"
-              :on-success="handleFileSuccess"
-              :on-error="handleFileError"
-              :disabled="uploading"
-              drag
-              multiple
-            >
-              <Icon icon="lucide:upload-cloud" class="upload-icon" />
-              <div class="upload-text">将文件拖到此处，或<em>点击上传</em></div>
-              <template #tip>
-                <div class="upload-tip">
-                  支持上传 doc、docx、pdf、xls、xlsx、jpg、png 等格式文件，单个文件不超过50MB
-                </div>
-              </template>
-            </ElUpload>
-
-            <div v-if="uploading" class="upload-progress">
-              <ElProgress :percentage="uploadProgress" :status="uploadProgress === 100 ? 'success' : undefined" />
-              <div class="progress-text">
-                {{ uploadProgress === 100 ? '上传完成' : `正在上传... ${uploadProgress}%` }}
-              </div>
-            </div>
-
-            <div v-if="fileList.length > 0" class="file-list-preview">
-              <div class="file-list-title">已选择 {{ fileList.length }} 个文件</div>
-              <div class="file-list-items">
-                <div v-for="(file, index) in fileList" :key="file.uid || index" class="file-list-item">
-                  <Icon icon="lucide:file-text" class="file-icon" />
-                  <span class="file-name">{{ file.name }}</span>
-                  <span class="file-size">{{ (file.size / 1024 / 1024).toFixed(2) }} MB</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </ElTabPane>
-      </ElTabs>
+      <ElForm
+        ref="formRef"
+        :model="formData"
+        :rules="formRules"
+        label-width="100px"
+      >
+        <ElFormItem label="标题" prop="title">
+          <ElInput v-model="formData.title" placeholder="请输入标题" />
+        </ElFormItem>
+        <ElFormItem label="内容" prop="content">
+          <ElInput
+            v-model="formData.content"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入内容"
+          />
+        </ElFormItem>
+        <ElFormItem label="日期" prop="date">
+          <ElDatePicker
+            v-model="formData.date"
+            type="date"
+            placeholder="选择日期"
+            style="width: 100%"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+          />
+        </ElFormItem>
+      </ElForm>
       
       <template #footer>
-        <ElButton @click="showAddDialog = false" :disabled="uploading">取消</ElButton>
-        <ElButton type="primary" @click="handleAddSubmit" :loading="uploading">
+        <ElButton @click="showAddDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="handleAddSubmit">
           <Icon icon="lucide:check" class="mr-1" />
           保存
         </ElButton>
@@ -777,6 +846,7 @@ const goBack = () => {
   padding: 12px;
   border-radius: 12px;
   min-width: 120px;
+  position: relative;
 }
 
 .stage-tab-item:hover {
@@ -786,6 +856,21 @@ const goBack = () => {
 
 .stage-tab-item.active {
   background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+}
+
+.stage-tab-item.active::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid currentColor;
+  color: var(--active-stage-color);
+  z-index: 1;
 }
 
 .stage-tab-icon {
@@ -800,6 +885,8 @@ const goBack = () => {
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
 }
 
 .stage-tab-item:hover .stage-tab-icon {
@@ -810,6 +897,40 @@ const goBack = () => {
 .stage-tab-item.active .stage-tab-icon {
   transform: scale(1.1);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 4px currentColor;
+}
+
+.stage-tab-item.active {
+  --active-stage-color: var(--current-stage-color);
+}
+
+.stage-tab-item:nth-child(1).active {
+  --current-stage-color: #409EFF;
+}
+
+.stage-tab-item:nth-child(2).active {
+  --current-stage-color: #67C23A;
+}
+
+.stage-tab-item:nth-child(3).active {
+  --current-stage-color: #E6A23C;
+}
+
+.stage-tab-item:nth-child(4).active {
+  --current-stage-color: #F56C6C;
+}
+
+.stage-tab-item:nth-child(5).active {
+  --current-stage-color: #909399;
+}
+
+.stage-tab-item:nth-child(6).active {
+  --current-stage-color: #FF6B6B;
+}
+
+.stage-tab-item:nth-child(7).active {
+  --current-stage-color: #4CAF50;
 }
 
 .stage-tab-title {
@@ -1176,6 +1297,59 @@ const goBack = () => {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #5568d3 0%, #6b4a8f 100%);
+}
+
+/* 附件样式 */
+.attachments-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8f9ff;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.attachment-item:hover {
+  background: #eef2ff;
+  border-color: #667eea;
+}
+
+.attachment-icon {
+  font-size: 16px;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  flex: 1;
+  font-size: 13px;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: #9ca3af;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1400px) {

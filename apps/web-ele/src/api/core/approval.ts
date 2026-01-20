@@ -46,11 +46,7 @@ export const approvalApi = {
     });
   },
 
-  getPendingApprovals: (page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/approval/pending', {
-      params: { page, pageSize },
-    });
-  },
+
 
   getApprovalDetail: (id: number) => {
     return requestClient.get(`/api/approval/${id}`);

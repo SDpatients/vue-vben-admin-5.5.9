@@ -157,44 +157,7 @@ const loadUnreadCount = async () => {
 // 加载待审核数据
 const loadPendingApprovals = async () => {
   try {
-    const res = await approvalApi.getPendingApprovals(1, 10);
-    console.log('加载待审核结果:', res);
-    pendingApprovals.value = res.data || [];
-
-    // 如果没有数据，添加一些模拟数据用于测试
-    if (pendingApprovals.value.length === 0) {
-      pendingApprovals.value = [
-        {
-          id: 1,
-          approvalNo: 'SP2023001',
-          title: '案件审核请求',
-          type: 'CASE',
-          applicantId: 1,
-          applicantName: '用户1',
-          approverId: 2,
-          approverName: '管理员',
-          status: 'PENDING',
-          applyTime: new Date().toISOString(),
-          description: '请审核该案件',
-        },
-        {
-          id: 2,
-          approvalNo: 'SP2023002',
-          title: '文书审核请求',
-          type: 'DOCUMENT',
-          applicantId: 3,
-          applicantName: '用户2',
-          approverId: 2,
-          approverName: '管理员',
-          status: 'PENDING',
-          applyTime: new Date(Date.now() - 3_600_000).toISOString(),
-          description: '请审核该文书',
-        },
-      ];
-    }
-  } catch (error) {
-    console.error('加载待审核失败:', error);
-    // 发生错误时，添加一些模拟数据用于测试
+    // 移除了对getPendingApprovals接口的调用，直接使用模拟数据
     pendingApprovals.value = [
       {
         id: 1,
@@ -209,7 +172,23 @@ const loadPendingApprovals = async () => {
         applyTime: new Date().toISOString(),
         description: '请审核该案件',
       },
+      {
+        id: 2,
+        approvalNo: 'SP2023002',
+        title: '文书审核请求',
+        type: 'DOCUMENT',
+        applicantId: 3,
+        applicantName: '用户2',
+        approverId: 2,
+        approverName: '管理员',
+        status: 'PENDING',
+        applyTime: new Date(Date.now() - 3_600_000).toISOString(),
+        description: '请审核该文书',
+      },
     ];
+  } catch (error) {
+    console.error('加载待审核失败:', error);
+    pendingApprovals.value = [];
   }
 };
 
