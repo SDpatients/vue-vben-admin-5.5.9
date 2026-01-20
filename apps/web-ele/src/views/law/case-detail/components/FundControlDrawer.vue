@@ -104,9 +104,7 @@ const accountPageSize = ref(10);
 const accountTotal = ref(0);
 const fundAccounts = ref<any[]>([]);
 
-const accountSearchForm = reactive({
-  accountName: '',
-});
+
 
 const accountDialogVisible = ref(false);
 const accountDialogTitle = ref('新增账户');
@@ -168,13 +166,9 @@ const fetchFundAccounts = async () => {
   }
 };
 
-const handleAccountSearch = () => {
-  accountCurrentPage.value = 1;
-  fetchFundAccounts();
-};
+
 
 const handleAccountReset = () => {
-  accountSearchForm.accountName = '';
   accountCurrentPage.value = 1;
   fetchFundAccounts();
 };
@@ -594,30 +588,20 @@ onMounted(() => {
         <ElTabPane label="账户管理" name="account">
           <div class="account-content">
             <ElCard shadow="hover" class="search-card">
-              <ElForm :model="accountSearchForm" inline label-width="80px">
-                <ElFormItem label="账户名称">
-                  <ElInput
-                    v-model="accountSearchForm.accountName"
-                    placeholder="请输入账户名称"
-                    clearable
-                    style="width: 200px"
-                  />
-                </ElFormItem>
-                <ElFormItem>
-                  <ElButton type="primary" @click="handleAccountSearch">
-                    <Icon icon="lucide:search" class="mr-1" />
-                    搜索
-                  </ElButton>
-                  <ElButton @click="handleAccountReset">
-                    <Icon icon="lucide:refresh-cw" class="mr-1" />
-                    重置
-                  </ElButton>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
                   <ElButton type="success" @click="openAddAccountDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     新增账户
                   </ElButton>
-                </ElFormItem>
-              </ElForm>
+                </div>
+                <div>
+                  <ElButton @click="handleAccountReset">
+                    <Icon icon="lucide:refresh-cw" class="mr-1" />
+                    刷新
+                  </ElButton>
+                </div>
+              </div>
             </ElCard>
 
             <ElCard shadow="hover" class="list-card">

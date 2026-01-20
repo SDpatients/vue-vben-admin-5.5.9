@@ -1820,6 +1820,24 @@ const mapCaseStatus = (status: string): string => {
   return statusMap[status] || status;
 };
 
+// 根据案件进度获取初始阶段索引
+const getInitialStageIndex = (): number => {
+  if (!caseDetail.value) return 0;
+  
+  const progress = caseDetail.value.案件进度;
+  const progressIndexMap: Record<string, number> = {
+    '第一阶段': 0,
+    '第二阶段': 1,
+    '第三阶段': 2,
+    '第四阶段': 3,
+    '第五阶段': 4,
+    '第六阶段': 5,
+    '第七阶段': 6,
+  };
+  
+  return progressIndexMap[progress] || 0;
+};
+
 // 获取管理员机构列表
 const loadAdministrators = async () => {
   loadingAdministrators.value = true;
@@ -3163,7 +3181,7 @@ const checkPermissions = async () => {
 
         <!-- 流程处理 -->
         <div v-if="activeTab === 'process'" class="process-content">
-          <BankruptcyProcess :case-id="caseId" />
+          <BankruptcyProcess :case-id="caseId" :initial-stage="getInitialStageIndex()" />
         </div>
 
         <!-- 债权人信息 -->

@@ -32,12 +32,8 @@ const loadApprovals = async (tab: string) => {
   currentPage.value = 1;
   try {
     let res;
-    if (tab === 'pending') {
-      res = await approvalApi.getPendingApprovals(currentPage.value, pageSize.value);
-    } else {
-      const status = tab === 'approved' ? 'APPROVED' : tab === 'rejected' ? 'REJECTED' : 'CANCELLED';
-      res = await approvalApi.getApprovalList(undefined, selectedType.value || undefined, currentPage.value, pageSize.value);
-    }
+    const status = tab === 'pending' ? 'PENDING' : tab === 'approved' ? 'APPROVED' : tab === 'rejected' ? 'REJECTED' : 'CANCELLED';
+    res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
     approvals.value = res.data || [];
     hasMore.value = res.data.length >= pageSize.value;
   } catch (error) {
@@ -52,12 +48,8 @@ const loadMore = async () => {
   currentPage.value++;
   try {
     let res;
-    if (activeTab.value === 'pending') {
-      res = await approvalApi.getPendingApprovals(currentPage.value, pageSize.value);
-    } else {
-      const status = activeTab.value === 'approved' ? 'APPROVED' : activeTab.value === 'rejected' ? 'REJECTED' : 'CANCELLED';
-      res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
-    }
+    const status = activeTab.value === 'pending' ? 'PENDING' : activeTab.value === 'approved' ? 'APPROVED' : activeTab.value === 'rejected' ? 'REJECTED' : 'CANCELLED';
+    res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
     approvals.value = [...approvals.value, ...(res.data || [])];
     hasMore.value = res.data.length >= pageSize.value;
   } catch (error) {
