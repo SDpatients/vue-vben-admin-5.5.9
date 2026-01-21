@@ -16,6 +16,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElPopconfirm,
@@ -26,6 +27,7 @@ import {
   ElTag,
 } from 'element-plus';
 
+import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
 import {
   createClaimRegistrationApi,
@@ -121,11 +123,10 @@ const totalAmount = computed(() => {
 });
 
 const fetchClaims = async () => {
-  console.log('开始获取待登记债权列表，参数:', {
+  console.log('开始获取债权列表，参数:', {
     caseId: Number(props.caseId),
     pageNum: currentPage.value,
     pageSize: pageSize.value,
-    registrationStatus: 'PENDING',
   });
   loading.value = true;
   try {
@@ -133,7 +134,6 @@ const fetchClaims = async () => {
       caseId: Number(props.caseId),
       pageNum: currentPage.value,
       pageSize: pageSize.value,
-      registrationStatus: 'PENDING',
     });
     console.log('获取待登记债权列表响应:', response);
     if (response.code === 200 && response.data) {
@@ -231,12 +231,17 @@ const fetchCreditorList = async (keyword: string = '') => {
 };
 
 const openDetailDialog = async (row: any) => {
+  console.log('点击查看详情，row:', row);
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
+    console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
+      console.log('债权详情数据:', currentClaim.value);
       showDetailDialog.value = true;
+      console.log('showDetailDialog设置为true');
     } else {
+      console.error('响应code或data异常:', response);
       ElMessage.error('获取债权详情失败');
     }
   } catch (error) {
@@ -250,7 +255,7 @@ const openMaterialDialog = async (row: any) => {
     const response = await getClaimRegistrationDetailApi(row.id);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
-      
+
       try {
         const userResponse = await getCurrentUserApi();
         if (userResponse.code === 200 && userResponse.data) {
@@ -263,7 +268,7 @@ const openMaterialDialog = async (row: any) => {
         console.error('获取当前用户信息失败:', error);
         materialForm.receiver = '当前用户';
       }
-      
+
       materialForm.completeness = 'COMPLETE';
       showMaterialDialog.value = true;
     } else {
@@ -315,31 +320,43 @@ const handleReceiveMaterial = async () => {
 };
 
 const handleRegisterClaim = async (row: any) => {
-  try {
-    const response = await receiveClaimMaterialApi(row.id, {
-      receiver: '当前用户',
-      completeness: 'COMPLETE',
-    });
-    if (response.code === 200) {
-      const statusResponse = await updateClaimRegistrationStatusApi(
-        row.id,
-        'REGISTERED',
-      );
-      if (statusResponse.code === 200) {
-        ElMessage.success('债权申报登记成功');
-        await fetchClaims();
-      } else {
-        ElMessage.error(
-          `状态更新失败：${statusResponse.message || '未知错误'}`,
-        );
+  // 添加确认机制
+  ElMessageBox.confirm('确定要完成债权申报登记吗？', '操作确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(async () => {
+      try {
+        const response = await receiveClaimMaterialApi(row.id, {
+          receiver: '当前用户',
+          completeness: 'COMPLETE',
+        });
+        if (response.code === 200) {
+          const statusResponse = await updateClaimRegistrationStatusApi(
+            row.id,
+            'REGISTERED',
+          );
+          if (statusResponse.code === 200) {
+            ElMessage.success('债权申报登记成功');
+            await fetchClaims();
+          } else {
+            ElMessage.error(
+              `状态更新失败：${statusResponse.message || '未知错误'}`,
+            );
+          }
+        } else {
+          ElMessage.error(`操作失败：${response.message || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('债权申报登记失败:', error);
+        ElMessage.error('债权申报登记失败');
       }
-    } else {
-      ElMessage.error(`操作失败：${response.message || '未知错误'}`);
-    }
-  } catch (error) {
-    console.error('债权申报登记失败:', error);
-    ElMessage.error('债权申报登记失败');
-  }
+    })
+    .catch(() => {
+      console.log('用户取消了债权申报登记操作');
+      ElMessage.info('已取消债权申报登记');
+    });
 };
 
 const handleDeleteClaim = async (row: any) => {
@@ -544,7 +561,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:file-text" class="mr-2 text-primary" />
+            <Icon icon="lucide:file-text" class="text-primary mr-2" />
             <span class="text-lg font-semibold">债权申报登记</span>
           </div>
           <div class="flex space-x-2">
@@ -558,7 +575,7 @@ onMounted(() => {
 
       <ElAlert title="说明" type="info" :closable="false" class="mb-4">
         <div>
-          <p>本页面展示所有待登记的债权申报记录。</p>
+          <p>本页面展示所有债权申报记录。</p>
           <p>点击"查看详情"可查看债权详细信息。</p>
           <p>点击"接收材料"可记录材料接收情况。</p>
           <p>点击"登记"可将债权状态更新为"已登记"。</p>
@@ -629,13 +646,6 @@ onMounted(() => {
               <ElButton
                 link
                 size="small"
-                @click="openMaterialDialog(scope.row)"
-              >
-                接收材料
-              </ElButton>
-              <ElButton
-                link
-                size="small"
                 @click="handleRegisterClaim(scope.row)"
               >
                 登记
@@ -665,7 +675,7 @@ onMounted(() => {
         </div>
 
         <div v-if="claims.length === 0 && !loading" class="empty-state">
-          <ElEmpty description="暂无待登记的债权申报信息" />
+          <ElEmpty description="暂无债权申报信息" />
         </div>
       </div>
     </ElCard>
@@ -683,6 +693,9 @@ onMounted(() => {
           </ElDescriptionsItem>
           <ElDescriptionsItem label="案件名称">
             {{ currentClaim.caseName }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债务人">
+            {{ currentClaim.debtor }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="债权人">
             {{ currentClaim.creditorName }}
@@ -711,6 +724,33 @@ onMounted(() => {
           <ElDescriptionsItem label="申报总金额">
             {{ currentClaim.totalAmount }}
           </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权类型">
+            {{ currentClaim.claimType }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权性质">
+            {{ currentClaim.claimNature || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权标识">
+            {{ currentClaim.claimIdentifier || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权事实" :span="2">
+            {{ currentClaim.claimFacts || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有法院判决">
+            <ElTag :type="currentClaim.hasCourtJudgment ? 'success' : 'info'">
+              {{ currentClaim.hasCourtJudgment ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有执行">
+            <ElTag :type="currentClaim.hasExecution ? 'success' : 'info'">
+              {{ currentClaim.hasExecution ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有担保">
+            <ElTag :type="currentClaim.hasCollateral ? 'success' : 'info'">
+              {{ currentClaim.hasCollateral ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
           <ElDescriptionsItem label="登记状态">
             <ElTag
               :type="
@@ -722,24 +762,85 @@ onMounted(() => {
               }}
             </ElTag>
           </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记日期">
+            {{ currentClaim.registrationDate }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记截止日期">
+            {{ currentClaim.registrationDeadline || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收人">
+            {{ currentClaim.materialReceiver }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收日期">
+            {{ currentClaim.materialReceiveDate }}
+          </ElDescriptionsItem>
           <ElDescriptionsItem label="材料完整性">
             <ElTag
               :type="
-                getMaterialCompletenessTag(currentClaim.materialCompleteness)
-                  .type
+                currentClaim.materialCompleteness === 'COMPLETE'
+                  ? 'success'
+                  : 'warning'
               "
             >
               {{
-                getMaterialCompletenessTag(currentClaim.materialCompleteness)
-                  .text
+                currentClaim.materialCompleteness === 'COMPLETE'
+                  ? '完整'
+                  : currentClaim.materialCompleteness === 'INCOMPLETE'
+                    ? '不完整'
+                    : '待补充'
               }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权事实">
-            {{ currentClaim.claimFacts }}
+        </ElDescriptions>
+
+        <div class="section-divider mb-4 mt-4">
+          <h4 class="section-title">代理人信息</h4>
+        </div>
+        <ElDescriptions :column="2" border>
+          <ElDescriptionsItem label="代理人姓名">
+            {{ currentClaim.agentName || '-' }}
           </ElDescriptionsItem>
+          <ElDescriptionsItem label="代理人电话">
+            {{ currentClaim.agentPhone || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="代理人身份证">
+            {{ currentClaim.agentIdCard || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="代理人地址">
+            {{ currentClaim.agentAddress || '-' }}
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <div class="section-divider mb-4 mt-4">
+          <h4 class="section-title">银行账户信息</h4>
+        </div>
+        <ElDescriptions :column="2" border>
+          <ElDescriptionsItem label="账户名称">
+            {{ currentClaim.accountName || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="银行账户">
+            {{ currentClaim.creditorBankAccount || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="银行名称">
+            {{ currentClaim.bankName || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="服务地址">
+            {{ currentClaim.serviceAddress || '-' }}
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <div class="section-divider mb-4 mt-4">
+          <h4 class="section-title">其他信息</h4>
+        </div>
+        <ElDescriptions :column="1" border>
           <ElDescriptionsItem label="备注">
-            {{ currentClaim.remarks }}
+            {{ currentClaim.remarks || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="创建时间">
+            {{ currentClaim.createTime }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="更新时间">
+            {{ currentClaim.updateTime }}
           </ElDescriptionsItem>
         </ElDescriptions>
       </div>

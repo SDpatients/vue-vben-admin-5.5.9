@@ -92,3 +92,10 @@ export async function getUsersApi(keyword: string) {
     params: { keyword },
   });
 }
+
+/**
+ * 获取所有管理员用户
+ */
+export async function getAdminUsersApi() {
+  return requestClient8085.get<UserApi.StaffListResponse>('/users/admins');
+}

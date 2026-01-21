@@ -20,10 +20,12 @@ import {
 
 import {
   createAnnouncementApi,
+  getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
+import { fileUploadRequestClient } from '#/api/request';
 
 interface Announcement {
   id: number;
@@ -127,39 +129,23 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
   currentAnnouncement.value = announcement;
 
   try {
-    const response = await getAnnouncementDetailApi(announcement.id);
-    if (response.code === 200) {
-      const data = response.data;
-      // 处理附件，确保使用正确的file_id
-      let attachments = data.attachments || [];
-      if (typeof attachments === 'string') {
-        try {
-          attachments = JSON.parse(attachments);
-        } catch (error) {
-          console.error('解析attachments失败:', error);
-          attachments = [];
-        }
+    const [detailResponse, attachmentsResponse] = await Promise.all([
+      getAnnouncementDetailApi(announcement.id),
+      getAnnouncementAttachmentsApi(announcement.id),
+    ]);
+
+    if (detailResponse.code === 200) {
+      const data = detailResponse.data;
+      data.attachments = [];
+
+      if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
+        data.attachments = attachmentsResponse.data.map((attach: any) => ({
+          file_name: attach.originalFileName || '未知文件',
+          file_id: attach.id,
+          type: attach.mimeType || 'application/octet-stream',
+        }));
       }
 
-      // 处理附件字段映射，确保使用正确的file_id
-      const processedAttachments = attachments.map((attach: any) => ({
-        ...attach,
-        file_name:
-          attach.name ||
-          attach.file_name ||
-          attach.originalFileName ||
-          '未知文件',
-        file_id: attach.file_id || attach.id || attach.fileId || '',
-        type: attach.type || attach.mimeType || 'application/octet-stream',
-      }));
-
-      // 过滤掉没有有效file_id的附件
-      const validAttachments = processedAttachments.filter((attach: any) => {
-        return attach.file_id && !isNaN(Number(attach.file_id));
-      });
-
-      // 更新附件数据
-      data.attachments = validAttachments;
       currentAnnouncement.value = data;
     }
   } catch (error) {
@@ -215,23 +201,57 @@ const downloadFile = async (attachment: {
 /**
  * 打开文件预览
  */
-const previewFile = (attachment: { file_id: string; file_name: string }) => {
-  // 检查file_id是否存在且有效
+const previewFile = async (attachment: {
+  file_id: string;
+  file_name: string;
+}) => {
   if (!attachment.file_id) {
     ElMessage.error('无效的文件ID');
     return;
   }
 
-  // 确保file_id是数字
   const fileId = Number(attachment.file_id);
   if (isNaN(fileId)) {
     ElMessage.error('文件ID必须是数字');
     return;
   }
 
-  // 使用相对路径的预览URL
-  previewUrl.value = `/api/v1/file/preview/${fileId}`;
-  showPreviewDialog.value = true;
+  try {
+    ElMessage.info('正在加载文件...');
+
+    const response = await fileUploadRequestClient.get(
+      `/api/v1/file/preview/${fileId}`,
+      {
+        responseType: 'blob',
+      },
+    );
+
+    const blob = new Blob([response], {
+      type: response.type || 'application/octet-stream',
+    });
+
+    if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+      window.URL.revokeObjectURL(previewUrl.value);
+    }
+
+    previewUrl.value = window.URL.createObjectURL(blob);
+    showPreviewDialog.value = true;
+    ElMessage.success('文件加载成功');
+  } catch (error) {
+    console.error('文件预览失败:', error);
+    ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
+  }
+};
+
+/**
+ * 关闭文件预览对话框
+ */
+const closePreviewDialog = () => {
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
+  }
+  showPreviewDialog.value = false;
 };
 
 /**
@@ -651,9 +671,11 @@ onMounted(() => {
         width="80%"
         height="80%"
         destroy-on-close
+        @close="closePreviewDialog"
       >
         <div class="preview-container">
           <iframe
+            v-if="previewUrl"
             :src="previewUrl"
             class="preview-iframe"
             frameborder="0"

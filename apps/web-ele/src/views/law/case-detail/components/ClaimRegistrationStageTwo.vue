@@ -198,16 +198,20 @@ const handlePageSizeChange = (size: number) => {
 };
 
 const openDetailDialog = async (row: any) => {
+  console.log('[ClaimRegistrationStageTwo] 打开详情对话框，行数据:', row);
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
+    console.log('[ClaimRegistrationStageTwo] 获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
+      console.log('[ClaimRegistrationStageTwo] 设置 currentClaim:', response.data);
       currentClaim.value = response.data;
       showDetailDialog.value = true;
     } else {
+      console.error('[ClaimRegistrationStageTwo] 获取债权详情失败:', response.message);
       ElMessage.error('获取债权详情失败');
     }
   } catch (error) {
-    console.error('获取债权详情失败:', error);
+    console.error('[ClaimRegistrationStageTwo] 获取债权详情失败:', error);
     ElMessage.error('获取债权详情失败');
   }
 };
@@ -542,6 +546,9 @@ onMounted(() => {
           <ElDescriptionsItem label="案件名称">
             {{ currentClaim.caseName }}
           </ElDescriptionsItem>
+          <ElDescriptionsItem label="债务人">
+            {{ currentClaim.debtor }}
+          </ElDescriptionsItem>
           <ElDescriptionsItem label="债权人">
             {{ currentClaim.creditorName }}
           </ElDescriptionsItem>
@@ -569,12 +576,80 @@ onMounted(() => {
           <ElDescriptionsItem label="申报总金额">
             {{ currentClaim.totalAmount }}
           </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权类型">
+            {{ currentClaim.claimType }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权性质">
+            {{ currentClaim.claimNature || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权标识">
+            {{ currentClaim.claimIdentifier || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权事实" :span="2">
+            {{ currentClaim.claimFacts || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="证据清单" :span="2">
+            {{ currentClaim.evidenceList || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="证据材料" :span="2">
+            {{ currentClaim.evidenceMaterials || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="证据附件" :span="2">
+            {{ currentClaim.evidenceAttachments || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有法院判决">
+            <ElTag :type="currentClaim.hasCourtJudgment ? 'success' : 'info'">
+              {{ currentClaim.hasCourtJudgment ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有执行">
+            <ElTag :type="currentClaim.hasExecution ? 'success' : 'info'">
+              {{ currentClaim.hasExecution ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有担保">
+            <ElTag :type="currentClaim.hasCollateral ? 'success' : 'info'">
+              {{ currentClaim.hasCollateral ? '是' : '否' }}
+            </ElTag>
+          </ElDescriptionsItem>
           <ElDescriptionsItem label="登记状态">
-            <ElTag
-              :type="getRegistrationStatusTag(currentClaim.registrationStatus).type"
-            >
+            <ElTag :type="getRegistrationStatusTag(currentClaim.registrationStatus).type">
               {{ getRegistrationStatusTag(currentClaim.registrationStatus).text }}
             </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记日期">
+            {{ currentClaim.registrationDate }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记截止日期">
+            {{ currentClaim.registrationDeadline || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收人">
+            {{ currentClaim.materialReceiver }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收日期">
+            {{ currentClaim.materialReceiveDate }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料完整性">
+            <ElTag
+              :type="currentClaim.materialCompleteness === 'COMPLETE' ? 'success' : 'warning'"
+            >
+              {{
+                currentClaim.materialCompleteness === 'COMPLETE'
+                  ? '完整'
+                  : currentClaim.materialCompleteness === 'INCOMPLETE'
+                    ? '不完整'
+                    : '待补充'
+              }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="备注" :span="2">
+            {{ currentClaim.remarks || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="创建时间">
+            {{ currentClaim.createTime }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="更新时间">
+            {{ currentClaim.updateTime }}
           </ElDescriptionsItem>
         </ElDescriptions>
       </div>

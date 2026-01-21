@@ -149,6 +149,26 @@ export namespace CaseAnnouncementApi {
     updateTime: string;
   }
 
+  /** 公告附件信息 */
+  export interface AnnouncementAttachment {
+    id: number;
+    originalFileName: string;
+    filePath: string;
+    fileSize: number;
+    fileExtension: string;
+    mimeType: string;
+    uploadTime: string;
+    uploadUserId: number;
+    status: string;
+  }
+
+  /** 公告附件列表响应 */
+  export interface AnnouncementAttachmentsResponse {
+    code: number;
+    message: string;
+    data: AnnouncementAttachment[];
+  }
+
   /** 创建查看记录请求 */
   export interface CreateViewRecordRequest {
     announcementId: number;
@@ -234,6 +254,16 @@ export async function getAnnouncementListApi(
 export async function getAnnouncementDetailApi(announcementId: number) {
   return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementDetailResponse>(
     `/case-announcement/${announcementId}`,
+  );
+}
+
+/**
+ * 获取公告附件列表
+ * GET /case-announcement/{announcementId}/attachments
+ */
+export async function getAnnouncementAttachmentsApi(announcementId: number) {
+  return announcementRequestClient.get<CaseAnnouncementApi.AnnouncementAttachmentsResponse>(
+    `/case-announcement/${announcementId}/attachments`,
   );
 }
 

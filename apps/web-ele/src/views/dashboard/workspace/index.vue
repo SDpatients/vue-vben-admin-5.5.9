@@ -29,6 +29,7 @@ import {
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
 import { todoApi } from '#/api/core/todo';
+import { fileUploadRequestClient } from '#/api/request';
 import TodoList from '#/components/TodoList.vue';
 
 const userStore = useUserStore();
@@ -223,37 +224,22 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
 
     // 调用获取公告详情API
     detailLoading.value = true;
-    const response = await getAnnouncementDetailApi(announcement.id);
-    if (response.code === 200 && response.data) {
-      // 转换数据格式，确保与法律模块一致
-      const detail = response.data;
-      // 处理附件，确保使用正确的file_id
-      let attachments = detail.attachments || [];
-      if (typeof attachments === 'string') {
-        try {
-          attachments = JSON.parse(attachments);
-        } catch (error) {
-          console.error('解析attachments失败:', error);
-          attachments = [];
-        }
+    const [detailResponse, attachmentsResponse] = await Promise.all([
+      getAnnouncementDetailApi(announcement.id),
+      getAnnouncementAttachmentsApi(announcement.id),
+    ]);
+
+    if (detailResponse.code === 200 && detailResponse.data) {
+      const detail = detailResponse.data;
+      detail.attachments = [];
+
+      if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
+        detail.attachments = attachmentsResponse.data.map((attach: any) => ({
+          file_name: attach.originalFileName || '未知文件',
+          file_id: attach.id,
+          type: attach.mimeType || 'application/octet-stream',
+        }));
       }
-
-      // 处理附件字段映射，确保使用正确的file_id
-      const processedAttachments = attachments.map((attach: any) => ({
-        ...attach,
-        file_name:
-          attach.name ||
-          attach.file_name ||
-          attach.originalFileName ||
-          '未知文件',
-        file_id: attach.file_id || attach.id || attach.fileId || '',
-        type: attach.type || attach.mimeType || 'application/octet-stream',
-      }));
-
-      // 过滤掉没有有效file_id的附件
-      const validAttachments = processedAttachments.filter((attach: any) => {
-        return attach.file_id && !isNaN(Number(attach.file_id));
-      });
 
       announcementDetail.value = {
         ...detail,
@@ -265,11 +251,10 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
         view_count: detail.viewCount,
         caseNumber: detail.caseNumber,
         principalOfficer: detail.principalOfficer,
-        attachments: validAttachments,
       };
       showAnnouncementDetailDialog.value = true;
     } else {
-      ElMessage.error(`获取公告详情失败：${response.message || '未知错误'}`);
+      ElMessage.error(`获取公告详情失败：${detailResponse.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('查看公告详情失败:', error);
@@ -330,29 +315,33 @@ const viewAttachment = async (attachment: any) => {
     previewLoading.value = true;
     previewAttachment.value = attachment;
 
-    // 确定文件类型
-    const fileName = attachment.file_name || '';
-    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-    const mimeType = attachment.type || '';
+    try {
+      ElMessage.info('正在加载文件...');
 
-    // 设置预览类型
-    isImage.value =
-      ['bmp', 'gif', 'jpeg', 'jpg', 'png'].includes(fileExtension) ||
-      mimeType.startsWith('image/');
-    isPdf.value = fileExtension === 'pdf' || mimeType === 'application/pdf';
-    isText.value =
-      ['css', 'html', 'js', 'json', 'log', 'md', 'ts', 'txt', 'xml'].includes(
-        fileExtension,
-      ) || mimeType.startsWith('text/');
+      const response = await fileUploadRequestClient.get(
+        `/api/v1/file/preview/${fileId}`,
+        {
+          responseType: 'blob',
+        },
+      );
 
-    // 根据文件类型生成预览URL
-    if (isImage.value || isPdf.value || isText.value) {
-      // 直接使用后端提供的预览URL
-      previewUrl.value = `/api/v1/file/preview/${fileId}`;
+      const blob = new Blob([response], {
+        type: response.type || 'application/octet-stream',
+      });
+
+      if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+        window.URL.revokeObjectURL(previewUrl.value);
+      }
+
+      previewUrl.value = window.URL.createObjectURL(blob);
       showPreviewDialog.value = true;
-    } else {
-      // 对于不支持的文件类型，直接打开发预览对话框
+      ElMessage.success('文件加载成功');
+    } catch (error) {
+      console.error('预览附件失败:', error);
+      ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
       showPreviewDialog.value = true;
+    } finally {
+      previewLoading.value = false;
     }
   } catch (error) {
     console.error('预览附件失败:', error);
@@ -360,6 +349,15 @@ const viewAttachment = async (attachment: any) => {
   } finally {
     previewLoading.value = false;
   }
+};
+
+// 关闭文件预览对话框
+const closePreviewDialog = () => {
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
+  }
+  showPreviewDialog.value = false;
 };
 
 // 下载附件
@@ -678,7 +676,7 @@ onMounted(() => {
                   v-model="searchKeyword"
                   type="link"
                   placeholder="请输入案号"
-                  class="case-search-input rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
+                  class="case-search-input focus:ring-primary rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2"
                   @keyup.enter="searchCases"
                 />
                 <button class="ml-2 text-gray-500" @click="searchCases">
@@ -1191,6 +1189,7 @@ onMounted(() => {
       :title="previewAttachment?.file_name || '文件预览'"
       width="90%"
       destroy-on-close
+      @close="closePreviewDialog"
     >
       <div class="file-preview-container">
         <div v-loading="previewLoading" class="preview-content">

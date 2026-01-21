@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
-import type { CaseApi } from '#/api';
+import type { StatisticsApi } from '#/api';
 
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -9,16 +9,18 @@ import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import { ElCard, ElCol, ElRadio, ElRadioGroup, ElRow } from 'element-plus';
 
-import LatestUpdates from '../components/LatestUpdates.vue';
-import TodoList from '../components/TodoList.vue';
+import {
+  getCaseAmountRanking,
+  getCaseCrossAnalysis,
+  getCaseStatistics,
+  getCaseTrend,
+  getCreditorClaimAmountRanking,
+} from '#/api';
 
-// 案件管理相关代码
-const caseList = ref<CaseApi.CaseInfo[]>([]);
 const chartType1 = ref('line');
 const chartType2 = ref('pie');
 const chartType3 = ref('bar');
 
-// 图表引用 - 必须先声明再使用
 const chartRef1 = ref<EchartsUIType>();
 const chartRef2 = ref<EchartsUIType>();
 const chartRef3 = ref<EchartsUIType>();
@@ -31,82 +33,63 @@ const { renderEcharts: renderEcharts3 } = useEcharts(chartRef3);
 const { renderEcharts: renderEcharts4 } = useEcharts(chartRef4);
 const { renderEcharts: renderEcharts5 } = useEcharts(chartRef5);
 
-// 统计数据计算已删除，因为未使用
+const loading = ref(false);
+const caseStatistics = ref<null | StatisticsApi.CaseStatisticsData>(null);
+const caseTrend = ref<null | StatisticsApi.TrendResponse>(null);
+const caseCrossAnalysis = ref<null | StatisticsApi.CrossAnalysisData>(null);
+const caseRanking = ref<null | StatisticsApi.RankingResponse>(null);
+const creditorClaimRanking = ref<null | StatisticsApi.RankingResponse>(null);
 
-// 案件类型分布数据
-const caseTypeData = computed(() => {
-  const typeMap = new Map<string, number>();
-  caseList.value.forEach((item) => {
-    const type = item['案由'] || '其他';
-    typeMap.set(type, (typeMap.get(type) || 0) + 1);
-  });
-  return [...typeMap.entries()].map(([name, value]) => ({
-    name,
-    value,
-  }));
-});
-
-// 案件数量趋势数据（按月份）
 const caseTrendData = computed(() => {
-  const monthMap = new Map<string, number>();
-  // 初始化过去12个月
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    monthMap.set(monthKey, 0);
+  if (!caseTrend.value || !caseTrend.value.trendData) {
+    return { categories: [], values: [] };
   }
-
-  // 统计各月份案件数
-  caseList.value.forEach((item) => {
-    if (item['立案时间']) {
-      const date = new Date(item['立案时间']);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (monthMap.has(monthKey)) {
-        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
-      }
-    }
-  });
-
   return {
-    categories: [...monthMap.keys()],
-    values: [...monthMap.values()],
+    categories: caseTrend.value.trendData.map((item) => item.date),
+    values: caseTrend.value.trendData.map((item) => item.count),
   };
 });
 
-// 案件处理进度数据
+const caseTypeData = computed(() => {
+  if (!caseStatistics.value || !caseStatistics.value.statusDistribution) {
+    return [];
+  }
+  return Object.entries(caseStatistics.value.statusDistribution).map(
+    ([name, value]) => ({ name, value }),
+  );
+});
+
 const caseProgressData = computed(() => {
-  const progressMap = new Map<string, number>();
-  caseList.value.forEach((item) => {
-    // 根据案件状态或时间计算进度
-    const status = item['会计账簿'] || '其他';
-    progressMap.set(status, (progressMap.get(status) || 0) + 1);
-  });
-  return [...progressMap.entries()].map(([name, value]) => ({
-    name,
-    value,
-  }));
+  if (!caseStatistics.value || !caseStatistics.value.progressDistribution) {
+    return [];
+  }
+  return Object.entries(caseStatistics.value.progressDistribution).map(
+    ([name, value]) => ({ name, value }),
+  );
 });
 
-// 债权人数与金额分布数据
 const creditorAmountData = computed(() => {
-  return caseList.value.slice(0, 10).map((item) => ({
-    name: item['案号'],
-    creditors: item['债权人数'] || 0,
-    amount: item['债权总额'] || 0,
+  if (!creditorClaimRanking.value || !creditorClaimRanking.value.rankings) {
+    return [];
+  }
+  return creditorClaimRanking.value.rankings.map((item) => ({
+    name: item.name,
+    creditors: 0,
+    amount: item.amount,
   }));
 });
 
-// 财产金额与比例分布数据
 const assetRatioData = computed(() => {
-  return caseList.value.slice(0, 10).map((item) => ({
-    name: item['案号'],
-    assets: item['财产金额'] || 0,
-    ratio: (item['财产比例'] || 0) * 100,
+  if (!caseRanking.value || !caseRanking.value.rankings) {
+    return [];
+  }
+  return caseRanking.value.rankings.map((item) => ({
+    name: item.name,
+    assets: item.amount,
+    ratio: item.percentage,
   }));
 });
 
-// 渲染所有图表
 const renderAllCharts = () => {
   renderCaseTrendChart();
   renderCaseTypeChart();
@@ -115,7 +98,6 @@ const renderAllCharts = () => {
   renderAssetRatioChart();
 };
 
-// 渲染案件数量趋势图表
 const renderCaseTrendChart = () => {
   const data = caseTrendData.value;
   const series: any = {
@@ -126,7 +108,6 @@ const renderCaseTrendChart = () => {
     },
   };
 
-  // 只有折线图才添加平滑和面积样式
   if (chartType1.value === 'line') {
     series.smooth = true;
     series.areaStyle = {
@@ -176,7 +157,6 @@ const renderCaseTrendChart = () => {
   });
 };
 
-// 渲染案件类型分布图表
 const renderCaseTypeChart = () => {
   const data = caseTypeData.value;
   renderEcharts2({
@@ -209,7 +189,6 @@ const renderCaseTypeChart = () => {
   });
 };
 
-// 渲染案件处理进度图表
 const renderCaseProgressChart = () => {
   const data = caseProgressData.value;
   const isHorizontal = chartType3.value === 'horizontal-bar';
@@ -259,7 +238,6 @@ const renderCaseProgressChart = () => {
   });
 };
 
-// 渲染债权人数与金额分布图表
 const renderCreditorAmountChart = () => {
   const data = creditorAmountData.value;
   renderEcharts4({
@@ -283,13 +261,6 @@ const renderCreditorAmountChart = () => {
     yAxis: [
       {
         type: 'value',
-        name: '债权人数',
-        axisLabel: {
-          formatter: '{value}',
-        },
-      },
-      {
-        type: 'value',
         name: '债权金额(万元)',
         axisLabel: {
           formatter: '{value}',
@@ -298,31 +269,21 @@ const renderCreditorAmountChart = () => {
     ],
     series: [
       {
-        name: '债权人数',
-        data: data.map((item) => item.creditors),
-        type: 'bar',
-        itemStyle: {
-          color: '#4f69fd',
-        },
-      },
-      {
         name: '债权金额(万元)',
         data: data.map((item) => Math.round((item.amount || 0) / 10_000)),
-        type: 'line',
-        yAxisIndex: 1,
+        type: 'bar',
         itemStyle: {
           color: '#f56c6c',
         },
       },
     ],
     legend: {
-      data: ['债权人数', '债权金额(万元)'],
+      data: ['债权金额(万元)'],
       top: 0,
     },
   });
 };
 
-// 渲染财产金额与比例分布图表
 const renderAssetRatioChart = () => {
   const data = assetRatioData.value;
   renderEcharts5({
@@ -346,14 +307,14 @@ const renderAssetRatioChart = () => {
     yAxis: [
       {
         type: 'value',
-        name: '财产金额(万元)',
+        name: '案件金额(万元)',
         axisLabel: {
           formatter: '{value}',
         },
       },
       {
         type: 'value',
-        name: '财产比例(%)',
+        name: '占比(%)',
         axisLabel: {
           formatter: '{value}%',
         },
@@ -361,7 +322,7 @@ const renderAssetRatioChart = () => {
     ],
     series: [
       {
-        name: '财产金额(万元)',
+        name: '案件金额(万元)',
         data: data.map((item) => Math.round((item.assets || 0) / 10_000)),
         type: 'bar',
         itemStyle: {
@@ -369,7 +330,7 @@ const renderAssetRatioChart = () => {
         },
       },
       {
-        name: '财产比例(%)',
+        name: '占比(%)',
         data: data.map((item) => item.ratio),
         type: 'line',
         yAxisIndex: 1,
@@ -379,137 +340,77 @@ const renderAssetRatioChart = () => {
       },
     ],
     legend: {
-      data: ['财产金额(万元)', '财产比例(%)'],
+      data: ['案件金额(万元)', '占比(%)'],
       top: 0,
     },
   });
 };
 
-// 监听案件列表变化，重新渲染图表
-watch(
-  caseList,
-  () => {
-    renderAllCharts();
-  },
-  { deep: true },
-);
+const loadStatisticsData = async () => {
+  try {
+    loading.value = true;
 
-// 监听图表类型变化，重新渲染对应图表
+    const [trendRes, statsRes, crossRes, rankingRes, creditorRes] =
+      await Promise.all([
+        getCaseTrend({ period: 'month' }).catch((error) => {
+          console.error('案件趋势API调用失败:', error);
+          return null;
+        }),
+        getCaseStatistics().catch((error) => {
+          console.error('案件统计API调用失败:', error);
+          return null;
+        }),
+        getCaseCrossAnalysis().catch((error) => {
+          console.error('案件交叉分析API调用失败:', error);
+          return null;
+        }),
+        getCaseAmountRanking({ topN: 10 }).catch((error) => {
+          console.error('案件金额排名API调用失败:', error);
+          return null;
+        }),
+        getCreditorClaimAmountRanking({ topN: 10 }).catch((error) => {
+          console.error('债权申报金额排名API调用失败:', error);
+          return null;
+        }),
+      ]);
+
+    console.log('API返回数据:', {
+      trendRes,
+      statsRes,
+      crossRes,
+      rankingRes,
+      creditorRes,
+    });
+
+    caseTrend.value = trendRes;
+    caseStatistics.value = statsRes;
+    caseCrossAnalysis.value = crossRes;
+    caseRanking.value = rankingRes;
+    creditorClaimRanking.value = creditorRes;
+
+    renderAllCharts();
+  } catch (error) {
+    console.error('加载统计数据失败:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+watch(caseStatistics, () => {
+  renderAllCharts();
+});
+
 watch(chartType1, () => renderCaseTrendChart());
 watch(chartType2, () => renderCaseTypeChart());
 watch(chartType3, () => renderCaseProgressChart());
 
-// 生成模拟数据
-const generateMockData = () => {
-  const mockCases: CaseApi.CaseInfo[] = [
-    {
-      row: 1,
-      案件ID: 'CASE2024001',
-      序号: 1,
-      年度: '2024',
-      案号: '(2024)沪01破1号',
-      申请人: '上海银行',
-      债务人: '上海某科技公司',
-      案由: '破产清算',
-      立案时间: '2024-01-15',
-      破产时间: '2024-01-20',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '已移交',
-      办理期限: '2024-12-31',
-      承办人: '张三',
-      法院: '上海市第一中级人民法院',
-      管理人: '李四律师事务所',
-      债权人数: 25,
-      债权总额: 15_000_000,
-      财产金额: 8_000_000,
-      财产比例: 0.53,
-      银行账户数: 3,
-      银行账户总余额: 1_200_000,
-      有效账户数: 2,
-    } as CaseApi.CaseInfo,
-    {
-      row: 2,
-      案件ID: 'CASE2024002',
-      序号: 2,
-      年度: '2024',
-      案号: '(2024)京02破5号',
-      申请人: '建设银行',
-      债务人: '北京某房地产公司',
-      案由: '破产重整',
-      立案时间: '2024-02-10',
-      破产时间: '2024-02-15',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '未移交',
-      办理期限: '2025-02-28',
-      承办人: '王五',
-      法院: '北京市第二中级人民法院',
-      管理人: '赵六会计师事务所',
-      债权人数: 48,
-      债权总额: 28_000_000,
-      财产金额: 15_000_000,
-      财产比例: 0.54,
-      银行账户数: 5,
-      银行账户总余额: 3_500_000,
-      有效账户数: 4,
-    } as CaseApi.CaseInfo,
-    {
-      row: 3,
-      案件ID: 'CASE2024003',
-      序号: 3,
-      年度: '2024',
-      案号: '(2024)深03破8号',
-      申请人: '招商银行',
-      债务人: '深圳某电子公司',
-      案由: '破产清算',
-      立案时间: '2024-03-05',
-      破产时间: '2024-03-10',
-      终结时间: null,
-      注销时间: null,
-      归档时间: null,
-      会计账簿: '部分移交',
-      办理期限: '2024-09-30',
-      承办人: '孙七',
-      法院: '深圳市中级人民法院',
-      管理人: '钱八律师事务所',
-      债权人数: 32,
-      债权总额: 9_500_000,
-      财产金额: 5_200_000,
-      财产比例: 0.55,
-      银行账户数: 2,
-      银行账户总余额: 850_000,
-      有效账户数: 1,
-    } as CaseApi.CaseInfo,
-  ];
-
-  caseList.value = mockCases;
-};
-
-// 初始化数据
 onMounted(() => {
-  generateMockData();
-  renderAllCharts();
+  loadStatisticsData();
 });
 </script>
 
 <template>
   <div class="p-5">
-    <!-- 最新动态和待办事项 -->
-    <ElRow :gutter="20" class="mb-5">
-      <ElCol :span="12">
-        <ElCard size="small" class="h-[300px]">
-          <LatestUpdates />
-        </ElCard>
-      </ElCol>
-      <ElCol :span="12">
-        <ElCard size="small" class="h-[300px]">
-          <TodoList />
-        </ElCard>
-      </ElCol>
-    </ElRow>
     <!-- 案件管理图表 -->
     <div class="mt-5">
       <h3 class="mb-4 text-lg font-semibold">案件管理分析</h3>
@@ -572,19 +473,19 @@ onMounted(() => {
         </ElCol>
       </ElRow>
 
-      <!-- 第三行：债权人数与金额分布、财产金额与比例分布 -->
+      <!-- 第三行：债权申报金额排名、案件金额排名 -->
       <ElRow :gutter="20" class="mb-5">
-        <!-- 债权人数与金额分布图表 -->
+        <!-- 债权申报金额排名图表 -->
         <ElCol :span="12">
-          <ElCard header="债权人数与金额分布" size="small">
+          <ElCard header="债权申报金额排名" size="small">
             <div class="h-[300px]">
               <EchartsUI ref="chartRef4" />
             </div>
           </ElCard>
         </ElCol>
-        <!-- 财产金额与比例分布图表 -->
+        <!-- 案件金额排名图表 -->
         <ElCol :span="12">
-          <ElCard header="财产金额与比例分布" size="small">
+          <ElCard header="案件金额排名" size="small">
             <div class="h-[300px]">
               <EchartsUI ref="chartRef5" />
             </div>

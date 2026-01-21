@@ -37,7 +37,6 @@ import {
   publishAnnouncementApi,
   topAnnouncementApi,
   unTopAnnouncementApi,
-  updateAnnouncementApi,
 } from '#/api/core/case-announcement';
 import {
   createDocumentApi,
@@ -49,7 +48,11 @@ import {
 } from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
-import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
+import {
+  getAdminUsersApi,
+  getUserByDeptIdApi,
+  getUsersApi,
+} from '#/api/core/user';
 import {
   addTeamMemberApi,
   createWorkTeamApi,
@@ -59,6 +62,7 @@ import {
   removeTeamMemberApi,
   updateTeamMemberApi,
 } from '#/api/core/work-team';
+import { fileUploadRequestClient } from '#/api/request';
 
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
@@ -68,6 +72,7 @@ import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
+import ProgressManagementModal from './components/ProgressManagementModal.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -88,6 +93,9 @@ const teamMemberInfo = ref<any>(null);
 
 // 案件卷宗归档相关
 const archiveDrawerRef = ref<InstanceType<typeof ArchiveDrawer> | null>(null);
+
+// 进度管理弹窗相关
+const showProgressManagement = ref(false);
 
 // 工作团队相关
 const workTeams = ref<any[]>([]);
@@ -344,12 +352,38 @@ const reviewTypeOptions = [
   { label: '文书审批', value: 'DOCUMENT_REVIEW' },
 ];
 
-const reviewerOptions = [
-  { label: '张三', value: '1' },
-  { label: '李四', value: '2' },
-  { label: '王五', value: '3' },
-  { label: '赵六', value: '4' },
-];
+// 审批人选项，从API获取
+const reviewerOptions = ref<any[]>([]);
+const loadingReviewers = ref(false);
+
+// 获取管理员用户列表
+const fetchAdminUsers = async () => {
+  loadingReviewers.value = true;
+  try {
+    const response = await getAdminUsersApi();
+    if (response.code === 200 && response.data) {
+      reviewerOptions.value = response.data.map((user: any) => ({
+        label: user.name || user.uName || '未知用户',
+        value: user.id || user.uPid || '',
+      }));
+    } else {
+      ElMessage.error('获取管理员列表失败');
+      reviewerOptions.value = [];
+    }
+  } catch (error) {
+    console.error('获取管理员列表失败:', error);
+    ElMessage.error('获取管理员列表失败');
+    reviewerOptions.value = [];
+  } finally {
+    loadingReviewers.value = false;
+  }
+};
+
+// 打开审批弹窗时加载管理员列表
+const openReviewDialog = () => {
+  fetchAdminUsers();
+  showReviewDialog.value = true;
+};
 
 const reviewHistory = ref([
   {
@@ -584,8 +618,7 @@ const submitDocumentForm = async () => {
   // 提交数据
   fileUploadLoading.value = true;
   try {
-    // 准备请求数据，映射表单字段到API字段
-    const requestData = {
+    const requestData: any = {
       caseId: Number(documentForm.caseId),
       documentName: documentForm.documentName,
       documentType: documentForm.documentType,
@@ -595,25 +628,34 @@ const submitDocumentForm = async () => {
       deliveryAddress: documentForm.recipientAddress,
       deliveryMethod: documentForm.serviceMethod,
       deliveryContent: documentForm.serviceContent,
-      documentAttachment: documentForm.attachment,
       sendStatus: documentForm.sendStatus,
     };
 
-    let response;
-    if (isEditingDocument.value && currentDocumentId.value) {
-      // 更新文书
-      response = await updateDocumentApi(currentDocumentId.value, requestData);
-    } else {
-      // 创建文书
-      response = await createDocumentApi(requestData);
+    if (uploadedFiles.value.length > 0) {
+      const file = uploadedFiles.value[0].file;
+      const uploadResponse = await uploadFileApi(
+        file,
+        'document',
+        Number(documentForm.caseId),
+      );
+
+      if (uploadResponse.code === 200 && uploadResponse.data) {
+        requestData.documentAttachment =
+          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      }
     }
+
+    let response;
+    response = await (isEditingDocument.value && currentDocumentId.value
+      ? updateDocumentApi(currentDocumentId.value, requestData)
+      : createDocumentApi(requestData));
 
     if (response.code === 200) {
       ElMessage.success(
         isEditingDocument.value ? '文书送达更新成功' : '文书送达创建成功',
       );
       showAddDocumentDialog.value = false;
-      // 刷新列表
+      resetDocumentForm();
       fetchDocumentList();
     } else {
       ElMessage.error(
@@ -818,67 +860,31 @@ const viewAttachment = async (attachment: any) => {
     previewLoading.value = true;
     previewAttachment.value = attachment;
 
-    // 确定文件类型
-    const fileName = attachment.file_name || '';
-    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-    const mimeType = attachment.type || '';
-    const token = localStorage.getItem('token');
+    try {
+      ElMessage.info('正在加载文件...');
 
-    // 设置预览类型
-    isImage.value =
-      ['bmp', 'gif', 'jpeg', 'jpg', 'png'].includes(fileExtension) ||
-      mimeType.startsWith('image/');
-    isPdf.value = fileExtension === 'pdf' || mimeType === 'application/pdf';
-    isText.value =
-      ['css', 'html', 'js', 'json', 'log', 'md', 'ts', 'txt', 'xml'].includes(
-        fileExtension,
-      ) || mimeType.startsWith('text/');
+      const response = await fileUploadRequestClient.get(
+        `/api/v1/file/preview/${fileId}`,
+        {
+          responseType: 'blob',
+        },
+      );
 
-    // 根据文件类型生成预览URL或内容
-    if (isImage.value) {
-      // 对于图片，使用fetch获取blob并转换为URL，以便添加认证头
-      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const blob = new Blob([response], {
+        type: response.type || 'application/octet-stream',
       });
-      if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-        showPreviewDialog.value = true;
-      } else {
-        throw new Error('预览失败');
+
+      if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl.value);
       }
-      previewLoading.value = false;
-    } else if (isPdf.value) {
-      // 对于PDF，由于直接使用iframe无法添加请求头，我们需要先获取blob再转换为URL
-      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-        showPreviewDialog.value = true;
-      } else {
-        throw new Error('预览失败');
-      }
-      previewLoading.value = false;
-    } else if (isText.value) {
-      // 对于文本文件，使用预览URL获取文本内容，并添加认证头
-      const response = await fetch(`/api/v1/file/preview/${fileId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const text = await response.text();
-      textContent.value = text;
+
+      previewUrl.value = URL.createObjectURL(blob);
       showPreviewDialog.value = true;
-      previewLoading.value = false;
-    } else {
-      // 对于其他类型，提示无法预览，建议下载
-      ElMessage.info('该文件类型不支持在线预览，建议下载后查看');
+      ElMessage.success('文件加载成功');
+    } catch (error) {
+      console.error('预览附件失败:', error);
+      ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
+    } finally {
       previewLoading.value = false;
     }
   } catch (error) {
@@ -912,6 +918,14 @@ const formatDate = (dateStr: string) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const getDocumentAttachmentUrl = (attachmentPath: string) => {
+  if (!attachmentPath) return '';
+  if (attachmentPath.startsWith('http')) {
+    return attachmentPath;
+  }
+  return `${import.meta.env.VITE_API_BASE_URL || window.location.origin}${attachmentPath}`;
 };
 
 const formatDateOnly = (dateStr: string) => {
@@ -972,6 +986,11 @@ const saveAnnouncement = async () => {
   try {
     let response;
 
+    console.log(
+      '保存公告前的announcementData.attachments:',
+      announcementData.attachments,
+    );
+
     // 准备请求数据
     const requestData = {
       caseId: Number(caseId.value),
@@ -986,6 +1005,8 @@ const saveAnnouncement = async () => {
         ? JSON.stringify(announcementData.attachments)
         : undefined,
     };
+
+    console.log('保存公告的请求数据:', requestData);
 
     if (isEditingAnnouncement.value && currentAnnouncementId.value) {
       // 更新现有公告
@@ -1147,9 +1168,20 @@ const editAnnouncement = async (announcement: any) => {
   attachments = attachments.map((attach: any) => ({
     ...attach,
     file_name: attach.name || attach.file_name || '未知文件',
-    file_id: attach.file_id || attach.id || attach.uid || Date.now(),
+    file_id:
+      attach.file_id ||
+      attach.id ||
+      attach.fileId ||
+      attach.response?.id ||
+      attach.uid ||
+      '',
     type: attach.type || 'application/octet-stream',
   }));
+
+  // 过滤掉没有有效file_id的附件
+  attachments = attachments.filter((attach: any) => {
+    return attach.file_id && !isNaN(Number(attach.file_id));
+  });
 
   announcementData.attachments = attachments;
   announcementData.caseNumber =
@@ -1197,7 +1229,24 @@ const viewAnnouncementDetail = async (announcement: any) => {
     const response = await getAnnouncementDetailApi(Number(announcementId));
     let detail = response.data;
 
-    // 将驼峰命名转换为下划线命名，并只保留需要的字段
+    console.log('公告详情原始数据:', detail);
+
+    const [attachmentsResponse] = await Promise.all([
+      getAnnouncementAttachmentsApi(Number(announcementId)),
+    ]);
+
+    detail.attachments = [];
+
+    if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
+      detail.attachments = attachmentsResponse.data.map((attach: any) => ({
+        file_name: attach.originalFileName || '未知文件',
+        file_id: attach.id,
+        type: attach.mimeType || 'application/octet-stream',
+      }));
+    }
+
+    console.log('处理后的attachments:', detail.attachments);
+
     detail = {
       id: detail.id,
       title: detail.title,
@@ -1212,47 +1261,118 @@ const viewAnnouncementDetail = async (announcement: any) => {
       attachments: detail.attachments,
     };
 
+    console.log('处理后的detail:', detail);
+
     // 确保attachments字段是数组
     if (!detail.attachments) {
+      console.log('attachments为空，设置为空数组');
       detail.attachments = [];
     } else if (typeof detail.attachments === 'string') {
       try {
-        detail.attachments = JSON.parse(detail.attachments);
+        const parsedAttachments = JSON.parse(detail.attachments);
+        console.log('解析后的attachments数组:', parsedAttachments);
         // 处理附件字段映射，确保文件名字段正确
-        detail.attachments = detail.attachments.map((attach: any) => ({
-          ...attach,
-          file_name:
-            attach.name ||
-            attach.file_name ||
-            attach.originalFileName ||
-            '未知文件',
-          file_id: attach.file_id || attach.id || attach.fileId || '',
-          type: attach.type || attach.mimeType || 'application/octet-stream',
-        }));
+        detail.attachments = parsedAttachments.map((attach: any) => {
+          const fileId =
+            attach.file_id ||
+            attach.id ||
+            attach.fileId ||
+            attach.response?.id ||
+            attach.uid ||
+            attach.raw?.uid ||
+            '';
+          const mappedAttach = {
+            ...attach,
+            file_name:
+              attach.name ||
+              attach.file_name ||
+              attach.originalFileName ||
+              '未知文件',
+            file_id: fileId,
+            type: attach.type || attach.mimeType || 'application/octet-stream',
+          };
+          console.log('附件字段映射:', {
+            原始数据: attach,
+            映射后: mappedAttach,
+          });
+          return mappedAttach;
+        });
+        console.log('字段映射后的attachments:', detail.attachments);
         // 过滤掉没有有效file_id的附件
         detail.attachments = detail.attachments.filter((attach: any) => {
-          return attach.file_id && !isNaN(Number(attach.file_id));
+          const hasValidId = attach.file_id && !isNaN(Number(attach.file_id));
+          console.log(
+            `附件 ${attach.file_name} 的file_id: ${attach.file_id}, 有效: ${hasValidId}`,
+          );
+          return hasValidId;
         });
+        console.log('过滤后的attachments:', detail.attachments);
+
+        // 如果过滤后附件为空，但原始有附件数据，说明数据结构有问题
+        if (detail.attachments.length === 0 && parsedAttachments.length > 0) {
+          console.warn(
+            '警告：附件数据被全部过滤，可能是后端返回的数据结构不正确',
+          );
+          console.warn(
+            '期望的附件数据结构应包含 file_id、id、fileId、response.id 或 uid 字段',
+          );
+          console.warn('实际收到的数据:', parsedAttachments);
+          console.warn('这是一个后端数据问题，请联系后端开发人员修复');
+        }
       } catch (error) {
         console.error('解析attachments失败:', error);
         detail.attachments = [];
       }
     } else {
       // 处理附件字段映射，确保文件名字段正确
-      detail.attachments = detail.attachments.map((attach: any) => ({
-        ...attach,
-        file_name:
-          attach.name ||
-          attach.file_name ||
-          attach.originalFileName ||
-          '未知文件',
-        file_id: attach.file_id || attach.id || attach.fileId || '',
-        type: attach.type || attach.mimeType || 'application/octet-stream',
-      }));
+      detail.attachments = detail.attachments.map((attach: any) => {
+        const fileId =
+          attach.file_id ||
+          attach.id ||
+          attach.fileId ||
+          attach.response?.id ||
+          attach.uid ||
+          attach.raw?.uid ||
+          '';
+        const mappedAttach = {
+          ...attach,
+          file_name:
+            attach.name ||
+            attach.file_name ||
+            attach.originalFileName ||
+            '未知文件',
+          file_id: fileId,
+          type: attach.type || attach.mimeType || 'application/octet-stream',
+        };
+        console.log('附件字段映射:', {
+          原始数据: attach,
+          映射后: mappedAttach,
+        });
+        return mappedAttach;
+      });
+      console.log('字段映射后的attachments:', detail.attachments);
       // 过滤掉没有有效file_id的附件
       detail.attachments = detail.attachments.filter((attach: any) => {
-        return attach.file_id && !isNaN(Number(attach.file_id));
+        const hasValidId = attach.file_id && !isNaN(Number(attach.file_id));
+        console.log(
+          `附件 ${attach.file_name} 的file_id: ${attach.file_id}, 有效: ${hasValidId}`,
+        );
+        return hasValidId;
       });
+      console.log('过滤后的attachments:', detail.attachments);
+
+      // 如果过滤后附件为空，但原始有附件数据，说明数据结构有问题
+      const originalAttachments = detail.attachments;
+      if (detail.attachments.length === 0 && originalAttachments.length > 0) {
+        console.warn(
+          '警告：附件数据被全部过滤，可能是后端返回的数据结构不正确',
+        );
+        console.warn(
+          '期望的附件数据结构应包含 file_id、id、fileId、response.id 或 uid 字段',
+        );
+        console.warn('实际收到的数据:', originalAttachments);
+        console.warn('这是一个后端数据问题，请联系后端开发人员修复');
+      }
     }
 
     currentAnnouncementDetail.value = detail;
@@ -1696,6 +1816,11 @@ const cancelEditing = () => {
   ElMessage.info('已取消编辑');
 };
 
+// 处理进度更新事件
+const handleProgressUpdated = () => {
+  ElMessage.success('案件进度已更新');
+};
+
 // 生命周期
 onMounted(async () => {
   loading.value = true;
@@ -1868,18 +1993,18 @@ const mapCaseStatus = (status: string): string => {
 // 根据案件进度获取初始阶段索引
 const getInitialStageIndex = (): number => {
   if (!caseDetail.value) return 0;
-  
+
   const progress = caseDetail.value.案件进度;
   const progressIndexMap: Record<string, number> = {
-    '第一阶段': 0,
-    '第二阶段': 1,
-    '第三阶段': 2,
-    '第四阶段': 3,
-    '第五阶段': 4,
-    '第六阶段': 5,
-    '第七阶段': 6,
+    第一阶段: 0,
+    第二阶段: 1,
+    第三阶段: 2,
+    第四阶段: 3,
+    第五阶段: 4,
+    第六阶段: 5,
+    第七阶段: 6,
   };
-  
+
   return progressIndexMap[progress] || 0;
 };
 
@@ -2604,7 +2729,7 @@ const checkPermissions = async () => {
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
               </ElButton>
-              <ElButton type="primary" @click="showReviewDialog = true">
+              <ElButton type="primary" @click="openReviewDialog">
                 <Icon icon="lucide:check-square" class="mr-2" />
                 提交批审
               </ElButton>
@@ -2685,6 +2810,13 @@ const checkPermissions = async () => {
                     <ElButton type="primary" @click="startEditing">
                       <Icon icon="lucide:pencil" class="mr-1" />
                       编辑
+                    </ElButton>
+                    <ElButton
+                      type="primary"
+                      @click="showProgressManagement = true"
+                    >
+                      <Icon icon="lucide:bar-chart-2" class="mr-1" />
+                      进度管理
                     </ElButton>
                   </template>
                   <template v-else-if="isEditing && canEdit">
@@ -3208,7 +3340,10 @@ const checkPermissions = async () => {
 
         <!-- 流程处理 -->
         <div v-if="activeTab === 'process'" class="process-content">
-          <BankruptcyProcess :case-id="caseId" :initial-stage="getInitialStageIndex()" />
+          <BankruptcyProcess
+            :case-id="caseId"
+            :initial-stage="getInitialStageIndex()"
+          />
         </div>
 
         <!-- 债权人信息 -->
@@ -5139,10 +5274,13 @@ const checkPermissions = async () => {
               <div class="attachment-info">
                 <Icon icon="lucide:file-pdf" class="mr-2" />
                 <a
-                  :href="documentDetail.documentAttachment"
+                  :href="
+                    getDocumentAttachmentUrl(documentDetail.documentAttachment)
+                  "
                   target="_blank"
                   rel="noopener noreferrer"
                   class="attachment-link"
+                  download
                 >
                   查看附件
                 </a>
@@ -5300,6 +5438,12 @@ const checkPermissions = async () => {
           </div>
         </template>
       </ElDialog>
+
+      <ProgressManagementModal
+        v-model:visible="showProgressManagement"
+        :case-id="caseId"
+        @progress-updated="handleProgressUpdated"
+      />
     </div>
   </div>
 </template>
