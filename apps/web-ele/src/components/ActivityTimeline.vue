@@ -130,6 +130,11 @@ onMounted(async () => {
   // 确保数据加载完成后，再次触发数量更新
   emit('update:count', activities.value.length);
 });
+
+// 暴露方法给父组件
+defineExpose({
+  loadActivities
+});
 </script>
 
 <template>

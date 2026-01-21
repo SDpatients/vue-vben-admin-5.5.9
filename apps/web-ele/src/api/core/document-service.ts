@@ -104,6 +104,26 @@ export namespace DocumentServiceApi {
     documentAttachment?: string;
     failureReason?: string;
   }
+
+  /** 附件信息 */
+  export interface Attachment {
+    id: number;
+    originalFileName: string;
+    filePath: string;
+    fileSize: number;
+    fileExtension: string;
+    mimeType: string;
+    uploadTime: string;
+    uploadUserId: number;
+    status: string;
+  }
+
+  /** 附件列表响应 */
+  export interface AttachmentListResponse {
+    code: number;
+    message: string;
+    data: Attachment[];
+  }
 }
 
 /**
@@ -213,5 +233,16 @@ export async function updateDocumentSendStatusApi(
     `/api/v1/document-delivery/${deliveryId}/send-status`,
     undefined,
     { params: { sendStatus } },
+  );
+}
+
+/**
+ * 获取文书送达附件列表
+ */
+export async function getDocumentAttachmentsApi(
+  deliveryId: number,
+) {
+  return documentRequestClient.get<DocumentServiceApi.AttachmentListResponse>(
+    `/api/v1/document-delivery/${deliveryId}/attachments`,
   );
 }

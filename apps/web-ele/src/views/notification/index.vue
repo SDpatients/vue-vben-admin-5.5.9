@@ -156,9 +156,8 @@ const handleNotificationClick = async (item: Notification) => {
 const markAllAsRead = async () => {
   try {
     await notificationApi.markAllAsRead();
-    notifications.value.forEach((item) => {
-      item.isRead = true;
-    });
+    // 重新加载通知数据
+    await loadNotifications();
     ElMessage.success('已全部标记为已读');
   } catch (error) {
     ElMessage.error('操作失败');
