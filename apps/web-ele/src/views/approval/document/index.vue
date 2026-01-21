@@ -442,14 +442,6 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="deliveryContent" label="送达内容" min-width="250">
-          <template #default="{ row }">
-            <ElTooltip :content="row.deliveryContent" placement="top">
-              <span class="truncate-text">{{ row.deliveryContent }}</span>
-            </ElTooltip>
-          </template>
-        </ElTableColumn>
-
         <ElTableColumn prop="recipientName" label="收件人" width="120" />
 
         <ElTableColumn prop="createTime" label="创建时间" width="180" />
@@ -563,11 +555,9 @@ onMounted(() => {
               @click="showFullContent = true"
               :class="{ 'clickable': true }"
             >
-              <div v-if="!showFullContent" class="content-preview">
-                {{ currentDocument.deliveryContent }}
-              </div>
-              <div v-else class="content-full">
-                {{ currentDocument.deliveryContent }}
+              <div v-if="!showFullContent" class="content-preview" v-html="currentDocument.deliveryContent"></div>
+              <div v-else>
+                <div class="content-full" v-html="currentDocument.deliveryContent"></div>
                 <ElButton 
                   type="text" 
                   size="small" 
@@ -728,6 +718,22 @@ onMounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* 固定表格行高 */
+  :deep(.el-table__row) {
+    height: 50px !important;
+  }
+
+  /* 确保单元格内容单行显示，多余内容省略 */
+  :deep(.el-table__cell) {
+    height: 50px !important;
+    line-height: 50px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
 
   .document-detail {

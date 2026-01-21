@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, defineProps, onMounted, watch } from 'vue';
+import { ref, computed, defineProps, onMounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -45,8 +45,12 @@ const currentStageIndex = ref(0);
 const activeTab = ref('basic');
 const isEditMode = ref(false);
 const currentItem = ref<any>(null);
+// 控制撤回按钮显示
+const showWithdrawButton = ref<string | null>(null);
 
 const formRef = ref();
+const upload = ref<InstanceType<typeof ElUpload>>();
+const tabs = ref<InstanceType<typeof ElTabs>>();
 const formData = ref({
   title: '',
   content: '',
@@ -58,10 +62,109 @@ const formRules = {
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }],
 };
 
+// 上传文件列表
+const uploadFiles = ref<UploadFile[]>([]);
+
+// 处理文件上传前的验证
+const handleFileBeforeUpload = (file: UploadFile) => {
+  // 验证文件大小，限制为50MB
+  const maxSize = 50 * 1024 * 1024; // 50MB
+  if (file.size > maxSize) {
+    ElMessage.error(`单个文件大小不能超过50MB`);
+    return false;
+  }
+  return false; // 返回false，阻止自动上传
+}
+
+// 处理文件移除
+const handleFileRemove = (file: UploadFile) => {
+  const index = uploadFiles.value.findIndex(item => item.uid === file.uid);
+  if (index !== -1) {
+    uploadFiles.value.splice(index, 1);
+  }
+  return true;
+};
+
+// 处理文件变化
+const handleFileChange = (file: UploadFile, fileList: UploadFile[]) => {
+  uploadFiles.value = fileList;
+};
+
 
 
 // 为每个模块添加展开状态
 const expandedModules = ref<Record<string, boolean>>({});
+// 为每个模块添加完成状态
+const completedModules = ref<Record<string, boolean>>({
+  '1-1': true,
+  '1-2': true,
+  '2-1': true,
+  '3-1': true
+});
+
+// 存储每个阶段的动画进度值
+const animatedProgress = ref<Record<number, number>>({});
+
+// 初始化动画进度值
+const initAnimatedProgress = () => {
+  stages.forEach((_, index) => {
+    animatedProgress.value[index] = getStageProgress(index);
+  });
+};
+
+// 切换模块完成状态
+const toggleModuleComplete = (moduleId: string) => {
+  completedModules.value[moduleId] = !completedModules.value[moduleId];
+  // 触发所有阶段的进度动画
+  updateAllAnimatedProgress();
+};
+
+// 更新所有阶段的动画进度
+const updateAllAnimatedProgress = () => {
+  stages.forEach((_, index) => {
+    animateProgress(index);
+  });
+};
+
+// 单个阶段的进度动画
+const animateProgress = (stageIndex: number) => {
+  const targetProgress = getStageProgress(stageIndex);
+  const currentProgress = animatedProgress.value[stageIndex] || 0;
+  
+  // 如果当前值已经等于目标值，无需动画
+  if (currentProgress === targetProgress) {
+    return;
+  }
+  
+  // 计算每次动画的增量
+  const increment = currentProgress < targetProgress ? 1 : -1;
+  
+  // 使用setInterval实现1%、1%的缓慢变化
+  const timer = setInterval(() => {
+    const current = animatedProgress.value[stageIndex] || 0;
+    
+    if ((increment > 0 && current >= targetProgress) || (increment < 0 && current <= targetProgress)) {
+      // 动画完成，设置为目标值并清除定时器
+      animatedProgress.value[stageIndex] = targetProgress;
+      clearInterval(timer);
+      return;
+    }
+    
+    // 每次增加或减少1%
+    animatedProgress.value[stageIndex] = current + increment;
+  }, 50); // 每50毫秒更新一次，控制动画速度
+};
+
+// 监听completedModules变化，更新动画进度
+watch(completedModules, () => {
+  updateAllAnimatedProgress();
+}, { deep: true });
+
+// 组件挂载时初始化动画进度
+onMounted(() => {
+  loadStageData(activeStage.value);
+  initAnimatedProgress();
+});
 
 // 处理数据项点击事件
 const handleDataItemClick = async (item: any, module: any) => {
@@ -78,402 +181,254 @@ const handleDataItemClick = async (item: any, module: any) => {
     date: item.date,
   };
   
-  activeTab.value = 'basic';
+  // 处理附件数据
+  uploadFiles.value = item.files ? item.files.map((file: any) => ({
+    uid: Date.now() + Math.random(),
+    name: file.fileName || file.name,
+    status: 'success',
+    url: file.filePath || file.url,
+    response: file,
+  })) : [];
+  
   showAddDialog.value = true;
+  
+  // 延迟确保对话框完全渲染后再设置标签页
+  setTimeout(() => {
+    if (tabs.value) {
+      tabs.value.setActiveName('basic');
+    }
+  }, 50);
 };
 
 const toggleModule = (moduleId: string) => {
   expandedModules.value[moduleId] = !expandedModules.value[moduleId];
 };
 
+// 计算每个阶段的进度百分比
+const getStageProgress = (stageIndex: number) => {
+  const stage = stages[stageIndex];
+  if (!stage || !stage.modules || stage.modules.length === 0) {
+    return 0;
+  }
+  
+  // 计算已完成的模块数量
+  let completedCount = 0;
+  stage.modules.forEach(module => {
+    if (completedModules.value[module.id]) {
+      completedCount++;
+    }
+  });
+  
+  // 计算进度百分比
+  return Math.round((completedCount / stage.modules.length) * 100);
+}
+
 const stages = [
   {
-    title: '一、申请与受理阶段',
+    title: '一、破产申请与受理',
     icon: 'lucide:file-plus',
     color: '#409EFF',
     modules: [
       {
         id: '1-1',
-        title: '申请提交',
-        description: '债务人/债权人/清算责任人向法院提交破产申请书、证据材料',
+        title: '提交破产申请材料',
+        description: '申请人向法院提交破产申请书及相关证据材料',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '1-2',
-        title: '案件办理',
-        description: '律师协助申请人梳理证据链，起草规范破产申请书',
+        title: '法院立案形式审查',
+        description: '法院立案庭对破产申请进行形式审查',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '1-3',
-        title: '法院审查',
-        description: '法院5日内通知债务人，债务人异议期7日',
+        title: '破产原因实质审查',
+        description: '法院破产审判庭对破产原因进行实质审查',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '1-4',
-        title: '请示批复',
-        description: '案件涉及跨区域财产处置等疑难问题的请示',
+        title: '同步选任管理人',
+        description: '法院在受理破产申请的同时指定管理人',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '1-5',
-        title: '裁定受理',
-        description: '法院裁定受理时同时指定管理人',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '1-6',
-        title: '驳回/撤回',
-        description: '材料不全限期补正，逾期视为撤回',
+        title: '裁定受理并公告',
+        description: '法院裁定受理破产申请并发布公告',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '二、管理人履职阶段',
+    title: '二、接管与调查',
     icon: 'lucide:briefcase',
     color: '#67C23A',
     modules: [
       {
         id: '2-1',
-        title: '接管义务',
-        description: '管理人接管债务人财产、印章、账簿、文书等资料',
+        title: '全面接管债务人',
+        description: '管理人全面接管债务人的财产、印章和账簿、文书等资料',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '2-2',
-        title: '资产评估',
-        description: '管理人委托评估机构对接管的资产进行全面评估',
+        title: '调查财产及经营状况',
+        description: '管理人调查债务人的财产状况和经营状况',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '2-3',
-        title: '调查管理',
-        description: '调查债务人财产状况，追回可撤销/无效行为转移的财产',
+        title: '决定合同继续履行或解除',
+        description: '管理人决定继续履行或者解除债务人未履行完毕的合同',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '2-4',
-        title: '请示批复',
-        description: '管理人向法院提交关于行使破产撤销权的请示',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-5',
-        title: '重整价值识别',
-        description: '分析债务人核心资产、技术优势、市场潜力',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-6',
-        title: '权限限制',
-        description: '通知债务人有关人员配合工作',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-7',
-        title: '案件办理',
-        description: '将债务人高管配合义务纳入重点管控事项',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-8',
-        title: '破产费用',
-        description: '单独建立破产费用台账，分类登记各项费用',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '2-9',
-        title: '请示批复',
-        description: '破产费用超出初步预算的请示',
+        title: '追收债务人财产',
+        description: '管理人追收债务人的财产',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '三、债权申报与核查阶段',
+    title: '三、债权申报与核查',
     icon: 'lucide:clipboard-list',
     color: '#E6A23C',
     modules: [
       {
         id: '3-1',
-        title: '申报通知',
-        description: '管理人通知已知债权人，公告申报期限、地点、材料要求',
+        title: '通知已知债权人并公告',
+        description: '管理人通知已知债权人并发布债权申报公告',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '3-2',
-        title: '案件办理',
-        description: '设立债权申报登记点，专人负责接待与材料审核',
+        title: '接收、登记债权申报',
+        description: '管理人接收并登记债权人的债权申报',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '3-3',
-        title: '债权申报',
-        description: '债权人提交债权证明材料，管理人登记造册',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-4',
-        title: '核查异议',
-        description: '债权表提交债权人会议核查，对有异议的债权提起确认之诉',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-5',
-        title: '案件办理',
-        description: '管理人组建债权核查小组，逐笔审核债权真实性',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '3-6',
-        title: '债权确认',
-        description: '法院裁定确认无异议债权，作为财产分配依据',
+        title: '审查申报债权并编制债权表',
+        description: '管理人审查申报的债权并编制债权表',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '四、债权人会议阶段',
+    title: '四、债权人会议',
     icon: 'lucide:users',
     color: '#F56C6C',
     modules: [
       {
         id: '4-1',
-        title: '首次会议',
-        description: '法院自债权申报期限届满之日起15日内召集',
+        title: '筹备第一次债权人会议',
+        description: '管理人筹备第一次债权人会议',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '4-2',
-        title: '债权人会议',
-        description: '会前整理会议资料，送达全体参会债权人',
+        title: '召开会议核查债权与议决事项',
+        description: '召开债权人会议核查债权与议决事项',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '4-3',
-        title: '破产费用',
-        description: '向债权人会议公示破产费用支出明细及台账',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-4',
-        title: '后续会议',
-        description: '管理人/债权人委员会/占债权总额1/4以上债权人可提议召开',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-5',
-        title: '债权人会议',
-        description: '就变价方案、分配方案的核心内容向债权人逐项说明',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-6',
-        title: '请示批复',
-        description: '重整计划等重大事项表决存在争议的请示',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '4-7',
-        title: '决议生效',
-        description: '决议经出席会议有表决权债权人过半数通过',
+        title: '表决通过财产变价/分配方案',
+        description: '债权人会议表决通过财产变价方案和分配方案',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '五、破产宣告阶段',
+    title: '五、破产宣告',
     icon: 'lucide:gavel',
     color: '#909399',
     modules: [
       {
         id: '5-1',
-        title: '宣告条件',
-        description: '债务人符合破产条件，法院裁定宣告破产',
+        title: '审查宣告破产条件',
+        description: '法院审查宣告债务人破产的条件',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '5-2',
-        title: '效力产生',
-        description: '债务人成为破产人，财产成为破产财产',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '5-3',
-        title: '案件办理',
-        description: '将破产宣告后的财产管理、变价工作纳入核心议程',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '5-4',
-        title: '程序衔接',
-        description: '宣告前可转入重整/和解，宣告后原则上不可逆转',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '5-5',
-        title: '重整价值识别',
-        description: '管理人补充出具债务人重整价值最终评估报告',
+        title: '裁定宣告债务人破产',
+        description: '法院裁定宣告债务人破产',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '六、财产变价与分配阶段',
+    title: '六、财产变价与分配',
     icon: 'lucide:banknote',
     color: '#FF6B6B',
     modules: [
       {
         id: '6-1',
-        title: '变价方案',
-        description: '管理人拟订破产财产变价方案，提交债权人会议表决',
+        title: '拟定并执行财产变价方案',
+        description: '管理人拟定并执行财产变价方案',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '6-2',
-        title: '资产评估',
-        description: '结合前期资产评估报告，根据市场行情调整变价策略',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-3',
-        title: '债权人会议',
-        description: '管理人就变价方案向债权人会议进行详细说明',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-4',
-        title: '财产变价',
-        description: '通过拍卖等合法方式变价，提高财产价值',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-5',
-        title: '案件办理',
-        description: '委托拍卖机构开展拍卖工作，全程监督拍卖流程',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-6',
-        title: '分配方案',
-        description: '管理人拟订分配方案，经债权人会议表决通过',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-7',
-        title: '破产费用',
-        description: '在分配方案中明确破产费用、共益债务的清偿金额及顺序',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-8',
-        title: '请示批复',
-        description: '分配方案表决通过后，管理人向法院提交请示',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '6-9',
-        title: '财产分配',
-        description: '按法定顺序分配，提存未决债权分配额',
+        title: '执行破产财产分配',
+        description: '管理人执行破产财产分配',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
     ],
   },
   {
-    title: '七、破产程序终结阶段',
+    title: '七、程序终结与注销',
     icon: 'lucide:check-circle',
     color: '#4CAF50',
     modules: [
       {
         id: '7-1',
-        title: '终结申请',
-        description: '管理人完成分配后，提交破产财产分配报告',
+        title: '提请终结破产程序',
+        description: '管理人提请法院终结破产程序',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '7-2',
-        title: '报结记录',
-        description: '管理人编制破产案件报结申请表',
+        title: '法院裁定并公告',
+        description: '法院裁定终结破产程序并公告',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '7-3',
-        title: '法院裁定',
-        description: '法院15日内裁定终结，予以公告',
+        title: '办理企业注销登记',
+        description: '管理人办理债务人企业注销登记',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
       {
         id: '7-4',
-        title: '注销登记',
-        description: '管理人自终结裁定之日起10日内办理注销登记',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-5',
-        title: '案件办理',
-        description: '整理债务人注销所需材料，全程办理注销手续',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-6',
-        title: '管理人终止',
-        description: '注销登记完毕，管理人职责终止',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '7-7',
-        title: '报结记录',
-        description: '管理人完善破产案件报结记录',
+        title: '管理人终止执行职务并归档',
+        description: '管理人终止执行职务并将相关材料归档',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -548,6 +503,19 @@ watch(activeStage, (newIndex) => {
   loadStageData(newIndex);
 });
 
+// 监听对话框显示状态，确保默认选中基础数据标签页
+watch(showAddDialog, async (newVal) => {
+  if (newVal) {
+    // 使用setTimeout确保组件完全挂载后再设置标签页
+    setTimeout(() => {
+      // 只使用tabs ref直接控制标签页，避免双向绑定冲突
+      if (tabs.value) {
+        tabs.value.setActiveName('basic');
+      }
+    }, 100);
+  }
+});
+
 // 组件挂载时加载初始阶段数据
 onMounted(() => {
   loadStageData(activeStage.value);
@@ -564,8 +532,16 @@ const openAddDialog = (module: any, stageIndex: number) => {
     content: '',
     date: '',
   };
-  activeTab.value = 'basic';
+  // 清空上传文件列表
+  uploadFiles.value = [];
   showAddDialog.value = true;
+  
+  // 延迟确保对话框完全渲染后再设置标签页
+  setTimeout(() => {
+    if (tabs.value) {
+      tabs.value.setActiveName('basic');
+    }
+  }, 50);
 };
 
 const handleAddSubmit = async () => {
@@ -576,27 +552,55 @@ const handleAddSubmit = async () => {
     const stageNum = currentStageIndex.value + 1;
     const stageName = stages[currentStageIndex.value].title;
     
-    const stageData = {
-      caseId: Number(props.caseId),
-      stageNum,
-      stageName: stageName.split('、')[1] || stageName,
-      moduleCode: `STAGE${stageNum}_${currentModule.value.title.replace(/\s+/g, '_').toUpperCase()}`,
-      moduleName: currentModule.value.title,
-      title: formData.value.title,
-      content: formData.value.content,
-      processDate: formData.value.date ? new Date(formData.value.date).toISOString() : undefined,
-      attachments: undefined,
-      fieldData: JSON.stringify({}),
-      status: 'ACTIVE',
-    };
+    // 处理附件数据
+    const attachments = uploadFiles.value.map(file => ({
+      fileName: file.name,
+      filePath: file.url,
+      fileType: file.type,
+      fileSize: file.size,
+    }));
     
     let response;
+    
+    // 准备表单数据
+    const formDataObj = new FormData();
+    
+    formDataObj.append('caseId', Number(props.caseId).toString());
+    formDataObj.append('stageNum', stageNum.toString());
+    formDataObj.append('stageName', stageName.split('、')[1] || stageName);
+    formDataObj.append('moduleCode', `STAGE${stageNum}_${currentModule.value.title.replace(/\s+/g, '_').toUpperCase()}`);
+    formDataObj.append('moduleName', currentModule.value.title);
+    formDataObj.append('title', formData.value.title);
+    formDataObj.append('content', formData.value.content);
+    formDataObj.append('processDate', formData.value.date ? new Date(formData.value.date).toISOString() : '');
+    formDataObj.append('fieldData', JSON.stringify({}));
+    formDataObj.append('status', 'SKIP'); // 默认状态为SKIP
+    
+    // 添加文件到表单
+    uploadFiles.value.forEach(file => {
+      if (file.raw) {
+        formDataObj.append('files', file.raw);
+      }
+    });
+    
     if (isEditMode.value && currentItem.value) {
-      // 编辑模式，调用更新API
-      response = await CaseProcessApi.updateCaseStageDataApi(currentItem.value.id, stageData);
+      // 编辑模式，调用新的带文件上传的PUT API
+      response = await fetch(`/api/v1/api/case-process-stage/${currentItem.value.id}/with-files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: formDataObj,
+      }).then(res => res.json());
     } else {
-      // 新增模式，调用新增API
-      response = await CaseProcessApi.addCaseStageDataApi(stageData);
+      // 新增模式，调用新的带文件上传的POST API
+      response = await fetch('/api/v1/api/case-process-stage/with-files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: formDataObj,
+      }).then(res => res.json());
     }
     
     if (response.code === 200 && response.data) {
@@ -657,18 +661,59 @@ const goBack = () => {
           :class="{ active: activeStage === index }"
           @click="handleStageChange(index)"
         >
-          <div class="stage-tab-icon" :style="{ backgroundColor: stage.color }">
-            <Icon :icon="stage.icon" />
+          <div class="stage-progress-container">
+            <div class="stage-progress-ring">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <!-- 背景圆环 - 修改为白色 -->
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="35"
+                  fill="none"
+                  stroke="#ffffff"
+                  stroke-width="8"
+                  stroke-linejoin="round"
+                />
+                <!-- 进度圆环 - 修改为蓝色渐变 -->
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="35"
+                  fill="none"
+                  stroke="#409EFF"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                  :stroke-dasharray="2 * Math.PI * 35"
+                  :stroke-dashoffset="2 * Math.PI * 35 - (2 * Math.PI * 35 * (animatedProgress[index] || 0)) / 100"
+                  transform="rotate(-90 40 40)"
+                  class="progress-ring-circle"
+                />
+              </svg>
+              <div class="stage-tab-icon" :style="{ backgroundColor: stage.color }">
+                <Icon :icon="stage.icon" />
+              </div>
+            </div>
           </div>
+          
+          <!-- 阶段进度条 -->
+          <div class="stage-progress-bar-container">
+            <div class="stage-progress-bar">
+              <div 
+                class="stage-progress-bar-fill"
+                :style="{ 
+                  width: (animatedProgress[index] || 0) + '%',
+                  backgroundColor: stage.color
+                }"
+              ></div>
+            </div>
+            <div class="stage-progress-text">{{ animatedProgress[index] || 0 }}%</div>
+          </div>
+          
           <div class="stage-tab-title">{{ stage.title }}</div>
         </div>
       </div>
 
       <div class="stage-modules">
-        <div class="modules-header">
-          <h3>{{ currentStage.title }}</h3>
-        </div>
-        
         <div v-loading="loading" class="modules-grid">
           <ElCard
           v-for="module in currentStage.modules"
@@ -688,15 +733,45 @@ const goBack = () => {
                   class="expand-icon"
                 />
               </div>
-              <div class="module-actions">
-                <ElButton
-                  type="primary"
-                  size="small"
-                  @click.stop="openAddDialog(module, activeStage)"
+              <div class="module-status-actions">
+                <!-- 完成状态显示 -->
+                <div 
+                  v-if="completedModules[module.id]" 
+                  class="module-completed"
+                  @mouseenter="showWithdrawButton = module.id"
+                  @mouseleave="showWithdrawButton = null"
                 >
-                  <Icon icon="lucide:plus" class="mr-1" />
-                  新增
-                </ElButton>
+                  <Icon icon="lucide:check" class="completed-icon" />
+                  <span class="completed-text">已完成</span>
+                  <ElButton
+                    v-if="showWithdrawButton === module.id"
+                    type="danger"
+                    size="small"
+                    text
+                    @click.stop="toggleModuleComplete(module.id)"
+                  >
+                    撤回
+                  </ElButton>
+                </div>
+                <!-- 新增和完成按钮 -->
+                <div v-else class="module-actions">
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    @click.stop="toggleModuleComplete(module.id)"
+                  >
+                    <Icon icon="lucide:check" class="mr-1" />
+                    标记完成
+                  </ElButton>
+                  <ElButton
+                    type="success"
+                    size="small"
+                    @click.stop="openAddDialog(module, activeStage)"
+                  >
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    新增
+                  </ElButton>
+                </div>
               </div>
             </div>
           </template>
@@ -775,35 +850,73 @@ const goBack = () => {
       :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
       width="800px"
       destroy-on-close
+      @opened="() => { if (tabs.value) tabs.value.setActiveName('basic'); }"
     >
-      <ElForm
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
-        <ElFormItem label="标题" prop="title">
-          <ElInput v-model="formData.title" placeholder="请输入标题" />
-        </ElFormItem>
-        <ElFormItem label="内容" prop="content">
-          <ElInput
-            v-model="formData.content"
-            type="textarea"
-            :rows="6"
-            placeholder="请输入内容"
-          />
-        </ElFormItem>
-        <ElFormItem label="日期" prop="date">
-          <ElDatePicker
-            v-model="formData.date"
-            type="date"
-            placeholder="选择日期"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </ElFormItem>
-      </ElForm>
+      <ElTabs ref="tabs">
+        <ElTabPane label="基础数据" name="basic" :lazy="false">
+          <ElForm
+            ref="formRef"
+            :model="formData"
+            :rules="formRules"
+            label-width="100px"
+          >
+            <ElFormItem label="标题" prop="title">
+              <ElInput v-model="formData.title" placeholder="请输入标题" :autosize="false" />
+            </ElFormItem>
+            <ElFormItem label="内容" prop="content">
+              <ElInput
+                v-model="formData.content"
+                type="textarea"
+                :rows="6"
+                placeholder="请输入内容"
+                :autosize="false"
+              />
+            </ElFormItem>
+            <ElFormItem label="日期" prop="date">
+              <ElDatePicker
+                v-model="formData.date"
+                type="date"
+                placeholder="选择日期"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+              />
+            </ElFormItem>
+          </ElForm>
+        </ElTabPane>
+        <ElTabPane label="附件" name="attachments">
+          <div style="min-height: 200px;">
+            <ElForm
+              :model="formData"
+              label-width="100px"
+            >
+              <ElFormItem label="附件">
+                <ElUpload
+                  ref="upload"
+                  v-model:file-list="uploadFiles"
+                  :before-upload="handleFileBeforeUpload"
+                  :on-remove="handleFileRemove"
+                  :on-change="handleFileChange"
+                  multiple
+                  :limit="5"
+                  list-type="text"
+                  :auto-upload="false"
+                >
+                  <ElButton type="primary">
+                    <Icon icon="lucide:upload" class="mr-1" />
+                    选择附件
+                  </ElButton>
+                  <template #tip>
+                    <div class="upload-tip">
+                      支持上传多个文件，单个文件大小不超过50MB
+                    </div>
+                  </template>
+                </ElUpload>
+              </ElFormItem>
+            </ElForm>
+          </div>
+        </ElTabPane>
+      </ElTabs>
       
       <template #footer>
         <ElButton @click="showAddDialog = false">取消</ElButton>
@@ -849,31 +962,43 @@ const goBack = () => {
   position: relative;
 }
 
+.stage-tab-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .stage-tab-item:hover {
   background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%);
-  transform: translateY(-4px);
 }
 
 .stage-tab-item.active {
   background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
 }
 
-.stage-tab-item.active::after {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 12px solid currentColor;
-  color: var(--active-stage-color);
-  z-index: 1;
+.stage-progress-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.stage-progress-ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+}
+
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease;
+  transform-origin: center;
 }
 
 .stage-tab-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -884,25 +1009,57 @@ const goBack = () => {
   font-size: 28px;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-  position: relative;
   z-index: 2;
-}
-
-.stage-tab-item:hover .stage-tab-icon {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
 }
 
 .stage-tab-item.active .stage-tab-icon {
-  transform: scale(1.1);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%);
   border: 3px solid #ffffff;
   box-shadow: 0 0 0 4px currentColor;
 }
 
+/* 移除图标悬停放大效果 */
+.stage-tab-item:hover .stage-tab-icon {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .stage-tab-item.active {
   --active-stage-color: var(--current-stage-color);
+}
+
+/* 阶段进度条样式 */
+.stage-progress-bar-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.stage-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stage-progress-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.stage-progress-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
 }
 
 .stage-tab-item:nth-child(1).active {
@@ -1046,6 +1203,46 @@ const goBack = () => {
   padding-top: 16px;
 }
 
+.module-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.module-completed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background-color: #f0f9eb;
+  border: 1px solid #c2e7b0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.module-completed:hover {
+  background-color: #ecfdf5;
+  border-color: #86efac;
+}
+
+.completed-icon {
+  color: #16a34a;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.module-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.completed-text {
+  color: #16a34a;
+  font-weight: 600;
+  font-size: 13px;
+}
+
 .module-actions {
   display: flex;
   gap: 10px;
@@ -1064,6 +1261,14 @@ const goBack = () => {
 .module-data {
   max-height: 220px;
   overflow-y: auto;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 和 Edge */
+}
+
+/* Chrome, Safari 和 Opera */
+.module-data::-webkit-scrollbar {
+  display: none;
 }
 
 /* 当没有数据时，移除滚动条 */
@@ -1073,7 +1278,7 @@ const goBack = () => {
 }
 
 .data-item {
-  padding: 16px;
+  padding: 10px;
   background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
   border-radius: 12px;
   margin-bottom: 12px;

@@ -42,6 +42,7 @@ import {
 import {
   createDocumentApi,
   deleteDocumentApi,
+  getDocumentAttachmentsApi,
   getDocumentDetailApi,
   getDocumentListApi,
   updateDocumentApi,
@@ -59,6 +60,12 @@ import {
   removeTeamMemberApi,
   updateTeamMemberApi,
 } from '#/api/core/work-team';
+import {
+  createWorkLogApi,
+  deleteWorkLogApi,
+  getWorkLogListApi,
+  updateWorkLogApi,
+} from '#/api/core/work-log';
 
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
@@ -142,27 +149,76 @@ const currentStage = ref(1);
 const stages = [
   {
     id: 1,
-    name: '阶段一',
-    description: '法院指定管理人至管理人接管破产企业前的工作',
+    name: '一、破产申请与受理',
+    description: '包含破产申请材料提交、法院审查、管理人选任等工作',
+    modules: [
+      { code: 'TASK_001', name: '提交破产申请材料' },
+      { code: 'TASK_002', name: '法院立案形式审查' },
+      { code: 'TASK_003', name: '破产原因实质审查' },
+      { code: 'TASK_004', name: '同步选任管理人' },
+      { code: 'TASK_005', name: '裁定受理并公告' }
+    ]
   },
   {
     id: 2,
-    name: '阶段二',
-    description: '管理人接管破产企业至调查审查破产企业前的工作',
+    name: '二、接管与调查',
+    description: '管理人全面接管债务人并调查财产经营状况',
+    modules: [
+      { code: 'TASK_006', name: '全面接管债务人' },
+      { code: 'TASK_007', name: '调查财产及经营状况' },
+      { code: 'TASK_008', name: '决定合同继续履行或解除' },
+      { code: 'TASK_009', name: '追收债务人财产' }
+    ]
   },
   {
     id: 3,
-    name: '阶段三',
-    description: '管理人调查审查破产企业至第一次债权人会议前工作',
+    name: '三、债权申报与核查',
+    description: '通知债权人申报、接收登记并审查债权',
+    modules: [
+      { code: 'TASK_010', name: '通知已知债权人并公告' },
+      { code: 'TASK_011', name: '接收、登记债权申报' },
+      { code: 'TASK_012', name: '审查申报债权并编制债权表' }
+    ]
   },
   {
     id: 4,
-    name: '阶段四',
-    description: '第一次债权人会议至第二次债权人会议前工作',
+    name: '四、债权人会议',
+    description: '筹备和召开债权人会议，核查债权并议决事项',
+    modules: [
+      { code: 'TASK_013', name: '筹备第一次债权人会议' },
+      { code: 'TASK_014', name: '召开会议核查债权与议决事项' },
+      { code: 'TASK_015', name: '表决通过财产变价/分配方案' }
+    ]
   },
-  { id: 5, name: '阶段五', description: '第二次债权人会议至破产程序终结工作' },
-  { id: 6, name: '阶段六', description: '破产财产分配方案等相关工作' },
-  { id: 7, name: '阶段七', description: '债权人会议决议等相关工作' },
+  {
+    id: 5,
+    name: '五、破产宣告',
+    description: '审查并裁定宣告债务人破产',
+    modules: [
+      { code: 'TASK_016', name: '审查宣告破产条件' },
+      { code: 'TASK_017', name: '裁定宣告债务人破产' }
+    ]
+  },
+  {
+    id: 6,
+    name: '六、财产变价与分配',
+    description: '拟定执行财产变价方案并分配破产财产',
+    modules: [
+      { code: 'TASK_018', name: '拟定并执行财产变价方案' },
+      { code: 'TASK_019', name: '执行破产财产分配' }
+    ]
+  },
+  {
+    id: 7,
+    name: '七、程序终结与注销',
+    description: '终结破产程序、办理企业注销并归档',
+    modules: [
+      { code: 'TASK_020', name: '提请终结破产程序' },
+      { code: 'TASK_021', name: '法院裁定并公告' },
+      { code: 'TASK_022', name: '办理企业注销登记' },
+      { code: 'TASK_023', name: '管理人终止执行职务并归档' }
+    ]
+  }
 ];
 
 // 页面内容类型切换
@@ -176,25 +232,83 @@ const savingWorkLog = ref(false);
 const currentWorkLogId = ref<null | number>(null);
 const workLogFormRef = ref();
 const workLogForm = reactive({
-  content: '',
+  workDate: '',
+  workType: 'CASE_INVESTIGATION',
+  workContent: '',
+  workResult: '',
+  attachmentIds: '',
+  remark: '',
 });
 
 const workLogFormRules = {
-  content: [{ required: true, message: '请输入日志内容', trigger: 'blur' }],
+  workDate: [{ required: true, message: '请选择工作日期', trigger: 'change' }],
+  workType: [{ required: true, message: '请选择工作类型', trigger: 'change' }],
+  workContent: [{ required: true, message: '请输入工作内容', trigger: 'blur' }],
 };
 
-// 工作日志方法
+const workTypeOptions = [
+  { label: '案件调查', value: 'CASE_INVESTIGATION' },
+  { label: '债权人联系', value: 'CREDITOR_CONTACT' },
+  { label: '资产处置', value: 'ASSET_DISPOSAL' },
+  { label: '法院沟通', value: 'COURT_COMMUNICATION' },
+  { label: '文书准备', value: 'DOCUMENT_PREPARATION' },
+  { label: '会议组织', value: 'MEETING_ORGANIZATION' },
+  { label: '其他', value: 'OTHER' },
+];
+
+const workLogLoading = ref(false);
+const workLogPagination = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  total: 0,
+});
+
+const getWorkTypeLabel = (type: string) => {
+  const option = workTypeOptions.find((opt) => opt.value === type);
+  return option ? option.label : type;
+};
+
+const fetchWorkLogs = async () => {
+  try {
+    workLogLoading.value = true;
+    const response = await getWorkLogListApi({
+      caseId: Number(caseId.value),
+      pageNum: workLogPagination.pageNum,
+      pageSize: workLogPagination.pageSize,
+    });
+    if (response.code === 200) {
+      workLogs.value = response.data.list;
+      workLogPagination.total = response.data.total;
+    }
+  } catch (error) {
+    console.error('获取工作日志失败:', error);
+    ElMessage.error('获取工作日志失败');
+  } finally {
+    workLogLoading.value = false;
+  }
+};
+
 const openAddWorkLogDialog = () => {
   isEditingWorkLog.value = false;
   currentWorkLogId.value = null;
-  workLogForm.content = '';
+  workLogForm.workDate = new Date().toISOString().split('T')[0];
+  workLogForm.workType = 'CASE_INVESTIGATION';
+  workLogForm.workContent = '';
+  workLogForm.workResult = '';
+  workLogForm.attachmentIds = '';
+  workLogForm.remark = '';
   showWorkLogDialog.value = true;
 };
 
 const editWorkLog = (log: any) => {
   isEditingWorkLog.value = true;
   currentWorkLogId.value = log.id;
-  workLogForm.content = log.content;
+  workLogForm.workDate = log.workDate;
+  workLogForm.workType = log.workType;
+  workLogForm.workContent = log.workContent;
+  workLogForm.workResult = log.workResult || '';
+  workLogForm.attachmentIds = log.attachmentIds || '';
+  workLogForm.remark = log.remark || '';
   showWorkLogDialog.value = true;
 };
 
@@ -203,41 +317,49 @@ const saveWorkLog = async () => {
     await workLogFormRef.value?.validate();
     savingWorkLog.value = true;
 
-    const newLog = {
-      id: currentWorkLogId.value || Date.now(),
-      content: workLogForm.content,
-      createTime: new Date().toISOString(),
-      creator: '当前用户', // 实际应用中应从登录状态获取
-      updater: isEditingWorkLog.value ? '当前用户' : undefined,
+    const logData = {
+      caseId: Number(caseId.value),
+      workDate: workLogForm.workDate,
+      workType: workLogForm.workType,
+      workContent: workLogForm.workContent,
+      workResult: workLogForm.workResult || undefined,
+      attachmentIds: workLogForm.attachmentIds || undefined,
+      remark: workLogForm.remark || undefined,
     };
 
     if (isEditingWorkLog.value && currentWorkLogId.value) {
-      // 更新日志
-      const index = workLogs.value.findIndex(
-        (log) => log.id === currentWorkLogId.value,
-      );
-      if (index !== -1) {
-        workLogs.value[index] = newLog;
+      const response = await updateWorkLogApi(currentWorkLogId.value, logData);
+      if (response.code === 200) {
+        ElMessage.success('工作日志更新成功');
+        await fetchWorkLogs();
       }
     } else {
-      // 添加新日志
-      workLogs.value.unshift(newLog);
+      const response = await createWorkLogApi(logData);
+      if (response.code === 200) {
+        ElMessage.success('工作日志创建成功');
+        await fetchWorkLogs();
+      }
     }
 
-    ElMessage.success('日志保存成功');
     showWorkLogDialog.value = false;
   } catch (error) {
-    console.error('保存日志失败:', error);
+    console.error('保存工作日志失败:', error);
+    ElMessage.error('保存工作日志失败');
   } finally {
     savingWorkLog.value = false;
   }
 };
 
-const deleteWorkLog = (id: number) => {
-  const index = workLogs.value.findIndex((log) => log.id === id);
-  if (index !== -1) {
-    workLogs.value.splice(index, 1);
-    ElMessage.success('日志删除成功');
+const deleteWorkLog = async (id: number) => {
+  try {
+    const response = await deleteWorkLogApi(id);
+    if (response.code === 200) {
+      ElMessage.success('工作日志删除成功');
+      await fetchWorkLogs();
+    }
+  } catch (error) {
+    console.error('删除工作日志失败:', error);
+    ElMessage.error('删除工作日志失败');
   }
 };
 
@@ -261,6 +383,11 @@ watch(activeTab, async (newTab, oldTab) => {
       fetchTeamRoles();
       await loadAdministrators();
       fetchAvailableUsers();
+
+      break;
+    }
+    case 'workLog': {
+      await fetchWorkLogs();
 
       break;
     }
@@ -401,7 +528,7 @@ const documentForm = reactive({
   documentName: '',
   documentType: '',
   recipient: '',
-  recipientType: '',
+  recipientType: '主要负责人',
   recipientPhone: '',
   recipientAddress: '',
   serviceMethod: '',
@@ -426,12 +553,11 @@ const documentTypeOptions = [
 
 // 受送达人类型选项
 const recipientTypeOptions = [
-  { label: '原告', value: '原告' },
-  { label: '被告', value: '被告' },
-  { label: '第三人', value: '第三人' },
-  { label: '代理人', value: '代理人' },
-  { label: '证人', value: '证人' },
-  { label: '鉴定人', value: '鉴定人' },
+  { label: '债权人', value: '债权人' },
+  { label: '债务人', value: '债务人' },
+  { label: '法院', value: '法院' },
+  { label: '主要负责人', value: '主要负责人' },
+  { label: '承办人', value: '承办人' },
   { label: '其他', value: '其他' },
 ];
 
@@ -456,30 +582,7 @@ const documentFormRules = {
   documentName: [
     { required: true, message: '请输入文书名称', trigger: 'blur' },
   ],
-  documentType: [
-    { required: true, message: '请选择文书类型', trigger: 'change' },
-  ],
   recipient: [{ required: true, message: '请输入受送达人', trigger: 'blur' }],
-  recipientType: [
-    { required: true, message: '请选择受送达人类型', trigger: 'change' },
-  ],
-  recipientPhone: [
-    { required: true, message: '请输入联系电话', trigger: 'blur' },
-    {
-      pattern: /^1[3-9]\d{9}$/,
-      message: '请输入正确的手机号码',
-      trigger: 'blur',
-    },
-  ],
-  recipientAddress: [
-    { required: true, message: '请输入送达地址', trigger: 'blur' },
-  ],
-  serviceMethod: [
-    { required: true, message: '请选择送达方式', trigger: 'change' },
-  ],
-  serviceContent: [
-    { required: true, message: '请输入送达内容', trigger: 'blur' },
-  ],
 };
 
 // 获取文书列表
@@ -535,7 +638,7 @@ const editDocument = (row: any) => {
   documentForm.serviceMethod = row.deliveryMethod;
   documentForm.serviceContent = row.deliveryContent;
   documentForm.attachment = row.documentAttachment;
-  documentForm.sendStatus = row.sendStatus;
+  documentForm.sendStatus = row.sendStatus === 'SENT' ? '已发送' : '暂存送达';
 
   // 打开弹窗
   showAddDocumentDialog.value = true;
@@ -549,7 +652,7 @@ const resetDocumentForm = () => {
   documentForm.documentName = '';
   documentForm.documentType = '';
   documentForm.recipient = '';
-  documentForm.recipientType = '';
+  documentForm.recipientType = '主要负责人';
   documentForm.recipientPhone = '';
   documentForm.recipientAddress = '';
   documentForm.serviceMethod = '';
@@ -596,7 +699,8 @@ const submitDocumentForm = async () => {
       deliveryMethod: documentForm.serviceMethod,
       deliveryContent: documentForm.serviceContent,
       documentAttachment: documentForm.attachment,
-      sendStatus: documentForm.sendStatus,
+      sendStatus: documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
+      deliveryTime: documentForm.sendStatus === '已发送' ? new Date().toISOString() : null,
     };
 
     let response;
@@ -719,15 +823,21 @@ const downloadFile = (file: any) => {
 const showDocumentDetailDialog = ref(false);
 const documentDetail = ref<any>(null);
 const documentDetailLoading = ref(false);
+const documentAttachments = ref<any[]>([]);
+const documentAttachmentsLoading = ref(false);
 
 // 查看文书详情
 const viewDocumentDetail = async (documentId: number) => {
   documentDetailLoading.value = true;
+  documentAttachmentsLoading.value = true;
   try {
     const response = await getDocumentDetailApi(documentId);
     if (response.code === 200) {
       documentDetail.value = response.data;
       showDocumentDetailDialog.value = true;
+      
+      // 加载附件列表
+      await loadDocumentAttachments(documentId);
     } else {
       throw new Error(response.message || '获取文书详情失败');
     }
@@ -736,6 +846,39 @@ const viewDocumentDetail = async (documentId: number) => {
     console.error('获取文书详情失败:', error);
   } finally {
     documentDetailLoading.value = false;
+    documentAttachmentsLoading.value = false;
+  }
+};
+
+// 加载文书附件列表
+const loadDocumentAttachments = async (documentId: number) => {
+  try {
+    const response = await getDocumentAttachmentsApi(documentId);
+    if (response.code === 200) {
+      documentAttachments.value = response.data || [];
+    }
+  } catch (error: any) {
+    console.error('加载附件列表失败:', error);
+    ElMessage.error('加载附件列表失败');
+  }
+};
+
+// 下载文书附件
+const downloadDocumentAttachment = async (attachment: any) => {
+  try {
+    const blob = await downloadFileApi(attachment.id);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = attachment.originalFileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('文件下载成功');
+  } catch (error: any) {
+    console.error('下载文件失败:', error);
+    ElMessage.error('文件下载失败');
   }
 };
 
@@ -2525,6 +2668,14 @@ const formatDateTime = (dateTime: null | string | undefined) => {
   }
 };
 
+const formatFileSize = (bytes: number) => {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+};
+
 // 权限详情对话框相关
 const permissionDialogVisible = ref(false);
 const currentMemberPermissions = ref<any[]>([]);
@@ -3348,13 +3499,13 @@ const checkPermissions = async () => {
                   </ElTableColumn>
                   <ElTableColumn label="操作" width="400" fixed="right">
                     <template #default="scope">
-                      <!-- 所有状态都显示查看详情按钮（黑色） -->
+                      <!-- 所有状态都显示查看详情按钮 -->
                       <ElButton
-                        link
-                        color="black"
+                        type="text"
+                        :style="{ color: '#000000', textDecoration: 'none' }"
                         size="small"
                         @click="viewDocumentDetail(scope.row.id)"
-                        class="mr-2"
+                        class="mr-2 no-hover-effect"
                       >
                         查看详情
                       </ElButton>
@@ -3362,32 +3513,37 @@ const checkPermissions = async () => {
                       <!-- 待送达状态：修改、发送 -->
                       <template v-if="scope.row.sendStatus === 'PENDING'">
                         <ElButton
-                          link
-                          color="warning"
+                          type="text"
+                          :style="{ color: '#C29D59', textDecoration: 'none' }"
                           size="small"
                           @click="editDocument(scope.row)"
-                          class="mr-2"
+                          class="mr-2 no-hover-effect"
                         >
                           修改
                         </ElButton>
                         <ElButton
-                          link
-                          color="success"
+                          type="text"
+                          :style="{ color: '#1890ff', textDecoration: 'none' }"
                           size="small"
                           @click="sendDocument(scope.row.id)"
-                          class="mr-2"
+                          class="mr-2 no-hover-effect"
                         >
                           发送
                         </ElButton>
                       </template>
 
-                      <!-- 所有状态都显示删除按钮（红色） -->
+                      <!-- 所有状态都显示删除按钮 -->
                       <ElPopconfirm
                         title="确定要删除该文书送达记录吗？"
                         @confirm="deleteDocument(scope.row.id)"
                       >
                         <template #reference>
-                          <ElButton link color="danger" size="small">
+                          <ElButton
+                            type="text"
+                            :style="{ color: '#ff4d4f', textDecoration: 'none' }"
+                            size="small"
+                            class="no-hover-effect"
+                          >
                             删除
                           </ElButton>
                         </template>
@@ -3955,9 +4111,42 @@ const checkPermissions = async () => {
               </div>
             </div>
 
+            <!-- 筛选区域 -->
+            <div
+              style="
+                padding: 16px 20px;
+                background: #f8f9fa;
+                border-bottom: 1px solid #e9ecef;
+              "
+            >
+              <div style="display: flex; gap: 12px; align-items: center">
+                <ElSelect
+                  v-model="workLogForm.workType"
+                  placeholder="工作类型"
+                  clearable
+                  style="width: 150px"
+                  @change="fetchWorkLogs"
+                >
+                  <ElOption
+                    v-for="item in workTypeOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+                <ElButton @click="fetchWorkLogs" type="primary">
+                  <Icon icon="lucide:refresh-cw" class="mr-1" />
+                  刷新
+                </ElButton>
+              </div>
+            </div>
+
             <!-- 工作日志列表 -->
             <div style="padding: 20px">
-              <div v-if="workLogs.length > 0" class="work-log-list">
+              <div v-if="workLogLoading" style="display: flex; justify-content: center; padding: 40px">
+                <ElSkeleton :rows="5" animated />
+              </div>
+              <div v-else-if="workLogs.length > 0" class="work-log-list">
                 <div
                   v-for="log in workLogs"
                   :key="log.id"
@@ -3979,8 +4168,13 @@ const checkPermissions = async () => {
                       margin-bottom: 12px;
                     "
                   >
-                    <div style="font-size: 14px; font-weight: 600; color: #666">
-                      {{ formatDate(log.createTime) }}
+                    <div style="display: flex; gap: 12px; align-items: center">
+                      <ElTag size="small" type="success">
+                        {{ getWorkTypeLabel(log.workType) }}
+                      </ElTag>
+                      <div style="font-size: 14px; font-weight: 600; color: #666">
+                        {{ formatDate(log.workDate) }}
+                      </div>
                     </div>
                     <div style="display: flex; gap: 8px">
                       <ElButton
@@ -4018,7 +4212,40 @@ const checkPermissions = async () => {
                       white-space: pre-wrap;
                     "
                   >
-                    {{ log.content }}
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #2c3e50">
+                      工作内容：
+                    </div>
+                    {{ log.workContent }}
+                  </div>
+                  <div
+                    v-if="log.workResult"
+                    style="
+                      margin-bottom: 12px;
+                      font-size: 14px;
+                      line-height: 1.6;
+                      color: #666;
+                      white-space: pre-wrap;
+                    "
+                  >
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #2c3e50">
+                      工作结果：
+                    </div>
+                    {{ log.workResult }}
+                  </div>
+                  <div
+                    v-if="log.remark"
+                    style="
+                      margin-bottom: 12px;
+                      font-size: 13px;
+                      line-height: 1.6;
+                      color: #999;
+                      white-space: pre-wrap;
+                    "
+                  >
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #2c3e50">
+                      备注：
+                    </div>
+                    {{ log.remark }}
                   </div>
                   <div
                     style="
@@ -4028,8 +4255,10 @@ const checkPermissions = async () => {
                       color: #999;
                     "
                   >
-                    <span>创建人：{{ log.creator }}</span>
-                    <span v-if="log.updater">更新人：{{ log.updater }}</span>
+                    <span>创建时间：{{ formatDateTime(log.createTime) }}</span>
+                    <span v-if="log.updateTime !== log.createTime">
+                      更新时间：{{ formatDateTime(log.updateTime) }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -4051,6 +4280,17 @@ const checkPermissions = async () => {
                   添加第一条日志
                 </ElButton>
               </div>
+              <div v-if="workLogs.length > 0" style="display: flex; justify-content: center; margin-top: 20px">
+                <ElPagination
+                  v-model:current-page="workLogPagination.pageNum"
+                  v-model:page-size="workLogPagination.pageSize"
+                  :total="workLogPagination.total"
+                  :page-sizes="[10, 20, 50, 100]"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  @size-change="fetchWorkLogs"
+                  @current-change="fetchWorkLogs"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -4066,14 +4306,62 @@ const checkPermissions = async () => {
             ref="workLogFormRef"
             :model="workLogForm"
             :rules="workLogFormRules"
-            label-width="80px"
+            label-width="100px"
           >
-            <ElFormItem label="日志内容" prop="content">
+            <ElFormItem label="工作日期" prop="workDate">
+              <ElDatePicker
+                v-model="workLogForm.workDate"
+                type="date"
+                placeholder="请选择工作日期"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+            </ElFormItem>
+            <ElFormItem label="工作类型" prop="workType">
+              <ElSelect
+                v-model="workLogForm.workType"
+                placeholder="请选择工作类型"
+                style="width: 100%"
+              >
+                <ElOption
+                  v-for="item in workTypeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem label="工作内容" prop="workContent">
               <ElInput
-                v-model="workLogForm.content"
+                v-model="workLogForm.workContent"
                 type="textarea"
-                :rows="6"
-                placeholder="请输入工作日志内容"
+                :rows="4"
+                placeholder="请输入工作内容"
+                resize="vertical"
+              />
+            </ElFormItem>
+            <ElFormItem label="工作结果">
+              <ElInput
+                v-model="workLogForm.workResult"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入工作结果（可选）"
+                resize="vertical"
+              />
+            </ElFormItem>
+            <ElFormItem label="附件ID">
+              <ElInput
+                v-model="workLogForm.attachmentIds"
+                placeholder="请输入附件ID，多个ID用逗号分隔（可选）"
+              />
+            </ElFormItem>
+            <ElFormItem label="备注">
+              <ElInput
+                v-model="workLogForm.remark"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入备注信息（可选）"
                 resize="vertical"
               />
             </ElFormItem>
@@ -5131,21 +5419,57 @@ const checkPermissions = async () => {
               ></div>
             </div>
 
-            <div
-              class="detail-section"
-              v-if="documentDetail.documentAttachment"
-            >
+            <div class="detail-section">
               <h3 class="section-title">附件信息</h3>
-              <div class="attachment-info">
-                <Icon icon="lucide:file-pdf" class="mr-2" />
-                <a
-                  :href="documentDetail.documentAttachment"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="attachment-link"
+              <div v-if="documentAttachmentsLoading" class="loading-container">
+                <ElSkeleton :rows="3" animated />
+              </div>
+              <div v-else-if="documentAttachments.length > 0" class="attachments-list">
+                <div
+                  v-for="attachment in documentAttachments"
+                  :key="attachment.id"
+                  class="attachment-item"
                 >
-                  查看附件
-                </a>
+                  <div class="attachment-icon">
+                    <Icon
+                      :icon="
+                        attachment.fileExtension === 'pdf'
+                          ? 'lucide:file-text'
+                          : attachment.fileExtension === 'doc' ||
+                              attachment.fileExtension === 'docx'
+                            ? 'lucide:file-word'
+                            : attachment.fileExtension === 'xls' ||
+                                attachment.fileExtension === 'xlsx'
+                              ? 'lucide:file-spreadsheet'
+                              : 'lucide:file'
+                      "
+                    />
+                  </div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">
+                      {{ attachment.originalFileName }}
+                    </div>
+                    <div class="attachment-meta">
+                      <span>{{ formatFileSize(attachment.fileSize) }}</span>
+                      <span class="separator">·</span>
+                      <span>{{ formatDateTime(attachment.uploadTime) }}</span>
+                    </div>
+                  </div>
+                  <div class="attachment-actions">
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      link
+                      @click="downloadDocumentAttachment(attachment)"
+                    >
+                      <Icon icon="lucide:download" class="mr-1" />
+                      下载
+                    </ElButton>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="empty-attachments">
+                <ElEmpty description="暂无附件" />
               </div>
             </div>
 
@@ -5661,6 +5985,15 @@ const checkPermissions = async () => {
   margin-top: 16px;
 }
 
+/* 去除操作按钮hover效果 */
+.no-hover-effect {
+  &:hover {
+    color: inherit !important;
+    background-color: transparent !important;
+    text-decoration: none !important;
+  }
+}
+
 /* 新增文书送达弹窗样式 */
 .document-add-dialog {
   padding: 0;
@@ -5826,6 +6159,77 @@ const checkPermissions = async () => {
 
 .attachment-link:hover {
   text-decoration: underline;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.attachment-item:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.attachment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-right: 16px;
+  font-size: 24px;
+  color: #6b7280;
+  background-color: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.attachment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attachment-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  word-break: break-all;
+}
+
+.attachment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.attachment-meta .separator {
+  color: #9ca3af;
+}
+
+.attachment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-attachments {
+  padding: 32px;
+  text-align: center;
 }
 
 .empty-detail {

@@ -45,7 +45,7 @@ export const notificationApi = {
   },
 
   markAllAsRead: () => {
-    return requestClient.put('/api/v1/notification/read/all');
+    return requestClient.put('/api/v1/notification/read-all');
   },
 
   deleteNotification: (id: number) => {

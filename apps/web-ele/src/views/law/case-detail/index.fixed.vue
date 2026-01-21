@@ -383,6 +383,14 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- 阶段进度条 -->
+              <div class="stage-progress-container">
+                <div class="stage-progress-bar">
+                  <div class="stage-progress-fill" :style="{ width: stageProgress + '%' }"></div>
+                </div>
+                <div class="stage-progress-text">{{ stageProgress }}%</div>
+              </div>
             </div>
 
             <!-- 阶段内容 -->

@@ -130,6 +130,48 @@ const selectedUser = ref<any>(null);
 const savingMember = ref(false);
 
 const currentStage = ref(1);
+// 阶段进度条相关
+const stageProgress = ref(0);
+const targetProgress = ref(0);
+
+// 监听当前阶段变化，更新目标进度
+watch(currentStage, (newStage) => {
+  // 模拟每个阶段有不同的模块数量和完成情况
+  // 这里可以根据实际情况从API获取数据
+  const moduleCounts = [3, 7, 3, 5, 2, 6, 9];
+  const completedModules = [1, 2, 0, 0, 0, 0, 0];
+  
+  const totalModules = moduleCounts[newStage - 1];
+  const completed = completedModules[newStage - 1];
+  targetProgress.value = totalModules > 0 ? Math.round((completed / totalModules) * 100) : 0;
+  
+  // 动画效果：缓慢增加或减少进度
+  animateProgress();
+});
+
+// 进度条动画函数
+function animateProgress() {
+  const duration = 1000; // 动画持续时间1秒
+  const startTime = Date.now();
+  const startProgress = stageProgress.value;
+  const diff = targetProgress.value - startProgress;
+  
+  function updateProgress() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // 使用缓动函数使动画更自然
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    stageProgress.value = Math.round(startProgress + diff * easedProgress);
+    
+    if (progress < 1) {
+      requestAnimationFrame(updateProgress);
+    }
+  }
+  
+  updateProgress();
+}
+
 const stages = [
   {
     id: 1,
@@ -879,6 +921,14 @@ onMounted(async () => {
 
     // 检查API响应结构 - 适配新的API响应格式
     if (responseData.code === 200 && responseData.data) {
+      // 初始化进度条
+      const moduleCounts = [3, 7, 3, 5, 2, 6, 9];
+      const completedModules = [1, 2, 0, 0, 0, 0, 0];
+      
+      const totalModules = moduleCounts[currentStage.value - 1];
+      const completed = completedModules[currentStage.value - 1];
+      targetProgress.value = totalModules > 0 ? Math.round((completed / totalModules) * 100) : 0;
+      stageProgress.value = targetProgress.value;
       const caseData = responseData.data;
 
       if (caseData) {
@@ -2032,6 +2082,15 @@ const checkPermissions = async () => {
                   </div>
                 </div>
               </div>
+              
+              <!-- 阶段进度条 -->
+              <div class="stage-progress-container">
+                <div class="stage-progress-bar">
+                  <div class="stage-progress-fill" :style="{ width: stageProgress + '%' }"></div>
+                </div>
+                <div class="stage-progress-text">{{ stageProgress }}%</div>
+              </div>
+              
               <div class="stage-controls">
                 <ElButton
                   :disabled="currentStage === 1"
@@ -3864,7 +3923,6 @@ const checkPermissions = async () => {
 
 .stage-dot.active {
   background: #409eff;
-  box-shadow: 0 0 0 4px rgb(64 158 255 / 20%);
   transform: scale(1.2);
 }
 
@@ -3933,6 +3991,44 @@ const checkPermissions = async () => {
   display: flex;
   gap: 12px;
   justify-content: center;
+}
+
+/* 阶段进度条样式 */
+.stage-progress-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 0 20px;
+  width: 100%;
+}
+
+.stage-progress-bar {
+  flex: 1;
+  height: 4px;
+  background-color: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stage-progress-fill {
+  height: 100%;
+  background-color: #409eff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.stage-progress-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #409eff;
+  min-width: 40px;
+  text-align: right;
 }
 
 .stage-content {

@@ -16,9 +16,6 @@ import ApprovalCard from './ApprovalCard.vue';
 const router = useRouter();
 const dropdownVisible = ref(false);
 const isHovering = ref(false);
-const loading = ref(false);
-const notifications = ref<Notification[]>([]);
-const unreadCount = ref(0);
 // 全部消息个数 = 最新动态个数 + 待审核个数
 const totalCount = computed(() => {
   return dynamicCount.value + pendingApprovals.value.length;
@@ -27,15 +24,17 @@ const pendingApprovals = ref<Approval[]>([]);
 
 // 标签页配置
 const tabs = [
-  { key: 'all', label: '全部' },
   { key: 'dynamic', label: '最新动态' },
   { key: 'approval', label: '待审核' },
 ];
-const activeTab = ref('all');
+const activeTab = ref('dynamic');
 const showSettings = ref(false);
 
 // 动态数据计数
 const dynamicCount = ref(0);
+
+// ActivityTimeline组件引用
+const activityTimelineRef = ref<any>(null);
 
 // 加载最新动态数量
 const loadDynamicCount = async () => {
@@ -70,89 +69,9 @@ const formatTime = (time: string) => {
   return date.toLocaleDateString();
 };
 
-const loadNotifications = async () => {
-  loading.value = true;
-  try {
-    // 从本地存储获取userId
-    const userIdStr = localStorage.getItem('chat_user_id');
-    const userId = userIdStr ? Number(userIdStr) : 16; // 默认值16
 
-    const res = await notificationApi.getNotificationList(userId, 0, 10);
-    console.log('加载通知结果:', res);
-    notifications.value = res.data || [];
 
-    // 如果没有数据，添加一些模拟数据用于测试
-    if (notifications.value.length === 0) {
-      notifications.value = [
-        {
-          id: 1,
-          userId,
-          type: 'SYSTEM',
-          title: '系统通知',
-          content: '您有新的系统消息',
-          isRead: false,
-          createTime: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          userId,
-          type: 'CASE',
-          title: '案件更新',
-          content: '您的案件已经更新',
-          isRead: true,
-          createTime: new Date(Date.now() - 3_600_000).toISOString(),
-        },
-        {
-          id: 3,
-          userId,
-          type: 'APPROVAL',
-          title: '审批通知',
-          content: '您有新的审批请求',
-          isRead: false,
-          createTime: new Date(Date.now() - 7_200_000).toISOString(),
-        },
-      ];
-    }
-  } catch (error) {
-    console.error('加载通知失败:', error);
-    // 从本地存储获取userId用于模拟数据
-    const userIdStr = localStorage.getItem('chat_user_id');
-    const userId = userIdStr ? Number(userIdStr) : 16;
 
-    // 发生错误时，添加一些模拟数据用于测试
-    notifications.value = [
-      {
-        id: 1,
-        userId,
-        type: 'SYSTEM',
-        title: '系统通知',
-        content: '您有新的系统消息',
-        isRead: false,
-        createTime: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        userId,
-        type: 'CASE',
-        title: '案件更新',
-        content: '您的案件已经更新',
-        isRead: true,
-        createTime: new Date(Date.now() - 3_600_000).toISOString(),
-      },
-    ];
-  } finally {
-    loading.value = false;
-  }
-};
-
-const loadUnreadCount = async () => {
-  try {
-    const res = await notificationApi.getUnreadCount();
-    unreadCount.value = res.data || 0;
-  } catch (error) {
-    console.error('加载未读数量失败:', error);
-  }
-};
 
 // 加载待审核数据
 const loadPendingApprovals = async () => {
@@ -195,22 +114,11 @@ const loadPendingApprovals = async () => {
 const toggleDropdown = () => {
   dropdownVisible.value = !dropdownVisible.value;
   if (dropdownVisible.value) {
-    loadNotifications();
     loadPendingApprovals();
   }
 };
 
-const handleNotificationClick = async (item: Notification) => {
-  if (!item.isRead) {
-    await notificationApi.markAsRead(item.id);
-    item.isRead = true;
-    loadUnreadCount();
-  }
-  if (item.relatedType && item.relatedId) {
-    router.push(`/${item.relatedType.toLowerCase()}/${item.relatedId}`);
-  }
-  dropdownVisible.value = false;
-};
+
 
 // 处理审核点击
 const handleApprovalClick = (approval: Approval) => {
@@ -225,20 +133,16 @@ const markAllAsRead = async () => {
     ElMessage.error('无法获取用户信息');
     return;
   }
-  await notificationApi.markAllAsRead(Number(userId));
-  notifications.value.forEach((item) => {
-    item.isRead = true;
-  });
-  loadUnreadCount();
+  await notificationApi.markAllAsRead();
+  loadDynamicCount();
+  // 刷新最新动态数据
+  if (activityTimelineRef.value && typeof activityTimelineRef.value.loadActivities === 'function') {
+    await activityTimelineRef.value.loadActivities();
+  }
   ElMessage.success('已全部标记为已读');
-};
+}
 
-const deleteNotification = async (id: number) => {
-  await notificationApi.deleteNotification(id);
-  notifications.value = notifications.value.filter((item) => item.id !== id);
-  loadUnreadCount();
-  ElMessage.success('通知已删除');
-};
+
 
 const goToNotificationCenter = () => {
   router.push('/notification');
@@ -259,14 +163,11 @@ const handleWebSocketMessage = (data: any) => {
 // 监听下拉菜单显示状态，加载数据
 watch(dropdownVisible, (newVal) => {
   if (newVal) {
-    loadNotifications();
     loadPendingApprovals();
   }
 });
 
 onMounted(() => {
-  loadUnreadCount();
-  loadNotifications(); // 加载通知数据
   loadDynamicCount(); // 加载最新动态数量
   loadPendingApprovals(); // 加载待审核数据
 });
@@ -319,10 +220,7 @@ onUnmounted(() => {});
             @click="activeTab = tab.key"
           >
             <span>{{ tab.label }}</span>
-            <span
-              v-if="tab.key === 'all' && unreadCount > 0"
-              class="tab-badge circle-badge"
-              >{{ unreadCount }}</span>
+            
             <span
               v-if="tab.key === 'dynamic' && dynamicCount > 0"
               class="tab-badge circle-badge"
@@ -355,68 +253,14 @@ onUnmounted(() => {});
 
         <ElScrollbar style="flex: 1; min-height: 0">
           <div class="notification-content-wrapper">
-            <!-- 全部通知 -->
-            <div
-              v-if="activeTab === 'all'"
-              class="notification-content-section"
-            >
-              <div v-loading="loading" class="notification-list">
-                <div
-                  v-for="item in notifications"
-                  :key="item.id"
-                  class="notification-item"
-                  :class="{ unread: !item.isRead }"
-                  @click="handleNotificationClick(item)"
-                >
-                  <div class="notification-content">
-                    <div class="notification-title">{{ item.title }}</div>
-                    <div class="notification-text">{{ item.content }}</div>
-                    <div class="notification-time">
-                      {{ formatTime(item.createTime) }}
-                    </div>
-                  </div>
-                  <div class="notification-actions">
-                    <ElButton
-                      circle
-                      size="small"
-                      @click.stop="deleteNotification(item.id)"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="lucide lucide-trash-2"
-                      >
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                        <line x1="10" x2="10" y1="11" y2="17" />
-                        <line x1="14" x2="14" y1="11" y2="17" />
-                      </svg>
-                    </ElButton>
-                  </div>
-                </div>
-                <div
-                  v-if="notifications.length === 0"
-                  class="notification-empty"
-                >
-                  暂无通知
-                </div>
-              </div>
-            </div>
+            
 
             <!-- 最新动态 -->
             <div
-              v-else-if="activeTab === 'dynamic'"
+              v-if="activeTab === 'dynamic'"
               class="notification-content-section"
             >
-              <ActivityTimeline @update:count="dynamicCount = $event" />
+              <ActivityTimeline ref="activityTimelineRef" @update:count="dynamicCount = $event" />
             </div>
 
             <!-- 待审核 -->
