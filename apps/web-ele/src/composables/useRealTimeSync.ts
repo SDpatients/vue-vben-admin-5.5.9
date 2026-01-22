@@ -42,25 +42,7 @@ export function useRealTimeSync() {
   };
   
   const getWebSocketUrl = (): string => {
-    const token = getToken();
-    const userId = getUserId();
-    
-    // 尝试多种可能的WebSocket URL格式
-    const baseUrl = 'http://localhost:5779';
-    const wsUrl1 = `${baseUrl.replace('http://', 'ws://').replace('https://', 'wss://')}/ws?token=${token}&userId=${userId}`;
-    const wsUrl2 = `${baseUrl.replace('http://', 'ws://').replace('https://', 'wss://')}/chat/ws?token=${token}&userId=${userId}`;
-    const wsUrl3 = `${baseUrl.replace('http://', 'ws://').replace('https://', 'wss://')}/websocket?token=${token}&userId=${userId}`;
-    
-    console.log('===== WebSocket URL 测试 =====');
-    console.log('Token:', token);
-    console.log('用户ID:', userId);
-    console.log('基础URL:', baseUrl);
-    console.log('尝试URL1:', wsUrl1);
-    console.log('尝试URL2:', wsUrl2);
-    console.log('尝试URL3:', wsUrl3);
-    
-    // 先尝试第一种URL格式
-    return wsUrl1;
+    throw new Error('WebSocket连接已禁用');
   };
   
   const startHeartbeat = () => {

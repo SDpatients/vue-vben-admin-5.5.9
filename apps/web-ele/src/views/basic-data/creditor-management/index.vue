@@ -54,6 +54,26 @@ const safeCreditorList = computed(() =>
   Array.isArray(creditorList.value) ? creditorList.value : [],
 );
 
+// 债权人类型映射 (英文转中文)
+const creditorTypeMap: Record<string, string> = {
+  ENTERPRISE: '企业',
+  INDIVIDUAL: '个人',
+  FINANCIAL_INSTITUTION: '金融机构',
+  GOVERNMENT: '政府机构',
+  OTHER: '其他',
+  // 保留中文值作为键，处理已有中文数据
+  '金融机构': '金融机构',
+  '企业': '企业',
+  '个人': '个人',
+  '政府机构': '政府机构',
+  '其他': '其他',
+};
+
+// 转换债权人类型为中文
+const convertCreditorType = (type: string): string => {
+  return creditorTypeMap[type] || type;
+};
+
 // 债权人分类选项
 const creditorTypeOptions = [
   { label: '个人', value: '个人' },
@@ -232,9 +252,13 @@ const fetchCreditorList = async () => {
     console.log('API响应:', response);
 
     if (response.code === 200 && response.data) {
-      creditorList.value = Array.isArray(response.data.list)
+      // 转换债权人类型为中文
+      creditorList.value = (Array.isArray(response.data.list)
         ? response.data.list
-        : [];
+        : []).map((creditor: CreditorApi.CreditorInfo) => ({
+          ...creditor,
+          creditorType: convertCreditorType(creditor.creditorType),
+        }));
       pagination.value.itemCount =
         response.data.total || creditorList.value.length;
       ElMessage.success(`成功加载 ${creditorList.value.length} 条债权人记录`);

@@ -8,7 +8,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:message-circle',
       order: 4,
       title: $t('page.chat.title'),
-      hideInMenu: false,
+      hideInMenu: true,
     },
     name: 'Chat',
     path: '/chat',

@@ -30,6 +30,7 @@ import {
   createAnnouncementApi,
   createViewRecordApi,
   deleteAnnouncementApi,
+  getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
   getAnnouncementViewsApi,
@@ -1193,11 +1194,7 @@ const downloadDocumentAttachment = async (attachment: any) => {
   }
 };
 
-// 查看送达记录
-const viewServiceRecords = (documentId: string) => {
-  // 跳转到送达记录页面
-  router.push(`/service-of-documents/${documentId}/records`);
-};
+
 
 // 发送文书
 const sendDocument = async (documentId: number) => {
@@ -2548,8 +2545,11 @@ const fetchWorkTeams = async () => {
       Number(caseId.value),
     );
     
+    const currentCaseId = Number(caseId.value);
+    
+    // 调用工作团队API获取当前案件的活跃工作团队
     const response = await getWorkTeamListWithDetailsApi({
-      caseId: Number(caseId.value),
+      caseId: currentCaseId,
       pageNum: 1,
       pageSize: 100,
       status: 'ACTIVE',
@@ -2557,28 +2557,15 @@ const fetchWorkTeams = async () => {
 
     console.log('工作团队API返回:', response);
 
-    if (response && response.code === 200) {
-      if (response.data && response.data.list) {
-        console.log('工作团队列表:', response.data.list);
-        
-        const currentCaseId = Number(caseId.value);
-        
-        const filteredTeams = response.data.list.filter((team: any) => {
-          return team.caseId === currentCaseId;
-        });
-        
-        console.log('过滤后的工作团队列表:', filteredTeams);
-        
-        workTeams.value = filteredTeams;
-      } else {
-        console.error(
-          'API返回数据结构异常，缺少data或data.list:',
-          response.data,
-        );
-        workTeams.value = [];
-      }
+    // 检查API是否返回有效数据
+    if (response && response.code === 200 && response.data && response.data.list) {
+      console.log('工作团队列表:', response.data.list);
+      
+      // 将API返回的工作团队数据直接显示
+      workTeams.value = response.data.list;
+      console.log('最终工作团队数据:', workTeams.value);
     } else {
-      console.error('API返回错误:', response.code, response.message);
+      console.error('API返回数据结构异常或为空:', response.data);
       workTeams.value = [];
     }
   } catch (error: any) {
@@ -2886,11 +2873,46 @@ const handleAddMember = async (teamId: number) => {
 };
 
 // 展开/收起团队成员列表
-const toggleTeamMembers = (teamId: number) => {
+const toggleTeamMembers = async (teamId: number) => {
   if (expandedTeams.value.has(teamId)) {
     expandedTeams.value.delete(teamId);
   } else {
     expandedTeams.value.add(teamId);
+    
+    // 查找对应的团队对象
+    const team = workTeams.value.find(t => t.id === teamId);
+    
+    // 如果团队对象存在且没有成员数据，获取成员数据
+    if (team && (!team.members || team.members.length === 0)) {
+      try {
+        workTeamLoading.value = true;
+        console.log(`开始获取团队ID ${teamId} 的成员列表`);
+        
+        // 调用API获取团队成员列表
+        const response = await getWorkTeamDetailWithMembersApi(teamId);
+        console.log(`团队ID ${teamId} 的成员列表API返回:`, response);
+        
+        // 检查响应数据
+        let members = [];
+        if (response.members) {
+          members = response.members;
+        } else if (response.data && response.data.members) {
+          members = response.data.members;
+        } else if (response.data) {
+          members = response.data;
+        }
+        
+        console.log(`团队ID ${teamId} 的成员列表:`, members);
+        
+        // 将成员数据存储到团队对象中
+        team.members = members;
+      } catch (error: any) {
+        console.error(`获取团队ID ${teamId} 的成员列表失败:`, error);
+        ElMessage.error('获取团队成员列表失败');
+      } finally {
+        workTeamLoading.value = false;
+      }
+    }
   }
 };
 
@@ -2977,11 +2999,19 @@ const handleSaveMember = async () => {
     savingMember.value = true;
 
     if (memberForm.value.id) {
-      await updateTeamMemberApi(memberForm.value.id, {
+      const updateResponse = await updateTeamMemberApi(memberForm.value.id, {
         teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
       });
-      ElMessage.success('更新团队成员信息成功');
+      if (updateResponse.code === 200) {
+        ElMessage.success('更新团队成员信息成功');
+        memberDialogVisible.value = false;
+        await fetchWorkTeams();
+      } else if (updateResponse.code === 403) {
+        ElMessage.error(updateResponse.message || '您没有权限编辑该工作团队');
+      } else {
+        ElMessage.error(updateResponse.message || '更新团队成员信息失败');
+      }
     } else {
       const addData = {
         caseId: Number(caseId.value),
@@ -2989,12 +3019,17 @@ const handleSaveMember = async () => {
         teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
       };
-      await addTeamMemberApi(selectedTeamId.value, addData);
-      ElMessage.success('添加团队成员成功');
+      const addResponse = await addTeamMemberApi(selectedTeamId.value, addData);
+      if (addResponse.code === 200) {
+        ElMessage.success('添加团队成员成功');
+        memberDialogVisible.value = false;
+        await fetchWorkTeams();
+      } else if (addResponse.code === 403) {
+        ElMessage.error(addResponse.message || '您没有权限编辑该工作团队');
+      } else {
+        ElMessage.error(addResponse.message || '添加团队成员失败');
+      }
     }
-
-    memberDialogVisible.value = false;
-    await fetchWorkTeams();
   } catch (error: any) {
     console.error('保存团队成员失败:', error);
     const errorMessage =
@@ -3008,13 +3043,20 @@ const handleSaveMember = async () => {
 // 移除成员
 const handleRemoveMember = async (teamId: number, memberId: number) => {
   try {
-    await removeTeamMemberApi(teamId, memberId);
-    ElMessage.success('移除团队成员成功');
-    // 重新获取工作团队列表，更新所有团队的成员信息
-    await fetchWorkTeams();
+    const response = await removeTeamMemberApi(teamId, memberId);
+    // 检查响应code，200表示成功，403表示权限不足
+    if (response.code === 200) {
+      ElMessage.success('移除团队成员成功');
+      // 重新获取工作团队列表，更新所有团队的成员信息
+      await fetchWorkTeams();
+    } else if (response.code === 403) {
+      ElMessage.error(response.message || '您没有权限编辑该工作团队');
+    } else {
+      ElMessage.error(response.message || '移除团队成员失败');
+    }
   } catch (error: any) {
     console.error('移除团队成员失败:', error);
-    const errorMessage =
+    const errorMessage = 
       error?.response?.data?.message || error?.message || '移除团队成员失败';
     ElMessage.error(errorMessage);
   }
@@ -3883,7 +3925,11 @@ const checkPermissions = async () => {
                       </ElTag>
                     </template>
                   </ElTableColumn>
-                  <ElTableColumn prop="deliveryTime" label="送达日期" />
+                  <ElTableColumn label="送达日期">
+                    <template #default="scope">
+                      {{ formatDateOnly(scope.row.sendTime) }}
+                    </template>
+                  </ElTableColumn>
                   <ElTableColumn prop="status" label="审核状态">
                     <template #default="scope">
                       <ElTag
@@ -5341,7 +5387,7 @@ const checkPermissions = async () => {
                   <ElOption
                     v-for="admin in administrators"
                     :key="admin.sepId"
-                    :label="admin.lsswsid"
+                    :label="admin.administratorName"
                     :value="admin.sepId"
                   />
                 </ElSelect>
@@ -7162,6 +7208,41 @@ const checkPermissions = async () => {
 :deep(.el-radio-button--default.is-active .el-radio-button__inner:hover) {
   border-color: transparent !important;
   background-color: transparent !important;
+}
+
+/* Link按钮样式修复 - 取消背景色，只保留字体颜色 */
+:deep(.el-button--link) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:deep(.el-button--primary.is-link) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #3b82f6 !important;
+}
+
+:deep(.el-button--success.is-link) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #10b981 !important;
+}
+
+:deep(.el-button--warning.is-link) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #f59e0b !important;
+}
+
+:deep(.el-button--danger.is-link) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #ef4444 !important;
 }
 
 /* 过渡动画 */

@@ -40,6 +40,12 @@ const caseCrossAnalysis = ref<null | StatisticsApi.CrossAnalysisData>(null);
 const caseRanking = ref<null | StatisticsApi.RankingResponse>(null);
 const creditorClaimRanking = ref<null | StatisticsApi.RankingResponse>(null);
 
+// 权限状态标志
+const hasCaseTrendPermission = ref(true);
+const hasCaseStatisticsPermission = ref(true);
+const hasCaseRankingPermission = ref(true);
+const hasCreditorClaimRankingPermission = ref(true);
+
 const translateStatus = (status: string): string => {
   const statusMap: Record<string, string> = {
     COMPLETED: '已完成',
@@ -379,26 +385,45 @@ const loadStatisticsData = async () => {
   try {
     loading.value = true;
 
+    // 重置权限状态
+    hasCaseTrendPermission.value = true;
+    hasCaseStatisticsPermission.value = true;
+    hasCaseRankingPermission.value = true;
+    hasCreditorClaimRankingPermission.value = true;
+
     const [trendRes, statsRes, crossRes, rankingRes, creditorRes] =
       await Promise.all([
         getCaseTrend({ period: 'month' }).catch((error) => {
           console.error('案件趋势API调用失败:', error);
+          if (error?.code === 403) {
+            hasCaseTrendPermission.value = false;
+          }
           return null;
         }),
         getCaseStatistics().catch((error) => {
           console.error('案件统计API调用失败:', error);
+          if (error?.code === 403) {
+            hasCaseStatisticsPermission.value = false;
+          }
           return null;
         }),
         getCaseCrossAnalysis().catch((error) => {
           console.error('案件交叉分析API调用失败:', error);
+          // 交叉分析API失败不影响其他图表显示
           return null;
         }),
         getCaseAmountRanking({ topN: 10 }).catch((error) => {
           console.error('案件金额排名API调用失败:', error);
+          if (error?.code === 403) {
+            hasCaseRankingPermission.value = false;
+          }
           return null;
         }),
         getCreditorClaimAmountRanking({ topN: 10 }).catch((error) => {
           console.error('债权申报金额排名API调用失败:', error);
+          if (error?.code === 403) {
+            hasCreditorClaimRankingPermission.value = false;
+          }
           return null;
         }),
       ]);
@@ -437,7 +462,7 @@ onMounted(() => {
       <h3 class="mb-4 text-lg font-semibold">案件管理分析</h3>
 
       <!-- 第一行：案件数量趋势 -->
-      <ElRow :gutter="20" class="mb-5">
+      <ElRow :gutter="20" class="mb-5" v-if="hasCaseTrendPermission">
         <ElCol :span="24">
           <ElCard header="案件数量趋势" size="small">
             <template #header>
@@ -457,7 +482,7 @@ onMounted(() => {
       </ElRow>
 
       <!-- 第二行：案件类型分布、案件处理进度 -->
-      <ElRow :gutter="20" class="mb-5">
+      <ElRow :gutter="20" class="mb-5" v-if="hasCaseStatisticsPermission">
         <!-- 案件类型分布图表 -->
         <ElCol :span="12">
           <ElCard header="案件类型分布" size="small">
@@ -497,7 +522,7 @@ onMounted(() => {
       <!-- 第三行：债权申报金额排名、案件金额排名 -->
       <ElRow :gutter="20" class="mb-5">
         <!-- 债权申报金额排名图表 -->
-        <ElCol :span="12">
+        <ElCol :span="12" v-if="hasCreditorClaimRankingPermission">
           <ElCard header="债权申报金额排名" size="small">
             <div class="h-[300px]">
               <EchartsUI ref="chartRef4" />
@@ -505,7 +530,7 @@ onMounted(() => {
           </ElCard>
         </ElCol>
         <!-- 案件金额排名图表 -->
-        <ElCol :span="12">
+        <ElCol :span="12" v-if="hasCaseRankingPermission">
           <ElCard header="案件金额排名" size="small">
             <div class="h-[300px]">
               <EchartsUI ref="chartRef5" />

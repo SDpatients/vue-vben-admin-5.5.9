@@ -112,8 +112,7 @@ class WebSocketService {
   }
 
   private getWebSocketUrl(): string {
-    const token = this.getToken();
-    return `ws://localhost:5779/ws?token=${encodeURIComponent(token)}`;
+    throw new Error('WebSocket连接已禁用');
   }
 
   private handleNotification(data: WebSocketMessage): void {

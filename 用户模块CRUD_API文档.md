@@ -16,7 +16,7 @@
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8080`
+- **Base URL**: `http://192.168.0.120:8080`
 - **API前缀**: `/api/users`
 - **认证方式**: JWT Bearer Token
 - **内容类型**: `application/json`
@@ -502,7 +502,7 @@ java -jar target/lawbackend2-0.0.1-SNAPSHOT.jar
 启动应用后，访问以下地址查看API文档：
 
 ```
-http://localhost:8080/swagger-ui.html
+http://192.168.0.120:8080/swagger-ui.html
 ```
 
 ## 使用示例
@@ -512,7 +512,7 @@ http://localhost:8080/swagger-ui.html
 #### 创建用户
 
 ```bash
-curl -X POST http://localhost:8080/api/users \
+curl -X POST http://192.168.0.120:8080/api/users \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -528,21 +528,21 @@ curl -X POST http://localhost:8080/api/users \
 #### 获取用户列表
 
 ```bash
-curl -X GET "http://localhost:8080/api/users?page=1&size=10&status=ACTIVE" \
+curl -X GET "http://192.168.0.120:8080/api/users?page=1&size=10&status=ACTIVE" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 #### 获取单个用户
 
 ```bash
-curl -X GET http://localhost:8080/api/users/1 \
+curl -X GET http://192.168.0.120:8080/api/users/1 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 #### 更新用户
 
 ```bash
-curl -X PUT http://localhost:8080/api/users/1 \
+curl -X PUT http://192.168.0.120:8080/api/users/1 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -554,7 +554,7 @@ curl -X PUT http://localhost:8080/api/users/1 \
 #### 删除用户
 
 ```bash
-curl -X DELETE http://localhost:8080/api/users/1 \
+curl -X DELETE http://192.168.0.120:8080/api/users/1 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 

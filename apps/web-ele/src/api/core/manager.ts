@@ -26,8 +26,8 @@ export namespace ManagerApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: ManagerInfo[];
+      total: number;
     };
   }
 
@@ -45,9 +45,12 @@ export namespace ManagerApi {
  * 获取管理人列表（分页）
  */
 export async function getManagerListApi(params: ManagerApi.ManagerQueryParams) {
-  return requestClient8085.get<ManagerApi.ManagerListResponse>('/administrator/list', {
-    params,
-  });
+  return requestClient8085.get<ManagerApi.ManagerListResponse>(
+    '/administrator/list',
+    {
+      params,
+    },
+  );
 }
 
 /** 添加管理人请求 */
@@ -64,11 +67,15 @@ export interface AddManagerRequest {
  * 添加管理人信息
  */
 export async function addManagerApi(data: AddManagerRequest) {
-  return requestClient8085.post<ManagerApi.ManagerOperationResponse>('/administrator', data, {
-    headers: {
-      'Content-Type': 'application/json',
+  return requestClient8085.post<ManagerApi.ManagerOperationResponse>(
+    '/administrator',
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
     },
-  });
+  );
 }
 
 /** 更新管理人请求 */
@@ -81,17 +88,26 @@ export interface UpdateManagerRequest {
 /**
  * 更新管理人信息
  */
-export async function updateManagerApi(administratorId: number | string, data: UpdateManagerRequest) {
-  return requestClient8085.put<ManagerApi.ManagerOperationResponse>(`/administrator/${administratorId}`, data, {
-    headers: {
-      'Content-Type': 'application/json',
+export async function updateManagerApi(
+  administratorId: number | string,
+  data: UpdateManagerRequest,
+) {
+  return requestClient8085.put<ManagerApi.ManagerOperationResponse>(
+    `/administrator/${administratorId}`,
+    data,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
     },
-  });
+  );
 }
 
 /**
  * 删除管理人信息
  */
 export async function deleteManagerApi(administratorId: number | string) {
-  return requestClient8085.delete<ManagerApi.ManagerOperationResponse>(`/administrator/${administratorId}`);
+  return requestClient8085.delete<ManagerApi.ManagerOperationResponse>(
+    `/administrator/${administratorId}`,
+  );
 }

@@ -1608,6 +1608,15 @@ const initFormData = () => {
     
     Object.assign(formData, mappedData);
     loadFileList();
+  } else if (props.mode === 'add') {
+    // 新增任务时，为所有日期类型的字段设置默认值为当前时间
+    const currentDate = new Date().toISOString().split('T')[0];
+    const fields = currentConfig.value.fields || [];
+    fields.forEach((field: any) => {
+      if (field.type === 'date') {
+        formData[field.prop] = currentDate;
+      }
+    });
   }
   
   console.log('[初始化] 弹窗已打开，任务数据:', props.taskData);

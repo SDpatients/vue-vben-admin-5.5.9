@@ -205,6 +205,26 @@ const fetchDebtorList = async () => {
   }
 };
 
+// 债权人类型映射 (英文转中文)
+const creditorTypeMap: Record<string, string> = {
+  ENTERPRISE: '企业',
+  INDIVIDUAL: '个人',
+  FINANCIAL_INSTITUTION: '金融机构',
+  GOVERNMENT: '政府机构',
+  OTHER: '其他',
+  // 保留中文值作为键，处理已有中文数据
+  '金融机构': '金融机构',
+  '企业': '企业',
+  '个人': '个人',
+  '政府机构': '政府机构',
+  '其他': '其他',
+};
+
+// 转换债权人类型为中文
+const convertCreditorType = (type: string): string => {
+  return creditorTypeMap[type] || type;
+};
+
 const fetchCreditorList = async (keyword: string = '') => {
   creditorListLoading.value = true;
   try {
@@ -218,7 +238,7 @@ const fetchCreditorList = async (keyword: string = '') => {
       creditorList.value = response.data.list.map((creditor: any) => ({
         label: creditor.creditorName,
         value: creditor.id,
-        creditorType: creditor.creditorType,
+        creditorType: convertCreditorType(creditor.creditorType),
         caseNumber: creditor.caseNumber,
         caseName: creditor.caseName,
       }));

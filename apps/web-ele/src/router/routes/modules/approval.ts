@@ -1,14 +1,12 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { $t } from '#/locales';
-
 const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:clipboard-check',
       order: 11,
       title: '批审管理',
-      roles: ['ADMIN'],
+      authority: ['ADMIN'],
     },
     name: 'ApprovalManagement',
     path: '/approval',
@@ -21,6 +19,7 @@ const routes: RouteRecordRaw[] = [
           affixTab: false,
           icon: 'lucide:file-check',
           title: '文书审批',
+          authority: ['ADMIN'],
         },
       },
       {
@@ -31,6 +30,7 @@ const routes: RouteRecordRaw[] = [
           affixTab: false,
           icon: 'lucide:briefcase',
           title: '案件审批',
+          authority: ['ADMIN'],
         },
       },
     ],

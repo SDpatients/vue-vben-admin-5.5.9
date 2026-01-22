@@ -72,17 +72,7 @@ const routes: RouteRecordRaw[] = [
         },
       },
 
-      {
-        name: 'BasicDataWorkTeamManagement',
-        path: 'work-team-management',
-        component: () =>
-          import('#/views/basic-data/work-team-management/WorkTeamManagement.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:users',
-          title: $t('page.basicData.workTeamManagement'),
-        },
-      },
+
 
       {
         name: 'BasicDataManagerManagement',

@@ -148,14 +148,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUserInfo() {
     let userInfo: null | UserInfo = null;
     try {
-      console.log('[fetchUserInfo] 开始获取用户信息...');
       const result = await getCurrentUserApi();
-      console.log('[fetchUserInfo] API返回结果:', result);
 
       if (result && result.code === 200 && result.data) {
         const backendUserInfo = result.data;
-
-        console.log('[fetchUserInfo] 后端用户信息:', backendUserInfo);
 
         userInfo = {
           userId: backendUserInfo.id.toString(),
@@ -170,25 +166,12 @@ export const useAuthStore = defineStore('auth', () => {
           permissions: backendUserInfo.permissions || [],
         };
 
-        console.log('[fetchUserInfo] 转换后的用户信息:', userInfo);
         userStore.setUserInfo(userInfo);
         userStore.setUserRoles(backendUserInfo.roles || []);
         accessStore.setAccessCodes(backendUserInfo.permissions || []);
-
-        console.log(
-          '[fetchUserInfo] userStore中的用户信息:',
-          userStore.userInfo,
-        );
-        console.log('[fetchUserInfo] userStore中的角色:', userStore.userRoles);
-        console.log(
-          '[fetchUserInfo] accessStore中的权限码:',
-          accessStore.accessCodes,
-        );
-      } else {
-        console.log('[fetchUserInfo] API返回数据格式不正确:', result);
       }
     } catch (error) {
-      console.error('[fetchUserInfo] 获取用户信息失败:', error);
+      // 获取用户信息失败
     }
     return userInfo;
   }

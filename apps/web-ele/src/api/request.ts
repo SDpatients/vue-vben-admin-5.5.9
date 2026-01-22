@@ -141,6 +141,11 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
         errorMessage = '';
       }
 
+      // 过滤掉没有权限查看统计数据的错误提示
+      if (errorMessage.includes('您没有权限查看统计数据')) {
+        errorMessage = '';
+      }
+
       // 如果没有有效错误信息，则不显示提示
       if (errorMessage) {
         ElMessage.error(errorMessage || msg);
@@ -187,9 +192,9 @@ export const fundRequestClient = createRequestClient(
   },
 );
 
-// 工作团队API客户端，指向http://localhost:8080
+// 工作团队API客户端，指向http://192.168.0.120:8080
 export const workTeamRequestClient = createRequestClient(
-  'http://localhost:8080/api/v1',
+  'http://192.168.0.120:8080/api/v1',
   {
     responseReturn: 'body',
   },

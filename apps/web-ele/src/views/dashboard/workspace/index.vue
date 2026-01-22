@@ -23,6 +23,7 @@ import {
 import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
 import {
   createViewRecordApi,
+  getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
   getViewRecordListApi,

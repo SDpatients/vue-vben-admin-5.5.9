@@ -7,6 +7,7 @@ export function useStompWebSocket() {
 
   const connect = async () => {
     try {
+      // 检查 WebSocket 是否可用
       await webSocketService.connect();
       isConnected.value = true;
       syncStatus.value = 'SYNCED';
@@ -14,7 +15,7 @@ export function useStompWebSocket() {
       console.error('WebSocket 连接失败:', error);
       isConnected.value = false;
       syncStatus.value = 'FAILED';
-      throw error;
+      // 不抛出错误，避免影响页面加载
     }
   };
 

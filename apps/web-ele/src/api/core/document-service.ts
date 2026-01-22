@@ -1,5 +1,6 @@
-import { createRequestClient } from '#/api/request';
 import { useAppConfig } from '@vben/hooks';
+
+import { createRequestClient } from '#/api/request';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
@@ -36,10 +37,10 @@ export namespace DocumentServiceApi {
     sendStatus: string;
     deliveryContent: string;
     documentAttachment: string;
-    sendTime: string | null;
-    deliveryTime: string | null;
-    failureReason: string | null;
-    remark: string | null;
+    sendTime: null | string;
+    deliveryTime: null | string;
+    failureReason: null | string;
+    remark: null | string;
     status: string;
     createTime: string;
     updateTime: string;
@@ -52,8 +53,8 @@ export namespace DocumentServiceApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: Document[];
+      total: number;
     };
   }
 
@@ -132,12 +133,12 @@ export namespace DocumentServiceApi {
     data: {
       deliveryId: number;
       files: {
+        fileExtension: string;
         fileId: number;
+        fileSize: number;
+        mimeType: string;
         originalFileName: string;
         storedFileName: string;
-        fileSize: number;
-        fileExtension: string;
-        mimeType: string;
       }[];
     };
   }
@@ -167,7 +168,7 @@ export async function createDocumentWithFilesApi(formData: FormData) {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 60000,
+      timeout: 60_000,
     },
   );
 }
@@ -176,13 +177,13 @@ export async function createDocumentWithFilesApi(formData: FormData) {
  * 获取文书送达列表（分页）
  */
 export async function getDocumentListApi(params?: {
-  pageNum?: number;
-  pageSize?: number;
   caseId?: number;
   caseNumber?: string;
-  documentType?: string;
-  recipientType?: string;
   deliveryMethod?: string;
+  documentType?: string;
+  pageNum?: number;
+  pageSize?: number;
+  recipientType?: string;
   sendStatus?: string;
   status?: string;
 }) {
@@ -218,20 +219,22 @@ export async function updateDocumentApi(
  * 删除文书送达记录
  */
 export async function deleteDocumentApi(deliveryId: number) {
-  return documentRequestClient.delete<{ code: number; message: string; data: null }>(
-    `/api/v1/document-delivery/${deliveryId}`,
-  );
+  return documentRequestClient.delete<{
+    code: number;
+    data: null;
+    message: string;
+  }>(`/api/v1/document-delivery/${deliveryId}`);
 }
 
 /**
  * 获取所有文书送达分页列表（支持模糊查询）
  */
 export async function getAllDocumentListApi(params?: {
+  caseNumber?: string;
+  documentType?: string;
   pageNum?: number;
   pageSize?: number;
-  documentType?: string;
   status?: string;
-  caseNumber?: string;
 }) {
   return documentRequestClient.get<DocumentServiceApi.DocumentListResponse>(
     '/api/v1/document-delivery/all',
@@ -245,15 +248,17 @@ export async function getAllDocumentListApi(params?: {
 export async function updateDocumentStatusRemarkApi(
   deliveryId: number,
   data: {
-    status?: string;
     remark?: string;
+    status?: string;
   },
 ) {
-  return documentRequestClient.put<{ code: number; message: string; data: null }>(
-    `/api/v1/document-delivery/${deliveryId}/status-remark`,
-    undefined,
-    { params: data },
-  );
+  return documentRequestClient.put<{
+    code: number;
+    data: null;
+    message: string;
+  }>(`/api/v1/document-delivery/${deliveryId}/status-remark`, undefined, {
+    params: data,
+  });
 }
 
 /**
@@ -263,19 +268,19 @@ export async function updateDocumentSendStatusApi(
   deliveryId: number,
   sendStatus: string,
 ) {
-  return documentRequestClient.put<{ code: number; message: string; data: null }>(
-    `/api/v1/document-delivery/${deliveryId}/send-status`,
-    undefined,
-    { params: { sendStatus } },
-  );
+  return documentRequestClient.put<{
+    code: number;
+    data: null;
+    message: string;
+  }>(`/api/v1/document-delivery/${deliveryId}/send-status`, undefined, {
+    params: { sendStatus },
+  });
 }
 
 /**
  * 获取文书送达附件列表
  */
-export async function getDocumentAttachmentsApi(
-  deliveryId: number,
-) {
+export async function getDocumentAttachmentsApi(deliveryId: number) {
   return documentRequestClient.get<DocumentServiceApi.AttachmentListResponse>(
     `/api/v1/document-delivery/${deliveryId}/attachments`,
   );

@@ -219,21 +219,13 @@ export async function sendSmsCodeApi(data: AuthApi.SendSmsCodeParams) {
  */
 export async function getCurrentUserApi() {
   const token = localStorage.getItem('token');
-  console.log('[getCurrentUserApi] 请求token:', token);
 
   const result = await fileUploadRequestClient.get<AuthApi.CurrentUserResult>(
-    '/api/v1/auth/current-user',
+    '/auth/current-user',
     {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     },
   );
-
-  console.log('[getCurrentUserApi] 响应结果:', {
-    code: result?.code,
-    message: result?.message,
-    data: result?.data,
-    hasData: !!result?.data,
-  });
 
   return result;
 }

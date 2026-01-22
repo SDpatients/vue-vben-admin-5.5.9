@@ -22,12 +22,7 @@ export function useWebSocket() {
   };
 
   const getWebSocketUrl = (): string => {
-    const token = getToken();
-    const userId = localStorage.getItem('chat_user_id') || '1';
-    // 使用聊天API的端口5779，而不是默认的8080
-    const baseUrl = 'http://localhost:5779';
-    const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-    return `${wsUrl}/ws?token=${token}&userId=${userId}`;
+    throw new Error('WebSocket连接已禁用');
   };
 
   const connect = () => {
