@@ -1068,9 +1068,13 @@ const taskFormConfig: Record<string, any> = {
   },
 };
 
-const currentConfig = computed(
-  () => taskFormConfig[props.taskType] || taskFormConfig.management,
-);
+const currentConfig = computed(() => {
+  const config = taskFormConfig[props.taskType] || taskFormConfig.management;
+  return {
+    ...config,
+    fields: config.fields || [],
+  };
+});
 
 const dialogTitle = computed(() => {
   const modeText: Record<string, string> = {
@@ -1510,9 +1514,13 @@ const camelCaseToLowerCaseMap: Record<string, Record<string, string>> = {
 const loadFileList = async () => {
   console.log('[文件列表] loadFileList开始执行');
   console.log('[文件列表] taskData:', props.taskData);
-  console.log('[文件列表] taskData?.sepId:', props.taskData?.sepId);
+  console.log('[文件列表] caseId:', props.caseId);
+  
+  // 安全获取sepId
+  const sepId = props.taskData?.sepId || props.taskData?.SEP_ID;
+  console.log('[文件列表] sepId:', sepId);
 
-  if (!props.taskData?.sepId) {
+  if (!sepId) {
     console.log('[文件列表] sepId不存在，跳过加载');
     return;
   }
@@ -1521,26 +1529,26 @@ const loadFileList = async () => {
   console.log('[文件列表] 调用getProcessFileListApi...');
   console.log('[文件列表] 参数:', {
     taskType: props.taskType,
-    taskId: props.taskData.sepId,
+    taskId: sepId,
     caseId: props.caseId,
   });
 
   try {
     const response = await getProcessFileListApi({
       taskType: props.taskType,
-      taskId: props.taskData.sepId,
+      taskId: sepId,
       caseId: props.caseId,
     });
     console.log('[文件列表] API响应:', response);
 
-    if (response.status === '1') {
+    if (response.status === '1' && Array.isArray(response.data)) {
       console.log('[文件列表] 响应数据:', response.data);
-      console.log('[文件列表] 文件数量:', response.data?.length || 0);
+      console.log('[文件列表] 文件数量:', response.data.length);
       fileList.value = response.data.map((record: any) => ({
         uid: record.id,
-        name: record.originalFileName,
+        name: record.originalFileName || '未知文件名',
         fileId: record.id,
-        fileName: record.originalFileName,
+        fileName: record.originalFileName || '未知文件名',
         fileSize: record.fileSize || 0,
         fileType: record.mimeType || '',
         uploadUser: record.uploadUser || '未知用户',
@@ -1553,10 +1561,12 @@ const loadFileList = async () => {
       console.log('[文件列表] 加载后的fileList:', fileList.value);
     } else {
       console.log('[文件列表] API返回失败状态:', response.msg);
+      fileList.value = [];
     }
   } catch (error) {
     console.error('加载文件列表失败:', error);
     ElMessage.error('加载文件列表失败');
+    fileList.value = [];
   } finally {
     fileListLoading.value = false;
     console.log('[文件列表] loadFileList执行完成');
@@ -1564,18 +1574,27 @@ const loadFileList = async () => {
 };
 
 const initFormData = () => {
+  // 清空表单数据
   Object.keys(formData).forEach((key) => delete formData[key]);
-  if (props.taskData) {
+  
+  // 重置文件列表和激活标签
+  activeTab.value = 'upload';
+  fileList.value = [];
+  
+  // 只有当taskData存在时才进行数据映射
+  if (props.taskData && typeof props.taskData === 'object') {
     const mappedData: any = {};
+    
+    // 安全遍历taskData的键
     Object.keys(props.taskData).forEach((key) => {
       // 获取当前任务类型的字段映射
-      const fieldMap = fieldNameMap[props.taskType];
-      const camelCaseMap = camelCaseToLowerCaseMap[props.taskType];
+      const fieldMap = fieldNameMap[props.taskType] || {};
+      const camelCaseMap = camelCaseToLowerCaseMap[props.taskType] || {};
 
-      if (fieldMap && fieldMap[key]) {
+      if (fieldMap[key]) {
         // 第一、二、四、五、六、七阶段：大写字段名 → 小写字段名
         mappedData[fieldMap[key]] = props.taskData[key];
-      } else if (camelCaseMap && camelCaseMap[key]) {
+      } else if (camelCaseMap[key]) {
         // 第三阶段：驼峰字段名 → 小写字段名
         mappedData[camelCaseMap[key]] = props.taskData[key];
       } else if (key === 'sepId' || key === 'SEP_ID' || key === 'row') {
@@ -1586,11 +1605,11 @@ const initFormData = () => {
         mappedData[key] = props.taskData[key];
       }
     });
+    
     Object.assign(formData, mappedData);
     loadFileList();
   }
-  activeTab.value = 'upload';
-  fileList.value = [];
+  
   console.log('[初始化] 弹窗已打开，任务数据:', props.taskData);
   console.log('[初始化] 任务ID (sepId):', props.taskData?.sepId);
   console.log('[初始化] 业务类型 (taskType):', props.taskType);
@@ -2251,13 +2270,18 @@ const handleRevoke = async () => {
 
 const formRules = computed(() => {
   const rules: any = {};
-  currentConfig.value.fields.forEach((field: any) => {
-    if (field.required) {
-      rules[field.prop] = [
-        { required: true, message: `请输入${field.label}`, trigger: 'blur' },
-      ];
-    }
-  });
+  const fields = currentConfig.value.fields || [];
+  
+  if (Array.isArray(fields)) {
+    fields.forEach((field: any) => {
+      if (field && field.required && field.prop && field.label) {
+        rules[field.prop] = [
+          { required: true, message: `请输入${field.label}`, trigger: 'blur' },
+        ];
+      }
+    });
+  }
+  
   return rules;
 });
 </script>
@@ -2349,14 +2373,13 @@ const formRules = computed(() => {
               </div>
             </div>
             <div class="file-actions">
-              <ElButton
-                type="primary"
-                size="small"
+              <span
+                style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
                 @click="handleDownload(file)"
               >
                 <Icon icon="lucide:download" class="mr-1" />
                 下载
-              </ElButton>
+              </span>
               <ElButton
                 v-if="!isReadOnly"
                 type="danger"
@@ -2433,9 +2456,8 @@ const formRules = computed(() => {
           </ElFormItem>
         </ElForm>
       </div>
-    </div>
 
-    <div class="dialog-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px">
+      <div class="dialog-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px">
       <ElButton @click="handleClose" :disabled="loading">
         <Icon icon="lucide:x" class="mr-1" />
         取消

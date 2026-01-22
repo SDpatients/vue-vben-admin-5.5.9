@@ -159,69 +159,7 @@ const formatTimestamp = (timestamp: number | undefined) => {
   });
 };
 
-// 生成模拟数据
-const generateMockData = () => {
-  const mockCases: CaseApi.CaseInfo[] = [
-    {
-      id: 1,
-      案号: '（2024）沪02破1号',
-      案由: '经营困难',
-      案件名称: '上海某实业公司破产重整案',
-      案件来源: '债权人申请',
-      案件进度: '第二阶段',
-      受理法院: '上海市第二中级人民法院',
-      主要负责人: '陈律师',
-      管理人: '上海某会计师事务所',
-      是否简化审: '是',
-      创建者: '系统管理员',
-      创建时间: '2024-05-10T10:00:00',
-      修改时间: '2024-05-10T10:00:00',
-      案件状态: '进行中',
-      指定法官: '孙法官',
-      承办人: '陈律师',
-    } as CaseApi.CaseInfo,
-    {
-      id: 2,
-      案号: '（2024）京01破2号',
-      案由: '资不抵债',
-      案件名称: '北京某科技公司破产清算案',
-      案件来源: '债务人申请',
-      案件进度: '第一阶段',
-      受理法院: '北京市第一中级人民法院',
-      主要负责人: '李律师',
-      管理人: '北京某律师事务所',
-      是否简化审: '否',
-      创建者: '系统管理员',
-      创建时间: '2024-06-20T14:30:00',
-      修改时间: '2024-06-20T14:30:00',
-      案件状态: '进行中',
-      指定法官: '王法官',
-      承办人: '李律师',
-    } as CaseApi.CaseInfo,
-    {
-      id: 3,
-      案号: '（2024）粤03破3号',
-      案由: '经营不善',
-      案件名称: '深圳某贸易公司破产和解案',
-      案件来源: '债权人申请',
-      案件进度: '第三阶段',
-      受理法院: '深圳市中级人民法院',
-      主要负责人: '张律师',
-      管理人: '深圳某破产清算有限公司',
-      是否简化审: '是',
-      创建者: '系统管理员',
-      创建时间: '2024-07-25T09:15:00',
-      修改时间: '2024-07-25T09:15:00',
-      案件状态: '进行中',
-      指定法官: '刘法官',
-      承办人: '张律师',
-    } as CaseApi.CaseInfo,
-  ];
 
-  caseList.value = mockCases;
-  pagination.value.itemCount = 3;
-  pagination.value.pages = 1;
-};
 
 // 获取案件列表
 const fetchCaseList = async () => {
@@ -330,11 +268,15 @@ const fetchCaseList = async () => {
       }
     } else {
       ElMessage.error(response.message || '获取案件列表失败');
-      generateMockData();
+      caseList.value = [];
+      pagination.value.itemCount = 0;
+      pagination.value.pages = 0;
     }
   } catch (error) {
     ElMessage.error('获取案件列表失败，请检查网络连接');
-    generateMockData();
+    caseList.value = [];
+    pagination.value.itemCount = 0;
+    pagination.value.pages = 0;
   } finally {
     loading.value = false;
   }

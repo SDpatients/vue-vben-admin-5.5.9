@@ -196,15 +196,13 @@ onMounted(() => {
       </ElTableColumn>
       <ElTableColumn label="操作" width="200" fixed="right">
         <template #default="scope">
-          <ElButton
-            type="primary"
-            link
-            size="small"
+          <span
+            style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
             @click="handleDownload(scope.row.id, scope.row.originalFileName)"
           >
             <Icon icon="lucide:download" class="mr-1" />
             下载
-          </ElButton>
+          </span>
           <ElPopconfirm
             title="确定要删除该附件吗？"
             @confirm="handleDelete(scope.row.id)"

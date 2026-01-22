@@ -64,6 +64,7 @@ export const approvalApi = {
     approvalType?: string;
     approvalStatus?: string;
     status?: string;
+    approvalTitle?: string;
   }) => {
     return requestClient.get('/api/v1/approval/list', {
       params: {
@@ -76,27 +77,27 @@ export const approvalApi = {
 
   // 获取审批详情
   getApprovalDetail: (approvalId: number) => {
-    return requestClient.get(`/approval/${approvalId}`);
+    return requestClient.get(`/api/v1/approval/${approvalId}`);
   },
 
   // 更新审批信息
   updateApprovalInfo: (approvalId: number, data: UpdateApprovalInfoDTO) => {
-    return requestClient.put(`/approval/${approvalId}`, data);
+    return requestClient.put(`/api/v1/approval/${approvalId}`, data);
   },
 
   // 审批操作
   approve: (approvalId: number, data: ApprovalOperationDTO) => {
-    return requestClient.post(`/approval/${approvalId}/approve`, data);
+    return requestClient.post(`/api/v1/approval/${approvalId}/approve`, data);
   },
 
   // 更新审批状态
   updateApprovalStatus: (approvalId: number, data: UpdateApprovalStatusDTO) => {
-    return requestClient.put(`/approval/${approvalId}/status`, data);
+    return requestClient.put(`/api/v1/approval/${approvalId}/status`, data);
   },
 
   // 删除审批
   deleteApproval: (approvalId: number) => {
-    return requestClient.delete(`/approval/${approvalId}`);
+    return requestClient.delete(`/api/v1/approval/${approvalId}`);
   },
 
   // 获取审批历史记录
@@ -104,7 +105,7 @@ export const approvalApi = {
     pageNum?: number;
     pageSize?: number;
   }) => {
-    return requestClient.get(`/approval/${approvalId}/history`, {
+    return requestClient.get(`/api/v1/approval/${approvalId}/history`, {
       params: {
         pageNum: params?.pageNum || 1,
         pageSize: params?.pageSize || 10,

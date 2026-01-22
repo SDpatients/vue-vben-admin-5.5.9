@@ -84,6 +84,22 @@ const canPreview = (fileExtension: string): boolean => {
   return previewableTypes.includes(fileExtension.toLowerCase());
 };
 
+// 格式化时间为YYYY-MM-DD HH:mm:ss
+const formatDateTime = (dateString: string | undefined): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 // 预览文件
 const previewFile = (file: DocumentAttachment) => {
   previewingFile.value = file;
@@ -328,6 +344,8 @@ const loadDocuments = async () => {
     if (response.data) {
       documentList.value = response.data.list.map((item: DocumentServiceApi.Document) => ({
         ...item,
+        createTime: formatDateTime(item.createTime),
+        updateTime: formatDateTime(item.updateTime),
         attachments: [],
       }));
       pagination.value.total = response.data.total;
@@ -366,6 +384,7 @@ const handleViewDetail = async (row: DocumentApproval) => {
       currentDocument.value.attachments = response.data.map((attach: any) => {
         return {
           ...attach,
+          uploadTime: formatDateTime(attach.uploadTime),
           // 添加计算属性
           get fileName() {
             return this.originalFileName;
