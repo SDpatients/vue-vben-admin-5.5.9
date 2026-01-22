@@ -202,7 +202,7 @@ const getCaseList = async (query = '') => {
   try {
     const response = await getCaseSimpleListApi({
       page: 1,
-      size: 10,
+      size: 10000,
       caseNumber: query,
     });
 
@@ -615,6 +615,11 @@ const submitEditFormData = async () => {
       businessScope: editFormData.value.JYFW,
       industry: editFormData.value.SSHY,
       registeredAddress: editFormData.value.ZCDZ,
+      unifiedSocialCreditCode: editFormData.value.TYSHXYDM,
+      establishmentDate: editFormData.value.CLRQ,
+      registrationAuthority: editFormData.value.DJJG,
+      enterpriseType: editFormData.value.QYLX,
+      status: editFormData.value.ZT,
     };
 
     // 调用编辑接口

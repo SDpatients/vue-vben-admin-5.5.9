@@ -421,6 +421,8 @@
 {
   "fullName": "北京市第一中级人民法院（更新）",
   "shortName": "北京一中院（更新）",
+  "courtLevel": "中级人民法院（更新）",
+  "address": "北京市朝阳区建国路88号",
   "contactPhone": "010-12345679",
   "undertakingJudge": "张法官（更新）"
 }
@@ -1375,7 +1377,7 @@
 
 8. **错误处理**：所有错误都会返回统一的错误响应格式，包含错误码和错误信息
 
-9. **Swagger文档**：完整的API文档可以通过访问Swagger UI查看（应用启动后访问：http://localhost:8080/swagger-ui.html）
+9. **Swagger文档**：完整的API文档可以通过访问Swagger UI查看（应用启动后访问：http://192.168.0.120:8080/swagger-ui.html）
 
 ---
 

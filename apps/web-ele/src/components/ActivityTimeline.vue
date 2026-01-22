@@ -32,44 +32,18 @@ const formatTime = (time: string) => {
 const loadActivities = async () => {
   loading.value = true;
   try {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      activities.value = [];
-      return;
-    }
+    // 从本地存储获取userId，如果没有则使用默认值16
+    const userId = Number(localStorage.getItem('chat_user_id') || '16');
     
-    const res = await notificationApi.getUnreadNotifications(Number(userId));
+    const res = await notificationApi.getUnreadNotifications(userId);
     console.log('加载动态结果:', res);
-    activities.value = res.data || [];
+    // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
+    activities.value = res || [];
     hasMore.value = false; // 新接口一次性返回所有未读通知，不需要分页
   } catch (error) {
     console.error('加载动态失败:', error);
-    // 发生错误时，添加一些模拟数据用于测试
-    activities.value = [
-      {
-        id: 1,
-        userId: 1,
-        title: '案件进度更新',
-        content: '您的案件CASE-2026-001已进入审核阶段',
-        type: 'CASE',
-        isRead: false,
-        priority: 'NORMAL',
-        status: 'ACTIVE',
-        createTime: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        userId: 1,
-        title: '您有新的待办事项',
-        content: '请及时处理案号为CASE-2026-001的待办事项',
-        type: 'TODO',
-        isRead: false,
-        priority: 'HIGH',
-        status: 'ACTIVE',
-        createTime: new Date(Date.now() - 3600000).toISOString(),
-      },
-    ];
+    // 移除模拟数据，改为返回空数组
+    activities.value = [];
     hasMore.value = false;
   } finally {
     loading.value = false;
@@ -84,6 +58,7 @@ const getActivityIcon = (type: string) => {
     TODO: 'lucide:check-square',
     SYSTEM: 'lucide:bell',
     APPROVAL: 'lucide:clipboard-check',
+    order_notice: 'lucide:receipt',
   };
   return iconMap[type] || 'lucide:activity';
 };
@@ -94,6 +69,7 @@ const getActivityColor = (type: string) => {
     TODO: '#52c41a',
     SYSTEM: '#faad14',
     APPROVAL: '#ff7875',
+    order_notice: '#722ed1',
   };
   return colorMap[type] || '#999';
 };
@@ -139,35 +115,33 @@ defineExpose({
 
 <template>
   <div class="activity-timeline">
-    <div class="activity-header fixed">
+    <div class="activity-header">
       <div class="activity-header-actions">
         <span class="mark-all-known" @click="markAllAsKnown">全部知晓</span>
       </div>
     </div>
     <div class="activity-list">
-      <ElScrollbar>
-        <div v-loading="loading">
-          <div
-            v-for="(item, index) in activities"
-            :key="item.id"
-            class="activity-item"
-          >
-            <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-              <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
-            </div>
-            <div class="activity-content-wrapper">
-              <div class="activity-user">{{ item.title }}</div>
-              <div class="activity-content">{{ item.content }}</div>
-              <div class="activity-footer-row">
-                <div class="activity-time">{{ formatTime(item.createTime) }}</div>
-                <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
-              </div>
-            </div>
-            <div v-if="index < activities.length - 1" class="activity-line" />
+      <div v-loading="loading">
+        <div
+          v-for="(item, index) in activities"
+          :key="item.id"
+          class="activity-item"
+        >
+          <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
+            <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
           </div>
-          <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
+          <div class="activity-content-wrapper">
+            <div class="activity-user">{{ item.title }}</div>
+            <div class="activity-content">{{ item.content }}</div>
+            <div class="activity-footer-row">
+              <div class="activity-time">{{ formatTime(item.createTime) }}</div>
+              <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
+            </div>
+          </div>
+          <div v-if="index < activities.length - 1" class="activity-line" />
         </div>
-      </ElScrollbar>
+        <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
+      </div>
     </div>
   </div>
 </template>
@@ -176,34 +150,28 @@ defineExpose({
 .activity-timeline {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 20px;
+  padding: 12px;
   background: #fff;
   border-radius: 8px;
 }
 
-/* 固定表头 */
+/* 表头 */
 .activity-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 40px;
   padding: 8px 0;
-  margin-bottom: 0;
+  margin-bottom: 10px;
   background-color: #fff;
-  border-bottom: none;
 }
 
 .activity-header-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
   height: 100%;
-  padding-bottom: 10px;
 }
 
 /* 全部知晓文字样式 */
@@ -228,15 +196,8 @@ defineExpose({
 /* 列表区域 */
 .activity-list {
   position: relative;
-  flex: 1;
-  margin-top: -10px;
-  overflow: hidden;
-}
-
-/* 确保滚动条只在内容区域显示 */
-:deep(.el-scrollbar__wrap) {
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
+  margin-top: 0;
+  overflow: visible;
 }
 
 .activity-item {
@@ -301,16 +262,5 @@ defineExpose({
   left: 27px;
   width: 2px;
   background-color: #f0f0f0;
-}
-
-.activity-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  padding-top: 16px;
-  margin-top: 16px;
-  text-align: center;
-  background-color: #fff;
-  border-top: 1px solid #f0f0f0;
 }
 </style>

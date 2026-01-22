@@ -99,12 +99,13 @@ const approvalTypes = {
   CASE_CLOSE: '案件结案',
   FEE_APPLY: '费用申请',
   EVIDENCE_UPLOAD: '证据上传',
+  TASK_: '文件审核',
 };
 
 
 
 const statusMap = {
-  pending: { text: '待审批', type: 'warning' as const },
+  pending: { text: '待审核', type: 'warning' as const },
   approved: { text: '已通过', type: 'success' as const },
   rejected: { text: '已驳回', type: 'danger' as const },
 };
@@ -152,45 +153,29 @@ const getApprovalTypeName = (type: string): string => {
 const transformApiDataToPageData = (
   apiData: ApiCaseApproval[],
 ): CaseApproval[] => {
-  console.log('[transformApiDataToPageData] 输入数据:', apiData);
-
-  const result = apiData.map((item, index) => {
-    console.log(`[transformApiDataToPageData] 处理第${index}项:`, item);
-
-    const transformed = {
-      id: item.id,
-      caseNumber: item.caseNumber,
-      caseTitle: item.approvalTitle || item.caseTitle || item.approvalContent,
-      caseType: item.caseType || 'other',
-      submitter: item.submitter || '未知提交人',
-      submitTime: item.createTime,
-      approvalTime: item.approvalDate,
-      status:
-        approvalStatusMap[
-          item.approvalStatus as keyof typeof approvalStatusMap
-        ] || 'pending',
-      priority: (item.priority as 'high' | 'low' | 'medium') || 'medium',
-      description: item.description || item.approvalContent,
-      remark: item.remark,
-      attachments: item.attachments || [],
-    };
-
-    console.log(
-      `[transformApiDataToPageData] 第${index}项转换结果:`,
-      transformed,
-    );
-    return transformed;
-  });
-
-  console.log('[transformApiDataToPageData] 转换完成，结果:', result);
-  return result;
+  return apiData.map((item) => ({
+    id: item.id,
+    caseId: item.caseId,
+    caseNumber: item.caseNumber,
+    caseTitle: item.approvalTitle || item.caseTitle || item.approvalContent,
+    caseType: item.approvalType || 'other',
+    submitter: item.submitter || '未知提交人',
+    submitTime: formatDateTime(item.createTime),
+    approvalTime: item.approvalDate ? formatDateTime(item.approvalDate) : undefined,
+    status:
+      approvalStatusMap[
+        item.approvalStatus as keyof typeof approvalStatusMap
+      ] || 'pending',
+    priority: (item.priority as 'high' | 'low' | 'medium') || 'medium',
+    description: item.description || item.approvalContent,
+    remark: item.remark,
+    attachments: item.attachments || [],
+  }));
 };
 
 const loadCases = async () => {
   loading.value = true;
   try {
-    console.log('[loadCases] 开始加载案件列表');
-
     const approvalStatus = searchForm.value.status
       ? Object.keys(approvalStatusMap).find(
           (key) =>
@@ -200,14 +185,7 @@ const loadCases = async () => {
       : '';
 
     // 根据标签页设置审批类型
-    const approvalType = activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'EVIDENCE_UPLOAD';
-
-    console.log('[loadCases] 请求参数:', {
-      pageNum: pagination.value.current,
-      pageSize: pagination.value.pageSize,
-      approvalStatus: approvalStatus as string,
-      approvalType: approvalType,
-    });
+    const approvalType = activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'TASK_';
 
     const response = await approvalApi.getApprovalList({
       pageNum: pagination.value.current,
@@ -217,26 +195,15 @@ const loadCases = async () => {
       approvalTitle: searchForm.value.keyword || undefined,
     });
 
-    console.log('[loadCases] API响应:', response);
-
     // API直接返回数据，没有code字段
     if (response.list) {
-      console.log('[loadCases] 原始数据列表:', response.list);
-      console.log('[loadCases] 开始转换数据...');
-
       const transformedData = transformApiDataToPageData(response.list);
-      console.log('[loadCases] 转换后的数据:', transformedData);
-
       caseList.value = transformedData;
       pagination.value.total = response.total || 0;
-
-      console.log('[loadCases] 数据加载成功, 总数:', pagination.value.total);
     } else {
-      console.error('[loadCases] 响应格式错误:', response);
       ElMessage.error(response.message || '加载案件列表失败');
     }
   } catch (error) {
-    console.error('[loadCases] 加载案件列表失败:', error);
     ElMessage.error('加载案件列表失败');
   } finally {
     loading.value = false;

@@ -50,6 +50,7 @@ const activeTab = ref('account');
 
 const openDrawer = () => {
   drawerVisible.value = true;
+  fetchAccounts(); // 确保账户下拉框数据最新
   if (activeTab.value === 'account') {
     fetchFundAccounts();
   } else {
@@ -63,6 +64,7 @@ const closeDrawer = () => {
 };
 
 const handleTabChange = (tabName: string) => {
+  fetchAccounts(); // 确保账户下拉框数据最新
   if (tabName === 'account') {
     fetchFundAccounts();
   } else {
@@ -293,13 +295,6 @@ const flowPageSize = ref(10);
 const flowTotal = ref(0);
 const fundFlows = ref<any[]>([]);
 
-const flowSearchForm = reactive({
-  accountId: '',
-  flowType: '',
-  startDate: '',
-  endDate: '',
-});
-
 const accountOptions = ref<any[]>([]);
 const allAccounts = ref<any[]>([]);
 const categoryOptions = ref<any[]>([]);
@@ -327,19 +322,10 @@ const flowTypeOptions = [
 const fetchFundFlows = async () => {
   flowLoading.value = true;
   try {
-    let flowTypeParam;
-    if (flowSearchForm.flowType === 'INCOME') {
-      flowTypeParam = 'INCOME';
-    } else if (flowSearchForm.flowType === 'EXPENSE') {
-      flowTypeParam = 'EXPENSE';
-    }
-
     const response = await getFundFlowList({
       pageNum: flowCurrentPage.value,
       pageSize: flowPageSize.value,
       caseId: Number(props.caseId),
-      accountId: flowSearchForm.accountId ? Number(flowSearchForm.accountId) : undefined,
-      flowType: flowTypeParam,
       status: 'ACTIVE',
     });
     fundFlows.value = response.data.list;
@@ -433,20 +419,6 @@ const handleFlowAccountChange = () => {
       flowForm.caseNo = selectedAccount.caseNo;
     }
   }
-};
-
-const handleFlowSearch = () => {
-  flowCurrentPage.value = 1;
-  fetchFundFlows();
-};
-
-const handleFlowReset = () => {
-  flowSearchForm.accountId = '';
-  flowSearchForm.flowType = '';
-  flowSearchForm.startDate = '';
-  flowSearchForm.endDate = '';
-  flowCurrentPage.value = 1;
-  fetchFundFlows();
 };
 
 const openAddFlowDialog = (flowType: string) => {
@@ -642,72 +614,16 @@ onMounted(() => {
         <ElTabPane label="资金流水" name="flow">
           <div class="flow-content">
             <ElCard shadow="hover" class="search-card">
-              <ElForm :model="flowSearchForm" inline label-width="80px">
-                <ElFormItem label="账户">
-                  <ElSelect
-                    v-model="flowSearchForm.accountId"
-                    placeholder="请选择账户"
-                    clearable
-                    style="width: 200px"
-                  >
-                    <ElOption
-                      v-for="option in accountOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </ElSelect>
-                </ElFormItem>
-                <ElFormItem label="流水类型">
-                  <ElSelect
-                    v-model="flowSearchForm.flowType"
-                    placeholder="请选择流水类型"
-                    clearable
-                    style="width: 200px"
-                  >
-                    <ElOption
-                      v-for="option in flowTypeOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </ElSelect>
-                </ElFormItem>
-                <ElFormItem label="开始日期">
-                  <ElDatePicker
-                    v-model="flowSearchForm.startDate"
-                    type="datetime"
-                    placeholder="选择开始日期"
-                    style="width: 200px"
-                  />
-                </ElFormItem>
-                <ElFormItem label="结束日期">
-                  <ElDatePicker
-                    v-model="flowSearchForm.endDate"
-                    type="datetime"
-                    placeholder="选择结束日期"
-                    style="width: 200px"
-                  />
-                </ElFormItem>
-                <ElFormItem>
-                  <ElButton type="primary" @click="handleFlowSearch">
-                    <Icon icon="lucide:search" class="mr-1" />
-                    搜索
-                  </ElButton>
-                  <ElButton @click="handleFlowReset">
-                    <Icon icon="lucide:refresh-cw" class="mr-1" />
-                    重置
-                  </ElButton>
-                  <ElButton type="success" @click="openAddFlowDialog('INCOME')">
-                    <Icon icon="lucide:plus" class="mr-1" />
-                    资金流入
-                  </ElButton>
-                  <ElButton type="warning" @click="openAddFlowDialog('EXPENSE')">
-                    <Icon icon="lucide:minus" class="mr-1" />
-                    资金流出
-                  </ElButton>
-                </ElFormItem>
-              </ElForm>
+              <div style="display: flex; justify-content: flex-start; gap: 12px;">
+                <ElButton type="success" @click="openAddFlowDialog('INCOME')">
+                  <Icon icon="lucide:plus" class="mr-1" />
+                  资金流入
+                </ElButton>
+                <ElButton type="warning" @click="openAddFlowDialog('EXPENSE')">
+                  <Icon icon="lucide:minus" class="mr-1" />
+                  资金流出
+                </ElButton>
+              </div>
             </ElCard>
 
             <ElCard shadow="hover" class="list-card">

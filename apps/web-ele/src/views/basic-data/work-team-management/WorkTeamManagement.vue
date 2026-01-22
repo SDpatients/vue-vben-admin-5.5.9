@@ -173,7 +173,7 @@ const remoteSearchCase = async (query: string) => {
   try {
     const data = await getCaseSimpleListApi({
       page: 1,
-      size: 10,
+      size: 10000,
       caseNumber: query,
     });
 
@@ -194,7 +194,7 @@ const fetchCaseList = async () => {
   try {
     const data = await getCaseSimpleListApi({
       page: 1,
-      size: 10,
+      size: 10000,
     });
 
     caseList.value = data.list.map((caseItem) => ({

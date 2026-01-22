@@ -93,7 +93,7 @@ const getCaseList = async (query = '') => {
   try {
     const response = await getCaseSimpleListApi({
       page: 1,
-      size: 10,
+      size: 10000,
       caseNumber: query,
     });
 
@@ -356,8 +356,8 @@ const handleEditSubmit = async () => {
     editFormLoading.value = true;
 
     // 调用编辑API
-    const { creditorId, ...updateData } = editFormData;
-    const response = await updateCreditorApi(creditorId, updateData);
+    const creditorId = editFormData.creditorId;
+    const response = await updateCreditorApi(creditorId, editFormData);
 
     // 检查响应状态，兼容不同的响应格式
     if (response.code === 200 || response.status === '1') {
@@ -450,7 +450,7 @@ const handleDeleteCreditor = (row: CreditorApi.CreditorInfo) => {
 const handleDeleteSubmit = async (id: number) => {
   try {
     deleteFormLoading.value = true;
-    const response = await deleteCreditorApi({ id });
+    const response = await deleteCreditorApi(id);
 
     // 检查响应状态，兼容不同的响应格式
     if (response.code === 200 || response.status === '1') {

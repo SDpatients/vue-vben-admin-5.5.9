@@ -127,7 +127,7 @@ export const getCreditorClaimStatistics = (params?: {
   startDate?: string;
 }) => {
   return requestClient.get<StatisticsApi.CreditorClaimStatisticsData>(
-    '/api/v1/creditor-claim-statistics',
+    '/creditor-claim-statistics',
     { params },
   );
 };

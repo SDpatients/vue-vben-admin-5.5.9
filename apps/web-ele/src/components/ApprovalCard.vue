@@ -33,7 +33,12 @@ const handleApprove = async () => {
       cancelButtonText: '取消',
       type: 'info',
     });
-    await approvalApi.approve(props.approval.id, '审核通过');
+    // 根据API要求，传递正确的参数格式
+    await approvalApi.approve(props.approval.id, {
+      approvalResult: 'PASS',
+      approvalOpinion: '审核通过',
+      approverId: Number(localStorage.getItem('user_id') || '0')
+    });
     ElMessage.success('审核通过');
     emit('refresh');
   } catch (error) {
@@ -53,7 +58,12 @@ const handleReject = async () => {
       inputType: 'textarea',
       inputPlaceholder: '请输入驳回原因',
     });
-    await approvalApi.reject(props.approval.id, opinion);
+    // 由于API中没有reject方法，我们可以使用approve方法，将approvalResult设置为REJECT
+    await approvalApi.approve(props.approval.id, {
+      approvalResult: 'REJECT',
+      approvalOpinion: opinion,
+      approverId: Number(localStorage.getItem('user_id') || '0')
+    });
     ElMessage.success('已驳回');
     emit('refresh');
   } catch (error) {
@@ -88,6 +98,8 @@ const getTypeText = (type: string) => {
     CASE: '案件审核',
     DOCUMENT: '文书审核',
     INFO: '信息审核',
+    CASE_SUBMIT: '案件提交审核',
+    TASK_002: '流程审批',
   };
   return textMap[type] || type;
 };
@@ -96,44 +108,44 @@ const getTypeText = (type: string) => {
 <template>
   <ElCard shadow="hover" class="approval-card">
     <div class="approval-header">
-      <div class="approval-title">{{ approval.title }}</div>
-      <ElTag :type="getStatusColor(approval.status)" size="small">
-        {{ getStatusText(approval.status) }}
+      <div class="approval-title">{{ approval.approvalTitle || approval.caseTitle || '审核申请' }}</div>
+      <ElTag :type="getStatusColor(approval.approvalStatus || approval.status)" size="small">
+        {{ getStatusText(approval.approvalStatus || approval.status) }}
       </ElTag>
     </div>
     <div class="approval-body">
       <div class="approval-info">
         <div class="info-row">
-          <span class="label">审核编号:</span>
-          <span class="value">{{ approval.approvalNo }}</span>
+          <span class="label">案号:</span>
+          <span class="value">{{ approval.caseNumber }}</span>
         </div>
         <div class="info-row">
           <span class="label">审核类型:</span>
-          <span class="value">{{ getTypeText(approval.type) }}</span>
+          <span class="value">{{ getTypeText(approval.approvalType) }}</span>
         </div>
         <div class="info-row">
-          <span class="label">申请人:</span>
-          <span class="value">{{ approval.applicantName }}</span>
-        </div>
-        <div v-if="approval.approverName" class="info-row">
-          <span class="label">审核人:</span>
-          <span class="value">{{ approval.approverName }}</span>
+          <span class="label">提交时间:</span>
+          <span class="value">{{ formatTime(approval.createTime) }}</span>
         </div>
         <div class="info-row">
-          <span class="label">申请时间:</span>
-          <span class="value">{{ formatTime(approval.applyTime) }}</span>
+          <span class="label">提交人:</span>
+          <span class="value">{{ approval.submitter || approval.createUserName || '系统' }}</span>
         </div>
-        <div v-if="approval.approveTime" class="info-row">
+        <div v-if="approval.approvalDate" class="info-row">
           <span class="label">审核时间:</span>
-          <span class="value">{{ formatTime(approval.approveTime) }}</span>
+          <span class="value">{{ formatTime(approval.approvalDate) }}</span>
         </div>
-        <div v-if="approval.description" class="info-row">
-          <span class="label">描述:</span>
-          <span class="value">{{ approval.description }}</span>
+        <div v-if="approval.approvalContent" class="info-row">
+          <span class="label">审核内容:</span>
+          <span class="value">{{ approval.approvalContent }}</span>
+        </div>
+        <div v-if="approval.remark" class="info-row">
+          <span class="label">备注:</span>
+          <span class="value">{{ approval.remark }}</span>
         </div>
       </div>
     </div>
-    <div v-if="!readonly && approval.status === 'PENDING'" class="approval-actions">
+    <div v-if="!readonly && (approval.approvalStatus || approval.status) === 'PENDING'" class="approval-actions">
       <ElButton type="primary" size="small" @click="handleApprove">
         <Icon icon="lucide:check" :size="14" class="mr-1" />
         通过

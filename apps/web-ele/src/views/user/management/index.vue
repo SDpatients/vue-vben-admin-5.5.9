@@ -84,25 +84,21 @@ const fetchUserList = async () => {
 
     const response = await userApi.getAllUsers(params);
 
-    if (response.code === 200) {
-      // 安全检查
-      if (!response.data) {
-        userList.value = [];
-        pagination.itemCount = 0;
-        return;
-      }
-
-      if (!Array.isArray(response.data.users)) {
-        userList.value = [];
-        pagination.itemCount = response.data.total || 0;
-        return;
-      }
-
-      userList.value = response.data.users;
-      pagination.itemCount = response.data.total || 0;
-    } else {
-      ElMessage.error(response.message || '获取用户列表失败');
+    // 安全检查
+    if (!response) {
+      userList.value = [];
+      pagination.itemCount = 0;
+      return;
     }
+
+    if (!Array.isArray(response.users)) {
+      userList.value = [];
+      pagination.itemCount = response.total || 0;
+      return;
+    }
+
+    userList.value = response.users;
+    pagination.itemCount = response.total || 0;
   } catch (error) {
     ElMessage.error('获取用户列表失败');
     console.error('获取用户列表错误:', error);
@@ -154,13 +150,9 @@ const saveUser = async () => {
       response = await userApi.createUser(form);
     }
     
-    if (response.code === 200) {
-      ElMessage.success(editingUser.value ? '修改成功' : '新增成功');
-      dialogVisible.value = false;
-      fetchUserList();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    ElMessage.success(editingUser.value ? '修改成功' : '新增成功');
+    dialogVisible.value = false;
+    fetchUserList();
   } catch (error) {
     ElMessage.error(editingUser.value ? '修改失败' : '新增失败');
     console.error('操作失败:', error);
@@ -179,14 +171,10 @@ const deleteUser = async (user: User) => {
     });
     
     loading.value = true;
-    const response = await userApi.deleteUser(user.id);
+    await userApi.deleteUser(user.id);
     
-    if (response.code === 200) {
-      ElMessage.success('删除成功');
-      fetchUserList();
-    } else {
-      ElMessage.error(response.message || '删除失败');
-    }
+    ElMessage.success('删除成功');
+    fetchUserList();
   } catch (error: any) {
     if (error === 'cancel') return;
     ElMessage.error('删除失败');

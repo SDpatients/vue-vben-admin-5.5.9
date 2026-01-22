@@ -187,9 +187,9 @@ export const fundRequestClient = createRequestClient(
   },
 );
 
-// 工作团队API客户端，指向http://localhost:8080
+// 工作团队API客户端，指向http://192.168.0.120:8080
 export const workTeamRequestClient = createRequestClient(
-  'http://localhost:8080/api/v1',
+  'http://192.168.0.120:8080/api/v1',
   {
     responseReturn: 'body',
   },

@@ -874,7 +874,7 @@ GET /work-team/work-team-member/1/permissions
 
 ```http
 POST /work-team HTTP/1.1
-Host: localhost:8080
+Host: 192.168.0.120:8080
 Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Length: 123
