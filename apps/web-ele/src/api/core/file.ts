@@ -297,6 +297,26 @@ export async function getFileStatisticsApi(
 }
 
 /**
+ * 获取业务的所有文件（不分页）
+ * @param bizType 业务类型
+ * @param bizId 业务ID
+ */
+export async function getAllFilesByBizApi(
+  bizType: string,
+  bizId: number,
+): Promise<{ code: number; message: string; data: FileApi.FileRecord[] }> {
+  return fileUploadRequestClient.get<{ code: number; message: string; data: FileApi.FileRecord[] }>(
+    '/api/v1/file/all',
+    {
+      params: {
+        bizType,
+        bizId,
+      },
+    },
+  );
+}
+
+/**
  * 业务类型映射表
  */
 export const BizTypeMap = {

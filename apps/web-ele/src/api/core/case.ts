@@ -405,6 +405,38 @@ export async function getCaseProgressApi(caseId: number) {
 }
 
 /**
+ * 提交案件审核
+ * POST /api/v1/case/{caseId}/submit-review
+ */
+export async function submitCaseReviewApi(caseId: number) {
+  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/submit-review`);
+}
+
+/**
+ * 撤销案件审核
+ * POST /api/v1/case/{caseId}/withdraw-review
+ */
+export async function withdrawCaseReviewApi(caseId: number) {
+  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/withdraw-review`);
+}
+
+/**
+ * 重新提交案件审核
+ * POST /api/v1/case/{caseId}/resubmit-review
+ */
+export async function resubmitCaseReviewApi(caseId: number) {
+  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/resubmit-review`);
+}
+
+/**
+ * 新增案件审批
+ * POST /approval
+ */
+export async function createApprovalApi(data: any) {
+  return requestClient8085.post<CaseApi.CommonResponse>('/approval', data);
+}
+
+/**
  * 审核通过案件
  * @deprecated 请使用 reviewCaseApi 替代
  */

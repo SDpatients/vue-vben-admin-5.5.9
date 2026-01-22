@@ -26,7 +26,11 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCaseDetailApi, updateCaseApi } from '#/api/core/case';
+import {
+  createApprovalApi,
+  getCaseDetailApi,
+  updateCaseApi,
+} from '#/api/core/case';
 import {
   createAnnouncementApi,
   createViewRecordApi,
@@ -75,6 +79,7 @@ import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import AssetManagement from './components/AssetManagement.vue';
+import AttachmentList from './components/AttachmentList.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import CreditorInfo from './components/CreditorInfo.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
@@ -469,8 +474,9 @@ const showReviewDialog = ref(false);
 const reviewForm = reactive({
   reviewType: 'CASE_REVIEW',
   reviewers: [],
-  reviewContent: '',
-  attachments: [],
+  // 流程审批相关字段
+  stageId: '',
+  taskId: '',
 });
 
 const reviewTypeOptions = [
@@ -479,9 +485,21 @@ const reviewTypeOptions = [
   { label: '文书审批', value: 'DOCUMENT_REVIEW' },
 ];
 
+// 阶段选项
+const stageOptions = ref<any[]>([]);
+// 任务选项
+const taskOptions = ref<any[]>([]);
+// 是否加载阶段数据
+const loadingStages = ref(false);
+// 是否加载任务数据
+const loadingTasks = ref(false);
+
 // 审批人选项，从API获取
 const reviewerOptions = ref<any[]>([]);
 const loadingReviewers = ref(false);
+
+// 提交审批时的加载状态
+const submittingReview = ref(false);
 
 // 获取管理员用户列表
 const fetchAdminUsers = async () => {
@@ -490,8 +508,8 @@ const fetchAdminUsers = async () => {
     const response = await getAdminUsersApi();
     if (response.code === 200 && response.data) {
       reviewerOptions.value = response.data.map((user: any) => ({
-        label: user.name || user.uName || '未知用户',
-        value: user.id || user.uPid || '',
+        label: user.realName || user.username || '未知用户',
+        value: user.id || '',
       }));
     } else {
       ElMessage.error('获取管理员列表失败');
@@ -506,9 +524,54 @@ const fetchAdminUsers = async () => {
   }
 };
 
-// 打开审批弹窗时加载管理员列表
+// 获取阶段列表
+const fetchStages = async () => {
+  loadingStages.value = true;
+  try {
+    // 这里应该调用获取阶段列表的API，暂时使用模拟数据
+    // 实际项目中应该替换为真实API调用
+    const mockStages = stages.map((stage) => ({
+      label: stage.name,
+      value: stage.id.toString(),
+      modules: stage.modules,
+    }));
+    stageOptions.value = mockStages;
+  } catch (error) {
+    console.error('获取阶段列表失败:', error);
+    ElMessage.error('获取阶段列表失败');
+    stageOptions.value = [];
+  } finally {
+    loadingStages.value = false;
+  }
+};
+
+// 监听阶段选择变化，获取对应任务列表
+const handleStageChange = (stageId: string) => {
+  // 清空任务选择
+  reviewForm.taskId = '';
+  taskOptions.value = [];
+
+  if (stageId) {
+    // 根据阶段ID获取对应的任务列表
+    const selectedStage = stageOptions.value.find(
+      (stage) => stage.value === stageId,
+    );
+    if (selectedStage && selectedStage.modules) {
+      taskOptions.value = selectedStage.modules.map((module: any) => ({
+        label: module.name,
+        value: module.code,
+      }));
+    }
+  }
+};
+
+// 打开审批弹窗时加载数据
 const openReviewDialog = () => {
   fetchAdminUsers();
+  // 如果是流程审批，加载阶段列表
+  if (reviewForm.reviewType === 'PROCESS_REVIEW') {
+    fetchStages();
+  }
   showReviewDialog.value = true;
 };
 
@@ -529,10 +592,111 @@ const reviewHistory = ref([
   },
 ]);
 
-const submitReview = () => {
-  // 这里可以添加提交批审的逻辑
-  ElMessage.success('批审已提交');
-  showReviewDialog.value = false;
+const submitReview = async () => {
+  submittingReview.value = true;
+  try {
+    // 根据审批类型执行不同的逻辑
+    if (reviewForm.reviewType === 'CASE_REVIEW') {
+      // 案件审批，调用新增案件审批API
+      // 验证审批人是否已选择
+      if (!reviewForm.reviewers || reviewForm.reviewers.length === 0) {
+        ElMessage.error('请选择审批人');
+        return;
+      }
+
+      // 获取当前用户信息
+      const userInfo = JSON.parse(
+        localStorage.getItem('chat_user_info') || '{}',
+      );
+      const lawyerId = userInfo.user?.uPid || 0;
+
+      // 设置审批参数
+      const approvalParams = {
+        caseId: Number(caseId.value),
+        lawyerId,
+        approvalType: 'CASE_SUBMIT', // 案件提交
+        approvalTitle: `案件审批 - ${caseDetail.value?.案件名称 || ''}`,
+        approvalContent: `案号：${caseDetail.value?.案号 || ''}\n案件名称：${caseDetail.value?.案件名称 || ''}\n受理法院：${caseDetail.value?.受理法院 || ''}\n案由：${caseDetail.value?.案由 || ''}`,
+        approvalAttachment: '', // 暂时为空，实际项目中应该获取案件的附件
+        remark: '请尽快审核',
+      };
+
+      // 调用新增案件审批API
+      const response = await createApprovalApi(approvalParams);
+      if (response.code === 200) {
+        ElMessage.success('案件审批已提交');
+        // 刷新案件详情，更新审核状态
+        const caseResponse = await getCaseDetailApi(Number(caseId.value));
+        if (caseResponse.code === 200 && caseResponse.data) {
+          const caseData = caseResponse.data;
+          caseDetail.value = {
+            ...caseDetail.value,
+            审核状态: mapReviewStatus(caseData.reviewStatus),
+            审核时间: caseData.reviewTime,
+            审核意见: caseData.reviewOpinion,
+            审核次数: caseData.reviewCount,
+          };
+        }
+      } else {
+        ElMessage.error(response.message || '提交案件审批失败');
+      }
+    } else if (reviewForm.reviewType === 'PROCESS_REVIEW') {
+      // 流程审批，调用新增案件审批API
+      // 验证阶段和任务是否已选择
+      if (!reviewForm.stageId || !reviewForm.taskId) {
+        ElMessage.error('请选择阶段和任务');
+        return;
+      }
+      
+      // 验证审批人是否已选择
+      if (!reviewForm.reviewers || reviewForm.reviewers.length === 0) {
+        ElMessage.error('请选择审批人');
+        return;
+      }
+
+      // 获取当前用户信息
+      const userInfo = JSON.parse(
+        localStorage.getItem('chat_user_info') || '{}',
+      );
+      const lawyerId = userInfo.user?.uPid || 0;
+
+      // 获取阶段和任务名称
+      const selectedStage = stageOptions.value.find(
+        (stage) => stage.value === reviewForm.stageId,
+      );
+      const selectedTask = taskOptions.value.find(
+        (task) => task.value === reviewForm.taskId,
+      );
+
+      // 设置审批参数
+      const approvalParams = {
+        caseId: Number(caseId.value),
+        lawyerId,
+        approvalType: 'CASE_SUBMIT', // 根据实际情况选择合适的审批类型
+        approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
+        approvalContent: `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`,
+        approvalAttachment: '', // 暂时为空，实际项目中应该获取任务的附件
+        remark: '请尽快审核',
+      };
+
+      // 调用新增案件审批API
+      const response = await createApprovalApi(approvalParams);
+      if (response.code === 200) {
+        ElMessage.success('流程审批已提交');
+      } else {
+        ElMessage.error(response.message || '提交流程审批失败');
+      }
+    } else {
+      // 其他类型的审批逻辑，可以根据需要扩展
+      ElMessage.success('审批已提交');
+    }
+    showReviewDialog.value = false;
+  } catch (error) {
+    console.error('提交审批失败:', error);
+    ElMessage.error('提交审批失败，请稍后重试');
+  } finally {
+    submittingReview.value = false;
+  }
 };
 
 // 公告主要负责人候选列表
@@ -1916,9 +2080,9 @@ const saveEditing = async () => {
       isSimplifiedTrial:
         editedData.是否简化审 === '是'
           ? 1
-          : editedData.是否简化审 === '否'
+          : (editedData.是否简化审 === '否'
             ? 0
-            : caseDetail.value?.isSimplifiedTrial,
+            : caseDetail.value?.isSimplifiedTrial),
       acceptanceDate:
         formatDateForApi(editedData.受理日期) ||
         caseDetail.value?.acceptanceDate,
@@ -2955,7 +3119,9 @@ const checkPermissions = async () => {
                   >
                     主要负责人：{{ caseDetail.管理人负责人 }}
                   </ElTag>
-                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
+                  <span v-if="isEditing" class="edit-indicator ml-3"
+                    >编辑中</span
+                  >
                 </div>
                 <div class="flex space-x-2">
                   <template v-if="!isEditing && canEdit">
@@ -3294,9 +3460,7 @@ const checkPermissions = async () => {
                 <div class="flex items-center">
                   <Icon icon="lucide:clock" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">案件相关时间</span>
-                  <span v-if="isEditing" class="edit-indicator ml-3"
-                    >编辑中</span
-                  >
+                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
                 </div>
               </div>
             </template>
@@ -3486,6 +3650,8 @@ const checkPermissions = async () => {
               </ElRow>
             </div>
           </ElCard>
+
+          <AttachmentList :case-id="caseId" />
 
           <DebtorInfo :case-id="caseId" />
         </div>
@@ -5701,6 +5867,14 @@ const checkPermissions = async () => {
                     v-model="reviewForm.reviewType"
                     placeholder="请选择审批类型"
                     style="width: 100%"
+                    @change="
+                      (value) => {
+                        // 当选择流程审批时，加载阶段列表
+                        if (value === 'PROCESS_REVIEW') {
+                          fetchStages();
+                        }
+                      }
+                    "
                   >
                     <ElOption
                       v-for="option in reviewTypeOptions"
@@ -5728,31 +5902,45 @@ const checkPermissions = async () => {
                   </ElSelect>
                 </ElFormItem>
               </ElCol>
-              <ElCol :xs="24">
-                <ElFormItem label="审批内容">
-                  <ElInput
-                    v-model="reviewForm.reviewContent"
-                    type="textarea"
-                    :rows="4"
-                    placeholder="请输入审批内容"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :xs="24">
-                <ElFormItem label="附件">
-                  <ElUpload
-                    action="#"
-                    :auto-upload="false"
-                    :file-list="reviewForm.attachments"
-                    list-type="text"
-                  >
-                    <ElButton type="primary">
-                      <Icon icon="lucide:paperclip" class="mr-2" />
-                      上传附件
-                    </ElButton>
-                  </ElUpload>
-                </ElFormItem>
-              </ElCol>
+
+              <!-- 流程审批特有字段 -->
+              <template v-if="reviewForm.reviewType === 'PROCESS_REVIEW'">
+                <ElCol :xs="24" :sm="12">
+                  <ElFormItem label="指定阶段">
+                    <ElSelect
+                      v-model="reviewForm.stageId"
+                      placeholder="请选择阶段"
+                      style="width: 100%"
+                      :loading="loadingStages"
+                      @change="handleStageChange"
+                    >
+                      <ElOption
+                        v-for="option in stageOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :xs="24" :sm="12">
+                  <ElFormItem label="指定任务">
+                    <ElSelect
+                      v-model="reviewForm.taskId"
+                      placeholder="请选择任务"
+                      style="width: 100%"
+                      :disabled="!reviewForm.stageId"
+                    >
+                      <ElOption
+                        v-for="option in taskOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+              </template>
             </ElRow>
           </ElCard>
 
@@ -5788,7 +5976,13 @@ const checkPermissions = async () => {
         <template #footer>
           <div class="dialog-footer">
             <ElButton @click="showReviewDialog = false">取消</ElButton>
-            <ElButton type="primary" @click="submitReview">提交批审</ElButton>
+            <ElButton
+              type="primary"
+              @click="submitReview"
+              :loading="submittingReview"
+            >
+              提交批审
+            </ElButton>
           </div>
         </template>
       </ElDialog>
