@@ -109,6 +109,12 @@ const statusMap = {
   rejected: { text: '已驳回', type: 'danger' as const },
 };
 
+const priorities = [
+  { label: '高', value: 'high', type: 'danger' as const },
+  { label: '中', value: 'medium', type: 'warning' as const },
+  { label: '低', value: 'low', type: 'success' as const },
+];
+
 const approvalStatusMap = {
   PENDING: 'pending',
   APPROVED: 'approved',
@@ -193,10 +199,14 @@ const loadCases = async () => {
         )
       : '';
 
+    // 根据标签页设置审批类型
+    const approvalType = activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'EVIDENCE_UPLOAD';
+
     console.log('[loadCases] 请求参数:', {
       pageNum: pagination.value.current,
       pageSize: pagination.value.pageSize,
       approvalStatus: approvalStatus as string,
+      approvalType: approvalType,
     });
 
     const response = await approvalApi.getApprovalList({
@@ -209,19 +219,20 @@ const loadCases = async () => {
 
     console.log('[loadCases] API响应:', response);
 
-    if (response.code === 200 && response.data) {
-      console.log('[loadCases] 原始数据列表:', response.data.list);
+    // API直接返回数据，没有code字段
+    if (response.list) {
+      console.log('[loadCases] 原始数据列表:', response.list);
       console.log('[loadCases] 开始转换数据...');
 
-      const transformedData = transformApiDataToPageData(response.data.list);
+      const transformedData = transformApiDataToPageData(response.list);
       console.log('[loadCases] 转换后的数据:', transformedData);
 
       caseList.value = transformedData;
-      pagination.value.total = response.data.total || 0;
+      pagination.value.total = response.total || 0;
 
       console.log('[loadCases] 数据加载成功, 总数:', pagination.value.total);
     } else {
-      console.error('[loadCases] 响应状态码不是200:', response);
+      console.error('[loadCases] 响应格式错误:', response);
       ElMessage.error(response.message || '加载案件列表失败');
     }
   } catch (error) {

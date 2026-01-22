@@ -626,7 +626,8 @@ const submitReview = async () => {
   submittingReview.value = true;
   try {
     // 根据审批类型执行不同的逻辑
-    if (reviewForm.reviewType === 'CASE_REVIEW') {
+    switch (reviewForm.reviewType) {
+    case 'CASE_REVIEW': {
       // 案件审批，调用新增案件审批API
       // 审批人不需要前端选择，默认为空
 
@@ -659,7 +660,20 @@ const submitReview = async () => {
       } else {
         ElMessage.error(response.message || '提交案件审批失败');
       }
-    } else if (reviewForm.reviewType === 'PROCESS_REVIEW') {
+    
+    break;
+    }
+    case 'DOCUMENT_REVIEW': {
+      // 文书审批，引导用户前往文书送达页面
+      ElMessage.info('请前往"文书送达"页面上传文书');
+      // 关闭审批弹窗
+      showReviewDialog.value = false;
+      // 切换到文书送达标签页
+      activeTab.value = 'documentService';
+    
+    break;
+    }
+    case 'PROCESS_REVIEW': {
       // 流程审批，调用新增案件审批API
       // 验证阶段和任务是否已选择
       if (!reviewForm.stageId || !reviewForm.taskId) {
@@ -697,9 +711,13 @@ const submitReview = async () => {
       } else {
         ElMessage.error(response.message || '提交流程审批失败');
       }
-    } else {
+    
+    break;
+    }
+    default: {
       // 其他类型的审批逻辑，可以根据需要扩展
       ElMessage.success('审批已提交');
+    }
     }
     // 重置表单
   reviewForm.reviewType = 'CASE_REVIEW';
