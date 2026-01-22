@@ -10,65 +10,105 @@ export interface Attachment {
   uploader: string;
 }
 
-export interface Approval {
+export interface CaseApproval {
   id: number;
-  approvalNo: string;
-  type: string;
-  applicantId: number;
-  applicantName: string;
+  caseId: number;
+  caseNumber: string;
+  caseTitle?: string;
+  caseType?: string;
+  lawyerId: number;
+  approvalType: string;
+  approvalStatus: string;
+  approvalContent: string;
+  approvalResult?: string;
+  approvalCount: number;
   approverId?: number;
-  approverName?: string;
-  status: string;
-  title: string;
-  description?: string;
-  businessData?: string;
-  applyTime: string;
-  approveTime?: string;
+  approvalDate?: string;
+  remark?: string;
   createTime: string;
   updateTime: string;
+  createUserId?: number;
+  updateUserId?: number;
+  isDeleted: boolean;
+  status: string;
+  submitter?: string;
+  submitTime?: string;
+  priority?: string;
+  description?: string;
   attachments?: Attachment[];
 }
 
-export interface ApprovalSubmitDTO {
-  type: string;
-  applicantName: string;
+export interface ApprovalOperationDTO {
+  approvalResult: string;
+  approvalOpinion: string;
   approverId: number;
-  approverName: string;
-  title: string;
-  description?: string;
-  businessData?: Record<string, any>;
+}
+
+export interface UpdateApprovalStatusDTO {
+  approvalStatus: string;
+}
+
+export interface UpdateApprovalInfoDTO {
+  approvalContent?: string;
+  remark?: string;
 }
 
 export const approvalApi = {
-  getApprovalList: (status?: string, type?: string, page: number = 1, pageSize: number = 20) => {
-    return requestClient.get('/api/approval/list', {
-      params: { status, type, page, pageSize },
+  // 获取审批列表
+  getApprovalList: (params?: {
+    pageNum?: number;
+    pageSize?: number;
+    caseId?: number;
+    lawyerId?: number;
+    approvalType?: string;
+    approvalStatus?: string;
+    status?: string;
+  }) => {
+    return requestClient.get('/api/v1/approval/list', {
+      params: {
+        pageNum: params?.pageNum || 1,
+        pageSize: params?.pageSize || 10,
+        ...params,
+      },
     });
   },
 
-
-
-  getApprovalDetail: (id: number) => {
-    return requestClient.get(`/api/approval/${id}`);
+  // 获取审批详情
+  getApprovalDetail: (approvalId: number) => {
+    return requestClient.get(`/approval/${approvalId}`);
   },
 
-  submitApproval: (data: ApprovalSubmitDTO) => {
-    return requestClient.post('/api/approval', data);
+  // 更新审批信息
+  updateApprovalInfo: (approvalId: number, data: UpdateApprovalInfoDTO) => {
+    return requestClient.put(`/approval/${approvalId}`, data);
   },
 
-  approve: (id: number, opinion?: string) => {
-    return requestClient.put(`/api/approval/${id}/approve`, { opinion });
+  // 审批操作
+  approve: (approvalId: number, data: ApprovalOperationDTO) => {
+    return requestClient.post(`/approval/${approvalId}/approve`, data);
   },
 
-  reject: (id: number, opinion?: string) => {
-    return requestClient.put(`/api/approval/${id}/reject`, { opinion });
+  // 更新审批状态
+  updateApprovalStatus: (approvalId: number, data: UpdateApprovalStatusDTO) => {
+    return requestClient.put(`/approval/${approvalId}/status`, data);
   },
 
-  cancel: (id: number) => {
-    return requestClient.put(`/api/approval/${id}/cancel`);
+  // 删除审批
+  deleteApproval: (approvalId: number) => {
+    return requestClient.delete(`/approval/${approvalId}`);
   },
 
-  getApprovalLogs: (id: number) => {
-    return requestClient.get(`/api/approval/${id}/logs`);
+  // 获取审批历史记录
+  getApprovalHistory: (approvalId: number, params?: {
+    pageNum?: number;
+    pageSize?: number;
+  }) => {
+    return requestClient.get(`/approval/${approvalId}/history`, {
+      params: {
+        pageNum: params?.pageNum || 1,
+        pageSize: params?.pageSize || 10,
+        ...params,
+      },
+    });
   },
 };

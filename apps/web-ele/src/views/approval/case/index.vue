@@ -21,6 +21,8 @@ import {
   ElUpload,
 } from 'element-plus';
 
+import { approvalApi, type CaseApproval as ApiCaseApproval } from '#/api/core/approval';
+
 interface Attachment {
   id: number;
   fileName: string;
@@ -87,171 +89,57 @@ const statusMap = {
   rejected: { text: '已驳回', type: 'danger' as const },
 };
 
-const mockData: CaseApproval[] = [
-  {
-    id: 1,
-    caseNumber: 'CASE-2026-0001',
-    caseTitle: '张三诉李四合同纠纷案',
-    caseType: 'contract',
-    submitter: '王律师',
-    submitTime: '2026-01-07 14:30:00',
-    status: 'pending',
-    priority: 'high',
-    description: '张三与李四签订的买卖合同存在违约行为，要求赔偿损失。根据《中华人民共和国民法典》相关规定，被告李四未按照合同约定履行义务，给原告张三造成了经济损失。原告要求被告赔偿人民币10万元，并承担本案诉讼费用。',
-    attachments: [
-      {
-        id: 1,
-        fileName: '合同原件.pdf',
-        fileSize: 1024 * 1024 * 2,
-        fileType: 'pdf',
-        filePath: '/uploads/case/1/contract.pdf',
-        uploadTime: '2026-01-07 14:25:00',
-        uploader: '王律师'
-      },
-      {
-        id: 2,
-        fileName: '违约证据.jpg',
-        fileSize: 1024 * 1024 * 1.5,
-        fileType: 'jpg',
-        filePath: '/uploads/case/1/evidence.jpg',
-        uploadTime: '2026-01-07 14:26:00',
-        uploader: '王律师'
-      }
-    ]
-  },
-  {
-    id: 2,
-    caseNumber: 'CASE-2026-0002',
-    caseTitle: '王五诉赵六劳动争议案',
-    caseType: 'labor',
-    submitter: '李律师',
-    submitTime: '2026-01-07 10:15:00',
-    status: 'pending',
-    priority: 'medium',
-    description: '王五与赵六公司存在劳动争议，要求支付工资和赔偿金。根据《中华人民共和国劳动法》相关规定，赵六公司未按时支付工资，且未依法缴纳社会保险，严重侵犯了劳动者的合法权益。',
-    attachments: [
-      {
-        id: 3,
-        fileName: '劳动合同.docx',
-        fileSize: 1024 * 1024 * 3,
-        fileType: 'docx',
-        filePath: '/uploads/case/2/contract.docx',
-        uploadTime: '2026-01-07 10:10:00',
-        uploader: '李律师'
-      }
-    ]
-  },
-  {
-    id: 3,
-    caseNumber: 'CASE-2026-0003',
-    caseTitle: '孙七诉周八房产纠纷案',
-    caseType: 'property',
-    submitter: '张律师',
-    submitTime: '2026-01-06 16:45:00',
-    approvalTime: '2026-01-06 18:30:00',
-    status: 'approved',
-    priority: 'high',
-    description: '孙七与周八的房产过户纠纷，要求完成过户手续。双方于2025年6月签订房屋买卖合同，约定在合同签订后30日内完成过户手续，但被告至今未履行过户义务，严重损害了原告的合法权益。',
-    remark: '材料齐全，符合审批条件',
-    attachments: [
-      {
-        id: 4,
-        fileName: '房产证明.pdf',
-        fileSize: 1024 * 1024 * 2.5,
-        fileType: 'pdf',
-        filePath: '/uploads/case/3/property.pdf',
-        uploadTime: '2026-01-06 16:40:00',
-        uploader: '张律师'
-      },
-      {
-        id: 5,
-        fileName: '过户协议.jpg',
-        fileSize: 1024 * 1024 * 1.2,
-        fileType: 'jpg',
-        filePath: '/uploads/case/3/agreement.jpg',
-        uploadTime: '2026-01-06 16:42:00',
-        uploader: '张律师'
-      },
-      {
-        id: 6,
-        fileName: '补充协议.jpg',
-        fileSize: 1024 * 1024 * 1.8,
-        fileType: 'jpg',
-        filePath: '/uploads/case/3/agreement2.jpg',
-        uploadTime: '2026-01-06 16:43:00',
-        uploader: '张律师'
-      }
-    ]
-  },
-  {
-    id: 4,
-    caseNumber: 'CASE-2026-0004',
-    caseTitle: '吴九诉郑十侵权纠纷案',
-    caseType: 'tort',
-    submitter: '赵律师',
-    submitTime: '2026-01-06 09:20:00',
-    approvalTime: '2026-01-06 11:00:00',
-    status: 'rejected',
-    priority: 'low',
-    description: '吴九指控郑十侵犯其知识产权，要求停止侵权并赔偿。原告郑十未经许可，擅自使用原告注册的商标和专利技术，生产并销售同类产品，严重侵犯了原告的知识产权，造成了巨大的经济损失。',
-    remark: '证据不足，需要补充相关材料',
-    attachments: [
-      {
-        id: 7,
-        fileName: '知识产权证书.pdf',
-        fileSize: 1024 * 1024 * 4,
-        fileType: 'pdf',
-        filePath: '/uploads/case/4/certificate.pdf',
-        uploadTime: '2026-01-06 09:15:00',
-        uploader: '赵律师'
-      }
-    ]
-  },
-  {
-    id: 5,
-    caseNumber: 'CASE-2026-0005',
-    caseTitle: '陈十一诉刘十二婚姻家庭案',
-    caseType: 'family',
-    submitter: '孙律师',
-    submitTime: '2026-01-05 15:30:00',
-    status: 'pending',
-    priority: 'medium',
-    description: '陈十一与刘十二离婚纠纷，涉及财产分割和子女抚养权。双方于2023年登记结婚，婚后因性格不合经常发生矛盾，现已分居满一年，感情确已破裂，无和好可能，请求法院判决离婚并依法分割夫妻共同财产。',
-    attachments: [
-      {
-        id: 8,
-        fileName: '结婚证.jpg',
-        fileSize: 1024 * 1024 * 2.2,
-        fileType: 'jpg',
-        filePath: '/uploads/case/5/marriage.jpg',
-        uploadTime: '2026-01-05 15:25:00',
-        uploader: '孙律师'
-      },
-      {
-        id: 9,
-        fileName: '财产证明.xlsx',
-        fileSize: 1024 * 1024 * 1.5,
-        fileType: 'xlsx',
-        filePath: '/uploads/case/5/assets.xlsx',
-        uploadTime: '2026-01-05 15:28:00',
-        uploader: '孙律师'
-      }
-    ]
-  },
-];
+const approvalStatusMap = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  CANCELLED: 'rejected',
+};
 
 // 附件上传相关状态
 const fileList = ref<{name: string, url: string, file: File}[]>([]);
 const uploadProgress = ref(0);
 const uploading = ref(false);
 
+// 转换API响应数据为页面所需格式
+const transformApiDataToPageData = (apiData: ApiCaseApproval[]): CaseApproval[] => {
+  return apiData.map(item => ({
+    id: item.id,
+    caseNumber: item.caseNumber,
+    caseTitle: item.caseTitle || item.approvalContent,
+    caseType: item.caseType || 'other',
+    submitter: item.submitter || '未知提交人',
+    submitTime: item.createTime,
+    approvalTime: item.approvalDate,
+    status: approvalStatusMap[item.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
+    priority: (item.priority as 'high' | 'medium' | 'low') || 'medium',
+    description: item.description || item.approvalContent,
+    remark: item.remark,
+    attachments: item.attachments || [],
+  }));
+};
+
 const loadCases = async () => {
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    caseList.value = mockData;
-    pagination.value.total = mockData.length;
+    // 转换状态值
+    const approvalStatus = searchForm.value.status ? 
+      Object.keys(approvalStatusMap).find(key => approvalStatusMap[key as keyof typeof approvalStatusMap] === searchForm.value.status) : '';
+    
+    const response = await approvalApi.getApprovalList({
+      pageNum: pagination.value.current,
+      pageSize: pagination.value.pageSize,
+      approvalStatus: approvalStatus as string,
+    });
+    
+    if (response.code === 200 && response.data) {
+      caseList.value = transformApiDataToPageData(response.data.list);
+      pagination.value.total = response.data.total || 0;
+    } else {
+      ElMessage.error(response.message || '加载案件列表失败');
+    }
   } catch (error) {
+    console.error('加载案件列表失败:', error);
     ElMessage.error('加载案件列表失败');
   } finally {
     loading.value = false;
@@ -355,21 +243,20 @@ const handleConfirmApproval = async () => {
 
   loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // 执行审批操作
+    await approvalApi.approve(currentCase.value.id, {
+      approvalResult: approvalForm.value.status === 'approved' ? 'PASS' : 'FAIL',
+      approvalOpinion: approvalForm.value.remark,
+      approverId: 1, // 实际应该从登录信息获取
+    });
     
-    const index = caseList.value.findIndex(c => c.id === currentCase.value?.id);
-    if (index !== -1) {
-      const approvalTime = new Date().toLocaleString('zh-CN');
-      caseList.value[index].status = approvalForm.value.status;
-      caseList.value[index].approvalTime = approvalTime;
-      if (approvalForm.value.remark) {
-        caseList.value[index].remark = approvalForm.value.remark;
-      }
-    }
-
+    // 刷新列表
+    await loadCases();
+    
     ElMessage.success(approvalForm.value.status === 'approved' ? '审批通过' : '已驳回');
     dialogVisible.value = false;
   } catch (error) {
+    console.error('审批失败:', error);
     ElMessage.error('审批失败');
   } finally {
     loading.value = false;
@@ -427,10 +314,10 @@ onMounted(() => {
             </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="案件标题">
+          <ElFormItem label="审核标题">
             <ElInput
               v-model="searchForm.keyword"
-              placeholder="请输入案件标题"
+              placeholder="请输入审核标题"
               clearable
               style="width: 220px"
             />
@@ -464,7 +351,7 @@ onMounted(() => {
 
         <ElTableColumn prop="caseNumber" label="案号" width="150" />
 
-        <ElTableColumn prop="caseTitle" label="案件标题" min-width="220">
+        <ElTableColumn prop="caseTitle" label="审核标题" min-width="220">
           <template #default="{ row }">
             <ElTooltip :content="row.caseTitle" placement="top">
               <span class="truncate-text">{{ row.caseTitle }}</span>
@@ -472,7 +359,7 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="caseType" label="案件类型" width="110">
+        <ElTableColumn prop="caseType" label="审核类型" width="110">
           <template #default="{ row }">
             <ElTag type="info" size="small">
               {{ getCaseTypeName(row.caseType) }}
@@ -567,7 +454,7 @@ onMounted(() => {
         <!-- 顶部信息板块 -->
         <div class="header-info-section">
           <div class="header-info-item">
-            <span class="header-label">案件标题</span>
+            <span class="header-label">审核标题</span>
             <span class="header-value">{{ currentCase.caseTitle }}</span>
           </div>
           <div class="header-info-item">
@@ -587,7 +474,7 @@ onMounted(() => {
             <span class="info-value">{{ currentCase.caseNumber }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">案件类型</span>
+            <span class="info-label">审核类型</span>
             <ElTag type="info" size="small">
               {{ getCaseTypeName(currentCase.caseType) }}
             </ElTag>

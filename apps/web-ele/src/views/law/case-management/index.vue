@@ -526,7 +526,7 @@ const canReview = (row: CaseApi.CaseInfo) => {
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">案件管理</span>
           <div class="flex items-center space-x-2">
-            <ElButton type="primary" @click="router.push('/case-add')">
+            <ElButton type="primary" @click="router.push('/law/case-add')">
               <i class="i-lucide-plus mr-1"></i>
               新增案件
             </ElButton>

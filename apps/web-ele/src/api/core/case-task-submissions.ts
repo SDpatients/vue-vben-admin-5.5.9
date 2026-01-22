@@ -1,0 +1,101 @@
+import { requestClient8085 } from '../request';
+
+export interface CaseTaskSubmission {
+  id: number;
+  caseTaskId: number;
+  submissionTitle: string;
+  submissionContent: string;
+  submissionType: string;
+  submissionNumber: number;
+  status: string;
+  creatorName: string;
+  reviewerId: number | null;
+  reviewOpinion: string | null;
+  reviewTime: string | null;
+  createTime: string;
+  updateTime: string;
+  fileCount: number;
+}
+
+export interface SubmissionFile {
+  id: number;
+  originalFileName: string;
+  filePath: string;
+  fileSize: number;
+  uploadTime: string;
+  uploadUserName: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+  };
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+  first: boolean;
+}
+
+export namespace CaseTaskSubmissionApi {
+  export async function createSubmission(data: {
+    caseTaskId: number;
+    submissionTitle: string;
+    submissionContent?: string;
+    submissionType?: string;
+  }) {
+    return requestClient8085.post<{ submissionId: number; submissionNumber: number }>('/api/case-task-submissions', data);
+  }
+
+  export async function getSubmissions(params: {
+    caseTaskId: number;
+    page?: number;
+    size?: number;
+  }) {
+    return requestClient8085.get<PageResponse<CaseTaskSubmission>>('/api/case-task-submissions', { params });
+  }
+
+  export async function getSubmissionById(id: number) {
+    return requestClient8085.get<CaseTaskSubmission>(`/api/case-task-submissions/${id}`);
+  }
+
+  export async function reviewSubmission(id: number, data: {
+    reviewOpinion: string;
+    status: 'APPROVED' | 'REJECTED';
+  }) {
+    return requestClient8085.put<CaseTaskSubmission>(`/api/case-task-submissions/${id}/review`, data);
+  }
+
+  export async function deleteSubmission(id: number) {
+    return requestClient8085.delete(`/api/case-task-submissions/${id}`);
+  }
+
+  export async function getLatestSubmissions(params: {
+    caseTaskId: number;
+    limit?: number;
+  }) {
+    return requestClient8085.get<CaseTaskSubmission[]>('/api/case-task-submissions/latest', { params });
+  }
+
+  export async function uploadSubmissionFile(submissionId: number, file: File, description?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (description) {
+      formData.append('description', description);
+    }
+    return requestClient8085.post<SubmissionFile>(`/api/case-task-submissions/${submissionId}/files`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  export async function getSubmissionFiles(submissionId: number) {
+    return requestClient8085.get<SubmissionFile[]>(`/api/case-task-submissions/${submissionId}/files`);
+  }
+
+  export async function deleteSubmissionFile(submissionId: number, fileId: number) {
+    return requestClient8085.delete(`/api/case-task-submissions/${submissionId}/files/${fileId}`);
+  }
+}

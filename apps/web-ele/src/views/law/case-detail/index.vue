@@ -40,6 +40,7 @@ import {
 } from '#/api/core/case-announcement';
 import {
   createDocumentApi,
+  createDocumentWithFilesApi,
   deleteDocumentApi,
   getDocumentAttachmentsApi,
   getDocumentDetailApi,
@@ -716,57 +717,106 @@ const closeAddDocumentDialog = () => {
 // 提交文书表单
 const submitDocumentForm = async () => {
   // 表单验证
-  // 实际应用中应添加表单验证
+  if (!documentForm.documentName || !documentForm.recipient) {
+    ElMessage.error('请填写必填项');
+    return;
+  }
 
-  // 提交数据
+  if (uploadedFiles.value.length === 0) {
+    ElMessage.error('请至少选择一个文件');
+    return;
+  }
+
   fileUploadLoading.value = true;
   try {
-    const requestData: any = {
-      caseId: Number(documentForm.caseId),
-      documentName: documentForm.documentName,
-      documentType: documentForm.documentType,
-      recipientName: documentForm.recipient,
-      recipientType: documentForm.recipientType,
-      contactPhone: documentForm.recipientPhone,
-      deliveryAddress: documentForm.recipientAddress,
-      deliveryMethod: documentForm.serviceMethod,
-      deliveryContent: documentForm.serviceContent,
-      sendStatus: documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
-      deliveryTime:
-        documentForm.sendStatus === '已发送' ? new Date().toISOString() : null,
-    };
+    // 编辑模式使用原有接口
+    if (isEditingDocument.value && currentDocumentId.value) {
+      const requestData: any = {
+        caseId: Number(documentForm.caseId),
+        documentName: documentForm.documentName,
+        documentType: documentForm.documentType,
+        recipientName: documentForm.recipient,
+        recipientType: documentForm.recipientType,
+        contactPhone: documentForm.recipientPhone,
+        deliveryAddress: documentForm.recipientAddress,
+        deliveryMethod: documentForm.serviceMethod,
+        deliveryContent: documentForm.serviceContent,
+        sendStatus: documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
+        deliveryTime:
+          documentForm.sendStatus === '已发送' ? new Date().toISOString() : null,
+      };
 
-    if (uploadedFiles.value.length > 0) {
-      const file = uploadedFiles.value[0].file;
-      const uploadResponse = await uploadFileApi(
-        file,
-        'document',
-        Number(documentForm.caseId),
-      );
+      if (uploadedFiles.value.length > 0) {
+        const file = uploadedFiles.value[0].file;
+        const uploadResponse = await uploadFileApi(
+          file,
+          'document',
+          Number(documentForm.caseId),
+        );
 
-      if (uploadResponse.code === 200 && uploadResponse.data) {
-        requestData.documentAttachment =
-          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+        if (uploadResponse.code === 200 && uploadResponse.data) {
+          requestData.documentAttachment =
+            uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+        }
       }
-    }
 
-    let response;
-    response = await (isEditingDocument.value && currentDocumentId.value
-      ? updateDocumentApi(currentDocumentId.value, requestData)
-      : createDocumentApi(requestData));
+      const response = await updateDocumentApi(currentDocumentId.value, requestData);
 
-    if (response.code === 200) {
-      ElMessage.success(
-        isEditingDocument.value ? '文书送达更新成功' : '文书送达创建成功',
-      );
-      showAddDocumentDialog.value = false;
-      resetDocumentForm();
-      fetchDocumentList();
+      if (response.code === 200) {
+        ElMessage.success('文书送达更新成功');
+        showAddDocumentDialog.value = false;
+        resetDocumentForm();
+        fetchDocumentList();
+      } else {
+        ElMessage.error(response.message || '文书送达更新失败');
+      }
     } else {
-      ElMessage.error(
-        response.message ||
-          (isEditingDocument.value ? '文书送达更新失败' : '文书送达创建失败'),
-      );
+      // 新增模式使用新的 /with-files 接口
+      const formData = new FormData();
+
+      // 必填参数
+      formData.append('caseId', String(documentForm.caseId));
+      formData.append('documentName', documentForm.documentName);
+      formData.append('recipientName', documentForm.recipient);
+
+      // 可选参数
+      if (documentForm.documentType) {
+        formData.append('documentType', documentForm.documentType);
+      }
+      if (documentForm.recipientType) {
+        formData.append('recipientType', documentForm.recipientType);
+      }
+      if (documentForm.recipientPhone) {
+        formData.append('contactPhone', documentForm.recipientPhone);
+      }
+      if (documentForm.recipientAddress) {
+        formData.append('deliveryAddress', documentForm.recipientAddress);
+      }
+      if (documentForm.serviceMethod) {
+        formData.append('deliveryMethod', documentForm.serviceMethod);
+      }
+      if (documentForm.serviceContent) {
+        formData.append('deliveryContent', documentForm.serviceContent);
+      }
+      formData.append('sendStatus', documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING');
+      formData.append('status', 'PENDING');
+
+      // 添加文件（支持多个文件）
+      uploadedFiles.value.forEach(file => {
+        formData.append('files', file.file);
+      });
+
+      // 发送请求
+      const response = await createDocumentWithFilesApi(formData);
+
+      if (response.code === 200) {
+        ElMessage.success('文书送达创建成功');
+        showAddDocumentDialog.value = false;
+        resetDocumentForm();
+        fetchDocumentList();
+      } else {
+        ElMessage.error(response.message || '文书送达创建失败');
+      }
     }
   } catch (error: any) {
     ElMessage.error(
@@ -786,9 +836,9 @@ const submitDocumentForm = async () => {
 const handleFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    const file = input.files[0];
-    // 文件验证
-    const maxFileSize = 10 * 1024 * 1024;
+    const files = Array.from(input.files);
+    const maxFileSize = 50 * 1024 * 1024;
+    const maxFileCount = 10;
     const allowedTypes = new Set([
       '.doc',
       '.docx',
@@ -798,37 +848,48 @@ const handleFileChange = async (event: Event) => {
       '.xls',
       '.xlsx',
     ]);
-    const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
 
-    if (!allowedTypes.has(fileExtension)) {
-      ElMessage.error(
-        '不支持的文件类型，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件',
-      );
+    // 检查文件数量限制
+    if (uploadedFiles.value.length + files.length > maxFileCount) {
+      ElMessage.error(`最多只能上传${maxFileCount}个文件`);
       return;
     }
 
-    if (file.size > maxFileSize) {
-      ElMessage.error(
-        `文件大小超过限制：${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过10MB`,
-      );
-      return;
+    for (const file of files) {
+      const fileExtension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`;
+
+      if (!allowedTypes.has(fileExtension)) {
+        ElMessage.error(
+          `不支持的文件类型：${file.name}，请上传PDF、DOC、DOCX、XLS、XLSX、JPG、PNG格式文件`,
+        );
+        return;
+      }
+
+      if (file.size > maxFileSize) {
+        ElMessage.error(
+          `文件大小超过限制：${file.name} ${(file.size / 1024 / 1024).toFixed(2)}MB，单个文件大小不超过50MB`,
+        );
+        return;
+      }
     }
 
     try {
       fileUploadLoading.value = true;
 
-      // 暂存文件
-      uploadedFiles.value.push({
-        name: file.name,
-        url: URL.createObjectURL(file),
-        file,
-        fileId: Date.now().toString(),
-      });
+      // 暂存所有文件
+      for (const file of files) {
+        uploadedFiles.value.push({
+          name: file.name,
+          url: URL.createObjectURL(file),
+          file,
+          fileId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        });
+      }
 
-      documentForm.attachment = file.name;
+      documentForm.attachment = files.length > 0 ? files[0].name : '';
 
       fileUploadLoading.value = false;
-      ElMessage.success('文件已暂存，将在提交表单时上传');
+      ElMessage.success(`已添加${files.length}个文件，将在提交表单时上传`);
     } catch (error: any) {
       fileUploadLoading.value = false;
       ElMessage.error(`文件处理失败：${error.message || '网络错误'}`);
@@ -3637,7 +3698,7 @@ const checkPermissions = async () => {
                     <template #default="scope">
                       <!-- 所有状态都显示查看详情按钮 -->
                       <ElButton
-                        type="text"
+                        link
                         :style="{ color: '#000000', textDecoration: 'none' }"
                         size="small"
                         @click="viewDocumentDetail(scope.row.id)"
@@ -3649,7 +3710,7 @@ const checkPermissions = async () => {
                       <!-- 待送达状态：修改、发送 -->
                       <template v-if="scope.row.sendStatus === 'PENDING'">
                         <ElButton
-                          type="text"
+                          link
                           :style="{ color: '#C29D59', textDecoration: 'none' }"
                           size="small"
                           @click="editDocument(scope.row)"
@@ -3658,7 +3719,7 @@ const checkPermissions = async () => {
                           修改
                         </ElButton>
                         <ElButton
-                          type="text"
+                          link
                           :style="{ color: '#1890ff', textDecoration: 'none' }"
                           size="small"
                           @click="sendDocument(scope.row.id)"
@@ -3675,7 +3736,7 @@ const checkPermissions = async () => {
                       >
                         <template #reference>
                           <ElButton
-                            type="text"
+                            link
                             :style="{
                               color: '#ff4d4f',
                               textDecoration: 'none',
@@ -5352,6 +5413,7 @@ const checkPermissions = async () => {
                       type="file"
                       accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
                       class="file-input"
+                      multiple
                       @change="handleFileChange"
                     />
                     <ElButton
@@ -5363,7 +5425,7 @@ const checkPermissions = async () => {
                       选择文件
                     </ElButton>
                     <span class="ml-2 text-sm text-gray-500">
-                      支持上传文档、图片等文件，单个文件不超过10MB
+                      支持上传多个文件，单个文件不超过50MB，最多10个文件
                     </span>
                   </div>
 
