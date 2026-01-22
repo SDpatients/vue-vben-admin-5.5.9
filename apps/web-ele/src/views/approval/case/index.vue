@@ -17,9 +17,12 @@ import {
   ElTable,
   ElTableColumn,
   ElTag,
+  ElTabs,
+  ElTabPane,
   ElTooltip,
   ElUpload,
 } from 'element-plus';
+import { useRouter } from 'vue-router';
 
 import { approvalApi, type CaseApproval as ApiCaseApproval } from '#/api/core/approval';
 
@@ -35,6 +38,7 @@ interface Attachment {
 
 interface CaseApproval {
   id: number;
+  caseId: number;
   caseNumber: string;
   caseTitle: string;
   caseType: string;
@@ -42,16 +46,18 @@ interface CaseApproval {
   submitTime: string;
   approvalTime?: string;
   status: 'pending' | 'approved' | 'rejected';
-  priority: 'high' | 'medium' | 'low';
   description: string;
   remark?: string;
   attachments?: Attachment[];
 }
 
+const router = useRouter();
 const loading = ref(false);
 const caseList = ref<CaseApproval[]>([]);
 const dialogVisible = ref(false);
 const currentCase = ref<CaseApproval | null>(null);
+// 弹窗类型：view-查看详情，approve-审批操作
+const dialogType = ref<'view' | 'approve'>('view');
 const approvalForm = ref({
   remark: '',
   status: 'approved' as 'approved' | 'rejected',
@@ -68,6 +74,14 @@ const pagination = ref({
   total: 0,
 });
 
+// 激活的标签页
+const activeTab = ref('caseApproval');
+
+// 跳转到案件详情
+const goToCaseDetail = (caseId: number) => {
+  router.push(`/law/case-detail/${caseId}`);
+};
+
 const caseTypes = [
   { label: '合同纠纷', value: 'contract' },
   { label: '劳动争议', value: 'labor' },
@@ -77,11 +91,14 @@ const caseTypes = [
   { label: '其他', value: 'other' },
 ];
 
-const priorities = [
-  { label: '高', value: 'high', type: 'danger' as const },
-  { label: '中', value: 'medium', type: 'warning' as const },
-  { label: '低', value: 'low', type: 'info' as const },
-];
+const approvalTypes = {
+  CASE_SUBMIT: '案件提交',
+  CASE_CLOSE: '案件结案',
+  FEE_APPLY: '费用申请',
+  EVIDENCE_UPLOAD: '证据上传',
+};
+
+
 
 const statusMap = {
   pending: { text: '待审批', type: 'warning' as const },
@@ -101,18 +118,39 @@ const fileList = ref<{name: string, url: string, file: File}[]>([]);
 const uploadProgress = ref(0);
 const uploading = ref(false);
 
+// 格式化时间为YYYY-MM-DD HH:mm:ss
+const formatDateTime = (dateString: string | undefined): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+// 获取审核类型名称
+const getApprovalTypeName = (type: string): string => {
+  return approvalTypes[type as keyof typeof approvalTypes] || type;
+};
+
 // 转换API响应数据为页面所需格式
 const transformApiDataToPageData = (apiData: ApiCaseApproval[]): CaseApproval[] => {
   return apiData.map(item => ({
     id: item.id,
+    caseId: item.caseId,
     caseNumber: item.caseNumber,
-    caseTitle: item.caseTitle || item.approvalContent,
-    caseType: item.caseType || 'other',
+    caseTitle: item.approvalTitle || item.approvalContent,
+    caseType: item.approvalType,
     submitter: item.submitter || '未知提交人',
-    submitTime: item.createTime,
-    approvalTime: item.approvalDate,
+    submitTime: formatDateTime(item.createTime),
+    approvalTime: formatDateTime(item.approvalDate),
     status: approvalStatusMap[item.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
-    priority: (item.priority as 'high' | 'medium' | 'low') || 'medium',
     description: item.description || item.approvalContent,
     remark: item.remark,
     attachments: item.attachments || [],
@@ -126,10 +164,15 @@ const loadCases = async () => {
     const approvalStatus = searchForm.value.status ? 
       Object.keys(approvalStatusMap).find(key => approvalStatusMap[key as keyof typeof approvalStatusMap] === searchForm.value.status) : '';
     
+    // 根据不同的标签页添加不同的approvalType参数
+    const approvalType = activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'TASK_';
+    
     const response = await approvalApi.getApprovalList({
       pageNum: pagination.value.current,
       pageSize: pagination.value.pageSize,
       approvalStatus: approvalStatus as string,
+      approvalType: approvalType,
+      approvalTitle: searchForm.value.keyword || undefined,
     });
     
     if (response.code === 200 && response.data) {
@@ -162,11 +205,13 @@ const handleReset = () => {
 
 const handleViewDetail = (row: CaseApproval) => {
   currentCase.value = row;
+  dialogType.value = 'view';
   dialogVisible.value = true;
 };
 
 const handleApprove = (row: CaseApproval) => {
   currentCase.value = row;
+  dialogType.value = 'approve';
   approvalForm.value = {
     remark: '',
     status: 'approved',
@@ -176,6 +221,7 @@ const handleApprove = (row: CaseApproval) => {
 
 const handleReject = (row: CaseApproval) => {
   currentCase.value = row;
+  dialogType.value = 'approve';
   approvalForm.value = {
     remark: '',
     status: 'rejected',
@@ -273,11 +319,6 @@ const getCaseTypeName = (type: string) => {
   return item?.label || type;
 };
 
-const getPriorityInfo = (priority: string) => {
-  const item = priorities.find(p => p.value === priority);
-  return item || { label: priority, type: 'info' as const };
-};
-
 onMounted(() => {
   loadCases();
 });
@@ -288,7 +329,10 @@ onMounted(() => {
     <ElCard>
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">案件审批</span>
+          <ElTabs v-model="activeTab" @tab-change="handleSearch">
+            <ElTabPane label="案件审批" name="caseApproval" />
+            <ElTabPane label="文件审核" name="fileApproval" />
+          </ElTabs>
           <ElButton type="primary" @click="loadCases">
             <i class="i-lucide-refresh-cw mr-1"></i>
             刷新
@@ -304,6 +348,7 @@ onMounted(() => {
               placeholder="请选择状态"
               clearable
               style="width: 120px"
+              @change="handleSearch"
             >
               <ElOption
                 v-for="(item, key) in statusMap"
@@ -349,7 +394,18 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="caseNumber" label="案号" width="150" />
+        <ElTableColumn prop="caseNumber" label="案号" width="150">
+          <template #default="{ row }">
+            <ElButton 
+              type="primary" 
+              size="small" 
+              link 
+              @click="goToCaseDetail(row.caseId)"
+            >
+              {{ row.caseNumber }}
+            </ElButton>
+          </template>
+        </ElTableColumn>
 
         <ElTableColumn prop="caseTitle" label="审核标题" min-width="220">
           <template #default="{ row }">
@@ -362,18 +418,12 @@ onMounted(() => {
         <ElTableColumn prop="caseType" label="审核类型" width="110">
           <template #default="{ row }">
             <ElTag type="info" size="small">
-              {{ getCaseTypeName(row.caseType) }}
+              {{ getApprovalTypeName(row.caseType) }}
             </ElTag>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="priority" label="优先级" width="90" align="center">
-          <template #default="{ row }">
-            <ElTag :type="getPriorityInfo(row.priority).type" size="small">
-              {{ getPriorityInfo(row.priority).label }}
-            </ElTag>
-          </template>
-        </ElTableColumn>
+
 
         <ElTableColumn prop="submitter" label="提交人" width="100" />
 
@@ -428,8 +478,8 @@ onMounted(() => {
         </ElTableColumn>
       </ElTable>
 
-      <div v-if="caseList.length === 0 && !loading" class="mt-8">
-        <ElEmpty description="暂无案件审批数据" />
+      <div v-if="caseList.length === 0 && !loading" class="mt-8 text-center text-gray-500 py-8">
+        暂无数据
       </div>
 
       <div v-if="caseList.length > 0" class="mt-4 flex justify-end">
@@ -471,20 +521,24 @@ onMounted(() => {
         <div class="basic-info-section">
           <div class="info-item">
             <span class="info-label">案号</span>
-            <span class="info-value">{{ currentCase.caseNumber }}</span>
+            <span class="info-value">
+              <ElButton 
+                type="primary" 
+                size="small" 
+                link 
+                @click="goToCaseDetail(currentCase.caseId)"
+              >
+                {{ currentCase.caseNumber }}
+              </ElButton>
+            </span>
           </div>
           <div class="info-item">
             <span class="info-label">审核类型</span>
             <ElTag type="info" size="small">
-              {{ getCaseTypeName(currentCase.caseType) }}
+              {{ getApprovalTypeName(currentCase.caseType) }}
             </ElTag>
           </div>
-          <div class="info-item">
-            <span class="info-label">优先级</span>
-            <ElTag :type="getPriorityInfo(currentCase.priority).type" size="small">
-              {{ getPriorityInfo(currentCase.priority).label }}
-            </ElTag>
-          </div>
+
           <div class="info-item">
             <span class="info-label">审批状态</span>
             <ElTag :type="statusMap[currentCase.status].type" size="small">
@@ -508,7 +562,7 @@ onMounted(() => {
             
             <!-- 审批意见 -->
             <div v-if="currentCase.remark" class="remark-section">
-              <div class="section-title">审批意见</div>
+              <div class="section-title">备注</div>
               <div class="remark-box">
                 {{ currentCase.remark }}
               </div>
@@ -646,20 +700,32 @@ onMounted(() => {
         </div>
       </div>
 
-      <template #footer v-if="currentCase?.status === 'pending'">
+      <!-- 查看详情时只显示取消按钮 -->
+      <template #footer v-if="dialogType === 'view'">
         <ElButton @click="dialogVisible = false">取消</ElButton>
+      </template>
+      
+      <!-- 审批操作时根据状态显示不同按钮 -->
+      <template #footer v-else-if="dialogType === 'approve'">
+        <ElButton @click="dialogVisible = false">取消</ElButton>
+        
+        <!-- 当审批状态为approved时显示通过按钮 -->
         <ElButton
+          v-if="approvalForm.status === 'approved'"
           type="success"
           :loading="loading"
-          @click="approvalForm.status = 'approved'; handleConfirmApproval()"
+          @click="handleConfirmApproval()"
         >
           <i class="i-lucide-check mr-1"></i>
           通过
         </ElButton>
+        
+        <!-- 当审批状态为rejected时显示驳回按钮 -->
         <ElButton
+          v-if="approvalForm.status === 'rejected'"
           type="danger"
           :loading="loading"
-          @click="approvalForm.status = 'rejected'; handleConfirmApproval()"
+          @click="handleConfirmApproval()"
         >
           <i class="i-lucide-x mr-1"></i>
           驳回

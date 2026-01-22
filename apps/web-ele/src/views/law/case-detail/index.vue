@@ -3114,7 +3114,7 @@ const checkPermissions = async () => {
           </div>
 
           <!-- 内容类型切换 -->
-          <div class="content-tabs mb-6">
+          <div class="content-tabs">
             <ElRadioGroup
               v-model="activeTab"
               size="large"
@@ -6070,7 +6070,7 @@ const checkPermissions = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -6092,7 +6092,7 @@ const checkPermissions = async () => {
 .content-tabs {
   display: flex;
   margin-top: 6px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .tabs-container {

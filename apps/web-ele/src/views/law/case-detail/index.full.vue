@@ -3130,14 +3130,12 @@ const checkPermissions = async () => {
                         >
                           查看
                         </ElButton>
-                        <ElButton
-                          link
-                          type="primary"
-                          size="small"
+                        <span
+                          style="color: #409EFF; cursor: pointer; margin-left: 8px;"
                           @click="downloadAttachment(attachment)"
                         >
                           下载
-                        </ElButton>
+                        </span>
                       </div>
                     </div>
                   </div>

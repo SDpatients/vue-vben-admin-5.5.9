@@ -40,6 +40,8 @@ const router = useRouter();
 const loading = ref(false);
 
 const activeStage = ref(props.initialStage || 0);
+// 初始阶段，用于保持视觉样式
+const initialStage = ref(props.initialStage || 0);
 const showAddDialog = ref(false);
 const currentModule = ref<any>(null);
 const currentStageIndex = ref(0);
@@ -90,6 +92,86 @@ const handleFileRemove = (file: UploadFile) => {
 // 处理文件变化
 const handleFileChange = (file: UploadFile, fileList: UploadFile[]) => {
   uploadFiles.value = fileList;
+};
+
+// 处理文件下载
+const handleFileDownload = async (file: any) => {
+  try {
+    const fileId = file.id || file.response?.id;
+    if (!fileId) {
+      ElMessage.warning('文件ID不存在，无法下载');
+      return;
+    }
+    
+    // 获取token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法下载文件');
+      return;
+    }
+    
+    // 使用fetch下载，将token放在请求头中
+    const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+    const response = await fetch(`${baseUrl}/file/download/${fileId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('下载失败，服务器返回错误');
+    }
+    
+    // 获取文件名 - 优先使用originalFileName字段
+    let fileName = file.originalFileName || file.fileName || file.name || '文件下载';
+    
+    // 尝试从响应头获取文件名
+    const contentDisposition = response.headers.get('Content-Disposition');
+    if (contentDisposition) {
+      // 尝试多种Content-Disposition格式匹配
+      const filenamePatterns = [
+        /filename="([^"]+)"/, // filename="xxx" 格式
+        /filename=([^;\s]+)/,    // filename=xxx 格式（无引号）
+        /filename\*=UTF-8''([^;]+)/ // filename*=UTF-8''xxx 格式
+      ];
+      
+      for (const pattern of filenamePatterns) {
+        const match = contentDisposition.match(pattern);
+        if (match && match[1]) {
+          // 解码URL编码的文件名
+          let headerFileName = decodeURIComponent(match[1]);
+          // 移除可能的引号
+          headerFileName = headerFileName.replace(/^['"]|['"]$/g, '');
+          // 只有当响应头中的文件名有效时才使用
+          if (headerFileName && headerFileName !== 'null' && headerFileName !== 'undefined') {
+            fileName = headerFileName;
+          }
+          break;
+        }
+      }
+    }
+    
+    // 处理文件内容
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    // 清理
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 100);
+    
+    ElMessage.success('文件下载成功');
+  } catch (error) {
+    console.error('下载失败:', error);
+    ElMessage.error('文件下载失败');
+  }
 };
 
 
@@ -225,36 +307,36 @@ const loadAllStageData = async () => {
             try {
               const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
                 caseTaskId: task.id,
-                limit: 1,
               });
               
               if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
-                const submission = submissionsResponse.data[0];
-                
-                // 获取提交的文件列表
-                const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
-                const files = filesResponse.code === 200 ? filesResponse.data : [];
-                
-                module.data.push({
-                  id: submission.id,
-                  title: submission.submissionTitle,
-                  content: submission.submissionContent,
-                  creator: submission.creatorName,
-                  date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
-                  files: files.map(f => ({
-                    id: f.id,
-                    fileName: f.originalFileName,
-                    filePath: f.filePath,
-                    fileSize: f.fileSize,
-                    uploadTime: f.uploadTime,
-                    uploadUserName: f.uploadUserName,
-                  })),
-                  status: submission.status,
-                  submissionNumber: submission.submissionNumber,
-                  createTime: submission.createTime,
-                  updateTime: submission.updateTime,
-                  taskId: task.id,
-                });
+                for (const submission of submissionsResponse.data) {
+                  // 获取提交的文件列表
+                  const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
+                  const files = filesResponse.code === 200 ? filesResponse.data : [];
+                  
+                  module.data.push({
+                    id: submission.id,
+                    title: submission.submissionTitle,
+                    content: submission.submissionContent,
+                    creator: submission.creatorName,
+                    date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
+                    files: files.map(f => ({
+                      id: f.id,
+                      fileName: f.originalFileName,
+                      originalFileName: f.originalFileName,
+                      filePath: f.filePath,
+                      fileSize: f.fileSize,
+                      uploadTime: f.uploadTime,
+                      uploadUserName: f.uploadUserName,
+                    })),
+                    status: submission.status,
+                    submissionNumber: submission.submissionNumber,
+                    createTime: submission.createTime,
+                    updateTime: submission.updateTime,
+                    taskId: task.id,
+                  });
+                }
               }
             } catch (error) {
               console.error('获取任务提交记录失败:', error);
@@ -293,11 +375,9 @@ const handleDataItemClick = async (item: any, module: any) => {
     response: file,
   })) : [];
   
+  // 直接设置activeTab，避免ElTabs初始渲染时modelValue为undefined
+  activeTab.value = 'basic';
   showAddDialog.value = true;
-  
-  setTimeout(() => {
-    activeTab.value = 'basic';
-  }, 50);
 };
 
 const toggleModule = (moduleId: string) => {
@@ -589,36 +669,36 @@ const loadStageData = async (stageIndex: number) => {
           try {
             const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
               caseTaskId: task.id,
-              limit: 1,
             });
             
             if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
-              const submission = submissionsResponse.data[0];
-              
-              // 获取提交的文件列表
-              const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
-              const files = filesResponse.code === 200 ? filesResponse.data : [];
-              
-              module.data.push({
-                id: submission.id,
-                title: submission.submissionTitle,
-                content: submission.submissionContent,
-                creator: submission.creatorName,
-                date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
-                files: files.map(f => ({
-                  id: f.id,
-                  fileName: f.originalFileName,
-                  filePath: f.filePath,
-                  fileSize: f.fileSize,
-                  uploadTime: f.uploadTime,
-                  uploadUserName: f.uploadUserName,
-                })),
-                status: submission.status,
-                submissionNumber: submission.submissionNumber,
-                createTime: submission.createTime,
-                updateTime: submission.updateTime,
-                taskId: task.id,
-              });
+              for (const submission of submissionsResponse.data) {
+                // 获取提交的文件列表
+                const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
+                const files = filesResponse.code === 200 ? filesResponse.data : [];
+                
+                module.data.push({
+                  id: submission.id,
+                  title: submission.submissionTitle,
+                  content: submission.submissionContent,
+                  creator: submission.creatorName,
+                  date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
+                  files: files.map(f => ({
+                    id: f.id,
+                    fileName: f.originalFileName,
+                    originalFileName: f.originalFileName,
+                    filePath: f.filePath,
+                    fileSize: f.fileSize,
+                    uploadTime: f.uploadTime,
+                    uploadUserName: f.uploadUserName,
+                  })),
+                  status: submission.status,
+                  submissionNumber: submission.submissionNumber,
+                  createTime: submission.createTime,
+                  updateTime: submission.updateTime,
+                  taskId: task.id,
+                });
+              }
             }
           } catch (error) {
             console.error('获取任务提交记录失败:', error);
@@ -643,15 +723,7 @@ watch(activeStage, (newIndex) => {
   loadStageData(newIndex);
 });
 
-// 监听对话框显示状态，确保默认选中基础数据标签页
-watch(showAddDialog, async (newVal) => {
-  if (newVal) {
-    // 使用setTimeout确保组件完全挂载后再设置标签页
-    setTimeout(() => {
-      activeTab.value = 'basic';
-    }, 100);
-  }
-});
+
 
 const openAddDialog = (module: any, stageIndex: number) => {
   // 设置为新增模式
@@ -666,12 +738,9 @@ const openAddDialog = (module: any, stageIndex: number) => {
   };
   // 清空上传文件列表
   uploadFiles.value = [];
+  // 直接设置activeTab，避免ElTabs初始渲染时modelValue为undefined
+  activeTab.value = 'basic';
   showAddDialog.value = true;
-  
-  // 延迟确保对话框完全渲染后再设置标签页
-  setTimeout(() => {
-    activeTab.value = 'basic';
-  }, 50);
 };
 
 const handleAddSubmit = async () => {
@@ -758,9 +827,12 @@ const goBack = () => {
           v-for="(stage, index) in stages"
           :key="index"
           class="stage-tab-item"
-          :class="{ active: activeStage === index }"
+          :class="{ active: activeStage === index, 'initial-stage': index === initialStage }"
           @click="handleStageChange(index)"
         >
+          <!-- 当前进度文字 - 仅初始阶段显示 -->
+          <div v-if="index === initialStage" class="current-progress-text">当前进度</div>
+          
           <div class="stage-progress-container">
             <div class="stage-progress-ring">
               <svg width="80" height="80" viewBox="0 0 80 80">
@@ -900,26 +972,19 @@ const goBack = () => {
                     </div>
                     <div class="data-actions">
                       <ElPopconfirm
-                        title="确定要删除这条记录吗？"
-                        @confirm="handleDelete(module, item)"
-                      >
-                        <template #reference>
-                          <ElButton type="danger" size="small" text>
-                            <Icon icon="lucide:trash-2" />
-                          </ElButton>
-                        </template>
-                      </ElPopconfirm>
+                      title="确定要删除这条记录吗？"
+                      @confirm="handleDelete(module, item)"
+                      @click.stop
+                    >
+                      <template #reference>
+                        <ElButton type="danger" size="small" text @click.stop>
+                          <Icon icon="lucide:trash-2" />
+                        </ElButton>
+                      </template>
+                    </ElPopconfirm>
                     </div>
                   </div>
                   <div class="data-content">
-                    <div class="data-row">
-                      <span class="data-label">内容:</span>
-                      <span class="data-value">{{ item.content }}</span>
-                    </div>
-                    <div class="data-row">
-                      <span class="data-label">创建人:</span>
-                      <span class="data-value">{{ item.creator }}</span>
-                    </div>
                     <div class="data-row">
                       <span class="data-label">日期:</span>
                       <span class="data-value">{{ item.date }}</span>
@@ -935,7 +1000,13 @@ const goBack = () => {
                         >
                           <Icon icon="lucide:paperclip" class="attachment-icon" />
                           <span class="attachment-name">{{ file.fileName || file.name }}</span>
-                          <span class="attachment-size">{{ (file.fileSize || file.size) ? (file.fileSize || file.size) / 1024 / 1024 < 1 ? `${((file.fileSize || file.size) / 1024).toFixed(2)} KB` : `${((file.fileSize || file.size) / 1024 / 1024).toFixed(2)} MB` : '' }}</span>
+                          <span 
+                            style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-left: auto;"
+                            @click.stop="handleFileDownload(file)"
+                          >
+                            <Icon icon="lucide:download" class="mr-1" />
+                            下载
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -958,7 +1029,7 @@ const goBack = () => {
       :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
       width="800px"
       destroy-on-close
-      @opened="() => { activeTab.value = 'basic'; }"
+
     >
       <ElTabs ref="tabs" v-model="activeTab">
         <ElTabPane label="基础数据" name="basic" :lazy="false">
@@ -1017,6 +1088,30 @@ const goBack = () => {
                   <template #tip>
                     <div class="upload-tip">
                       支持上传多个文件，单个文件大小不超过50MB
+                    </div>
+                  </template>
+                  <template #file="{ file }">
+                    <div class="file-item-with-download">
+                      <span>{{ file.name }}</span>
+                      <div class="file-actions">
+                        <span 
+                          v-if="file.status === 'success'" 
+                          style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
+                          @click.stop="handleFileDownload(file)"
+                        >
+                          <Icon icon="lucide:download" class="mr-1" />
+                          下载
+                        </span>
+                        <ElButton 
+                          type="danger" 
+                          size="small" 
+                          text 
+                          @click.stop="handleFileRemove(file)"
+                        >
+                          <Icon icon="lucide:trash-2" />
+                          删除
+                        </ElButton>
+                      </div>
                     </div>
                   </template>
                 </ElUpload>
@@ -1121,17 +1216,97 @@ const goBack = () => {
   transition: all 0.3s ease;
 }
 
-.stage-tab-item.active .stage-tab-icon {
-  transform: translate(-50%, -50%);
+.stage-tab-item.initial-stage .stage-tab-icon {
+  transform: translate(-50%, -50%) scale(1.2);
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 4px currentColor;
+  box-shadow: 0 0 0 4px currentColor, 0 0 20px rgba(64, 158, 255, 0.5);
+  animation: pulse 2s ease-in-out infinite;
+  z-index: 3;
 }
 
-/* 移除图标悬停放大效果 */
-.stage-tab-item:hover .stage-tab-icon {
+/* 为当前阶段添加脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 4px currentColor, 0 0 20px rgba(64, 158, 255, 0.5);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    box-shadow: 0 0 0 4px currentColor, 0 0 30px rgba(64, 158, 255, 0.8);
+  }
+}
+
+/* 增强当前阶段的标题样式 */
+.stage-tab-item.initial-stage .stage-tab-title {
+  color: #667eea;
+  font-weight: 700;
+  font-size: 15px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 增强当前阶段的进度条样式 */
+.stage-tab-item.initial-stage .stage-progress-bar-fill {
+  box-shadow: 0 0 10px currentColor;
+  position: relative;
+}
+
+.stage-tab-item.initial-stage .stage-progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* 添加光泽动画 */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 确保其他阶段的样式不受影响 */
+.stage-tab-item:not(.active) .stage-tab-icon {
   transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+}
+
+.stage-tab-item:not(.active):hover .stage-tab-icon {
+  transform: translate(-50%, -50%) scale(1.1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* 当前进度文字样式 */
+.current-progress-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #667eea;
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 
 .stage-tab-item.active {
   --active-stage-color: var(--current-stage-color);
@@ -1386,10 +1561,10 @@ const goBack = () => {
 }
 
 .data-item {
-  padding: 10px;
+  padding: 6px 10px;
   background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
-  border-radius: 12px;
-  margin-bottom: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
   border: 1px solid #e5e7eb;
   transition: all 0.3s ease;
 }
@@ -1397,7 +1572,7 @@ const goBack = () => {
 .data-item:hover {
   background: linear-gradient(135deg, #eef2ff 0%, #f8f9ff 100%);
   border-color: #667eea;
-  transform: translateX(4px);
+  transform: translateX(2px);
 }
 
 .data-item:last-child {
@@ -1408,33 +1583,33 @@ const goBack = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .data-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   color: #1a1a2e;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 .data-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .data-row {
   display: flex;
   align-items: center;
-  font-size: 13px;
-  padding: 4px 0;
+  font-size: 12px;
+  padding: 2px 0;
 }
 
 .data-label {
   color: #6b7280;
-  min-width: 70px;
-  margin-right: 12px;
+  min-width: 50px;
+  margin-right: 8px;
   font-weight: 500;
 }
 
@@ -1442,13 +1617,13 @@ const goBack = () => {
   color: #374151;
   flex: 1;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .module-empty {
-  padding: 40px 20px;
+  padding: 20px 10px;
   text-align: center;
-  min-height: 150px;
+  min-height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1616,27 +1791,28 @@ const goBack = () => {
 .attachments-row {
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 4px;
 }
 
 .attachments-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 4px;
+  margin-top: 2px;
   width: 100%;
 }
 
 .attachment-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 4px 8px;
   background: #f8f9ff;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #e5e7eb;
   transition: all 0.2s ease;
   width: 100%;
+  font-size: 11px;
 }
 
 .attachment-item:hover {
@@ -1645,12 +1821,34 @@ const goBack = () => {
 }
 
 .attachment-icon {
-  font-size: 16px;
+  font-size: 12px;
   color: #667eea;
-  flex-shrink: 0;
 }
 
 .attachment-name {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* 自定义文件列表项样式 */
+.file-item-with-download {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.file-actions .el-button {
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.file-name {
   flex: 1;
   font-size: 13px;
   color: #374151;
