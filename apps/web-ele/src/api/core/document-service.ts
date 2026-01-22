@@ -124,6 +124,23 @@ export namespace DocumentServiceApi {
     message: string;
     data: Attachment[];
   }
+
+  /** 创建文书送达（含文件）响应 */
+  export interface DocumentCreateWithFilesResponse {
+    code: number;
+    message: string;
+    data: {
+      deliveryId: number;
+      files: {
+        fileId: number;
+        originalFileName: string;
+        storedFileName: string;
+        fileSize: number;
+        fileExtension: string;
+        mimeType: string;
+      }[];
+    };
+  }
 }
 
 /**
@@ -135,6 +152,23 @@ export async function createDocumentApi(
   return documentRequestClient.post<DocumentServiceApi.DocumentCreateResponse>(
     '/api/v1/document-delivery',
     data,
+  );
+}
+
+/**
+ * 创建文书送达（含文件上传）
+ * 使用 FormData 方式提交，支持同时上传多个文件
+ */
+export async function createDocumentWithFilesApi(formData: FormData) {
+  return documentRequestClient.post<DocumentServiceApi.DocumentCreateWithFilesResponse>(
+    '/api/v1/document-delivery/with-files',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000,
+    },
   );
 }
 

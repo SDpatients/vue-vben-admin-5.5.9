@@ -40,7 +40,7 @@ const handleSubmit = async () => {
       try {
         await approvalApi.submitApproval(form.value);
         ElMessage.success('提交成功');
-        router.push('/approval/list');
+        router.push('/api/v1/approval/list');
       } catch (error) {
         ElMessage.error('提交失败');
       } finally {

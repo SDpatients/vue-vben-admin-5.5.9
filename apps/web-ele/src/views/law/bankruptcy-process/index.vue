@@ -27,7 +27,8 @@ import {
   type UploadUserFile,
 } from 'element-plus';
 
-import { CaseProcessApi } from '../../../api/core/case-process';
+import { CaseTaskApi, type CaseTask } from '../../../api/core/case-tasks';
+import { CaseTaskSubmissionApi, type CaseTaskSubmission } from '../../../api/core/case-task-submissions';
 
 
 const props = defineProps<{
@@ -42,7 +43,6 @@ const activeStage = ref(props.initialStage || 0);
 const showAddDialog = ref(false);
 const currentModule = ref<any>(null);
 const currentStageIndex = ref(0);
-const activeTab = ref('basic');
 const isEditMode = ref(false);
 const currentItem = ref<any>(null);
 // 控制撤回按钮显示
@@ -51,6 +51,8 @@ const showWithdrawButton = ref<string | null>(null);
 const formRef = ref();
 const upload = ref<InstanceType<typeof ElUpload>>();
 const tabs = ref<InstanceType<typeof ElTabs>>();
+// 控制当前激活的标签页
+const activeTab = ref('basic');
 const formData = ref({
   title: '',
   content: '',
@@ -95,12 +97,7 @@ const handleFileChange = (file: UploadFile, fileList: UploadFile[]) => {
 // 为每个模块添加展开状态
 const expandedModules = ref<Record<string, boolean>>({});
 // 为每个模块添加完成状态
-const completedModules = ref<Record<string, boolean>>({
-  '1-1': true,
-  '1-2': true,
-  '2-1': true,
-  '3-1': true
-});
+const completedModules = ref<Record<string, boolean>>({});
 
 // 存储每个阶段的动画进度值
 const animatedProgress = ref<Record<number, number>>({});
@@ -113,10 +110,33 @@ const initAnimatedProgress = () => {
 };
 
 // 切换模块完成状态
-const toggleModuleComplete = (moduleId: string) => {
-  completedModules.value[moduleId] = !completedModules.value[moduleId];
-  // 触发所有阶段的进度动画
-  updateAllAnimatedProgress();
+const toggleModuleComplete = async (moduleId: string) => {
+  const module = currentStage.value.modules.find(m => m.id === moduleId);
+  if (!module?.task) {
+    ElMessage.warning('任务不存在，无法标记完成状态');
+    return;
+  }
+  
+  const newStatus = completedModules.value[moduleId] ? 'IN_PROGRESS' : 'COMPLETED';
+  
+  try {
+    const response = await CaseTaskApi.updateCaseTask(module.task.id, {
+      status: newStatus,
+    });
+    
+    if (response.code === 200) {
+      completedModules.value[moduleId] = !completedModules.value[moduleId];
+      // 更新模块的任务状态，确保界面立即反映变化
+      module.task.status = newStatus;
+      updateAllAnimatedProgress();
+      ElMessage.success(completedModules.value[moduleId] ? '已标记为完成' : '已取消完成标记');
+    } else {
+      ElMessage.error(response.message || '更新任务状态失败');
+    }
+  } catch (error) {
+    console.error('更新任务状态失败:', error);
+    ElMessage.error('更新任务状态失败');
+  }
 };
 
 // 更新所有阶段的动画进度
@@ -160,43 +180,123 @@ watch(completedModules, () => {
   updateAllAnimatedProgress();
 }, { deep: true });
 
-// 组件挂载时初始化动画进度
-onMounted(() => {
-  loadStageData(activeStage.value);
-  initAnimatedProgress();
+// 组件挂载时加载所有阶段的数据并初始化动画进度
+onMounted(async () => {
+  // 加载所有阶段的数据
+  await loadAllStageData();
+  // 初始化并动画显示所有阶段的进度条
+  updateAllAnimatedProgress();
 });
+
+// 加载所有阶段的数据
+const loadAllStageData = async () => {
+  loading.value = true;
+  try {
+    // 获取所有任务数据
+    const response = await CaseTaskApi.getCaseTasks({
+      caseId: Number(props.caseId),
+      page: 1,
+      size: 100,
+    });
+    
+    if (response.code === 200 && response.data) {
+      // 清空所有阶段的模块数据
+      stages.forEach(stage => {
+        stage.modules.forEach(module => {
+          module.data = [];
+          module.task = null;
+        });
+      });
+      
+      // 将返回的所有任务数据分配到对应的模块
+      for (const task of response.data.content) {
+        // 遍历所有阶段，找到匹配的模块
+        for (const stage of stages) {
+          const module = stage.modules.find(m => 
+            m.title.includes(task.taskName) || task.taskName.includes(m.title)
+          );
+          
+          if (module) {
+            module.task = task;
+            // 根据任务状态设置完成状态
+            completedModules.value[module.id] = task.status === 'COMPLETED';
+            
+            // 获取该任务的最新提交记录
+            try {
+              const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
+                caseTaskId: task.id,
+                limit: 1,
+              });
+              
+              if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
+                const submission = submissionsResponse.data[0];
+                
+                // 获取提交的文件列表
+                const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
+                const files = filesResponse.code === 200 ? filesResponse.data : [];
+                
+                module.data.push({
+                  id: submission.id,
+                  title: submission.submissionTitle,
+                  content: submission.submissionContent,
+                  creator: submission.creatorName,
+                  date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
+                  files: files.map(f => ({
+                    id: f.id,
+                    fileName: f.originalFileName,
+                    filePath: f.filePath,
+                    fileSize: f.fileSize,
+                    uploadTime: f.uploadTime,
+                    uploadUserName: f.uploadUserName,
+                  })),
+                  status: submission.status,
+                  submissionNumber: submission.submissionNumber,
+                  createTime: submission.createTime,
+                  updateTime: submission.updateTime,
+                  taskId: task.id,
+                });
+              }
+            } catch (error) {
+              console.error('获取任务提交记录失败:', error);
+            }
+            break; // 找到匹配的模块后退出循环
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('加载所有阶段数据失败:', error);
+    ElMessage.error('加载数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 处理数据项点击事件
 const handleDataItemClick = async (item: any, module: any) => {
-  // 设置为编辑模式
   isEditMode.value = true;
   currentItem.value = item;
   currentModule.value = module;
   currentStageIndex.value = activeStage.value;
   
-  // 填充表单数据
   formData.value = {
     title: item.title,
     content: item.content,
     date: item.date,
   };
   
-  // 处理附件数据
   uploadFiles.value = item.files ? item.files.map((file: any) => ({
     uid: Date.now() + Math.random(),
-    name: file.fileName || file.name,
+    name: file.fileName || file.originalFileName,
     status: 'success',
-    url: file.filePath || file.url,
+    url: file.filePath,
     response: file,
   })) : [];
   
   showAddDialog.value = true;
   
-  // 延迟确保对话框完全渲染后再设置标签页
   setTimeout(() => {
-    if (tabs.value) {
-      tabs.value.setActiveName('basic');
-    }
+    activeTab.value = 'basic';
   }, 50);
 };
 
@@ -438,52 +538,93 @@ const stages = [
 
 const currentStage = computed(() => stages[activeStage.value]);
 
+const taskStatusMap: Record<string, string> = {
+  'IN_PROGRESS': '进行中',
+  'COMPLETED': '已完成',
+  'REVIEWING': '审核中',
+  'SKIPPED': '已跳过',
+  'REJECTED': '已驳回',
+};
+
+const submissionStatusMap: Record<string, string> = {
+  'PENDING': '待审核',
+  'APPROVED': '已通过',
+  'REJECTED': '已驳回',
+};
+
 // 加载指定阶段的数据
 const loadStageData = async (stageIndex: number) => {
   loading.value = true;
   try {
-    const stageNum = stageIndex + 1; // 阶段从1开始
-    // 根据需求，调用新的接口获取数据
-    const response = await CaseProcessApi.getCaseStageDataApi(props.caseId, stageNum);
+    const stageNum = stageIndex + 1;
+    
+    // 获取该阶段所有任务
+    const taskCodes = stages[stageIndex].modules.map(m => `TASK_${String(stageNum).padStart(3, '0')}_${m.id.split('-')[1]}`);
+    
+    const response = await CaseTaskApi.getCaseTasks({
+      caseId: Number(props.caseId),
+      page: 1,
+      size: 100,
+    });
     
     if (response.code === 200 && response.data) {
       // 清空当前阶段所有模块的数据
       stages[stageIndex].modules.forEach(module => {
         module.data = [];
+        module.task = null;
       });
       
-      // 将返回的数据分配到对应的模块
-      response.data.forEach(item => {
-        // 根据moduleCode或moduleName匹配对应的模块
+      // 将返回的任务数据分配到对应的模块
+      for (const task of response.data.content) {
         const module = stages[stageIndex].modules.find(m => 
-          m.title.includes(item.moduleName) || item.moduleName.includes(m.title)
+          m.title.includes(task.taskName) || task.taskName.includes(m.title)
         );
         
         if (module) {
-          // 解析attachments字段
-          let files = [];
-          if (item.attachments) {
-            try {
-              files = JSON.parse(item.attachments);
-            } catch (error) {
-              console.error('解析attachments失败:', error);
-              files = [];
-            }
-          }
+          module.task = task;
+          // 根据任务状态设置完成状态
+          completedModules.value[module.id] = task.status === 'COMPLETED';
           
-          module.data.push({
-            id: item.id,
-            title: item.title,
-            content: item.content,
-            creator: item.createUserId?.toString() || '',
-            date: item.processDate ? new Date(item.processDate).toISOString().split('T')[0] : '',
-            files: files,
-            fieldData: item.fieldData ? JSON.parse(item.fieldData) : {},
-            createTime: item.createTime,
-            updateTime: item.updateTime
-          });
+          // 获取该任务的最新提交记录
+          try {
+            const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
+              caseTaskId: task.id,
+              limit: 1,
+            });
+            
+            if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
+              const submission = submissionsResponse.data[0];
+              
+              // 获取提交的文件列表
+              const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
+              const files = filesResponse.code === 200 ? filesResponse.data : [];
+              
+              module.data.push({
+                id: submission.id,
+                title: submission.submissionTitle,
+                content: submission.submissionContent,
+                creator: submission.creatorName,
+                date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
+                files: files.map(f => ({
+                  id: f.id,
+                  fileName: f.originalFileName,
+                  filePath: f.filePath,
+                  fileSize: f.fileSize,
+                  uploadTime: f.uploadTime,
+                  uploadUserName: f.uploadUserName,
+                })),
+                status: submission.status,
+                submissionNumber: submission.submissionNumber,
+                createTime: submission.createTime,
+                updateTime: submission.updateTime,
+                taskId: task.id,
+              });
+            }
+          } catch (error) {
+            console.error('获取任务提交记录失败:', error);
+          }
         }
-      });
+      }
     }
   } catch (error) {
     console.error('加载阶段数据失败:', error);
@@ -495,7 +636,6 @@ const loadStageData = async (stageIndex: number) => {
 
 const handleStageChange = (index: number) => {
   activeStage.value = index;
-  loadStageData(index);
 };
 
 // 监听阶段变化
@@ -508,17 +648,9 @@ watch(showAddDialog, async (newVal) => {
   if (newVal) {
     // 使用setTimeout确保组件完全挂载后再设置标签页
     setTimeout(() => {
-      // 只使用tabs ref直接控制标签页，避免双向绑定冲突
-      if (tabs.value) {
-        tabs.value.setActiveName('basic');
-      }
+      activeTab.value = 'basic';
     }, 100);
   }
-});
-
-// 组件挂载时加载初始阶段数据
-onMounted(() => {
-  loadStageData(activeStage.value);
 });
 
 const openAddDialog = (module: any, stageIndex: number) => {
@@ -538,88 +670,56 @@ const openAddDialog = (module: any, stageIndex: number) => {
   
   // 延迟确保对话框完全渲染后再设置标签页
   setTimeout(() => {
-    if (tabs.value) {
-      tabs.value.setActiveName('basic');
-    }
+    activeTab.value = 'basic';
   }, 50);
 };
 
 const handleAddSubmit = async () => {
   try {
-    // 验证表单
     await formRef.value?.validate();
     
-    const stageNum = currentStageIndex.value + 1;
-    const stageName = stages[currentStageIndex.value].title;
+    if (!currentModule.value?.task) {
+      ElMessage.error('任务不存在，请先创建任务');
+      return;
+    }
     
-    // 处理附件数据
-    const attachments = uploadFiles.value.map(file => ({
-      fileName: file.name,
-      filePath: file.url,
-      fileType: file.type,
-      fileSize: file.size,
-    }));
+    const taskId = currentModule.value.task.id;
     
-    let response;
-    
-    // 准备表单数据
-    const formDataObj = new FormData();
-    
-    formDataObj.append('caseId', Number(props.caseId).toString());
-    formDataObj.append('stageNum', stageNum.toString());
-    formDataObj.append('stageName', stageName.split('、')[1] || stageName);
-    formDataObj.append('moduleCode', `STAGE${stageNum}_${currentModule.value.title.replace(/\s+/g, '_').toUpperCase()}`);
-    formDataObj.append('moduleName', currentModule.value.title);
-    formDataObj.append('title', formData.value.title);
-    formDataObj.append('content', formData.value.content);
-    formDataObj.append('processDate', formData.value.date ? new Date(formData.value.date).toISOString() : '');
-    formDataObj.append('fieldData', JSON.stringify({}));
-    formDataObj.append('status', 'SKIP'); // 默认状态为SKIP
-    
-    // 添加文件到表单
-    uploadFiles.value.forEach(file => {
-      if (file.raw) {
-        formDataObj.append('files', file.raw);
-      }
+    // 创建任务提交记录
+    const createResponse = await CaseTaskSubmissionApi.createSubmission({
+      caseTaskId: taskId,
+      submissionTitle: formData.value.title,
+      submissionContent: formData.value.content,
+      submissionType: 'NORMAL',
     });
     
-    if (isEditMode.value && currentItem.value) {
-      // 编辑模式，调用新的带文件上传的PUT API
-      response = await fetch(`/api/v1/api/case-process-stage/${currentItem.value.id}/with-files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: formDataObj,
-      }).then(res => res.json());
-    } else {
-      // 新增模式，调用新的带文件上传的POST API
-      response = await fetch('/api/v1/api/case-process-stage/with-files', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: formDataObj,
-      }).then(res => res.json());
+    if (createResponse.code !== 200) {
+      ElMessage.error(createResponse.message || '创建提交记录失败');
+      return;
     }
     
-    if (response.code === 200 && response.data) {
-      ElMessage.success(isEditMode.value ? '更新成功' : '添加成功');
-      showAddDialog.value = false;
-      // 重新加载当前阶段数据
-      loadStageData(currentStageIndex.value);
-    } else {
-      ElMessage.error(response.message || (isEditMode.value ? '更新失败' : '添加失败'));
+    const submissionId = createResponse.data.submissionId;
+    
+    // 上传文件
+    if (uploadFiles.value.length > 0) {
+      for (const file of uploadFiles.value) {
+        if (file.raw) {
+          await CaseTaskSubmissionApi.uploadSubmissionFile(submissionId, file.raw);
+        }
+      }
     }
+    
+    ElMessage.success('提交成功');
+    showAddDialog.value = false;
+    
+    // 重新加载当前阶段数据
+    await loadStageData(currentStageIndex.value);
   } catch (error: any) {
-    // 检查是否是表单验证错误
     if (error && typeof error === 'object' && ('title' in error || 'content' in error)) {
-      // 表单验证失败，Element Plus会自动显示错误信息，不需要额外处理
       console.warn('表单验证失败:', error);
     } else {
-      // 其他错误
-      console.error(isEditMode.value ? '更新失败:' : '添加失败:', error);
-      ElMessage.error(isEditMode.value ? '更新失败' : '添加失败');
+      console.error('提交失败:', error);
+      ElMessage.error('提交失败');
     }
   }
 };
@@ -628,9 +728,9 @@ const handleAddSubmit = async () => {
 
 const handleDelete = async (module: any, item: any) => {
   try {
-    const response = await CaseProcessApi.deleteCaseStageDataApi(item.id);
+    const response = await CaseTaskSubmissionApi.deleteSubmission(item.id);
     
-    if (response.code === 200 && response.data) {
+    if (response.code === 200) {
       const index = module.data.findIndex((d: any) => d.id === item.id);
       if (index > -1) {
         module.data.splice(index, 1);
@@ -728,6 +828,9 @@ const goBack = () => {
             >
               <div class="module-title-section">
                 <div class="module-title">{{ module.title }}</div>
+                <ElTag v-if="module.task" :type="module.task.status === 'COMPLETED' ? 'success' : module.task.status === 'IN_PROGRESS' ? 'primary' : 'info'" size="small" style="margin-left: 8px;">
+                  {{ taskStatusMap[module.task.status] || module.task.status }}
+                </ElTag>
                 <Icon 
                   :icon="expandedModules[module.id] ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
                   class="expand-icon"
@@ -789,7 +892,12 @@ const goBack = () => {
                   style="cursor: pointer;"
                 >
                   <div class="data-header">
-                    <div class="data-title">{{ item.title }}</div>
+                    <div class="data-title">
+                      {{ item.title }}
+                      <ElTag v-if="item.status" :type="item.status === 'APPROVED' ? 'success' : item.status === 'REJECTED' ? 'danger' : 'warning'" size="small" style="margin-left: 8px;">
+                        {{ submissionStatusMap[item.status] || item.status }}
+                      </ElTag>
+                    </div>
                     <div class="data-actions">
                       <ElPopconfirm
                         title="确定要删除这条记录吗？"
@@ -850,9 +958,9 @@ const goBack = () => {
       :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
       width="800px"
       destroy-on-close
-      @opened="() => { if (tabs.value) tabs.value.setActiveName('basic'); }"
+      @opened="() => { activeTab.value = 'basic'; }"
     >
-      <ElTabs ref="tabs">
+      <ElTabs ref="tabs" v-model="activeTab">
         <ElTabPane label="基础数据" name="basic" :lazy="false">
           <ElForm
             ref="formRef"

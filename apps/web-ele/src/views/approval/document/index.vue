@@ -19,16 +19,33 @@ import {
   ElTooltip,
 } from 'element-plus';
 
-import { getAllDocumentListApi, updateDocumentStatusRemarkApi } from '#/api/core/document-service';
+import { getAllDocumentListApi, updateDocumentStatusRemarkApi, getDocumentAttachmentsApi } from '#/api/core/document-service';
 import type { DocumentServiceApi } from '#/api/core/document-service';
 
 interface DocumentAttachment {
   id: number;
-  fileName: string;
-  fileSize: number;
-  fileType: string;
-  uploadTime: string;
+  originalFileName: string;
+  storedFileName: string;
   filePath: string;
+  fileSize: number;
+  fileExtension: string;
+  mimeType: string;
+  fileHash: string;
+  bizType: string;
+  bizId: string;
+  uploadTime: string;
+  uploadUserId: number;
+  fileStatus: number;
+  status: string;
+  isDeleted: boolean;
+  createTime: string;
+  updateTime: string;
+  deleteTime: string;
+  deleteUserId: number;
+  
+  // 计算属性
+  fileName: string;
+  fileType: string;
 }
 
 interface DocumentApproval extends DocumentServiceApi.Document {
@@ -62,9 +79,9 @@ const formatFileSize = (size: number): string => {
 };
 
 // 判断文件是否可预览
-const canPreview = (fileType: string): boolean => {
+const canPreview = (fileExtension: string): boolean => {
   const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'txt'];
-  return previewableTypes.includes(fileType.toLowerCase());
+  return previewableTypes.includes(fileExtension.toLowerCase());
 };
 
 // 预览文件
@@ -80,10 +97,62 @@ const previewFile = (file: DocumentAttachment) => {
 };
 
 // 下载文件
-const downloadFile = (file: DocumentAttachment) => {
-  // 实际应用中，这里会调用后端API下载文件
-  ElMessage.success(`开始下载 ${file.fileName}`);
-  console.log('下载文件:', file.filePath);
+const downloadFile = async (file: DocumentAttachment) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.error('未找到登录信息，请先登录');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${window.location.origin}/api/v1/file/download/${file.id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      ElMessage.error(errorData.message || '下载失败');
+      return;
+    }
+
+    // 优先使用文件对象中的原始文件名，避免依赖响应头
+    let fileName = file.originalFileName;
+    
+    // 如果原始文件名不存在，尝试从响应头获取
+    if (!fileName) {
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
+        if (fileNameMatch && fileNameMatch[1]) {
+          fileName = decodeURIComponent(fileNameMatch[1]);
+        } else {
+          // 如果都获取不到，使用默认文件名
+          fileName = `file_${file.id}`;
+        }
+      } else {
+        fileName = `file_${file.id}`;
+      }
+    }
+
+    // 处理文件下载
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    ElMessage.success('文件下载成功');
+  } catch (error) {
+    console.error('下载失败:', error);
+    ElMessage.error('下载失败，请重试');
+  }
 };
 
 const searchForm = ref({
@@ -285,9 +354,32 @@ const handleReset = () => {
   loadDocuments();
 };
 
-const handleViewDetail = (row: DocumentApproval) => {
+const handleViewDetail = async (row: DocumentApproval) => {
   currentDocument.value = row;
   dialogVisible.value = true;
+  
+  // 获取附件列表
+  try {
+    const response = await getDocumentAttachmentsApi(row.id);
+    if (response.data) {
+      // 转换附件数据格式并添加计算属性
+      currentDocument.value.attachments = response.data.map((attach: any) => {
+        return {
+          ...attach,
+          // 添加计算属性
+          get fileName() {
+            return this.originalFileName;
+          },
+          get fileType() {
+            return this.fileExtension;
+          },
+        };
+      });
+    }
+  } catch (error) {
+    console.error('获取附件列表失败:', error);
+    ElMessage.error('获取附件列表失败');
+  }
 };
 
 const handleApprove = (row: DocumentApproval) => {
@@ -559,11 +651,11 @@ onMounted(() => {
               <div v-else>
                 <div class="content-full" v-html="currentDocument.deliveryContent"></div>
                 <ElButton 
-                  type="text" 
-                  size="small" 
-                  @click.stop="showFullContent = false"
-                  class="collapse-btn"
-                >
+              link 
+              size="small" 
+              @click.stop="showFullContent = false"
+              class="collapse-btn"
+            >
                   <i class="i-lucide-chevron-up mr-1"></i>
                   收起
                 </ElButton>
