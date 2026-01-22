@@ -5,27 +5,16 @@ import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElDialog,
-  ElTag,
-  ElTimeline,
-  ElTimelineItem,
+  ElMessage,
+  ElOption,
+  ElSelect,
 } from 'element-plus';
-
-interface TaskItem {
-  id: number;
-  name: string;
-  description: string;
-  status: 'completed' | 'in_progress' | 'pending';
-}
-
-interface ProgressData {
-  currentStage: string;
-  tasks: TaskItem[];
-}
 
 interface StageOption {
   id: number;
   name: string;
   description: string;
+  progressValue: string; // 对应API的进度值，如FIRST、SECOND等
 }
 
 const props = defineProps<{
@@ -43,42 +32,54 @@ const dialogVisible = computed({
   set: (value) => emit('update:visible', value),
 });
 
-// 所有进度阶段选项
+// 所有进度阶段选项，包含API所需的进度值
 const progressStages = ref<StageOption[]>([
   {
     id: 1,
-    name: '阶段一',
-    description: '法院指定管理人至管理人接管破产企业前的工作',
+    name: '一、申请与受理',
+    description:
+      '包括提交破产申请材料、法院立案审查、破产原因实质审查、同步选任管理人和裁定受理并公告',
+    progressValue: 'FIRST',
   },
   {
     id: 2,
-    name: '阶段二',
-    description: '管理人接管破产企业至调查审查破产企业前的工作',
+    name: '二、管理人履职与财产接管',
+    description:
+      '包括全面接管债务人、调查财产及经营状况、决定合同继续履行或解除、追收债务人财产',
+    progressValue: 'SECOND',
   },
   {
     id: 3,
-    name: '阶段三',
-    description: '管理人调查审查破产企业至第一次债权人会议前工作',
+    name: '三、债权申报与核查',
+    description:
+      '包括通知已知债权人并公告、接收登记债权申报、审查申报债权并编制债权表',
+    progressValue: 'THIRD',
   },
   {
     id: 4,
-    name: '阶段四',
-    description: '第一次债权人会议至第二次债权人会议前工作',
+    name: '四、债权人会议',
+    description:
+      '包括筹备第一次债权人会议、召开会议核查债权与议决事项、表决通过财产变价/分配方案',
+    progressValue: 'FOURTH',
   },
   {
     id: 5,
-    name: '阶段五',
-    description: '第二次债权人会议至破产程序终结工作',
+    name: '五、破产宣告',
+    description: '包括审查宣告破产条件、裁定宣告债务人破产',
+    progressValue: 'FIFTH',
   },
   {
     id: 6,
-    name: '阶段六',
-    description: '破产财产分配方案等相关工作',
+    name: '六、财产变价与分配',
+    description: '包括拟定并执行财产变价方案、执行破产财产分配',
+    progressValue: 'SIXTH',
   },
   {
     id: 7,
-    name: '阶段七',
-    description: '债权人会议决议等相关工作',
+    name: '七、程序终结',
+    description:
+      '包括提请终结破产程序、法院裁定并公告、办理企业注销登记、管理人终止执行职务并归档',
+    progressValue: 'SEVENTH',
   },
 ]);
 
@@ -86,87 +87,31 @@ const progressStages = ref<StageOption[]>([
 const selectedStageId = ref(2); // 默认阶段二
 const loading = ref(false);
 
-const progressData = ref<ProgressData>({
-  currentStage: '阶段二：管理人接管破产企业至调查审查破产企业前的工作',
-  tasks: [
-    {
-      id: 1,
-      name: '接管破产企业资产',
-      description:
-        '完成对破产企业所有资产的清点和接管工作，包括固定资产、流动资产、知识产权等',
-      status: 'completed',
-    },
-    {
-      id: 2,
-      name: '审查破产企业财务状况',
-      description:
-        '对破产企业的财务报表、账簿、凭证进行全面审查，核实资产负债情况',
-      status: 'in_progress',
-    },
-    {
-      id: 3,
-      name: '调查破产企业债权债务',
-      description: '调查并核实破产企业的债权债务关系，编制债权债务清单',
-      status: 'pending',
-    },
-    {
-      id: 4,
-      name: '制定财产管理方案',
-      description: '根据调查结果，制定破产财产的管理、变价和分配方案',
-      status: 'pending',
-    },
-    {
-      id: 5,
-      name: '准备债权人会议材料',
-      description: '整理并准备第一次债权人会议所需的相关材料和报告',
-      status: 'pending',
-    },
-  ],
-});
-
-const getStatusType = (status: string) => {
-  const statusMap: Record<string, any> = {
-    pending: 'info',
-    in_progress: 'warning',
-    completed: 'success',
-  };
-  return statusMap[status] || 'info';
-};
-
-const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    pending: '待开始',
-    in_progress: '进行中',
-    completed: '已完成',
-  };
-  return statusMap[status] || '未知';
-};
-
-const getStatusIcon = (status: string) => {
-  const statusMap: Record<string, string> = {
-    pending: 'lucide:circle',
-    in_progress: 'lucide:clock',
-    completed: 'lucide:check-circle',
-  };
-  return statusMap[status] || 'lucide:circle';
-};
-
-// 模拟API调用 - 实际项目中应替换为真实API
+// 自定义API请求函数，使用正确的端点和参数格式
 const updateCaseProgressApi = async (
   caseId: number | string,
-  progressStatus: number,
+  progressValue: string,
 ) => {
-  // 模拟API请求延迟
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  // 模拟API响应
-  return {
-    success: true,
-    data: {
-      caseId,
-      progressStatus,
-      updatedAt: new Date().toISOString(),
-    },
-  };
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/v1/case/${caseId}/progress`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ caseProgress: progressValue }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('API请求失败:', error);
+    throw error;
+  }
 };
 
 // 更新案件进度
@@ -178,24 +123,22 @@ const updateProgress = async () => {
 
   loading.value = true;
   try {
-    const response = await updateCaseProgressApi(
-      props.caseId,
-      selectedStageId.value,
+    // 获取当前选择的阶段
+    const selectedStage = progressStages.value.find(
+      (stage) => stage.id === selectedStageId.value,
     );
-    if (response.success) {
-      // 更新当前阶段显示
-      const selectedStage = progressStages.value.find(
-        (stage) => stage.id === selectedStageId.value,
-      );
-      if (selectedStage) {
-        progressData.value.currentStage = `${selectedStage.name}：${selectedStage.description}`;
-      }
 
-      ElMessage.success('案件进度更新成功');
-      emit('progress-updated', selectedStageId.value);
-    } else {
-      ElMessage.error('案件进度更新失败');
+    if (!selectedStage) {
+      ElMessage.error('无效的阶段选择');
+      return;
     }
+
+    // 调用API更新进度，传入合法的案件进度值
+    await updateCaseProgressApi(props.caseId, selectedStage.progressValue);
+
+    ElMessage.success('案件进度更新成功');
+    emit('progress-updated', selectedStageId.value);
+    closeDialog();
   } catch (error) {
     console.error('更新案件进度失败:', error);
     ElMessage.error('案件进度更新失败');
@@ -213,7 +156,7 @@ const closeDialog = () => {
   <ElDialog
     v-model="dialogVisible"
     title="进度管理"
-    width="700px"
+    width="500px"
     :close-on-click-modal="false"
     class="progress-management-dialog"
   >
@@ -221,23 +164,22 @@ const closeDialog = () => {
       <div class="current-stage-section">
         <div class="stage-header">
           <Icon icon="lucide:layers" class="stage-icon" />
-          <span class="stage-label">当前阶段</span>
+          <span class="stage-label">选择案件阶段</span>
         </div>
-        <div class="stage-name">{{ progressData.currentStage }}</div>
 
         <!-- 进度跳转选择器 -->
         <div class="progress-jump-section">
-          <div class="jump-label">跳转至:</div>
           <ElSelect
             v-model="selectedStageId"
-            placeholder="选择新的进度阶段"
+            placeholder="选择案件进度阶段"
             class="stage-selector"
             size="large"
+            style="width: 100%; margin-top: 16px"
           >
             <ElOption
               v-for="stage in progressStages"
               :key="stage.id"
-              :label="`${stage.name} - ${stage.description}`"
+              :label="stage.name"
               :value="stage.id"
             >
               <div class="option-content">
@@ -248,42 +190,15 @@ const closeDialog = () => {
           </ElSelect>
         </div>
       </div>
-
-      <div class="tasks-section">
-        <div class="tasks-header">
-          <Icon icon="lucide:list-todo" class="tasks-icon" />
-          <span class="tasks-label">流程任务列表</span>
-        </div>
-        <ElTimeline class="tasks-timeline">
-          <ElTimelineItem
-            v-for="task in progressData.tasks"
-            :key="task.id"
-            :icon="getStatusIcon(task.status)"
-            :type="getStatusType(task.status)"
-            placement="top"
-            class="task-item"
-          >
-            <div class="task-content">
-              <div class="task-header">
-                <span class="task-name">{{ task.name }}</span>
-                <ElTag :type="getStatusType(task.status)" size="small">
-                  {{ getStatusText(task.status) }}
-                </ElTag>
-              </div>
-              <div class="task-description">{{ task.description }}</div>
-            </div>
-          </ElTimelineItem>
-        </ElTimeline>
-      </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="updateProgress" type="success" :loading="loading">
+        <ElButton @click="updateProgress" type="primary" :loading="loading">
           <Icon icon="lucide:arrow-right" class="mr-1" />
           更新进度
         </ElButton>
-        <ElButton @click="closeDialog" type="primary">
+        <ElButton @click="closeDialog">
           <Icon icon="lucide:x" class="mr-1" />
           关闭
         </ElButton>
@@ -308,23 +223,10 @@ const closeDialog = () => {
 /* 进度跳转样式 */
 .progress-jump-section {
   margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.jump-label {
-  font-size: 14px;
-  font-weight: 500;
-  opacity: 0.9;
-  min-width: 60px;
 }
 
 .stage-selector {
-  flex: 1;
-  min-width: 200px;
+  width: 100%;
 }
 
 :deep(.stage-selector .el-select__input) {
@@ -407,76 +309,6 @@ const closeDialog = () => {
   line-height: 1.5;
 }
 
-.tasks-section {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.tasks-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #e9ecef;
-}
-
-.tasks-icon {
-  font-size: 20px;
-  margin-right: 8px;
-  color: #667eea;
-}
-
-.tasks-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.tasks-timeline {
-  padding-left: 10px;
-}
-
-.task-item {
-  margin-bottom: 24px;
-}
-
-.task-item:last-child {
-  margin-bottom: 0;
-}
-
-.task-content {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-}
-
-.task-content:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
-.task-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.task-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.task-description {
-  font-size: 14px;
-  color: #6c757d;
-  line-height: 1.6;
-}
-
 :deep(.progress-management-dialog .el-dialog__header) {
   padding: 20px 24px;
   border-bottom: 1px solid #e9ecef;
@@ -495,29 +327,5 @@ const closeDialog = () => {
 :deep(.progress-management-dialog .el-dialog__footer) {
   padding: 16px 24px;
   border-top: 1px solid #e9ecef;
-}
-
-:deep(.progress-management-dialog .el-timeline-item__timestamp) {
-  display: none;
-}
-
-:deep(.progress-management-dialog .el-timeline-item__icon) {
-  font-size: 16px;
-}
-
-@media (max-width: 768px) {
-  .progress-management-dialog {
-    width: 90% !important;
-  }
-
-  .task-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .stage-name {
-    font-size: 16px;
-  }
 }
 </style>

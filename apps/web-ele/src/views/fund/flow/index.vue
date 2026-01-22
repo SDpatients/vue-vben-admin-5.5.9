@@ -6,7 +6,6 @@ import {
   getFundFlowListApi,
   addFundInflowApi,
   addFundOutflowApi,
-  getFundCategoryListApi,
   getFundAccountListApi,
 } from '#/api/core/fund';
 
@@ -124,34 +123,22 @@ const fetchAccounts = async () => {
 };
 
 // 获取分类列表
-const fetchCategories = async () => {
-  try {
-    const response = await getFundCategoryListApi({});
-    // 处理不同的响应格式
-    let categories = [];
-
-    if (response && response.data) {
-      if (Array.isArray(response.data)) {
-        // 直接数组格式：{ "data": [ { "categoryId": 1, ... } ] }
-        categories = response.data;
-      } else if (
-        response.data.records &&
-        Array.isArray(response.data.records)
-      ) {
-        // 分页格式：{ "data": { "records": [ { "categoryId": 1, ... } ] } }
-        categories = response.data.records;
-      } else if (response.data.list && Array.isArray(response.data.list)) {
-        // 列表格式：{ "data": { "list": [ { "categoryId": 1, ... } ] } }
-        categories = response.data.list;
-      }
-    }
-
-    categoryOptions.value = categories;
-  } catch (error) {
-    ElMessage.error('获取分类列表失败');
-    console.error('获取分类列表失败:', error);
-    categoryOptions.value = [];
-  }
+const fetchCategories = () => {
+  // 直接使用默认分类，放弃调用后端API
+  categoryOptions.value = [
+    // 收入分类
+    { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
+    { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
+    { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
+    { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
+    // 支出分类
+    { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
+    { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
+    { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
+    { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
+    { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
+    { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
+  ];
 };
 
 // 根据流水类型过滤分类选项

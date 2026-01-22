@@ -288,8 +288,8 @@ export async function deleteClaimReviewApi(reviewId: number) {
  * 提交债权审查
  * POST /api/v1/claim-review/{reviewId}/submit
  */
-export async function submitClaimReviewApi(reviewId: number) {
-  return requestClient8085.post<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/submit`);
+export async function submitClaimReviewApi(reviewId: number, data?: ClaimReviewApi.CreateClaimReviewRequest) {
+  return requestClient8085.post<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/submit`, data);
 }
 
 /**

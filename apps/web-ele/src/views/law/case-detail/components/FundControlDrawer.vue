@@ -33,9 +33,7 @@ import {
   getFundFlowList,
   createFundFlow,
 } from '#/api/core/fund-flow';
-import {
-  getFundCategoryListApi,
-} from '#/api/core/fund';
+
 
 const props = defineProps<{
   caseId: string;
@@ -380,60 +378,22 @@ const fetchAccounts = async () => {
   }
 };
 
-const fetchCategories = async () => {
-  try {
-    // 尝试从后端获取分类列表
-    const response = await getFundCategoryListApi({});
-    let categories = [];
-    
-    if (response && response.data) {
-      if (Array.isArray(response.data)) {
-        categories = response.data;
-      } else if (response.data.records && Array.isArray(response.data.records)) {
-        categories = response.data.records;
-      } else if (response.data.list && Array.isArray(response.data.list)) {
-        categories = response.data.list;
-      }
-    }
-    
-    // 如果后端没有返回分类数据，使用默认分类
-    if (categories.length === 0) {
-      // 默认收入分类
-      categories.push(
-        // 收入分类
-        { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
-        { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
-        { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
-        { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
-        // 支出分类
-        { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
-        { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
-        { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
-        { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
-        { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
-        { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
-      );
-    }
-    
-    categoryOptions.value = categories;
-  } catch (error) {
-    console.error('获取分类列表失败，使用默认分类:', error);
-    // 后端请求失败时，使用默认分类
-    categoryOptions.value = [
-      // 收入分类
-      { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
-      { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
-      { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
-      { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
-      // 支出分类
-      { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
-      { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
-      { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
-      { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
-      { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
-      { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
-    ];
-  }
+const fetchCategories = () => {
+  // 直接使用默认分类，放弃调用后端API
+  categoryOptions.value = [
+    // 收入分类
+    { categoryId: 1, categoryName: '破产财产变价收入', categoryType: 'INCOME' },
+    { categoryId: 2, categoryName: '债权回收收入', categoryType: 'INCOME' },
+    { categoryId: 3, categoryName: '孳息收入', categoryType: 'INCOME' },
+    { categoryId: 4, categoryName: '其他收入', categoryType: 'INCOME' },
+    // 支出分类
+    { categoryId: 5, categoryName: '破产费用', categoryType: 'EXPENSE' },
+    { categoryId: 6, categoryName: '共益债务', categoryType: 'EXPENSE' },
+    { categoryId: 7, categoryName: '职工债权', categoryType: 'EXPENSE' },
+    { categoryId: 8, categoryName: '税款债权', categoryType: 'EXPENSE' },
+    { categoryId: 9, categoryName: '普通债权', categoryType: 'EXPENSE' },
+    { categoryId: 10, categoryName: '其他支出', categoryType: 'EXPENSE' }
+  ];
 };
 
 const getFilteredCategoryOptions = () => {

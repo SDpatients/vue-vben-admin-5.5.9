@@ -15,6 +15,7 @@ export interface CaseApproval {
   caseId: number;
   caseNumber: string;
   caseTitle?: string;
+  approvalTitle?: string;
   caseType?: string;
   lawyerId: number;
   approvalType: string;

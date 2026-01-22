@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ClaimConfirmationApi } from '#/api/core/claim-confirmation';
 import type { ClaimRegistrationApi } from '#/api/core/claim-registration';
 import type { ClaimReviewApi } from '#/api/core/claim-review';
 
@@ -39,11 +38,6 @@ import {
 import { getCurrentUserApi } from '#/api/core/auth';
 import { batchImportClaimsApi, exportClaimsApi } from '#/api/core/claim';
 import {
-  finalizeClaimConfirmationApi,
-  submitObjectionApi,
-  submitVoteApi,
-} from '#/api/core/claim-confirmation';
-import {
   createClaimRegistrationApi,
   deleteClaimRegistrationApi,
   getClaimRegistrationDetailApi,
@@ -74,21 +68,19 @@ const showEditDialog = ref(false);
 const showDetailDialog = ref(false);
 const showStageOneDialog = ref(false);
 const showStageTwoDialog = ref(false);
-const showStageThreeDialog = ref(false);
+
 const addLoading = ref(false);
 const editLoading = ref(false);
 const showImportDialog = ref(false);
 const importLoading = ref(false);
 const stageOneLoading = ref(false);
 const stageTwoLoading = ref(false);
-const stageThreeLoading = ref(false);
 
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(
   null,
 );
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
-const currentConfirmation =
-  ref<ClaimConfirmationApi.ClaimConfirmationInfo | null>(null);
+
 const activeTab = ref('basic');
 
 const claimForm = reactive({
@@ -175,40 +167,6 @@ const reviewForm = reactive({
   reviewReport: '',
   reviewAttachments: '',
   reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
-  remarks: '',
-});
-
-const confirmationForm = reactive({
-  meetingType: 'FIRST' as ClaimConfirmationApi.MeetingType,
-  meetingDate: '',
-  meetingLocation: '',
-  voteResult: 'AGREE' as ClaimConfirmationApi.VoteResult,
-  voteNotes: '',
-  hasObjection: false,
-  objector: '',
-  objectionReason: '',
-  objectionAmount: 0,
-  objectionDate: '',
-  negotiationResult: '',
-  negotiationDate: '',
-  negotiationParticipants: '',
-  courtRulingDate: '',
-  courtRulingNo: '',
-  courtRulingResult: 'CONFIRMED' as ClaimConfirmationApi.CourtRulingResult,
-  courtRulingAmount: 0,
-  courtRulingNotes: '',
-  hasLawsuit: false,
-  lawsuitCaseNo: '',
-  lawsuitStatus: 'PENDING' as ClaimConfirmationApi.LawsuitStatus,
-  lawsuitResult: 'WIN' as ClaimConfirmationApi.LawsuitResult,
-  lawsuitAmount: 0,
-  lawsuitNotes: '',
-  finalConfirmedAmount: 0,
-  finalConfirmationDate: '',
-  finalConfirmationBasis:
-    'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
-  confirmationAttachments: '',
-  confirmationStatus: 'PENDING' as ClaimConfirmationApi.ConfirmationStatus,
   remarks: '',
 });
 
@@ -829,42 +787,6 @@ const resetReviewForm = () => {
   });
 };
 
-const resetConfirmationForm = () => {
-  Object.assign(confirmationForm, {
-    meetingType: 'FIRST' as ClaimConfirmationApi.MeetingType,
-    meetingDate: '',
-    meetingLocation: '',
-    voteResult: 'AGREE' as ClaimConfirmationApi.VoteResult,
-    voteNotes: '',
-    hasObjection: false,
-    objector: '',
-    objectionReason: '',
-    objectionAmount: 0,
-    objectionDate: '',
-    negotiationResult: '',
-    negotiationDate: '',
-    negotiationParticipants: '',
-    courtRulingDate: '',
-    courtRulingNo: '',
-    courtRulingResult: 'CONFIRMED' as ClaimConfirmationApi.CourtRulingResult,
-    courtRulingAmount: 0,
-    courtRulingNotes: '',
-    hasLawsuit: false,
-    lawsuitCaseNo: '',
-    lawsuitStatus: 'PENDING' as ClaimConfirmationApi.LawsuitStatus,
-    lawsuitResult: 'WIN' as ClaimConfirmationApi.LawsuitResult,
-    lawsuitAmount: 0,
-    lawsuitNotes: '',
-    finalConfirmedAmount: 0,
-    finalConfirmationDate: '',
-    finalConfirmationBasis:
-      'MEETING' as ClaimConfirmationApi.FinalConfirmationBasis,
-    confirmationAttachments: '',
-    confirmationStatus: 'PENDING' as ClaimConfirmationApi.ConfirmationStatus,
-    remarks: '',
-  });
-};
-
 const openStageOneDialog = async (row: any) => {
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
@@ -1027,7 +949,10 @@ const handleStageTwoSubmit = async () => {
     if (handleApiResponse(response, '债权审查保存成功', '保存失败')) {
       const reviewId = response.data?.reviewId;
       if (reviewId) {
-        const submitResponse = await submitClaimReviewApi(reviewId);
+        const submitResponse = await submitClaimReviewApi(
+          reviewId,
+          requestData,
+        );
         if (
           handleApiResponse(submitResponse, '债权审查提交成功', '提交审查失败')
         ) {
@@ -1046,85 +971,9 @@ const handleStageTwoSubmit = async () => {
   }
 };
 
-const openStageThreeDialog = async (row: any) => {
-  try {
-    const response = await getClaimRegistrationDetailApi(row.id);
-    if (handleApiResponse(response, '', '获取债权详情失败')) {
-      currentClaim.value = response.data;
-      if (response.data.confirmationInfo) {
-        Object.assign(confirmationForm, response.data.confirmationInfo);
-      }
-      showStageThreeDialog.value = true;
-    }
-  } catch (error) {
-    handleApiError(error, '获取债权详情失败');
-  }
-};
-
-const closeStageThreeDialog = () => {
-  showStageThreeDialog.value = false;
-  resetConfirmationForm();
-  currentClaim.value = null;
-};
-
-const handleStageThreeSubmit = async () => {
-  if (!currentClaim.value) {
-    return;
-  }
-
-  if (!confirmationForm.voteResult) {
-    ElMessage.warning('请选择表决结果');
-    return;
-  }
-
-  stageThreeLoading.value = true;
-  try {
-    const response = await submitVoteApi(currentClaim.value.id, {
-      voteResult: confirmationForm.voteResult,
-      voteNotes: confirmationForm.voteNotes,
-    });
-    if (handleApiResponse(response, '提交表决成功', '提交表决失败')) {
-      if (confirmationForm.hasObjection) {
-        const objectionResponse = await submitObjectionApi(
-          currentClaim.value.id,
-        );
-        if (
-          handleApiResponse(
-            objectionResponse,
-            '债权确认与异议提交成功',
-            '提交异议失败',
-          )
-        ) {
-          await fetchClaims();
-          closeStageThreeDialog();
-        }
-      } else {
-        const finalizeResponse = await finalizeClaimConfirmationApi(
-          currentClaim.value.id,
-        );
-        if (
-          handleApiResponse(
-            finalizeResponse,
-            '债权最终确认成功',
-            '最终确认失败',
-          )
-        ) {
-          await fetchClaims();
-          closeStageThreeDialog();
-        }
-      }
-    }
-  } catch (error) {
-    handleApiError(error, '债权确认失败');
-  } finally {
-    stageThreeLoading.value = false;
-  }
-};
-
 const getClaimStageStatus = (row: any) => {
   const registrationStatus = row.registration_status;
   const reviewStatus = row.reviewInfo?.reviewStatus;
-  const confirmationStatus = row.confirmationInfo?.confirmationStatus;
 
   if (registrationStatus === 'PENDING') {
     return { stage: 1, label: '待登记', type: 'warning' };
@@ -1133,13 +982,8 @@ const getClaimStageStatus = (row: any) => {
     (!reviewStatus || reviewStatus === 'PENDING')
   ) {
     return { stage: 2, label: '待审查', type: 'primary' };
-  } else if (
-    reviewStatus === 'COMPLETED' &&
-    (!confirmationStatus || confirmationStatus === 'PENDING')
-  ) {
-    return { stage: 3, label: '待确认', type: 'info' };
-  } else if (confirmationStatus === 'CONFIRMED') {
-    return { stage: 4, label: '已完成', type: 'success' };
+  } else if (reviewStatus === 'COMPLETED') {
+    return { stage: 3, label: '已完成', type: 'success' };
   } else if (registrationStatus === 'REJECTED') {
     return { stage: 0, label: '已驳回', type: 'danger' };
   }
@@ -1252,29 +1096,24 @@ onMounted(() => {
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn
-            v-if="claims.some((c) => c.confirmationInfo)"
-            label="确认状态"
-            width="100"
-          >
-            <template #default="scope">
-              <ElTag
-                v-if="scope.row.confirmationInfo"
-                :type="
-                  getConfirmationStatusTag(
-                    scope.row.confirmationInfo.confirmationStatus,
-                  ).type
-                "
-                size="small"
-              >
-                {{
-                  getConfirmationStatusTag(
-                    scope.row.confirmationInfo.confirmationStatus,
-                  ).text
-                }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
+
+          <template #default="scope">
+            <ElTag
+              v-if="scope.row.confirmationInfo"
+              :type="
+                getConfirmationStatusTag(
+                  scope.row.confirmationInfo.confirmationStatus,
+                ).type
+              "
+              size="small"
+            >
+              {{
+                getConfirmationStatusTag(
+                  scope.row.confirmationInfo.confirmationStatus,
+                ).text
+              }}
+            </ElTag>
+          </template>
           <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
@@ -1303,19 +1142,6 @@ onMounted(() => {
                 @click="openStageTwoDialog(scope.row)"
               >
                 债权审查
-              </ElButton>
-              <ElButton
-                v-if="
-                  scope.row.reviewInfo &&
-                  scope.row.reviewInfo.reviewStatus === 'COMPLETED' &&
-                  (!scope.row.confirmationInfo ||
-                    scope.row.confirmationInfo.confirmationStatus === 'PENDING')
-                "
-                link
-                size="small"
-                @click="openStageThreeDialog(scope.row)"
-              >
-                债权确认
               </ElButton>
 
               <ElPopconfirm
@@ -2207,150 +2033,145 @@ onMounted(() => {
             </div>
             <ElEmpty v-else description="暂无审查信息" />
           </ElTabPane>
-          <ElTabPane label="确认信息" name="confirmation">
-            <div v-if="currentClaim.confirmationInfo">
-              <ElDescriptions :column="2" border>
-                <ElDescriptionsItem label="会议类型">
-                  {{ currentClaim.confirmationInfo.meetingType }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="会议日期">
-                  {{ currentClaim.confirmationInfo.meetingDate }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="会议地点">
-                  {{ currentClaim.confirmationInfo.meetingLocation }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="表决结果">
-                  <ElTag>
-                    {{ currentClaim.confirmationInfo.voteResult || '-' }}
-                  </ElTag>
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="是否有异议">
-                  <ElTag
-                    :type="
-                      currentClaim.confirmationInfo.hasObjection
-                        ? 'danger'
-                        : 'success'
-                    "
-                  >
-                    {{
-                      currentClaim.confirmationInfo.hasObjection ? '是' : '否'
-                    }}
-                  </ElTag>
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="确认状态">
-                  <ElTag
-                    :type="
-                      getConfirmationStatusTag(
-                        currentClaim.confirmationInfo.confirmationStatus,
-                      ).type
-                    "
-                  >
-                    {{
-                      getConfirmationStatusTag(
-                        currentClaim.confirmationInfo.confirmationStatus,
-                      ).text
-                    }}
-                  </ElTag>
-                </ElDescriptionsItem>
-              </ElDescriptions>
 
-              <div
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                class="section-divider mb-4 mt-4"
-              >
-                <h4 class="section-title">异议信息</h4>
-              </div>
-              <ElDescriptions
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                :column="2"
-                border
-              >
-                <ElDescriptionsItem label="异议人">
-                  {{ currentClaim.confirmationInfo.objector || '-' }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="异议金额">
-                  {{ currentClaim.confirmationInfo.objectionAmount || 0 }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="异议日期">
-                  {{ currentClaim.confirmationInfo.objectionDate || '-' }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="异议理由" :span="2">
-                  {{ currentClaim.confirmationInfo.objectionReason || '-' }}
-                </ElDescriptionsItem>
-              </ElDescriptions>
-
-              <div
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                class="section-divider mb-4 mt-4"
-              >
-                <h4 class="section-title">协商信息</h4>
-              </div>
-              <ElDescriptions
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                :column="2"
-                border
-              >
-                <ElDescriptionsItem label="协商结果">
-                  {{ currentClaim.confirmationInfo.negotiationResult || '-' }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="协商日期">
-                  {{ currentClaim.confirmationInfo.negotiationDate || '-' }}
-                </ElDescriptionsItem>
-              </ElDescriptions>
-
-              <div
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                class="section-divider mb-4 mt-4"
-              >
-                <h4 class="section-title">法院裁定信息</h4>
-              </div>
-              <ElDescriptions
-                v-if="currentClaim.confirmationInfo.hasObjection"
-                :column="2"
-                border
-              >
-                <ElDescriptionsItem label="法院裁定文号">
-                  {{ currentClaim.confirmationInfo.courtRulingNo || '-' }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="法院裁定结果">
-                  <ElTag>
-                    {{ currentClaim.confirmationInfo.courtRulingResult || '-' }}
-                  </ElTag>
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="法院裁定金额">
-                  {{ currentClaim.confirmationInfo.courtRulingAmount || 0 }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="法院裁定日期">
-                  {{ currentClaim.confirmationInfo.courtRulingDate || '-' }}
-                </ElDescriptionsItem>
-              </ElDescriptions>
-
-              <div class="section-divider mb-4 mt-4">
-                <h4 class="section-title">最终确认信息</h4>
-              </div>
-              <ElDescriptions :column="2" border>
-                <ElDescriptionsItem label="最终确认金额">
-                  {{ currentClaim.confirmationInfo.finalConfirmedAmount || 0 }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认日期">
+            <ElDescriptions :column="2" border>
+              <ElDescriptionsItem label="会议类型">
+                {{ currentClaim.confirmationInfo.meetingType }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="会议日期">
+                {{ currentClaim.confirmationInfo.meetingDate }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="会议地点">
+                {{ currentClaim.confirmationInfo.meetingLocation }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="表决结果">
+                <ElTag>
+                  {{ currentClaim.confirmationInfo.voteResult || '-' }}
+                </ElTag>
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="是否有异议">
+                <ElTag
+                  :type="
+                    currentClaim.confirmationInfo.hasObjection
+                      ? 'danger'
+                      : 'success'
+                  "
+                >
+                  {{ currentClaim.confirmationInfo.hasObjection ? '是' : '否' }}
+                </ElTag>
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="确认状态">
+                <ElTag
+                  :type="
+                    getConfirmationStatusTag(
+                      currentClaim.confirmationInfo.confirmationStatus,
+                    ).type
+                  "
+                >
                   {{
-                    currentClaim.confirmationInfo.finalConfirmationDate || '-'
+                    getConfirmationStatusTag(
+                      currentClaim.confirmationInfo.confirmationStatus,
+                    ).text
                   }}
-                </ElDescriptionsItem>
-                <ElDescriptionsItem label="最终确认依据" :span="2">
-                  <ElTag>
-                    {{
-                      currentClaim.confirmationInfo.finalConfirmationBasis ||
-                      '-'
-                    }}
-                  </ElTag>
-                </ElDescriptionsItem>
-              </ElDescriptions>
+                </ElTag>
+              </ElDescriptionsItem>
+            </ElDescriptions>
+
+            <div
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              class="section-divider mb-4 mt-4"
+            >
+              <h4 class="section-title">异议信息</h4>
             </div>
-            <ElEmpty v-else description="暂无确认信息" />
-          </ElTabPane>
+            <ElDescriptions
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              :column="2"
+              border
+            >
+              <ElDescriptionsItem label="异议人">
+                {{ currentClaim.confirmationInfo.objector || '-' }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="异议金额">
+                {{ currentClaim.confirmationInfo.objectionAmount || 0 }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="异议日期">
+                {{ currentClaim.confirmationInfo.objectionDate || '-' }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="异议理由" :span="2">
+                {{ currentClaim.confirmationInfo.objectionReason || '-' }}
+              </ElDescriptionsItem>
+            </ElDescriptions>
+
+            <div
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              class="section-divider mb-4 mt-4"
+            >
+              <h4 class="section-title">协商信息</h4>
+            </div>
+            <ElDescriptions
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              :column="2"
+              border
+            >
+              <ElDescriptionsItem label="协商结果">
+                {{ currentClaim.confirmationInfo.negotiationResult || '-' }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="协商日期">
+                {{ currentClaim.confirmationInfo.negotiationDate || '-' }}
+              </ElDescriptionsItem>
+            </ElDescriptions>
+
+            <div
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              class="section-divider mb-4 mt-4"
+            >
+              <h4 class="section-title">法院裁定信息</h4>
+            </div>
+            <ElDescriptions
+              v-if="currentClaim.confirmationInfo.hasObjection"
+              :column="2"
+              border
+            >
+              <ElDescriptionsItem label="法院裁定文号">
+                {{ currentClaim.confirmationInfo.courtRulingNo || '-' }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="法院裁定结果">
+                <ElTag>
+                  {{ currentClaim.confirmationInfo.courtRulingResult || '-' }}
+                </ElTag>
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="法院裁定金额">
+                {{ currentClaim.confirmationInfo.courtRulingAmount || 0 }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="法院裁定日期">
+                {{ currentClaim.confirmationInfo.courtRulingDate || '-' }}
+              </ElDescriptionsItem>
+            </ElDescriptions>
+
+            <div class="section-divider mb-4 mt-4">
+              <h4 class="section-title">最终确认信息</h4>
+            </div>
+            <ElDescriptions :column="2" border>
+              <ElDescriptionsItem label="最终确认金额">
+                {{ currentClaim.confirmationInfo.finalConfirmedAmount || 0 }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="最终确认日期">
+                {{ currentClaim.confirmationInfo.finalConfirmationDate || '-' }}
+              </ElDescriptionsItem>
+              <ElDescriptionsItem label="最终确认依据" :span="2">
+                <ElTag>
+                  {{
+                    currentClaim.confirmationInfo.finalConfirmationBasis || '-'
+                  }}
+                </ElTag>
+              </ElDescriptionsItem>
+            </ElDescriptions>
+          </eltabs>
+</div>
+          <ElEmpty v-else description="暂无确认信息" />
         </ElTabs>
-      </div>
+      </eldialog>
+</div>
       <template #footer>
         <span class="dialog-footer">
           <ElButton @click="showDetailDialog = false">关闭</ElButton>
@@ -3173,12 +2994,7 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <ElDialog
-      v-model="showStageThreeDialog"
-      title="阶段三：债权确认"
-      width="90%"
-      destroy-on-close
-    >
+
       <div v-if="currentClaim" class="stage-dialog-container">
         <div class="stage-header mb-4">
           <div class="stage-title">
@@ -3495,3 +3311,4 @@ onMounted(() => {
   }
 }
 </style>
+

@@ -40,68 +40,66 @@ const caseCrossAnalysis = ref<null | StatisticsApi.CrossAnalysisData>(null);
 const caseRanking = ref<null | StatisticsApi.RankingResponse>(null);
 const creditorClaimRanking = ref<null | StatisticsApi.RankingResponse>(null);
 
+const translateStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    COMPLETED: '已完成',
+    ONGOING: '进行中',
+    PENDING: '待处理',
+    AWAITING: '等待中',
+  };
+  return statusMap[status] || status;
+};
+
+const translateProgress = (progress: string): string => {
+  const progressMap: Record<string, string> = {
+    FIRST: '第一阶段',
+    SECOND: '第二阶段',
+    THIRD: '第三阶段',
+    FOURTH: '第四阶段',
+    第一阶段: '第一阶段',
+    第二阶段: '第二阶段',
+    第五阶段: '第五阶段',
+  };
+  return progressMap[progress] || progress;
+};
+
 const caseTrendData = computed(() => {
   if (!caseTrend.value || !caseTrend.value.trendData) {
-    console.log('[caseTrendData] 数据为空，返回空数组');
     return { categories: [], values: [] };
   }
-  console.log('[caseTrendData] 原始数据:', caseTrend.value.trendData);
-  const result = {
+  return {
     categories: caseTrend.value.trendData.map((item) => item.period),
     values: caseTrend.value.trendData.map((item) => item.count),
   };
-  console.log('[caseTrendData] 处理后数据:', result);
-  return result;
 });
 
 const caseTypeData = computed(() => {
   if (!caseStatistics.value || !caseStatistics.value.statusDistribution) {
-    console.log('[caseTypeData] 数据为空，返回空数组');
     return [];
   }
-  console.log(
-    '[caseTypeData] statusDistribution:',
-    caseStatistics.value.statusDistribution,
+  return Object.entries(caseStatistics.value.statusDistribution).map(
+    ([name, value]) => ({ name: translateStatus(name), value }),
   );
-  const result = Object.entries(caseStatistics.value.statusDistribution).map(
-    ([name, value]) => ({ name, value }),
-  );
-  console.log('[caseTypeData] 处理后数据:', result);
-  return result;
 });
 
 const caseProgressData = computed(() => {
   if (!caseStatistics.value || !caseStatistics.value.progressDistribution) {
-    console.log('[caseProgressData] 数据为空，返回空数组');
     return [];
   }
-  console.log(
-    '[caseProgressData] progressDistribution:',
-    caseStatistics.value.progressDistribution,
+  return Object.entries(caseStatistics.value.progressDistribution).map(
+    ([name, value]) => ({ name: translateProgress(name), value }),
   );
-  const result = Object.entries(caseStatistics.value.progressDistribution).map(
-    ([name, value]) => ({ name, value }),
-  );
-  console.log('[caseProgressData] 处理后数据:', result);
-  return result;
 });
 
 const creditorAmountData = computed(() => {
   if (!creditorClaimRanking.value || !creditorClaimRanking.value.rankings) {
-    console.log('[creditorAmountData] 数据为空，返回空数组');
     return [];
   }
-  console.log(
-    '[creditorAmountData] rankings:',
-    creditorClaimRanking.value.rankings,
-  );
-  const result = creditorClaimRanking.value.rankings.map((item) => ({
+  return creditorClaimRanking.value.rankings.map((item) => ({
     name: item.name,
     creditors: 0,
     amount: item.amount,
   }));
-  console.log('[creditorAmountData] 处理后数据:', result);
-  return result;
 });
 
 const assetRatioData = computed(() => {
@@ -116,18 +114,15 @@ const assetRatioData = computed(() => {
 });
 
 const renderAllCharts = () => {
-  console.log('[renderAllCharts] 开始渲染所有图表');
   renderCaseTrendChart();
   renderCaseTypeChart();
   renderCaseProgressChart();
   renderCreditorAmountChart();
   renderAssetRatioChart();
-  console.log('[renderAllCharts] 所有图表渲染完成');
 };
 
 const renderCaseTrendChart = () => {
   const data = caseTrendData.value;
-  console.log('[renderCaseTrendChart] 开始渲染，数据:', data);
   const series: any = {
     data: data.values,
     type: chartType1.value as 'bar' | 'line',
@@ -159,7 +154,7 @@ const renderCaseTrendChart = () => {
     };
   }
 
-  const chartOption = {
+  renderEcharts1({
     grid: {
       bottom: 30,
       containLabel: true,
@@ -182,15 +177,12 @@ const renderCaseTrendChart = () => {
       name: '案件数量',
     },
     series: [series],
-  };
-  console.log('[renderCaseTrendChart] 图表配置:', chartOption);
-  renderEcharts1(chartOption);
+  });
 };
 
 const renderCaseTypeChart = () => {
   const data = caseTypeData.value;
-  console.log('[renderCaseTypeChart] 开始渲染，数据:', data);
-  const chartOption = {
+  renderEcharts2({
     tooltip: {
       trigger: 'item',
       formatter: '{b}: {c} ({d}%)',
@@ -217,9 +209,7 @@ const renderCaseTypeChart = () => {
         },
       },
     ],
-  };
-  console.log('[renderCaseTypeChart] 图表配置:', chartOption);
-  renderEcharts2(chartOption);
+  });
 };
 
 const renderCaseProgressChart = () => {
@@ -325,8 +315,7 @@ const renderCreditorAmountChart = () => {
 
 const renderAssetRatioChart = () => {
   const data = assetRatioData.value;
-  console.log('[renderAssetRatioChart] 开始渲染，数据:', data);
-  const chartOption = {
+  renderEcharts5({
     grid: {
       bottom: 30,
       containLabel: true,
@@ -383,64 +372,36 @@ const renderAssetRatioChart = () => {
       data: ['案件金额(万元)', '占比(%)'],
       top: 0,
     },
-  };
-  console.log('[renderAssetRatioChart] 图表配置:', chartOption);
-  renderEcharts5(chartOption);
+  });
 };
 
 const loadStatisticsData = async () => {
   try {
     loading.value = true;
-    console.log('[loadStatisticsData] 开始加载统计数据');
 
     const [trendRes, statsRes, crossRes, rankingRes, creditorRes] =
       await Promise.all([
         getCaseTrend({ period: 'month' }).catch((error) => {
-          console.error('[loadStatisticsData] 案件趋势API调用失败:', error);
+          console.error('案件趋势API调用失败:', error);
           return null;
         }),
         getCaseStatistics().catch((error) => {
-          console.error('[loadStatisticsData] 案件统计API调用失败:', error);
+          console.error('案件统计API调用失败:', error);
           return null;
         }),
         getCaseCrossAnalysis().catch((error) => {
-          console.error('[loadStatisticsData] 案件交叉分析API调用失败:', error);
+          console.error('案件交叉分析API调用失败:', error);
           return null;
         }),
         getCaseAmountRanking({ topN: 10 }).catch((error) => {
-          console.error('[loadStatisticsData] 案件金额排名API调用失败:', error);
+          console.error('案件金额排名API调用失败:', error);
           return null;
         }),
         getCreditorClaimAmountRanking({ topN: 10 }).catch((error) => {
-          console.error(
-            '[loadStatisticsData] 债权申报金额排名API调用失败:',
-            error,
-          );
+          console.error('债权申报金额排名API调用失败:', error);
           return null;
         }),
       ]);
-
-    console.log('[loadStatisticsData] API返回数据:', {
-      trendRes,
-      statsRes,
-      crossRes,
-      rankingRes,
-      creditorRes,
-    });
-
-    console.log('[loadStatisticsData] 详细数据检查:');
-    console.log('  trendRes:', JSON.stringify(trendRes, null, 2));
-    console.log('  trendRes.trendData:', trendRes?.trendData);
-    console.log('  statsRes:', JSON.stringify(statsRes, null, 2));
-    console.log('  statsRes.statusDistribution:', statsRes?.statusDistribution);
-    console.log(
-      '  statsRes.progressDistribution:',
-      statsRes?.progressDistribution,
-    );
-    console.log('  rankingRes:', JSON.stringify(rankingRes, null, 2));
-    console.log('  rankingRes.rankings:', rankingRes?.rankings);
-    console.log('  creditorRes:', JSON.stringify(creditorRes, null, 2));
-    console.log('  creditorRes.rankings:', creditorRes?.rankings);
 
     caseTrend.value = trendRes;
     caseStatistics.value = statsRes;
@@ -448,10 +409,9 @@ const loadStatisticsData = async () => {
     caseRanking.value = rankingRes;
     creditorClaimRanking.value = creditorRes;
 
-    console.log('[loadStatisticsData] 数据赋值完成，开始渲染图表');
     renderAllCharts();
   } catch (error) {
-    console.error('[loadStatisticsData] 加载统计数据失败:', error);
+    console.error('加载统计数据失败:', error);
   } finally {
     loading.value = false;
   }

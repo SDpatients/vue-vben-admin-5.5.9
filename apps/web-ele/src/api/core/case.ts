@@ -3,13 +3,26 @@ import { fileUploadRequestClient, requestClient8085 } from '#/api/request';
 
 export namespace CaseApi {
   /** 案件状态枚举 */
-  export type CaseStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED' | 'TERMINATED' | 'ARCHIVED';
+  export type CaseStatus =
+    | 'ARCHIVED'
+    | 'CLOSED'
+    | 'COMPLETED'
+    | 'IN_PROGRESS'
+    | 'PENDING'
+    | 'TERMINATED';
 
   /** 案件进度枚举 */
-  export type CaseProgress = 'FIRST' | 'SECOND' | 'THIRD' | 'FOURTH' | 'FIFTH' | 'SIXTH' | 'SEVENTH';
+  export type CaseProgress =
+    | 'FIFTH'
+    | 'FIRST'
+    | 'FOURTH'
+    | 'SECOND'
+    | 'SEVENTH'
+    | 'SIXTH'
+    | 'THIRD';
 
   /** 审核状态枚举 */
-  export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+  export type ReviewStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
 
   /** 案件简单信息 */
   export interface SimpleCaseInfo {
@@ -23,8 +36,8 @@ export namespace CaseApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: SimpleCaseInfo[];
+      total: number;
     };
   }
 
@@ -43,20 +56,20 @@ export namespace CaseApi {
     caseProgress: CaseProgress;
     debtClaimDeadline: string;
     filingDate: string;
-    closingDate: string | null;
-    bankruptcyDate: string | null;
-    terminationDate: string | null;
-    cancellationDate: string | null;
-    archivingDate: string | null;
+    closingDate: null | string;
+    bankruptcyDate: null | string;
+    terminationDate: null | string;
+    cancellationDate: null | string;
+    archivingDate: null | string;
     remarks: string;
     fileUploadPath: string;
     undertakingPersonnel: string;
     creatorId: number;
     creatorName: string;
-    reviewerId: number | null;
+    reviewerId: null | number;
     reviewStatus: ReviewStatus;
-    reviewTime: string | null;
-    reviewOpinion: string | null;
+    reviewTime: null | string;
+    reviewOpinion: null | string;
     reviewCount: number;
     caseStatus: CaseStatus;
     designatedJudge: string;
@@ -69,8 +82,8 @@ export namespace CaseApi {
     code: number;
     message: string;
     data: {
-      total: number;
       list: CaseInfo[];
+      total: number;
     };
   }
 
@@ -182,15 +195,15 @@ export namespace CaseApi {
     code: number;
     message: string;
     data: {
-      id: number;
-      caseNumber: string;
       caseName: string;
-      reviewStatus: ReviewStatus;
-      reviewTime: string;
-      reviewOpinion: string;
+      caseNumber: string;
+      caseStatus: CaseStatus;
+      id: number;
       reviewCount: number;
       reviewerId: number;
-      caseStatus: CaseStatus;
+      reviewOpinion: string;
+      reviewStatus: ReviewStatus;
+      reviewTime: string;
     };
   }
 
@@ -203,14 +216,14 @@ export namespace CaseApi {
   }
 
   /** 用户案件列表响应 */
-export interface UserCaseListResponse {
+  export interface UserCaseListResponse {
     code: number;
     message: string;
     data: {
-      total: number;
       list: any[];
       pageNum: number;
       pageSize: number;
+      total: number;
     };
   }
 
@@ -248,24 +261,42 @@ export async function getCaseDetailApi(caseId: number) {
  * 更新案件信息
  * PUT /api/v1/case/{caseId}
  */
-export async function updateCaseApi(caseId: number, data: CaseApi.UpdateCaseRequest) {
-  return requestClient8085.put<CaseApi.UpdateCaseResponse>(`/case/${caseId}`, data);
+export async function updateCaseApi(
+  caseId: number,
+  data: CaseApi.UpdateCaseRequest,
+) {
+  return requestClient8085.put<CaseApi.UpdateCaseResponse>(
+    `/case/${caseId}`,
+    data,
+  );
 }
 
 /**
  * 案件状态流转
  * PUT /api/v1/case/{caseId}/status
  */
-export async function updateCaseStatusApi(caseId: number, data: CaseApi.UpdateCaseStatusRequest) {
-  return requestClient8085.put<CaseApi.UpdateCaseStatusResponse>(`/case/${caseId}/status`, data);
+export async function updateCaseStatusApi(
+  caseId: number,
+  data: CaseApi.UpdateCaseStatusRequest,
+) {
+  return requestClient8085.put<CaseApi.UpdateCaseStatusResponse>(
+    `/case/${caseId}/status`,
+    data,
+  );
 }
 
 /**
  * 案件进度更新
  * PUT /api/v1/case/{caseId}/progress
  */
-export async function updateCaseProgressApi(caseId: number, data: CaseApi.UpdateCaseProgressRequest) {
-  return requestClient8085.put<CaseApi.UpdateCaseProgressResponse>(`/case/${caseId}/progress`, data);
+export async function updateCaseProgressApi(
+  caseId: number,
+  data: CaseApi.UpdateCaseProgressRequest,
+) {
+  return requestClient8085.put<CaseApi.UpdateCaseProgressResponse>(
+    `/case/${caseId}/progress`,
+    data,
+  );
 }
 
 /**
@@ -280,8 +311,14 @@ export async function createCaseApi(data: CaseApi.CreateCaseRequest) {
  * 案件审核
  * POST /api/v1/case/{caseId}/review
  */
-export async function reviewCaseApi(caseId: number, data: CaseApi.ReviewCaseRequest) {
-  return requestClient8085.post<CaseApi.ReviewCaseResponse>(`/case/${caseId}/review`, data);
+export async function reviewCaseApi(
+  caseId: number,
+  data: CaseApi.ReviewCaseRequest,
+) {
+  return requestClient8085.post<CaseApi.ReviewCaseResponse>(
+    `/case/${caseId}/review`,
+    data,
+  );
 }
 
 /**
@@ -289,15 +326,22 @@ export async function reviewCaseApi(caseId: number, data: CaseApi.ReviewCaseRequ
  * GET /api/v1/case/{caseId}/review-status
  */
 export async function getCaseReviewStatusApi(caseId: number) {
-  return requestClient8085.get<CaseApi.ReviewStatusResponse>(`/case/${caseId}/review-status`);
+  return requestClient8085.get<CaseApi.ReviewStatusResponse>(
+    `/case/${caseId}/review-status`,
+  );
 }
 
 /**
  * 案件简单信息查询(分页)
  * GET /api/v1/case/simple-list
  */
-export async function getCaseSimpleListApi(params: CaseApi.SimpleCaseListQueryParams = {}) {
-  return requestClient8085.get<CaseApi.SimpleCaseListResponse>('/case/simple-list', { params });
+export async function getCaseSimpleListApi(
+  params: CaseApi.SimpleCaseListQueryParams = {},
+) {
+  return requestClient8085.get<CaseApi.SimpleCaseListResponse>(
+    '/case/simple-list',
+    { params },
+  );
 }
 
 /**
@@ -305,7 +349,9 @@ export async function getCaseSimpleListApi(params: CaseApi.SimpleCaseListQueryPa
  * GET /api/v1/case/list
  */
 export async function getCaseListApi(params: CaseApi.CaseListQueryParams = {}) {
-  return requestClient8085.get<CaseApi.CaseListResponse>('/case/list', { params });
+  return requestClient8085.get<CaseApi.CaseListResponse>('/case/list', {
+    params,
+  });
 }
 
 /**
@@ -328,16 +374,12 @@ export async function uploadCaseFileApi(
   formData.append('file', file);
   formData.append('bizType', moduleType);
   formData.append('bizId', caseId.toString());
-  
-  return fileUploadRequestClient.post<any>(
-    '/api/v1/file/upload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+
+  return fileUploadRequestClient.post<any>('/api/v1/file/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
     },
-  );
+  });
 }
 
 /**
@@ -348,15 +390,19 @@ export async function batchUploadCaseFilesApi(
   caseId: number,
   moduleType: string = 'case',
 ) {
-  const uploadPromises = files.map(file => uploadCaseFileApi(file, caseId, moduleType));
+  const uploadPromises = files.map((file) =>
+    uploadCaseFileApi(file, caseId, moduleType),
+  );
   const results = await Promise.all(uploadPromises);
-  
-  const successResults = results.filter(r => r.code === 200).map(r => r.data);
-  
+
+  const successResults = results
+    .filter((r) => r.code === 200)
+    .map((r) => r.data);
+
   return {
     code: 200,
     message: 'success',
-    data: successResults
+    data: successResults,
   };
 }
 
@@ -385,9 +431,7 @@ export async function getCaseFilesApi(
  * 删除案件文件
  */
 export async function deleteCaseFileApi(fileId: number) {
-  return fileUploadRequestClient.delete<any>(
-    `/api/v1/file/${fileId}`,
-  );
+  return fileUploadRequestClient.delete<any>(`/api/v1/file/${fileId}`);
 }
 
 /**
@@ -401,7 +445,9 @@ export async function downloadCaseFileApi(fileId: number) {
  * 获取案件处理进度数据
  */
 export async function getCaseProgressApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CommonResponse>(`/case/${caseId}/progress`);
+  return requestClient8085.get<CaseApi.CommonResponse>(
+    `/case/${caseId}/progress`,
+  );
 }
 
 /**
@@ -409,7 +455,9 @@ export async function getCaseProgressApi(caseId: number) {
  * POST /api/v1/case/{caseId}/submit-review
  */
 export async function submitCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/submit-review`);
+  return requestClient8085.post<CaseApi.CommonResponse>(
+    `/case/${caseId}/submit-review`,
+  );
 }
 
 /**
@@ -417,7 +465,9 @@ export async function submitCaseReviewApi(caseId: number) {
  * POST /api/v1/case/{caseId}/withdraw-review
  */
 export async function withdrawCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/withdraw-review`);
+  return requestClient8085.post<CaseApi.CommonResponse>(
+    `/case/${caseId}/withdraw-review`,
+  );
 }
 
 /**
@@ -425,7 +475,9 @@ export async function withdrawCaseReviewApi(caseId: number) {
  * POST /api/v1/case/{caseId}/resubmit-review
  */
 export async function resubmitCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(`/case/${caseId}/resubmit-review`);
+  return requestClient8085.post<CaseApi.CommonResponse>(
+    `/case/${caseId}/resubmit-review`,
+  );
 }
 
 /**
@@ -434,6 +486,42 @@ export async function resubmitCaseReviewApi(caseId: number) {
  */
 export async function createApprovalApi(data: any) {
   return requestClient8085.post<CaseApi.CommonResponse>('/approval', data);
+}
+
+/**
+ * 获取审批历史记录
+ * GET /approval/{approvalId}/history
+ */
+export async function getApprovalHistoryApi(
+  approvalId: number,
+  pageNum: number = 1,
+  pageSize: number = 10,
+) {
+  return requestClient8085.get<any>(`/approval/${approvalId}/history`, {
+    params: { pageNum, pageSize },
+  });
+}
+
+/**
+ * 根据案件ID获取审批历史记录
+ * GET /approval/case/{caseId}/history
+ */
+export async function getCaseApprovalHistoryApi(
+  caseId: number,
+  pageNum: number = 1,
+  pageSize: number = 10,
+) {
+  return requestClient8085.get<any>(`/approval/case/${caseId}/history`, {
+    params: { pageNum, pageSize },
+  });
+}
+
+/**
+ * 根据案件ID获取当前审批进度
+ * GET /approval/case/{caseId}/progress
+ */
+export async function getCaseApprovalProgressApi(caseId: number) {
+  return requestClient8085.get<any>(`/approval/case/${caseId}/progress`);
 }
 
 /**
@@ -462,15 +550,28 @@ export async function rejectCaseApi(caseId: number, opinion: string) {
  * 获取审核日志
  */
 export async function getReviewLogsApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CommonResponse>(`/case/${caseId}/review-logs`);
+  return requestClient8085.get<CaseApi.CommonResponse>(
+    `/case/${caseId}/review-logs`,
+  );
 }
 
 /**
  * 根据用户ID查询案件列表(分页)
  * GET /api/v1/case/user/{userId}/list
  */
-export async function getUserCaseListApi(userId: number, params: { pageNum?: number; pageSize?: number; caseStatus?: string; caseNumber?: string } = {}) {
-  const result = await requestClient8085.get<CaseApi.UserCaseListResponse>(`/case/user/${userId}/list`, { params });
+export async function getUserCaseListApi(
+  userId: number,
+  params: {
+    caseNumber?: string;
+    caseStatus?: string;
+    pageNum?: number;
+    pageSize?: number;
+  } = {},
+) {
+  const result = await requestClient8085.get<CaseApi.UserCaseListResponse>(
+    `/case/user/${userId}/list`,
+    { params },
+  );
   return result;
 }
 
@@ -489,10 +590,10 @@ export const addOneCaseApi = createCaseApi;
  * 获取案件列表（兼容旧代码）
  */
 export const getCaseListApiOld = async (params: {
+  AH?: string;
+  AJZT?: string;
   page: number;
   size: number;
-  AJZT?: string;
-  AH?: string;
   token?: string;
 }) => {
   const queryParams: CaseApi.CaseListQueryParams = {
@@ -509,6 +610,6 @@ export const getCaseListApiOld = async (params: {
  * 获取案件详情（兼容旧代码）
  */
 export const getCaseDetailApiOld = async (serialNumber: string) => {
-  const caseId = parseInt(serialNumber, 10);
+  const caseId = Number.parseInt(serialNumber, 10);
   return getCaseDetailApi(caseId);
 };

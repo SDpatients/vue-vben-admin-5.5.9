@@ -27,11 +27,6 @@ import {
 } from 'element-plus';
 
 import {
-  createApprovalApi,
-  getCaseDetailApi,
-  updateCaseApi,
-} from '#/api/core/case';
-import {
   createAnnouncementApi,
   createViewRecordApi,
   deleteAnnouncementApi,
@@ -43,7 +38,6 @@ import {
   unTopAnnouncementApi,
 } from '#/api/core/case-announcement';
 import {
-  createDocumentApi,
   createDocumentWithFilesApi,
   deleteDocumentApi,
   getDocumentAttachmentsApi,
@@ -54,11 +48,7 @@ import {
 } from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
-import {
-  getAdminUsersApi,
-  getUserByDeptIdApi,
-  getUsersApi,
-} from '#/api/core/user';
+import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
   createWorkLogApi,
   deleteWorkLogApi,
@@ -76,6 +66,13 @@ import {
 } from '#/api/core/work-team';
 import { fileUploadRequestClient } from '#/api/request';
 
+import {
+  createApprovalApi,
+  getCaseApprovalHistoryApi,
+  getCaseApprovalProgressApi,
+  getCaseDetailApi,
+  updateCaseApi,
+} from '../../../api/core/case';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
@@ -475,6 +472,8 @@ const showReviewDialog = ref(false);
 const reviewForm = reactive({
   reviewType: 'CASE_REVIEW',
   reviewers: [],
+  // 备注
+  remark: '',
   // 流程审批相关字段
   stageId: '',
   taskId: '',
@@ -502,28 +501,7 @@ const loadingReviewers = ref(false);
 // 提交审批时的加载状态
 const submittingReview = ref(false);
 
-// 获取管理员用户列表
-const fetchAdminUsers = async () => {
-  loadingReviewers.value = true;
-  try {
-    const response = await getAdminUsersApi();
-    if (response.code === 200 && response.data) {
-      reviewerOptions.value = response.data.map((user: any) => ({
-        label: user.realName || user.username || '未知用户',
-        value: user.id || '',
-      }));
-    } else {
-      ElMessage.error('获取管理员列表失败');
-      reviewerOptions.value = [];
-    }
-  } catch (error) {
-    console.error('获取管理员列表失败:', error);
-    ElMessage.error('获取管理员列表失败');
-    reviewerOptions.value = [];
-  } finally {
-    loadingReviewers.value = false;
-  }
-};
+// 获取管理员用户列表函数已移除，审批人不需要前端选择
 
 // 获取阶段列表
 const fetchStages = async () => {
@@ -567,31 +545,82 @@ const handleStageChange = (stageId: string) => {
 };
 
 // 打开审批弹窗时加载数据
-const openReviewDialog = () => {
-  fetchAdminUsers();
+const openReviewDialog = async () => {
   // 如果是流程审批，加载阶段列表
   if (reviewForm.reviewType === 'PROCESS_REVIEW') {
     fetchStages();
   }
+  // 加载当前审批进度
+  await fetchCurrentApproval();
+  // 加载审批历史记录
+  await fetchReviewHistory();
   showReviewDialog.value = true;
 };
 
-const reviewHistory = ref([
-  {
-    id: 1,
-    reviewer: '张三',
-    reviewDate: '2023-05-10 14:30:00',
-    status: '已通过',
-    comment: '审批通过，无异议',
-  },
-  {
-    id: 2,
-    reviewer: '李四',
-    reviewDate: '2023-05-09 09:15:00',
-    status: '已通过',
-    comment: '同意审批',
-  },
-]);
+// 审批历史数据
+const reviewHistory = ref([]);
+// 审批历史加载状态
+const loadingReviewHistory = ref(false);
+
+// 当前审批数据
+const currentApproval = ref([]);
+// 当前审批加载状态
+const loadingCurrentApproval = ref(false);
+
+// 获取当前审批进度
+const fetchCurrentApproval = async () => {
+  if (!caseId.value) return;
+  
+  loadingCurrentApproval.value = true;
+  try {
+    const response = await getCaseApprovalProgressApi(Number(caseId.value));
+    if (response.code === 200 && response.data) {
+      currentApproval.value = response.data;
+    }
+  } catch (error) {
+    console.error('获取当前审批失败:', error);
+    ElMessage.error('获取当前审批失败');
+  } finally {
+    loadingCurrentApproval.value = false;
+  }
+};
+
+// 获取审批历史记录
+const fetchReviewHistory = async () => {
+  if (!caseId.value) return;
+
+  loadingReviewHistory.value = true;
+  try {
+    const response = await getCaseApprovalHistoryApi(Number(caseId.value));
+    if (response.code === 200 && response.data?.list) {
+      // 将API返回的数据映射为前端需要的格式
+      reviewHistory.value = response.data.list.map((item: any) => ({
+        id: item.id,
+        reviewer: '律师事务所负责人', // 暂时使用固定值，实际应该从用户表获取
+        reviewDate: item.approvalDate || item.createTime,
+        status: mapApprovalStatus(item.approvalStatus),
+        comment: item.approvalOpinion || '',
+        approvalTitle: item.approvalTitle || '',
+      }));
+    }
+  } catch (error) {
+    console.error('获取审批历史失败:', error);
+    ElMessage.error('获取审批历史失败');
+  } finally {
+    loadingReviewHistory.value = false;
+  }
+};
+
+// 映射审批状态
+const mapApprovalStatus = (status: string) => {
+  const statusMap: Record<string, string> = {
+    PENDING: '待审核',
+    APPROVED: '已通过',
+    REJECTED: '已拒绝',
+    CANCELLED: '已取消',
+  };
+  return statusMap[status] || status;
+};
 
 const submitReview = async () => {
   submittingReview.value = true;
@@ -599,27 +628,16 @@ const submitReview = async () => {
     // 根据审批类型执行不同的逻辑
     if (reviewForm.reviewType === 'CASE_REVIEW') {
       // 案件审批，调用新增案件审批API
-      // 验证审批人是否已选择
-      if (!reviewForm.reviewers || reviewForm.reviewers.length === 0) {
-        ElMessage.error('请选择审批人');
-        return;
-      }
-
-      // 获取当前用户信息
-      const userInfo = JSON.parse(
-        localStorage.getItem('chat_user_info') || '{}',
-      );
-      const lawyerId = userInfo.user?.uPid || 0;
+      // 审批人不需要前端选择，默认为空
 
       // 设置审批参数
       const approvalParams = {
         caseId: Number(caseId.value),
-        lawyerId,
         approvalType: 'CASE_SUBMIT', // 案件提交
         approvalTitle: `案件审批 - ${caseDetail.value?.案件名称 || ''}`,
         approvalContent: `案号：${caseDetail.value?.案号 || ''}\n案件名称：${caseDetail.value?.案件名称 || ''}\n受理法院：${caseDetail.value?.受理法院 || ''}\n案由：${caseDetail.value?.案由 || ''}`,
         approvalAttachment: '', // 暂时为空，实际项目中应该获取案件的附件
-        remark: '请尽快审核',
+        remark: reviewForm.remark || '请尽快审核',
       };
 
       // 调用新增案件审批API
@@ -648,18 +666,8 @@ const submitReview = async () => {
         ElMessage.error('请选择阶段和任务');
         return;
       }
-      
-      // 验证审批人是否已选择
-      if (!reviewForm.reviewers || reviewForm.reviewers.length === 0) {
-        ElMessage.error('请选择审批人');
-        return;
-      }
 
-      // 获取当前用户信息
-      const userInfo = JSON.parse(
-        localStorage.getItem('chat_user_info') || '{}',
-      );
-      const lawyerId = userInfo.user?.uPid || 0;
+      // 审批人不需要前端选择，默认为空
 
       // 获取阶段和任务名称
       const selectedStage = stageOptions.value.find(
@@ -669,15 +677,17 @@ const submitReview = async () => {
         (task) => task.value === reviewForm.taskId,
       );
 
+      // 附件由后端处理，不需要前端获取
+      const approvalAttachment = '';
+
       // 设置审批参数
       const approvalParams = {
         caseId: Number(caseId.value),
-        lawyerId,
-        approvalType: 'CASE_SUBMIT', // 根据实际情况选择合适的审批类型
+        approvalType: reviewForm.taskId, // 直接使用目标任务的task_code
         approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
         approvalContent: `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`,
-        approvalAttachment: '', // 暂时为空，实际项目中应该获取任务的附件
-        remark: '请尽快审核',
+        approvalAttachment,
+        remark: reviewForm.remark || '请尽快审核',
       };
 
       // 调用新增案件审批API
@@ -691,7 +701,13 @@ const submitReview = async () => {
       // 其他类型的审批逻辑，可以根据需要扩展
       ElMessage.success('审批已提交');
     }
-    showReviewDialog.value = false;
+    // 重置表单
+  reviewForm.reviewType = 'CASE_REVIEW';
+  reviewForm.reviewers = [];
+  reviewForm.remark = '';
+  reviewForm.stageId = '';
+  reviewForm.taskId = '';
+  showReviewDialog.value = false;
   } catch (error) {
     console.error('提交审批失败:', error);
     ElMessage.error('提交审批失败，请稍后重试');
@@ -907,7 +923,9 @@ const submitDocumentForm = async () => {
         deliveryContent: documentForm.serviceContent,
         sendStatus: documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
         deliveryTime:
-          documentForm.sendStatus === '已发送' ? new Date().toISOString() : null,
+          documentForm.sendStatus === '已发送'
+            ? new Date().toISOString()
+            : null,
       };
 
       if (uploadedFiles.value.length > 0) {
@@ -924,7 +942,10 @@ const submitDocumentForm = async () => {
         }
       }
 
-      const response = await updateDocumentApi(currentDocumentId.value, requestData);
+      const response = await updateDocumentApi(
+        currentDocumentId.value,
+        requestData,
+      );
 
       if (response.code === 200) {
         ElMessage.success('文书送达更新成功');
@@ -962,11 +983,14 @@ const submitDocumentForm = async () => {
       if (documentForm.serviceContent) {
         formData.append('deliveryContent', documentForm.serviceContent);
       }
-      formData.append('sendStatus', documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING');
+      formData.append(
+        'sendStatus',
+        documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
+      );
       formData.append('status', 'PENDING');
 
       // 添加文件（支持多个文件）
-      uploadedFiles.value.forEach(file => {
+      uploadedFiles.value.forEach((file) => {
         formData.append('files', file.file);
       });
 
@@ -1000,7 +1024,7 @@ const submitDocumentForm = async () => {
 const handleFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    const files = Array.from(input.files);
+    const files = [...input.files];
     const maxFileSize = 50 * 1024 * 1024;
     const maxFileCount = 10;
     const allowedTypes = new Set([
@@ -1046,7 +1070,8 @@ const handleFileChange = async (event: Event) => {
           name: file.name,
           url: URL.createObjectURL(file),
           file,
-          fileId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          fileId:
+            Date.now().toString() + Math.random().toString(36).slice(2, 11),
         });
       }
 
@@ -2186,8 +2211,22 @@ const cancelEditing = () => {
 };
 
 // 处理进度更新事件
-const handleProgressUpdated = () => {
-  ElMessage.success('案件进度已更新');
+const handleProgressUpdated = async () => {
+  loading.value = true;
+  try {
+    // 重新获取案件详情，确保显示最新进度
+    const response = await getCaseDetailApi(Number.parseInt(caseId.value, 10));
+    const responseData = response as any;
+    if (responseData.success && responseData.data) {
+      caseDetail.value = mapCaseData(responseData.data);
+      ElMessage.success('案件进度已更新');
+    }
+  } catch (error) {
+    console.error('更新案件进度后获取案件详情失败:', error);
+    ElMessage.error('更新案件进度后获取案件详情失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
 // 生命周期
@@ -2321,6 +2360,10 @@ onMounted(async () => {
     loading.value = false;
   }
 
+  // 获取审批历史和当前审批
+  await fetchReviewHistory();
+  await fetchCurrentApproval();
+
   // 检查权限
   await checkPermissions();
 });
@@ -2328,13 +2371,13 @@ onMounted(async () => {
 // 映射案件进度
 const mapCaseProgress = (progress: string): string => {
   const progressMap: Record<string, string> = {
-    FIRST: '第一阶段',
-    SECOND: '第二阶段',
-    THIRD: '第三阶段',
-    FOURTH: '第四阶段',
-    FIFTH: '第五阶段',
-    SIXTH: '第六阶段',
-    SEVENTH: '第七阶段',
+    FIRST: '一、申请与受理',
+    SECOND: '二、管理人履职与财产接管',
+    THIRD: '三、债权申报与核查',
+    FOURTH: '四、债权人会议',
+    FIFTH: '五、破产宣告',
+    SIXTH: '六、财产变价与分配',
+    SEVENTH: '七、程序终结',
   };
   return progressMap[progress] || progress;
 };
@@ -2486,39 +2529,29 @@ const fetchWorkTeams = async () => {
       'Number(caseId.value):',
       Number(caseId.value),
     );
+    
     const response = await getWorkTeamListWithDetailsApi({
       caseId: Number(caseId.value),
       pageNum: 1,
       pageSize: 100,
+      status: 'ACTIVE',
     });
 
     console.log('工作团队API返回:', response);
 
-    // 检查响应格式
     if (response && response.code === 200) {
       if (response.data && response.data.list) {
         console.log('工作团队列表:', response.data.list);
-
-        // 处理API返回数据，确保members字段存在
-        const processedTeams = response.data.list.map((team: any) => {
-          // 兼容处理：如果返回的是teamMembers，转换为members
-          if (team.teamMembers && !team.members) {
-            try {
-              // 尝试将teamMembers字符串解析为数组
-              team.members = JSON.parse(team.teamMembers);
-            } catch (error) {
-              console.error('解析teamMembers失败:', error);
-              team.members = [];
-            }
-          }
-          // 确保members字段是数组
-          if (!team.members || !Array.isArray(team.members)) {
-            team.members = [];
-          }
-          return team;
+        
+        const currentCaseId = Number(caseId.value);
+        
+        const filteredTeams = response.data.list.filter((team: any) => {
+          return team.caseId === currentCaseId;
         });
-
-        workTeams.value = processedTeams;
+        
+        console.log('过滤后的工作团队列表:', filteredTeams);
+        
+        workTeams.value = filteredTeams;
       } else {
         console.error(
           'API返回数据结构异常，缺少data或data.list:',
@@ -3180,9 +3213,7 @@ const checkPermissions = async () => {
                   >
                     主要负责人：{{ caseDetail.管理人负责人 }}
                   </ElTag>
-                  <span v-if="isEditing" class="edit-indicator ml-3"
-                    >编辑中</span
-                  >
+                  <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
                 </div>
                 <div class="flex space-x-2">
                   <template v-if="!isEditing && canEdit">
@@ -5949,19 +5980,24 @@ const checkPermissions = async () => {
               </ElCol>
               <ElCol :xs="24" :sm="12">
                 <ElFormItem label="审批人">
-                  <ElSelect
-                    v-model="reviewForm.reviewers"
-                    multiple
-                    placeholder="请选择审批人"
+                  <ElInput
+                    value="律师事务所负责人"
+                    readonly
                     style="width: 100%"
-                  >
-                    <ElOption
-                      v-for="option in reviewerOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </ElSelect>
+                  />
+                </ElFormItem>
+              </ElCol>
+
+              <!-- 备注字段 -->
+              <ElCol :xs="24">
+                <ElFormItem label="备注">
+                  <ElInput
+                    v-model="reviewForm.remark"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请输入备注信息"
+                    style="width: 100%"
+                  />
                 </ElFormItem>
               </ElCol>
 
@@ -6014,13 +6050,70 @@ const checkPermissions = async () => {
           >
             <template #header>
               <div class="card-header">
+                <span class="text-lg font-semibold">当前审批</span>
+              </div>
+            </template>
+
+            <ElTable 
+              :data="currentApproval" 
+              stripe 
+              style="width: 100%"
+              v-loading="loadingCurrentApproval"
+            >
+              <ElTableColumn prop="approvalType" label="审批类型" width="120">
+                <template #default="scope">
+                  {{ scope.row.approvalType || '' }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approvalTitle" label="审批标题" width="200" />
+              <ElTableColumn prop="approvalStatus" label="审批状态" width="120">
+                <template #default="scope">
+                  <ElTag
+                    :type="scope.row.approvalStatus === 'APPROVED' ? 'success' : 
+                          scope.row.approvalStatus === 'PENDING' ? 'warning' : 'danger'"
+                  >
+                    {{ mapApprovalStatus(scope.row.approvalStatus) }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approverId" label="审批人" width="120">
+                <template #default="scope">
+                  {{ scope.row.approverId ? '律师事务所负责人' : '待分配' }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approvalDate" label="审批时间" width="200">
+                <template #default="scope">
+                  {{ formatDate(scope.row.approvalDate) }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="remark" label="备注" />
+            </ElTable>
+          </ElCard>
+
+          <ElCard
+            class="review-history-card"
+            shadow="hover"
+            style="margin-top: 20px"
+          >
+            <template #header>
+              <div class="card-header">
                 <span class="text-lg font-semibold">审批历史</span>
               </div>
             </template>
 
-            <ElTable :data="reviewHistory" stripe style="width: 100%">
+            <ElTable 
+              :data="reviewHistory" 
+              stripe 
+              style="width: 100%"
+              v-loading="loadingReviewHistory"
+            >
               <ElTableColumn prop="reviewer" label="审批人" width="120" />
-              <ElTableColumn prop="reviewDate" label="审批时间" width="200" />
+              <ElTableColumn prop="approvalTitle" label="审批标题" width="200" />
+              <ElTableColumn prop="reviewDate" label="审批时间" width="200">
+                <template #default="scope">
+                  {{ formatDate(scope.row.reviewDate) }}
+                </template>
+              </ElTableColumn>
               <ElTableColumn prop="status" label="审批状态" width="120">
                 <template #default="scope">
                   <ElTag
@@ -6031,8 +6124,8 @@ const checkPermissions = async () => {
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="comment" label="审批意见" />
-            </ElTable>
-          </ElCard>
+          </eltable>
+</ElCard>
         </div>
 
         <template #footer>

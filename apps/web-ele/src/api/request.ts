@@ -153,7 +153,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
 // 默认API客户端，使用环境变量中的API_URL
 export const requestClient = createRequestClient(apiURL, {
-  responseReturn: 'body',
+  responseReturn: 'data',
 });
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });

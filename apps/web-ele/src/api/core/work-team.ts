@@ -420,7 +420,7 @@ export async function getCurrentUserWorkTeamsApi() {
     code: number;
     data: WorkTeamApi.WorkTeamInfo[];
     message: string;
-  }>('/api/v1/web/currentUser/workTeams');
+  }>('/web/currentUser/workTeams');
 }
 
 export type { WorkTeamApi };

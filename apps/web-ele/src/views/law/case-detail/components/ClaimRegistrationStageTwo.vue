@@ -380,8 +380,56 @@ const handleSubmitReview = async () => {
 
   reviewLoading.value = true;
   try {
+    const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+      claimRegistrationId: currentClaim.value.id,
+      caseId: currentClaim.value.caseId,
+      creditorName: currentClaim.value.creditorName,
+      reviewDate: reviewForm.reviewDate || null,
+      reviewer: reviewForm.reviewer || null,
+      reviewRound: Number(reviewForm.reviewRound) || 1,
+      reviewBasis: reviewForm.reviewBasis || null,
+      declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
+      declaredInterest: Number(reviewForm.declaredInterest) || 0,
+      declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
+      declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
+      declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
+      confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
+      confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
+      confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
+      confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
+      confirmedTotalAmount: Number(reviewForm.confirmedTotalAmount) || 0,
+      unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
+      unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
+      unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
+      unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
+      unconfirmedTotalAmount: Number(reviewForm.unconfirmedTotalAmount) || 0,
+      adjustmentReason: reviewForm.adjustmentReason || null,
+      unconfirmedReason: reviewForm.unconfirmedReason || null,
+      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
+      expiredReason: reviewForm.expiredReason || null,
+      evidenceAuthenticity: reviewForm.evidenceAuthenticity,
+      evidenceRelevance: reviewForm.evidenceRelevance || null,
+      evidenceLegality: reviewForm.evidenceLegality || null,
+      evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
+      confirmedClaimNature: reviewForm.confirmedClaimNature || null,
+      isJointLiability: reviewForm.isJointLiability ? 1 : 0,
+      isConditional: reviewForm.isConditional ? 1 : 0,
+      isTerm: reviewForm.isTerm ? 1 : 0,
+      collateralType: reviewForm.collateralType || null,
+      collateralProperty: reviewForm.collateralProperty || null,
+      collateralAmount: Number(reviewForm.collateralAmount) || null,
+      collateralTerm: reviewForm.collateralTerm || null,
+      collateralValidity: reviewForm.collateralValidity,
+      reviewConclusion: reviewForm.reviewConclusion,
+      reviewSummary: reviewForm.reviewSummary || null,
+      reviewReport: reviewForm.reviewReport || null,
+      reviewAttachments: reviewForm.reviewAttachments || null,
+      reviewStatus: reviewForm.reviewStatus,
+      remarks: reviewForm.remarks || null,
+    };
     const response = await submitClaimReviewApi(
       currentClaim.value.reviewInfo.id,
+      requestData
     );
     if (response.code === 200) {
       ElMessage.success('提交审查成功');

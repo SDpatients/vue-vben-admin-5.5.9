@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CaseApproval as ApiCaseApproval } from '#/api/core/approval';
+
 import { onMounted, ref } from 'vue';
 
 import {
@@ -21,7 +23,7 @@ import {
   ElUpload,
 } from 'element-plus';
 
-import { approvalApi, type CaseApproval as ApiCaseApproval } from '#/api/core/approval';
+import { approvalApi } from '#/api/core/approval';
 
 interface Attachment {
   id: number;
@@ -41,8 +43,8 @@ interface CaseApproval {
   submitter: string;
   submitTime: string;
   approvalTime?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  priority: 'high' | 'medium' | 'low';
+  status: 'approved' | 'pending' | 'rejected';
+  priority: 'high' | 'low' | 'medium';
   description: string;
   remark?: string;
   attachments?: Attachment[];
@@ -97,49 +99,92 @@ const approvalStatusMap = {
 };
 
 // 附件上传相关状态
-const fileList = ref<{name: string, url: string, file: File}[]>([]);
+const fileList = ref<{ file: File; name: string; url: string }[]>([]);
 const uploadProgress = ref(0);
 const uploading = ref(false);
 
 // 转换API响应数据为页面所需格式
-const transformApiDataToPageData = (apiData: ApiCaseApproval[]): CaseApproval[] => {
-  return apiData.map(item => ({
-    id: item.id,
-    caseNumber: item.caseNumber,
-    caseTitle: item.caseTitle || item.approvalContent,
-    caseType: item.caseType || 'other',
-    submitter: item.submitter || '未知提交人',
-    submitTime: item.createTime,
-    approvalTime: item.approvalDate,
-    status: approvalStatusMap[item.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
-    priority: (item.priority as 'high' | 'medium' | 'low') || 'medium',
-    description: item.description || item.approvalContent,
-    remark: item.remark,
-    attachments: item.attachments || [],
-  }));
+const transformApiDataToPageData = (
+  apiData: ApiCaseApproval[],
+): CaseApproval[] => {
+  console.log('[transformApiDataToPageData] 输入数据:', apiData);
+
+  const result = apiData.map((item, index) => {
+    console.log(`[transformApiDataToPageData] 处理第${index}项:`, item);
+
+    const transformed = {
+      id: item.id,
+      caseNumber: item.caseNumber,
+      caseTitle: item.approvalTitle || item.caseTitle || item.approvalContent,
+      caseType: item.caseType || 'other',
+      submitter: item.submitter || '未知提交人',
+      submitTime: item.createTime,
+      approvalTime: item.approvalDate,
+      status:
+        approvalStatusMap[
+          item.approvalStatus as keyof typeof approvalStatusMap
+        ] || 'pending',
+      priority: (item.priority as 'high' | 'low' | 'medium') || 'medium',
+      description: item.description || item.approvalContent,
+      remark: item.remark,
+      attachments: item.attachments || [],
+    };
+
+    console.log(
+      `[transformApiDataToPageData] 第${index}项转换结果:`,
+      transformed,
+    );
+    return transformed;
+  });
+
+  console.log('[transformApiDataToPageData] 转换完成，结果:', result);
+  return result;
 };
 
 const loadCases = async () => {
   loading.value = true;
   try {
-    // 转换状态值
-    const approvalStatus = searchForm.value.status ? 
-      Object.keys(approvalStatusMap).find(key => approvalStatusMap[key as keyof typeof approvalStatusMap] === searchForm.value.status) : '';
-    
+    console.log('[loadCases] 开始加载案件列表');
+
+    const approvalStatus = searchForm.value.status
+      ? Object.keys(approvalStatusMap).find(
+          (key) =>
+            approvalStatusMap[key as keyof typeof approvalStatusMap] ===
+            searchForm.value.status,
+        )
+      : '';
+
+    console.log('[loadCases] 请求参数:', {
+      pageNum: pagination.value.current,
+      pageSize: pagination.value.pageSize,
+      approvalStatus: approvalStatus as string,
+    });
+
     const response = await approvalApi.getApprovalList({
       pageNum: pagination.value.current,
       pageSize: pagination.value.pageSize,
       approvalStatus: approvalStatus as string,
     });
-    
+
+    console.log('[loadCases] API响应:', response);
+
     if (response.code === 200 && response.data) {
-      caseList.value = transformApiDataToPageData(response.data.list);
+      console.log('[loadCases] 原始数据列表:', response.data.list);
+      console.log('[loadCases] 开始转换数据...');
+
+      const transformedData = transformApiDataToPageData(response.data.list);
+      console.log('[loadCases] 转换后的数据:', transformedData);
+
+      caseList.value = transformedData;
       pagination.value.total = response.data.total || 0;
+
+      console.log('[loadCases] 数据加载成功, 总数:', pagination.value.total);
     } else {
+      console.error('[loadCases] 响应状态码不是200:', response);
       ElMessage.error(response.message || '加载案件列表失败');
     }
   } catch (error) {
-    console.error('加载案件列表失败:', error);
+    console.error('[loadCases] 加载案件列表失败:', error);
     ElMessage.error('加载案件列表失败');
   } finally {
     loading.value = false;
@@ -192,20 +237,24 @@ const handleUploadAttachments = async () => {
   try {
     // 模拟上传过程
     for (let i = 0; i <= 100; i += 5) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       uploadProgress.value = i;
     }
-    
+
     // 上传完成，将文件添加到附件列表
     const uploadedTime = new Date().toLocaleString('zh-CN');
     const newAttachments: Attachment[] = fileList.value.map((file, index) => ({
-      id: currentCase.value!.attachments?.length ? Math.max(...currentCase.value.attachments.map(a => a.id)) + index + 1 : index + 1,
+      id: currentCase.value!.attachments?.length
+        ? Math.max(...currentCase.value.attachments.map((a) => a.id)) +
+          index +
+          1
+        : index + 1,
       fileName: file.name,
       fileSize: file.size,
       fileType: file.name.split('.').pop() || 'file',
       filePath: `/uploads/case/${currentCase.value.id}/file_${Date.now()}_${index}.${file.name.split('.').pop()}`,
       uploadTime: uploadedTime,
-      uploader: '当前用户' // 实际应该从登录信息获取
+      uploader: '当前用户', // 实际应该从登录信息获取
     }));
 
     if (!currentCase.value.attachments) {
@@ -214,7 +263,9 @@ const handleUploadAttachments = async () => {
     currentCase.value.attachments.push(...newAttachments);
 
     // 更新列表数据
-    const index = caseList.value.findIndex(c => c.id === currentCase.value?.id);
+    const index = caseList.value.findIndex(
+      (c) => c.id === currentCase.value?.id,
+    );
     if (index !== -1) {
       if (!caseList.value[index].attachments) {
         caseList.value[index].attachments = [];
@@ -236,7 +287,10 @@ const handleUploadAttachments = async () => {
 const handleConfirmApproval = async () => {
   if (!currentCase.value) return;
 
-  if (approvalForm.value.status === 'rejected' && !approvalForm.value.remark.trim()) {
+  if (
+    approvalForm.value.status === 'rejected' &&
+    !approvalForm.value.remark.trim()
+  ) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
   }
@@ -245,15 +299,18 @@ const handleConfirmApproval = async () => {
   try {
     // 执行审批操作
     await approvalApi.approve(currentCase.value.id, {
-      approvalResult: approvalForm.value.status === 'approved' ? 'PASS' : 'FAIL',
+      approvalResult:
+        approvalForm.value.status === 'approved' ? 'PASS' : 'FAIL',
       approvalOpinion: approvalForm.value.remark,
       approverId: 1, // 实际应该从登录信息获取
     });
-    
+
     // 刷新列表
     await loadCases();
-    
-    ElMessage.success(approvalForm.value.status === 'approved' ? '审批通过' : '已驳回');
+
+    ElMessage.success(
+      approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
+    );
     dialogVisible.value = false;
   } catch (error) {
     console.error('审批失败:', error);
@@ -269,12 +326,12 @@ const handlePageChange = (page: number) => {
 };
 
 const getCaseTypeName = (type: string) => {
-  const item = caseTypes.find(t => t.value === type);
+  const item = caseTypes.find((t) => t.value === type);
   return item?.label || type;
 };
 
 const getPriorityInfo = (priority: string) => {
-  const item = priorities.find(p => p.value === priority);
+  const item = priorities.find((p) => p.value === priority);
   return item || { label: priority, type: 'info' as const };
 };
 
@@ -385,7 +442,12 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="status" label="审批状态" width="100" align="center">
+        <ElTableColumn
+          prop="status"
+          label="审批状态"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
             <ElTag :type="statusMap[row.status].type" size="small">
               {{ statusMap[row.status].text }}
@@ -481,7 +543,10 @@ onMounted(() => {
           </div>
           <div class="info-item">
             <span class="info-label">优先级</span>
-            <ElTag :type="getPriorityInfo(currentCase.priority).type" size="small">
+            <ElTag
+              :type="getPriorityInfo(currentCase.priority).type"
+              size="small"
+            >
               {{ getPriorityInfo(currentCase.priority).label }}
             </ElTag>
           </div>
@@ -505,7 +570,7 @@ onMounted(() => {
             <div class="content-box">
               {{ currentCase.description }}
             </div>
-            
+
             <!-- 审批意见 -->
             <div v-if="currentCase.remark" class="remark-section">
               <div class="section-title">审批意见</div>
@@ -515,7 +580,10 @@ onMounted(() => {
             </div>
 
             <!-- 审批操作 -->
-            <div v-if="currentCase.status === 'pending'" class="approval-section">
+            <div
+              v-if="currentCase.status === 'pending'"
+              class="approval-section"
+            >
               <div class="section-title">审批操作</div>
               <ElFormItem label="审批意见" class="approval-form-item">
                 <ElInput
@@ -533,27 +601,65 @@ onMounted(() => {
             <div class="section-title">附件列表</div>
             <div class="attachment-content">
               <!-- 附件列表 -->
-              <div v-if="currentCase.attachments && currentCase.attachments.length > 0" class="attachment-list">
+              <div
+                v-if="
+                  currentCase.attachments && currentCase.attachments.length > 0
+                "
+                class="attachment-list"
+              >
                 <div class="attachment-items">
-                  <div 
-                    v-for="attachment in currentCase.attachments" 
+                  <div
+                    v-for="attachment in currentCase.attachments"
                     :key="attachment.id"
                     class="attachment-item"
                   >
                     <div class="attachment-info">
                       <div class="attachment-icon">
-                        <i v-if="attachment.fileType === 'pdf'" class="i-lucide-file-text"></i>
-                        <i v-else-if="attachment.fileType === 'doc' || attachment.fileType === 'docx'" class="i-lucide-file-word"></i>
-                        <i v-else-if="attachment.fileType === 'xls' || attachment.fileType === 'xlsx'" class="i-lucide-file-excel"></i>
-                        <i v-else-if="attachment.fileType === 'jpg' || attachment.fileType === 'jpeg' || attachment.fileType === 'png'" class="i-lucide-file-image"></i>
+                        <i
+                          v-if="attachment.fileType === 'pdf'"
+                          class="i-lucide-file-text"
+                        ></i>
+                        <i
+                          v-else-if="
+                            attachment.fileType === 'doc' ||
+                            attachment.fileType === 'docx'
+                          "
+                          class="i-lucide-file-word"
+                        ></i>
+                        <i
+                          v-else-if="
+                            attachment.fileType === 'xls' ||
+                            attachment.fileType === 'xlsx'
+                          "
+                          class="i-lucide-file-excel"
+                        ></i>
+                        <i
+                          v-else-if="
+                            attachment.fileType === 'jpg' ||
+                            attachment.fileType === 'jpeg' ||
+                            attachment.fileType === 'png'
+                          "
+                          class="i-lucide-file-image"
+                        ></i>
                         <i v-else class="i-lucide-file"></i>
                       </div>
                       <div class="attachment-details">
-                        <div class="attachment-name">{{ attachment.fileName }}</div>
+                        <div class="attachment-name">
+                          {{ attachment.fileName }}
+                        </div>
                         <div class="attachment-meta">
-                          <span class="attachment-size">{{ (attachment.fileSize / 1024 / 1024).toFixed(2) }} MB</span>
-                          <span class="attachment-uploader">{{ attachment.uploader }}</span>
-                          <span class="attachment-time">{{ attachment.uploadTime }}</span>
+                          <span class="attachment-size"
+                            >{{
+                              (attachment.fileSize / 1024 / 1024).toFixed(2)
+                            }}
+                            MB</span
+                          >
+                          <span class="attachment-uploader">{{
+                            attachment.uploader
+                          }}</span>
+                          <span class="attachment-time">{{
+                            attachment.uploadTime
+                          }}</span>
                         </div>
                       </div>
                     </div>
@@ -572,7 +678,10 @@ onMounted(() => {
               </div>
 
               <!-- 附件上传区域 -->
-              <div v-if="currentCase.status === 'pending'" class="upload-section">
+              <div
+                v-if="currentCase.status === 'pending'"
+                class="upload-section"
+              >
                 <div class="upload-title">上传附件</div>
                 <ElUpload
                   v-model:file-list="fileList"
@@ -588,33 +697,49 @@ onMounted(() => {
                   </ElButton>
                   <template #tip>
                     <div class="upload-tip">
-                      支持上传 PDF、Word、Excel、图片等格式，单个文件不超过 10MB，最多上传 10 个文件
+                      支持上传 PDF、Word、Excel、图片等格式，单个文件不超过
+                      10MB，最多上传 10 个文件
                     </div>
                   </template>
                 </ElUpload>
 
                 <!-- 上传进度 -->
                 <div v-if="uploading" class="upload-progress-container">
-                  <ElProgress :percentage="uploadProgress" :status="uploadProgress === 100 ? 'success' : undefined" />
+                  <ElProgress
+                    :percentage="uploadProgress"
+                    :status="uploadProgress === 100 ? 'success' : undefined"
+                  />
                   <div class="progress-text">
-                    {{ uploadProgress === 100 ? '上传完成' : `正在上传... ${uploadProgress}%` }}
+                    {{
+                      uploadProgress === 100
+                        ? '上传完成'
+                        : `正在上传... ${uploadProgress}%`
+                    }}
                   </div>
                 </div>
 
                 <!-- 已选择文件列表 -->
                 <div v-if="fileList.length > 0" class="selected-files">
-                  <div class="selected-files-title">已选择 {{ fileList.length }} 个文件</div>
+                  <div class="selected-files-title">
+                    已选择 {{ fileList.length }} 个文件
+                  </div>
                   <div class="selected-file-items">
-                    <div v-for="(file, index) in fileList" :key="index" class="selected-file-item">
+                    <div
+                      v-for="(file, index) in fileList"
+                      :key="index"
+                      class="selected-file-item"
+                    >
                       <div class="file-info">
                         <i class="i-lucide-file-text mr-2"></i>
                         <span class="file-name">{{ file.name }}</span>
-                        <span class="file-size">({{ (file.size / 1024 / 1024).toFixed(2) }} MB)</span>
+                        <span class="file-size"
+                          >({{ (file.size / 1024 / 1024).toFixed(2) }} MB)</span
+                        >
                       </div>
-                      <ElButton 
-                        type="danger" 
-                        size="small" 
-                        link 
+                      <ElButton
+                        type="danger"
+                        size="small"
+                        link
                         @click="fileList.splice(index, 1)"
                       >
                         <i class="i-lucide-trash-2"></i>
@@ -623,17 +748,17 @@ onMounted(() => {
                   </div>
 
                   <div class="upload-actions">
-                    <ElButton 
-                      type="success" 
-                      :loading="uploading" 
+                    <ElButton
+                      type="success"
+                      :loading="uploading"
                       @click="handleUploadAttachments"
                       :disabled="fileList.length === 0"
                     >
                       <i class="i-lucide-upload-cloud mr-1"></i>
                       开始上传
                     </ElButton>
-                    <ElButton 
-                      @click="fileList = []" 
+                    <ElButton
+                      @click="fileList = []"
                       :disabled="fileList.length === 0 || uploading"
                     >
                       清空选择
@@ -651,7 +776,10 @@ onMounted(() => {
         <ElButton
           type="success"
           :loading="loading"
-          @click="approvalForm.status = 'approved'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'approved';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-check mr-1"></i>
           通过
@@ -659,7 +787,10 @@ onMounted(() => {
         <ElButton
           type="danger"
           :loading="loading"
-          @click="approvalForm.status = 'rejected'; handleConfirmApproval()"
+          @click="
+            approvalForm.status = 'rejected';
+            handleConfirmApproval();
+          "
         >
           <i class="i-lucide-x mr-1"></i>
           驳回
@@ -1013,6 +1144,4 @@ onMounted(() => {
 :deep(.el-button + .el-button) {
   margin-left: 8px;
 }
-
-
 </style>

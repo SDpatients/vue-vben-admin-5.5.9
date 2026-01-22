@@ -5,7 +5,6 @@ import { Icon } from '@iconify/vue';
 import { ElButton, ElCard, ElTabPane, ElTabs } from 'element-plus';
 
 import ClaimRegistrationStageOne from './ClaimRegistrationStageOne.vue';
-import ClaimRegistrationStageThree from './ClaimRegistrationStageThree.vue';
 import ClaimRegistrationStageTwo from './ClaimRegistrationStageTwo.vue';
 
 const props = defineProps<{
@@ -69,15 +68,7 @@ const handleTabChange = (tabName: string) => {
           <ClaimRegistrationStageTwo :case-id="caseId" />
         </ElTabPane>
 
-        <ElTabPane label="债权确认" name="stage3">
-          <template #label>
-            <div class="tab-label">
-              <Icon icon="lucide:file-check" class="mr-1" />
-              债权确认
-            </div>
-          </template>
-          <ClaimRegistrationStageThree :case-id="caseId" />
-        </ElTabPane>
+
       </ElTabs>
     </ElCard>
   </div>
