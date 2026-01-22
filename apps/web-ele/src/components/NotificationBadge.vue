@@ -47,7 +47,8 @@ const loadDynamicCount = async () => {
     }
     // 调用新的未读通知接口
     const res = await notificationApi.getUnreadNotifications(Number(userId));
-    dynamicCount.value = res.data?.length || 0;
+    // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
+    dynamicCount.value = res?.length || 0;
   } catch (error) {
     console.error('加载最新动态数量失败:', error);
     dynamicCount.value = 0;
@@ -76,35 +77,16 @@ const formatTime = (time: string) => {
 // 加载待审核数据
 const loadPendingApprovals = async () => {
   try {
-    // 移除了对getPendingApprovals接口的调用，直接使用模拟数据
-    pendingApprovals.value = [
-      {
-        id: 1,
-        approvalNo: 'SP2023001',
-        title: '案件审核请求',
-        type: 'CASE',
-        applicantId: 1,
-        applicantName: '用户1',
-        approverId: 2,
-        approverName: '管理员',
-        status: 'PENDING',
-        applyTime: new Date().toISOString(),
-        description: '请审核该案件',
-      },
-      {
-        id: 2,
-        approvalNo: 'SP2023002',
-        title: '文书审核请求',
-        type: 'DOCUMENT',
-        applicantId: 3,
-        applicantName: '用户2',
-        approverId: 2,
-        approverName: '管理员',
-        status: 'PENDING',
-        applyTime: new Date(Date.now() - 3_600_000).toISOString(),
-        description: '请审核该文书',
-      },
-    ];
+    // 调用待审核API接口
+    const res = await approvalApi.getApprovalList({
+      pageNum: 1,
+      pageSize: 10,
+      approvalStatus: 'PENDING',
+      approvalType: ''
+    });
+    // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
+    // API返回的数据格式为 { total: number, list: Approval[] }
+    pendingApprovals.value = res?.list || [];
   } catch (error) {
     console.error('加载待审核失败:', error);
     pendingApprovals.value = [];

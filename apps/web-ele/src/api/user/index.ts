@@ -1,4 +1,4 @@
-import { chatRequestClient } from '#/api/request';
+import { requestClient } from '#/api/request';
 
 export interface User {
   id: number;
@@ -64,7 +64,7 @@ export async function getAllUsers(params?: {
     status: params?.status,
   };
 
-  return chatRequestClient.get<UserListResponse>('/users', {
+  return requestClient.get<UserListResponse>('/api/v1/users', {
     params: queryParams,
   });
 }

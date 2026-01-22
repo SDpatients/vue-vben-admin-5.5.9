@@ -421,7 +421,7 @@ const getCaseList = async (query = '') => {
   try {
     const response = await getCaseSimpleListApi({
       page: 1,
-      size: 10,
+      size: 10000,
       caseNumber: query,
     });
 

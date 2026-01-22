@@ -77,6 +77,7 @@ export namespace CreditorApi {
     idNumber?: string;
     legalRepresentative?: string;
     registeredCapital?: number;
+    creditorId?: number;
   }
 
   /** 更新债权人响应 */

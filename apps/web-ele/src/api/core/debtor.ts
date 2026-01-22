@@ -88,6 +88,11 @@ export namespace DebtorApi {
     businessScope?: string;
     industry?: string;
     registeredAddress?: string;
+    unifiedSocialCreditCode?: string;
+    establishmentDate?: string;
+    registrationAuthority?: string;
+    enterpriseType?: string;
+    status?: string;
   }
 
   /** 更新债务人响应 */

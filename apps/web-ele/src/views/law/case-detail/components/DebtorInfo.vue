@@ -68,6 +68,11 @@ const editForm = reactive({
   businessScope: '',
   industry: '',
   registeredAddress: '',
+  unifiedSocialCreditCode: '',
+  establishmentDate: '',
+  registrationAuthority: '',
+  enterpriseType: '',
+  status: '',
 });
 
 const enterpriseTypeOptions = [
@@ -210,6 +215,11 @@ const openEditDialog = (row: any) => {
   editForm.businessScope = row.businessScope;
   editForm.industry = row.industry;
   editForm.registeredAddress = row.registeredAddress;
+  editForm.unifiedSocialCreditCode = row.unifiedSocialCreditCode;
+  editForm.establishmentDate = row.establishmentDate;
+  editForm.registrationAuthority = row.registrationAuthority;
+  editForm.enterpriseType = row.enterpriseType;
+  editForm.status = row.status;
   showEditDialog.value = true;
 };
 
@@ -226,6 +236,11 @@ const resetEditForm = () => {
   editForm.businessScope = '';
   editForm.industry = '';
   editForm.registeredAddress = '';
+  editForm.unifiedSocialCreditCode = '';
+  editForm.establishmentDate = '';
+  editForm.registrationAuthority = '';
+  editForm.enterpriseType = '';
+  editForm.status = '';
   currentEditId.value = null;
 };
 
@@ -249,6 +264,11 @@ const handleEdit = async () => {
       businessScope: editForm.businessScope,
       industry: editForm.industry,
       registeredAddress: editForm.registeredAddress,
+      unifiedSocialCreditCode: editForm.unifiedSocialCreditCode,
+      establishmentDate: editForm.establishmentDate,
+      registrationAuthority: editForm.registrationAuthority,
+      enterpriseType: editForm.enterpriseType,
+      status: editForm.status,
     });
     if (response.code === 200) {
       ElMessage.success('更新成功');

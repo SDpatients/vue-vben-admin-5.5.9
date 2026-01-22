@@ -421,6 +421,8 @@
 {
   "fullName": "北京市第一中级人民法院（更新）",
   "shortName": "北京一中院（更新）",
+  "courtLevel": "中级人民法院（更新）",
+  "address": "北京市朝阳区建国路88号",
   "contactPhone": "010-12345679",
   "undertakingJudge": "张法官（更新）"
 }

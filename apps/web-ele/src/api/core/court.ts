@@ -70,6 +70,8 @@ export interface CreateCourtRequest {
 export interface UpdateCourtRequest {
   fullName?: string; // 法院全称
   shortName?: string; // 法院简称
+  courtLevel?: string; // 法院级别
+  address?: string; // 地址
   contactPhone?: string; // 联系电话
   undertakingJudge?: string; // 承办法官
 }

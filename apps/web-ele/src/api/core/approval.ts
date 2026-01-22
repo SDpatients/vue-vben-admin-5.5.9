@@ -39,6 +39,9 @@ export interface CaseApproval {
   attachments?: Attachment[];
 }
 
+// 添加Approval类型作为CaseApproval的别名，用于兼容现有组件
+export type Approval = CaseApproval;
+
 export interface ApprovalOperationDTO {
   approvalResult: string;
   approvalOpinion: string;
