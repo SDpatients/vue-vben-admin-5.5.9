@@ -635,19 +635,20 @@ const handleDeleteSubmit = async (id: number) => {
         <ElTableColumn label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <ElButton
-              type="primary"
               size="small"
+              text
               @click="handleEditCreditor(row)"
-              class="mr-2"
+              class="text-primary"
             >
               <i class="i-lucide-edit mr-1"></i>
               编辑
             </ElButton>
             <ElButton
-              type="danger"
               size="small"
+              text
               @click="handleDeleteCreditor(row)"
               :loading="deleteFormLoading"
+              class="text-danger ml-2"
             >
               <i class="i-lucide-trash-2 mr-1"></i>
               删除

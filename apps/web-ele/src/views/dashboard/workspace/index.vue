@@ -33,6 +33,7 @@ import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
 import { todoApi } from '#/api/core/todo';
 import { fileUploadRequestClient } from '#/api/request';
 import TodoList from '#/components/TodoList.vue';
+import ActivityTimeline from '#/components/ActivityTimeline.vue';
 
 const userStore = useUserStore();
 const router = useRouter();
@@ -423,10 +424,10 @@ const loadTodoItems = async () => {
   }
 };
 
-// 判断用户是否为管理员
-const isAdmin = computed(() => {
+// 判断用户是否为管理员或超级管理员
+const isAdminOrSuperAdmin = computed(() => {
   const roles = userStore.userRoles || [];
-  return roles.includes('ADMIN') || roles.includes('admin');
+  return roles.includes('管理员') || roles.includes('超级管理员');
 });
 
 // 加载案件列表
@@ -444,7 +445,7 @@ const loadCaseList = async () => {
     let res;
 
     // 管理员查看所有案件，律师只查看自己的案件
-    if (isAdmin.value) {
+    if (isAdminOrSuperAdmin.value) {
       console.log('[loadCaseList] 管理员查看所有案件');
       res = await getCaseListApi({
         pageNum: currentPage.value,
@@ -468,7 +469,7 @@ const loadCaseList = async () => {
     totalCases.value = res.data?.total || 0;
 
     // 更新案件统计（获取所有状态的案件总数）
-    if (isAdmin.value) {
+    if (isAdminOrSuperAdmin.value) {
       const allCasesRes = await getCaseListApi({
         pageNum: 1,
         pageSize: 9999,
@@ -816,7 +817,13 @@ onMounted(() => {
           <div class="flex gap-5" style="height: 550px">
             <!-- 待办事项管理板块 - 宽度减少160px -->
             <div class="min-w-0 flex-1" style="flex: 1 1 calc(66.666% - 160px)">
+              <div v-if="isAdminOrSuperAdmin" class="mb-5" style="height: 100%">
+                <AnalysisChartCard title="最新动态" style="height: 100%">
+                  <ActivityTimeline @update:count="(count) => { todoCount = count; todoTotal = count; }" />
+                </AnalysisChartCard>
+              </div>
               <TodoList
+                v-else
                 class="mb-5"
                 title="待办事项管理"
                 style="height: 100%"
@@ -833,7 +840,7 @@ onMounted(() => {
                 <div
                   v-loading="announcementLoading"
                   class="announcement-list"
-                  style="height: calc(100% - 72px); overflow-y: auto"
+                  style="height: 450px; overflow-y: auto; padding-right: 8px;"
                 >
                   <div v-if="announcements.length > 0" class="space-y-3">
                     <div
@@ -1557,29 +1564,49 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-/* 滚动条样式 */
-.announcement-list::-webkit-scrollbar,
-.todo-items::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.announcement-list::-webkit-scrollbar-track,
-.todo-items::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
-.announcement-list::-webkit-scrollbar-thumb,
-.todo-items::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background: #c1c1c1;
-  border-radius: 3px;
+  border-radius: 4px;
   transition: all 0.3s;
 }
 
-.announcement-list::-webkit-scrollbar-thumb:hover,
-.todo-items::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* Element Plus 滚动条样式 */
+:deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+
+:deep(.el-scrollbar__bar.is-vertical) {
+  width: 8px !important;
+  right: 2px !important;
+}
+
+:deep(.el-scrollbar__thumb) {
+  background-color: #c1c1c1 !important;
+  border-radius: 4px !important;
+}
+
+:deep(.el-scrollbar__thumb:hover) {
+  background-color: #a8a8a8 !important;
+}
+
+:deep(.el-scrollbar__bar.is-horizontal) {
+  height: 8px !important;
+  bottom: 2px !important;
 }
 
 /* 清理不需要的样式 */

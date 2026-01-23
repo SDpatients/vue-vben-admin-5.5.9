@@ -222,7 +222,7 @@ onMounted(() => {
       </ElSelect>
     </div>
     <div class="todo-items">
-      <ElScrollbar :max-height="'calc(100% - 0px)'">
+      <ElScrollbar :max-height="'500px'">
         <div v-loading="loading">
           <div
             v-for="item in todos"
@@ -351,6 +351,7 @@ onMounted(() => {
   padding: 20px;
   background: #fff;
   border-radius: 8px;
+  height: 100%; /* 确保组件占满父容器高度 */
 }
 
 .todo-header {
@@ -473,5 +474,29 @@ onMounted(() => {
 .todo-actions {
   display: flex;
   gap: 4px;
+}
+
+/* 滚动条样式 */
+:deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+
+:deep(.el-scrollbar__bar.is-vertical) {
+  width: 8px !important;
+  right: 2px !important;
+}
+
+:deep(.el-scrollbar__thumb) {
+  background-color: #c1c1c1 !important;
+  border-radius: 4px !important;
+}
+
+:deep(.el-scrollbar__thumb:hover) {
+  background-color: #a8a8a8 !important;
+}
+
+:deep(.el-scrollbar__bar.is-horizontal) {
+  height: 8px !important;
+  bottom: 2px !important;
 }
 </style>

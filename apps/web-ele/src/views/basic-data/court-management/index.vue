@@ -255,9 +255,6 @@ const addRules = reactive({
 const editRules = reactive({
   FYQC: [{ required: true, message: '请输入法院全称', trigger: 'blur' }],
   FYJC: [{ required: true, message: '请输入法院简称', trigger: 'blur' }],
-  FYJB: [
-    { required: true, message: '请选择法院级别', trigger: ['blur', 'change'] },
-  ],
 });
 
 // 新增法院
@@ -541,11 +538,11 @@ onUnmounted(() => {
         />
         <ElTableColumn label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
-            <ElButton type="primary" size="small" @click="handleEdit(row)">
+            <ElButton size="small" text @click="handleEdit(row)" class="text-primary">
               <i class="i-lucide-edit mr-1"></i>
               编辑
             </ElButton>
-            <ElButton type="danger" size="small" @click="handleDelete(row)">
+            <ElButton size="small" text @click="handleDelete(row)" class="text-danger ml-2">
               <i class="i-lucide-trash-2 mr-1"></i>
               删除
             </ElButton>
@@ -637,6 +634,7 @@ onUnmounted(() => {
               v-model="editCourtForm.FYJB"
               placeholder="请选择法院级别"
               clearable
+              :disabled="true"
             >
               <ElOption
                 v-for="option in courtLevelOptions"
