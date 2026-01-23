@@ -209,9 +209,10 @@ const fetchCaseList = async () => {
         // 映射案件状态
         const caseStatusMap: Record<string, string> = {
           PENDING: '待处理',
-          ONGOING: '进行中',
+          ONGOING: '在办',
+          AWAITING: '报结',
           IN_PROGRESS: '进行中',
-          COMPLETED: '已完成',
+          COMPLETED: '已结',
           CLOSED: '已结案',
           TERMINATED: '已终结',
           ARCHIVED: '已归档',
@@ -394,10 +395,13 @@ const getCaseProgressType = (progress: string) => {
 const getCaseStatusType = (status: string) => {
   switch (status) {
     case 'ONGOING':
-    case '进行中': {
+    case '进行中':
+    case '在办': {
       return 'primary';
     }
-    case '已完成': {
+    case '已完成':
+    case 'COMPLETED':
+    case '已结': {
       return 'success';
     }
     case '已归档': {
@@ -411,6 +415,10 @@ const getCaseStatusType = (status: string) => {
     }
     case '待处理': {
       return 'info';
+    }
+    case 'AWAITING':
+    case '报结': {
+      return 'warning';
     }
     default: {
       return 'info';
@@ -632,7 +640,7 @@ const cancelDelete = () => {
       <!-- 标签页切换 -->
       <ElTabs v-model="activeTab" @tab-change="handleTabChange" class="mb-4">
         <ElTabPane label="我的案件" name="myCases">
-          <span class="text-sm text-gray-500">仅显示您创建的案件</span>
+          <span class="text-sm text-gray-500">仅显示您的案件</span>
         </ElTabPane>
         <ElTabPane v-if="showAllCasesTab" label="全部案件" name="allCases">
           <span class="text-sm text-gray-500">显示所有有权限访问的案件</span>

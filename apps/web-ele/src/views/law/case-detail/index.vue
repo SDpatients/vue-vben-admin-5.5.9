@@ -2147,9 +2147,9 @@ const getCaseStatusStyle = (status: string) => {
 
 const getCaseStatusTagType = (status: string) => {
   const typeMap: Record<string, any> = {
-    在办: 'primary',
-    报结: 'warning',
-    已结: 'success',
+    '在办': 'success',
+    '报结': 'warning',
+    '已结': 'success',
   };
   return typeMap[status] || 'info';
 };
@@ -3270,7 +3270,7 @@ const checkPermissions = async () => {
                   </ElTag>
                   <ElTag
                     v-if="caseDetail?.管理人负责人"
-                    type="info"
+                    type="success"
                     class="ml-3"
                     size="small"
                   >
@@ -4441,8 +4441,8 @@ const checkPermissions = async () => {
                           <ElButton
                             size="small"
                             @click="handleEditMember(row)"
-                            type="primary"
-                            plain
+                            text
+                            class="text-primary"
                           >
                             <Icon icon="lucide:pencil" class="mr-1" />
                             编辑
@@ -4454,9 +4454,8 @@ const checkPermissions = async () => {
                             <template #reference>
                               <ElButton
                                 size="small"
-                                type="danger"
-                                plain
-                                style="margin-left: 8px"
+                                text
+                                class="text-danger ml-2"
                               >
                                 <Icon icon="lucide:trash-2" class="mr-1" />
                                 移除

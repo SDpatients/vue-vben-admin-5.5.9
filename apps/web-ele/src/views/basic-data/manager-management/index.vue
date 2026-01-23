@@ -477,16 +477,14 @@ onMounted(() => {
         </ElTableColumn>
         <ElTableColumn label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <div class="operation-buttons">
-              <ElButton type="primary" size="small" @click="handleEdit(row)">
+              <ElButton size="small" text @click="handleEdit(row)" class="text-primary">
                 <i class="i-lucide-pencil mr-1"></i>
                 编辑
               </ElButton>
-              <ElButton type="danger" size="small" @click="handleDelete(row)">
+              <ElButton size="small" text @click="handleDelete(row)" class="text-danger ml-2">
                 <i class="i-lucide-trash-2 mr-1"></i>
                 删除
               </ElButton>
-            </div>
           </template>
         </ElTableColumn>
       </ElTable>

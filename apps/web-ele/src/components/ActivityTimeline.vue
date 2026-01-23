@@ -120,28 +120,30 @@ defineExpose({
         <span class="mark-all-known" @click="markAllAsKnown">全部知晓</span>
       </div>
     </div>
-    <div class="activity-list">
-      <div v-loading="loading">
-        <div
-          v-for="(item, index) in activities"
-          :key="item.id"
-          class="activity-item"
-        >
-          <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-            <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
-          </div>
-          <div class="activity-content-wrapper">
-            <div class="activity-user">{{ item.title }}</div>
-            <div class="activity-content">{{ item.content }}</div>
-            <div class="activity-footer-row">
-              <div class="activity-time">{{ formatTime(item.createTime) }}</div>
-              <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
+    <div class="activity-list-wrapper">
+      <ElScrollbar :max-height="'450px'">
+        <div v-loading="loading" class="activity-list">
+          <div
+            v-for="(item, index) in activities"
+            :key="item.id"
+            class="activity-item"
+          >
+            <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
+              <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
             </div>
+            <div class="activity-content-wrapper">
+              <div class="activity-user">{{ item.title }}</div>
+              <div class="activity-content">{{ item.content }}</div>
+              <div class="activity-footer-row">
+                <div class="activity-time">{{ formatTime(item.createTime) }}</div>
+                <ElButton size="small" type="danger" text @click="markAsKnown(item.id)">我已知晓</ElButton>
+              </div>
+            </div>
+            <div v-if="index < activities.length - 1" class="activity-line" />
           </div>
-          <div v-if="index < activities.length - 1" class="activity-line" />
+          <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
         </div>
-        <ElEmpty v-if="activities.length === 0 && !loading" description="暂无动态" />
-      </div>
+      </ElScrollbar>
     </div>
   </div>
 </template>
@@ -153,6 +155,7 @@ defineExpose({
   padding: 12px;
   background: #fff;
   border-radius: 8px;
+  height: 100%; /* 确保组件占满父容器高度 */
 }
 
 /* 表头 */
@@ -191,6 +194,13 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   margin-top: 4px;
+}
+
+/* 列表容器 */
+.activity-list-wrapper {
+  flex: 1;
+  height: calc(100% - 50px); /* 固定高度，减去header高度 */
+  overflow: hidden;
 }
 
 /* 列表区域 */
@@ -262,5 +272,29 @@ defineExpose({
   left: 27px;
   width: 2px;
   background-color: #f0f0f0;
+}
+
+/* 滚动条样式 */
+:deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+
+:deep(.el-scrollbar__bar.is-vertical) {
+  width: 8px !important;
+  right: 2px !important;
+}
+
+:deep(.el-scrollbar__thumb) {
+  background-color: #c1c1c1 !important;
+  border-radius: 4px !important;
+}
+
+:deep(.el-scrollbar__thumb:hover) {
+  background-color: #a8a8a8 !important;
+}
+
+:deep(.el-scrollbar__bar.is-horizontal) {
+  height: 8px !important;
+  bottom: 2px !important;
 }
 </style>
