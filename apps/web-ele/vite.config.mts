@@ -15,6 +15,7 @@ export default defineConfig(async (): Promise<any> => {
       ],
       server: {
         port: 5779,
+        allowedHosts: ['y2263547451.gnway.cc'],
         proxy: {
           '/api': {
             changeOrigin: true,

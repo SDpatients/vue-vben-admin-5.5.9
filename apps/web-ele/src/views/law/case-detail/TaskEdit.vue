@@ -5,7 +5,6 @@ import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElDatePicker,
-  ElDialog,
   ElEmpty,
   ElForm,
   ElFormItem,
@@ -98,12 +97,6 @@ interface Emits {
   (e: 'close'): void;
   (e: 'saved'): void;
 }
-
-console.log('[组件] TaskEdit组件已加载');
-console.log('[组件] caseId:', props.caseId);
-console.log('[组件] taskType:', props.taskType);
-console.log('[组件] mode:', props.mode);
-console.log('[组件] taskData:', props.taskData);
 
 const loading = ref(false);
 const formRef = ref();
@@ -1512,26 +1505,13 @@ const camelCaseToLowerCaseMap: Record<string, Record<string, string>> = {
 };
 
 const loadFileList = async () => {
-  console.log('[文件列表] loadFileList开始执行');
-  console.log('[文件列表] taskData:', props.taskData);
-  console.log('[文件列表] caseId:', props.caseId);
-  
-  // 安全获取sepId
+  fileListLoading.value = true;
+
   const sepId = props.taskData?.sepId || props.taskData?.SEP_ID;
-  console.log('[文件列表] sepId:', sepId);
 
   if (!sepId) {
-    console.log('[文件列表] sepId不存在，跳过加载');
     return;
   }
-
-  fileListLoading.value = true;
-  console.log('[文件列表] 调用getProcessFileListApi...');
-  console.log('[文件列表] 参数:', {
-    taskType: props.taskType,
-    taskId: sepId,
-    caseId: props.caseId,
-  });
 
   try {
     const response = await getProcessFileListApi({
@@ -1539,52 +1519,45 @@ const loadFileList = async () => {
       taskId: sepId,
       caseId: props.caseId,
     });
-    console.log('[文件列表] API响应:', response);
 
-    if (response.status === '1' && Array.isArray(response.data)) {
-      console.log('[文件列表] 响应数据:', response.data);
-      console.log('[文件列表] 文件数量:', response.data.length);
-      fileList.value = response.data.map((record: any) => ({
-        uid: record.id,
-        name: record.originalFileName || '未知文件名',
-        fileId: record.id,
-        fileName: record.originalFileName || '未知文件名',
-        fileSize: record.fileSize || 0,
-        fileType: record.mimeType || '',
-        uploadUser: record.uploadUser || '未知用户',
-        uploadDate: record.uploadTime
-          ? new Date(record.uploadTime)
-          : new Date(),
-        status: 'success',
-        response: record,
-      }));
-      console.log('[文件列表] 加载后的fileList:', fileList.value);
-    } else {
-      console.log('[文件列表] API返回失败状态:', response.msg);
-      fileList.value = [];
-    }
+    fileList.value =
+      response.status === '1' && Array.isArray(response.data)
+        ? response.data.map((record: any) => ({
+            uid: record.id,
+            name: record.originalFileName || '未知文件名',
+            fileId: record.id,
+            fileName: record.originalFileName || '未知文件名',
+            fileSize: record.fileSize || 0,
+            fileType: record.mimeType || '',
+            uploadUser: record.uploadUser || '未知用户',
+            uploadDate: record.uploadTime
+              ? new Date(record.uploadTime)
+              : new Date(),
+            status: 'success',
+            response: record,
+          }))
+        : [];
   } catch (error) {
     console.error('加载文件列表失败:', error);
     ElMessage.error('加载文件列表失败');
     fileList.value = [];
   } finally {
     fileListLoading.value = false;
-    console.log('[文件列表] loadFileList执行完成');
   }
 };
 
 const initFormData = () => {
   // 清空表单数据
   Object.keys(formData).forEach((key) => delete formData[key]);
-  
+
   // 重置文件列表和激活标签
   activeTab.value = 'upload';
   fileList.value = [];
-  
+
   // 只有当taskData存在时才进行数据映射
   if (props.taskData && typeof props.taskData === 'object') {
     const mappedData: any = {};
-    
+
     // 安全遍历taskData的键
     Object.keys(props.taskData).forEach((key) => {
       // 获取当前任务类型的字段映射
@@ -1605,7 +1578,7 @@ const initFormData = () => {
         mappedData[key] = props.taskData[key];
       }
     });
-    
+
     Object.assign(formData, mappedData);
     loadFileList();
   } else if (props.mode === 'add') {
@@ -1618,44 +1591,27 @@ const initFormData = () => {
       }
     });
   }
-  
-  console.log('[初始化] 弹窗已打开，任务数据:', props.taskData);
-  console.log('[初始化] 任务ID (sepId):', props.taskData?.sepId);
-  console.log('[初始化] 业务类型 (taskType):', props.taskType);
-  console.log('[初始化] 案件ID (caseId):', props.caseId);
 };
 
 watch(() => props.taskData, initFormData, { immediate: true });
 
 const handleClose = () => {
-  console.log('[关闭] 弹窗已关闭');
   emit('close');
 };
 
 const handleUpload = async (options: any) => {
-  console.log('[上传] handleUpload收到参数:', options);
-  console.log('[上传] 参数类型:', typeof options);
-  console.log('[上传] 是否为File对象:', options instanceof File);
-
-  // 判断传入的是File对象还是包含raw属性的对象
   let rawFile: File | undefined;
   let fileName = '';
 
   if (options instanceof File) {
-    // 从 :before-upload 调用，传入的是直接的 File 对象
     rawFile = options;
     fileName = options.name;
-    console.log('[上传] 从:before-upload调用，rawFile:', rawFile);
   } else if (options.raw && options.raw instanceof File) {
-    // 从 :on-change 调用，传入的是包含 raw 属性的对象
     rawFile = options.raw;
     fileName = options.name || options.raw.name;
-    console.log('[上传] 从:on-change调用，rawFile:', rawFile);
   } else if (options.file && options.file instanceof File) {
-    // 另一种可能的调用方式
     rawFile = options.file;
     fileName = options.name || options.file.name;
-    console.log('[上传] 从其他方式调用，rawFile:', rawFile);
   }
 
   if (!rawFile) {
@@ -1666,8 +1622,6 @@ const handleUpload = async (options: any) => {
 
   uploadLoading.value = true;
   uploadProgress.value = 0;
-  console.log('[上传] 开始上传文件:', fileName);
-  console.log('[上传] 任务ID (sepId):', props.taskData?.sepId);
 
   if (!props.taskData?.sepId) {
     ElMessage.warning('请先保存任务信息，再上传文件');
@@ -1676,18 +1630,15 @@ const handleUpload = async (options: any) => {
   }
 
   try {
-    console.log('[上传] 调用上传API...');
     const response = await uploadProcessFileApi({
       taskId: props.taskData.sepId,
       file: rawFile,
       caseId: props.caseId,
       taskType: props.taskType,
     });
-    console.log('[上传] API响应:', response);
 
     if (response.status === '1') {
       const fileData = response.data;
-      console.log('[上传] 文件数据:', fileData);
       fileList.value.push({
         uid: fileData.id,
         name: fileData.originalFileName,
@@ -1703,7 +1654,6 @@ const handleUpload = async (options: any) => {
         response: fileData,
       });
       ElMessage.success('文件上传成功');
-      console.log('[上传] 文件列表:', fileList.value);
     } else {
       ElMessage.error(response.error || response.msg || '文件上传失败');
       return false;
@@ -1724,14 +1674,8 @@ const handleUpload = async (options: any) => {
   return false; // 阻止默认上传行为，使用自定义上传
 };
 
-// 处理文件选择后的变化（auto-upload="false"时使用）
-const handleFileChange = async (fileObj: any) => {
-  console.log('[上传] 文件选择变化:', fileObj);
-  console.log('[上传] fileObj.status:', fileObj.status);
-  console.log('[上传] fileObj.raw:', fileObj.raw);
+const handleFileChange = (fileObj: any) => {
   if (fileObj.status === 'ready' && fileObj.raw) {
-    console.log('[上传] 开始上传文件:', fileObj.name);
-    // 传入包含 raw 属性的对象
     await handleUpload({
       raw: fileObj.raw,
       name: fileObj.name,
@@ -1740,17 +1684,14 @@ const handleFileChange = async (fileObj: any) => {
 };
 
 const handleRemove = async (file: any) => {
-  console.log('[删除] 开始删除文件:', file);
   try {
     const response = await deleteProcessFileApi({
       fileId: file.fileId,
       caseId: props.caseId,
     });
-    console.log('[删除] API响应:', response);
     if (response.status === '1') {
       fileList.value = fileList.value.filter((item) => item.uid !== file.uid);
       ElMessage.success('文件删除成功');
-      console.log('[删除] 文件删除成功');
     } else {
       ElMessage.error(`文件删除失败：${response.msg || '未知错误'}`);
     }
@@ -1761,10 +1702,8 @@ const handleRemove = async (file: any) => {
 };
 
 const handleDownload = async (file: any) => {
-  console.log('[下载] 开始下载文件:', file);
   try {
     const blob = await downloadProcessFileApi(file.fileId);
-    console.log('[下载] 获取文件Blob成功');
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1774,7 +1713,6 @@ const handleDownload = async (file: any) => {
     link.remove();
     window.URL.revokeObjectURL(url);
     ElMessage.success('文件下载成功');
-    console.log('[下载] 文件下载成功');
   } catch (error) {
     console.error('文件下载失败:', error);
     ElMessage.error('文件下载失败');
@@ -1782,17 +1720,6 @@ const handleDownload = async (file: any) => {
 };
 
 const handleSave = async () => {
-  console.log('========== 任务保存开始 ==========');
-  console.log('[保存] 模式:', props.mode);
-  console.log('[保存] 任务数据:', props.taskData);
-  console.log('[保存] 文件列表:', fileList.value);
-  console.log(
-    '[保存] 待上传文件数:',
-    fileList.value.filter(
-      (f: any) => f.status === 'pending' || f.response?.id === undefined,
-    ).length,
-  );
-
   if (isReadOnly.value) {
     handleClose();
     return;
@@ -1820,7 +1747,6 @@ const handleSave = async () => {
 
     const sep_adate = new Date().toISOString().split('T')[0];
 
-    // 第一阶段任务类型
     const isFirstStage = [
       'legalProcedure',
       'management',
@@ -1901,9 +1827,7 @@ const handleSave = async () => {
         ...(props.mode === 'edit' && formData),
       };
 
-      console.log(`[保存] 第二阶段${props.mode}操作，参数:`, secondStageData);
       const response = await update2Api(secondStageData);
-      console.log(`[保存] 第二阶段${props.mode}操作API响应:`, response);
 
       const isSuccess = response.code === 200 || response.status === '1';
       if (isSuccess) {
@@ -1923,9 +1847,6 @@ const handleSave = async () => {
 
     switch (props.mode) {
       case 'add': {
-        console.log('[保存] 开始新增任务...');
-
-        // 第七阶段任务类型
         const isSeventhStage = [
           'accountClosing',
           'accountSealManagement',
@@ -2000,14 +1921,10 @@ const handleSave = async () => {
           });
         }
 
-        console.log('[保存] 调用新增API，参数:', allFields);
         const response = await currentConfig.value.addApi(allFields);
-        console.log('[保存] 新增API响应:', response);
 
-        // 适配新的API响应格式
         const isSuccess = response.code === 200 || response.status === '1';
         if (isSuccess) {
-          console.log('[保存] 新增成功');
           emit('saved');
         } else {
           ElMessage.error(`添加失败：${response.message || response.error}`);
@@ -2016,7 +1933,6 @@ const handleSave = async () => {
         break;
       }
       case 'complete': {
-        console.log('[保存] 开始标记完成...');
         const updateData = {
           sepEuser: sep_auser,
           sepEdate: sep_adate,
@@ -2032,7 +1948,6 @@ const handleSave = async () => {
           }),
         };
 
-        console.log('[保存] 调用完成API，参数:', updateData);
         const response = isSixthStage
           ? await update6Api(updateData)
           : isFourthFifthStage
@@ -2044,7 +1959,6 @@ const handleSave = async () => {
                 : isFirstStage && currentConfig.value.updateApi
                   ? await currentConfig.value.updateApi(updateData)
                   : await unifiedTaskOperationApi(updateData);
-        console.log('[保存] 完成任务API响应:', response);
 
         const isSuccess = response.code === 200 || response.status === '1';
         if (isSuccess) {
@@ -2057,9 +1971,6 @@ const handleSave = async () => {
         break;
       }
       case 'edit': {
-        console.log('[保存] 开始编辑任务...');
-
-        // 获取当前任务类型的字段映射（小写到大写）
         const fieldMap = fieldNameMap[props.taskType];
         const reverseMap: Record<string, string> = {};
         if (fieldMap) {
@@ -2091,7 +2002,6 @@ const handleSave = async () => {
           }),
         };
 
-        console.log('[保存] 调用编辑API，参数:', updateData);
         const response = isSixthStage
           ? await update6Api(updateData)
           : isFourthFifthStage
@@ -2103,7 +2013,6 @@ const handleSave = async () => {
                 : isFirstStage && currentConfig.value.updateApi
                   ? await currentConfig.value.updateApi(updateData)
                   : await unifiedTaskOperationApi(updateData);
-        console.log('[保存] 编辑API响应:', response);
 
         const isSuccess = response.code === 200 || response.status === '1';
         if (isSuccess) {
@@ -2116,7 +2025,6 @@ const handleSave = async () => {
         break;
       }
       case 'skip': {
-        console.log('[保存] 开始标记跳过...');
         const updateData = {
           sepEuser: sep_auser,
           sepEdate: sep_adate,
@@ -2132,7 +2040,6 @@ const handleSave = async () => {
           }),
         };
 
-        console.log('[保存] 调用跳过API，参数:', updateData);
         const response = isSixthStage
           ? await update6Api(updateData)
           : isFourthFifthStage
@@ -2144,7 +2051,6 @@ const handleSave = async () => {
                 : isFirstStage && currentConfig.value.updateApi
                   ? await currentConfig.value.updateApi(updateData)
                   : await unifiedTaskOperationApi(updateData);
-        console.log('[保存] 跳过API响应:', response);
 
         const isSuccess = response.code === 200 || response.status === '1';
         if (isSuccess) {
@@ -2157,7 +2063,6 @@ const handleSave = async () => {
         break;
       }
     }
-    console.log('========== 任务保存结束 ==========');
   } catch (error) {
     console.error('保存失败:', error);
     ElMessage.error('保存失败');
@@ -2280,7 +2185,7 @@ const handleRevoke = async () => {
 const formRules = computed(() => {
   const rules: any = {};
   const fields = currentConfig.value.fields || [];
-  
+
   if (Array.isArray(fields)) {
     fields.forEach((field: any) => {
       if (field && field.required && field.prop && field.label) {
@@ -2290,183 +2195,195 @@ const formRules = computed(() => {
       }
     });
   }
-  
+
   return rules;
 });
 </script>
 
 <template>
   <div class="task-edit-container">
-      <ElRadioGroup v-model="activeTab" class="tab-group">
-        <ElRadioButton value="upload">
-          <Icon icon="lucide:upload" class="mr-1" />上传文件
-        </ElRadioButton>
-        <ElRadioButton value="data">
-          <Icon icon="lucide:database" class="mr-1" />自定义数据
-        </ElRadioButton>
-      </ElRadioGroup>
+    <ElRadioGroup v-model="activeTab" class="tab-group">
+      <ElRadioButton value="upload">
+        <Icon icon="lucide:upload" class="mr-1" />上传文件
+      </ElRadioButton>
+      <ElRadioButton value="data">
+        <Icon icon="lucide:database" class="mr-1" />自定义数据
+      </ElRadioButton>
+    </ElRadioGroup>
 
-      <div v-if="activeTab === 'upload'" class="upload-section">
-        <div class="upload-header">
-          <h3>上传文件</h3>
-          <span class="tip-text"
-            >支持上传文档、图片等文件，单个文件不超过50MB</span
-          >
-        </div>
-
-        <ElUpload
-          v-if="!isReadOnly"
-          :before-upload="handleUpload"
-          :on-change="handleFileChange"
-          :file-list="fileList"
-          :auto-upload="false"
-          :show-file-list="true"
-          :multiple="true"
-          :disabled="uploadLoading"
-          :on-remove="handleRemove"
-          class="upload-component"
+    <div v-if="activeTab === 'upload'" class="upload-section">
+      <div class="upload-header">
+        <h3>上传文件</h3>
+        <span class="tip-text"
+          >支持上传文档、图片等文件，单个文件不超过50MB</span
         >
-          <ElButton type="primary" :loading="uploadLoading">
-            <Icon icon="lucide:upload" class="mr-1" />
-            选择文件
-          </ElButton>
-          <template #tip>
-            <div class="el-upload__tip">
-              支持上传 doc, docx, pdf, txt, jpg, jpeg, png, gif 等格式文件
-            </div>
-          </template>
-        </ElUpload>
+      </div>
 
-        <div v-if="fileListLoading" class="file-list-loading">
-          <ElSkeleton :rows="3" animated />
-        </div>
+      <ElUpload
+        v-if="!isReadOnly"
+        :before-upload="handleUpload"
+        :on-change="handleFileChange"
+        :file-list="fileList"
+        :auto-upload="false"
+        :show-file-list="true"
+        :multiple="true"
+        :disabled="uploadLoading"
+        :on-remove="handleRemove"
+        class="upload-component"
+      >
+        <ElButton type="primary" :loading="uploadLoading">
+          <Icon icon="lucide:upload" class="mr-1" />
+          选择文件
+        </ElButton>
+        <template #tip>
+          <div class="el-upload__tip">
+            支持上传 doc, docx, pdf, txt, jpg, jpeg, png, gif 等格式文件
+          </div>
+        </template>
+      </ElUpload>
 
-        <div v-else-if="fileList.length > 0" class="file-list">
-          <h4>已上传文件 ({{ fileList.length }})</h4>
-          <div v-for="file in fileList" :key="file.uid" class="file-item">
-            <div class="file-info">
-              <Icon
-                :icon="
-                  {
-                    doc: 'lucide:file-text',
-                    docx: 'lucide:file-text',
-                    pdf: 'lucide:file-pdf',
-                    txt: 'lucide:file-text',
-                    jpg: 'lucide:image',
-                    jpeg: 'lucide:image',
-                    png: 'lucide:image',
-                    gif: 'lucide:image',
-                  }[file.fileType] || 'lucide:file'
-                "
-                class="file-icon"
-              />
-              <div class="file-details">
-                <div class="file-name">{{ file.name }}</div>
-                <div class="file-meta">
-                  <span class="file-size"
-                    >{{
-                      ((file.fileSize || 0) / 1024 / 1024).toFixed(2)
-                    }}
-                    MB</span
-                  >
-                  <span class="file-uploader"
-                    >上传者: {{ file.uploadUser }}</span
-                  >
-                  <span class="file-date">{{
-                    new Date(file.uploadDate).toLocaleString('zh-CN')
-                  }}</span>
-                  <ElTag size="small" type="success" v-if="file.version > 1">
-                    V{{ file.version }}
-                  </ElTag>
-                </div>
+      <div v-if="fileListLoading" class="file-list-loading">
+        <ElSkeleton :rows="3" animated />
+      </div>
+
+      <div v-else-if="fileList.length > 0" class="file-list">
+        <h4>已上传文件 ({{ fileList.length }})</h4>
+        <div v-for="file in fileList" :key="file.uid" class="file-item">
+          <div class="file-info">
+            <Icon
+              :icon="
+                {
+                  doc: 'lucide:file-text',
+                  docx: 'lucide:file-text',
+                  pdf: 'lucide:file-pdf',
+                  txt: 'lucide:file-text',
+                  jpg: 'lucide:image',
+                  jpeg: 'lucide:image',
+                  png: 'lucide:image',
+                  gif: 'lucide:image',
+                }[file.fileType] || 'lucide:file'
+              "
+              class="file-icon"
+            />
+            <div class="file-details">
+              <div class="file-name">{{ file.name }}</div>
+              <div class="file-meta">
+                <span class="file-size"
+                  >{{
+                    ((file.fileSize || 0) / 1024 / 1024).toFixed(2)
+                  }}
+                  MB</span
+                >
+                <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
+                <span class="file-date">{{
+                  new Date(file.uploadDate).toLocaleString('zh-CN')
+                }}</span>
+                <ElTag size="small" type="success" v-if="file.version > 1">
+                  V{{ file.version }}
+                </ElTag>
               </div>
             </div>
-            <div class="file-actions">
-              <span
-                style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
-                @click="handleDownload(file)"
-              >
-                <Icon icon="lucide:download" class="mr-1" />
-                下载
-              </span>
-              <ElButton
-                v-if="!isReadOnly"
-                type="danger"
-                size="small"
-                @click="handleRemove(file)"
-              >
-                <Icon icon="lucide:trash-2" class="mr-1" />
-                删除
-              </ElButton>
-            </div>
+          </div>
+          <div class="file-actions">
+            <span
+              style="
+                color: #409eff;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                margin-right: 12px;
+              "
+              @click="handleDownload(file)"
+            >
+              <Icon icon="lucide:download" class="mr-1" />
+              下载
+            </span>
+            <ElButton
+              v-if="!isReadOnly"
+              type="danger"
+              size="small"
+              @click="handleRemove(file)"
+            >
+              <Icon icon="lucide:trash-2" class="mr-1" />
+              删除
+            </ElButton>
           </div>
         </div>
-
-        <ElEmpty v-else description="暂无上传文件" :image-size="80">
-          <ElButton v-if="!isReadOnly" type="primary" @click="() => {}">
-            <Icon icon="lucide:upload" class="mr-1" />
-            选择文件
-          </ElButton>
-        </ElEmpty>
       </div>
 
-      <div v-else class="data-section">
-        <ElForm
-          ref="formRef"
-          :model="formData"
-          :rules="formRules"
-          label-width="120px"
-          label-position="right"
-          :disabled="isReadOnly"
+      <ElEmpty v-else description="暂无上传文件" :image-size="80">
+        <ElButton v-if="!isReadOnly" type="primary" @click="() => {}">
+          <Icon icon="lucide:upload" class="mr-1" />
+          选择文件
+        </ElButton>
+      </ElEmpty>
+    </div>
+
+    <div v-else class="data-section">
+      <ElForm
+        ref="formRef"
+        :model="formData"
+        :rules="formRules"
+        label-width="120px"
+        label-position="right"
+        :disabled="isReadOnly"
+      >
+        <ElFormItem
+          v-for="field in currentConfig.fields"
+          :key="field.prop"
+          :label="field.label"
+          :prop="field.prop"
         >
-          <ElFormItem
-            v-for="field in currentConfig.fields"
-            :key="field.prop"
-            :label="field.label"
-            :prop="field.prop"
+          <ElInput
+            v-if="field.type === 'input'"
+            v-model="formData[field.prop]"
+            :placeholder="`请输入${field.label}`"
+            :disabled="isReadOnly"
+          />
+          <ElInput
+            v-else-if="field.type === 'textarea'"
+            v-model="formData[field.prop]"
+            type="textarea"
+            :rows="4"
+            :placeholder="`请输入${field.label}`"
+            :disabled="isReadOnly"
+          />
+          <ElSelect
+            v-else-if="field.type === 'select'"
+            v-model="formData[field.prop]"
+            :placeholder="`请选择${field.label}`"
+            style="width: 100%"
+            :disabled="isReadOnly"
           >
-            <ElInput
-              v-if="field.type === 'input'"
-              v-model="formData[field.prop]"
-              :placeholder="`请输入${field.label}`"
-              :disabled="isReadOnly"
+            <ElOption
+              v-for="option in field.options"
+              :key="option"
+              :label="option"
+              :value="option"
             />
-            <ElInput
-              v-else-if="field.type === 'textarea'"
-              v-model="formData[field.prop]"
-              type="textarea"
-              :rows="4"
-              :placeholder="`请输入${field.label}`"
-              :disabled="isReadOnly"
-            />
-            <ElSelect
-              v-else-if="field.type === 'select'"
-              v-model="formData[field.prop]"
-              :placeholder="`请选择${field.label}`"
-              style="width: 100%"
-              :disabled="isReadOnly"
-            >
-              <ElOption
-                v-for="option in field.options"
-                :key="option"
-                :label="option"
-                :value="option"
-              />
-            </ElSelect>
-            <ElDatePicker
-              v-else-if="field.type === 'date'"
-              v-model="formData[field.prop]"
-              type="date"
-              :placeholder="`请选择${field.label}`"
-              value-format="YYYY-MM-DD"
-              style="width: 100%"
-              :disabled="isReadOnly"
-            />
-          </ElFormItem>
-        </ElForm>
-      </div>
+          </ElSelect>
+          <ElDatePicker
+            v-else-if="field.type === 'date'"
+            v-model="formData[field.prop]"
+            type="date"
+            :placeholder="`请选择${field.label}`"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+            :disabled="isReadOnly"
+          />
+        </ElFormItem>
+      </ElForm>
+    </div>
 
-      <div class="dialog-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px">
+    <div
+      class="dialog-footer"
+      style="
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      "
+    >
       <ElButton @click="handleClose" :disabled="loading">
         <Icon icon="lucide:x" class="mr-1" />
         取消
@@ -2516,6 +2433,7 @@ const formRules = computed(() => {
         确认撤回
       </ElButton>
     </div>
+  </div>
 </template>
 
 <style scoped>

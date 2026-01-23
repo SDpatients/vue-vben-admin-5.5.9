@@ -44,7 +44,6 @@ export function useWebSocket() {
     }
 
     reconnectAttempts.value++;
-    console.log(`尝试重连 (${reconnectAttempts.value}/${maxReconnectAttempts})...`);
 
     try {
       await connect();

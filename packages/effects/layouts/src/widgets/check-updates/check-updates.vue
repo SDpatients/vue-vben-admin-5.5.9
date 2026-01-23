@@ -38,7 +38,7 @@ const [UpdateNoticeModal, modalApi] = useVbenModal({
 async function getVersionTag() {
   try {
     if (
-      location.hostname === 'localhost' ||
+      location.hostname === '192.168.0.120' ||
       location.hostname === '127.0.0.1'
     ) {
       return null;

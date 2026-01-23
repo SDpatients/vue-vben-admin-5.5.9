@@ -29,8 +29,8 @@ import {
   getViewRecordListApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
-import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
 import { todoApi } from '#/api/core/todo';
+import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
 import { fileUploadRequestClient } from '#/api/request';
 import TodoList from '#/components/TodoList.vue';
 
@@ -256,7 +256,9 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
       };
       showAnnouncementDetailDialog.value = true;
     } else {
-      ElMessage.error(`获取公告详情失败：${detailResponse.message || '未知错误'}`);
+      ElMessage.error(
+        `获取公告详情失败：${detailResponse.message || '未知错误'}`,
+      );
     }
   } catch (error) {
     console.error('查看公告详情失败:', error);
@@ -443,19 +445,15 @@ const loadCaseList = async () => {
 
     let res;
 
-    // 管理员查看所有案件，律师只查看自己的案件
     if (isAdmin.value) {
-      console.log('[loadCaseList] 管理员查看所有案件');
       res = await getCaseListApi({
         pageNum: currentPage.value,
         pageSize: pageSize.value,
         caseStatus: caseStatusEn,
       });
     } else {
-      // 从本地存储获取userId
       const chatUserId = localStorage.getItem('chat_user_id');
       const userId = Number(chatUserId) || 0;
-      console.log('[loadCaseList] 律师查看自己的案件，userId:', userId);
 
       res = await getUserCaseListApi(userId, {
         pageNum: currentPage.value,
@@ -519,16 +517,9 @@ const goToCaseDetail = (caseId: number) => {
 // 加载工作团队数量
 const loadTeamCount = async () => {
   try {
-    console.log('[loadTeamCount] 开始获取工作团队数量...');
     const res = await getCurrentUserWorkTeamsApi();
-    console.log('[loadTeamCount] API返回结果:', res);
-    console.log('[loadTeamCount] res.data:', res.data);
-    console.log('[loadTeamCount] res.data类型:', typeof res.data);
-    console.log('[loadTeamCount] res.data是否为数组:', Array.isArray(res.data));
-    console.log('[loadTeamCount] res.data.length:', res.data?.length);
 
     teamCount.value = res.data?.length || 0;
-    console.log('[loadTeamCount] 最终团队数量:', teamCount.value);
   } catch (error) {
     console.error('[loadTeamCount] 加载工作团队数量失败:', error);
     teamCount.value = 0;
@@ -642,8 +633,10 @@ onMounted(() => {
       >
         <template #title>
           <div class="flex items-center justify-between">
-            <span>{{ greeting }}, {{ currentUserInfo?.realName }},
-              开始您一天的工作吧！</span>
+            <span
+              >{{ greeting }}, {{ currentUserInfo?.realName }},
+              开始您一天的工作吧！</span
+            >
           </div>
         </template>
         <template #description>

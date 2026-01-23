@@ -180,14 +180,10 @@ export const useAuthStore = defineStore('auth', () => {
    * 获取当前用户信息（从后端API）
    */
   async function fetchCurrentUser() {
-    console.log('[fetchCurrentUser] 开始获取当前用户信息');
     try {
       const result = await getCurrentUserApi();
-      console.log('[fetchCurrentUser] API返回结果:', result);
       if (result && result.code === 200 && result.data) {
-        console.log('[fetchCurrentUser] 响应成功，开始映射用户信息');
         const backendUserInfo = result.data;
-        console.log('[fetchCurrentUser] 后端用户信息:', backendUserInfo);
         const userInfo: UserInfo = {
           userId: backendUserInfo.id.toString(),
           username: backendUserInfo.username,
@@ -200,19 +196,10 @@ export const useAuthStore = defineStore('auth', () => {
           roles: backendUserInfo.roles || [],
           permissions: backendUserInfo.permissions || [],
         };
-        console.log('[fetchCurrentUser] 映射后的用户信息:', userInfo);
         userStore.setUserInfo(userInfo);
         userStore.setUserRoles(backendUserInfo.roles || []);
         accessStore.setAccessCodes(backendUserInfo.permissions || []);
-        console.log('[fetchCurrentUser] 用户信息已设置到 store');
-        console.log('[fetchCurrentUser] 用户角色:', backendUserInfo.roles);
-        console.log(
-          '[fetchCurrentUser] 用户权限:',
-          backendUserInfo.permissions,
-        );
         return userInfo;
-      } else {
-        console.warn('[fetchCurrentUser] 响应格式不正确:', result);
       }
     } catch (error) {
       console.error('[fetchCurrentUser] 获取当前用户信息失败:', error);

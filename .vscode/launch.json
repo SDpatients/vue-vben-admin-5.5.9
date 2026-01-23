@@ -6,7 +6,7 @@
       "type": "chrome",
       "name": "vben admin playground dev",
       "request": "launch",
-      "url": "http://localhost:5555",
+      "url": "http://192.168.0.120:5555",
       "env": { "NODE_ENV": "development" },
       "sourceMaps": true,
       "webRoot": "${workspaceFolder}/playground"
@@ -15,7 +15,7 @@
       "type": "chrome",
       "name": "vben admin antd dev",
       "request": "launch",
-      "url": "http://localhost:5666",
+      "url": "http://192.168.0.120:5666",
       "env": { "NODE_ENV": "development" },
       "sourceMaps": true,
       "webRoot": "${workspaceFolder}/apps/web-antd"
@@ -24,7 +24,7 @@
       "type": "chrome",
       "name": "vben admin ele dev",
       "request": "launch",
-      "url": "http://localhost:5777",
+      "url": "http://192.168.0.120:5777",
       "env": { "NODE_ENV": "development" },
       "sourceMaps": true,
       "webRoot": "${workspaceFolder}/apps/web-ele"
@@ -33,7 +33,7 @@
       "type": "chrome",
       "name": "vben admin naive dev",
       "request": "launch",
-      "url": "http://localhost:5888",
+      "url": "http://192.168.0.120:5888",
       "env": { "NODE_ENV": "development" },
       "sourceMaps": true,
       "webRoot": "${workspaceFolder}/apps/web-naive"

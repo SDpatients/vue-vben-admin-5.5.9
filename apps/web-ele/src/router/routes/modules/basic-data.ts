@@ -81,7 +81,7 @@ const routes: RouteRecordRaw[] = [
           import('#/views/basic-data/manager-management/index.vue'),
         meta: {
           affixTab: false,
-          icon: 'lucide:user-tie',
+          icon: 'lucide:user',
           title: $t('page.basicData.managerManagement'),
         },
       },

@@ -480,12 +480,12 @@ mvn test
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/law_db?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://192.168.0.120:3306/law_db?useSSL=false&serverTimezone=UTC
     username: root
     password: your_password
   
   redis:
-    host: localhost
+    host: 192.168.0.120
     port: 6379
     password: your_redis_password
 ```

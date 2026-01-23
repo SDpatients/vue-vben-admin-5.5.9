@@ -123,11 +123,6 @@ const totalAmount = computed(() => {
 });
 
 const fetchClaims = async () => {
-  console.log('开始获取债权列表，参数:', {
-    caseId: Number(props.caseId),
-    pageNum: currentPage.value,
-    pageSize: pageSize.value,
-  });
   loading.value = true;
   try {
     const response = await getClaimRegistrationListApi({
@@ -135,7 +130,6 @@ const fetchClaims = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     });
-    console.log('获取待登记债权列表响应:', response);
     if (response.code === 200 && response.data) {
       const formattedList = (response.data.list || []).map((item: any) => ({
         ...item,
@@ -213,11 +207,11 @@ const creditorTypeMap: Record<string, string> = {
   GOVERNMENT: '政府机构',
   OTHER: '其他',
   // 保留中文值作为键，处理已有中文数据
-  '金融机构': '金融机构',
-  '企业': '企业',
-  '个人': '个人',
-  '政府机构': '政府机构',
-  '其他': '其他',
+  金融机构: '金融机构',
+  企业: '企业',
+  个人: '个人',
+  政府机构: '政府机构',
+  其他: '其他',
 };
 
 // 转换债权人类型为中文
@@ -254,12 +248,9 @@ const openDetailDialog = async (row: any) => {
   console.log('点击查看详情，row:', row);
   try {
     const response = await getClaimRegistrationDetailApi(row.id);
-    console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
-      console.log('债权详情数据:', currentClaim.value);
       showDetailDialog.value = true;
-      console.log('showDetailDialog设置为true');
     } else {
       console.error('响应code或data异常:', response);
       ElMessage.error('获取债权详情失败');
@@ -278,12 +269,10 @@ const openMaterialDialog = async (row: any) => {
 
       try {
         const userResponse = await getCurrentUserApi();
-        if (userResponse.code === 200 && userResponse.data) {
-          materialForm.receiver = userResponse.data.realName || '当前用户';
-          console.log('获取当前用户信息成功，接收人:', materialForm.receiver);
-        } else {
-          materialForm.receiver = '当前用户';
-        }
+        materialForm.receiver =
+          userResponse.code === 200 && userResponse.data
+            ? userResponse.data.realName || '当前用户'
+            : '当前用户';
       } catch (error) {
         console.error('获取当前用户信息失败:', error);
         materialForm.receiver = '当前用户';
@@ -374,7 +363,6 @@ const handleRegisterClaim = async (row: any) => {
       }
     })
     .catch(() => {
-      console.log('用户取消了债权申报登记操作');
       ElMessage.info('已取消债权申报登记');
     });
 };
@@ -570,7 +558,6 @@ defineExpose({
 });
 
 onMounted(() => {
-  console.log('债权申报登记页面已挂载，props.caseId:', props.caseId);
   fetchClaims();
 });
 </script>

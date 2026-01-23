@@ -220,7 +220,6 @@ const renderCaseTypeChart = () => {
 
 const renderCaseProgressChart = () => {
   const data = caseProgressData.value;
-  console.log('[renderCaseProgressChart] 开始渲染，数据:', data);
   const isHorizontal = chartType3.value === 'horizontal-bar';
 
   const chartOption = {
@@ -266,13 +265,11 @@ const renderCaseProgressChart = () => {
       },
     ],
   };
-  console.log('[renderCaseProgressChart] 图表配置:', chartOption);
   renderEcharts3(chartOption);
 };
 
 const renderCreditorAmountChart = () => {
   const data = creditorAmountData.value;
-  console.log('[renderCreditorAmountChart] 开始渲染，数据:', data);
   const chartOption = {
     grid: {
       bottom: 30,
@@ -315,7 +312,6 @@ const renderCreditorAmountChart = () => {
       top: 0,
     },
   };
-  console.log('[renderCreditorAmountChart] 图表配置:', chartOption);
   renderEcharts4(chartOption);
 };
 

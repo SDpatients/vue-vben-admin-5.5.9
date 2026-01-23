@@ -7,6 +7,7 @@ import {
   ElButton,
   ElCard,
   ElCol,
+  ElDatePicker,
   ElDialog,
   ElEmpty,
   ElFormItem,
@@ -24,6 +25,7 @@ import {
   ElTable,
   ElTableColumn,
   ElTag,
+  ElUpload,
 } from 'element-plus';
 
 import {
@@ -52,9 +54,10 @@ import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
   createWorkLogApi,
-  deleteWorkLogApi,
+  createWorkLogWithFilesApi,
   getWorkLogListApi,
   updateWorkLogApi,
+  updateWorkLogWithFilesApi,
 } from '#/api/core/work-log';
 import {
   addTeamMemberApi,
@@ -250,6 +253,7 @@ const workLogForm = reactive({
   workResult: '',
   attachmentIds: '',
   remark: '',
+  files: [] as File[],
 });
 
 const workLogFormRules = {
@@ -309,6 +313,7 @@ const openAddWorkLogDialog = () => {
   workLogForm.workResult = '';
   workLogForm.attachmentIds = '';
   workLogForm.remark = '';
+  workLogForm.files = [];
   showWorkLogDialog.value = true;
 };
 
@@ -321,7 +326,16 @@ const editWorkLog = (log: any) => {
   workLogForm.workResult = log.workResult || '';
   workLogForm.attachmentIds = log.attachmentIds || '';
   workLogForm.remark = log.remark || '';
+  workLogForm.files = [];
   showWorkLogDialog.value = true;
+};
+
+const handleWorkLogFileChange = (file: any, fileList: any[]) => {
+  workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
+};
+
+const handleWorkLogFileRemove = (file: any, fileList: any[]) => {
+  workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
 };
 
 const saveWorkLog = async () => {
@@ -329,27 +343,79 @@ const saveWorkLog = async () => {
     await workLogFormRef.value?.validate();
     savingWorkLog.value = true;
 
-    const logData = {
-      caseId: Number(caseId.value),
-      workDate: workLogForm.workDate,
-      workType: workLogForm.workType,
-      workContent: workLogForm.workContent,
-      workResult: workLogForm.workResult || undefined,
-      attachmentIds: workLogForm.attachmentIds || undefined,
-      remark: workLogForm.remark || undefined,
-    };
-
     if (isEditingWorkLog.value && currentWorkLogId.value) {
-      const response = await updateWorkLogApi(currentWorkLogId.value, logData);
-      if (response.code === 200) {
-        ElMessage.success('工作日志更新成功');
-        await fetchWorkLogs();
+      if (workLogForm.files && workLogForm.files.length > 0) {
+        const formData = new FormData();
+        formData.append('workType', workLogForm.workType);
+        formData.append('workContent', workLogForm.workContent);
+        if (workLogForm.workResult) {
+          formData.append('workResult', workLogForm.workResult);
+        }
+        if (workLogForm.remark) {
+          formData.append('remark', workLogForm.remark);
+        }
+        workLogForm.files.forEach(file => {
+          formData.append('files', file);
+        });
+
+        const response = await updateWorkLogWithFilesApi(currentWorkLogId.value, formData);
+        if (response.code === 200) {
+          ElMessage.success('工作日志更新成功');
+          await fetchWorkLogs();
+        }
+      } else {
+        const logData = {
+          caseId: Number(caseId.value),
+          workDate: workLogForm.workDate,
+          workType: workLogForm.workType,
+          workContent: workLogForm.workContent,
+          workResult: workLogForm.workResult || undefined,
+          attachmentIds: workLogForm.attachmentIds || undefined,
+          remark: workLogForm.remark || undefined,
+        };
+        const response = await updateWorkLogApi(currentWorkLogId.value, logData);
+        if (response.code === 200) {
+          ElMessage.success('工作日志更新成功');
+          await fetchWorkLogs();
+        }
       }
     } else {
-      const response = await createWorkLogApi(logData);
-      if (response.code === 200) {
-        ElMessage.success('工作日志创建成功');
-        await fetchWorkLogs();
+      if (workLogForm.files && workLogForm.files.length > 0) {
+        const formData = new FormData();
+        formData.append('caseId', Number(caseId.value).toString());
+        formData.append('workDate', workLogForm.workDate);
+        formData.append('workType', workLogForm.workType);
+        formData.append('workContent', workLogForm.workContent);
+        if (workLogForm.workResult) {
+          formData.append('workResult', workLogForm.workResult);
+        }
+        if (workLogForm.remark) {
+          formData.append('remark', workLogForm.remark);
+        }
+        workLogForm.files.forEach(file => {
+          formData.append('files', file);
+        });
+
+        const response = await createWorkLogWithFilesApi(formData);
+        if (response.code === 200) {
+          ElMessage.success('工作日志创建成功');
+          await fetchWorkLogs();
+        }
+      } else {
+        const logData = {
+          caseId: Number(caseId.value),
+          workDate: workLogForm.workDate,
+          workType: workLogForm.workType,
+          workContent: workLogForm.workContent,
+          workResult: workLogForm.workResult || undefined,
+          attachmentIds: workLogForm.attachmentIds || undefined,
+          remark: workLogForm.remark || undefined,
+        };
+        const response = await createWorkLogApi(logData);
+        if (response.code === 200) {
+          ElMessage.success('工作日志创建成功');
+          await fetchWorkLogs();
+        }
       }
     }
 
@@ -364,7 +430,7 @@ const saveWorkLog = async () => {
 
 const deleteWorkLog = async (id: number) => {
   try {
-    const response = await deleteWorkLogApi(id);
+    const response = await deleteWorkLogWithFilesApi(id);
     if (response.code === 200) {
       ElMessage.success('工作日志删除成功');
       await fetchWorkLogs();
@@ -375,9 +441,25 @@ const deleteWorkLog = async (id: number) => {
   }
 };
 
+const downloadWorkLogFile = async (file: any) => {
+  try {
+    const blob = await downloadFileApi(file.id);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.originalFileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('文件下载开始');
+  } catch (error: any) {
+    ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
+  }
+};
+
 // 监听activeTab变化，加载对应数据
 watch(activeTab, async (newTab, oldTab) => {
-  console.log('activeTab变化:', oldTab, '->', newTab);
   switch (newTab) {
     case 'announcement': {
       await fetchAnnouncements();
@@ -395,7 +477,6 @@ watch(activeTab, async (newTab, oldTab) => {
       break;
     }
     case 'workTeam': {
-      console.log('切换到工作团队标签，开始加载数据');
       await fetchWorkTeams();
       fetchTeamRoles();
       await loadAdministrators();
@@ -1395,12 +1476,6 @@ const saveAnnouncement = async () => {
   try {
     let response;
 
-    console.log(
-      '保存公告前的announcementData.attachments:',
-      announcementData.attachments,
-    );
-
-    // 准备请求数据
     const requestData = {
       caseId: Number(caseId.value),
       caseNumber: isEditingAnnouncement.value
@@ -1414,8 +1489,6 @@ const saveAnnouncement = async () => {
         ? JSON.stringify(announcementData.attachments)
         : undefined,
     };
-
-    console.log('保存公告的请求数据:', requestData);
 
     if (isEditingAnnouncement.value && currentAnnouncementId.value) {
       // 更新现有公告
@@ -1638,8 +1711,6 @@ const viewAnnouncementDetail = async (announcement: any) => {
     const response = await getAnnouncementDetailApi(Number(announcementId));
     let detail = response.data;
 
-    console.log('公告详情原始数据:', detail);
-
     const [attachmentsResponse] = await Promise.all([
       getAnnouncementAttachmentsApi(Number(announcementId)),
     ]);
@@ -1653,8 +1724,6 @@ const viewAnnouncementDetail = async (announcement: any) => {
         type: attach.mimeType || 'application/octet-stream',
       }));
     }
-
-    console.log('处理后的attachments:', detail.attachments);
 
     detail = {
       id: detail.id,
@@ -1670,17 +1739,11 @@ const viewAnnouncementDetail = async (announcement: any) => {
       attachments: detail.attachments,
     };
 
-    console.log('处理后的detail:', detail);
-
-    // 确保attachments字段是数组
     if (!detail.attachments) {
-      console.log('attachments为空，设置为空数组');
       detail.attachments = [];
     } else if (typeof detail.attachments === 'string') {
       try {
         const parsedAttachments = JSON.parse(detail.attachments);
-        console.log('解析后的attachments数组:', parsedAttachments);
-        // 处理附件字段映射，确保文件名字段正确
         detail.attachments = parsedAttachments.map((attach: any) => {
           const fileId =
             attach.file_id ||
@@ -1700,40 +1763,23 @@ const viewAnnouncementDetail = async (announcement: any) => {
             file_id: fileId,
             type: attach.type || attach.mimeType || 'application/octet-stream',
           };
-          console.log('附件字段映射:', {
-            原始数据: attach,
-            映射后: mappedAttach,
-          });
           return mappedAttach;
         });
-        console.log('字段映射后的attachments:', detail.attachments);
-        // 过滤掉没有有效file_id的附件
         detail.attachments = detail.attachments.filter((attach: any) => {
           const hasValidId = attach.file_id && !isNaN(Number(attach.file_id));
-          console.log(
-            `附件 ${attach.file_name} 的file_id: ${attach.file_id}, 有效: ${hasValidId}`,
-          );
           return hasValidId;
         });
-        console.log('过滤后的attachments:', detail.attachments);
 
-        // 如果过滤后附件为空，但原始有附件数据，说明数据结构有问题
         if (detail.attachments.length === 0 && parsedAttachments.length > 0) {
           console.warn(
             '警告：附件数据被全部过滤，可能是后端返回的数据结构不正确',
           );
-          console.warn(
-            '期望的附件数据结构应包含 file_id、id、fileId、response.id 或 uid 字段',
-          );
-          console.warn('实际收到的数据:', parsedAttachments);
-          console.warn('这是一个后端数据问题，请联系后端开发人员修复');
         }
       } catch (error) {
         console.error('解析attachments失败:', error);
         detail.attachments = [];
       }
     } else {
-      // 处理附件字段映射，确保文件名字段正确
       detail.attachments = detail.attachments.map((attach: any) => {
         const fileId =
           attach.file_id ||
@@ -1753,34 +1799,18 @@ const viewAnnouncementDetail = async (announcement: any) => {
           file_id: fileId,
           type: attach.type || attach.mimeType || 'application/octet-stream',
         };
-        console.log('附件字段映射:', {
-          原始数据: attach,
-          映射后: mappedAttach,
-        });
         return mappedAttach;
       });
-      console.log('字段映射后的attachments:', detail.attachments);
-      // 过滤掉没有有效file_id的附件
       detail.attachments = detail.attachments.filter((attach: any) => {
         const hasValidId = attach.file_id && !isNaN(Number(attach.file_id));
-        console.log(
-          `附件 ${attach.file_name} 的file_id: ${attach.file_id}, 有效: ${hasValidId}`,
-        );
         return hasValidId;
       });
-      console.log('过滤后的attachments:', detail.attachments);
 
-      // 如果过滤后附件为空，但原始有附件数据，说明数据结构有问题
       const originalAttachments = detail.attachments;
       if (detail.attachments.length === 0 && originalAttachments.length > 0) {
         console.warn(
           '警告：附件数据被全部过滤，可能是后端返回的数据结构不正确',
         );
-        console.warn(
-          '期望的附件数据结构应包含 file_id、id、fileId、response.id 或 uid 字段',
-        );
-        console.warn('实际收到的数据:', originalAttachments);
-        console.warn('这是一个后端数据问题，请联系后端开发人员修复');
       }
     }
 
@@ -2538,16 +2568,8 @@ const resetSelections = () => {
 const fetchWorkTeams = async () => {
   workTeamLoading.value = true;
   try {
-    console.log(
-      '开始获取工作团队列表，caseId:',
-      caseId.value,
-      'Number(caseId.value):',
-      Number(caseId.value),
-    );
-    
     const currentCaseId = Number(caseId.value);
-    
-    // 调用工作团队API获取当前案件的活跃工作团队
+
     const response = await getWorkTeamListWithDetailsApi({
       caseId: currentCaseId,
       pageNum: 1,
@@ -2555,15 +2577,8 @@ const fetchWorkTeams = async () => {
       status: 'ACTIVE',
     });
 
-    console.log('工作团队API返回:', response);
-
-    // 检查API是否返回有效数据
     if (response && response.code === 200 && response.data && response.data.list) {
-      console.log('工作团队列表:', response.data.list);
-      
-      // 将API返回的工作团队数据直接显示
       workTeams.value = response.data.list;
-      console.log('最终工作团队数据:', workTeams.value);
     } else {
       console.error('API返回数据结构异常或为空:', response.data);
       workTeams.value = [];
@@ -2886,13 +2901,9 @@ const toggleTeamMembers = async (teamId: number) => {
     if (team && (!team.members || team.members.length === 0)) {
       try {
         workTeamLoading.value = true;
-        console.log(`开始获取团队ID ${teamId} 的成员列表`);
-        
-        // 调用API获取团队成员列表
+
         const response = await getWorkTeamDetailWithMembersApi(teamId);
-        console.log(`团队ID ${teamId} 的成员列表API返回:`, response);
-        
-        // 检查响应数据
+
         let members = [];
         if (response.members) {
           members = response.members;
@@ -2901,10 +2912,7 @@ const toggleTeamMembers = async (teamId: number) => {
         } else if (response.data) {
           members = response.data;
         }
-        
-        console.log(`团队ID ${teamId} 的成员列表:`, members);
-        
-        // 将成员数据存储到团队对象中
+
         team.members = members;
       } catch (error: any) {
         console.error(`获取团队ID ${teamId} 的成员列表失败:`, error);
@@ -3149,19 +3157,14 @@ const handleViewPermissions = async (row: any) => {
 // 检查权限
 const checkPermissions = async () => {
   try {
-    // TODO: 根据API文档，暂时没有权限检查的API
-    // 这里先设置为默认值，等待后端提供权限检查接口
     canEdit.value = true;
     canDelete.value = true;
     isCreator.value = true;
-    console.log('权限检查完成（使用默认值）');
   } catch (error) {
     console.error('检查权限失败:', error);
-    // 如果发生异常，默认将当前用户视为创建者
     canEdit.value = true;
     canDelete.value = true;
     isCreator.value = true;
-    console.log('检查权限异常，使用默认权限设置');
   }
 };
 </script>
@@ -4732,6 +4735,92 @@ const checkPermissions = async () => {
                     {{ log.remark }}
                   </div>
                   <div
+                    v-if="log.attachments && log.attachments.length > 0"
+                    style="
+                      margin-bottom: 12px;
+                      padding: 12px;
+                      background: #f0f2f5;
+                      border-radius: 6px;
+                    "
+                  >
+                    <div
+                      style="
+                        font-weight: 600;
+                        margin-bottom: 8px;
+                        color: #2c3e50;
+                        font-size: 13px;
+                      "
+                    >
+                      <Icon icon="lucide:paperclip" class="mr-1" />
+                      附件（{{ log.attachments.length }}）
+                    </div>
+                    <div
+                      v-for="file in log.attachments"
+                      :key="file.id"
+                      style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 6px 10px;
+                        margin-bottom: 6px;
+                        background: #fff;
+                        border-radius: 4px;
+                        font-size: 13px;
+                      "
+                    >
+                      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
+                        <Icon
+                          :icon="
+                            file.originalFileName.endsWith('.pdf')
+                              ? 'lucide:file-pdf'
+                              : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
+                                ? 'lucide:file-word'
+                                : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
+                                  ? 'lucide:file-excel'
+                                  : file.originalFileName.endsWith('.jpg') || file.originalFileName.endsWith('.jpeg') || file.originalFileName.endsWith('.png')
+                                    ? 'lucide:file-image'
+                                    : 'lucide:file'
+                          "
+                          :class="
+                            file.originalFileName.endsWith('.pdf')
+                              ? 'text-red-500'
+                              : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
+                                ? 'text-primary'
+                                : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
+                                  ? 'text-green-500'
+                                  : file.originalFileName.endsWith('.jpg') || file.originalFileName.endsWith('.jpeg') || file.originalFileName.endsWith('.png')
+                                    ? 'text-purple-500'
+                                    : 'text-gray-500'
+                          "
+                          style="font-size: 18px; flex-shrink: 0"
+                        />
+                        <span
+                          style="
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            color: #333;
+                          "
+                        >
+                          {{ file.originalFileName }}
+                        </span>
+                        <span style="color: #999; font-size: 12px; flex-shrink: 0">
+                          ({{ formatFileSize(file.fileSize) }})
+                        </span>
+                      </div>
+                      <div style="display: flex; gap: 4px; flex-shrink: 0">
+                        <ElButton
+                          link
+                          size="small"
+                          @click="downloadWorkLogFile(file)"
+                          style="padding: 2px 8px; font-size: 12px"
+                        >
+                          <Icon icon="lucide:download" />
+                        </ElButton>
+                      </div>
+                    </div>
+                  </div>
+                  <div
                     style="
                       display: flex;
                       justify-content: space-between;
@@ -4837,11 +4926,23 @@ const checkPermissions = async () => {
                 resize="vertical"
               />
             </ElFormItem>
-            <ElFormItem label="附件ID">
-              <ElInput
-                v-model="workLogForm.attachmentIds"
-                placeholder="请输入附件ID，多个ID用逗号分隔（可选）"
-              />
+            <ElFormItem label="附件上传">
+              <ElUpload
+                v-model:file-list="workLogForm.files"
+                :auto-upload="false"
+                :limit="10"
+                multiple
+                :on-change="handleWorkLogFileChange"
+                :on-remove="handleWorkLogFileRemove"
+                accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+              >
+                <ElButton type="primary">选择文件</ElButton>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    支持上传 doc, docx, pdf, jpg, png, xls, xlsx 格式文件，最多10个
+                  </div>
+                </template>
+              </ElUpload>
             </ElFormItem>
             <ElFormItem label="备注">
               <ElInput

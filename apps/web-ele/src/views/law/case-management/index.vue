@@ -4,13 +4,14 @@ import type { CaseApi } from '#/api';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAccessStore, useUserStore } from '@vben/stores';
+import { useUserStore } from '@vben/stores';
 
 import {
   ElButton,
   ElCard,
   ElCheckbox,
   ElCheckboxGroup,
+  ElDialog,
   ElDropdown,
   ElDropdownItem,
   ElDropdownMenu,
@@ -25,39 +26,41 @@ import {
   ElTag,
 } from 'element-plus';
 
-import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
+import {
+  deleteCaseApi,
+  getCaseListApi,
+  getCaseRelatedDataApi,
+  getUserCaseListApi,
+} from '#/api/core/case';
 import { useAuthStore } from '#/store/auth';
 
 import ReviewModal from './components/ReviewModal.vue';
 
-const accessStore = useAccessStore();
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const currentUserId = computed(() => {
   const userId = userStore.userInfo?.userId;
-  console.log('[currentUserId] userStore.userInfo:', userStore.userInfo);
-  console.log('[currentUserId] userStore.userInfo?.userId:', userId);
   if (userId) {
     const parsedId = Number.parseInt(userId, 10);
-    console.log('[currentUserId] 从 store 获取 userId:', parsedId);
     return parsedId;
   }
   const localStorageUserId = localStorage.getItem('chat_user_id');
-  console.log('[currentUserId] localStorage chat_user_id:', localStorageUserId);
   if (localStorageUserId) {
     const parsedId = Number.parseInt(localStorageUserId, 10);
-    console.log('[currentUserId] 从 localStorage 获取 userId:', parsedId);
     return parsedId;
   }
-  console.warn('[currentUserId] 未找到 userId，返回 0');
   return 0;
 });
 
 // 响应式数据
-const caseList = ref<CaseApi.CaseInfo[]>([]);
+const caseList = ref<any[]>([]);
 const loading = ref(false);
 const reviewModalVisible = ref(false);
 const currentCase = ref<CaseApi.CaseInfo | undefined>(undefined);
+const deleteDialogVisible = ref(false);
+const deleteLoading = ref(false);
+const relatedData = ref<any>(null);
+const currentDeleteCase = ref<any>(null);
 const pagination = ref({
   page: 1,
   pageSize: 10,
@@ -73,13 +76,16 @@ const safeCaseList = computed(() =>
 // 判断用户是否为管理员
 const isAdmin = computed(() => {
   const roles = userStore.userRoles || [];
-  return roles.includes('ADMIN') || roles.includes('admin');
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
 });
 
-// 判断用户是否为律师
-const isLawyer = computed(() => {
+const isSuperAdmin = computed(() => {
   const roles = userStore.userRoles || [];
-  return roles.includes('LAWYER') || roles.includes('律师');
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
+
+const canDeleteCase = computed(() => {
+  return isAdmin.value || isSuperAdmin.value;
 });
 
 // 根据角色确定默认标签页
@@ -108,7 +114,7 @@ const availableColumns = [
   '案件进度',
   '受理法院',
   '主要负责人',
-  '创建者',
+  '承办人员',
   '创建时间',
   '修改者',
   '修改时间',
@@ -127,7 +133,7 @@ const availableColumns = [
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
   '创建时间',
-  '创建者',
+  '承办人员',
   '案件名称',
   '案件进度',
   '案号',
@@ -158,8 +164,6 @@ const formatTimestamp = (timestamp: number | undefined) => {
     second: '2-digit',
   });
 };
-
-
 
 // 获取案件列表
 const fetchCaseList = async () => {
@@ -231,7 +235,7 @@ const fetchCaseList = async () => {
           主要负责人: item.mainResponsiblePerson,
           管理人: item.designatedInstitution,
           是否简化审: item.isSimplifiedTrial ? '是' : '否',
-          创建者: item.creatorName,
+          承办人员: item.undertakingPersonnel,
           创建时间: item.createTime,
           修改时间: item.updateTime,
           案件状态: caseStatusMap[item.caseStatus] || item.caseStatus,
@@ -256,10 +260,10 @@ const fetchCaseList = async () => {
       );
 
       // 更新分页信息，使用 API 返回的值
-      if (response.data.pageNum) {
+      if ('pageNum' in response.data && response.data.pageNum) {
         pagination.value.page = response.data.pageNum;
       }
-      if (response.data.pageSize) {
+      if ('pageSize' in response.data && response.data.pageSize) {
         pagination.value.pageSize = response.data.pageSize;
       }
 
@@ -272,7 +276,7 @@ const fetchCaseList = async () => {
       pagination.value.itemCount = 0;
       pagination.value.pages = 0;
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('获取案件列表失败，请检查网络连接');
     caseList.value = [];
     pagination.value.itemCount = 0;
@@ -283,24 +287,25 @@ const fetchCaseList = async () => {
 };
 
 // 处理标签页切换
-const handleTabChange = async (tabName: string) => {
+const handleTabChange = async (tabName: number | string) => {
+  const tabNameStr = String(tabName);
   // 如果不是管理员且尝试访问全部案件，强制切换到我的案件
-  if (tabName === 'allCases' && !isAdmin.value) {
+  if (tabNameStr === 'allCases' && !isAdmin.value) {
     ElMessage.warning('您无权查看全部案件');
     activeTab.value = 'myCases';
     return;
   }
-  
-  activeTab.value = tabName;
+
+  activeTab.value = tabNameStr;
   pagination.value.page = 1;
   loading.value = true;
   try {
     // 当切换到我的案件时，先尝试获取用户信息
-    if (tabName === 'myCases') {
+    if (tabNameStr === 'myCases') {
       await authStore.fetchCurrentUser();
     }
     await fetchCaseList();
-  } catch (error) {
+  } catch {
     // 忽略错误，UI已显示loading状态
   } finally {
     loading.value = false;
@@ -334,14 +339,6 @@ const handleRefresh = async () => {
 
 // 页面加载时获取数据
 onMounted(() => {
-  console.log('[onMounted] 页面挂载，开始初始化');
-  console.log('[onMounted] 当前用户信息:', userStore.userInfo);
-  console.log(
-    '[onMounted] localStorage chat_user_id:',
-    localStorage.getItem('chat_user_id'),
-  );
-  console.log('[onMounted] 当前用户ID:', currentUserId.value);
-  console.log('[onMounted] 当前标签页:', activeTab.value);
   initColumnVisibility();
   fetchCaseList();
 });
@@ -455,9 +452,53 @@ const showReviewModal = (row: CaseApi.CaseInfo) => {
   reviewModalVisible.value = true;
 };
 
-// 检查是否可以审核
-const canReview = (row: CaseApi.CaseInfo) => {
+const canReview = () => {
   return false;
+};
+
+const showDeleteDialog = async (row: any) => {
+  currentDeleteCase.value = row;
+  deleteLoading.value = true;
+  try {
+    const response = await getCaseRelatedDataApi(row.id);
+    if (response.code === 200 && response.data) {
+      relatedData.value = response.data;
+      deleteDialogVisible.value = true;
+    } else {
+      ElMessage.error(response.message || '获取案件关联数据失败');
+    }
+  } catch {
+    ElMessage.error('获取案件关联数据失败');
+  } finally {
+    deleteLoading.value = false;
+  }
+};
+
+const confirmDelete = async () => {
+  if (!currentDeleteCase.value) return;
+  deleteLoading.value = true;
+  try {
+    const response = await deleteCaseApi(currentDeleteCase.value.id);
+    if (response.code === 200) {
+      ElMessage.success('删除成功');
+      deleteDialogVisible.value = false;
+      relatedData.value = null;
+      currentDeleteCase.value = null;
+      await fetchCaseList();
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch {
+    ElMessage.error('删除失败');
+  } finally {
+    deleteLoading.value = false;
+  }
+};
+
+const cancelDelete = () => {
+  deleteDialogVisible.value = false;
+  relatedData.value = null;
+  currentDeleteCase.value = null;
 };
 </script>
 
@@ -854,12 +895,21 @@ const canReview = (row: CaseApi.CaseInfo) => {
                     查看
                   </ElButton>
                   <ElButton
-                    v-if="canReview(row)"
+                    v-if="canReview()"
                     type="success"
                     size="small"
                     @click="showReviewModal(row)"
                   >
                     审核
+                  </ElButton>
+                  <ElButton
+                    v-if="canDeleteCase"
+                    type="danger"
+                    size="small"
+                    @click="showDeleteDialog(row)"
+                    :loading="deleteLoading && currentDeleteCase?.id === row.id"
+                  >
+                    删除
                   </ElButton>
                 </div>
               </template>
@@ -888,6 +938,223 @@ const canReview = (row: CaseApi.CaseInfo) => {
       :case-data="currentCase"
       @success="fetchCaseList"
     />
+
+    <!-- 删除确认弹窗 -->
+    <ElDialog
+      v-model="deleteDialogVisible"
+      title="确认删除案件"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="relatedData">
+        <div class="mb-4">
+          <p class="mb-2 text-lg font-semibold">案件基本信息</p>
+          <div class="rounded bg-gray-50 p-4">
+            <p><strong>案号：</strong>{{ relatedData.caseInfo?.caseNumber }}</p>
+            <p>
+              <strong>案件名称：</strong>{{ relatedData.caseInfo?.caseName }}
+            </p>
+            <p>
+              <strong>案件状态：</strong>{{ relatedData.caseInfo?.caseStatus }}
+            </p>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <p class="mb-2 text-lg font-semibold text-red-600">关联数据统计</p>
+          <p class="mb-4 text-sm text-gray-500">
+            删除案件将同时删除以下所有关联数据，此操作不可恢复！
+          </p>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div v-if="relatedData.approvalData" class="rounded bg-blue-50 p-3">
+              <p class="font-medium text-blue-700">审批数据</p>
+              <p class="text-sm">
+                审批数：{{ relatedData.approvalData.approvalCount }}
+              </p>
+              <p class="text-sm">
+                审批历史：{{ relatedData.approvalData.approvalHistoryCount }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.processData" class="rounded bg-green-50 p-3">
+              <p class="font-medium text-green-700">流程数据</p>
+              <p class="text-sm">
+                流程阶段：{{ relatedData.processData.processStageCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.documentData"
+              class="rounded bg-yellow-50 p-3"
+            >
+              <p class="font-medium text-yellow-700">文档数据</p>
+              <p class="text-sm">
+                文书送达：{{ relatedData.documentData.documentDeliveryCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.archiveData"
+              class="rounded bg-purple-50 p-3"
+            >
+              <p class="font-medium text-purple-700">归档数据</p>
+              <p class="text-sm">
+                归档记录：{{ relatedData.archiveData.archiveRecordCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.announcementData"
+              class="rounded bg-orange-50 p-3"
+            >
+              <p class="font-medium text-orange-700">公告数据</p>
+              <p class="text-sm">
+                公告数：{{ relatedData.announcementData.announcementCount }}
+              </p>
+              <p class="text-sm">
+                公告查看：{{
+                  relatedData.announcementData.announcementViewCount
+                }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.fundData" class="rounded bg-red-50 p-3">
+              <p class="font-medium text-red-700">资金数据</p>
+              <p class="text-sm">
+                资金报销：{{ relatedData.fundData.fundReimbursementCount }}
+              </p>
+              <p class="text-sm">
+                资金流水：{{ relatedData.fundData.fundFlowCount }}
+              </p>
+              <p class="text-sm">
+                操作日志：{{ relatedData.fundData.fundOperationLogCount }}
+              </p>
+              <p class="text-sm">
+                预算：{{ relatedData.fundData.fundBudgetCount }}
+              </p>
+              <p class="text-sm">
+                托管管理：{{ relatedData.fundData.escrowManagementCount }}
+              </p>
+              <p class="text-sm">
+                资金账户：{{ relatedData.fundData.fundAccountCount }}
+              </p>
+              <p class="text-sm">
+                资金审批：{{ relatedData.fundData.fundApprovalCount }}
+              </p>
+              <p class="text-sm">
+                破产费用：{{ relatedData.fundData.bankruptcyExpenseCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.distributionData"
+              class="rounded bg-indigo-50 p-3"
+            >
+              <p class="font-medium text-indigo-700">分配数据</p>
+              <p class="text-sm">
+                分配明细：{{
+                  relatedData.distributionData.distributionDetailCount
+                }}
+              </p>
+              <p class="text-sm">
+                分配执行：{{
+                  relatedData.distributionData.distributionExecutionCount
+                }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.debtData" class="rounded bg-teal-50 p-3">
+              <p class="font-medium text-teal-700">债务数据</p>
+              <p class="text-sm">
+                普通债务：{{ relatedData.debtData.commonDebtCount }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.claimData" class="rounded bg-cyan-50 p-3">
+              <p class="font-medium text-cyan-700">债权数据</p>
+              <p class="text-sm">
+                债权确认：{{ relatedData.claimData.claimConfirmationCount }}
+              </p>
+              <p class="text-sm">
+                债权人债权：{{ relatedData.claimData.creditorClaimCount }}
+              </p>
+              <p class="text-sm">
+                债权人信息：{{ relatedData.claimData.creditorInfoCount }}
+              </p>
+              <p class="text-sm">
+                债权申报：{{ relatedData.claimData.claimRegistrationCount }}
+              </p>
+              <p class="text-sm">
+                债权审查：{{ relatedData.claimData.claimReviewCount }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.workData" class="rounded bg-pink-50 p-3">
+              <p class="font-medium text-pink-700">工作数据</p>
+              <p class="text-sm">
+                管理员：{{ relatedData.workData.administratorCount }}
+              </p>
+              <p class="text-sm">
+                工作组：{{ relatedData.workData.workTeamCount }}
+              </p>
+              <p class="text-sm">
+                工作计划：{{ relatedData.workData.workPlanCount }}
+              </p>
+              <p class="text-sm">
+                工作日志：{{ relatedData.workData.workLogCount }}
+              </p>
+              <p class="text-sm">
+                案件进度：{{ relatedData.workData.caseProgressCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.enterpriseData"
+              class="rounded bg-lime-50 p-3"
+            >
+              <p class="font-medium text-lime-700">企业数据</p>
+              <p class="text-sm">
+                债务企业：{{ relatedData.enterpriseData.debtorEnterpriseCount }}
+              </p>
+            </div>
+
+            <div v-if="relatedData.taskData" class="rounded bg-amber-50 p-3">
+              <p class="font-medium text-amber-700">任务数据</p>
+              <p class="text-sm">
+                案件任务：{{ relatedData.taskData.caseTaskCount }}
+              </p>
+              <p class="text-sm">
+                任务提交：{{ relatedData.taskData.caseTaskSubmissionCount }}
+              </p>
+            </div>
+
+            <div
+              v-if="relatedData.accountData"
+              class="rounded bg-emerald-50 p-3"
+            >
+              <p class="font-medium text-emerald-700">账户数据</p>
+              <p class="text-sm">
+                银行账户：{{ relatedData.accountData.bankAccountCount }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <ElButton @click="cancelDelete">取消</ElButton>
+          <ElButton
+            type="danger"
+            @click="confirmDelete"
+            :loading="deleteLoading"
+          >
+            确认删除
+          </ElButton>
+        </div>
+      </template>
+    </ElDialog>
   </div>
 </template>
 

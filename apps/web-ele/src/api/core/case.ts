@@ -234,6 +234,78 @@ export namespace CaseApi {
     caseNumber?: string;
   }
 
+  /** 案件关联数据响应 */
+  export interface CaseRelatedDataResponse {
+    code: number;
+    message: string;
+    data: {
+      caseInfo: {
+        id: number;
+        caseNumber: string;
+        caseName: string;
+        caseStatus: string;
+      };
+      approvalData: {
+        approvalCount: number;
+        approvalHistoryCount: number;
+      };
+      processData: {
+        processStageCount: number;
+      };
+      documentData: {
+        documentDeliveryCount: number;
+      };
+      archiveData: {
+        archiveRecordCount: number;
+      };
+      announcementData: {
+        announcementCount: number;
+        announcementViewCount: number;
+      };
+      fundData: {
+        fundReimbursementCount: number;
+        fundFlowCount: number;
+        fundOperationLogCount: number;
+        fundBudgetCount: number;
+        escrowManagementCount: number;
+        fundAccountCount: number;
+        fundApprovalCount: number;
+        bankruptcyExpenseCount: number;
+      };
+      distributionData: {
+        distributionDetailCount: number;
+        distributionExecutionCount: number;
+      };
+      debtData: {
+        commonDebtCount: number;
+      };
+      claimData: {
+        claimConfirmationCount: number;
+        creditorClaimCount: number;
+        creditorInfoCount: number;
+        claimRegistrationCount: number;
+        claimReviewCount: number;
+      };
+      workData: {
+        administratorCount: number;
+        workTeamCount: number;
+        workPlanCount: number;
+        workLogCount: number;
+        caseProgressCount: number;
+      };
+      enterpriseData: {
+        debtorEnterpriseCount: number;
+      };
+      taskData: {
+        caseTaskCount: number;
+        caseTaskSubmissionCount: number;
+      };
+      accountData: {
+        bankAccountCount: number;
+      };
+    };
+  }
+
   /** 工作团队成员参数 */
   export interface WorkTeamMember {
     userId: number;
@@ -352,6 +424,16 @@ export async function getCaseListApi(params: CaseApi.CaseListQueryParams = {}) {
   return requestClient8085.get<CaseApi.CaseListResponse>('/case/list', {
     params,
   });
+}
+
+/**
+ * 获取案件关联数据
+ * GET /api/v1/case/{caseId}/related-data
+ */
+export async function getCaseRelatedDataApi(caseId: number) {
+  return requestClient8085.get<CaseApi.CaseRelatedDataResponse>(
+    `/case/${caseId}/related-data`,
+  );
 }
 
 /**

@@ -91,17 +91,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   client.addRequestInterceptor({
     fulfilled: async (config) => {
       config.headers['Accept-Language'] = preferences.app.locale;
-      // 添加JWT令牌到请求头
       const token = localStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-      console.log('[RequestInterceptor] 请求配置:', {
-        url: config.url,
-        method: config.method,
-        hasToken: !!token,
-        headers: config.headers,
-      });
       return config;
     },
   });
@@ -166,7 +159,7 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export { createRequestClient };
 
 export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || 'http://localhost:5779/api/v1',
+  import.meta.env.VITE_CHAT_API_URL || 'http://192.168.0.120:5779/api/v1',
   {
     responseReturn: 'body',
   },
