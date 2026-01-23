@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router';
 
 import { useAccessStore } from '@vben/stores';
 
-import { ElLoading, ElMessage } from 'element-plus';
+import { ElLoading, ElMessage, ElMessageBox } from 'element-plus';
 
 import { addOneCaseApi, batchUploadCaseFilesApi } from '#/api/core/case';
 import { getCourtListApi } from '#/api/core/court';
@@ -240,7 +240,6 @@ const submitForm = async () => {
 
   try {
     await formRef.value.validate();
-    loading.value = true;
 
     const submitData: CaseApi.CreateCaseRequest = {
       caseNumber: form.caseNumber.trim(),
@@ -259,6 +258,46 @@ const submitForm = async () => {
       filingDate: form.filingDate,
       remarks: form.remarks?.trim(),
     };
+
+    const caseProgressMap: Record<string, string> = {
+      FIRST: '第一阶段',
+      SECOND: '第二阶段',
+      THIRD: '第三阶段',
+      FOURTH: '第四阶段',
+      FIFTH: '第五阶段',
+      SIXTH: '第六阶段',
+      SEVENTH: '第七阶段',
+    };
+
+    const confirmContent = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: bold; color: #303133;">案件基本信息</h3>
+        <p><strong>案号：</strong>${submitData.caseNumber || '-'}</p>
+        <p><strong>案件名称：</strong>${submitData.caseName || '-'}</p>
+        <p><strong>受理日期：</strong>${submitData.acceptanceDate || '-'}</p>
+        <p><strong>案件来源：</strong>${submitData.caseSource || '-'}</p>
+        <p><strong>受理法院：</strong>${submitData.acceptanceCourt || '-'}</p>
+        <p><strong>承办法官：</strong>${submitData.designatedJudge || '-'}</p>
+        <p><strong>指定机构：</strong>${submitData.designatedInstitution || '-'}</p>
+        <p><strong>主要负责人：</strong>${submitData.mainResponsiblePerson || '-'}</p>
+        <p><strong>承办人员：</strong>${submitData.undertakingPersonnel || '-'}</p>
+        <p><strong>是否简化审：</strong>${submitData.isSimplifiedTrial === 1 ? '是' : '否'}</p>
+        <p><strong>案件进度：</strong>${caseProgressMap[submitData.caseProgress] || submitData.caseProgress}</p>
+        <p><strong>案件原因：</strong>${submitData.caseReason || '-'}</p>
+        <p><strong>立案日期：</strong>${submitData.filingDate || '-'}</p>
+        <p><strong>备注：</strong>${submitData.remarks || '-'}</p>
+        ${uploadedFiles.value.length > 0 ? `<h3 style="margin: 16px 0 12px 0; font-size: 16px; font-weight: bold; color: #303133;">文件列表</h3><p>${uploadedFiles.value.map((f) => f.name).join('、')}</p>` : ''}
+      </div>
+    `;
+
+    await ElMessageBox.confirm(confirmContent, '确认新增案件', {
+      confirmButtonText: '确认新增',
+      cancelButtonText: '取消',
+      dangerouslyUseHTMLString: true,
+      customClass: 'case-confirm-dialog',
+    });
+
+    loading.value = true;
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
@@ -300,6 +339,9 @@ const submitForm = async () => {
       ElMessage.error(caseResult.message || '案件添加失败');
     }
   } catch (error: any) {
+    if (error === 'cancel') {
+      return;
+    }
     if (error.message === '后端请求超时') {
       ElMessage.error('后端请求超时，请稍后重试');
     } else if (error?.fields) {
@@ -684,5 +726,21 @@ const submitForm = async () => {
 
 .case-form {
   padding: 1rem;
+}
+</style>
+
+<style>
+.case-confirm-dialog .el-message-box__content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.case-confirm-dialog .el-message-box__message p {
+  margin: 4px 0;
+}
+
+.case-confirm-dialog .el-message-box__message strong {
+  color: #606266;
+  font-weight: 500;
 }
 </style>
