@@ -50,7 +50,6 @@ const loading = ref(false);
 const courtLevelOptions = [
   { label: '中级人民法院', value: '中级人民法院' },
   { label: '高级人民法院', value: '高级人民法院' },
-  { label: 'deserunt adipisicing', value: 'deserunt adipisicing' },
   { label: '省级人民法院', value: '省级人民法院' },
   { label: '县级人民法院', value: '县级人民法院' },
   { label: '市级人民法院', value: '市级人民法院' },

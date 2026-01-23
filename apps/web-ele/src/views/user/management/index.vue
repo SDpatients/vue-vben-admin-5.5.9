@@ -270,7 +270,7 @@ onMounted(() => {
         <ElFormItem label="用户名" required>
           <ElInput v-model="form.username" placeholder="请输入用户名" />
         </ElFormItem>
-        <ElFormItem label="密码" :required="!editingUser">
+        <ElFormItem v-if="!editingUser" label="密码" required>
           <ElInput
             v-model="form.password"
             type="password"

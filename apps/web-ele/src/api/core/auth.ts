@@ -221,7 +221,7 @@ export async function getCurrentUserApi() {
   const token = localStorage.getItem('token');
 
   const result = await fileUploadRequestClient.get<AuthApi.CurrentUserResult>(
-    '/auth/current-user',
+    '/api/v1/auth/current-user',
     {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     },

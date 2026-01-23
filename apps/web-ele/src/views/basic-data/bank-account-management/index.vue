@@ -213,17 +213,42 @@ const getStatusType = (status: string) => {
   }
 };
 
-// 获取账户类型标签
+// 账户类型翻译映射
+const accountTypeTranslation: Record<string, string> = {
+  FOREIGN: '外汇户',
+  MARGIN: '保证金户',
+  SPECIAL: '专用户',
+  GENERAL: '一般户',
+  SETTLEMENT: '结算户',
+  TEMPORARY: '临时户',
+  BASIC: '基本户',
+  基本户: '基本户',
+  一般户: '一般户',
+  专用户: '专用户',
+};
+
+// 获取账户类型标签类型
 const getAccountType = (type: string) => {
   switch (type) {
+    case 'BASIC':
+    case 'FOREIGN':
+    case '基本户': {
+      return 'primary';
+    }
+    case 'GENERAL':
     case '一般户': {
       return 'success';
     }
+    case 'MARGIN': {
+      return 'danger';
+    }
+    case 'SETTLEMENT':
+    case 'TEMPORARY': {
+      return 'info';
+    }
+    case 'SPECIAL':
     case '专用户': {
       return 'warning';
-    }
-    case '基本户': {
-      return 'primary';
     }
     default: {
       return 'info';
@@ -354,32 +379,32 @@ const exportBankAccountData = () => {
     { field: 'bankName', title: '银行名称', width: 12 },
     { field: 'accountNumber', title: '账户号码', width: 18 },
     {
-      field: 'account_type',
+      field: 'accountType',
       title: '账户类型',
       width: 10,
-      formatter: (value) => value || '-',
+      formatter: (value) => accountTypeTranslation[value] || value || '-',
     },
     { field: 'currency', title: '币种', width: 10 },
     {
-      field: 'balance',
+      field: 'currentBalance',
       title: '余额',
       width: 12,
       formatter: (value) => formatCurrency(value),
     },
     {
-      field: 'KHRQ',
-      title: '开户日期',
+      field: 'createTime',
+      title: '创建时间',
       width: 12,
-      formatter: (value) => formatDate(value),
+      formatter: (value) => new Date(value).toLocaleString('zh-CN'),
     },
     {
-      field: 'XHRQ',
-      title: '销户日期',
+      field: 'updateTime',
+      title: '更新时间',
       width: 12,
-      formatter: (value) => formatDate(value),
+      formatter: (value) => new Date(value).toLocaleString('zh-CN'),
     },
     {
-      field: 'ZT',
+      field: 'status',
       title: '状态',
       width: 8,
       formatter: (value) => value || '-',
@@ -421,7 +446,7 @@ const getCaseList = async (query = '') => {
   try {
     const response = await getCaseSimpleListApi({
       page: 1,
-      size: 10000,
+      size: 10_000,
       caseNumber: query,
     });
 
@@ -505,6 +530,10 @@ const accountTypeOptions = [
   { label: '基本户', value: '基本户' },
   { label: '一般户', value: '一般户' },
   { label: '专用户', value: '专用户' },
+  { label: '外汇户 (FOREIGN)', value: 'FOREIGN' },
+  { label: '保证金户 (MARGIN)', value: 'MARGIN' },
+  { label: '结算户 (SETTLEMENT)', value: 'SETTLEMENT' },
+  { label: '临时户 (TEMPORARY)', value: 'TEMPORARY' },
 ];
 
 // 币种选项 (3位大写字母)
@@ -638,7 +667,7 @@ const handleSubmit = async () => {
         >
           <template #default="{ row }">
             <ElTag :type="getAccountType(row.accountType)" size="small">
-              {{ row.accountType }}
+              {{ accountTypeTranslation[row.accountType] || row.accountType }}
             </ElTag>
           </template>
         </ElTableColumn>
