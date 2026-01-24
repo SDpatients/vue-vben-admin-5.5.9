@@ -538,7 +538,7 @@ onMounted(() => {
 
 <style scoped>
 .creditor-info-container {
-  padding: 20px;
+  padding: 5px;
 }
 
 .card-header {

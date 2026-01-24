@@ -10,4 +10,10 @@ export const overridesPreferences = defineOverridesPreferences({
   app: {
     name: import.meta.env.VITE_APP_TITLE,
   },
+  // 禁用logo，避免请求外部资源
+  logo: {
+    enable: false,
+    // 或者将logo.source改为空字符串
+    // source: '',
+  },
 });

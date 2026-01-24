@@ -22,7 +22,6 @@ import {
   ElTabs,
   ElTabPane,
   ElTooltip,
-  ElUpload,
 } from 'element-plus';
 import { useRouter } from 'vue-router';
 
@@ -145,10 +144,7 @@ const approvalStatusMap = {
   CANCELLED: 'rejected',
 };
 
-// 附件上传相关状态
-const fileList = ref<{ file: File; name: string; url: string }[]>([]);
-const uploadProgress = ref(0);
-const uploading = ref(false);
+
 
 // 格式化时间为YYYY-MM-DD HH:mm:ss
 const formatDateTime = (dateString: string | undefined): string => {
@@ -272,61 +268,7 @@ const handleReject = (row: CaseApproval) => {
   dialogVisible.value = true;
 };
 
-const handleUploadAttachments = async () => {
-  if (!currentCase.value || fileList.value.length === 0) return;
 
-  uploading.value = true;
-  uploadProgress.value = 0;
-
-  try {
-    // 模拟上传过程
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      uploadProgress.value = i;
-    }
-
-    // 上传完成，将文件添加到附件列表
-    const uploadedTime = new Date().toLocaleString('zh-CN');
-    const newAttachments: Attachment[] = fileList.value.map((file, index) => ({
-      id: currentCase.value!.attachments?.length
-        ? Math.max(...currentCase.value.attachments.map((a) => a.id)) +
-          index +
-          1
-        : index + 1,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.name.split('.').pop() || 'file',
-      filePath: `/uploads/case/${currentCase.value.id}/file_${Date.now()}_${index}.${file.name.split('.').pop()}`,
-      uploadTime: uploadedTime,
-      uploader: '当前用户', // 实际应该从登录信息获取
-    }));
-
-    if (!currentCase.value.attachments) {
-      currentCase.value.attachments = [];
-    }
-    currentCase.value.attachments.push(...newAttachments);
-
-    // 更新列表数据
-    const index = caseList.value.findIndex(
-      (c) => c.id === currentCase.value?.id,
-    );
-    if (index !== -1) {
-      if (!caseList.value[index].attachments) {
-        caseList.value[index].attachments = [];
-      }
-      caseList.value[index].attachments.push(...newAttachments);
-    }
-
-    ElMessage.success(`成功上传 ${fileList.value.length} 个文件`);
-    fileList.value = [];
-    uploadProgress.value = 0;
-  } catch (error) {
-    ElMessage.error('文件上传失败');
-    console.error('上传失败:', error);
-  } finally {
-    uploading.value = false;
-  }
-};
 
 const handleConfirmApproval = async () => {
   if (!currentCase.value) return;
@@ -639,7 +581,6 @@ onMounted(() => {
               <div class="remark-box">
                 {{ currentCase.remark }}
               </div>
-            </div>
 
             <!-- 审批操作 -->
             <div
@@ -711,10 +652,9 @@ onMounted(() => {
                         </div>
                         <div class="attachment-meta">
                           <span class="attachment-size"
-                            >{{
+                            >{{ 
                               (attachment.fileSize / 1024 / 1024).toFixed(2)
-                            }}
-                            MB</span
+                            }} MB</span
                           >
                           <span class="attachment-uploader">{{
                             attachment.uploader
@@ -738,96 +678,7 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
-
-              <!-- 附件上传区域 -->
-              <div
-                v-if="currentCase.status === 'pending'"
-                class="upload-section"
-              >
-                <div class="upload-title">上传附件</div>
-                <ElUpload
-                  v-model:file-list="fileList"
-                  :auto-upload="false"
-                  :on-change="(file) => console.log('文件选择:', file)"
-                  multiple
-                  :limit="10"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
-                >
-                  <ElButton type="primary">
-                    <i class="i-lucide-upload mr-1"></i>
-                    选择文件
-                  </ElButton>
-                  <template #tip>
-                    <div class="upload-tip">
-                      支持上传 PDF、Word、Excel、图片等格式，单个文件不超过
-                      10MB，最多上传 10 个文件
-                    </div>
-                  </template>
-                </ElUpload>
-
-                <!-- 上传进度 -->
-                <div v-if="uploading" class="upload-progress-container">
-                  <ElProgress
-                    :percentage="uploadProgress"
-                    :status="uploadProgress === 100 ? 'success' : undefined"
-                  />
-                  <div class="progress-text">
-                    {{
-                      uploadProgress === 100
-                        ? '上传完成'
-                        : `正在上传... ${uploadProgress}%`
-                    }}
-                  </div>
-                </div>
-
-                <!-- 已选择文件列表 -->
-                <div v-if="fileList.length > 0" class="selected-files">
-                  <div class="selected-files-title">
-                    已选择 {{ fileList.length }} 个文件
-                  </div>
-                  <div class="selected-file-items">
-                    <div
-                      v-for="(file, index) in fileList"
-                      :key="index"
-                      class="selected-file-item"
-                    >
-                      <div class="file-info">
-                        <i class="i-lucide-file-text mr-2"></i>
-                        <span class="file-name">{{ file.name }}</span>
-                        <span class="file-size"
-                          >({{ (file.size / 1024 / 1024).toFixed(2) }} MB)</span
-                        >
-                      </div>
-                      <ElButton
-                        type="danger"
-                        size="small"
-                        link
-                        @click="fileList.splice(index, 1)"
-                      >
-                        <i class="i-lucide-trash-2"></i>
-                      </ElButton>
-                    </div>
-                  </div>
-
-                  <div class="upload-actions">
-                    <ElButton
-                      type="success"
-                      :loading="uploading"
-                      @click="handleUploadAttachments"
-                      :disabled="fileList.length === 0"
-                    >
-                      <i class="i-lucide-upload-cloud mr-1"></i>
-                      开始上传
-                    </ElButton>
-                    <ElButton
-                      @click="fileList = []"
-                      :disabled="fileList.length === 0 || uploading"
-                    >
-                      清空选择
-                    </ElButton>
-                  </div>
-                </div>
-              </div>
+            </div>
             </div>
           </div>
         </div>

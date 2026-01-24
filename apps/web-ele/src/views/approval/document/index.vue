@@ -770,7 +770,7 @@ onMounted(() => {
               :src="previewingFile.filePath" 
               frameborder="0"
               width="100%"
-              height="500px"
+              height="90vh"
             ></iframe>
           </div>
           <div v-else-if="previewingFile.fileType === 'jpg' || previewingFile.fileType === 'jpeg' || previewingFile.fileType === 'png'" class="file-preview image-preview">

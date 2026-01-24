@@ -1190,7 +1190,7 @@ onMounted(() => {
 
 <style scoped>
 .claim-review-page {
-  padding: 20px;
+  padding: 5px;
 }
 
 .card-header {

@@ -660,7 +660,7 @@ onMounted(() => {
 
 <style scoped>
 .debtor-info-container {
-  padding: 0;
+  padding: 5px;
 }
 
 .card-header {

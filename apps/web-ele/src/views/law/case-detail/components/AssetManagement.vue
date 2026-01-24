@@ -607,6 +607,7 @@ const handleAdd = () => {
 <style scoped>
 .asset-management-container {
   min-height: 600px;
+  padding: 5px;
 }
 
 .asset-tab-card {

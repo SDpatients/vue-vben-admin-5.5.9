@@ -431,7 +431,7 @@ onMounted(() => {
 
 <style scoped>
 .claim-confirmation-page {
-  padding: 20px;
+  padding: 5px;
 }
 
 .card-header {

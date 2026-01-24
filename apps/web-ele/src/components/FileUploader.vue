@@ -503,24 +503,24 @@ const handleDownload = async (file: UploadFile) => {
 }
 
 .file-preview-dialog {
-  .file-viewer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-  }
+    .file-viewer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+    }
 
-  .preview-iframe {
-    width: 100%;
-    height: 70vh;
-    border: none;
-  }
+    .preview-iframe {
+      width: 100%;
+      height: 90vh;
+      border: none;
+    }
 
-  .preview-image {
-    max-width: 100%;
-    max-height: 70vh;
-    object-fit: contain;
-  }
+    .preview-image {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+    }
 
   .preview-unsupported {
     font-size: 14px;
