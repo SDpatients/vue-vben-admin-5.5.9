@@ -32,6 +32,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+      {
+        name: 'WebSocketTest',
+        path: '/websocket-test',
+        component: () => import('#/views/dashboard/websocket-test/index.vue'),
+        meta: {
+          icon: 'lucide:radio',
+          title: 'WebSocket测试',
+        },
+      },
 
     ],
   },

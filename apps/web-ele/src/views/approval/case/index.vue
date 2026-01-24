@@ -2,12 +2,12 @@
 import type { CaseApproval as ApiCaseApproval } from '#/api/core/approval';
 
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import {
   ElButton,
   ElCard,
   ElDialog,
-  ElEmpty,
   ElForm,
   ElFormItem,
   ElInput,
@@ -18,13 +18,12 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag,
-  ElTabs,
   ElTabPane,
+  ElTabs,
+  ElTag,
   ElTooltip,
   ElUpload,
 } from 'element-plus';
-import { useRouter } from 'vue-router';
 
 import { approvalApi } from '#/api/core/approval';
 
@@ -60,7 +59,7 @@ const caseList = ref<CaseApproval[]>([]);
 const dialogVisible = ref(false);
 const currentCase = ref<CaseApproval | null>(null);
 // 弹窗类型：view-查看详情，approve-审批操作
-const dialogType = ref<'view' | 'approve'>('view');
+const dialogType = ref<'approve' | 'view'>('view');
 const approvalForm = ref({
   remark: '',
   status: 'approved' as 'approved' | 'rejected',
@@ -124,8 +123,6 @@ const approvalTypes = {
   TASK_023: '管理人终止执行职务并归档',
 };
 
-
-
 const statusMap = {
   pending: { text: '待审核', type: 'warning' as const },
   approved: { text: '已通过', type: 'success' as const },
@@ -150,19 +147,26 @@ const fileList = ref<{ file: File; name: string; url: string }[]>([]);
 const uploadProgress = ref(0);
 const uploading = ref(false);
 
+// 文件预览相关状态
+const previewDialogVisible = ref(false);
+const previewingFile = ref<Attachment | null>(null);
+const previewUrl = ref('');
+const previewLoading = ref(false);
+const attachmentThumbnailUrls = ref<Map<number, string>>(new Map());
+
 // 格式化时间为YYYY-MM-DD HH:mm:ss
 const formatDateTime = (dateString: string | undefined): string => {
   if (!dateString) return '';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
-  
+
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-  
+
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
@@ -183,7 +187,9 @@ const transformApiDataToPageData = (
     caseType: item.approvalType || 'other',
     submitter: item.submitter || '未知提交人',
     submitTime: formatDateTime(item.createTime),
-    approvalTime: item.approvalDate ? formatDateTime(item.approvalDate) : undefined,
+    approvalTime: item.approvalDate
+      ? formatDateTime(item.approvalDate)
+      : undefined,
     status:
       approvalStatusMap[
         item.approvalStatus as keyof typeof approvalStatusMap
@@ -207,13 +213,14 @@ const loadCases = async () => {
       : '';
 
     // 根据标签页设置审批类型
-    const approvalType = activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'TASK_';
+    const approvalType =
+      activeTab.value === 'caseApproval' ? 'CASE_SUBMIT' : 'TASK_';
 
     const response = await approvalApi.getApprovalList({
       pageNum: pagination.value.current,
       pageSize: pagination.value.pageSize,
       approvalStatus: approvalStatus as string,
-      approvalType: approvalType,
+      approvalType,
       approvalTitle: searchForm.value.keyword || undefined,
     });
 
@@ -225,7 +232,7 @@ const loadCases = async () => {
     } else {
       ElMessage.error(response.message || '加载案件列表失败');
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('加载案件列表失败');
   } finally {
     loading.value = false;
@@ -250,6 +257,11 @@ const handleViewDetail = (row: CaseApproval) => {
   currentCase.value = row;
   dialogType.value = 'view';
   dialogVisible.value = true;
+
+  // 加载图片缩略图
+  if (currentCase.value.attachments) {
+    loadAttachmentThumbnails(currentCase.value.attachments);
+  }
 };
 
 const handleApprove = (row: CaseApproval) => {
@@ -379,6 +391,155 @@ const getPriorityInfo = (priority: string) => {
   return item || { label: priority, type: 'info' as const };
 };
 
+// 格式化文件大小
+const formatFileSize = (size: number): string => {
+  if (size < 1024) {
+    return `${size} B`;
+  } else if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(2)} KB`;
+  } else {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  }
+};
+
+// 判断文件是否可预览
+const canPreview = (fileType: string): boolean => {
+  const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'txt'];
+  return previewableTypes.includes(fileType.toLowerCase());
+};
+
+// 判断是否为图片文件
+const isImageFile = (fileType: string): boolean => {
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+  return imageTypes.includes(fileType.toLowerCase());
+};
+
+// 处理图片加载错误
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.src = '';
+  img.style.display = 'none';
+};
+
+// 加载附件缩略图
+const loadAttachmentThumbnails = async (attachments: Attachment[]) => {
+  attachmentThumbnailUrls.value.clear();
+  for (const attachment of attachments) {
+    if (isImageFile(attachment.fileType)) {
+      const token = localStorage.getItem('token');
+      if (!token) continue;
+
+      try {
+        const response = await fetch(
+          `${window.location.origin}/api/v1/file/preview/${attachment.id}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          attachmentThumbnailUrls.value.set(attachment.id, url);
+        }
+      } catch (error) {
+        console.error('获取图片预览失败:', error);
+      }
+    }
+  }
+};
+
+// 获取附件缩略图 URL
+const getAttachmentThumbnailUrl = (attachmentId: number): string => {
+  return attachmentThumbnailUrls.value.get(attachmentId) || '';
+};
+
+// 预览文件
+const previewFile = async (file: Attachment) => {
+  previewingFile.value = file;
+  previewLoading.value = true;
+  previewUrl.value = '';
+
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.error('未找到登录信息，请先登录');
+      previewDialogVisible.value = false;
+      return;
+    }
+
+    const response = await fetch(
+      `${window.location.origin}/api/v1/file/preview/${file.id}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      ElMessage.error(errorData.message || '预览失败');
+      return;
+    }
+
+    const blob = await response.blob();
+    previewUrl.value = window.URL.createObjectURL(blob);
+    previewDialogVisible.value = true;
+  } catch (error) {
+    console.error('预览失败:', error);
+    ElMessage.error('预览失败，请重试');
+  } finally {
+    previewLoading.value = false;
+  }
+};
+
+// 下载文件
+const downloadFile = async (file: Attachment) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.error('未找到登录信息，请先登录');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${window.location.origin}/api/v1/file/download/${file.id}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      ElMessage.error(errorData.message || '下载失败');
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.fileName;
+    document.body.append(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+
+    ElMessage.success('文件下载成功');
+  } catch (error) {
+    console.error('下载失败:', error);
+    ElMessage.error('下载失败，请重试');
+  }
+};
+
 onMounted(() => {
   loadCases();
 });
@@ -456,10 +617,10 @@ onMounted(() => {
 
         <ElTableColumn prop="caseNumber" label="案号" width="150">
           <template #default="{ row }">
-            <ElButton 
-              type="primary" 
-              size="small" 
-              link 
+            <ElButton
+              type="primary"
+              size="small"
+              link
               @click="goToCaseDetail(row.caseId)"
             >
               {{ row.caseNumber }}
@@ -482,8 +643,6 @@ onMounted(() => {
             </ElTag>
           </template>
         </ElTableColumn>
-
-
 
         <ElTableColumn prop="submitter" label="提交人" width="100" />
 
@@ -543,7 +702,10 @@ onMounted(() => {
         </ElTableColumn>
       </ElTable>
 
-      <div v-if="caseList.length === 0 && !loading" class="mt-8 text-center text-gray-500 py-8">
+      <div
+        v-if="caseList.length === 0 && !loading"
+        class="mt-8 py-8 text-center text-gray-500"
+      >
         暂无数据
       </div>
 
@@ -587,10 +749,10 @@ onMounted(() => {
           <div class="info-item">
             <span class="info-label">案号</span>
             <span class="info-value">
-              <ElButton 
-                type="primary" 
-                size="small" 
-                link 
+              <ElButton
+                type="primary"
+                size="small"
+                link
                 @click="goToCaseDetail(currentCase.caseId)"
               >
                 {{ currentCase.caseNumber }}
@@ -674,9 +836,33 @@ onMounted(() => {
                     v-for="attachment in currentCase.attachments"
                     :key="attachment.id"
                     class="attachment-item"
+                    :class="{
+                      'has-image-preview': isImageFile(attachment.fileType),
+                    }"
                   >
                     <div class="attachment-info">
-                      <div class="attachment-icon">
+                      <!-- 图片预览区域 -->
+                      <div
+                        v-if="isImageFile(attachment.fileType)"
+                        class="attachment-image-preview"
+                        @click="previewFile(attachment)"
+                      >
+                        <img
+                          v-if="getAttachmentThumbnailUrl(attachment.id)"
+                          :src="getAttachmentThumbnailUrl(attachment.id)"
+                          :alt="attachment.fileName"
+                          class="attachment-thumbnail"
+                          @error="handleImageError"
+                        />
+                        <div v-else class="thumbnail-placeholder">
+                          <i class="i-lucide-image"></i>
+                        </div>
+                        <div class="image-overlay">
+                          <i class="i-lucide-zoom-in"></i>
+                        </div>
+                      </div>
+                      <!-- 文件图标 -->
+                      <div v-else class="attachment-icon">
                         <i
                           v-if="attachment.fileType === 'pdf'"
                           class="i-lucide-file-text"
@@ -695,14 +881,6 @@ onMounted(() => {
                           "
                           class="i-lucide-file-excel"
                         ></i>
-                        <i
-                          v-else-if="
-                            attachment.fileType === 'jpg' ||
-                            attachment.fileType === 'jpeg' ||
-                            attachment.fileType === 'png'
-                          "
-                          class="i-lucide-file-image"
-                        ></i>
                         <i v-else class="i-lucide-file"></i>
                       </div>
                       <div class="attachment-details">
@@ -710,12 +888,9 @@ onMounted(() => {
                           {{ attachment.fileName }}
                         </div>
                         <div class="attachment-meta">
-                          <span class="attachment-size"
-                            >{{
-                              (attachment.fileSize / 1024 / 1024).toFixed(2)
-                            }}
-                            MB</span
-                          >
+                          <span class="attachment-size">{{
+                            formatFileSize(attachment.fileSize)
+                          }}</span>
                           <span class="attachment-uploader">{{
                             attachment.uploader
                           }}</span>
@@ -726,13 +901,24 @@ onMounted(() => {
                       </div>
                     </div>
                     <div class="attachment-actions">
-                      <ElButton type="primary" size="small" link>
-                        <i class="i-lucide-download mr-1"></i>
-                        下载
-                      </ElButton>
-                      <ElButton type="primary" size="small" link>
+                      <ElButton
+                        type="primary"
+                        size="small"
+                        link
+                        @click="previewFile(attachment)"
+                        :disabled="!canPreview(attachment.fileType)"
+                      >
                         <i class="i-lucide-eye mr-1"></i>
                         预览
+                      </ElButton>
+                      <ElButton
+                        type="success"
+                        size="small"
+                        link
+                        @click="downloadFile(attachment)"
+                      >
+                        <i class="i-lucide-download mr-1"></i>
+                        下载
                       </ElButton>
                     </div>
                   </div>
@@ -794,9 +980,7 @@ onMounted(() => {
                       <div class="file-info">
                         <i class="i-lucide-file-text mr-2"></i>
                         <span class="file-name">{{ file.name }}</span>
-                        <span class="file-size"
-                          >({{ (file.size / 1024 / 1024).toFixed(2) }} MB)</span
-                        >
+                        <span class="file-size">({{ formatFileSize(file.size) }})</span>
                       </div>
                       <ElButton
                         type="danger"
@@ -837,11 +1021,11 @@ onMounted(() => {
       <template #footer v-if="dialogType === 'view'">
         <ElButton @click="dialogVisible = false">取消</ElButton>
       </template>
-      
+
       <!-- 审批操作时根据状态显示不同按钮 -->
       <template #footer v-else-if="dialogType === 'approve'">
         <ElButton @click="dialogVisible = false">取消</ElButton>
-        
+
         <!-- 当审批状态为approved时显示通过按钮 -->
         <ElButton
           v-if="approvalForm.status === 'approved'"
@@ -855,7 +1039,7 @@ onMounted(() => {
           <i class="i-lucide-check mr-1"></i>
           通过
         </ElButton>
-        
+
         <!-- 当审批状态为rejected时显示驳回按钮 -->
         <ElButton
           v-if="approvalForm.status === 'rejected'"
@@ -868,6 +1052,65 @@ onMounted(() => {
         >
           <i class="i-lucide-x mr-1"></i>
           驳回
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 文件预览弹窗 -->
+    <ElDialog
+      v-model="previewDialogVisible"
+      :title="previewingFile?.fileName || '文件预览'"
+      width="800px"
+      @close="previewUrl = ''"
+    >
+      <div v-if="previewingFile" class="file-preview-container">
+        <div v-if="previewLoading" class="loading-container">
+          <ElEmpty description="加载中..." />
+        </div>
+        <div v-else-if="previewUrl" class="file-preview">
+          <div v-if="previewingFile.fileType === 'pdf'" class="pdf-preview">
+            <iframe
+              :src="previewUrl"
+              frameborder="0"
+              width="100%"
+              height="500px"
+            ></iframe>
+          </div>
+          <div
+            v-else-if="
+              previewingFile.fileType === 'jpg' ||
+              previewingFile.fileType === 'jpeg' ||
+              previewingFile.fileType === 'png'
+            "
+            class="image-preview"
+          >
+            <img :src="previewUrl" alt="预览图片" class="preview-image" />
+          </div>
+          <div
+            v-else-if="previewingFile.fileType === 'txt'"
+            class="text-preview"
+          >
+            <pre class="preview-text">文本文件预览功能暂不支持</pre>
+          </div>
+          <div v-else class="unsupported-preview">
+            <ElEmpty description="不支持的文件格式" />
+            <div class="preview-actions">
+              <ElButton type="primary" @click="downloadFile(previewingFile)">
+                <i class="i-lucide-download mr-1"></i>
+                下载文件
+              </ElButton>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-preview">
+          <ElEmpty description="无法预览" />
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="previewDialogVisible = false">关闭</ElButton>
+        <ElButton type="success" @click="downloadFile(previewingFile)">
+          <i class="i-lucide-download mr-1"></i>
+          下载
         </ElButton>
       </template>
     </ElDialog>
@@ -1054,6 +1297,10 @@ onMounted(() => {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
           }
+
+          &.has-image-preview {
+            align-items: flex-start;
+          }
         }
 
         .attachment-info {
@@ -1062,6 +1309,63 @@ onMounted(() => {
           gap: 12px;
           flex: 1;
           min-width: 0;
+        }
+
+        .attachment-image-preview {
+          position: relative;
+          width: 80px;
+          height: 80px;
+          flex-shrink: 0;
+          cursor: pointer;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #dee2e6;
+          transition: all 0.3s;
+
+          &:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          }
+
+          .attachment-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+
+          .thumbnail-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8f9fa;
+            color: #adb5bd;
+            font-size: 24px;
+          }
+
+          .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+
+            i {
+              font-size: 28px;
+              color: #fff;
+            }
+          }
+
+          &:hover .image-overlay {
+            opacity: 1;
+          }
         }
 
         .attachment-icon {
@@ -1217,5 +1521,76 @@ onMounted(() => {
 
 :deep(.el-button + .el-button) {
   margin-left: 8px;
+}
+
+.file-preview-container {
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+  }
+
+  .file-preview {
+    margin: 0 -20px -20px;
+    padding: 0 20px 20px;
+
+    &.pdf-preview {
+      iframe {
+        border: 1px solid #ebeef5;
+        border-radius: 4px;
+      }
+    }
+
+    &.image-preview {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 500px;
+      background-color: #fafafa;
+      border-radius: 4px;
+      overflow: hidden;
+
+      .preview-image {
+        max-width: 100%;
+        max-height: 500px;
+        object-fit: contain;
+      }
+    }
+
+    &.text-preview {
+      pre {
+        max-height: 500px;
+        overflow: auto;
+        padding: 16px;
+        background-color: #f5f7fa;
+        border: 1px solid #ebeef5;
+        border-radius: 4px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+    }
+
+    &.unsupported-preview {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 16px;
+
+      .preview-actions {
+        margin-top: 16px;
+      }
+    }
+  }
+
+  .empty-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+  }
 }
 </style>

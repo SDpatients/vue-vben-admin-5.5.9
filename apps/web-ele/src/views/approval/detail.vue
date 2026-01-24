@@ -318,7 +318,7 @@ onMounted(() => {
               </div>
               <div class="info-item">
                 <span class="label">申请人:</span>
-                <span class="value">{{ approval.applicantName }}</span>
+                <span class="value">{{ approval.realName || approval.applicantName }}</span>
               </div>
               <div v-if="approval.approverName" class="info-item">
                 <span class="label">审核人:</span>

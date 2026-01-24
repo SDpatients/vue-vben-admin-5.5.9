@@ -151,7 +151,7 @@ const getTypeText = (type: string) => {
         </div>
         <div class="info-row">
           <span class="label">提交人:</span>
-          <span class="value">{{ approval.submitter || approval.createUserName || '系统' }}</span>
+          <span class="value">{{ approval.realName || approval.submitter || approval.createUserName || '系统' }}</span>
         </div>
         <div v-if="approval.approvalDate" class="info-row">
           <span class="label">审核时间:</span>

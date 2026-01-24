@@ -33,9 +33,9 @@ const loadApprovals = async (tab: string) => {
   try {
     let res;
     const status = tab === 'pending' ? 'PENDING' : tab === 'approved' ? 'APPROVED' : tab === 'rejected' ? 'REJECTED' : 'CANCELLED';
-    res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
-    approvals.value = res.data || [];
-    hasMore.value = res.data.length >= pageSize.value;
+    res = await approvalApi.getApprovalList({ approvalStatus: status, approvalType: selectedType.value || undefined, pageNum: currentPage.value, pageSize: pageSize.value });
+    approvals.value = res.data.list || [];
+    hasMore.value = res.data.list.length >= pageSize.value;
   } catch (error) {
     console.error('加载审核列表失败:', error);
   } finally {
@@ -49,7 +49,7 @@ const loadMore = async () => {
   try {
     let res;
     const status = activeTab.value === 'pending' ? 'PENDING' : activeTab.value === 'approved' ? 'APPROVED' : activeTab.value === 'rejected' ? 'REJECTED' : 'CANCELLED';
-    res = await approvalApi.getApprovalList(status, selectedType.value || undefined, currentPage.value, pageSize.value);
+    res = await approvalApi.getApprovalList({ approvalStatus: status, approvalType: selectedType.value || undefined, pageNum: currentPage.value, pageSize: pageSize.value });
     approvals.value = [...approvals.value, ...(res.data || [])];
     hasMore.value = res.data.length >= pageSize.value;
   } catch (error) {

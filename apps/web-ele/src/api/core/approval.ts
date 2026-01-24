@@ -14,29 +14,24 @@ export interface CaseApproval {
   id: number;
   caseId: number;
   caseNumber: string;
-  caseTitle?: string;
-  approvalTitle?: string;
-  caseType?: string;
   lawyerId: number;
   approvalType: string;
   approvalStatus: string;
+  approvalTitle: string;
   approvalContent: string;
-  approvalResult?: string;
+  approvalAttachment: string;
+  approvalResult: string;
   approvalCount: number;
-  approverId?: number;
-  approvalDate?: string;
-  remark?: string;
+  approverId: number;
+  approvalDate: string;
+  remark: string;
+  status: string;
+  isDeleted: boolean;
   createTime: string;
   updateTime: string;
-  createUserId?: number;
-  updateUserId?: number;
-  isDeleted: boolean;
-  status: string;
-  submitter?: string;
-  submitTime?: string;
-  priority?: string;
-  description?: string;
-  attachments?: Attachment[];
+  createUserId: number;
+  updateUserId: number;
+  realName: string;
 }
 
 // 添加Approval类型作为CaseApproval的别名，用于兼容现有组件

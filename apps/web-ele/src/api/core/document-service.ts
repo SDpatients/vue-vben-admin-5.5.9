@@ -154,9 +154,8 @@ export namespace DocumentServiceApi {
     deliveryAddress?: string;
     deliveryMethod?: string;
     deliveryContent?: string;
-    documentAttachment?: string;
     approvalTitle: string;
-    approvalContent: string;
+    approvalContent?: string;
     remark?: string;
   }
 }
@@ -233,6 +232,26 @@ export async function updateDocumentApi(
 }
 
 /**
+ * 更新文书送达信息（带文件上传）
+ * 更新文书信息并新增文件
+ */
+export async function updateDocumentWithFilesApi(
+  deliveryId: number,
+  formData: FormData,
+) {
+  return documentRequestClient.put<DocumentServiceApi.DocumentDetailResponse>(
+    `/api/v1/document-delivery/${deliveryId}/with-files`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60_000,
+    },
+  );
+}
+
+/**
  * 删除文书送达记录
  */
 export async function deleteDocumentApi(deliveryId: number) {
@@ -241,6 +260,21 @@ export async function deleteDocumentApi(deliveryId: number) {
     data: null;
     message: string;
   }>(`/api/v1/document-delivery/${deliveryId}`);
+}
+
+/**
+ * 删除文书送达附件
+ * 删除指定的文书附件
+ */
+export async function deleteDocumentAttachmentApi(
+  deliveryId: number,
+  fileId: number,
+) {
+  return documentRequestClient.delete<{
+    code: number;
+    data: null;
+    message: string;
+  }>(`/api/v1/document-delivery/${deliveryId}/attachments/${fileId}`);
 }
 
 /**
@@ -326,5 +360,41 @@ export async function submitDocumentForApprovalApi(
   return documentRequestClient.post<DocumentServiceApi.DocumentCreateResponse>(
     '/api/v1/document-delivery/submit-for-approval',
     data,
+  );
+}
+
+/**
+ * 文书上传（直接上传，无需审批，带文件）
+ * 一次性完成文件上传和文书上传，无需审批
+ */
+export async function directUploadDocumentWithFilesApi(formData: FormData) {
+  return documentRequestClient.post<DocumentServiceApi.DocumentCreateWithFilesResponse>(
+    '/api/v1/document-delivery/direct-upload-with-files',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60_000,
+    },
+  );
+}
+
+/**
+ * 文书审批提交（需要审批流程，带文件）
+ * 一次性完成文件上传和文书上传，需要管理员审批
+ */
+export async function submitDocumentForApprovalWithFilesApi(
+  formData: FormData,
+) {
+  return documentRequestClient.post<DocumentServiceApi.DocumentCreateWithFilesResponse>(
+    '/api/v1/document-delivery/submit-for-approval-with-files',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60_000,
+    },
   );
 }

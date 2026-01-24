@@ -163,6 +163,21 @@ export async function downloadFileApi(fileId: number): Promise<Blob> {
 }
 
 /**
+ * 预览文件（在新窗口中打开）
+ * @param fileId 文件记录ID
+ */
+export async function previewFileApi(fileId: number): Promise<void> {
+  const blob = await fileUploadRequestClient.get<Blob>(
+    `/api/v1/file/preview/${fileId}`,
+    {
+      responseType: 'blob',
+    },
+  );
+  const url = window.URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+/**
  * 获取文件信息
  * @param fileId 文件记录ID
  */
