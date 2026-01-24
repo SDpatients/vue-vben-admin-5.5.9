@@ -3211,7 +3211,7 @@ onMounted(() => {
 
 <style scoped>
 .claim-registration-container {
-  padding: 20px;
+  padding: 5px;
 }
 
 .card-header {

@@ -815,12 +815,12 @@ const handleClearAllCache = async () => {
           v-if="previewType === 'pdf'"
           :src="previewUrl"
           width="100%"
-          height="600px"
+          height="90vh"
         ></iframe>
         <img
           v-else-if="previewType === 'image'"
           :src="previewUrl"
-          style="max-width: 100%; max-height: 600px"
+          style="max-width: 100%; max-height: 80vh"
         />
         <div v-else class="preview-error">
           <ElResult

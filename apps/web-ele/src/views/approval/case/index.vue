@@ -22,7 +22,6 @@ import {
   ElTabs,
   ElTag,
   ElTooltip,
-  ElUpload,
 } from 'element-plus';
 
 import { approvalApi } from '#/api/core/approval';
@@ -284,61 +283,7 @@ const handleReject = (row: CaseApproval) => {
   dialogVisible.value = true;
 };
 
-const handleUploadAttachments = async () => {
-  if (!currentCase.value || fileList.value.length === 0) return;
 
-  uploading.value = true;
-  uploadProgress.value = 0;
-
-  try {
-    // 模拟上传过程
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      uploadProgress.value = i;
-    }
-
-    // 上传完成，将文件添加到附件列表
-    const uploadedTime = new Date().toLocaleString('zh-CN');
-    const newAttachments: Attachment[] = fileList.value.map((file, index) => ({
-      id: currentCase.value!.attachments?.length
-        ? Math.max(...currentCase.value.attachments.map((a) => a.id)) +
-          index +
-          1
-        : index + 1,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.name.split('.').pop() || 'file',
-      filePath: `/uploads/case/${currentCase.value.id}/file_${Date.now()}_${index}.${file.name.split('.').pop()}`,
-      uploadTime: uploadedTime,
-      uploader: '当前用户', // 实际应该从登录信息获取
-    }));
-
-    if (!currentCase.value.attachments) {
-      currentCase.value.attachments = [];
-    }
-    currentCase.value.attachments.push(...newAttachments);
-
-    // 更新列表数据
-    const index = caseList.value.findIndex(
-      (c) => c.id === currentCase.value?.id,
-    );
-    if (index !== -1) {
-      if (!caseList.value[index].attachments) {
-        caseList.value[index].attachments = [];
-      }
-      caseList.value[index].attachments.push(...newAttachments);
-    }
-
-    ElMessage.success(`成功上传 ${fileList.value.length} 个文件`);
-    fileList.value = [];
-    uploadProgress.value = 0;
-  } catch (error) {
-    ElMessage.error('文件上传失败');
-    console.error('上传失败:', error);
-  } finally {
-    uploading.value = false;
-  }
-};
 
 const handleConfirmApproval = async () => {
   if (!currentCase.value) return;
@@ -801,7 +746,6 @@ onMounted(() => {
               <div class="remark-box">
                 {{ currentCase.remark }}
               </div>
-            </div>
 
             <!-- 审批操作 -->
             <div

@@ -23,9 +23,6 @@ const handleTabChange = (tabName: string) => {
 
 <template>
   <div class="claim-registration-container">
-    <!-- 债权人信息模块 -->
-    <CreditorInfo :case-id="caseId" />
-
     <ElCard shadow="hover">
       <template #header>
         <div class="card-header flex items-center justify-between">
@@ -53,6 +50,16 @@ const handleTabChange = (tabName: string) => {
       </template>
 
       <ElTabs v-model="activeTab" @tab-change="handleTabChange">
+        <ElTabPane label="债权人信息" name="creditorInfo">
+          <template #label>
+            <div class="tab-label">
+              <Icon icon="lucide:users" class="mr-1" />
+              债权人信息
+            </div>
+          </template>
+          <CreditorInfo :case-id="caseId" />
+        </ElTabPane>
+
         <ElTabPane label="债权申报登记" name="stage1">
           <template #label>
             <div class="tab-label">
@@ -90,7 +97,7 @@ const handleTabChange = (tabName: string) => {
 
 <style scoped>
 .claim-registration-container {
-  padding: 20px;
+  padding: 5px;
 }
 
 .card-header {

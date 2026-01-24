@@ -23,12 +23,16 @@ import {
   ElTabs,
   ElTabPane,
   ElUpload,
+  ElImageViewer,
   type UploadFile,
   type UploadUserFile,
 } from 'element-plus';
 
 import { CaseTaskApi, type CaseTask } from '../../../api/core/case-tasks';
 import { CaseTaskSubmissionApi, type CaseTaskSubmission } from '../../../api/core/case-task-submissions';
+
+// 直接导入sortablejs库
+import Sortable from 'sortablejs';
 
 
 const props = defineProps<{
@@ -53,6 +57,13 @@ const showWithdrawButton = ref<string | null>(null);
 const formRef = ref();
 const upload = ref<InstanceType<typeof ElUpload>>();
 const tabs = ref<InstanceType<typeof ElTabs>>();
+const fileListContainer = ref<HTMLElement>();
+const imagePreviewList = ref<string[]>([]);
+const showImageViewer = ref(false);
+const currentPreviewIndex = ref(0);
+const previewDialogVisible = ref(false);
+const previewFileUrl = ref('');
+const previewFileName = ref('');
 // 控制当前激活的标签页
 const activeTab = ref('basic');
 const formData = ref({
@@ -173,6 +184,176 @@ const handleFileDownload = async (file: any) => {
     ElMessage.error('文件下载失败');
   }
 };
+
+const isImageFile = (fileName: string): boolean => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+  return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+};
+
+const getFileIcon = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const iconMap: Record<string, string> = {
+    'pdf': 'lucide:file-text',
+    'doc': 'lucide:file-text',
+    'docx': 'lucide:file-text',
+    'xls': 'lucide:file-spreadsheet',
+    'xlsx': 'lucide:file-spreadsheet',
+    'ppt': 'lucide:presentation',
+    'pptx': 'lucide:presentation',
+    'txt': 'lucide:file',
+    'zip': 'lucide:archive',
+    'rar': 'lucide:archive',
+    '7z': 'lucide:archive',
+  };
+  return iconMap[ext] || 'lucide:file';
+};
+
+const handleImagePreview = async (file: any) => {
+  try {
+    const fileId = file.id || file.response?.id;
+    if (!fileId) {
+      ElMessage.warning('文件ID不存在，无法预览');
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法预览文件');
+      return;
+    }
+    
+    const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+    
+    // 获取当前图片在图片列表中的索引
+    const allImageFiles = uploadFiles.value.filter(f => isImageFile(f.name));
+    const index = allImageFiles.findIndex(f => f.uid === file.uid);
+    
+    // 构建包含所有图片预览URL的列表（使用fetch获取并添加Authorization头）
+    currentPreviewIndex.value = index;
+    imagePreviewList.value = await Promise.all(
+      allImageFiles.map(async (f) => {
+        const fId = f.id || f.response?.id;
+        if (!fId) return '';
+        
+        const previewUrl = `${baseUrl}/file/preview/${fId}`;
+        try {
+          // 使用fetch获取文件内容，添加Authorization头
+          const response = await fetch(previewUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': 'Bearer ' + token
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`预览失败: ${response.statusText}`);
+          }
+          
+          // 获取文件Blob并创建本地URL
+          const blob = await response.blob();
+          return window.URL.createObjectURL(blob);
+        } catch (error) {
+          console.error('获取图片失败:', error);
+          return '';
+        }
+      })
+    );
+    
+    showImageViewer.value = true;
+  } catch (error: any) {
+    console.error('预览失败:', error);
+    ElMessage.error(error.message || '文件预览失败');
+  }
+};
+
+const handleFilePreview = async (file: any) => {
+  try {
+    // 处理不同结构的文件对象
+    const fileId = file.id || file.response?.id;
+    if (!fileId) {
+      ElMessage.warning('文件ID不存在，无法预览');
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法预览文件');
+      return;
+    }
+    
+    // 检查是否为图片文件
+    const fileName = file.name || file.fileName || file.originalFileName;
+    const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+    const previewUrl = `${baseUrl}/file/preview/${fileId}`;
+    
+    // 使用fetch获取文件内容，添加Authorization头
+    const response = await fetch(previewUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`预览失败: ${response.statusText}`);
+    }
+    
+    // 获取文件Blob
+    const blob = await response.blob();
+    // 创建本地URL
+    const localUrl = window.URL.createObjectURL(blob);
+    
+    if (isImageFile(fileName)) {
+      // 图片文件使用图片预览器
+      imagePreviewList.value = [localUrl];
+      currentPreviewIndex.value = 0;
+      showImageViewer.value = true;
+    } else {
+      // 非图片文件使用iframe预览
+      previewFileUrl.value = localUrl;
+      previewFileName.value = fileName;
+      previewDialogVisible.value = true;
+    }
+  } catch (error: any) {
+    console.error('预览失败:', error);
+    ElMessage.error(error.message || '文件预览失败');
+  }
+};
+
+const handlePreviewClose = () => {
+  // 清理创建的URL对象，避免内存泄漏
+  if (previewFileUrl.value) {
+    window.URL.revokeObjectURL(previewFileUrl.value);
+  }
+  previewDialogVisible.value = false;
+  previewFileUrl.value = '';
+  previewFileName.value = '';
+};
+
+const initializeSortable = () => {
+  if (!fileListContainer.value) return;
+  
+  // 使用sortablejs直接初始化
+  Sortable.create(fileListContainer.value, {
+    animation: 300,
+    delay: 400,
+    delayOnTouchOnly: true,
+    handle: '.file-drag-handle',
+    onEnd: (evt: any) => {
+      const { oldIndex, newIndex } = evt;
+      if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
+        const movedItem = uploadFiles.value.splice(oldIndex, 1)[0];
+        uploadFiles.value.splice(newIndex, 0, movedItem);
+      }
+    },
+  });
+};
+
+watch(() => uploadFiles.value.length, () => {
+  nextTick(() => {
+    initializeSortable();
+  });
+});
 
 
 
@@ -367,12 +548,66 @@ const handleDataItemClick = async (item: any, module: any) => {
     date: item.date,
   };
   
-  uploadFiles.value = item.files ? item.files.map((file: any) => ({
-    uid: Date.now() + Math.random(),
-    name: file.fileName || file.originalFileName,
-    status: 'success',
-    url: file.filePath,
-    response: file,
+  // 获取token
+  const token = localStorage.getItem('token');
+  
+  // 处理每个附件，调用API获取预览
+  uploadFiles.value = item.files ? await Promise.all(item.files.map(async (file: any) => {
+    // 基础文件信息
+    const baseFile = {
+      uid: Date.now() + Math.random(),
+      name: file.fileName || file.originalFileName,
+      status: 'success',
+      id: file.id, // 保存文件ID用于预览
+      response: file,
+    };
+    
+    // 如果没有token或fileId，直接返回基础文件
+    if (!token || !file.id) {
+      return baseFile;
+    }
+    
+    try {
+      // 动态构建API URL，使用附件的id字段
+      const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+      const previewUrl = `${baseUrl}/file/preview/${file.id}`;
+      
+      // 使用fetch获取文件内容，添加Authorization头
+      const response = await fetch(previewUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+      
+      if (response.ok) {
+        // 获取文件Blob
+        const blob = await response.blob();
+        
+        // 创建本地URL用于预览
+        const localUrl = window.URL.createObjectURL(blob);
+        
+        // 创建File对象
+        const newFile = new File([blob], file.fileName || file.originalFileName, { type: blob.type });
+        
+        // 返回带有预览URL的文件对象
+        return {
+          ...baseFile,
+          url: localUrl,
+          raw: newFile,
+          response: {
+            ...file,
+            filePath: localUrl
+          }
+        };
+      }
+      
+      console.error(`获取文件ID ${file.id} 的预览失败:`, response.statusText);
+      return baseFile;
+    } catch (error) {
+      console.error(`获取文件ID ${file.id} 的预览失败:`, error);
+      return baseFile;
+    }
   })) : [];
   
   // 直接设置activeTab，避免ElTabs初始渲染时modelValue为undefined
@@ -1003,16 +1238,28 @@ const goBack = () => {
                           v-for="(file, index) in item.files"
                           :key="index"
                           class="attachment-item"
+                          style="display: flex; align-items: center; justify-content: space-between;"
                         >
-                          <Icon icon="lucide:paperclip" class="attachment-icon" />
-                          <span class="attachment-name">{{ file.fileName || file.name }}</span>
-                          <span 
-                            style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-left: auto;"
-                            @click.stop="handleFileDownload(file)"
-                          >
-                            <Icon icon="lucide:download" class="mr-1" />
-                            下载
-                          </span>
+                          <div style="display: flex; align-items: center; gap: 6px;">
+                            <Icon icon="lucide:paperclip" class="attachment-icon" />
+                            <span class="attachment-name">{{ file.fileName || file.name }}</span>
+                          </div>
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <span 
+                              style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center;"
+                              @click.stop="handleFilePreview(file)"
+                            >
+                              <Icon icon="lucide:eye" class="mr-1" />
+                              预览
+                            </span>
+                            <span 
+                              style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center;"
+                              @click.stop="handleFileDownload(file)"
+                            >
+                              <Icon icon="lucide:download" class="mr-1" />
+                              下载
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1033,9 +1280,8 @@ const goBack = () => {
     <ElDialog
       v-model="showAddDialog"
       :title="`${isEditMode ? '编辑' : '新增'} - ${currentModule?.title}`"
-      width="800px"
+      width="1200px"
       destroy-on-close
-
     >
       <ElTabs ref="tabs" v-model="activeTab">
         <ElTabPane label="基础数据" name="basic" :lazy="false">
@@ -1070,59 +1316,95 @@ const goBack = () => {
           </ElForm>
         </ElTabPane>
         <ElTabPane label="附件" name="attachments">
-          <div style="min-height: 200px;">
-            <ElForm
-              :model="formData"
-              label-width="100px"
-            >
-              <ElFormItem label="附件">
-                <ElUpload
-                  ref="upload"
-                  v-model:file-list="uploadFiles"
-                  :before-upload="handleFileBeforeUpload"
-                  :on-remove="handleFileRemove"
-                  :on-change="handleFileChange"
-                  multiple
-                  :limit="5"
-                  list-type="text"
-                  :auto-upload="false"
-                >
+          <div class="attachments-container">
+            <div class="upload-actions">
+              <ElUpload
+                ref="upload"
+                v-model:file-list="uploadFiles"
+                :before-upload="handleFileBeforeUpload"
+                :on-remove="handleFileRemove"
+                :on-change="handleFileChange"
+                multiple
+                :limit="10"
+                :auto-upload="false"
+                :show-file-list="false"
+              >
+                <div style="display: flex; gap: 12px;">
                   <ElButton type="primary">
                     <Icon icon="lucide:upload" class="mr-1" />
                     本地附件
                   </ElButton>
-                  <template #tip>
-                    <div class="upload-tip">
-                      支持上传多个文件，单个文件大小不超过50MB
+                  <ElButton type="success">
+                    <Icon icon="lucide:smartphone" class="mr-1" />
+                    手机上传
+                  </ElButton>
+                </div>
+              </ElUpload>
+            </div>
+            
+            <div v-if="uploadFiles.length > 0" class="upload-tip">
+              <Icon icon="lucide:info" class="mr-1" />
+              支持拖拽调整文件顺序，点击图片可预览，点击文件可在线预览
+            </div>
+            
+            <div ref="fileListContainer" class="file-list-container">
+              <div
+                v-for="(file, index) in uploadFiles"
+                :key="file.uid"
+                class="file-item"
+                :class="{ 'is-image': isImageFile(file.name) }"
+              >
+                <div class="file-drag-handle">
+                  <Icon icon="lucide:grip-vertical" />
+                </div>
+                <div class="file-preview" @click="isImageFile(file.name) ? handleImagePreview(file) : handleFilePreview(file)">
+                  <div v-if="isImageFile(file.name)" class="image-preview">
+                    <img v-if="file.url" :src="file.url" :alt="file.name" />
+                    <div v-else class="no-preview">
+                      <Icon icon="lucide:image" />
                     </div>
-                  </template>
-                  <template #file="{ file }">
-                    <div class="file-item-with-download">
-                      <span>{{ file.name }}</span>
-                      <div class="file-actions">
-                        <span 
-                          v-if="file.status === 'success'" 
-                          style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
-                          @click.stop="handleFileDownload(file)"
-                        >
-                          <Icon icon="lucide:download" class="mr-1" />
-                          下载
-                        </span>
-                        <ElButton 
-                          type="danger" 
-                          size="small" 
-                          text 
-                          @click.stop="handleFileRemove(file)"
-                        >
-                          <Icon icon="lucide:trash-2" />
-                          删除
-                        </ElButton>
-                      </div>
-                    </div>
-                  </template>
-                </ElUpload>
-              </ElFormItem>
-            </ElForm>
+                  </div>
+                  <div v-else class="file-icon-preview">
+                    <Icon :icon="getFileIcon(file.name)" />
+                  </div>
+                </div>
+                <div class="file-info">
+                  <div class="file-name" :title="file.name">{{ file.name }}</div>
+                  <div class="file-meta">
+                    <span class="file-size">{{ (file.size / 1024).toFixed(2) }} KB</span>
+                    <span v-if="file.status === 'success'" class="file-status success">
+                      <Icon icon="lucide:check-circle" />
+                    </span>
+                    <span v-else-if="file.status === 'uploading'" class="file-status uploading">
+                      <Icon icon="lucide:loader-2" class="spin" />
+                    </span>
+                  </div>
+                </div>
+                <div class="file-actions">
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    text
+                    @click.stop="isImageFile(file.name) ? handleImagePreview(file) : handleFilePreview(file)"
+                  >
+                    <Icon icon="lucide:eye" />
+                  </ElButton>
+                  <ElButton
+                    type="danger"
+                    size="small"
+                    text
+                    @click.stop="handleFileRemove(file)"
+                  >
+                    <Icon icon="lucide:trash-2" />
+                  </ElButton>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="uploadFiles.length === 0" class="empty-state">
+              <Icon icon="lucide:inbox" class="empty-icon" />
+              <p>暂无附件，请点击上方按钮上传文件</p>
+            </div>
           </div>
         </ElTabPane>
       </ElTabs>
@@ -1134,6 +1416,25 @@ const goBack = () => {
           保存
         </ElButton>
       </template>
+    </ElDialog>
+
+    <ElImageViewer
+      v-if="showImageViewer"
+      :url-list="imagePreviewList"
+      :initial-index="currentPreviewIndex"
+      @close="showImageViewer = false"
+    />
+
+    <ElDialog
+      v-model="previewDialogVisible"
+      :title="`文件预览 - ${previewFileName}`"
+      width="90%"
+      destroy-on-close
+      class="file-preview-dialog"
+    >
+      <div class="file-preview-content">
+        <iframe v-if="previewFileUrl" :src="previewFileUrl" class="preview-iframe" frameborder="0"></iframe>
+      </div>
     </ElDialog>
   </div>
 </template>
@@ -1869,9 +2170,256 @@ const goBack = () => {
   flex-shrink: 0;
 }
 
+.attachments-container {
+  padding: 20px;
+  min-height: 500px;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  align-items: center;
+}
+
+:deep(.el-upload) {
+  display: block;
+}
+
+:deep(.el-upload--text) {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  display: inline-flex;
+}
+
+:deep(.el-upload__tip) {
+  margin-top: 12px;
+}
+
+.upload-tip {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #0369a1;
+  margin-bottom: 20px;
+}
+
+.file-list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  min-height: 300px;
+}
+
+.file-item {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: grab;
+  position: relative;
+}
+
+.file-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  border-color: #667eea;
+}
+
+.file-item:active {
+  cursor: grabbing;
+}
+
+.file-item.is-image {
+  cursor: pointer;
+}
+
+.file-drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: grab;
+}
+
+.file-item:hover .file-drag-handle {
+  opacity: 1;
+}
+
+.file-preview {
+  width: 100%;
+  height: 160px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.image-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.file-item:hover .image-preview img {
+  transform: scale(1.05);
+}
+
+.no-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: #9ca3af;
+}
+
+.file-icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  color: #667eea;
+}
+
+.file-info {
+  padding: 12px;
+  background: white;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.file-size {
+  color: #6b7280;
+}
+
+.file-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.file-status.success {
+  color: #16a34a;
+}
+
+.file-status.uploading {
+  color: #667eea;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.file-actions {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 60px 20px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border: 2px dashed #e5e7eb;
+  border-radius: 12px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.file-preview-dialog :deep(.el-dialog__body) {
+  padding: 0;
+  height: 70vh;
+}
+
+.file-preview-content {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
 @media (max-width: 1400px) {
   .modules-grid {
     grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  }
+  
+  .file-list-container {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
 }
 
@@ -1883,10 +2431,18 @@ const goBack = () => {
   .modules-grid {
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   }
+  
+  .file-list-container {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
 }
 
 @media (max-width: 1024px) {
   .modules-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .file-list-container {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -1907,6 +2463,10 @@ const goBack = () => {
   .modules-grid {
     grid-template-columns: 1fr;
     padding: 16px 20px;
+  }
+  
+  .file-list-container {
+    grid-template-columns: 1fr;
   }
   
   .modules-header {

@@ -3568,9 +3568,6 @@ const checkPermissions = async () => {
               <ElRadioButton value="process" class="tab-button">
                 流程处理
               </ElRadioButton>
-              <ElRadioButton value="creditorInfo" class="tab-button">
-                债权人信息
-              </ElRadioButton>
               <ElRadioButton value="claimRegistration" class="tab-button">
                 债权登记表
               </ElRadioButton>
@@ -4160,11 +4157,6 @@ const checkPermissions = async () => {
             :case-id="caseId"
             :initial-stage="getInitialStageIndex()"
           />
-        </div>
-
-        <!-- 债权人信息 -->
-        <div v-if="activeTab === 'creditorInfo'" class="creditor-info-content">
-          <CreditorInfo :case-id="caseId" />
         </div>
 
         <!-- 债权登记表 -->
@@ -7587,19 +7579,19 @@ const checkPermissions = async () => {
 
 /* 文件预览对话框样式 */
 .file-preview-container {
-  max-height: 700px;
+  max-height: 90vh;
   padding: 20px;
 }
 
 .image-preview img {
   max-width: 100%;
-  max-height: 600px;
+  max-height: 85vh;
   object-fit: contain;
 }
 
 .pdf-preview iframe {
   width: 100%;
-  height: 600px;
+  height: 85vh;
 }
 
 .text-preview pre {
