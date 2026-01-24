@@ -427,6 +427,26 @@ export namespace CaseProcessApi {
     SEP_EDATE: null | string;
   }
 
+  /** 第六阶段：破产费用与共同利益债务信息 */
+  export interface BankExpensesAndCommonBenefitDebtInfo {
+    row: number;
+    SEP_ID: number;
+    FYXM: null | string;
+    FYLX: null | string;
+    FYNX: null | string;
+    JCYJ: null | string;
+    ZFRQ: null | string;
+    ZFZT: null | string;
+    ZT: null | string;
+    SEP_LD: null | number;
+    SEP_MD: null | number;
+    SEP_ND: null | number;
+    SEP_AUSER: null | string;
+    SEP_ADATE: null | string;
+    SEP_EUSER: null | string;
+    SEP_EDATE: null | string;
+  }
+
   /** 第六阶段：破产程序终结信息 */
   export interface BankruptcyProcedureTerminationInfo {
     row: number;

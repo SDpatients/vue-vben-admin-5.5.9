@@ -558,8 +558,7 @@ const stages = [
       },
     ],
   },
-  {
-    title: '六、财产变价与分配',
+  { title: '六、财产变价与分配',
     icon: 'lucide:banknote',
     color: '#FF6B6B',
     modules: [
@@ -572,6 +571,13 @@ const stages = [
       },
       {
         id: '6-2',
+        title: '破产费用与共同利益债务',
+        description: '管理人管理破产费用与共同利益债务',
+        fields: ['标题', '类型', '内容', '创建人', '日期'],
+        data: [],
+      },
+      {
+        id: '6-3',
         title: '执行破产财产分配',
         description: '管理人执行破产财产分配',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
@@ -1083,7 +1089,7 @@ const goBack = () => {
                 >
                   <ElButton type="primary">
                     <Icon icon="lucide:upload" class="mr-1" />
-                    选择附件
+                    本地附件
                   </ElButton>
                   <template #tip>
                     <div class="upload-tip">
