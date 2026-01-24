@@ -214,12 +214,12 @@ const stages = [
       { code: 'TASK_017', name: '裁定宣告债务人破产' },
     ],
   },
-  {
-    id: 6,
+  { id: 6,
     name: '六、财产变价与分配',
     description: '拟定执行财产变价方案并分配破产财产',
     modules: [
       { code: 'TASK_018', name: '拟定并执行财产变价方案' },
+      { code: 'TASK_024', name: '破产费用与共同利益债务' },
       { code: 'TASK_019', name: '执行破产财产分配' },
     ],
   },

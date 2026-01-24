@@ -6,6 +6,8 @@ import { ElButton, ElCard, ElTabPane, ElTabs } from 'element-plus';
 
 import ClaimRegistrationStageOne from './ClaimRegistrationStageOne.vue';
 import ClaimRegistrationStageTwo from './ClaimRegistrationStageTwo.vue';
+import ClaimRegistrationStageThree from './ClaimRegistrationStageThree.vue';
+import CreditorInfo from './CreditorInfo.vue';
 
 const props = defineProps<{
   caseId: string;
@@ -21,6 +23,9 @@ const handleTabChange = (tabName: string) => {
 
 <template>
   <div class="claim-registration-container">
+    <!-- 债权人信息模块 -->
+    <CreditorInfo :case-id="caseId" />
+
     <ElCard shadow="hover">
       <template #header>
         <div class="card-header flex items-center justify-between">
@@ -68,6 +73,15 @@ const handleTabChange = (tabName: string) => {
           <ClaimRegistrationStageTwo :case-id="caseId" />
         </ElTabPane>
 
+        <ElTabPane label="债权确认" name="stage3">
+          <template #label>
+            <div class="tab-label">
+              <Icon icon="lucide:file-check" class="mr-1" />
+              债权确认
+            </div>
+          </template>
+          <ClaimRegistrationStageThree :case-id="caseId" />
+        </ElTabPane>
 
       </ElTabs>
     </ElCard>
