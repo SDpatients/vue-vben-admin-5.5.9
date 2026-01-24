@@ -831,6 +831,12 @@ const documentPagination = ref({
 // 新增文书送达弹窗
 const showAddDocumentDialog = ref(false);
 
+// 文书上传弹窗（直接上传，无需审批）
+const showDirectUploadDialog = ref(false);
+
+// 文书审批弹窗（需要审批流程）
+const showApprovalSubmitDialog = ref(false);
+
 // 编辑状态
 const isEditingDocument = ref(false);
 const currentDocumentId = ref<null | number>(null);
@@ -850,6 +856,41 @@ const documentForm = reactive({
   serviceContent: '',
   attachment: '',
   sendStatus: '已发送',
+});
+
+// 文书上传表单数据（直接上传，无需审批）
+const directUploadForm = reactive({
+  caseId: '',
+  caseNumber: '',
+  caseName: '',
+  documentName: '',
+  documentType: '',
+  recipient: '',
+  recipientType: '主要负责人',
+  recipientPhone: '',
+  recipientAddress: '',
+  serviceMethod: '',
+  serviceContent: '',
+  attachment: '',
+});
+
+// 文书审批表单数据（需要审批流程）
+const approvalSubmitForm = reactive({
+  caseId: '',
+  caseNumber: '',
+  caseName: '',
+  documentName: '',
+  documentType: '',
+  recipient: '',
+  recipientType: '主要负责人',
+  recipientPhone: '',
+  recipientAddress: '',
+  serviceMethod: '',
+  serviceContent: '',
+  attachment: '',
+  approvalTitle: '',
+  approvalContent: '',
+  remark: '',
 });
 
 // 文书类型选项
@@ -934,6 +975,28 @@ const openAddDocumentDialog = () => {
   showAddDocumentDialog.value = true;
 };
 
+// 打开文书上传弹窗（直接上传，无需审批）
+const openDirectUploadDialog = () => {
+  // 重置表单
+  resetDirectUploadForm();
+  // 设置案件ID、案号和名称
+  directUploadForm.caseId = caseId.value;
+  directUploadForm.caseNumber = caseDetail.value?.案号 || '';
+  directUploadForm.caseName = caseDetail.value?.案件名称 || '';
+  showDirectUploadDialog.value = true;
+};
+
+// 打开文书审批弹窗（需要审批流程）
+const openApprovalSubmitDialog = () => {
+  // 重置表单
+  resetApprovalSubmitForm();
+  // 设置案件ID、案号和名称
+  approvalSubmitForm.caseId = caseId.value;
+  approvalSubmitForm.caseNumber = caseDetail.value?.案号 || '';
+  approvalSubmitForm.caseName = caseDetail.value?.案件名称 || '';
+  showApprovalSubmitDialog.value = true;
+};
+
 // 编辑文书
 const editDocument = (row: any) => {
   // 设置编辑状态
@@ -986,6 +1049,189 @@ const resetDocumentForm = () => {
   // 重置编辑状态
   isEditingDocument.value = false;
   currentDocumentId.value = null;
+};
+
+// 重置文书上传表单
+const resetDirectUploadForm = () => {
+  directUploadForm.caseId = '';
+  directUploadForm.caseNumber = '';
+  directUploadForm.caseName = '';
+  directUploadForm.documentName = '';
+  directUploadForm.documentType = '';
+  directUploadForm.recipient = '';
+  directUploadForm.recipientType = '主要负责人';
+  directUploadForm.recipientPhone = '';
+  directUploadForm.recipientAddress = '';
+  directUploadForm.serviceMethod = '';
+  directUploadForm.serviceContent = '';
+  directUploadForm.attachment = '';
+
+  // 清理文件
+  uploadedFiles.value.forEach((file) => {
+    if (file.url && file.url.startsWith('blob:')) {
+      URL.revokeObjectURL(file.url);
+    }
+  });
+  uploadedFiles.value = [];
+};
+
+// 提交文书上传（直接上传，无需审批）
+const submitDirectUploadForm = async () => {
+  // 表单验证
+  if (!directUploadForm.documentName || !directUploadForm.recipient) {
+    ElMessage.error('请填写必填项');
+    return;
+  }
+
+  if (uploadedFiles.value.length === 0) {
+    ElMessage.error('请至少选择一个文件');
+    return;
+  }
+
+  fileUploadLoading.value = true;
+  try {
+    // 上传文件
+    let documentAttachment = '';
+    if (uploadedFiles.value.length > 0) {
+      const file = uploadedFiles.value[0].file;
+      const uploadResponse = await uploadFileApi(
+        file,
+        'document',
+        Number(directUploadForm.caseId),
+      );
+
+      if (uploadResponse.code === 200 && uploadResponse.data) {
+        documentAttachment =
+          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      }
+    }
+
+    // 调用直接上传接口
+    const requestData = {
+      caseId: Number(directUploadForm.caseId),
+      documentName: directUploadForm.documentName,
+      documentType: directUploadForm.documentType,
+      recipientName: directUploadForm.recipient,
+      recipientType: directUploadForm.recipientType,
+      contactPhone: directUploadForm.recipientPhone,
+      deliveryAddress: directUploadForm.recipientAddress,
+      deliveryMethod: directUploadForm.serviceMethod,
+      deliveryContent: directUploadForm.serviceContent,
+      documentAttachment,
+    };
+
+    const response = await directUploadDocumentApi(requestData);
+
+    if (response.code === 200) {
+      ElMessage.success('文书上传成功');
+      showDirectUploadDialog.value = false;
+      resetDirectUploadForm();
+      fetchDocumentList();
+    } else {
+      ElMessage.error(response.message || '文书上传失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文书上传失败');
+  } finally {
+    fileUploadLoading.value = false;
+  }
+};
+
+// 提交文书审批（需要审批流程）
+const submitApprovalForm = async () => {
+  // 表单验证
+  if (!approvalSubmitForm.documentName || !approvalSubmitForm.recipient) {
+    ElMessage.error('请填写必填项');
+    return;
+  }
+
+  if (!approvalSubmitForm.approvalTitle || !approvalSubmitForm.approvalContent) {
+    ElMessage.error('请填写审批标题和审批内容');
+    return;
+  }
+
+  if (uploadedFiles.value.length === 0) {
+    ElMessage.error('请至少选择一个文件');
+    return;
+  }
+
+  fileUploadLoading.value = true;
+  try {
+    // 上传文件
+    let documentAttachment = '';
+    if (uploadedFiles.value.length > 0) {
+      const file = uploadedFiles.value[0].file;
+      const uploadResponse = await uploadFileApi(
+        file,
+        'document',
+        Number(approvalSubmitForm.caseId),
+      );
+
+      if (uploadResponse.code === 200 && uploadResponse.data) {
+        documentAttachment =
+          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      }
+    }
+
+    // 调用文书审批接口
+    const requestData = {
+      caseId: Number(approvalSubmitForm.caseId),
+      documentName: approvalSubmitForm.documentName,
+      documentType: approvalSubmitForm.documentType,
+      recipientName: approvalSubmitForm.recipient,
+      recipientType: approvalSubmitForm.recipientType,
+      contactPhone: approvalSubmitForm.recipientPhone,
+      deliveryAddress: approvalSubmitForm.recipientAddress,
+      deliveryMethod: approvalSubmitForm.serviceMethod,
+      deliveryContent: approvalSubmitForm.serviceContent,
+      documentAttachment,
+      approvalTitle: approvalSubmitForm.approvalTitle,
+      approvalContent: approvalSubmitForm.approvalContent,
+      remark: approvalSubmitForm.remark,
+    };
+
+    const response = await submitDocumentForApprovalApi(requestData);
+
+    if (response.code === 200) {
+      ElMessage.success('文书审批申请提交成功');
+      showApprovalSubmitDialog.value = false;
+      resetApprovalSubmitForm();
+      fetchDocumentList();
+    } else {
+      ElMessage.error(response.message || '文书审批申请提交失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文书审批申请提交失败');
+  } finally {
+    fileUploadLoading.value = false;
+  }
+};
+
+// 重置文书审批表单
+const resetApprovalSubmitForm = () => {
+  approvalSubmitForm.caseId = '';
+  approvalSubmitForm.caseNumber = '';
+  approvalSubmitForm.caseName = '';
+  approvalSubmitForm.documentName = '';
+  approvalSubmitForm.documentType = '';
+  approvalSubmitForm.recipient = '';
+  approvalSubmitForm.recipientType = '主要负责人';
+  approvalSubmitForm.recipientPhone = '';
+  approvalSubmitForm.recipientAddress = '';
+  approvalSubmitForm.serviceMethod = '';
+  approvalSubmitForm.serviceContent = '';
+  approvalSubmitForm.attachment = '';
+  approvalSubmitForm.approvalTitle = '';
+  approvalSubmitForm.approvalContent = '';
+  approvalSubmitForm.remark = '';
+
+  // 清理文件
+  uploadedFiles.value.forEach((file) => {
+    if (file.url && file.url.startsWith('blob:')) {
+      URL.revokeObjectURL(file.url);
+    }
+  });
+  uploadedFiles.value = [];
 };
 
 // 关闭新增文书送达弹窗
@@ -3845,9 +4091,13 @@ const checkPermissions = async () => {
                   <span class="text-lg font-semibold">文书送达</span>
                 </div>
                 <div class="flex space-x-2">
-                  <ElButton type="primary" @click="openAddDocumentDialog">
-                    <Icon icon="lucide:plus" class="mr-1" />
-                    新增送达
+                  <ElButton type="primary" @click="openDirectUploadDialog">
+                    <Icon icon="lucide:upload" class="mr-1" />
+                    文书上传
+                  </ElButton>
+                  <ElButton type="success" @click="openApprovalSubmitDialog">
+                    <Icon icon="lucide:check-circle" class="mr-1" />
+                    文书审批
                   </ElButton>
                 </div>
               </div>
@@ -5835,6 +6085,467 @@ const checkPermissions = async () => {
                       :loading="fileUploadLoading"
                     >
                       提交
+                    </ElButton>
+                  </div>
+                </ElFormItem>
+              </ElForm>
+            </ElCard>
+          </div>
+        </ElDialog>
+
+        <!-- 文书上传弹窗（直接上传，无需审批） -->
+        <ElDialog
+          v-model="showDirectUploadDialog"
+          title="文书上传"
+          width="80%"
+          destroy-on-close
+          :close-on-click-modal="false"
+          :close-on-press-escape="false"
+        >
+          <div class="document-add-dialog">
+            <ElCard>
+              <ElForm
+                :model="directUploadForm"
+                label-width="120px"
+                class="document-form"
+              >
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="案号">
+                      <ElInput
+                        v-model="directUploadForm.caseNumber"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="案件名称">
+                      <ElInput
+                        v-model="directUploadForm.caseName"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="文书名称" prop="documentName">
+                      <ElInput
+                        v-model="directUploadForm.documentName"
+                        placeholder="请输入文书名称"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="文书类型" prop="documentType">
+                      <ElSelect
+                        v-model="directUploadForm.documentType"
+                        placeholder="请选择文书类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in documentTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">受送达人信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人" prop="recipient">
+                      <ElInput
+                        v-model="directUploadForm.recipient"
+                        placeholder="请输入受送达人姓名"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人类型" prop="recipientType">
+                      <ElSelect
+                        v-model="directUploadForm.recipientType"
+                        placeholder="请选择受送达人类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in recipientTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="联系电话" prop="recipientPhone">
+                      <ElInput
+                        v-model="directUploadForm.recipientPhone"
+                        placeholder="请输入联系电话"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="送达地址" prop="recipientAddress">
+                      <ElInput
+                        v-model="directUploadForm.recipientAddress"
+                        placeholder="请输入送达地址"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">送达信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="送达方式" prop="serviceMethod">
+                      <ElSelect
+                        v-model="directUploadForm.serviceMethod"
+                        placeholder="请选择送达方式"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in serviceMethodOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElFormItem label="送达内容" prop="serviceContent">
+                  <RichTextEditor
+                    v-model="directUploadForm.serviceContent"
+                    placeholder="请输入送达内容"
+                  />
+                </ElFormItem>
+
+                <ElDivider content-position="left">文书附件</ElDivider>
+
+                <ElFormItem label="上传文书">
+                  <div class="file-upload-container">
+                    <input
+                      ref="fileInput"
+                      type="file"
+                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
+                      class="file-input"
+                      multiple
+                      @change="handleFileChange"
+                    />
+                    <ElButton
+                      type="primary"
+                      @click="fileInput?.click()"
+                      :loading="fileUploadLoading"
+                    >
+                      <Icon icon="lucide:upload" class="mr-1" />
+                      选择文件
+                    </ElButton>
+                    <span class="ml-2 text-sm text-gray-500">
+                      支持上传多个文件，单个文件不超过50MB，最多10个文件
+                    </span>
+                  </div>
+
+                  <div v-if="uploadedFiles.length > 0" class="mt-3">
+                    <ElTable :data="uploadedFiles" style="width: 100%">
+                      <ElTableColumn prop="name" label="文件名称" />
+                      <ElTableColumn prop="size" label="文件大小" width="120">
+                        <template #default="scope">
+                          {{
+                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
+                              2,
+                            )
+                          }}
+                          MB
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn label="操作" width="150">
+                        <template #default="scope">
+                          <ElButton
+                            type="primary"
+                            size="small"
+                            @click="downloadFile(scope.row)"
+                          >
+                            下载
+                          </ElButton>
+                          <ElButton
+                            type="danger"
+                            size="small"
+                            @click="removeFile(scope.$index)"
+                          >
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElTableColumn>
+                    </ElTable>
+                  </div>
+                </ElFormItem>
+
+                <ElFormItem>
+                  <div class="form-actions flex justify-end gap-3">
+                    <ElButton @click="showDirectUploadDialog = false">取消</ElButton>
+                    <ElButton @click="resetDirectUploadForm">重置</ElButton>
+                    <ElButton
+                      type="primary"
+                      @click="submitDirectUploadForm"
+                      :loading="fileUploadLoading"
+                    >
+                      提交
+                    </ElButton>
+                  </div>
+                </ElFormItem>
+              </ElForm>
+            </ElCard>
+          </div>
+        </ElDialog>
+
+        <!-- 文书审批弹窗（需要审批流程） -->
+        <ElDialog
+          v-model="showApprovalSubmitDialog"
+          title="文书审批"
+          width="80%"
+          destroy-on-close
+          :close-on-click-modal="false"
+          :close-on-press-escape="false"
+        >
+          <div class="document-add-dialog">
+            <ElCard>
+              <ElForm
+                :model="approvalSubmitForm"
+                label-width="120px"
+                class="document-form"
+              >
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="案号">
+                      <ElInput
+                        v-model="approvalSubmitForm.caseNumber"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="案件名称">
+                      <ElInput
+                        v-model="approvalSubmitForm.caseName"
+                        placeholder="自动填充"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="文书名称" prop="documentName">
+                      <ElInput
+                        v-model="approvalSubmitForm.documentName"
+                        placeholder="请输入文书名称"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="文书类型" prop="documentType">
+                      <ElSelect
+                        v-model="approvalSubmitForm.documentType"
+                        placeholder="请选择文书类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in documentTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">受送达人信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人" prop="recipient">
+                      <ElInput
+                        v-model="approvalSubmitForm.recipient"
+                        placeholder="请输入受送达人姓名"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="受送达人类型" prop="recipientType">
+                      <ElSelect
+                        v-model="approvalSubmitForm.recipientType"
+                        placeholder="请选择受送达人类型"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in recipientTypeOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="联系电话" prop="recipientPhone">
+                      <ElInput
+                        v-model="approvalSubmitForm.recipientPhone"
+                        placeholder="请输入联系电话"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="送达地址" prop="recipientAddress">
+                      <ElInput
+                        v-model="approvalSubmitForm.recipientAddress"
+                        placeholder="请输入送达地址"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElDivider content-position="left">送达信息</ElDivider>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="送达方式" prop="serviceMethod">
+                      <ElSelect
+                        v-model="approvalSubmitForm.serviceMethod"
+                        placeholder="请选择送达方式"
+                        style="width: 100%"
+                      >
+                        <ElOption
+                          v-for="item in serviceMethodOptions"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"
+                        />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElFormItem label="送达内容" prop="serviceContent">
+                  <RichTextEditor
+                    v-model="approvalSubmitForm.serviceContent"
+                    placeholder="请输入送达内容"
+                  />
+                </ElFormItem>
+
+                <ElDivider content-position="left">审批信息</ElDivider>
+
+                <ElFormItem label="审批标题" prop="approvalTitle">
+                  <ElInput
+                    v-model="approvalSubmitForm.approvalTitle"
+                    placeholder="请输入审批标题"
+                  />
+                </ElFormItem>
+
+                <ElFormItem label="审批内容" prop="approvalContent">
+                  <RichTextEditor
+                    v-model="approvalSubmitForm.approvalContent"
+                    placeholder="请输入审批内容"
+                  />
+                </ElFormItem>
+
+                <ElFormItem label="备注" prop="remark">
+                  <ElInput
+                    v-model="approvalSubmitForm.remark"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请输入备注信息"
+                  />
+                </ElFormItem>
+
+                <ElDivider content-position="left">文书附件</ElDivider>
+
+                <ElFormItem label="上传文书">
+                  <div class="file-upload-container">
+                    <input
+                      ref="fileInput"
+                      type="file"
+                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
+                      class="file-input"
+                      multiple
+                      @change="handleFileChange"
+                    />
+                    <ElButton
+                      type="primary"
+                      @click="fileInput?.click()"
+                      :loading="fileUploadLoading"
+                    >
+                      <Icon icon="lucide:upload" class="mr-1" />
+                      选择文件
+                    </ElButton>
+                    <span class="ml-2 text-sm text-gray-500">
+                      支持上传多个文件，单个文件不超过50MB，最多10个文件
+                    </span>
+                  </div>
+
+                  <div v-if="uploadedFiles.length > 0" class="mt-3">
+                    <ElTable :data="uploadedFiles" style="width: 100%">
+                      <ElTableColumn prop="name" label="文件名称" />
+                      <ElTableColumn prop="size" label="文件大小" width="120">
+                        <template #default="scope">
+                          {{
+                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
+                              2,
+                            )
+                          }}
+                          MB
+                        </template>
+                      </ElTableColumn>
+                      <ElTableColumn label="操作" width="150">
+                        <template #default="scope">
+                          <ElButton
+                            type="primary"
+                            size="small"
+                            @click="downloadFile(scope.row)"
+                          >
+                            下载
+                          </ElButton>
+                          <ElButton
+                            type="danger"
+                            size="small"
+                            @click="removeFile(scope.$index)"
+                          >
+                            删除
+                          </ElButton>
+                        </template>
+                      </ElTableColumn>
+                    </ElTable>
+                  </div>
+                </ElFormItem>
+
+                <ElFormItem>
+                  <div class="form-actions flex justify-end gap-3">
+                    <ElButton @click="showApprovalSubmitDialog = false">取消</ElButton>
+                    <ElButton @click="resetApprovalSubmitForm">重置</ElButton>
+                    <ElButton
+                      type="primary"
+                      @click="submitApprovalForm"
+                      :loading="fileUploadLoading"
+                    >
+                      提交审批
                     </ElButton>
                   </div>
                 </ElFormItem>

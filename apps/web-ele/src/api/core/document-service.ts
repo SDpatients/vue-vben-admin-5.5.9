@@ -142,6 +142,23 @@ export namespace DocumentServiceApi {
       }[];
     };
   }
+
+  /** 文书送达审批请求体 */
+  export interface DocumentDeliveryApprovalRequest {
+    caseId: number;
+    documentName: string;
+    documentType?: string;
+    recipientName: string;
+    recipientType?: string;
+    contactPhone?: string;
+    deliveryAddress?: string;
+    deliveryMethod?: string;
+    deliveryContent?: string;
+    documentAttachment?: string;
+    approvalTitle: string;
+    approvalContent: string;
+    remark?: string;
+  }
 }
 
 /**
@@ -283,5 +300,31 @@ export async function updateDocumentSendStatusApi(
 export async function getDocumentAttachmentsApi(deliveryId: number) {
   return documentRequestClient.get<DocumentServiceApi.AttachmentListResponse>(
     `/api/v1/document-delivery/${deliveryId}/attachments`,
+  );
+}
+
+/**
+ * 文书上传（直接上传，无需审批）
+ * 状态自动设置为 APPROVED，不需要管理员审批
+ */
+export async function directUploadDocumentApi(
+  data: DocumentServiceApi.DocumentRequest,
+) {
+  return documentRequestClient.post<DocumentServiceApi.DocumentCreateResponse>(
+    '/api/v1/document-delivery/direct-upload',
+    data,
+  );
+}
+
+/**
+ * 文书审批提交（需要审批流程）
+ * 提交文书审批申请，状态设置为 PENDING，同时创建审批记录
+ */
+export async function submitDocumentForApprovalApi(
+  data: DocumentServiceApi.DocumentDeliveryApprovalRequest,
+) {
+  return documentRequestClient.post<DocumentServiceApi.DocumentCreateResponse>(
+    '/api/v1/document-delivery/submit-for-approval',
+    data,
   );
 }

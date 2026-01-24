@@ -159,7 +159,7 @@ export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export { createRequestClient };
 
 export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || 'http://192.168.0.120:5779/api/v1',
+  import.meta.env.VITE_CHAT_API_URL || '/api/v1',
   {
     responseReturn: 'body',
   },
@@ -177,17 +177,17 @@ export const fileUploadRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',
 });
 
-// 资金管理API客户端，指向192.168.0.120:8080
+// 资金管理API客户端，使用Vite代理
 export const fundRequestClient = createRequestClient(
-  'http://192.168.0.120:8080/api',
+  '/api',
   {
     responseReturn: 'body',
   },
 );
 
-// 工作团队API客户端，指向http://192.168.0.120:8080
+// 工作团队API客户端，使用Vite代理
 export const workTeamRequestClient = createRequestClient(
-  'http://192.168.0.120:8080/api/v1',
+  '/api/v1',
   {
     responseReturn: 'body',
   },

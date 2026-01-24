@@ -8,9 +8,6 @@ import {
 
 import { requestClient8085 } from '../request';
 
-const API_BASE_URL =
-  import.meta.env.VITE_GLOB_API_URL || 'http://192.168.0.120:8080';
-
 /**
  * 案件阶段数据项
  */
