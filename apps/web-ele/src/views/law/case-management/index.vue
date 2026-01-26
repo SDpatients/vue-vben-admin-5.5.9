@@ -197,13 +197,13 @@ const fetchCaseList = async () => {
       const mappedCases = response.data.list.map((item: any) => {
         // 映射案件进度
         const caseProgressMap: Record<string, string> = {
-          FIRST: '第一阶段',
-          SECOND: '第二阶段',
-          THIRD: '第三阶段',
-          FOURTH: '第四阶段',
-          FIFTH: '第五阶段',
-          SIXTH: '第六阶段',
-          SEVENTH: '第七阶段',
+          FIRST: '一、申请与受理',
+          SECOND: '二、管理人履职与财产接管',
+          THIRD: '三、债权申报与核查',
+          FOURTH: '四、债权人会议',
+          FIFTH: '五、破产宣告',
+          SIXTH: '六、财产变价与分配',
+          SEVENTH: '七、程序终结',
         };
 
         // 映射案件状态
@@ -366,29 +366,37 @@ const hideNonCoreColumns = () => {
 
 // 获取案件进度标签类型
 const getCaseProgressType = (progress: string) => {
-  switch (progress) {
-    case 'FIFTH':
-    case 'FOURTH':
-    case 'SECOND':
-    case 'SEVENTH':
-    case 'SIXTH':
-    case 'THIRD':
-    case '第一阶段':
-    case '第七阶段':
-    case '第三阶段':
-    case '第二阶段':
-    case '第五阶段':
-    case '第六阶段':
-    case '第四阶段': {
-      return 'primary';
-    }
-    case '已结案': {
-      return 'success';
-    }
-    default: {
-      return 'info';
-    }
-  }
+  // 映射每个阶段到对应的颜色类型
+  const progressColorMap: Record<string, string> = {
+    // 英文阶段代码
+    'FIRST': 'primary',
+    'SECOND': 'success',
+    'THIRD': 'warning',
+    'FOURTH': 'danger',
+    'FIFTH': 'info',
+    'SIXTH': 'primary',
+    'SEVENTH': 'success',
+    // 中文简短阶段
+    '第一阶段': 'primary',
+    '第二阶段': 'success',
+    '第三阶段': 'warning',
+    '第四阶段': 'danger',
+    '第五阶段': 'info',
+    '第六阶段': 'primary',
+    '第七阶段': 'success',
+    // 中文完整阶段名称
+    '一、申请与受理': 'primary',
+    '二、管理人履职与财产接管': 'success',
+    '三、债权申报与核查': 'warning',
+    '四、债权人会议': 'danger',
+    '五、破产宣告': 'info',
+    '六、财产变价与分配': 'primary',
+    '七、程序终结': 'success',
+    // 特殊状态
+    '已结案': 'success',
+  };
+  
+  return progressColorMap[progress] || 'info';
 };
 
 // 获取案件状态标签类型

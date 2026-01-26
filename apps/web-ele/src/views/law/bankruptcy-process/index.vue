@@ -1087,13 +1087,13 @@ const goBack = () => {
                   stroke-width="8"
                   stroke-linejoin="round"
                 />
-                <!-- 进度圆环 - 修改为蓝色渐变 -->
+                <!-- 进度圆环 - 使用阶段特定颜色 -->
                 <circle
                   cx="40"
                   cy="40"
                   r="35"
                   fill="none"
-                  stroke="#409EFF"
+                  :stroke="stage.color"
                   stroke-width="8"
                   stroke-linecap="round"
                   :stroke-dasharray="2 * Math.PI * 35"

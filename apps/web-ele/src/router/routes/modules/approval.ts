@@ -34,6 +34,17 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'ExpenseApproval',
+        path: '/approval/expense',
+        component: () => import('#/views/approval/expense/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:receipt',
+          title: '报销批审',
+          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+        },
+      },
+      {
         name: 'ApprovalDetail',
         path: '/approval/detail/:approvalId',
         component: () => import('#/views/approval/detail-view.vue'),

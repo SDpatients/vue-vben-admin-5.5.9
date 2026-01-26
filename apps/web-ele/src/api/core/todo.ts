@@ -1,4 +1,58 @@
+import { useUserStore } from '@vben/stores';
+
+import type { Pinia } from 'pinia';
+
 import { requestClient } from '#/api/request';
+
+// 创建一个简单的pinia实例用于获取用户信息
+let userStoreInstance: null | ReturnType<typeof useUserStore> = null;
+
+function getUserStore() {
+  if (!userStoreInstance) {
+    // 尝试从全局获取pinia实例
+    const pinia = (window as any).__PINIA__ as Pinia;
+    if (pinia) {
+      userStoreInstance = useUserStore(pinia);
+    }
+  }
+  return userStoreInstance;
+}
+
+// 从多个来源获取用户ID的辅助函数
+function getUserId(): number {
+  // 1. 首先尝试从localStorage获取chat_user_id
+  const chatUserId = localStorage.getItem('chat_user_id');
+  if (chatUserId) {
+    return Number(chatUserId);
+  }
+
+  // 2. 尝试从userStore获取用户信息
+  const userStore = getUserStore();
+  if (userStore && userStore.userInfo?.userId) {
+    return Number(userStore.userInfo.userId);
+  }
+
+  // 3. 尝试从chat_user_info中解析userId
+  const chatUserInfo = localStorage.getItem('chat_user_info');
+  if (chatUserInfo) {
+    try {
+      const userInfo = JSON.parse(chatUserInfo);
+      if (userInfo.userId) {
+        return Number(userInfo.userId);
+      }
+    } catch (error) {
+      console.error('解析chat_user_info失败:', error);
+    }
+  }
+
+  // 4. 尝试从userStore的userInfo中获取userId
+  if (userStore && userStore.userInfo?.userId) {
+    return Number(userStore.userInfo.userId);
+  }
+
+  // 所有尝试都失败，抛出错误
+  throw new Error('无法获取用户ID');
+}
 
 export interface Todo {
   id: number;
@@ -37,69 +91,60 @@ export interface TodoDTO {
 }
 
 export const todoApi = {
-  getTodoList: (status?: string, priority?: string, pageNum: number = 0, pageSize: number = 10) => {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      throw new Error('无法获取用户ID');
-    }
+  getTodoList: (
+    status?: string,
+    priority?: string,
+    pageNum: number = 0,
+    pageSize: number = 10,
+  ) => {
+    const userId = getUserId();
     return requestClient.get('/api/v1/todo/list', {
-      params: { userId: Number(userId), status, priority, pageNum, pageSize },
+      params: { userId, status, priority, pageNum, pageSize },
     });
   },
 
   // 获取待处理待办事项
   getPendingTodos: () => {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      throw new Error('无法获取用户ID');
-    }
+    const userId = getUserId();
     return requestClient.get('/api/v1/todo/pending', {
-      params: { userId: Number(userId) },
+      params: { userId },
     });
   },
 
   // 获取已完成待办事项
   getCompletedTodos: () => {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      throw new Error('无法获取用户ID');
-    }
+    const userId = getUserId();
     return requestClient.get('/api/v1/todo/COMPLETED', {
-      params: { userId: Number(userId) },
+      params: { userId },
     });
   },
 
   // 获取过期待办事项
   getOverdueTodos: () => {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      throw new Error('无法获取用户ID');
-    }
+    const userId = getUserId();
     return requestClient.get('/api/v1/todo/overdue', {
-      params: { userId: Number(userId) },
+      params: { userId },
     });
   },
 
-  getUserTodoList: (targetUserId: number, status?: string, priority?: string, pageNum: number = 0, pageSize: number = 10) => {
+  getUserTodoList: (
+    targetUserId: number,
+    status?: string,
+    priority?: string,
+    pageNum: number = 0,
+    pageSize: number = 10,
+  ) => {
     return requestClient.get(`/api/v1/todo/list`, {
       params: { userId: targetUserId, status, priority, pageNum, pageSize },
     });
   },
 
   createTodo: (data: TodoDTO) => {
-    // 从本地存储获取userId
-    const userId = localStorage.getItem('chat_user_id');
-    if (!userId) {
-      throw new Error('无法获取用户ID');
-    }
+    const userId = getUserId();
     // 添加userId到请求数据
     const requestData = {
       ...data,
-      userId: Number(userId),
+      userId,
     };
     return requestClient.post('/api/v1/todo', requestData);
   },

@@ -65,8 +65,8 @@ const creditorTypeOptions = [
 
 // 状态选项
 const statusOptions = [
-  { label: '活跃', value: 'ACTIVE' },
-  { label: '非活跃', value: 'INACTIVE' },
+  { label: '已知债权人', value: 'KNOWN' },
+  { label: '确认债权人', value: 'CONFIRMED' },
 ];
 
 // 新增债权人表单数据
@@ -81,6 +81,7 @@ const formData = reactive({
   idNumber: '',
   legalRepresentative: '',
   registeredCapital: 0,
+  status: '',
 });
 
 // 案件相关数据
@@ -93,7 +94,7 @@ const getCaseList = async (query = '') => {
   try {
     const response = await getCaseSimpleListApi({
       page: 1,
-      size: 10000,
+      size: 10_000,
       caseNumber: query,
     });
 
@@ -142,6 +143,7 @@ const formRef = ref();
 const searchZqr = ref(''); // 债权人名称
 const searchZjhm = ref(''); // 证件号码
 const searchFddbr = ref(''); // 法定代表人
+const searchStatus = ref(''); // 状态
 
 // 搜索功能
 const handleSearch = () => {
@@ -154,6 +156,7 @@ const resetSearch = () => {
   searchZqr.value = '';
   searchZjhm.value = '';
   searchFddbr.value = '';
+  searchStatus.value = '';
   pagination.value.page = 1;
   fetchCreditorList();
 };
@@ -226,6 +229,7 @@ const fetchCreditorList = async () => {
       creditorName: searchZqr.value,
       idNumber: searchZjhm.value,
       legalRepresentative: searchFddbr.value,
+      status: searchStatus.value,
     };
 
     const response = await getCreditorListApi(params);
@@ -321,6 +325,7 @@ const editFormData = reactive<CreditorApi.UpdateCreditorRequest>({
   idNumber: '',
   legalRepresentative: '',
   registeredCapital: 0,
+  status: '',
 });
 const editFormLoading = ref(false);
 
@@ -336,6 +341,7 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
   editFormData.idNumber = row.idNumber;
   editFormData.legalRepresentative = row.legalRepresentative || '';
   editFormData.registeredCapital = row.registeredCapital || 0;
+  editFormData.status = row.status || '';
   editDialogVisible.value = true;
 };
 
@@ -408,8 +414,9 @@ const exportCreditorData = () => {
     {
       field: 'status',
       title: '状态',
-      width: 8,
-      formatter: (value) => (value === 'ACTIVE' ? '活跃' : '非活跃'),
+      width: 12,
+      formatter: (value) =>
+        value === 'CONFIRMED' ? '确认债权人' : '已知债权人',
     },
   ];
 
@@ -516,6 +523,20 @@ const handleDeleteSubmit = async (id: number) => {
             style="width: 200px"
             @keyup.enter="handleSearch"
           />
+          <ElSelect
+            v-model="searchStatus"
+            placeholder="状态"
+            clearable
+            style="width: 150px"
+            @change="handleSearch"
+          >
+            <ElOption
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
           <ElButton type="primary" @click="handleSearch">
             <i class="i-lucide-search mr-1"></i>
             搜索
@@ -622,13 +643,15 @@ const handleDeleteSubmit = async (id: number) => {
             {{ formatDate(scope.row.createdTime) }}
           </template>
         </ElTableColumn>
-        <ElTableColumn prop="status" label="状态" width="100" align="center">
+        <ElTableColumn prop="status" label="状态" width="120" align="center">
           <template #default="scope">
             <ElTag
-              :type="scope.row.status === 'ACTIVE' ? 'success' : 'warning'"
+              :type="scope.row.status === 'CONFIRMED' ? 'success' : 'warning'"
               size="small"
             >
-              {{ scope.row.status === 'ACTIVE' ? '活跃' : '非活跃' }}
+              {{
+                scope.row.status === 'CONFIRMED' ? '确认债权人' : '已知债权人'
+              }}
             </ElTag>
           </template>
         </ElTableColumn>
@@ -880,16 +903,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">证件号码：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.ZJHM || '-' }}
+                <span class="detail-value">{{ currentCreditor.ZJHM || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">法定代表人（企业）：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.FDDBRQY || '-' }}
+                <span class="detail-value">{{ currentCreditor.FDDBRQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -898,16 +919,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册地址：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.ZCDZ || '-' }}
+                <span class="detail-value">{{ currentCreditor.ZCDZ || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">经营范围（企业）：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.JYFWQY || '-' }}
+                <span class="detail-value">{{ currentCreditor.JYFWQY || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -916,16 +935,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">行业分类：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.HYFL || '-' }}
+                <span class="detail-value">{{ currentCreditor.HYFL || '-' }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">成立日期：</span>
-                <span class="detail-value"
-                  >{{ formatDate(currentCreditor.CLRQQY) }}
+                <span class="detail-value">{{ formatDate(currentCreditor.CLRQQY) }}
                 </span>
               </div>
             </ElCol>
@@ -934,16 +951,14 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">注册资本：</span>
-                <span class="detail-value"
-                  >{{ formatCurrency(currentCreditor.ZCZBQY) }}
+                <span class="detail-value">{{ formatCurrency(currentCreditor.ZCZBQY) }}
                 </span>
               </div>
             </ElCol>
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">关联案件ID：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.GLAJID || '-' }}
+                <span class="detail-value">{{ currentCreditor.GLAJID || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -952,8 +967,7 @@ const handleDeleteSubmit = async (id: number) => {
             <ElCol :span="12">
               <div class="detail-item">
                 <span class="detail-label">案号：</span>
-                <span class="detail-value"
-                  >{{ currentCreditor.AH || '-' }}
+                <span class="detail-value">{{ currentCreditor.AH || '-' }}
                 </span>
               </div>
             </ElCol>
@@ -1083,7 +1097,23 @@ const handleDeleteSubmit = async (id: number) => {
               </ElCol>
             </ElRow>
             <ElRow :gutter="30">
-              <ElCol :span="12" />
+              <ElCol :span="12">
+                <ElFormItem label="状态" prop="status">
+                  <ElSelect
+                    v-model="editFormData.status"
+                    placeholder="请选择状态"
+                    style="width: 100%"
+                    size="large"
+                  >
+                    <ElOption
+                      v-for="option in statusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
             </ElRow>
           </ElCard>
         </ElForm>

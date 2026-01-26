@@ -50,8 +50,8 @@ const loadMore = async () => {
     let res;
     const status = activeTab.value === 'pending' ? 'PENDING' : activeTab.value === 'approved' ? 'APPROVED' : activeTab.value === 'rejected' ? 'REJECTED' : 'CANCELLED';
     res = await approvalApi.getApprovalList({ approvalStatus: status, approvalType: selectedType.value || undefined, pageNum: currentPage.value, pageSize: pageSize.value });
-    approvals.value = [...approvals.value, ...(res.data || [])];
-    hasMore.value = res.data.length >= pageSize.value;
+    approvals.value = [...approvals.value, ...(res.data.list || [])];
+    hasMore.value = res.data.list.length >= pageSize.value;
   } catch (error) {
     console.error('加载更多失败:', error);
   } finally {

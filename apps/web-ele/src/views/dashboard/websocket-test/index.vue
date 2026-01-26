@@ -339,17 +339,74 @@ const subscribeMessages = () => {
   addLog('订阅 /user/queue/notifications');
   stompClient.subscribe('/user/queue/notifications', (message: any) => {
     try {
+      addLog(`收到通知消息: ${message.body}`);
+      console.log('完整通知消息:', message);
       const notification = JSON.parse(message.body);
+      console.log('解析后的通知数据:', notification);
       messages.value.unshift(notification);
       addLog(`收到通知: ${notification.type}`);
-    } catch {
-      addLog('解析消息失败');
+      console.log('当前消息列表:', messages.value);
+    } catch (error: any) {
+      addLog(`解析消息失败: ${error.message}`);
+      console.error('解析通知消息失败:', error, '消息内容:', message.body);
     }
   });
 
   addLog('订阅 /topic/chat/typing');
   stompClient.subscribe('/topic/chat/typing', (message: any) => {
     addLog(`正在输入: ${message.body}`);
+    console.log('正在输入消息:', message);
+  });
+
+  // 订阅聊天消息主题
+  addLog('订阅 /user/queue/chat');
+  stompClient.subscribe('/user/queue/chat', (message: any) => {
+    try {
+      addLog(`收到聊天消息: ${message.body}`);
+      console.log('=== 收到聊天消息 ===');
+      console.log('完整聊天消息对象:', message);
+      console.log('消息头:', message.headers);
+      console.log('消息体:', message.body);
+      
+      const chatMessage = JSON.parse(message.body);
+      console.log('解析后的聊天消息数据:', chatMessage);
+      console.log('消息类型:', chatMessage.type);
+      console.log('消息数据:', chatMessage.data);
+      
+      // 根据消息类型进行不同处理
+      if (chatMessage.type === 'NEW_MESSAGE') {
+        // 新消息
+        const messageData = chatMessage.data || chatMessage;
+        console.log('处理新消息:', messageData);
+        messages.value.unshift(messageData);
+        addLog(`收到新消息: ${messageData.content || '无内容'}`);
+      } else if (chatMessage.type === 'MESSAGE_READ') {
+        // 消息已读
+        console.log('处理消息已读:', chatMessage.data);
+        addLog(`消息已读: ${chatMessage.data?.messageId}`);
+        // 更新消息已读状态
+        const msgIndex = messages.value.findIndex(m => m.id === chatMessage.data?.messageId);
+        if (msgIndex !== -1) {
+          messages.value[msgIndex].readStatus = true;
+        }
+      } else if (chatMessage.type === 'MESSAGE_RECALLED') {
+        // 消息撤回
+        console.log('处理消息撤回:', chatMessage.data);
+        addLog(`消息撤回: ${chatMessage.data?.messageId}`);
+        // 从列表中移除消息
+        messages.value = messages.value.filter(m => m.id !== chatMessage.data?.messageId);
+      } else {
+        // 其他类型的消息，直接添加到列表
+        console.log('处理其他类型消息:', chatMessage);
+        messages.value.unshift(chatMessage);
+        addLog(`收到消息，类型: ${chatMessage.type || 'UNKNOWN'}`);
+      }
+      
+      console.log('当前消息列表:', messages.value);
+    } catch (error: any) {
+      addLog(`解析聊天消息失败: ${error.message}`);
+      console.error('解析聊天消息失败:', error, '消息内容:', message.body);
+    }
   });
 
   // 订阅在线用户列表主题
@@ -461,18 +518,29 @@ const sendMessage = () => {
   }
 
   try {
+    const currentUserId = localStorage.getItem('chat_user_id');
     const message = {
+      senderId: currentUserId ? Number.parseInt(currentUserId) : 1,
       receiverId: Number.parseInt(receiverId.value),
       messageType: messageType.value,
       content: messageContent.value,
     };
 
+    addLog(`准备发送消息: ${JSON.stringify(message)}`);
+    console.log('=== 准备发送消息 ===');
+    console.log('消息内容:', message);
+    console.log('当前连接状态:', connected.value);
+    console.log('STOMP客户端状态:', stompClient);
+    console.log('当前用户ID:', currentUserId);
+    
     stompClient.send('/app/chat/send', {}, JSON.stringify(message));
     addLog(`发送消息: ${messageContent.value}`);
+    console.log('=== 消息已发送到 /app/chat/send ===');
     ElMessage.success('消息已发送');
     messageContent.value = '';
   } catch (error: any) {
     addLog(`发送失败: ${error.message}`);
+    console.error('发送消息失败:', error);
     ElMessage.error('发送失败');
   }
 };
@@ -716,13 +784,24 @@ onBeforeUnmount(() => {
                 <div v-else class="space-y-2">
                   <div
                     v-for="(msg, index) in messages"
-                    :key="index"
+                    :key="msg.id || index"
                     class="rounded border bg-white p-3 text-sm"
                   >
                     <div class="mb-1 font-medium text-blue-600">
-                      {{ msg.type }}
+                      {{ msg.type || '消息' }}
                     </div>
-                    <div class="text-gray-600">{{ JSON.stringify(msg) }}</div>
+                    <div class="text-gray-600">
+                      <div v-if="msg.type === 'NEW_MESSAGE' && msg.data">
+                        <div class="mb-1">发送者ID: {{ msg.data.senderId }}</div>
+                        <div class="mb-1">接收者ID: {{ msg.data.receiverId }}</div>
+                        <div class="mb-1">消息类型: {{ msg.data.messageType }}</div>
+                        <div class="mb-1">内容: {{ msg.data.content }}</div>
+                        <div class="text-xs text-gray-400">时间: {{ msg.data.createTime }}</div>
+                      </div>
+                      <div v-else>
+                        {{ JSON.stringify(msg) }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -890,4 +969,4 @@ onBeforeUnmount(() => {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
-</style>
+</style>  

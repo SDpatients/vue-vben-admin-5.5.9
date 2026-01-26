@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { BankAccountApi } from '#/api/core/bank-account';
+import type { BankAccountTransactionApi } from '#/api/core/bank-account-transaction';
 import type { ExportColumnConfig } from '#/utils/export-excel';
 
 import { onMounted, reactive, ref } from 'vue';
@@ -33,6 +34,12 @@ import {
   getBankAccountListApi,
   updateBankAccountApi,
 } from '#/api/core/bank-account';
+import {
+  createTransactionApi,
+  deleteTransactionApi,
+  getAccountTransactionsApi,
+  updateTransactionApi,
+} from '#/api/core/bank-account-transaction';
 import { getCaseSimpleListApi } from '#/api/core/case';
 import { exportToExcel } from '#/utils/export-excel';
 
@@ -495,6 +502,314 @@ const editFormRef = ref();
 const editFormLoading = ref(false);
 const editingRow = ref<BankAccountApi.BankAccountInfo | null>(null);
 
+// 交易记录相关
+const transactionDialogVisible = ref(false);
+const transactionList = ref<BankAccountTransactionApi.TransactionInfo[]>([]);
+const transactionLoading = ref(false);
+const selectedAccount = ref<BankAccountApi.BankAccountInfo | null>(null);
+const transactionPagination = ref({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+});
+const transactionFilters = reactive({
+  transactionType: '',
+  businessType: '',
+  startDate: '',
+  endDate: '',
+});
+
+// 新增交易记录弹窗
+const addTransactionDialogVisible = ref(false);
+const addTransactionFormRef = ref();
+const addTransactionFormLoading = ref(false);
+const addTransactionFormData = reactive({
+  accountId: 0,
+  transactionType: '',
+  amount: 0,
+  transactionDate: '',
+  summary: '',
+  businessType: '',
+  counterpartyAccount: '',
+  counterpartyName: '',
+  balanceAfter: 0,
+  remark: '',
+  caseId: 0,
+});
+
+// 编辑交易记录弹窗
+const editTransactionDialogVisible = ref(false);
+const editTransactionFormRef = ref();
+const editTransactionFormLoading = ref(false);
+const editingTransaction =
+  ref<BankAccountTransactionApi.TransactionInfo | null>(null);
+const editTransactionFormData = reactive({
+  transactionType: '',
+  amount: 0,
+  transactionDate: '',
+  summary: '',
+  businessType: '',
+  counterpartyAccount: '',
+  counterpartyName: '',
+  balanceAfter: 0,
+  remark: '',
+});
+
+// 交易类型选项
+const transactionTypeOptions = [
+  { label: '流入', value: 'IN' },
+  { label: '流出', value: 'OUT' },
+];
+
+// 业务类型选项
+const businessTypeOptions = [
+  { label: '收款', value: '收款' },
+  { label: '付款', value: '付款' },
+  { label: '转账', value: '转账' },
+  { label: '利息收入', value: '利息收入' },
+  { label: '手续费', value: '手续费' },
+  { label: '其他', value: '其他' },
+];
+
+// 获取账户交易记录
+const fetchAccountTransactions = async () => {
+  if (!selectedAccount.value) return;
+
+  transactionLoading.value = true;
+  try {
+    const params: BankAccountTransactionApi.TransactionQueryParams = {
+      pageNum: transactionPagination.value.page,
+      pageSize: transactionPagination.value.pageSize,
+      accountId: selectedAccount.value.id,
+      transactionType: transactionFilters.transactionType || undefined,
+      businessType: transactionFilters.businessType || undefined,
+      startDate: transactionFilters.startDate || undefined,
+      endDate: transactionFilters.endDate || undefined,
+    };
+
+    const response = await getAccountTransactionsApi(
+      selectedAccount.value.id,
+      params,
+    );
+
+    if (response.code === 200) {
+      transactionList.value = response.data.list || [];
+      transactionPagination.value.total = response.data.total || 0;
+    } else {
+      ElMessage.error(`API返回错误: ${response.message}`);
+      transactionList.value = [];
+      transactionPagination.value.total = 0;
+    }
+  } catch (error) {
+    console.error('获取交易记录失败:', error);
+    ElMessage.error('获取交易记录失败，请检查网络连接或API服务');
+    transactionList.value = [];
+    transactionPagination.value.total = 0;
+  } finally {
+    transactionLoading.value = false;
+  }
+};
+
+// 查看账户交易记录
+const handleViewTransactions = (row: BankAccountApi.BankAccountInfo) => {
+  selectedAccount.value = row;
+  transactionPagination.value.page = 1;
+  transactionFilters.transactionType = '';
+  transactionFilters.businessType = '';
+  transactionFilters.startDate = '';
+  transactionFilters.endDate = '';
+  transactionDialogVisible.value = true;
+  fetchAccountTransactions();
+};
+
+// 关闭交易记录弹窗
+const handleCloseTransactionDialog = () => {
+  transactionDialogVisible.value = false;
+  selectedAccount.value = null;
+  transactionList.value = [];
+  transactionPagination.value = {
+    page: 1,
+    pageSize: 10,
+    total: 0,
+  };
+};
+
+// 交易记录分页变化
+const handleTransactionPageChange = (page: number) => {
+  transactionPagination.value.page = page;
+  fetchAccountTransactions();
+};
+
+// 交易记录页面大小变化
+const handleTransactionSizeChange = (size: number) => {
+  transactionPagination.value.pageSize = size;
+  transactionPagination.value.page = 1;
+  fetchAccountTransactions();
+};
+
+// 搜索交易记录
+const handleSearchTransactions = () => {
+  transactionPagination.value.page = 1;
+  fetchAccountTransactions();
+};
+
+// 重置交易记录搜索
+const handleResetTransactionFilters = () => {
+  transactionFilters.transactionType = '';
+  transactionFilters.businessType = '';
+  transactionFilters.startDate = '';
+  transactionFilters.endDate = '';
+  transactionPagination.value.page = 1;
+  fetchAccountTransactions();
+};
+
+// 获取交易类型标签类型
+const getTransactionTypeType = (type: string) => {
+  return type === 'IN' ? 'success' : 'danger';
+};
+
+// 获取交易类型文本
+const getTransactionTypeText = (type: string) => {
+  return type === 'IN' ? '流入' : '流出';
+};
+
+// 打开新增交易记录弹窗
+const handleAddTransaction = () => {
+  if (!selectedAccount.value) return;
+  addTransactionFormData.accountId = selectedAccount.value.id;
+  addTransactionFormData.caseId = selectedAccount.value.caseId || 0;
+  addTransactionFormData.transactionType = '';
+  addTransactionFormData.amount = 0;
+  addTransactionFormData.transactionDate = '';
+  addTransactionFormData.summary = '';
+  addTransactionFormData.businessType = '';
+  addTransactionFormData.counterpartyAccount = '';
+  addTransactionFormData.counterpartyName = '';
+  addTransactionFormData.balanceAfter = 0;
+  addTransactionFormData.remark = '';
+  addTransactionDialogVisible.value = true;
+};
+
+// 关闭新增交易记录弹窗
+const handleCloseAddTransactionDialog = () => {
+  addTransactionDialogVisible.value = false;
+  if (addTransactionFormRef.value) {
+    addTransactionFormRef.value.resetFields();
+  }
+};
+
+// 提交新增交易记录
+const handleSubmitAddTransaction = async () => {
+  if (!addTransactionFormRef.value) return;
+
+  try {
+    await addTransactionFormRef.value.validate();
+    addTransactionFormLoading.value = true;
+
+    const response = await createTransactionApi(addTransactionFormData);
+
+    if (response.code === 200) {
+      ElMessage.success('交易记录添加成功');
+      handleCloseAddTransactionDialog();
+      fetchAccountTransactions();
+    } else {
+      ElMessage.error(response.message || '交易记录添加失败');
+    }
+  } catch (error: any) {
+    if (error.name === 'ElValidationError') {
+      return;
+    }
+    ElMessage.error('交易记录添加失败，请稍后重试');
+    console.error('添加交易记录失败:', error);
+  } finally {
+    addTransactionFormLoading.value = false;
+  }
+};
+
+// 打开编辑交易记录弹窗
+const handleEditTransaction = (
+  row: BankAccountTransactionApi.TransactionInfo,
+) => {
+  editingTransaction.value = row;
+  editTransactionFormData.transactionType = row.transactionType;
+  editTransactionFormData.amount = row.amount;
+  editTransactionFormData.transactionDate = row.transactionDate;
+  editTransactionFormData.summary = row.summary || '';
+  editTransactionFormData.businessType = row.businessType || '';
+  editTransactionFormData.counterpartyAccount = row.counterpartyAccount || '';
+  editTransactionFormData.counterpartyName = row.counterpartyName || '';
+  editTransactionFormData.balanceAfter = row.balanceAfter || 0;
+  editTransactionFormData.remark = row.remark || '';
+  editTransactionDialogVisible.value = true;
+};
+
+// 关闭编辑交易记录弹窗
+const handleCloseEditTransactionDialog = () => {
+  editTransactionDialogVisible.value = false;
+  editingTransaction.value = null;
+  if (editTransactionFormRef.value) {
+    editTransactionFormRef.value.resetFields();
+  }
+};
+
+// 提交编辑交易记录
+const handleSubmitEditTransaction = async () => {
+  if (!editTransactionFormRef.value || !editingTransaction.value) return;
+
+  try {
+    await editTransactionFormRef.value.validate();
+    editTransactionFormLoading.value = true;
+
+    const response = await updateTransactionApi(
+      editingTransaction.value.id,
+      editTransactionFormData,
+    );
+
+    if (response.code === 200) {
+      ElMessage.success('交易记录更新成功');
+      handleCloseEditTransactionDialog();
+      fetchAccountTransactions();
+    } else {
+      ElMessage.error(response.message || '交易记录更新失败');
+    }
+  } catch (error: any) {
+    if (error.name === 'ElValidationError') {
+      return;
+    }
+    ElMessage.error('交易记录更新失败，请稍后重试');
+    console.error('更新交易记录失败:', error);
+  } finally {
+    editTransactionFormLoading.value = false;
+  }
+};
+
+// 删除交易记录
+const handleDeleteTransaction = async (
+  row: BankAccountTransactionApi.TransactionInfo,
+) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该交易记录吗？', '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
+    const response = await deleteTransactionApi(row.id);
+
+    if (response.code === 200) {
+      ElMessage.success('交易记录删除成功');
+      fetchAccountTransactions();
+    } else {
+      ElMessage.error(response.message || '交易记录删除失败');
+    }
+  } catch (error: any) {
+    if (error.name !== 'ElMessageBoxCancel') {
+      ElMessage.error('交易记录删除失败，请稍后重试');
+      console.error('删除交易记录失败:', error);
+    }
+  }
+};
+
 // 编辑账户表单数据
 const editFormData = reactive({
   caseId: 0, // 案件ID
@@ -726,8 +1041,17 @@ const handleSubmit = async () => {
         </ElTableColumn>
 
         <!-- 操作列 -->
-        <ElTableColumn label="操作" width="150" align="center" fixed="right">
+        <ElTableColumn label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
+            <ElButton
+              size="small"
+              text
+              @click="() => handleViewTransactions(row)"
+              class="text-primary"
+            >
+              <i class="i-lucide-list mr-1"></i>
+              交易记录
+            </ElButton>
             <ElButton
               size="small"
               text
@@ -1168,6 +1492,537 @@ const handleSubmit = async () => {
               type="primary"
               @click="handleEditSubmit"
               :loading="editFormLoading"
+            >
+              确定
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
+
+      <!-- 交易记录弹窗 -->
+      <ElDialog
+        v-model="transactionDialogVisible"
+        :title="`交易记录 - ${selectedAccount?.accountName || ''} (${selectedAccount?.accountNumber || ''})`"
+        width="90%"
+        :before-close="handleCloseTransactionDialog"
+        class="transaction-dialog"
+      >
+        <!-- 筛选条件 -->
+        <div class="mb-4">
+          <ElRow :gutter="16">
+            <ElCol :span="6">
+              <ElFormItem label="交易类型" label-width="80px">
+                <ElSelect
+                  v-model="transactionFilters.transactionType"
+                  placeholder="请选择交易类型"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption label="流入" value="IN" />
+                  <ElOption label="流出" value="OUT" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="业务类型" label-width="80px">
+                <ElSelect
+                  v-model="transactionFilters.businessType"
+                  placeholder="请选择业务类型"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption label="收款" value="收款" />
+                  <ElOption label="付款" value="付款" />
+                  <ElOption label="转账" value="转账" />
+                  <ElOption label="利息收入" value="利息收入" />
+                  <ElOption label="手续费" value="手续费" />
+                  <ElOption label="其他" value="其他" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="开始日期" label-width="80px">
+                <ElDatePicker
+                  v-model="transactionFilters.startDate"
+                  type="date"
+                  placeholder="选择开始日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="结束日期" label-width="80px">
+                <ElDatePicker
+                  v-model="transactionFilters.endDate"
+                  type="date"
+                  placeholder="选择结束日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <div class="mb-4 flex justify-between">
+            <div>
+              <ElButton type="primary" @click="handleAddTransaction">
+                <i class="i-lucide-plus mr-1"></i>
+                新增交易记录
+              </ElButton>
+            </div>
+            <div>
+              <ElButton type="primary" @click="handleSearchTransactions">
+                <i class="i-lucide-search mr-1"></i>
+                搜索
+              </ElButton>
+              <ElButton @click="handleResetTransactionFilters">
+                <i class="i-lucide-refresh-cw mr-1"></i>
+                重置
+              </ElButton>
+            </div>
+          </div>
+        </div>
+
+        <!-- 交易记录表格 -->
+        <ElTable
+          v-loading="transactionLoading"
+          :data="transactionList"
+          :border="true"
+          :stripe="true"
+          :style="{ width: '100%' }"
+        >
+          <ElTableColumn type="index" label="序号" width="60" align="center" />
+
+          <ElTableColumn
+            prop="transactionDate"
+            label="交易日期"
+            width="120"
+            align="center"
+          />
+
+          <ElTableColumn
+            prop="transactionType"
+            label="交易类型"
+            width="100"
+            align="center"
+          >
+            <template #default="{ row }">
+              <ElTag
+                :type="getTransactionTypeType(row.transactionType)"
+                size="small"
+              >
+                {{ getTransactionTypeText(row.transactionType) }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn
+            prop="amount"
+            label="交易金额"
+            width="150"
+            align="right"
+          >
+            <template #default="{ row }">
+              {{ formatCurrency(row.amount) }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn
+            prop="businessType"
+            label="业务类型"
+            width="100"
+            align="center"
+          />
+
+          <ElTableColumn
+            prop="summary"
+            label="交易摘要"
+            width="200"
+            show-overflow-tooltip
+          />
+
+          <ElTableColumn
+            prop="counterpartyName"
+            label="对方名称"
+            width="120"
+            show-overflow-tooltip
+          />
+
+          <ElTableColumn
+            prop="counterpartyAccount"
+            label="对方账户"
+            width="180"
+            show-overflow-tooltip
+          />
+
+          <ElTableColumn
+            prop="balanceAfter"
+            label="交易后余额"
+            width="150"
+            align="right"
+          >
+            <template #default="{ row }">
+              {{ formatCurrency(row.balanceAfter) }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn
+            prop="remark"
+            label="备注"
+            width="200"
+            show-overflow-tooltip
+          />
+
+          <ElTableColumn
+            prop="createTime"
+            label="创建时间"
+            width="160"
+            align="center"
+          >
+            <template #default="{ row }">
+              {{ new Date(row.createTime).toLocaleString('zh-CN') }}
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="操作" width="150" align="center" fixed="right">
+            <template #default="{ row }">
+              <ElButton
+                size="small"
+                text
+                @click="() => handleEditTransaction(row)"
+                class="text-primary"
+              >
+                <i class="i-lucide-edit mr-1"></i>
+                编辑
+              </ElButton>
+              <ElButton
+                size="small"
+                text
+                @click="() => handleDeleteTransaction(row)"
+                class="text-danger ml-2"
+              >
+                <i class="i-lucide-trash-2 mr-1"></i>
+                删除
+              </ElButton>
+            </template>
+          </ElTableColumn>
+        </ElTable>
+
+        <!-- 分页组件 -->
+        <div class="mt-4 flex justify-end">
+          <ElPagination
+            v-model:current-page="transactionPagination.page"
+            v-model:page-size="transactionPagination.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="transactionPagination.total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleTransactionSizeChange"
+            @current-change="handleTransactionPageChange"
+          />
+        </div>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseTransactionDialog">关闭</ElButton>
+          </span>
+        </template>
+      </ElDialog>
+
+      <!-- 新增交易记录弹窗 -->
+      <ElDialog
+        v-model="addTransactionDialogVisible"
+        title="新增交易记录"
+        width="700px"
+        :before-close="handleCloseAddTransactionDialog"
+      >
+        <ElForm
+          ref="addTransactionFormRef"
+          :model="addTransactionFormData"
+          label-width="120px"
+          label-position="top"
+        >
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易类型" required>
+                <ElSelect
+                  v-model="addTransactionFormData.transactionType"
+                  placeholder="请选择交易类型"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in transactionTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="交易金额" required>
+                <ElInputNumber
+                  v-model="addTransactionFormData.amount"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入交易金额"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易日期" required>
+                <ElDatePicker
+                  v-model="addTransactionFormData.transactionDate"
+                  type="date"
+                  placeholder="选择交易日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="业务类型">
+                <ElSelect
+                  v-model="addTransactionFormData.businessType"
+                  placeholder="请选择业务类型"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in businessTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="交易摘要">
+                <ElInput
+                  v-model="addTransactionFormData.summary"
+                  placeholder="请输入交易摘要"
+                  maxlength="500"
+                  show-word-limit
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="对方名称">
+                <ElInput
+                  v-model="addTransactionFormData.counterpartyName"
+                  placeholder="请输入对方名称"
+                  maxlength="100"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="对方账户">
+                <ElInput
+                  v-model="addTransactionFormData.counterpartyAccount"
+                  placeholder="请输入对方账户"
+                  maxlength="100"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易后余额">
+                <ElInputNumber
+                  v-model="addTransactionFormData.balanceAfter"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入交易后余额"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="备注">
+                <ElInput
+                  v-model="addTransactionFormData.remark"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入备注"
+                  maxlength="500"
+                  show-word-limit
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseAddTransactionDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleSubmitAddTransaction"
+              :loading="addTransactionFormLoading"
+            >
+              确定
+            </ElButton>
+          </span>
+        </template>
+      </ElDialog>
+
+      <!-- 编辑交易记录弹窗 -->
+      <ElDialog
+        v-model="editTransactionDialogVisible"
+        title="编辑交易记录"
+        width="700px"
+        :before-close="handleCloseEditTransactionDialog"
+      >
+        <ElForm
+          ref="editTransactionFormRef"
+          :model="editTransactionFormData"
+          label-width="120px"
+          label-position="top"
+        >
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易类型" required>
+                <ElSelect
+                  v-model="editTransactionFormData.transactionType"
+                  placeholder="请选择交易类型"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in transactionTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="交易金额" required>
+                <ElInputNumber
+                  v-model="editTransactionFormData.amount"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入交易金额"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易日期" required>
+                <ElDatePicker
+                  v-model="editTransactionFormData.transactionDate"
+                  type="date"
+                  placeholder="选择交易日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="业务类型">
+                <ElSelect
+                  v-model="editTransactionFormData.businessType"
+                  placeholder="请选择业务类型"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="option in businessTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="交易摘要">
+                <ElInput
+                  v-model="editTransactionFormData.summary"
+                  placeholder="请输入交易摘要"
+                  maxlength="500"
+                  show-word-limit
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="对方名称">
+                <ElInput
+                  v-model="editTransactionFormData.counterpartyName"
+                  placeholder="请输入对方名称"
+                  maxlength="100"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="对方账户">
+                <ElInput
+                  v-model="editTransactionFormData.counterpartyAccount"
+                  placeholder="请输入对方账户"
+                  maxlength="100"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="交易后余额">
+                <ElInputNumber
+                  v-model="editTransactionFormData.balanceAfter"
+                  :min="0"
+                  :precision="2"
+                  placeholder="请输入交易后余额"
+                  style="width: 100%"
+                  :controls="false"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="备注">
+                <ElInput
+                  v-model="editTransactionFormData.remark"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入备注"
+                  maxlength="500"
+                  show-word-limit
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="handleCloseEditTransactionDialog">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="handleSubmitEditTransaction"
+              :loading="editTransactionFormLoading"
             >
               确定
             </ElButton>

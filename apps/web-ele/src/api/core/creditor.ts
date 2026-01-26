@@ -10,6 +10,7 @@ export namespace CreditorApi {
     creditorName?: string;
     idNumber?: string;
     legalRepresentative?: string;
+    status?: string;
   }
 
   /** 债权人信息 */
@@ -24,6 +25,7 @@ export namespace CreditorApi {
     idNumber: string;
     legalRepresentative: string;
     registeredCapital: number;
+    status?: string;
     createTime: string;
     updateTime: string;
   }
@@ -56,6 +58,7 @@ export namespace CreditorApi {
     idNumber?: string;
     legalRepresentative?: string;
     registeredCapital?: number;
+    status?: string;
   }
 
   /** 创建债权人响应 */

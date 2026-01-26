@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Approval } from '#/api/core/approval';
-import type { Notification } from '#/api/core/notification';
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { useUserStore } from '@vben/stores';
 
 import { ElBadge, ElButton, ElMessage, ElScrollbar } from 'element-plus';
 
@@ -14,6 +15,7 @@ import ActivityTimeline from './ActivityTimeline.vue';
 import ApprovalCard from './ApprovalCard.vue';
 
 const router = useRouter();
+const userStore = useUserStore();
 const dropdownVisible = ref(false);
 const isHovering = ref(false);
 // 全部消息个数 = 最新动态个数 + 待审核个数
@@ -22,11 +24,21 @@ const totalCount = computed(() => {
 });
 const pendingApprovals = ref<Approval[]>([]);
 
+// 检查用户是否有管理员权限
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('ADMIN');
+});
+
 // 标签页配置
-const tabs = [
-  { key: 'dynamic', label: '最新动态' },
-  { key: 'approval', label: '待审核' },
-];
+const tabs = computed(() => {
+  const baseTabs = [{ key: 'dynamic', label: '最新动态' }];
+  // 只有管理员才能看到待审核标签
+  if (isAdmin.value) {
+    baseTabs.push({ key: 'approval', label: '待审核' });
+  }
+  return baseTabs;
+});
 const activeTab = ref('dynamic');
 const showSettings = ref(false);
 
@@ -70,10 +82,6 @@ const formatTime = (time: string) => {
   return date.toLocaleDateString();
 };
 
-
-
-
-
 // 加载待审核数据
 const loadPendingApprovals = async () => {
   try {
@@ -82,7 +90,7 @@ const loadPendingApprovals = async () => {
       pageNum: 1,
       pageSize: 10,
       approvalStatus: 'PENDING',
-      approvalType: ''
+      approvalType: '',
     });
     // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
     // API返回的数据格式为 { total: number, list: Approval[] }
@@ -95,12 +103,10 @@ const loadPendingApprovals = async () => {
 
 const toggleDropdown = () => {
   dropdownVisible.value = !dropdownVisible.value;
-  if (dropdownVisible.value) {
+  if (dropdownVisible.value && isAdmin.value) {
     loadPendingApprovals();
   }
 };
-
-
 
 // 处理审核点击
 const handleApprovalClick = (approval: Approval) => {
@@ -118,13 +124,14 @@ const markAllAsRead = async () => {
   await notificationApi.markAllAsRead();
   loadDynamicCount();
   // 刷新最新动态数据
-  if (activityTimelineRef.value && typeof activityTimelineRef.value.loadActivities === 'function') {
+  if (
+    activityTimelineRef.value &&
+    typeof activityTimelineRef.value.loadActivities === 'function'
+  ) {
     await activityTimelineRef.value.loadActivities();
   }
   ElMessage.success('已全部标记为已读');
-}
-
-
+};
 
 const goToNotificationCenter = () => {
   router.push('/notification');
@@ -135,23 +142,18 @@ const toggleSettings = () => {
   showSettings.value = !showSettings.value;
 };
 
-const handleWebSocketMessage = (data: any) => {
-  notifications.value.unshift(data);
-  if (!data.isRead) {
-    unreadCount.value++;
-  }
-};
-
 // 监听下拉菜单显示状态，加载数据
 watch(dropdownVisible, (newVal) => {
-  if (newVal) {
+  if (newVal && isAdmin.value) {
     loadPendingApprovals();
   }
 });
 
 onMounted(() => {
   loadDynamicCount(); // 加载最新动态数量
-  loadPendingApprovals(); // 加载待审核数据
+  if (isAdmin.value) {
+    loadPendingApprovals(); // 加载待审核数据
+  }
 });
 
 onUnmounted(() => {});
@@ -202,7 +204,7 @@ onUnmounted(() => {});
             @click="activeTab = tab.key"
           >
             <span>{{ tab.label }}</span>
-            
+
             <span
               v-if="tab.key === 'dynamic' && dynamicCount > 0"
               class="tab-badge circle-badge"
@@ -235,14 +237,15 @@ onUnmounted(() => {});
 
         <ElScrollbar style="flex: 1; min-height: 0">
           <div class="notification-content-wrapper">
-            
-
             <!-- 最新动态 -->
             <div
               v-if="activeTab === 'dynamic'"
               class="notification-content-section"
             >
-              <ActivityTimeline ref="activityTimelineRef" @update:count="dynamicCount = $event" />
+              <ActivityTimeline
+                ref="activityTimelineRef"
+                @update:count="dynamicCount = $event"
+              />
             </div>
 
             <!-- 待审核 -->
