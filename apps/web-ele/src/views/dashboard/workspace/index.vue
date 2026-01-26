@@ -1535,7 +1535,7 @@ onMounted(() => {
 /* PDF预览样式 */
 .pdf-preview {
   width: 100%;
-  height: 90vh;
+  height: 700px;
   overflow: hidden;
 }
 

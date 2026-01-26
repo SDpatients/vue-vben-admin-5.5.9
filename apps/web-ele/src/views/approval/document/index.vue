@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type { DocumentServiceApi } from '#/api/core/document-service';
-
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 import {
   ElButton,
@@ -22,19 +19,8 @@ import {
   ElTooltip,
 } from 'element-plus';
 
-import {
-  getAllDocumentListApi,
-  getDocumentAttachmentsApi,
-  updateDocumentStatusRemarkApi,
-} from '#/api/core/document-service';
-
-const router = useRouter();
-
-const handleCaseNumberClick = (row: DocumentApproval) => {
-  if (row.caseId) {
-    router.push(`/law/case-detail/${row.caseId}`);
-  }
-};
+import { getAllDocumentListApi, updateDocumentStatusRemarkApi, getDocumentAttachmentsApi } from '#/api/core/document-service';
+import type { DocumentServiceApi } from '#/api/core/document-service';
 
 interface DocumentAttachment {
   id: number;
@@ -56,7 +42,7 @@ interface DocumentAttachment {
   updateTime: string;
   deleteTime: string;
   deleteUserId: number;
-
+  
   // 计算属性
   fileName: string;
   fileType: string;
@@ -79,9 +65,7 @@ const approvalForm = ref({
 const showFullContent = ref(false);
 const previewDialogVisible = ref(false);
 const previewingFile = ref<DocumentAttachment | null>(null);
-const previewUrl = ref('');
-const previewLoading = ref(false);
-const attachmentThumbnailUrls = ref<Map<number, string>>(new Map());
+const previewTextContent = ref('');
 
 // 格式化文件大小
 const formatFileSize = (size: number): string => {
@@ -100,120 +84,32 @@ const canPreview = (fileExtension: string): boolean => {
   return previewableTypes.includes(fileExtension.toLowerCase());
 };
 
-// 判断是否为图片文件
-const isImageFile = (fileType: string): boolean => {
-  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-  return imageTypes.includes(fileType.toLowerCase());
-};
-
-// 获取图片预览 URL
-const getImagePreviewUrl = async (
-  file: DocumentAttachment,
-): Promise<string> => {
-  const token = localStorage.getItem('token');
-  if (!token) return '';
-
-  try {
-    const response = await fetch(
-      `${window.location.origin}/api/v1/file/preview/${file.id}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-
-    if (!response.ok) return '';
-
-    const blob = await response.blob();
-    return window.URL.createObjectURL(blob);
-  } catch (error) {
-    console.error('获取图片预览失败:', error);
-    return '';
-  }
-};
-
-// 加载附件缩略图
-const loadAttachmentThumbnails = async (attachments: DocumentAttachment[]) => {
-  attachmentThumbnailUrls.value.clear();
-  for (const attachment of attachments) {
-    if (isImageFile(attachment.fileType)) {
-      const url = await getImagePreviewUrl(attachment);
-      if (url) {
-        attachmentThumbnailUrls.value.set(attachment.id, url);
-      }
-    }
-  }
-};
-
-// 获取附件缩略图 URL
-const getAttachmentThumbnailUrl = (attachmentId: number): string => {
-  return attachmentThumbnailUrls.value.get(attachmentId) || '';
-};
-
-// 处理图片加载错误
-const handleImageError = (event: Event) => {
-  const img = event.target as HTMLImageElement;
-  img.src = '';
-  img.style.display = 'none';
-};
-
 // 格式化时间为YYYY-MM-DD HH:mm:ss
 const formatDateTime = (dateString: string | undefined): string => {
   if (!dateString) return '';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
-
+  
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-
+  
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 // 预览文件
-const previewFile = async (file: DocumentAttachment) => {
+const previewFile = (file: DocumentAttachment) => {
   previewingFile.value = file;
-  previewLoading.value = true;
-  previewUrl.value = '';
-
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      ElMessage.error('未找到登录信息，请先登录');
-      previewDialogVisible.value = false;
-      return;
-    }
-
-    const response = await fetch(
-      `${window.location.origin}/api/v1/file/preview/${file.id}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      ElMessage.error(errorData.message || '预览失败');
-      return;
-    }
-
-    const blob = await response.blob();
-    previewUrl.value = window.URL.createObjectURL(blob);
-    previewDialogVisible.value = true;
-  } catch (error) {
-    console.error('预览失败:', error);
-    ElMessage.error('预览失败，请重试');
-  } finally {
-    previewLoading.value = false;
+  
+  // 如果是文本文件，可以模拟读取内容
+  if (file.fileType === 'txt') {
+    previewTextContent.value = `这是 ${file.fileName} 的预览内容。\n\n实际应用中，这里会显示文本文件的真实内容。`;
   }
+  
+  previewDialogVisible.value = true;
 };
 
 // 下载文件
@@ -225,15 +121,12 @@ const downloadFile = async (file: DocumentAttachment) => {
   }
 
   try {
-    const response = await fetch(
-      `${window.location.origin}/api/v1/file/download/${file.id}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
+    const response = await fetch(`${window.location.origin}/api/v1/file/download/${file.id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -243,7 +136,7 @@ const downloadFile = async (file: DocumentAttachment) => {
 
     // 优先使用文件对象中的原始文件名，避免依赖响应头
     let fileName = file.originalFileName;
-
+    
     // 如果原始文件名不存在，尝试从响应头获取
     if (!fileName) {
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -266,10 +159,10 @@ const downloadFile = async (file: DocumentAttachment) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
-    document.body.append(a);
+    document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
-    a.remove();
+    document.body.removeChild(a);
 
     ElMessage.success('文件下载成功');
   } catch (error) {
@@ -304,13 +197,12 @@ const mockData: DocumentApproval[] = [
     submitter: '李四',
     submitTime: '2026-01-07 14:30:00',
     status: 'pending',
-    content:
-      '张三因合同纠纷起诉李四，要求赔偿损失。根据《中华人民共和国民法典》相关规定，被告李四未按照合同约定履行义务，给原告张三造成了经济损失。原告要求被告赔偿人民币10万元，并承担本案诉讼费用。',
+    content: '张三因合同纠纷起诉李四，要求赔偿损失。根据《中华人民共和国民法典》相关规定，被告李四未按照合同约定履行义务，给原告张三造成了经济损失。原告要求被告赔偿人民币10万元，并承担本案诉讼费用。',
     attachments: [
       {
         id: 1,
         fileName: '合同原件.pdf',
-        fileSize: 1_234_567,
+        fileSize: 1234567,
         fileType: 'pdf',
         uploadTime: '2026-01-07 14:25:00',
         filePath: '/uploads/contract.pdf',
@@ -318,7 +210,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 2,
         fileName: '转账记录.jpg',
-        fileSize: 567_890,
+        fileSize: 567890,
         fileType: 'jpg',
         uploadTime: '2026-01-07 14:26:00',
         filePath: '/uploads/transfer.jpg',
@@ -332,13 +224,12 @@ const mockData: DocumentApproval[] = [
     submitter: '赵六',
     submitTime: '2026-01-07 10:15:00',
     status: 'pending',
-    content:
-      '针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。',
+    content: '针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。针对张三的起诉状提出答辩。被告认为原告所述与事实不符，被告已经按照合同约定履行了全部义务。原告的损失与被告无关，请求法院驳回原告的全部诉讼请求。',
     attachments: [
       {
         id: 3,
         fileName: '答辩证据清单.docx',
-        fileSize: 890_123,
+        fileSize: 890123,
         fileType: 'docx',
         uploadTime: '2026-01-07 10:10:00',
         filePath: '/uploads/defense_evidence.docx',
@@ -353,13 +244,12 @@ const mockData: DocumentApproval[] = [
     submitTime: '2026-01-06 16:45:00',
     approvalTime: '2026-01-06 17:30:00',
     status: 'approved',
-    content:
-      '包含合同原件、转账记录、证人证言等证据，证明被告未履行合同义务，给原告造成了经济损失。',
+    content: '包含合同原件、转账记录、证人证言等证据，证明被告未履行合同义务，给原告造成了经济损失。',
     attachments: [
       {
         id: 4,
         fileName: '证据清单.pdf',
-        fileSize: 2_345_678,
+        fileSize: 2345678,
         fileType: 'pdf',
         uploadTime: '2026-01-06 16:40:00',
         filePath: '/uploads/evidence_list.pdf',
@@ -367,7 +257,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 5,
         fileName: '证人证言.txt',
-        fileSize: 123_456,
+        fileSize: 123456,
         fileType: 'txt',
         uploadTime: '2026-01-06 16:42:00',
         filePath: '/uploads/witness.txt',
@@ -375,7 +265,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 6,
         fileName: '损失计算表.xlsx',
-        fileSize: 456_789,
+        fileSize: 456789,
         fileType: 'xlsx',
         uploadTime: '2026-01-06 16:43:00',
         filePath: '/uploads/loss_calculation.xlsx',
@@ -390,14 +280,13 @@ const mockData: DocumentApproval[] = [
     submitTime: '2026-01-06 09:20:00',
     approvalTime: '2026-01-06 10:30:00',
     status: 'rejected',
-    content:
-      '关于劳动争议案件的法律意见。根据《中华人民共和国劳动法》和《中华人民共和国劳动合同法》相关规定，分析本案的法律适用和可能的判决结果。',
+    content: '关于劳动争议案件的法律意见。根据《中华人民共和国劳动法》和《中华人民共和国劳动合同法》相关规定，分析本案的法律适用和可能的判决结果。',
     remark: '需要补充相关证据材料',
     attachments: [
       {
         id: 7,
         fileName: '法律意见书正文.pdf',
-        fileSize: 3_456_789,
+        fileSize: 3456789,
         fileType: 'pdf',
         uploadTime: '2026-01-06 09:15:00',
         filePath: '/uploads/legal_opinion.pdf',
@@ -416,7 +305,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 8,
         fileName: '房屋产权证书.jpg',
-        fileSize: 678_901,
+        fileSize: 678901,
         fileType: 'jpg',
         uploadTime: '2026-01-05 15:25:00',
         filePath: '/uploads/property_certificate.jpg',
@@ -424,7 +313,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 9,
         fileName: '买卖合同.pdf',
-        fileSize: 1_234_567,
+        fileSize: 1234567,
         fileType: 'pdf',
         uploadTime: '2026-01-05 15:26:00',
         filePath: '/uploads/sales_contract.pdf',
@@ -432,7 +321,7 @@ const mockData: DocumentApproval[] = [
       {
         id: 10,
         fileName: '付款凭证.pdf',
-        fileSize: 890_123,
+        fileSize: 890123,
         fileType: 'pdf',
         uploadTime: '2026-01-05 15:27:00',
         filePath: '/uploads/payment_voucher.pdf',
@@ -453,17 +342,15 @@ const loadDocuments = async () => {
     });
 
     if (response.data) {
-      documentList.value = response.data.list.map(
-        (item: DocumentServiceApi.Document) => ({
-          ...item,
-          createTime: formatDateTime(item.createTime),
-          updateTime: formatDateTime(item.updateTime),
-          attachments: [],
-        }),
-      );
+      documentList.value = response.data.list.map((item: DocumentServiceApi.Document) => ({
+        ...item,
+        createTime: formatDateTime(item.createTime),
+        updateTime: formatDateTime(item.updateTime),
+        attachments: [],
+      }));
       pagination.value.total = response.data.total;
     }
-  } catch {
+  } catch (error) {
     ElMessage.error('加载文书列表失败');
   } finally {
     loading.value = false;
@@ -488,7 +375,7 @@ const handleReset = () => {
 const handleViewDetail = async (row: DocumentApproval) => {
   currentDocument.value = row;
   dialogVisible.value = true;
-
+  
   // 获取附件列表
   try {
     const response = await getDocumentAttachmentsApi(row.id);
@@ -507,8 +394,6 @@ const handleViewDetail = async (row: DocumentApproval) => {
           },
         };
       });
-      // 加载图片缩略图
-      await loadAttachmentThumbnails(currentDocument.value.attachments);
     }
   } catch (error) {
     console.error('获取附件列表失败:', error);
@@ -537,10 +422,7 @@ const handleReject = (row: DocumentApproval) => {
 const handleConfirmApproval = async () => {
   if (!currentDocument.value) return;
 
-  if (
-    approvalForm.value.status === 'REJECTED' &&
-    !approvalForm.value.remark.trim()
-  ) {
+  if (approvalForm.value.status === 'REJECTED' && !approvalForm.value.remark.trim()) {
     ElMessage.warning('驳回时必须填写审批意见');
     return;
   }
@@ -552,9 +434,7 @@ const handleConfirmApproval = async () => {
       remark: approvalForm.value.remark || undefined,
     });
 
-    const index = documentList.value.findIndex(
-      (doc) => doc.id === currentDocument.value?.id,
-    );
+    const index = documentList.value.findIndex(doc => doc.id === currentDocument.value?.id);
     if (index !== -1) {
       documentList.value[index].status = approvalForm.value.status;
       documentList.value[index].updateTime = new Date().toISOString();
@@ -563,11 +443,9 @@ const handleConfirmApproval = async () => {
       }
     }
 
-    ElMessage.success(
-      approvalForm.value.status === 'APPROVED' ? '审批通过' : '已驳回',
-    );
+    ElMessage.success(approvalForm.value.status === 'APPROVED' ? '审批通过' : '已驳回');
     dialogVisible.value = false;
-  } catch {
+  } catch (error) {
     ElMessage.error('审批失败');
   } finally {
     loading.value = false;
@@ -659,21 +537,6 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="caseNumber" label="案号" width="150">
-          <template #default="{ row }">
-            <ElButton
-              v-if="row.caseNumber"
-              type="primary"
-              link
-              size="small"
-              @click="handleCaseNumberClick(row)"
-            >
-              {{ row.caseNumber }}
-            </ElButton>
-            <span v-else>-</span>
-          </template>
-        </ElTableColumn>
-
         <ElTableColumn prop="documentName" label="文书名称" min-width="200">
           <template #default="{ row }">
             <ElTooltip :content="row.documentName" placement="top">
@@ -700,12 +563,7 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn
-          prop="status"
-          label="审批状态"
-          width="100"
-          align="center"
-        >
+        <ElTableColumn prop="status" label="审批状态" width="100" align="center">
           <template #default="{ row }">
             <ElTag :type="statusMap[row.status]?.type" size="small">
               {{ statusMap[row.status]?.text || row.status }}
@@ -794,10 +652,7 @@ onMounted(() => {
           <div class="header-item">
             <span class="label">当前状态：</span>
             <ElTag :type="statusMap[currentDocument.status]?.type" size="small">
-              {{
-                statusMap[currentDocument.status]?.text ||
-                currentDocument.status
-              }}
+              {{ statusMap[currentDocument.status]?.text || currentDocument.status }}
             </ElTag>
           </div>
         </div>
@@ -806,23 +661,20 @@ onMounted(() => {
           <!-- 左侧：文书内容 -->
           <div class="content-section">
             <div class="section-title">送达内容</div>
-            <div class="content-box clickable" @click="showFullContent = true">
-              <div
-                v-if="!showFullContent"
-                class="content-preview"
-                v-html="currentDocument.deliveryContent"
-              ></div>
+            <div 
+              class="content-box"
+              @click="showFullContent = true"
+              :class="{ 'clickable': true }"
+            >
+              <div v-if="!showFullContent" class="content-preview" v-html="currentDocument.deliveryContent"></div>
               <div v-else>
-                <div
-                  class="content-full"
-                  v-html="currentDocument.deliveryContent"
-                ></div>
-                <ElButton
-                  link
-                  size="small"
-                  @click.stop="showFullContent = false"
-                  class="collapse-btn"
-                >
+                <div class="content-full" v-html="currentDocument.deliveryContent"></div>
+                <ElButton 
+              link 
+              size="small" 
+              @click.stop="showFullContent = false"
+              class="collapse-btn"
+            >
                   <i class="i-lucide-chevron-up mr-1"></i>
                   收起
                 </ElButton>
@@ -836,10 +688,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <div
-              v-if="currentDocument.status === 'PENDING'"
-              class="approval-section"
-            >
+            <div v-if="currentDocument.status === 'PENDING'" class="approval-section">
               <div class="section-title">审批操作</div>
               <ElFormItem label="审批意见" class="approval-form-item">
                 <ElInput
@@ -855,63 +704,19 @@ onMounted(() => {
           <!-- 右侧：附件列表 -->
           <div class="attachment-section">
             <div class="section-title">附件列表</div>
-            <div
-              v-if="currentDocument.attachments.length > 0"
-              class="attachment-list"
-            >
-              <div
-                v-for="attachment in currentDocument.attachments"
+            <div v-if="currentDocument.attachments.length > 0" class="attachment-list">
+              <div 
+                v-for="attachment in currentDocument.attachments" 
                 :key="attachment.id"
                 class="attachment-item"
-                :class="{
-                  'has-image-preview': isImageFile(attachment.fileType),
-                }"
               >
                 <div class="attachment-info">
-                  <!-- 图片预览区域 -->
-                  <div
-                    v-if="isImageFile(attachment.fileType)"
-                    class="attachment-image-preview"
-                    @click="previewFile(attachment)"
-                  >
-                    <img
-                      v-if="getAttachmentThumbnailUrl(attachment.id)"
-                      :src="getAttachmentThumbnailUrl(attachment.id)"
-                      :alt="attachment.fileName"
-                      class="attachment-thumbnail"
-                      @error="handleImageError"
-                    />
-                    <div v-else class="thumbnail-placeholder">
-                      <i class="i-lucide-image"></i>
-                    </div>
-                    <div class="image-overlay">
-                      <i class="i-lucide-zoom-in"></i>
-                    </div>
-                  </div>
-                  <!-- 文件图标 -->
-                  <div v-else class="attachment-icon">
-                    <i
-                      v-if="attachment.fileType === 'pdf'"
-                      class="i-lucide-file-text"
-                    ></i>
-                    <i
-                      v-else-if="
-                        attachment.fileType === 'doc' ||
-                        attachment.fileType === 'docx'
-                      "
-                      class="i-lucide-file-word"
-                    ></i>
-                    <i
-                      v-else-if="
-                        attachment.fileType === 'xls' ||
-                        attachment.fileType === 'xlsx'
-                      "
-                      class="i-lucide-file-excel"
-                    ></i>
-                    <i
-                      v-else-if="attachment.fileType === 'txt'"
-                      class="i-lucide-file-letter"
-                    ></i>
+                  <div class="attachment-icon">
+                    <i v-if="attachment.fileType === 'pdf'" class="i-lucide-file-text"></i>
+                    <i v-else-if="attachment.fileType === 'doc' || attachment.fileType === 'docx'" class="i-lucide-file-word"></i>
+                    <i v-else-if="attachment.fileType === 'xls' || attachment.fileType === 'xlsx'" class="i-lucide-file-excel"></i>
+                    <i v-else-if="attachment.fileType === 'jpg' || attachment.fileType === 'jpeg' || attachment.fileType === 'png'" class="i-lucide-file-image"></i>
+                    <i v-else-if="attachment.fileType === 'txt'" class="i-lucide-file-letter"></i>
                     <i v-else class="i-lucide-file"></i>
                   </div>
                   <div class="attachment-details">
@@ -924,9 +729,9 @@ onMounted(() => {
                   </div>
                 </div>
                 <div class="attachment-actions">
-                  <ElButton
-                    type="primary"
-                    size="small"
+                  <ElButton 
+                    type="primary" 
+                    size="small" 
                     link
                     @click="previewFile(attachment)"
                     :disabled="!canPreview(attachment.fileType)"
@@ -934,9 +739,9 @@ onMounted(() => {
                     <i class="i-lucide-eye mr-1"></i>
                     预览
                   </ElButton>
-                  <ElButton
-                    type="success"
-                    size="small"
+                  <ElButton 
+                    type="success" 
+                    size="small" 
                     link
                     @click="downloadFile(attachment)"
                   >
@@ -958,49 +763,30 @@ onMounted(() => {
         v-model="previewDialogVisible"
         :title="previewingFile?.fileName || '文件预览'"
         width="800px"
-        @close="previewUrl = ''"
       >
         <div v-if="previewingFile" class="file-preview-container">
-          <div v-if="previewLoading" class="loading-container">
-            <ElEmpty description="加载中..." />
+          <div v-if="previewingFile.fileType === 'pdf'" class="file-preview pdf-preview">
+            <iframe 
+              :src="previewingFile.filePath" 
+              frameborder="0"
+              width="100%"
+              height="500px"
+            ></iframe>
           </div>
-          <div v-else-if="previewUrl" class="file-preview">
-            <div v-if="previewingFile.fileType === 'pdf'" class="pdf-preview">
-              <iframe
-                :src="previewUrl"
-                frameborder="0"
-                width="100%"
-                height="500px"
-              ></iframe>
-            </div>
-            <div
-              v-else-if="
-                previewingFile.fileType === 'jpg' ||
-                previewingFile.fileType === 'jpeg' ||
-                previewingFile.fileType === 'png'
-              "
-              class="image-preview"
-            >
-              <img :src="previewUrl" alt="预览图片" class="preview-image" />
-            </div>
-            <div
-              v-else-if="previewingFile.fileType === 'txt'"
-              class="text-preview"
-            >
-              <pre class="preview-text">文本文件预览功能暂不支持</pre>
-            </div>
-            <div v-else class="unsupported-preview">
-              <ElEmpty description="不支持的文件格式" />
-              <div class="preview-actions">
-                <ElButton type="primary" @click="downloadFile(previewingFile)">
-                  <i class="i-lucide-download mr-1"></i>
-                  下载文件
-                </ElButton>
-              </div>
-            </div>
+          <div v-else-if="previewingFile.fileType === 'jpg' || previewingFile.fileType === 'jpeg' || previewingFile.fileType === 'png'" class="file-preview image-preview">
+            <img :src="previewingFile.filePath" alt="预览图片" class="preview-image">
           </div>
-          <div v-else class="empty-preview">
-            <ElEmpty description="无法预览" />
+          <div v-else-if="previewingFile.fileType === 'txt'" class="file-preview text-preview">
+            <pre class="preview-text">{{ previewTextContent }}</pre>
+          </div>
+          <div v-else class="file-preview unsupported-preview">
+            <ElEmpty description="不支持的文件格式" />
+            <div class="preview-actions">
+              <ElButton type="primary" @click="downloadFile(previewingFile)">
+                <i class="i-lucide-download mr-1"></i>
+                下载文件
+              </ElButton>
+            </div>
           </div>
         </div>
         <template #footer>
@@ -1017,10 +803,7 @@ onMounted(() => {
         <ElButton
           type="success"
           :loading="loading"
-          @click="
-            approvalForm.status = 'APPROVED';
-            handleConfirmApproval();
-          "
+          @click="approvalForm.status = 'APPROVED'; handleConfirmApproval()"
         >
           <i class="i-lucide-check mr-1"></i>
           通过
@@ -1028,10 +811,7 @@ onMounted(() => {
         <ElButton
           type="danger"
           :loading="loading"
-          @click="
-            approvalForm.status = 'REJECTED';
-            handleConfirmApproval();
-          "
+          @click="approvalForm.status = 'REJECTED'; handleConfirmApproval()"
         >
           <i class="i-lucide-x mr-1"></i>
           驳回
@@ -1208,11 +988,6 @@ onMounted(() => {
         box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
       }
 
-      &.has-image-preview {
-        align-items: flex-start;
-        padding: 16px;
-      }
-
       &:last-child {
         margin-bottom: 0;
       }
@@ -1224,63 +999,6 @@ onMounted(() => {
       gap: 12px;
       flex: 1;
       min-width: 0;
-    }
-
-    .attachment-image-preview {
-      position: relative;
-      width: 80px;
-      height: 80px;
-      flex-shrink: 0;
-      cursor: pointer;
-      border-radius: 4px;
-      overflow: hidden;
-      border: 1px solid #ebeef5;
-      transition: all 0.3s;
-
-      &:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .attachment-thumbnail {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .thumbnail-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: #f5f7fa;
-        color: #c0c4cc;
-        font-size: 24px;
-      }
-
-      .image-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: opacity 0.3s;
-
-        i {
-          font-size: 28px;
-          color: #fff;
-        }
-      }
-
-      &:hover .image-overlay {
-        opacity: 1;
-      }
     }
 
     .attachment-icon {
@@ -1330,13 +1048,6 @@ onMounted(() => {
   }
 
   .file-preview-container {
-    .loading-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 300px;
-    }
-
     .file-preview {
       margin: 0 -20px -20px;
       padding: 0 20px 20px;
@@ -1390,13 +1101,6 @@ onMounted(() => {
           margin-top: 16px;
         }
       }
-    }
-
-    .empty-preview {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 300px;
     }
   }
 }

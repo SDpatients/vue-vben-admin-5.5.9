@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -43,16 +43,13 @@ import {
 import {
   createDocumentWithFilesApi,
   deleteDocumentApi,
-  deleteDocumentAttachmentApi,
-  directUploadDocumentWithFilesApi,
   getDocumentAttachmentsApi,
   getDocumentDetailApi,
   getDocumentListApi,
-  submitDocumentForApprovalWithFilesApi,
+  updateDocumentApi,
   updateDocumentSendStatusApi,
-  updateDocumentWithFilesApi,
 } from '#/api/core/document-service';
-import { deleteFileApi, downloadFileApi, previewFileApi, uploadFileApi } from '#/api/core/file';
+import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
@@ -831,9 +828,6 @@ const documentPagination = ref({
   total: 0,
 });
 
-// 文书送达视图状态：'all' - 全部文书，'pending' - 审批中的文书
-const documentViewType = ref<'all' | 'pending'>('all');
-
 // 新增文书送达弹窗
 const showAddDocumentDialog = ref(false);
 
@@ -877,6 +871,7 @@ const directUploadForm = reactive({
   recipientAddress: '',
   serviceMethod: '',
   serviceContent: '',
+  attachment: '',
 });
 
 // 文书审批表单数据（需要审批流程）
@@ -892,6 +887,10 @@ const approvalSubmitForm = reactive({
   recipientAddress: '',
   serviceMethod: '',
   serviceContent: '',
+  attachment: '',
+  approvalTitle: '',
+  approvalContent: '',
+  remark: '',
 });
 
 // 文书类型选项
@@ -946,18 +945,11 @@ const documentFormRules = {
 const fetchDocumentList = async () => {
   documentLoading.value = true;
   try {
-    const params: any = {
+    const response = await getDocumentListApi({
       caseId: Number(caseId.value),
       pageNum: documentPagination.value.page,
       pageSize: documentPagination.value.size,
-    };
-
-    // 根据视图类型添加状态过滤
-    if (documentViewType.value === 'pending') {
-      params.status = 'PENDING';
-    }
-
-    const response = await getDocumentListApi(params);
+    });
     if (response.code === 200) {
       documentList.value = response.data.list;
       documentPagination.value.total = response.data.total;
@@ -1003,18 +995,6 @@ const openApprovalSubmitDialog = () => {
   approvalSubmitForm.caseNumber = caseDetail.value?.案号 || '';
   approvalSubmitForm.caseName = caseDetail.value?.案件名称 || '';
   showApprovalSubmitDialog.value = true;
-};
-
-// 切换文书送达视图
-const switchDocumentView = (viewType: 'all' | 'pending') => {
-  if (documentViewType.value === viewType) {
-    return;
-  }
-  documentViewType.value = viewType;
-  // 重置分页
-  documentPagination.value.page = 1;
-  // 重新加载列表
-  fetchDocumentList();
 };
 
 // 编辑文书
@@ -1084,6 +1064,7 @@ const resetDirectUploadForm = () => {
   directUploadForm.recipientAddress = '';
   directUploadForm.serviceMethod = '';
   directUploadForm.serviceContent = '';
+  directUploadForm.attachment = '';
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1094,7 +1075,7 @@ const resetDirectUploadForm = () => {
   uploadedFiles.value = [];
 };
 
-// 提交文书上传（直接上传，无需审批，带文件）
+// 提交文书上传（直接上传，无需审批）
 const submitDirectUploadForm = async () => {
   // 表单验证
   if (!directUploadForm.documentName || !directUploadForm.recipient) {
@@ -1103,42 +1084,43 @@ const submitDirectUploadForm = async () => {
   }
 
   if (uploadedFiles.value.length === 0) {
-    ElMessage.error('请至少上传一个文件');
+    ElMessage.error('请至少选择一个文件');
     return;
   }
 
   fileUploadLoading.value = true;
   try {
-    // 构建 FormData
-    const formData = new FormData();
-    formData.append('caseId', String(Number(directUploadForm.caseId)));
-    formData.append('documentName', directUploadForm.documentName);
-    if (directUploadForm.documentType) {
-      formData.append('documentType', directUploadForm.documentType);
-    }
-    formData.append('recipientName', directUploadForm.recipient);
-    if (directUploadForm.recipientType) {
-      formData.append('recipientType', directUploadForm.recipientType);
-    }
-    if (directUploadForm.recipientPhone) {
-      formData.append('contactPhone', directUploadForm.recipientPhone);
-    }
-    if (directUploadForm.recipientAddress) {
-      formData.append('deliveryAddress', directUploadForm.recipientAddress);
-    }
-    if (directUploadForm.serviceMethod) {
-      formData.append('deliveryMethod', directUploadForm.serviceMethod);
-    }
-    if (directUploadForm.serviceContent) {
-      formData.append('deliveryContent', directUploadForm.serviceContent);
+    // 上传文件
+    let documentAttachment = '';
+    if (uploadedFiles.value.length > 0) {
+      const file = uploadedFiles.value[0].file;
+      const uploadResponse = await uploadFileApi(
+        file,
+        'document',
+        Number(directUploadForm.caseId),
+      );
+
+      if (uploadResponse.code === 200 && uploadResponse.data) {
+        documentAttachment =
+          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      }
     }
 
-    // 添加文件
-    uploadedFiles.value.forEach((item) => {
-      formData.append('files', item.file);
-    });
+    // 调用直接上传接口
+    const requestData = {
+      caseId: Number(directUploadForm.caseId),
+      documentName: directUploadForm.documentName,
+      documentType: directUploadForm.documentType,
+      recipientName: directUploadForm.recipient,
+      recipientType: directUploadForm.recipientType,
+      contactPhone: directUploadForm.recipientPhone,
+      deliveryAddress: directUploadForm.recipientAddress,
+      deliveryMethod: directUploadForm.serviceMethod,
+      deliveryContent: directUploadForm.serviceContent,
+      documentAttachment,
+    };
 
-    const response = await directUploadDocumentWithFilesApi(formData);
+    const response = await directUploadDocumentApi(requestData);
 
     if (response.code === 200) {
       ElMessage.success('文书上传成功');
@@ -1155,7 +1137,7 @@ const submitDirectUploadForm = async () => {
   }
 };
 
-// 提交文书审批（需要审批流程，带文件）
+// 提交文书审批（需要审批流程）
 const submitApprovalForm = async () => {
   // 表单验证
   if (!approvalSubmitForm.documentName || !approvalSubmitForm.recipient) {
@@ -1163,45 +1145,52 @@ const submitApprovalForm = async () => {
     return;
   }
 
+  if (!approvalSubmitForm.approvalTitle || !approvalSubmitForm.approvalContent) {
+    ElMessage.error('请填写审批标题和审批内容');
+    return;
+  }
+
   if (uploadedFiles.value.length === 0) {
-    ElMessage.error('请至少上传一个文件');
+    ElMessage.error('请至少选择一个文件');
     return;
   }
 
   fileUploadLoading.value = true;
   try {
-    // 构建 FormData
-    const formData = new FormData();
-    formData.append('caseId', String(Number(approvalSubmitForm.caseId)));
-    formData.append('documentName', approvalSubmitForm.documentName);
-    if (approvalSubmitForm.documentType) {
-      formData.append('documentType', approvalSubmitForm.documentType);
-    }
-    formData.append('recipientName', approvalSubmitForm.recipient);
-    if (approvalSubmitForm.recipientType) {
-      formData.append('recipientType', approvalSubmitForm.recipientType);
-    }
-    if (approvalSubmitForm.recipientPhone) {
-      formData.append('contactPhone', approvalSubmitForm.recipientPhone);
-    }
-    if (approvalSubmitForm.recipientAddress) {
-      formData.append('deliveryAddress', approvalSubmitForm.recipientAddress);
-    }
-    if (approvalSubmitForm.serviceMethod) {
-      formData.append('deliveryMethod', approvalSubmitForm.serviceMethod);
-    }
-    if (approvalSubmitForm.serviceContent) {
-      formData.append('deliveryContent', approvalSubmitForm.serviceContent);
-    }
-    formData.append('approvalTitle', '文书审批');
-    formData.append('approvalContent', '请审批');
+    // 上传文件
+    let documentAttachment = '';
+    if (uploadedFiles.value.length > 0) {
+      const file = uploadedFiles.value[0].file;
+      const uploadResponse = await uploadFileApi(
+        file,
+        'document',
+        Number(approvalSubmitForm.caseId),
+      );
 
-    // 添加文件
-    uploadedFiles.value.forEach((item) => {
-      formData.append('files', item.file);
-    });
+      if (uploadResponse.code === 200 && uploadResponse.data) {
+        documentAttachment =
+          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      }
+    }
 
-    const response = await submitDocumentForApprovalWithFilesApi(formData);
+    // 调用文书审批接口
+    const requestData = {
+      caseId: Number(approvalSubmitForm.caseId),
+      documentName: approvalSubmitForm.documentName,
+      documentType: approvalSubmitForm.documentType,
+      recipientName: approvalSubmitForm.recipient,
+      recipientType: approvalSubmitForm.recipientType,
+      contactPhone: approvalSubmitForm.recipientPhone,
+      deliveryAddress: approvalSubmitForm.recipientAddress,
+      deliveryMethod: approvalSubmitForm.serviceMethod,
+      deliveryContent: approvalSubmitForm.serviceContent,
+      documentAttachment,
+      approvalTitle: approvalSubmitForm.approvalTitle,
+      approvalContent: approvalSubmitForm.approvalContent,
+      remark: approvalSubmitForm.remark,
+    };
+
+    const response = await submitDocumentForApprovalApi(requestData);
 
     if (response.code === 200) {
       ElMessage.success('文书审批申请提交成功');
@@ -1231,6 +1220,10 @@ const resetApprovalSubmitForm = () => {
   approvalSubmitForm.recipientAddress = '';
   approvalSubmitForm.serviceMethod = '';
   approvalSubmitForm.serviceContent = '';
+  approvalSubmitForm.attachment = '';
+  approvalSubmitForm.approvalTitle = '';
+  approvalSubmitForm.approvalContent = '';
+  approvalSubmitForm.remark = '';
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1262,46 +1255,42 @@ const submitDocumentForm = async () => {
 
   fileUploadLoading.value = true;
   try {
-    // 编辑模式使用新的 /with-files 接口
+    // 编辑模式使用原有接口
     if (isEditingDocument.value && currentDocumentId.value) {
-      const formData = new FormData();
+      const requestData: any = {
+        caseId: Number(documentForm.caseId),
+        documentName: documentForm.documentName,
+        documentType: documentForm.documentType,
+        recipientName: documentForm.recipient,
+        recipientType: documentForm.recipientType,
+        contactPhone: documentForm.recipientPhone,
+        deliveryAddress: documentForm.recipientAddress,
+        deliveryMethod: documentForm.serviceMethod,
+        deliveryContent: documentForm.serviceContent,
+        sendStatus: documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
+        deliveryTime:
+          documentForm.sendStatus === '已发送'
+            ? new Date().toISOString()
+            : null,
+      };
 
-      formData.append('caseId', String(Number(documentForm.caseId)));
-      formData.append('documentName', documentForm.documentName);
-      formData.append('recipientName', documentForm.recipient);
+      if (uploadedFiles.value.length > 0) {
+        const file = uploadedFiles.value[0].file;
+        const uploadResponse = await uploadFileApi(
+          file,
+          'document',
+          Number(documentForm.caseId),
+        );
 
-      if (documentForm.documentType) {
-        formData.append('documentType', documentForm.documentType);
+        if (uploadResponse.code === 200 && uploadResponse.data) {
+          requestData.documentAttachment =
+            uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+        }
       }
-      if (documentForm.recipientType) {
-        formData.append('recipientType', documentForm.recipientType);
-      }
-      if (documentForm.recipientPhone) {
-        formData.append('contactPhone', documentForm.recipientPhone);
-      }
-      if (documentForm.recipientAddress) {
-        formData.append('deliveryAddress', documentForm.recipientAddress);
-      }
-      if (documentForm.serviceMethod) {
-        formData.append('deliveryMethod', documentForm.serviceMethod);
-      }
-      if (documentForm.serviceContent) {
-        formData.append('deliveryContent', documentForm.serviceContent);
-      }
-      formData.append(
-        'sendStatus',
-        documentForm.sendStatus === '已发送' ? 'SENT' : 'PENDING',
-      );
-      formData.append('status', documentForm.sendStatus === '已发送' ? 'APPROVED' : 'PENDING');
 
-      // 添加文件（支持多个文件）
-      uploadedFiles.value.forEach((file) => {
-        formData.append('files', file.file);
-      });
-
-      const response = await updateDocumentWithFilesApi(
+      const response = await updateDocumentApi(
         currentDocumentId.value,
-        formData,
+        requestData,
       );
 
       if (response.code === 200) {
@@ -1457,32 +1446,6 @@ const removeFile = (index: number) => {
   ElMessage.success('文件已删除');
 };
 
-// 删除文书附件（从服务器删除）
-const deleteDocumentAttachment = async (attachment: any) => {
-  if (!currentDocumentId.value) {
-    ElMessage.error('请先选择一个文书');
-    return;
-  }
-
-  try {
-    const response = await deleteDocumentAttachmentApi(
-      currentDocumentId.value,
-      attachment.id,
-    );
-
-    if (response.code === 200) {
-      ElMessage.success('附件删除成功');
-      // 重新加载附件列表
-      loadDocumentAttachments(currentDocumentId.value);
-    } else {
-      ElMessage.error(response.message || '附件删除失败');
-    }
-  } catch (error: any) {
-    ElMessage.error(error.message || '附件删除失败');
-    console.error('删除附件失败:', error);
-  }
-};
-
 // 下载文件
 const downloadFile = (file: any) => {
   if (file.url) {
@@ -1532,16 +1495,6 @@ const loadDocumentAttachments = async (documentId: number) => {
     const response = await getDocumentAttachmentsApi(documentId);
     if (response.code === 200) {
       documentAttachments.value = response.data || [];
-
-      // 为图片附件预加载URL
-      const imageExtensions = new Set(['bmp', 'gif', 'jpeg', 'jpg', 'png', 'webp']);
-      for (const attachment of documentAttachments.value) {
-        if (
-          imageExtensions.has(attachment.fileExtension?.toLowerCase())
-        ) {
-          await getImageUrl(attachment.id);
-        }
-      }
     }
   } catch (error: any) {
     console.error('加载附件列表失败:', error);
@@ -1567,56 +1520,6 @@ const downloadDocumentAttachment = async (attachment: any) => {
     ElMessage.error('文件下载失败');
   }
 };
-
-// 预览文书附件
-const previewDocumentAttachment = async (attachment: any) => {
-  try {
-    await previewFileApi(attachment.id);
-  } catch (error: any) {
-    console.error('预览文件失败:', error);
-    ElMessage.error('文件预览失败');
-  }
-};
-
-// 图片URL缓存
-const imageUrlsCache = ref<Map<number, string>>(new Map());
-
-// 获取带认证的图片URL
-const getImageUrl = async (fileId: number): Promise<string> => {
-  if (imageUrlsCache.value.has(fileId)) {
-    return imageUrlsCache.value.get(fileId)!;
-  }
-
-  try {
-    const blob = await fileUploadRequestClient.get<Blob>(
-      `/api/v1/file/preview/${fileId}`,
-      {
-        responseType: 'blob',
-      },
-    );
-    const url = window.URL.createObjectURL(blob);
-    imageUrlsCache.value.set(fileId, url);
-    return url;
-  } catch (error) {
-    console.error('获取图片URL失败:', error);
-    return '';
-  }
-};
-
-// 清理图片URL缓存
-const clearImageUrlsCache = () => {
-  imageUrlsCache.value.forEach((url) => {
-    if (url && url.startsWith('blob:')) {
-      window.URL.revokeObjectURL(url);
-    }
-  });
-  imageUrlsCache.value.clear();
-};
-
-// 组件卸载时清理
-onUnmounted(() => {
-  clearImageUrlsCache();
-});
 
 
 
@@ -4178,22 +4081,6 @@ const checkPermissions = async () => {
                 <div class="flex items-center">
                   <Icon icon="lucide:file-text" class="text-primary mr-2" />
                   <span class="text-lg font-semibold">文书送达</span>
-                  <div class="ml-4 flex space-x-2">
-                    <ElButton
-                      :type="documentViewType === 'all' ? 'primary' : 'default'"
-                      size="small"
-                      @click="switchDocumentView('all')"
-                    >
-                      全部文书
-                    </ElButton>
-                    <ElButton
-                      :type="documentViewType === 'pending' ? 'primary' : 'default'"
-                      size="small"
-                      @click="switchDocumentView('pending')"
-                    >
-                      审批中的文书
-                    </ElButton>
-                  </div>
                 </div>
                 <div class="flex space-x-2">
                   <ElButton type="primary" @click="openDirectUploadDialog">
@@ -6556,6 +6443,31 @@ const checkPermissions = async () => {
                   />
                 </ElFormItem>
 
+                <ElDivider content-position="left">审批信息</ElDivider>
+
+                <ElFormItem label="审批标题" prop="approvalTitle">
+                  <ElInput
+                    v-model="approvalSubmitForm.approvalTitle"
+                    placeholder="请输入审批标题"
+                  />
+                </ElFormItem>
+
+                <ElFormItem label="审批内容" prop="approvalContent">
+                  <RichTextEditor
+                    v-model="approvalSubmitForm.approvalContent"
+                    placeholder="请输入审批内容"
+                  />
+                </ElFormItem>
+
+                <ElFormItem label="备注" prop="remark">
+                  <ElInput
+                    v-model="approvalSubmitForm.remark"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请输入备注信息"
+                  />
+                </ElFormItem>
+
                 <ElDivider content-position="left">文书附件</ElDivider>
 
                 <ElFormItem label="上传文书">
@@ -6812,35 +6724,7 @@ const checkPermissions = async () => {
                   :key="attachment.id"
                   class="attachment-item"
                 >
-                  <!-- 图片直接展示 -->
-                  <div
-                    v-if="
-                      ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(
-                        attachment.fileExtension?.toLowerCase(),
-                      )
-                    "
-                    class="attachment-image"
-                  >
-                    <img
-                      :src="imageUrlsCache.get(attachment.id) || ''"
-                      :alt="attachment.originalFileName"
-                      @click="previewDocumentAttachment(attachment)"
-                      style="
-                        max-width: 100px;
-                        max-height: 100px;
-                        cursor: pointer;
-                        border-radius: 4px;
-                        object-fit: cover;
-                      "
-                    />
-                  </div>
-                  <!-- 非图片文件显示图标 -->
-                  <div
-                    v-else
-                    class="attachment-icon"
-                    @click="previewDocumentAttachment(attachment)"
-                    style="cursor: pointer;"
-                  >
+                  <div class="attachment-icon">
                     <Icon
                       :icon="
                         attachment.fileExtension === 'pdf'
@@ -6870,28 +6754,10 @@ const checkPermissions = async () => {
                       type="primary"
                       size="small"
                       link
-                      @click="previewDocumentAttachment(attachment)"
-                    >
-                      <Icon icon="lucide:eye" class="mr-1" />
-                      预览
-                    </ElButton>
-                    <ElButton
-                      type="primary"
-                      size="small"
-                      link
                       @click="downloadDocumentAttachment(attachment)"
                     >
                       <Icon icon="lucide:download" class="mr-1" />
                       下载
-                    </ElButton>
-                    <ElButton
-                      type="danger"
-                      size="small"
-                      link
-                      @click="deleteDocumentAttachment(attachment)"
-                    >
-                      <Icon icon="lucide:trash-2" class="mr-1" />
-                      删除
                     </ElButton>
                   </div>
                 </div>
@@ -7490,22 +7356,6 @@ const checkPermissions = async () => {
   flex-shrink: 0;
 }
 
-.attachment-image {
-  margin-right: 16px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.attachment-image img {
-  transition: transform 0.3s ease;
-}
-
-.attachment-image img:hover {
-  transform: scale(1.05);
-}
-
 .attachment-name {
   flex: 1;
   font-size: 14px;
@@ -7579,19 +7429,19 @@ const checkPermissions = async () => {
 
 /* 文件预览对话框样式 */
 .file-preview-container {
-  max-height: 90vh;
+  max-height: 700px;
   padding: 20px;
 }
 
 .image-preview img {
   max-width: 100%;
-  max-height: 85vh;
+  max-height: 600px;
   object-fit: contain;
 }
 
 .pdf-preview iframe {
   width: 100%;
-  height: 85vh;
+  height: 600px;
 }
 
 .text-preview pre {
