@@ -5,7 +5,9 @@ import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
+  ElDialog,
   ElEmpty,
+  ElImage,
   ElMessage,
   ElPopconfirm,
   ElTable,
@@ -29,6 +31,11 @@ const props = defineProps<{
 const loading = ref(false);
 const uploadLoading = ref(false);
 const attachments = ref<FileApi.FileRecord[]>([]);
+
+// 预览相关状态
+const previewDialogVisible = ref(false);
+const previewImageUrl = ref('');
+const currentFileName = ref('');
 
 const fetchAttachments = async () => {
   loading.value = true;
@@ -133,6 +140,35 @@ const getFileIcon = (extension: string): string => {
   return iconMap[extension.toLowerCase()] || 'lucide:file';
 };
 
+// 判断文件是否为图片类型
+const isImageFile = (extension: string): boolean => {
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+  return imageExtensions.includes(extension.toLowerCase());
+};
+
+// 预览图片
+const handlePreview = async (fileId: number, fileName: string) => {
+  try {
+    const blob = await downloadFileApi(fileId);
+    const url = window.URL.createObjectURL(blob);
+    previewImageUrl.value = url;
+    currentFileName.value = fileName;
+    previewDialogVisible.value = true;
+  } catch (error) {
+    console.error('预览图片失败:', error);
+    ElMessage.error('预览图片失败');
+  }
+};
+
+// 关闭预览对话框
+const closePreviewDialog = () => {
+  previewDialogVisible.value = false;
+  if (previewImageUrl.value) {
+    window.URL.revokeObjectURL(previewImageUrl.value);
+    previewImageUrl.value = '';
+  }
+};
+
 onMounted(() => {
   fetchAttachments();
 });
@@ -173,7 +209,13 @@ onMounted(() => {
         <template #default="scope">
           <div class="flex items-center">
             <Icon :icon="getFileIcon(scope.row.fileExtension)" class="mr-2 text-gray-500" />
-            <span>{{ scope.row.originalFileName }}</span>
+            <span class="mr-2">{{ scope.row.originalFileName }}</span>
+            <span v-if="isImageFile(scope.row.fileExtension)" 
+                  style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 8px;"
+                  @click="handlePreview(scope.row.id, scope.row.originalFileName)">
+              <Icon icon="lucide:eye" class="mr-1" />
+              预览
+            </span>
           </div>
         </template>
       </ElTableColumn>
@@ -218,6 +260,23 @@ onMounted(() => {
       </ElTableColumn>
     </ElTable>
   </ElCard>
+
+  <!-- 图片预览对话框 -->
+  <ElDialog
+    v-model="previewDialogVisible"
+    :title="`图片预览 - ${currentFileName}`"
+    width="80%"
+    destroy-on-close
+    @close="closePreviewDialog"
+  >
+    <div class="preview-container" style="display: flex; justify-content: center; align-items: center; min-height: 500px;">
+      <ElImage
+        :src="previewImageUrl"
+        fit="contain"
+        style="max-width: 100%; max-height: 500px;"
+      />
+    </div>
+  </ElDialog>
 </template>
 
 <style scoped>
@@ -226,5 +285,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.preview-container {
+  padding: 20px;
 }
 </style>

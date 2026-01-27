@@ -177,7 +177,7 @@ const transformApiDataToPageData = (
     caseNumber: item.caseNumber,
     caseTitle: item.approvalTitle || item.caseTitle || item.approvalContent,
     caseType: item.approvalType || 'other',
-    submitter: item.submitter || '未知提交人',
+    submitter: item.realName || '未知提交人',
     submitTime: formatDateTime(item.createTime),
     approvalTime: item.approvalDate ? formatDateTime(item.approvalDate) : undefined,
     status:
@@ -396,6 +396,25 @@ onMounted(() => {
           </template>
         </ElTableColumn>
 
+        <ElTableColumn
+          prop="status"
+          label="审批状态"
+          width="120"
+          fixed="left"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElTag
+              :type="statusMap[row.status].type"
+              effect="dark"
+              size="large"
+              style="font-weight: bold; padding: 8px 12px; font-size: 14px;"
+            >
+              {{ statusMap[row.status].text }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+
         <ElTableColumn prop="caseNumber" label="案号" width="150">
           <template #default="{ row }">
             <ElButton 
@@ -435,15 +454,6 @@ onMounted(() => {
           <template #default="{ row }">
             {{ row.approvalTime || '-' }}
           </template>
-        </ElTableColumn>
-
-        <ElTableColumn
-          prop="status"
-          label="审批状态"
-          width="100"
-          align="center"
-        >
-          <!-- 仅显示列标题，不显示具体状态文字 -->
         </ElTableColumn>
 
         <ElTableColumn label="操作" width="280" align="center" fixed="right">
@@ -552,7 +562,12 @@ onMounted(() => {
           </div>
           <div class="info-item">
             <span class="info-label">审批状态</span>
-            <ElTag :type="statusMap[currentCase.status].type" size="small">
+            <ElTag
+              :type="statusMap[currentCase.status].type"
+              effect="dark"
+              size="large"
+              style="font-weight: bold; padding: 8px 12px; font-size: 14px;"
+            >
               {{ statusMap[currentCase.status].text }}
             </ElTag>
           </div>

@@ -85,6 +85,25 @@ export namespace BankAccountApi {
     message: string;
     data: null;
   }
+
+  /** 账户交易汇总信息 */
+  export interface AccountTransactionSummary {
+    id: number;
+    accountName: string;
+    bankName: string;
+    accountNumber: string;
+    currentBalance: number;
+    transactions: any[];
+    totalInflow: number;
+    totalOutflow: number;
+  }
+
+  /** 账户交易汇总响应 */
+  export interface AccountTransactionSummaryResponse {
+    code: number;
+    message: string;
+    data: AccountTransactionSummary;
+  }
 }
 
 /**
@@ -149,5 +168,16 @@ export async function deleteBankAccountApi(
         'Content-Type': 'application/json',
       },
     },
+  );
+}
+
+/**
+ * 获取账户交易汇总信息（包含总流入和总流出）
+ */
+export async function getAccountTransactionSummaryApi(
+  accountId: number,
+) {
+  return requestClient8085.get<BankAccountApi.AccountTransactionSummaryResponse>(
+    `/bank-account/${accountId}/with-transactions`,
   );
 }

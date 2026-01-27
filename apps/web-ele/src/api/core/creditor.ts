@@ -80,6 +80,7 @@ export namespace CreditorApi {
     idNumber?: string;
     legalRepresentative?: string;
     registeredCapital?: number;
+    status?: string;
     creditorId?: number;
   }
 

@@ -21,6 +21,15 @@ import {
   ElTag,
 } from 'element-plus';
 
+import {
+  createClaimConfirmationApi,
+  finalizeClaimConfirmationApi,
+} from '#/api/core/claim-confirmation';
+import {
+  getClaimRegistrationDetailApi,
+  getClaimRegistrationListApi,
+} from '#/api/core/claim-registration';
+
 const props = defineProps<{
   caseId: string;
 }>();
@@ -36,93 +45,34 @@ const showConfirmDialog = ref(false);
 const confirmLoading = ref(false);
 const currentClaim = ref<any>(null);
 
-// 模拟数据
-const mockClaims = [
-  {
-    id: 1,
-    claimNo: 'CLM2024001',
-    caseName: '某某公司破产清算案',
-    debtor: '某某公司',
-    creditorName: '张三',
-    creditorType: '个人',
-    creditCode: '123456789012345678',
-    principal: 100000,
-    interest: 5000,
-    penalty: 0,
-    otherLosses: 0,
-    totalAmount: 105000,
-    claimNature: '普通债权',
-    claimType: '合同之债',
-    registrationStatus: 'REGISTERED',
-    reviewInfo: {
-      id: 1,
-      reviewStatus: 'COMPLETED',
-      reviewConclusion: 'CONFIRMED',
-      confirmedTotalAmount: 105000,
-    },
-    confirmationStatus: 'PENDING',
-  },
-  {
-    id: 2,
-    claimNo: 'CLM2024002',
-    caseName: '某某公司破产清算案',
-    debtor: '某某公司',
-    creditorName: '李四',
-    creditorType: '个人',
-    creditCode: '987654321098765432',
-    principal: 200000,
-    interest: 10000,
-    penalty: 2000,
-    otherLosses: 0,
-    totalAmount: 212000,
-    claimNature: '普通债权',
-    claimType: '侵权之债',
-    registrationStatus: 'REGISTERED',
-    reviewInfo: {
-      id: 2,
-      reviewStatus: 'COMPLETED',
-      reviewConclusion: 'PARTIAL_CONFIRMED',
-      confirmedTotalAmount: 200000,
-    },
-    confirmationStatus: 'PENDING',
-  },
-  {
-    id: 3,
-    claimNo: 'CLM2024003',
-    caseName: '某某公司破产清算案',
-    debtor: '某某公司',
-    creditorName: '王五',
-    creditorType: '企业',
-    creditCode: '111122223333444455',
-    principal: 500000,
-    interest: 25000,
-    penalty: 5000,
-    otherLosses: 0,
-    totalAmount: 530000,
-    claimNature: '优先债权',
-    claimType: '担保之债',
-    registrationStatus: 'REGISTERED',
-    reviewInfo: {
-      id: 3,
-      reviewStatus: 'COMPLETED',
-      reviewConclusion: 'CONFIRMED',
-      confirmedTotalAmount: 530000,
-    },
-    confirmationStatus: 'CONFIRMED',
-  },
-];
+const confirmForm = reactive({
+  voteResult: '通过',
+  voteNotes: '',
+});
 
 const fetchClaims = async () => {
   loading.value = true;
   try {
-    // 模拟API请求延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 使用模拟数据
-    const startIndex = (currentPage.value - 1) * pageSize.value;
-    const endIndex = startIndex + pageSize.value;
-    claims.value = mockClaims.slice(startIndex, endIndex);
-    total.value = mockClaims.length;
+    const response = await getClaimRegistrationListApi({
+      caseId: Number(props.caseId),
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+    });
+
+    if (response.code === 200 && response.data) {
+      claims.value = response.data.list.map((item: any) => ({
+        ...item,
+        confirmationStatus:
+          item.confirmationInfo?.confirmationStatus || 'PENDING',
+      }));
+      total.value = response.data.total || 0;
+    } else {
+      ElMessage.error(
+        `获取债权确认列表失败：${response.message || '未知错误'}`,
+      );
+      claims.value = [];
+      total.value = 0;
+    }
   } catch (error) {
     console.error('获取债权确认列表失败:', error);
     ElMessage.error('获取债权确认列表失败');
@@ -145,8 +95,18 @@ const handlePageSizeChange = (size: number) => {
 };
 
 const openDetailDialog = async (row: any) => {
-  currentClaim.value = row;
-  showDetailDialog.value = true;
+  try {
+    const response = await getClaimRegistrationDetailApi(row.id);
+    if (response.code === 200 && response.data) {
+      currentClaim.value = response.data;
+      showDetailDialog.value = true;
+    } else {
+      ElMessage.error('获取债权详情失败');
+    }
+  } catch (error) {
+    console.error('获取债权详情失败:', error);
+    ElMessage.error('获取债权详情失败');
+  }
 };
 
 const openConfirmDialog = async (row: any) => {
@@ -157,6 +117,8 @@ const openConfirmDialog = async (row: any) => {
 const closeConfirmDialog = () => {
   showConfirmDialog.value = false;
   currentClaim.value = null;
+  confirmForm.voteResult = '通过';
+  confirmForm.voteNotes = '';
 };
 
 const handleConfirmClaim = async () => {
@@ -164,21 +126,54 @@ const handleConfirmClaim = async () => {
 
   confirmLoading.value = true;
   try {
-    // 模拟API请求延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 更新模拟数据
-    const index = mockClaims.findIndex(claim => claim.id === currentClaim.value.id);
-    if (index !== -1) {
-      mockClaims[index].confirmationStatus = 'CONFIRMED';
+    // 检查是否已有确认记录
+    let confirmationId: number;
+
+    if (currentClaim.value.confirmationInfo) {
+      // 已有确认记录，直接提交表决
+      confirmationId = currentClaim.value.confirmationInfo.id;
+      await submitVoteApi(confirmationId, {
+        voteResult:
+          confirmForm.voteResult === '通过'
+            ? 'AGREE'
+            : confirmForm.voteResult === '不通过'
+              ? 'DISAGREE'
+              : 'ABSTAIN',
+        voteNotes: confirmForm.voteNotes,
+      });
+    } else {
+      // 创建新的确认记录
+      const createResponse = await createClaimConfirmationApi({
+        claimRegistrationId: currentClaim.value.id,
+        caseId: currentClaim.value.caseId,
+        creditorName: currentClaim.value.creditorName,
+        meetingType: 'FIRST',
+        voteResult:
+          confirmForm.voteResult === '通过'
+            ? 'AGREE'
+            : confirmForm.voteResult === '不通过'
+              ? 'DISAGREE'
+              : 'ABSTAIN',
+        voteNotes: confirmForm.voteNotes,
+        confirmationStatus: 'CONFIRMED',
+      });
+
+      if (createResponse.code !== 200) {
+        throw new Error(createResponse.message || '创建确认记录失败');
+      }
+
+      confirmationId = createResponse.data.confirmationId;
     }
-    
+
+    // 最终确认债权
+    await finalizeClaimConfirmationApi(confirmationId);
+
     ElMessage.success('债权确认成功');
     await fetchClaims();
     closeConfirmDialog();
-  } catch (error) {
+  } catch (error: any) {
     console.error('债权确认失败:', error);
-    ElMessage.error('债权确认失败');
+    ElMessage.error(error.message || '债权确认失败');
   } finally {
     confirmLoading.value = false;
   }
@@ -188,7 +183,9 @@ const getConfirmationStatusTag = (status: string) => {
   const statusMap: Record<string, any> = {
     PENDING: { type: 'warning', text: '待确认' },
     CONFIRMED: { type: 'success', text: '已确认' },
-    REJECTED: { type: 'danger', text: '已拒绝' },
+    OBJECTION: { type: 'danger', text: '有异议' },
+    COURT: { type: 'info', text: '法院裁定中' },
+    LAWSUIT: { type: 'warning', text: '诉讼中' },
   };
   return statusMap[status] || { type: 'info', text: status };
 };
@@ -213,7 +210,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:file-check" class="mr-2 text-primary" />
+            <Icon icon="lucide:file-check" class="text-primary mr-2" />
             <span class="text-lg font-semibold">债权确认</span>
           </div>
           <div class="flex space-x-2">
@@ -238,34 +235,48 @@ onMounted(() => {
           <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
           <ElTableColumn prop="claimNature" label="债权性质" width="120" />
           <ElTableColumn prop="claimType" label="债权种类" width="120" />
-          <ElTableColumn prop="reviewInfo.reviewConclusion" label="审查结论" width="120">
+          <ElTableColumn
+            prop="reviewInfo.reviewConclusion"
+            label="审查结论"
+            width="120"
+          >
             <template #default="scope">
               <ElTag
-                :type="getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion).type"
+                :type="
+                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
+                    .type
+                "
                 size="small"
               >
-                {{ getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion).text }}
+                {{
+                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
+                    .text
+                }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="reviewInfo.confirmedTotalAmount" label="确认金额" width="120" />
+          <ElTableColumn
+            prop="reviewInfo.confirmedTotalAmount"
+            label="确认金额"
+            width="120"
+          />
           <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
             <template #default="scope">
               <ElTag
-                :type="getConfirmationStatusTag(scope.row.confirmationStatus).type"
+                :type="
+                  getConfirmationStatusTag(scope.row.confirmationStatus).type
+                "
                 size="small"
               >
-                {{ getConfirmationStatusTag(scope.row.confirmationStatus).text }}
+                {{
+                  getConfirmationStatusTag(scope.row.confirmationStatus).text
+                }}
               </ElTag>
             </template>
           </ElTableColumn>
           <ElTableColumn label="操作" width="200" fixed="right">
             <template #default="scope">
-              <ElButton
-                link
-                size="small"
-                @click="openDetailDialog(scope.row)"
-              >
+              <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
@@ -341,9 +352,15 @@ onMounted(() => {
           </ElDescriptionsItem>
           <ElDescriptionsItem label="审查结论">
             <ElTag
-              :type="getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).type"
+              :type="
+                getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
+                  .type
+              "
             >
-              {{ getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).text }}
+              {{
+                getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
+                  .text
+              }}
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认金额">
@@ -351,9 +368,13 @@ onMounted(() => {
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认状态">
             <ElTag
-              :type="getConfirmationStatusTag(currentClaim.confirmationStatus).type"
+              :type="
+                getConfirmationStatusTag(currentClaim.confirmationStatus).type
+              "
             >
-              {{ getConfirmationStatusTag(currentClaim.confirmationStatus).text }}
+              {{
+                getConfirmationStatusTag(currentClaim.confirmationStatus).text
+              }}
             </ElTag>
           </ElDescriptionsItem>
         </ElDescriptions>
@@ -383,31 +404,45 @@ onMounted(() => {
             </ElDescriptionsItem>
             <ElDescriptionsItem label="审查结论">
               <ElTag
-                :type="getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).type"
+                :type="
+                  getReviewConclusionTag(
+                    currentClaim.reviewInfo?.reviewConclusion || 'UNCONFIRMED',
+                  ).type
+                "
               >
-                {{ getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).text }}
+                {{
+                  getReviewConclusionTag(
+                    currentClaim.reviewInfo?.reviewConclusion || 'UNCONFIRMED',
+                  ).text
+                }}
               </ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem label="确认金额">
-              {{ currentClaim.reviewInfo.confirmedTotalAmount }}
+              {{ currentClaim.reviewInfo?.confirmedTotalAmount || 0 }}
             </ElDescriptionsItem>
           </ElDescriptions>
         </div>
 
         <div class="confirm-form-section">
           <h4 class="section-title mb-2">确认操作</h4>
-          <ElForm label-width="120px">
-            <ElFormItem label="确认意见">
-              <ElSelect placeholder="请选择确认意见">
-                <ElOption label="确认" value="CONFIRMED" />
-                <ElOption label="拒绝" value="REJECTED" />
+          <ElForm label-width="120px" v-model="confirmForm">
+            <ElFormItem label="表决结果" required>
+              <ElSelect
+                v-model="confirmForm.voteResult"
+                placeholder="请选择表决结果"
+                style="width: 100%"
+              >
+                <ElOption label="通过" value="通过" />
+                <ElOption label="不通过" value="不通过" />
+                <ElOption label="弃权" value="弃权" />
               </ElSelect>
             </ElFormItem>
-            <ElFormItem label="确认备注">
+            <ElFormItem label="表决说明">
               <ElInput
+                v-model="confirmForm.voteNotes"
                 type="textarea"
                 :rows="3"
-                placeholder="请输入确认备注"
+                placeholder="请输入表决说明"
               />
             </ElFormItem>
           </ElForm>

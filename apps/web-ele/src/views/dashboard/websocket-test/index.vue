@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import { ElButton, ElDialog, ElMessage } from 'element-plus';
@@ -272,7 +272,15 @@ const connect = () => {
         
         // 调试：检查localStorage中的所有内容
         console.log('localStorage中的所有内容:', Object.fromEntries(Object.entries(localStorage)));
-
+        
+        // 调试：检查STOMP客户端状态
+        console.log('=== STOMP连接成功，客户端状态 ===');
+        console.log('stompClient对象:', stompClient);
+        console.log('stompClient.connected:', stompClient.connected);
+        console.log('stompClient.ws:', stompClient.ws);
+        console.log('frame对象:', frame);
+        console.log('frame.headers:', frame.headers);
+        
         subscribeMessages();
       },
       (error: any) => {
@@ -333,11 +341,17 @@ const disconnect = () => {
 
 const subscribeMessages = () => {
   if (!stompClient || !connected.value) {
+    console.error('无法订阅：STOMP客户端或连接状态无效');
     return;
   }
 
+  console.log('=== 开始订阅所有主题 ===');
+  console.log('STOMP客户端状态:', stompClient);
+  console.log('连接状态:', connected.value);
+  console.log('当前用户ID:', localStorage.getItem('chat_user_id'));
+
   addLog('订阅 /user/queue/notifications');
-  stompClient.subscribe('/user/queue/notifications', (message: any) => {
+  const notificationSubscription = stompClient.subscribe('/user/queue/notifications', (message: any) => {
     try {
       addLog(`收到通知消息: ${message.body}`);
       console.log('完整通知消息:', message);
@@ -351,22 +365,37 @@ const subscribeMessages = () => {
       console.error('解析通知消息失败:', error, '消息内容:', message.body);
     }
   });
+  console.log('已订阅 /user/queue/notifications，订阅ID:', notificationSubscription.id);
 
   addLog('订阅 /topic/chat/typing');
-  stompClient.subscribe('/topic/chat/typing', (message: any) => {
+  const typingSubscription = stompClient.subscribe('/topic/chat/typing', (message: any) => {
     addLog(`正在输入: ${message.body}`);
     console.log('正在输入消息:', message);
   });
+  console.log('已订阅 /topic/chat/typing，订阅ID:', typingSubscription.id);
 
   // 订阅聊天消息主题
   addLog('订阅 /user/queue/chat');
-  stompClient.subscribe('/user/queue/chat', (message: any) => {
+  console.log('=== 准备订阅聊天消息主题 ===');
+  console.log('订阅主题:', '/user/queue/chat');
+  console.log('当前用户ID:', localStorage.getItem('chat_user_id'));
+  
+  // 直接订阅，使用普通函数作为回调
+  console.log('开始订阅 /user/queue/chat...');
+  const subscriptionResult = stompClient.subscribe('/user/queue/chat', function(message: any) {
+    console.log('=== 聊天消息订阅回调被触发 ===');
+    console.log('回调参数类型:', typeof message);
+    console.log('回调参数:', message);
+    
     try {
       addLog(`收到聊天消息: ${message.body}`);
       console.log('=== 收到聊天消息 ===');
       console.log('完整聊天消息对象:', message);
       console.log('消息头:', message.headers);
       console.log('消息体:', message.body);
+      
+      // 检查消息是否来自正确的目的地
+      console.log('消息目的地:', message.headers.destination);
       
       const chatMessage = JSON.parse(message.body);
       console.log('解析后的聊天消息数据:', chatMessage);
@@ -378,8 +407,13 @@ const subscribeMessages = () => {
         // 新消息
         const messageData = chatMessage.data || chatMessage;
         console.log('处理新消息:', messageData);
-        messages.value.unshift(messageData);
+        console.log('准备添加到消息列表，当前列表长度:', messages.value.length);
+        
+        // 使用Vue的响应式更新
+        messages.value = [messageData, ...messages.value];
         addLog(`收到新消息: ${messageData.content || '无内容'}`);
+        console.log('消息添加到列表后，列表长度:', messages.value.length);
+        console.log('当前消息列表:', messages.value);
       } else if (chatMessage.type === 'MESSAGE_READ') {
         // 消息已读
         console.log('处理消息已读:', chatMessage.data);
@@ -400,18 +434,36 @@ const subscribeMessages = () => {
         console.log('处理其他类型消息:', chatMessage);
         messages.value.unshift(chatMessage);
         addLog(`收到消息，类型: ${chatMessage.type || 'UNKNOWN'}`);
+        console.log('当前消息列表:', messages.value);
       }
       
-      console.log('当前消息列表:', messages.value);
     } catch (error: any) {
       addLog(`解析聊天消息失败: ${error.message}`);
       console.error('解析聊天消息失败:', error, '消息内容:', message.body);
+      console.error('错误堆栈:', error.stack);
     }
+  });
+  
+  // 检查订阅结果
+  console.log('订阅操作结果:', subscriptionResult);
+  console.log('订阅结果类型:', typeof subscriptionResult);
+  console.log('=== 聊天消息主题订阅完成 ===');
+  
+  // 调试：检查STOMP客户端的订阅状态
+  console.log('=== STOMP客户端状态检查 ===');
+  console.log('STOMP客户端连接状态:', stompClient.connected);
+  console.log('STOMP客户端WebSocket对象:', stompClient.ws);
+  console.log('STOMP客户端订阅数量:', Object.keys(stompClient.subscriptions).length);
+  console.log('STOMP客户端所有订阅:', stompClient.subscriptions);
+  console.log('STOMP客户端配置:', {
+    brokerURL: stompClient.brokerURL,
+    heartbeat: stompClient.heartbeat,
+    reconnectDelay: stompClient.reconnectDelay,
   });
 
   // 订阅在线用户列表主题
   addLog('订阅 /topic/onlineUsers');
-  stompClient.subscribe('/topic/onlineUsers', (message: any) => {
+  const onlineUsersSubscription = stompClient.subscribe('/topic/onlineUsers', (message: any) => {
     try {
       addLog(`收到在线用户列表消息: ${message.body}`);
       console.log('完整在线用户列表消息:', message);
@@ -451,10 +503,11 @@ const subscribeMessages = () => {
       console.error('在线用户列表解析错误:', error, '消息内容:', message.body);
     }
   });
+  console.log('已订阅 /topic/onlineUsers，订阅ID:', onlineUsersSubscription.id);
 
   // 订阅用户状态广播主题
   addLog('订阅 /topic/broadcast');
-  stompClient.subscribe('/topic/broadcast', (message: any) => {
+  const broadcastSubscription = stompClient.subscribe('/topic/broadcast', (message: any) => {
     try {
       addLog(`收到用户状态广播消息: ${message.body}`);
       console.log('完整用户状态广播消息:', message);
@@ -493,6 +546,42 @@ const subscribeMessages = () => {
       console.error('用户状态广播解析错误:', error, '消息内容:', message.body);
     }
   });
+  console.log('已订阅 /topic/broadcast，订阅ID:', broadcastSubscription.id);
+
+  // 订阅广播聊天消息（备用）
+  addLog('订阅 /topic/chat/broadcast');
+  const chatBroadcastSubscription = stompClient.subscribe('/topic/chat/broadcast', (message: any) => {
+    try {
+      addLog(`收到广播聊天消息: ${message.body}`);
+      console.log('=== 收到广播聊天消息 ===');
+      console.log('完整广播聊天消息对象:', message);
+      console.log('消息头:', message.headers);
+      console.log('消息体:', message.body);
+      
+      const chatMessage = JSON.parse(message.body);
+      console.log('解析后的广播聊天消息数据:', chatMessage);
+      console.log('消息类型:', chatMessage.type);
+      console.log('消息数据:', chatMessage.data);
+      
+      // 处理广播消息
+      if (chatMessage.type === 'NEW_MESSAGE') {
+        const messageData = chatMessage.data || chatMessage;
+        console.log('处理广播新消息:', messageData);
+        
+        // 检查消息是否已存在
+        const existingMessage = messages.value.find(m => m.id === messageData.id);
+        if (!existingMessage) {
+          messages.value = [messageData, ...messages.value];
+          addLog(`收到广播新消息: ${messageData.content || '无内容'}`);
+          console.log('广播消息添加到列表后，列表长度:', messages.value.length);
+        }
+      }
+    } catch (error: any) {
+      addLog(`解析广播聊天消息失败: ${error.message}`);
+      console.error('解析广播聊天消息失败:', error, '消息内容:', message.body);
+    }
+  });
+  console.log('已订阅 /topic/chat/broadcast，订阅ID:', chatBroadcastSubscription.id);
 
   // 发送获取在线用户列表请求
   addLog('请求在线用户列表');
@@ -504,6 +593,10 @@ const subscribeMessages = () => {
     addLog(`发送在线用户列表请求失败: ${error.message}`);
     console.error('发送在线用户列表请求失败:', error);
   }
+  
+  console.log('=== 所有主题订阅完成 ===');
+  console.log('当前消息列表长度:', messages.value.length);
+  console.log('当前在线用户数量:', onlineUsers.value.length);
 };
 
 const sendMessage = () => {
@@ -776,27 +869,36 @@ onBeforeUnmount(() => {
                 class="h-[220px] overflow-y-auto rounded-md border bg-gray-50 p-2"
               >
                 <div
-                  v-if="messages.length === 0"
+                  v-if="messages.filter(msg => isCurrentUserInvolved(msg)).length === 0"
                   class="py-10 text-center text-gray-400"
                 >
                   暂无消息
                 </div>
                 <div v-else class="space-y-2">
                   <div
-                    v-for="(msg, index) in messages"
+                    v-for="(msg, index) in messages.filter(msg => isCurrentUserInvolved(msg))"
                     :key="msg.id || index"
                     class="rounded border bg-white p-3 text-sm"
+                    :class="isCurrentUserInvolved(msg) ? 'border-blue-200' : ''"
                   >
                     <div class="mb-1 font-medium text-blue-600">
                       {{ msg.type || '消息' }}
                     </div>
                     <div class="text-gray-600">
                       <div v-if="msg.type === 'NEW_MESSAGE' && msg.data">
-                        <div class="mb-1">发送者ID: {{ msg.data.senderId }}</div>
-                        <div class="mb-1">接收者ID: {{ msg.data.receiverId }}</div>
+                        <div class="mb-1">发送者: {{ msg.data.senderName || msg.data.senderId }}</div>
+                        <div class="mb-1">接收者: {{ msg.data.receiverName || msg.data.receiverId }}</div>
                         <div class="mb-1">消息类型: {{ msg.data.messageType }}</div>
                         <div class="mb-1">内容: {{ msg.data.content }}</div>
                         <div class="text-xs text-gray-400">时间: {{ msg.data.createTime }}</div>
+                      </div>
+                      <div v-else-if="msg.senderId && msg.receiverId">
+                        <!-- 直接的消息对象，没有type字段 -->
+                        <div class="mb-1">发送者: {{ msg.senderName || msg.senderId }}</div>
+                        <div class="mb-1">接收者: {{ msg.receiverName || msg.receiverId }}</div>
+                        <div class="mb-1">消息类型: {{ msg.messageType }}</div>
+                        <div class="mb-1">内容: {{ msg.content }}</div>
+                        <div class="text-xs text-gray-400">时间: {{ msg.createTime }}</div>
                       </div>
                       <div v-else>
                         {{ JSON.stringify(msg) }}

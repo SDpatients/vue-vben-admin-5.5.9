@@ -83,7 +83,6 @@ import ArchiveDrawer from './components/ArchiveDrawer.vue';
 import AssetManagement from './components/AssetManagement.vue';
 import AttachmentList from './components/AttachmentList.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
-import CreditorInfo from './components/CreditorInfo.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
@@ -678,7 +677,7 @@ const fetchReviewHistory = async () => {
       // 将API返回的数据映射为前端需要的格式
       reviewHistory.value = response.data.list.map((item: any) => ({
         id: item.id,
-        reviewer: '律师事务所负责人', // 暂时使用固定值，实际应该从用户表获取
+        reviewer: '管理人负责人', // 暂时使用固定值，实际应该从用户表获取
         reviewDate: item.approvalDate || item.createTime,
         status: mapApprovalStatus(item.approvalStatus),
         comment: item.approvalOpinion || '',
@@ -720,7 +719,7 @@ const submitReview = async () => {
         approvalTitle: `案件审批 - ${caseDetail.value?.案件名称 || ''}`,
         approvalContent: `案号：${caseDetail.value?.案号 || ''}\n案件名称：${caseDetail.value?.案件名称 || ''}\n受理法院：${caseDetail.value?.受理法院 || ''}\n案由：${caseDetail.value?.案由 || ''}`,
         approvalAttachment: '', // 暂时为空，实际项目中应该获取案件的附件
-        remark: reviewForm.remark || '请尽快审核',
+        remark: reviewForm.remark || '',
       };
 
       // 调用新增案件审批API
@@ -783,7 +782,7 @@ const submitReview = async () => {
         approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
         approvalContent: `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`,
         approvalAttachment,
-        remark: reviewForm.remark || '请尽快审核',
+        remark: reviewForm.remark || '',
       };
 
       // 调用新增案件审批API
@@ -856,6 +855,7 @@ const documentForm = reactive({
   serviceContent: '',
   attachment: '',
   sendStatus: '已发送',
+  abbreviation: '',
 });
 
 // 文书上传表单数据（直接上传，无需审批）
@@ -872,6 +872,7 @@ const directUploadForm = reactive({
   serviceMethod: '',
   serviceContent: '',
   attachment: '',
+  abbreviation: '',
 });
 
 // 文书审批表单数据（需要审批流程）
@@ -932,6 +933,7 @@ const uploadedFiles = ref<
 >([]);
 const fileUploadLoading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const abbreviationLoading = ref(false);
 
 // 文书表单验证规则
 const documentFormRules = {
@@ -964,14 +966,37 @@ const fetchDocumentList = async () => {
   }
 };
 
+// 获取最新文书编号缩写
+const fetchLatestAbbreviation = async () => {
+  try {
+    abbreviationLoading.value = true;
+    const response = await getLatestAbbreviationApi();
+    if (response.code === 200 && response.data) {
+      documentForm.abbreviation = response.data;
+      ElMessage.success('已获取最新缩写');
+    } else {
+      ElMessage.warning('未找到历史缩写，请手动输入');
+    }
+  } catch (error: any) {
+    console.error('获取最新缩写失败:', error);
+    ElMessage.warning('获取最新缩写失败，请手动输入');
+  } finally {
+    abbreviationLoading.value = false;
+  }
+};
+
 // 打开新增文书送达弹窗
-const openAddDocumentDialog = () => {
+const openAddDocumentDialog = async () => {
   // 重置表单
   resetDocumentForm();
   // 设置案件ID、案号和名称
   documentForm.caseId = caseId.value;
   documentForm.caseNumber = caseDetail.value?.案号 || '';
   documentForm.caseName = caseDetail.value?.案件名称 || '';
+  
+  // 自动获取最新缩写
+  await fetchLatestAbbreviation();
+  
   showAddDocumentDialog.value = true;
 };
 
@@ -1037,6 +1062,7 @@ const resetDocumentForm = () => {
   documentForm.serviceContent = '';
   documentForm.attachment = '';
   documentForm.sendStatus = '已发送';
+  documentForm.abbreviation = '';
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1065,6 +1091,7 @@ const resetDirectUploadForm = () => {
   directUploadForm.serviceMethod = '';
   directUploadForm.serviceContent = '';
   directUploadForm.attachment = '';
+  directUploadForm.abbreviation = '';
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1309,6 +1336,11 @@ const submitDocumentForm = async () => {
       formData.append('caseId', String(documentForm.caseId));
       formData.append('documentName', documentForm.documentName);
       formData.append('recipientName', documentForm.recipient);
+
+      // 缩写参数（可选，不传则使用上次的缩写）
+      if (documentForm.abbreviation) {
+        formData.append('abbreviation', documentForm.abbreviation);
+      }
 
       // 可选参数
       if (documentForm.documentType) {
@@ -4049,9 +4081,9 @@ const checkPermissions = async () => {
             </div>
           </ElCard>
 
-          <AttachmentList :case-id="caseId" />
-
           <DebtorInfo :case-id="caseId" />
+
+          <AttachmentList :case-id="caseId" />
         </div>
 
         <!-- 流程处理 -->
@@ -4111,6 +4143,8 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   :row-key="(row) => row.id"
                 >
+                  <ElTableColumn prop="documentNumber" label="文书编号" width="180" />
+                  <ElTableColumn prop="abbreviation" label="缩写" width="120" />
                   <ElTableColumn prop="documentName" label="文书名称" />
                   <ElTableColumn prop="recipientName" label="受送达人" />
                   <ElTableColumn prop="recipientType" label="受送达人类型">
@@ -5902,6 +5936,27 @@ const checkPermissions = async () => {
                     </ElFormItem>
                   </ElCol>
                   <ElCol :span="12">
+                    <ElFormItem label="文书编号缩写">
+                      <div class="flex gap-2" style="width: 100%">
+                        <ElInput
+                          v-model="documentForm.abbreviation"
+                          placeholder="请输入缩写（可选，不填则使用上次缩写）"
+                          style="flex: 1"
+                        />
+                        <ElButton
+                          type="primary"
+                          @click="fetchLatestAbbreviation"
+                          :loading="abbreviationLoading"
+                        >
+                          获取最新缩写
+                        </ElButton>
+                      </div>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
                     <ElFormItem label="文书类型" prop="documentType">
                       <ElSelect
                         v-model="documentForm.documentType"
@@ -6848,7 +6903,7 @@ const checkPermissions = async () => {
               <ElCol :xs="24" :sm="12">
                 <ElFormItem label="审批人">
                   <ElInput
-                    value="律师事务所负责人"
+                    value="管理人负责人"
                     readonly
                     style="width: 100%"
                   />
@@ -6945,7 +7000,7 @@ const checkPermissions = async () => {
               </ElTableColumn>
               <ElTableColumn prop="approverId" label="审批人" width="120">
                 <template #default="scope">
-                  {{ scope.row.approverId ? '律师事务所负责人' : '待分配' }}
+                  {{ scope.row.approverId ? '管理人负责人' : '待分配' }}
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="approvalDate" label="审批时间" width="200">

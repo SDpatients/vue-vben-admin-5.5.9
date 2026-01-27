@@ -31,6 +31,7 @@ import {
 import {
   addBankAccountApi,
   deleteBankAccountApi,
+  getAccountTransactionSummaryApi,
   getBankAccountListApi,
   updateBankAccountApi,
 } from '#/api/core/bank-account';
@@ -38,6 +39,7 @@ import {
   createTransactionApi,
   deleteTransactionApi,
   getAccountTransactionsApi,
+  getTransactionListApi,
   updateTransactionApi,
 } from '#/api/core/bank-account-transaction';
 import { getCaseSimpleListApi } from '#/api/core/case';
@@ -72,6 +74,8 @@ const availableColumns = [
   '账户类型',
   '开户行',
   '当前余额',
+  '总流入',
+  '总流出',
   '创建时间',
   '更新时间',
   '状态',
@@ -82,6 +86,8 @@ const defaultColumns = new Set([
   '创建时间',
   '开户行',
   '当前余额',
+  '总流入',
+  '总流出',
   '更新时间',
   '状态',
   '账户号码',
@@ -123,6 +129,9 @@ const fetchBankAccountList = async () => {
       ElMessage.success(
         `成功加载 ${bankAccountList.value.length} 条银行账户记录`,
       );
+
+      // 懒加载：逐个获取账户的总流入和总流出
+      loadTransactionSummaries();
     } else {
       ElMessage.error(`API返回错误: ${response.message}`);
       bankAccountList.value = [];
@@ -137,6 +146,23 @@ const fetchBankAccountList = async () => {
     pagination.value.pages = 0;
   } finally {
     loading.value = false;
+  }
+};
+
+// 懒加载：逐个获取账户的交易汇总信息（总流入和总流出）
+const loadTransactionSummaries = async () => {
+  for (const account of bankAccountList.value) {
+    try {
+      const response = await getAccountTransactionSummaryApi(account.id);
+      if (response.code === 200 && response.data) {
+        account.totalInflow = response.data.totalInflow || 0;
+        account.totalOutflow = response.data.totalOutflow || 0;
+      }
+    } catch (error) {
+      console.error(`获取账户 ${account.id} 的交易汇总失败:`, error);
+      account.totalInflow = 0;
+      account.totalOutflow = 0;
+    }
   }
 };
 
@@ -399,6 +425,18 @@ const exportBankAccountData = () => {
       formatter: (value) => formatCurrency(value),
     },
     {
+      field: 'totalInflow',
+      title: '总流入',
+      width: 12,
+      formatter: (value) => formatCurrency(value),
+    },
+    {
+      field: 'totalOutflow',
+      title: '总流出',
+      width: 12,
+      formatter: (value) => formatCurrency(value),
+    },
+    {
       field: 'createTime',
       title: '创建时间',
       width: 12,
@@ -555,6 +593,18 @@ const editTransactionFormData = reactive({
   remark: '',
 });
 
+// 视图切换相关
+const viewMode = ref<'account' | 'transaction'>('account');
+const latestTransactionList = ref<BankAccountTransactionApi.TransactionInfo[]>(
+  [],
+);
+const latestTransactionLoading = ref(false);
+const latestTransactionPagination = ref({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+});
+
 // 交易类型选项
 const transactionTypeOptions = [
   { label: '流入', value: 'IN' },
@@ -665,12 +715,66 @@ const handleResetTransactionFilters = () => {
 
 // 获取交易类型标签类型
 const getTransactionTypeType = (type: string) => {
-  return type === 'IN' ? 'success' : 'danger';
+  return type === 'IN' ? 'danger' : 'success';
 };
 
 // 获取交易类型文本
 const getTransactionTypeText = (type: string) => {
   return type === 'IN' ? '流入' : '流出';
+};
+
+// 获取最新交易记录
+const fetchLatestTransactions = async () => {
+  latestTransactionLoading.value = true;
+  try {
+    const params: BankAccountTransactionApi.TransactionQueryParams = {
+      pageNum: latestTransactionPagination.value.page,
+      pageSize: latestTransactionPagination.value.pageSize,
+    };
+
+    const response = await getTransactionListApi(params);
+
+    if (response.code === 200) {
+      latestTransactionList.value = response.data.list || [];
+      latestTransactionPagination.value.total = response.data.total || 0;
+    } else {
+      ElMessage.error(`API返回错误: ${response.message}`);
+      latestTransactionList.value = [];
+      latestTransactionPagination.value.total = 0;
+    }
+  } catch (error) {
+    console.error('获取最新交易记录失败:', error);
+    ElMessage.error('获取最新交易记录失败，请检查网络连接或API服务');
+    latestTransactionList.value = [];
+    latestTransactionPagination.value.total = 0;
+  } finally {
+    latestTransactionLoading.value = false;
+  }
+};
+
+// 切换到账户列表视图
+const switchToAccountView = () => {
+  viewMode.value = 'account';
+};
+
+// 切换到交易记录视图
+const switchToTransactionView = () => {
+  viewMode.value = 'transaction';
+  latestTransactionPagination.value.page = 1;
+  fetchLatestTransactions();
+};
+
+// 最新交易记录分页变化
+const handleLatestTransactionPageChange = (page: number) => {
+  latestTransactionPagination.value.page = page;
+  fetchLatestTransactions();
+};
+
+// 最新交易记录页面大小变化
+const handleLatestTransactionSizeChange = (size: number) => {
+  latestTransactionPagination.value.pageSize = size;
+  latestTransactionPagination.value.page = 1;
+  fetchLatestTransactions();
 };
 
 // 打开新增交易记录弹窗
@@ -928,17 +1032,57 @@ const handleSubmit = async () => {
     <ElCard header="银行账户管理" size="small">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">银行账户管理</span>
+          <div class="flex items-center space-x-4">
+            <span class="text-lg font-semibold">银行账户管理</span>
+            <div class="flex items-center space-x-2">
+              <ElButton
+                :type="viewMode === 'account' ? 'primary' : 'default'"
+                @click="switchToAccountView"
+              >
+                <i class="i-lucide-building-2 mr-1"></i>
+                账户列表
+              </ElButton>
+              <ElButton
+                :type="viewMode === 'transaction' ? 'primary' : 'default'"
+                @click="switchToTransactionView"
+              >
+                <i class="i-lucide-list mr-1"></i>
+                最新交易
+              </ElButton>
+            </div>
+          </div>
           <div class="flex items-center space-x-2">
-            <ElButton type="primary" @click="handleAddBankAccount">
+            <ElButton
+              type="primary"
+              @click="handleAddBankAccount"
+              v-if="viewMode === 'account'"
+            >
               <i class="i-lucide-plus mr-1"></i>
               新增账户
             </ElButton>
-            <ElButton type="success" @click="exportBankAccountData">
+            <ElButton
+              type="success"
+              @click="exportBankAccountData"
+              v-if="viewMode === 'account'"
+            >
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
-            <ElButton type="primary" @click="handleRefresh" :loading="loading">
+            <ElButton
+              type="primary"
+              @click="handleRefresh"
+              :loading="loading"
+              v-if="viewMode === 'account'"
+            >
+              <i class="i-lucide-refresh-cw mr-1"></i>
+              刷新
+            </ElButton>
+            <ElButton
+              type="primary"
+              @click="fetchLatestTransactions"
+              :loading="latestTransactionLoading"
+              v-if="viewMode === 'transaction'"
+            >
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
             </ElButton>
@@ -948,6 +1092,7 @@ const handleSubmit = async () => {
 
       <!-- 数据表格 -->
       <ElTable
+        v-if="viewMode === 'account'"
         v-loading="loading"
         :data="bankAccountList"
         :border="true"
@@ -1004,6 +1149,40 @@ const handleSubmit = async () => {
         >
           <template #default="{ row }">
             {{ formatCurrency(row.currentBalance) }}
+          </template>
+        </ElTableColumn>
+
+        <!-- 总流入列 -->
+        <ElTableColumn
+          prop="totalInflow"
+          label="总流入"
+          width="150"
+          align="right"
+        >
+          <template #default="{ row }">
+            <span v-if="row.totalInflow !== undefined" style="color: red; font-weight: bold; font-size: 18px;">
+              {{ formatCurrency(row.totalInflow) }}
+            </span>
+            <span v-else style="color: #9ca3af;">
+              <i class="i-lucide-loader-2 animate-spin"></i>
+            </span>
+          </template>
+        </ElTableColumn>
+
+        <!-- 总流出列 -->
+        <ElTableColumn
+          prop="totalOutflow"
+          label="总流出"
+          width="150"
+          align="right"
+        >
+          <template #default="{ row }">
+            <span v-if="row.totalOutflow !== undefined" style="color: green; font-weight: bold; font-size: 18px;">
+              {{ formatCurrency(row.totalOutflow) }}
+            </span>
+            <span v-else style="color: #9ca3af;">
+              <i class="i-lucide-loader-2 animate-spin"></i>
+            </span>
           </template>
         </ElTableColumn>
 
@@ -1074,8 +1253,113 @@ const handleSubmit = async () => {
         </ElTableColumn>
       </ElTable>
 
+      <!-- 最新交易记录表格 -->
+      <ElTable
+        v-if="viewMode === 'transaction'"
+        v-loading="latestTransactionLoading"
+        :data="latestTransactionList"
+        :border="true"
+        :stripe="true"
+        :style="{ width: '100%' }"
+      >
+        <ElTableColumn type="index" label="序号" width="60" align="center" />
+
+        <ElTableColumn
+          prop="accountName"
+          label="账户名称"
+          width="150"
+          show-overflow-tooltip
+        />
+
+        <ElTableColumn
+          prop="accountNumber"
+          label="账户号码"
+          width="180"
+          show-overflow-tooltip
+        />
+
+        <ElTableColumn
+          prop="bankName"
+          label="开户行"
+          width="120"
+          show-overflow-tooltip
+        />
+
+        <ElTableColumn
+          prop="transactionDate"
+          label="交易日期"
+          width="120"
+          align="center"
+        />
+
+        <ElTableColumn
+          prop="transactionType"
+          label="交易类型"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElTag
+              :type="getTransactionTypeType(row.transactionType)"
+              size="small"
+            >
+              {{ getTransactionTypeText(row.transactionType) }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+
+        <ElTableColumn prop="amount" label="交易金额" width="150" align="right">
+          <template #default="{ row }">
+            {{ formatCurrency(row.amount) }}
+          </template>
+        </ElTableColumn>
+
+        <ElTableColumn
+          prop="businessType"
+          label="业务类型"
+          width="100"
+          align="center"
+        />
+
+        <ElTableColumn
+          prop="summary"
+          label="交易摘要"
+          width="200"
+          show-overflow-tooltip
+        />
+
+        <ElTableColumn
+          prop="counterpartyName"
+          label="对方名称"
+          width="120"
+          show-overflow-tooltip
+        />
+
+        <ElTableColumn
+          prop="balanceAfter"
+          label="交易后余额"
+          width="150"
+          align="right"
+        >
+          <template #default="{ row }">
+            {{ formatCurrency(row.balanceAfter) }}
+          </template>
+        </ElTableColumn>
+
+        <ElTableColumn
+          prop="createTime"
+          label="创建时间"
+          width="160"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ new Date(row.createTime).toLocaleString('zh-CN') }}
+          </template>
+        </ElTableColumn>
+      </ElTable>
+
       <!-- 分页组件 -->
-      <div class="mt-4 flex justify-end">
+      <div class="mt-4 flex justify-end" v-if="viewMode === 'account'">
         <ElPagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
@@ -1084,6 +1368,19 @@ const handleSubmit = async () => {
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
+        />
+      </div>
+
+      <!-- 最新交易记录分页组件 -->
+      <div class="mt-4 flex justify-end" v-if="viewMode === 'transaction'">
+        <ElPagination
+          v-model:current-page="latestTransactionPagination.page"
+          v-model:page-size="latestTransactionPagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="latestTransactionPagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleLatestTransactionSizeChange"
+          @current-change="handleLatestTransactionPageChange"
         />
       </div>
 
@@ -1625,7 +1922,15 @@ const handleSubmit = async () => {
             align="right"
           >
             <template #default="{ row }">
-              {{ formatCurrency(row.amount) }}
+              <span 
+                :style="{
+                  color: row.transactionType === 'IN' ? 'red' : 'green',
+                  'font-weight': 'bold',
+                  'font-size': '18px'
+                }"
+              >
+                {{ formatCurrency(row.amount) }}
+              </span>
             </template>
           </ElTableColumn>
 

@@ -278,6 +278,18 @@ onMounted(() => {
       <el-card shadow="hover" class="list-card">
         <el-table v-loading="loading" :data="reimbursements" style="width: 100%">
           <el-table-column type="index" label="序号" width="80" />
+          <el-table-column prop="approvalStatus" label="审批状态" width="120" fixed="left">
+            <template #default="scope">
+              <el-tag
+                :type="getApprovalStatusTag(scope.row.approvalStatus).type"
+                effect="dark"
+                size="large"
+                style="font-weight: bold; padding: 8px 12px; font-size: 14px;"
+              >
+                {{ getApprovalStatusTag(scope.row.approvalStatus).text }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="reimbursementNumber" label="报销单号" width="180" />
           <el-table-column prop="caseName" label="案件名称" width="200" />
           <el-table-column prop="applicantName" label="申请人" width="120" />
@@ -289,13 +301,6 @@ onMounted(() => {
             </template>
           </el-table-column>
           <el-table-column prop="reimbursementDate" label="报销日期" width="120" />
-          <el-table-column prop="approvalStatus" label="审批状态" width="100">
-            <template #default="scope">
-              <el-tag :type="getApprovalStatusTag(scope.row.approvalStatus).type">
-                {{ getApprovalStatusTag(scope.row.approvalStatus).text }}
-              </el-tag>
-            </template>
-          </el-table-column>
           <el-table-column prop="approverName" label="审批人" width="120" />
           <el-table-column prop="approvalTime" label="审批时间" width="180">
             <template #default="scope">

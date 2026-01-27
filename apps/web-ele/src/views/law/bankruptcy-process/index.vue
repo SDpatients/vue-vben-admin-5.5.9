@@ -1,44 +1,34 @@
 <script setup lang="ts">
-import { ref, computed, defineProps, onMounted, watch, nextTick } from 'vue';
+import type { UploadFile } from 'element-plus';
+
+import { computed, defineProps, nextTick, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
-import QrcodeVue from 'qrcode.vue';
 import {
   ElButton,
   ElCard,
-  ElCol,
   ElDatePicker,
   ElDialog,
   ElEmpty,
   ElForm,
   ElFormItem,
+  ElImageViewer,
   ElInput,
   ElMessage,
   ElMessageBox,
-  ElOption,
-  ElPopconfirm,
-  ElProgress,
-  ElRow,
-  ElSelect,
-  ElTag,
-  ElTabs,
   ElTabPane,
+  ElTabs,
+  ElTag,
   ElUpload,
-  ElImageViewer,
-  type UploadFile,
-  type UploadUserFile,
 } from 'element-plus';
-
-import { CaseTaskApi, type CaseTask } from '../../../api/core/case-tasks';
-import { CaseTaskSubmissionApi, type CaseTaskSubmission } from '../../../api/core/case-task-submissions';
-
-// 导入API请求客户端
-import { requestClient8085 } from '../../../api/request';
-
 // 直接导入sortablejs库
 import Sortable from 'sortablejs';
 
+import { CaseTaskSubmissionApi } from '../../../api/core/case-task-submissions';
+import { CaseTaskApi } from '../../../api/core/case-tasks';
+// 导入API请求客户端
+import { requestClient8085 } from '../../../api/request';
 
 const props = defineProps<{
   caseId: string;
@@ -57,7 +47,7 @@ const currentStageIndex = ref(0);
 const isEditMode = ref(false);
 const currentItem = ref<any>(null);
 // 控制撤回按钮显示
-const showWithdrawButton = ref<string | null>(null);
+const showWithdrawButton = ref<null | string>(null);
 
 const formRef = ref();
 const upload = ref<InstanceType<typeof ElUpload>>();
@@ -76,7 +66,7 @@ const selectedDataItem = ref<any>(null);
 const attachmentsGridRef = ref<HTMLElement | null>(null);
 
 // Sortable 实例引用
-let sortableInstance: Sortable | null = null;
+let sortableInstance: null | Sortable = null;
 
 // 手机上传相关
 const showQrCodeDialog = ref(false);
@@ -109,7 +99,7 @@ const handleFileBeforeUpload = (file: UploadFile) => {
     return false;
   }
   return false; // 返回false，阻止自动上传
-}
+};
 
 // 处理文件移除
 const handleFileRemove = (file: UploadFile) => {
@@ -118,59 +108,63 @@ const handleFileRemove = (file: UploadFile) => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    // 检查是否有文件ID，有则调用删除接口
-    const fileId = file.id || file.response?.id;
-    if (fileId) {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          ElMessage.warning('未登录，无法删除文件');
+  })
+    .then(async () => {
+      // 检查是否有文件ID，有则调用删除接口
+      const fileId = file.id || file.response?.id;
+      if (fileId) {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            ElMessage.warning('未登录，无法删除文件');
+            return;
+          }
+
+          // 调用删除接口
+          await requestClient8085.delete(`/file/${fileId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          ElMessage.success('文件删除成功');
+        } catch (error) {
+          console.error('删除文件失败:', error);
+          ElMessage.error('删除文件失败');
           return;
         }
-        
-        // 调用删除接口
-        await requestClient8085.delete(`/file/${fileId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        ElMessage.success('文件删除成功');
-      } catch (error) {
-        console.error('删除文件失败:', error);
-        ElMessage.error('删除文件失败');
-        return;
       }
-    }
-    
-    // 从文件列表中删除
-    const index = uploadFiles.value.findIndex(item => item.uid === file.uid);
-    if (index !== -1) {
-      uploadFiles.value.splice(index, 1);
-    }
-  }).catch(() => {
-    // 用户取消删除
-    ElMessage.info('已取消删除');
-  });
-  
+
+      // 从文件列表中删除
+      const index = uploadFiles.value.findIndex(
+        (item) => item.uid === file.uid,
+      );
+      if (index !== -1) {
+        uploadFiles.value.splice(index, 1);
+      }
+    })
+    .catch(() => {
+      // 用户取消删除
+      ElMessage.info('已取消删除');
+    });
+
   return false; // 阻止默认删除行为，由我们自己处理
 };
 
 // 处理文件变化
 const handleFileChange = (file: UploadFile, fileList: UploadFile[]) => {
   // 处理本地文件预览
-  const updatedFileList = fileList.map(fileItem => {
+  const updatedFileList = fileList.map((fileItem) => {
     // 如果是本地文件且是图片类型，创建预览URL
     if (fileItem.raw && isImageFile(fileItem.name) && !fileItem.url) {
       return {
         ...fileItem,
-        url: URL.createObjectURL(fileItem.raw) // 创建本地预览URL
+        url: window.URL.createObjectURL(fileItem.raw), // 创建本地预览URL
       };
     }
     return fileItem;
   });
-  
+
   uploadFiles.value = updatedFileList;
 };
 
@@ -182,71 +176,76 @@ const handleFileDownload = async (file: any) => {
       ElMessage.warning('文件ID不存在，无法下载');
       return;
     }
-    
+
     // 获取token
     const token = localStorage.getItem('token');
     if (!token) {
       ElMessage.warning('未登录，无法下载文件');
       return;
     }
-    
+
     // 使用fetch下载，将token放在请求头中
     const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
     const response = await fetch(`${baseUrl}/file/download/${fileId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
-    
+
     if (!response.ok) {
       throw new Error('下载失败，服务器返回错误');
     }
-    
+
     // 获取文件名 - 优先使用originalFileName字段
-    let fileName = file.originalFileName || file.fileName || file.name || '文件下载';
-    
+    let fileName =
+      file.originalFileName || file.fileName || file.name || '文件下载';
+
     // 尝试从响应头获取文件名
     const contentDisposition = response.headers.get('Content-Disposition');
     if (contentDisposition) {
       // 尝试多种Content-Disposition格式匹配
       const filenamePatterns = [
         /filename="([^"]+)"/, // filename="xxx" 格式
-        /filename=([^;\s]+)/,    // filename=xxx 格式（无引号）
-        /filename\*=UTF-8''([^;]+)/ // filename*=UTF-8''xxx 格式
+        /filename=([^;\s]+)/, // filename=xxx 格式（无引号）
+        /filename\*=UTF-8''([^;]+)/, // filename*=UTF-8''xxx 格式
       ];
-      
+
       for (const pattern of filenamePatterns) {
         const match = contentDisposition.match(pattern);
         if (match && match[1]) {
           // 解码URL编码的文件名
           let headerFileName = decodeURIComponent(match[1]);
           // 移除可能的引号
-          headerFileName = headerFileName.replace(/^['"]|['"]$/g, '');
+          headerFileName = headerFileName.replaceAll(/^['"]|['"]$/g, '');
           // 只有当响应头中的文件名有效时才使用
-          if (headerFileName && headerFileName !== 'null' && headerFileName !== 'undefined') {
+          if (
+            headerFileName &&
+            headerFileName !== 'null' &&
+            headerFileName !== 'undefined'
+          ) {
             fileName = headerFileName;
           }
           break;
         }
       }
     }
-    
+
     // 处理文件内容
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
-    document.body.appendChild(a);
+    document.body.append(a);
     a.click();
-    
+
     // 清理
     setTimeout(() => {
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      a.remove();
     }, 100);
-    
+
     ElMessage.success('文件下载成功');
   } catch (error) {
     console.error('下载失败:', error);
@@ -255,23 +254,31 @@ const handleFileDownload = async (file: any) => {
 };
 
 const isImageFile = (fileName: string): boolean => {
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
-  return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+  const imageExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.bmp',
+    '.webp',
+    '.svg',
+  ];
+  return imageExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
 };
 
 const getFileIcon = (fileName: string): string => {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   const iconMap: Record<string, string> = {
-    'pdf': 'lucide:file-text',
-    'doc': 'lucide:file-text',
-    'docx': 'lucide:file-text',
-    'xls': 'lucide:file-spreadsheet',
-    'xlsx': 'lucide:file-spreadsheet',
-    'ppt': 'lucide:presentation',
-    'pptx': 'lucide:presentation',
-    'txt': 'lucide:file',
-    'zip': 'lucide:archive',
-    'rar': 'lucide:archive',
+    pdf: 'lucide:file-text',
+    doc: 'lucide:file-text',
+    docx: 'lucide:file-text',
+    xls: 'lucide:file-spreadsheet',
+    xlsx: 'lucide:file-spreadsheet',
+    ppt: 'lucide:presentation',
+    pptx: 'lucide:presentation',
+    txt: 'lucide:file',
+    zip: 'lucide:archive',
+    rar: 'lucide:archive',
     '7z': 'lucide:archive',
   };
   return iconMap[ext] || 'lucide:file';
@@ -284,40 +291,40 @@ const handleImagePreview = async (file: any) => {
       ElMessage.warning('文件ID不存在，无法预览');
       return;
     }
-    
+
     const token = localStorage.getItem('token');
     if (!token) {
       ElMessage.warning('未登录，无法预览文件');
       return;
     }
-    
+
     const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
-    
+
     // 获取当前图片在图片列表中的索引
-    const allImageFiles = uploadFiles.value.filter(f => isImageFile(f.name));
-    const index = allImageFiles.findIndex(f => f.uid === file.uid);
-    
+    const allImageFiles = uploadFiles.value.filter((f) => isImageFile(f.name));
+    const index = allImageFiles.findIndex((f) => f.uid === file.uid);
+
     // 构建包含所有图片预览URL的列表（使用fetch获取并添加Authorization头）
     currentPreviewIndex.value = index;
     imagePreviewList.value = await Promise.all(
       allImageFiles.map(async (f) => {
         const fId = f.id || f.response?.id;
         if (!fId) return '';
-        
+
         const previewUrl = `${baseUrl}/file/preview/${fId}`;
         try {
           // 使用fetch获取文件内容，添加Authorization头
           const response = await fetch(previewUrl, {
             method: 'GET',
             headers: {
-              'Authorization': 'Bearer ' + token
-            }
+              Authorization: `Bearer ${token}`,
+            },
           });
-          
+
           if (!response.ok) {
             throw new Error(`预览失败: ${response.statusText}`);
           }
-          
+
           // 获取文件Blob并创建本地URL
           const blob = await response.blob();
           return window.URL.createObjectURL(blob);
@@ -325,9 +332,9 @@ const handleImagePreview = async (file: any) => {
           console.error('获取图片失败:', error);
           return '';
         }
-      })
+      }),
     );
-    
+
     showImageViewer.value = true;
   } catch (error: any) {
     console.error('预览失败:', error);
@@ -343,34 +350,34 @@ const handleFilePreview = async (file: any) => {
       ElMessage.warning('文件ID不存在，无法预览');
       return;
     }
-    
+
     const token = localStorage.getItem('token');
     if (!token) {
       ElMessage.warning('未登录，无法预览文件');
       return;
     }
-    
+
     // 检查是否为图片文件
     const fileName = file.name || file.fileName || file.originalFileName;
     const previewUrl = `/api/v1/file/preview/${fileId}`;
-    
+
     // 使用fetch获取文件内容，添加Authorization头
     const response = await fetch(previewUrl, {
       method: 'GET',
       headers: {
-        'Authorization': 'Bearer ' + token
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
-    
+
     if (!response.ok) {
       throw new Error(`预览失败: ${response.statusText}`);
     }
-    
+
     // 获取文件Blob
     const blob = await response.blob();
     // 创建本地URL
     const localUrl = window.URL.createObjectURL(blob);
-    
+
     if (isImageFile(fileName)) {
       // 图片文件使用图片预览器
       imagePreviewList.value = [localUrl];
@@ -400,7 +407,7 @@ const handlePreviewClose = () => {
 
 const initializeSortable = () => {
   if (!fileListContainer.value) return;
-  
+
   // 使用sortablejs直接初始化
   Sortable.create(fileListContainer.value, {
     animation: 300,
@@ -409,7 +416,11 @@ const initializeSortable = () => {
     handle: '.file-drag-handle',
     onEnd: (evt: any) => {
       const { oldIndex, newIndex } = evt;
-      if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
+      if (
+        oldIndex !== undefined &&
+        newIndex !== undefined &&
+        oldIndex !== newIndex
+      ) {
         const movedItem = uploadFiles.value.splice(oldIndex, 1)[0];
         uploadFiles.value.splice(newIndex, 0, movedItem);
       }
@@ -417,13 +428,14 @@ const initializeSortable = () => {
   });
 };
 
-watch(() => uploadFiles.value.length, () => {
-  nextTick(() => {
-    initializeSortable();
-  });
-});
-
-
+watch(
+  () => uploadFiles.value.length,
+  () => {
+    nextTick(() => {
+      initializeSortable();
+    });
+  },
+);
 
 // 为每个模块添加展开状态
 const expandedModules = ref<Record<string, boolean>>({});
@@ -442,25 +454,29 @@ const initAnimatedProgress = () => {
 
 // 切换模块完成状态
 const toggleModuleComplete = async (moduleId: string) => {
-  const module = currentStage.value.modules.find(m => m.id === moduleId);
+  const module = currentStage.value.modules.find((m) => m.id === moduleId);
   if (!module?.task) {
     ElMessage.warning('任务不存在，无法标记完成状态');
     return;
   }
-  
-  const newStatus = completedModules.value[moduleId] ? 'IN_PROGRESS' : 'COMPLETED';
-  
+
+  const newStatus = completedModules.value[moduleId]
+    ? 'IN_PROGRESS'
+    : 'COMPLETED';
+
   try {
     const response = await CaseTaskApi.updateCaseTask(module.task.id, {
       status: newStatus,
     });
-    
+
     if (response.code === 200) {
       completedModules.value[moduleId] = !completedModules.value[moduleId];
       // 更新模块的任务状态，确保界面立即反映变化
       module.task.status = newStatus;
       updateAllAnimatedProgress();
-      ElMessage.success(completedModules.value[moduleId] ? '已标记为完成' : '已取消完成标记');
+      ElMessage.success(
+        completedModules.value[moduleId] ? '已标记为完成' : '已取消完成标记',
+      );
     } else {
       ElMessage.error(response.message || '更新任务状态失败');
     }
@@ -481,26 +497,29 @@ const updateAllAnimatedProgress = () => {
 const animateProgress = (stageIndex: number) => {
   const targetProgress = getStageProgress(stageIndex);
   const currentProgress = animatedProgress.value[stageIndex] || 0;
-  
+
   // 如果当前值已经等于目标值，无需动画
   if (currentProgress === targetProgress) {
     return;
   }
-  
+
   // 计算每次动画的增量
   const increment = currentProgress < targetProgress ? 1 : -1;
-  
+
   // 使用setInterval实现1%、1%的缓慢变化
   const timer = setInterval(() => {
     const current = animatedProgress.value[stageIndex] || 0;
-    
-    if ((increment > 0 && current >= targetProgress) || (increment < 0 && current <= targetProgress)) {
+
+    if (
+      (increment > 0 && current >= targetProgress) ||
+      (increment < 0 && current <= targetProgress)
+    ) {
       // 动画完成，设置为目标值并清除定时器
       animatedProgress.value[stageIndex] = targetProgress;
       clearInterval(timer);
       return;
     }
-    
+
     // 每次增加或减少1%
     animatedProgress.value[stageIndex] = current + increment;
   }, 50); // 每50毫秒更新一次，控制动画速度
@@ -513,18 +532,22 @@ const initAttachmentSortable = () => {
     sortableInstance.destroy();
     sortableInstance = null;
   }
-  
+
   // 如果没有选中的数据项或没有附件，直接返回
-  if (!selectedDataItem.value || !selectedDataItem.value.files || selectedDataItem.value.files.length <= 1) {
+  if (
+    !selectedDataItem.value ||
+    !selectedDataItem.value.files ||
+    selectedDataItem.value.files.length <= 1
+  ) {
     return;
   }
-  
+
   // 获取附件网格元素
   const gridElement = attachmentsGridRef.value;
   if (!gridElement) {
     return;
   }
-  
+
   // 初始化Sortable实例
   sortableInstance = Sortable.create(gridElement, {
     // 长按1000ms触发拖动
@@ -534,16 +557,20 @@ const initAttachmentSortable = () => {
     // 拖动结束后的回调
     onEnd: (evt) => {
       const { oldIndex, newIndex } = evt;
-      if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) {
+      if (
+        oldIndex === undefined ||
+        newIndex === undefined ||
+        oldIndex === newIndex
+      ) {
         return;
       }
-      
+
       // 更新文件顺序
       const files = [...selectedDataItem.value.files];
       const [movedFile] = files.splice(oldIndex, 1);
       files.splice(newIndex, 0, movedFile);
       selectedDataItem.value.files = files;
-      
+
       ElMessage.success('图片顺序已更新');
     },
     // 拖动时的类名
@@ -556,15 +583,23 @@ const initAttachmentSortable = () => {
 };
 
 // 监听selectedDataItem变化，初始化拖动排序
-watch(selectedDataItem, () => {
-  // 延迟初始化，确保DOM已更新
-  setTimeout(initAttachmentSortable, 100);
-}, { deep: true });
+watch(
+  selectedDataItem,
+  () => {
+    // 延迟初始化，确保DOM已更新
+    setTimeout(initAttachmentSortable, 100);
+  },
+  { deep: true },
+);
 
 // 监听completedModules变化，更新动画进度
-watch(completedModules, () => {
-  updateAllAnimatedProgress();
-}, { deep: true });
+watch(
+  completedModules,
+  () => {
+    updateAllAnimatedProgress();
+  },
+  { deep: true },
+);
 
 // 组件挂载时加载所有阶段的数据并初始化动画进度
 onMounted(async () => {
@@ -575,7 +610,10 @@ onMounted(async () => {
   // 初始化选中第一个模块
   if (currentStage.value.modules.length > 0) {
     selectedModule.value = currentStage.value.modules[0];
-    selectedDataItem.value = currentStage.value.modules[0].data.length > 0 ? currentStage.value.modules[0].data[0] : null;
+    selectedDataItem.value =
+      currentStage.value.modules[0].data.length > 0
+        ? currentStage.value.modules[0].data[0]
+        : null;
   }
 });
 
@@ -589,91 +627,121 @@ const loadAllStageData = async () => {
       page: 1,
       size: 100,
     });
-    
+
     if (response.code === 200 && response.data) {
       // 清空所有阶段的模块数据
-      stages.forEach(stage => {
-        stage.modules.forEach(module => {
+      stages.forEach((stage) => {
+        stage.modules.forEach((module) => {
           module.data = [];
           module.task = null;
         });
       });
-      
+
       // 将返回的所有任务数据分配到对应的模块
       for (const task of response.data.content) {
         // 遍历所有阶段，找到匹配的模块
         for (const stage of stages) {
-          const module = stage.modules.find(m => 
-            m.title.includes(task.taskName) || task.taskName.includes(m.title)
+          const module = stage.modules.find(
+            (m) =>
+              m.title.includes(task.taskName) ||
+              task.taskName.includes(m.title),
           );
-          
+
           if (module) {
             module.task = task;
             // 根据任务状态设置完成状态
             completedModules.value[module.id] = task.status === 'COMPLETED';
-            
+
             // 获取该任务的最新提交记录
             try {
-              const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
-                caseTaskId: task.id,
-              });
-              
-              if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
+              const submissionsResponse =
+                await CaseTaskSubmissionApi.getLatestSubmissions({
+                  caseTaskId: task.id,
+                });
+
+              if (
+                submissionsResponse.code === 200 &&
+                submissionsResponse.data &&
+                submissionsResponse.data.length > 0
+              ) {
                 for (const submission of submissionsResponse.data) {
                   // 获取提交的文件列表
-                  const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
-                  let files = filesResponse.code === 200 ? filesResponse.data : [];
-                  
+                  const filesResponse =
+                    await CaseTaskSubmissionApi.getSubmissionFiles(
+                      submission.id,
+                    );
+                  let files =
+                    filesResponse.code === 200 ? filesResponse.data : [];
+
                   // 获取token用于后续请求
                   const token = localStorage.getItem('token');
-                  
+
                   // 处理文件，为图片类型添加本地预览URL
                   if (token) {
-                    files = await Promise.all(files.map(async (f) => {
-                      const fileData = {
-                        id: f.id,
-                        fileName: f.originalFileName,
-                        originalFileName: f.originalFileName,
-                        filePath: f.filePath,
-                        fileSize: f.fileSize,
-                        uploadTime: f.uploadTime,
-                        uploadUserName: f.uploadUserName,
-                        // 使用指定的 API 接口生成预览 URL
-                        previewUrl: `/api/v1/file/preview/${f.id}`,
-                      };
-                      
-                      // 检查是否为图片文件
-                      if (f.originalFileName && (f.originalFileName.toLowerCase().endsWith('.jpg') || f.originalFileName.toLowerCase().endsWith('.jpeg') || f.originalFileName.toLowerCase().endsWith('.png') || f.originalFileName.toLowerCase().endsWith('.gif') || f.originalFileName.toLowerCase().endsWith('.webp'))) {
-                        try {
-                          // 调用API获取图片，添加JWT令牌
-                          const response = await fetch(fileData.previewUrl, {
-                            method: 'GET',
-                            headers: {
-                              'Authorization': `Bearer ${token}`
+                    files = await Promise.all(
+                      files.map(async (f) => {
+                        const fileData = {
+                          id: f.id,
+                          fileName: f.originalFileName,
+                          originalFileName: f.originalFileName,
+                          filePath: f.filePath,
+                          fileSize: f.fileSize,
+                          uploadTime: f.uploadTime,
+                          uploadUserName: f.uploadUserName,
+                          // 使用指定的 API 接口生成预览 URL
+                          previewUrl: `/api/v1/file/preview/${f.id}`,
+                        };
+
+                        // 检查是否为图片文件
+                        if (
+                          f.originalFileName &&
+                          (f.originalFileName.toLowerCase().endsWith('.jpg') ||
+                            f.originalFileName
+                              .toLowerCase()
+                              .endsWith('.jpeg') ||
+                            f.originalFileName.toLowerCase().endsWith('.png') ||
+                            f.originalFileName.toLowerCase().endsWith('.gif') ||
+                            f.originalFileName.toLowerCase().endsWith('.webp'))
+                        ) {
+                          try {
+                            // 调用API获取图片，添加JWT令牌
+                            const response = await fetch(fileData.previewUrl, {
+                              method: 'GET',
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                            });
+
+                            if (response.ok) {
+                              // 转换为Blob URL用于本地预览
+                              const blob = await response.blob();
+                              fileData.localPreviewUrl =
+                                window.URL.createObjectURL(blob);
                             }
-                          });
-                          
-                          if (response.ok) {
-                            // 转换为Blob URL用于本地预览
-                            const blob = await response.blob();
-                            fileData.localPreviewUrl = window.URL.createObjectURL(blob);
+                          } catch (error) {
+                            console.error(
+                              `获取图片ID ${f.id} 的预览失败:`,
+                              error,
+                            );
                           }
-                        } catch (error) {
-                          console.error(`获取图片ID ${f.id} 的预览失败:`, error);
                         }
-                      }
-                      
-                      return fileData;
-                    }));
+
+                        return fileData;
+                      }),
+                    );
                   }
-                  
+
                   module.data.push({
                     id: submission.id,
                     title: submission.submissionTitle,
                     content: submission.submissionContent,
                     creator: submission.creatorName,
-                    date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
-                    files: files,
+                    date: submission.createTime
+                      ? new Date(submission.createTime)
+                          .toISOString()
+                          .split('T')[0]
+                      : '',
+                    files,
                     status: submission.status,
                     submissionNumber: submission.submissionNumber,
                     createTime: submission.createTime,
@@ -699,79 +767,94 @@ const loadAllStageData = async () => {
 };
 
 // 处理数据项点击事件
-const handleDataItemClick = async (item: any, module: any, isSave: boolean = false) => {
+const handleDataItemClick = async (
+  item: any,
+  module: any,
+  isSave: boolean = false,
+) => {
   isEditMode.value = true;
   currentItem.value = item;
   currentModule.value = module;
   currentStageIndex.value = activeStage.value;
-  
+
   formData.value = {
     title: item.title,
     content: item.content,
     date: item.date,
   };
-  
+
   // 获取token
   const token = localStorage.getItem('token');
-  
+
   // 处理每个附件，调用API获取预览
-  uploadFiles.value = item.files ? await Promise.all(item.files.map(async (file: any) => {
-    // 基础文件信息
-    const baseFile = {
-      uid: Date.now() + Math.random(),
-      name: file.fileName || file.originalFileName,
-      status: 'success',
-      id: file.id, // 保存文件ID用于预览
-      response: file,
-    };
-    
-    // 如果没有token或fileId，直接返回基础文件
-    if (!token || !file.id) {
-      return baseFile;
-    }
-    
-    try {
-      // 使用指定的API接口获取文件预览
-      const previewUrl = `/api/v1/file/preview/${file.id}`;
-      
-      // 使用fetch获取文件内容，添加Authorization头
-      const response = await fetch(previewUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-      
-      if (response.ok) {
-        // 获取文件Blob
-        const blob = await response.blob();
-        
-        // 创建本地URL用于预览
-        const localUrl = window.URL.createObjectURL(blob);
-        
-        // 创建File对象
-        const newFile = new File([blob], file.fileName || file.originalFileName, { type: blob.type });
-        
-        // 返回带有预览URL的文件对象
-        return {
-          ...baseFile,
-          url: localUrl,
-          raw: newFile,
-          response: {
-            ...file,
-            filePath: localUrl
+  uploadFiles.value = item.files
+    ? await Promise.all(
+        item.files.map(async (file: any) => {
+          // 基础文件信息
+          const baseFile = {
+            uid: Date.now() + Math.random(),
+            name: file.fileName || file.originalFileName,
+            status: 'success',
+            id: file.id, // 保存文件ID用于预览
+            response: file,
+          };
+
+          // 如果没有token或fileId，直接返回基础文件
+          if (!token || !file.id) {
+            return baseFile;
           }
-        };
-      }
-      
-      console.error(`获取文件ID ${file.id} 的预览失败:`, response.statusText);
-      return baseFile;
-    } catch (error) {
-      console.error(`获取文件ID ${file.id} 的预览失败:`, error);
-      return baseFile;
-    }
-  })) : [];
-  
+
+          try {
+            // 使用指定的API接口获取文件预览
+            const previewUrl = `/api/v1/file/preview/${file.id}`;
+
+            // 使用fetch获取文件内容，添加Authorization头
+            const response = await fetch(previewUrl, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (response.ok) {
+              // 获取文件Blob
+              const blob = await response.blob();
+
+              // 创建本地URL用于预览
+              const localUrl = window.URL.createObjectURL(blob);
+
+              // 创建File对象
+              const newFile = new File(
+                [blob],
+                file.fileName || file.originalFileName,
+                { type: blob.type },
+              );
+
+              // 返回带有预览URL的文件对象
+              return {
+                ...baseFile,
+                url: localUrl,
+                raw: newFile,
+                response: {
+                  ...file,
+                  filePath: localUrl,
+                },
+              };
+            }
+
+            console.error(
+              `获取文件ID ${file.id} 的预览失败:`,
+              response.statusText,
+            );
+            return baseFile;
+          } catch (error) {
+            console.error(`获取文件ID ${file.id} 的预览失败:`, error);
+            return baseFile;
+          }
+        }),
+      )
+    : [];
+
   // 直接设置activeTab，避免ElTabs初始渲染时modelValue为undefined
   activeTab.value = 'basic';
   showAddDialog.value = true;
@@ -787,18 +870,18 @@ const getStageProgress = (stageIndex: number) => {
   if (!stage || !stage.modules || stage.modules.length === 0) {
     return 0;
   }
-  
+
   // 计算已完成的模块数量
   let completedCount = 0;
-  stage.modules.forEach(module => {
+  stage.modules.forEach((module) => {
     if (completedModules.value[module.id]) {
       completedCount++;
     }
   });
-  
+
   // 计算进度百分比
   return Math.round((completedCount / stage.modules.length) * 100);
-}
+};
 
 const stages = [
   {
@@ -955,7 +1038,8 @@ const stages = [
       },
     ],
   },
-  { title: '六、财产变价与分配',
+  {
+    title: '六、财产变价与分配',
     icon: 'lucide:banknote',
     color: '#FF6B6B',
     modules: [
@@ -1022,17 +1106,17 @@ const stages = [
 const currentStage = computed(() => stages[activeStage.value]);
 
 const taskStatusMap: Record<string, string> = {
-  'IN_PROGRESS': '进行中',
-  'COMPLETED': '已完成',
-  'REVIEWING': '审核中',
-  'SKIPPED': '已跳过',
-  'REJECTED': '已驳回',
+  IN_PROGRESS: '进行中',
+  COMPLETED: '已完成',
+  REVIEWING: '审核中',
+  SKIPPED: '已跳过',
+  REJECTED: '已驳回',
 };
 
 const submissionStatusMap: Record<string, string> = {
-  'PENDING': '待审核',
-  'APPROVED': '已通过',
-  'REJECTED': '已驳回',
+  PENDING: '待审核',
+  APPROVED: '已通过',
+  REJECTED: '已驳回',
 };
 
 // 加载指定阶段的数据
@@ -1040,96 +1124,123 @@ const loadStageData = async (stageIndex: number) => {
   loading.value = true;
   try {
     const stageNum = stageIndex + 1;
-    
+
     // 获取该阶段所有任务
-    const taskCodes = stages[stageIndex].modules.map(m => `TASK_${String(stageNum).padStart(3, '0')}_${m.id.split('-')[1]}`);
-    
+    const taskCodes = stages[stageIndex].modules.map(
+      (m) => `TASK_${String(stageNum).padStart(3, '0')}_${m.id.split('-')[1]}`,
+    );
+
     const response = await CaseTaskApi.getCaseTasks({
       caseId: Number(props.caseId),
       page: 1,
       size: 100,
     });
-    
+
     if (response.code === 200 && response.data) {
       // 清空当前阶段所有模块的数据
-      stages[stageIndex].modules.forEach(module => {
+      stages[stageIndex].modules.forEach((module) => {
         module.data = [];
         module.task = null;
       });
-      
+
       // 将返回的任务数据分配到对应的模块
       for (const task of response.data.content) {
-        const module = stages[stageIndex].modules.find(m => 
-          m.title.includes(task.taskName) || task.taskName.includes(m.title)
+        const module = stages[stageIndex].modules.find(
+          (m) =>
+            m.title.includes(task.taskName) || task.taskName.includes(m.title),
         );
-        
+
         if (module) {
           module.task = task;
           // 根据任务状态设置完成状态
           completedModules.value[module.id] = task.status === 'COMPLETED';
-          
+
           // 获取该任务的最新提交记录
           try {
-            const submissionsResponse = await CaseTaskSubmissionApi.getLatestSubmissions({
-              caseTaskId: task.id,
-            });
-            
-            if (submissionsResponse.code === 200 && submissionsResponse.data && submissionsResponse.data.length > 0) {
+            const submissionsResponse =
+              await CaseTaskSubmissionApi.getLatestSubmissions({
+                caseTaskId: task.id,
+              });
+
+            if (
+              submissionsResponse.code === 200 &&
+              submissionsResponse.data &&
+              submissionsResponse.data.length > 0
+            ) {
               for (const submission of submissionsResponse.data) {
                 // 获取提交的文件列表
-                const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
-                let files = filesResponse.code === 200 ? filesResponse.data : [];
-                
+                const filesResponse =
+                  await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
+                let files =
+                  filesResponse.code === 200 ? filesResponse.data : [];
+
                 // 获取token用于后续请求
                 const token = localStorage.getItem('token');
-                
+
                 // 处理文件，为图片类型添加本地预览URL
                 if (token) {
-                  files = await Promise.all(files.map(async (f) => {
-                    const fileData = {
-                      id: f.id,
-                      fileName: f.originalFileName,
-                      originalFileName: f.originalFileName,
-                      filePath: f.filePath,
-                      fileSize: f.fileSize,
-                      uploadTime: f.uploadTime,
-                      uploadUserName: f.uploadUserName,
-                      // 使用指定的 API 接口生成预览 URL
-                      previewUrl: `/api/v1/file/preview/${f.id}`,
-                    };
-                    
-                    // 检查是否为图片文件
-                    if (f.originalFileName && (f.originalFileName.toLowerCase().endsWith('.jpg') || f.originalFileName.toLowerCase().endsWith('.jpeg') || f.originalFileName.toLowerCase().endsWith('.png') || f.originalFileName.toLowerCase().endsWith('.gif') || f.originalFileName.toLowerCase().endsWith('.webp'))) {
-                      try {
-                        // 调用API获取图片，添加JWT令牌
-                        const response = await fetch(fileData.previewUrl, {
-                          method: 'GET',
-                          headers: {
-                            'Authorization': `Bearer ${token}`
+                  files = await Promise.all(
+                    files.map(async (f) => {
+                      const fileData = {
+                        id: f.id,
+                        fileName: f.originalFileName,
+                        originalFileName: f.originalFileName,
+                        filePath: f.filePath,
+                        fileSize: f.fileSize,
+                        uploadTime: f.uploadTime,
+                        uploadUserName: f.uploadUserName,
+                        // 使用指定的 API 接口生成预览 URL
+                        previewUrl: `/api/v1/file/preview/${f.id}`,
+                      };
+
+                      // 检查是否为图片文件
+                      if (
+                        f.originalFileName &&
+                        (f.originalFileName.toLowerCase().endsWith('.jpg') ||
+                          f.originalFileName.toLowerCase().endsWith('.jpeg') ||
+                          f.originalFileName.toLowerCase().endsWith('.png') ||
+                          f.originalFileName.toLowerCase().endsWith('.gif') ||
+                          f.originalFileName.toLowerCase().endsWith('.webp'))
+                      ) {
+                        try {
+                          // 调用API获取图片，添加JWT令牌
+                          const response = await fetch(fileData.previewUrl, {
+                            method: 'GET',
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                            },
+                          });
+
+                          if (response.ok) {
+                            // 转换为Blob URL用于本地预览
+                            const blob = await response.blob();
+                            fileData.localPreviewUrl =
+                              window.URL.createObjectURL(blob);
                           }
-                        });
-                        
-                        if (response.ok) {
-                          // 转换为Blob URL用于本地预览
-                          const blob = await response.blob();
-                          fileData.localPreviewUrl = window.URL.createObjectURL(blob);
+                        } catch (error) {
+                          console.error(
+                            `获取图片ID ${f.id} 的预览失败:`,
+                            error,
+                          );
                         }
-                      } catch (error) {
-                        console.error(`获取图片ID ${f.id} 的预览失败:`, error);
                       }
-                    }
-                    
-                    return fileData;
-                  }));
+
+                      return fileData;
+                    }),
+                  );
                 }
-                
+
                 module.data.push({
                   id: submission.id,
                   title: submission.submissionTitle,
                   content: submission.submissionContent,
                   creator: submission.creatorName,
-                  date: submission.createTime ? new Date(submission.createTime).toISOString().split('T')[0] : '',
-                  files: files,
+                  date: submission.createTime
+                    ? new Date(submission.createTime)
+                        .toISOString()
+                        .split('T')[0]
+                    : '',
+                  files,
                   status: submission.status,
                   submissionNumber: submission.submissionNumber,
                   createTime: submission.createTime,
@@ -1171,8 +1282,6 @@ watch(activeStage, (newIndex) => {
   loadStageData(newIndex);
 });
 
-
-
 const openAddDialog = (module: any, stageIndex: number) => {
   // 设置为新增模式
   isEditMode.value = false;
@@ -1194,14 +1303,14 @@ const openAddDialog = (module: any, stageIndex: number) => {
 const handleAddSubmit = async () => {
   try {
     await formRef.value?.validate();
-    
+
     if (!currentModule.value?.task) {
       ElMessage.error('任务不存在，请先创建任务');
       return;
     }
-    
+
     const taskId = currentModule.value.task.id;
-    
+
     // 创建任务提交记录
     const createResponse = await CaseTaskSubmissionApi.createSubmission({
       caseTaskId: taskId,
@@ -1209,30 +1318,37 @@ const handleAddSubmit = async () => {
       submissionContent: formData.value.content,
       submissionType: 'NORMAL',
     });
-    
+
     if (createResponse.code !== 200) {
       ElMessage.error(createResponse.message || '创建提交记录失败');
       return;
     }
-    
+
     const submissionId = createResponse.data.submissionId;
-    
+
     // 上传文件
     if (uploadFiles.value.length > 0) {
       for (const file of uploadFiles.value) {
         if (file.raw) {
-          await CaseTaskSubmissionApi.uploadSubmissionFile(submissionId, file.raw);
+          await CaseTaskSubmissionApi.uploadSubmissionFile(
+            submissionId,
+            file.raw,
+          );
         }
       }
     }
-    
+
     ElMessage.success('提交成功');
     showAddDialog.value = false;
-    
+
     // 重新加载当前阶段数据
     await loadStageData(currentStageIndex.value);
   } catch (error: any) {
-    if (error && typeof error === 'object' && ('title' in error || 'content' in error)) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      ('title' in error || 'content' in error)
+    ) {
       console.warn('表单验证失败:', error);
     } else {
       console.error('提交失败:', error);
@@ -1241,35 +1357,35 @@ const handleAddSubmit = async () => {
   }
 };
 
-
-
 const handleDelete = async (module: any, item: any) => {
   // 显示确认框
   ElMessageBox.confirm('确定要删除这条记录吗？', '删除确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(async () => {
-    try {
-      const response = await CaseTaskSubmissionApi.deleteSubmission(item.id);
-      
-      if (response.code === 200) {
-        const index = module.data.findIndex((d: any) => d.id === item.id);
-        if (index > -1) {
-          module.data.splice(index, 1);
+  })
+    .then(async () => {
+      try {
+        const response = await CaseTaskSubmissionApi.deleteSubmission(item.id);
+
+        if (response.code === 200) {
+          const index = module.data.findIndex((d: any) => d.id === item.id);
+          if (index !== -1) {
+            module.data.splice(index, 1);
+          }
+          ElMessage.success('删除成功');
+        } else {
+          ElMessage.error(response.message || '删除失败');
         }
-        ElMessage.success('删除成功');
-      } else {
-        ElMessage.error(response.message || '删除失败');
+      } catch (error) {
+        console.error('删除失败:', error);
+        ElMessage.error('删除失败');
       }
-    } catch (error) {
-      console.error('删除失败:', error);
-      ElMessage.error('删除失败');
-    }
-  }).catch(() => {
-    // 用户取消删除
-    ElMessage.info('已取消删除');
-  });
+    })
+    .catch(() => {
+      // 用户取消删除
+      ElMessage.info('已取消删除');
+    });
 };
 
 const goBack = () => {
@@ -1279,17 +1395,17 @@ const goBack = () => {
 // 打开手机上传二维码弹窗
 const openMobileUploadDialog = () => {
   // 生成随机的上传会话ID
-  const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  
+  const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
   // 生成二维码URL，包含当前页面的信息和上传会话ID
   const baseUrl = window.location.origin;
   // 这里使用一个模拟的手机上传页面URL，实际项目中需要替换为真实的URL
   const mobileUploadUrl = `${baseUrl}/mobile-upload?sessionId=${uploadSessionId}&caseId=${props.caseId}`;
-  
+
   qrCodeUrl.value = mobileUploadUrl;
   qrCodeExpireTime.value = 300; // 5分钟过期
   showQrCodeDialog.value = true;
-  
+
   // 开始轮询检查上传状态
   startQrCodePolling(uploadSessionId);
 };
@@ -1301,14 +1417,14 @@ const startQrCodePolling = (sessionId: string) => {
     clearInterval(qrCodePolling.value);
     qrCodePolling.value = null;
   }
-  
+
   // 每3秒轮询一次
   qrCodePolling.value = setInterval(async () => {
     try {
       // 这里应该调用后端API检查上传状态
       // 暂时使用模拟数据
       console.log('检查上传状态:', sessionId);
-      
+
       // 模拟5分钟后二维码过期
       if (qrCodeExpireTime.value <= 0) {
         clearInterval(qrCodePolling.value!);
@@ -1317,7 +1433,7 @@ const startQrCodePolling = (sessionId: string) => {
         showQrCodeDialog.value = false;
         return;
       }
-      
+
       qrCodeExpireTime.value--;
     } catch (error) {
       console.error('轮询上传状态失败:', error);
@@ -1343,12 +1459,17 @@ const closeQrCodeDialog = () => {
           v-for="(stage, index) in stages"
           :key="index"
           class="stage-tab-item"
-          :class="{ active: activeStage === index, 'initial-stage': index === initialStage }"
+          :class="{
+            active: activeStage === index,
+            'initial-stage': index === initialStage,
+          }"
           @click="handleStageChange(index)"
         >
           <!-- 当前进度文字 - 仅初始阶段显示 -->
-          <div v-if="index === initialStage" class="current-progress-text">当前进度</div>
-          
+          <div v-if="index === initialStage" class="current-progress-text">
+            当前进度
+          </div>
+
           <div class="stage-progress-container">
             <div class="stage-progress-ring">
               <svg width="60" height="60" viewBox="0 0 60 60">
@@ -1372,31 +1493,39 @@ const closeQrCodeDialog = () => {
                   stroke-width="6"
                   stroke-linecap="round"
                   :stroke-dasharray="2 * Math.PI * 25"
-                  :stroke-dashoffset="2 * Math.PI * 25 - (2 * Math.PI * 25 * (animatedProgress[index] || 0)) / 100"
+                  :stroke-dashoffset="
+                    2 * Math.PI * 25 -
+                    (2 * Math.PI * 25 * (animatedProgress[index] || 0)) / 100
+                  "
                   transform="rotate(-90 30 30)"
                   class="progress-ring-circle"
                 />
               </svg>
-              <div class="stage-tab-icon" :style="{ backgroundColor: stage.color }">
+              <div
+                class="stage-tab-icon"
+                :style="{ backgroundColor: stage.color }"
+              >
                 <Icon :icon="stage.icon" />
               </div>
             </div>
           </div>
-          
+
           <!-- 阶段进度条 -->
           <div class="stage-progress-bar-container">
             <div class="stage-progress-bar">
-              <div 
+              <div
                 class="stage-progress-bar-fill"
-                :style="{ 
-                  width: (animatedProgress[index] || 0) + '%',
-                  backgroundColor: stage.color
+                :style="{
+                  width: `${animatedProgress[index] || 0}%`,
+                  backgroundColor: stage.color,
                 }"
               ></div>
             </div>
-            <div class="stage-progress-text">{{ animatedProgress[index] || 0 }}%</div>
+            <div class="stage-progress-text">
+              {{ animatedProgress[index] || 0 }}%
+            </div>
           </div>
-          
+
           <div class="stage-tab-title">{{ stage.title }}</div>
         </div>
       </div>
@@ -1416,12 +1545,25 @@ const closeQrCodeDialog = () => {
             >
               <div class="sidebar-module-content">
                 <div class="sidebar-module-title">{{ module.title }}</div>
-                <ElTag v-if="module.task" :type="module.task.status === 'COMPLETED' ? 'success' : module.task.status === 'IN_PROGRESS' ? 'primary' : 'info'" size="small">
+                <ElTag
+                  v-if="module.task"
+                  :type="
+                    module.task.status === 'COMPLETED'
+                      ? 'success'
+                      : module.task.status === 'IN_PROGRESS'
+                        ? 'primary'
+                        : 'info'
+                  "
+                  size="small"
+                >
                   {{ taskStatusMap[module.task.status] || module.task.status }}
                 </ElTag>
               </div>
               <div class="sidebar-module-status">
-                <div v-if="completedModules[module.id]" class="status-completed">
+                <div
+                  v-if="completedModules[module.id]"
+                  class="status-completed"
+                >
                   <Icon icon="lucide:check" />
                 </div>
                 <div v-else class="status-pending">
@@ -1440,14 +1582,33 @@ const closeQrCodeDialog = () => {
                   <div class="module-info-section">
                     <div class="module-title-row">
                       <div class="module-title">{{ selectedModule.title }}</div>
-                      <ElTag v-if="selectedModule.task" :type="selectedModule.task.status === 'COMPLETED' ? 'success' : selectedModule.task.status === 'IN_PROGRESS' ? 'primary' : 'info'" size="small" style="margin-left: 8px;">
-                        {{ taskStatusMap[selectedModule.task.status] || selectedModule.task.status }}
+                      <ElTag
+                        v-if="selectedModule.task"
+                        :type="
+                          selectedModule.task.status === 'COMPLETED'
+                            ? 'success'
+                            : selectedModule.task.status === 'IN_PROGRESS'
+                              ? 'primary'
+                              : 'info'
+                        "
+                        size="small"
+                        style="margin-left: 8px"
+                      >
+                        {{
+                          taskStatusMap[selectedModule.task.status] ||
+                          selectedModule.task.status
+                        }}
                       </ElTag>
                     </div>
-                    <div class="module-description-inline">{{ selectedModule.description }}</div>
+                    <div class="module-description-inline">
+                      {{ selectedModule.description }}
+                    </div>
                   </div>
                   <div class="module-status-actions">
-                    <div v-if="completedModules[selectedModule.id]" class="module-completed">
+                    <div
+                      v-if="completedModules[selectedModule.id]"
+                      class="module-completed"
+                    >
                       <Icon icon="lucide:check" class="completed-icon" />
                       <span class="completed-text">已完成</span>
                       <ElButton
@@ -1482,7 +1643,10 @@ const closeQrCodeDialog = () => {
               </template>
 
               <div class="module-data-container">
-                <div v-if="selectedModule.data.length > 0" class="data-tabs-container">
+                <div
+                  v-if="selectedModule.data.length > 0"
+                  class="data-tabs-container"
+                >
                   <div class="data-tabs">
                     <div
                       v-for="(item, index) in selectedModule.data"
@@ -1508,59 +1672,113 @@ const closeQrCodeDialog = () => {
                         v-if="selectedDataItem"
                         type="primary"
                         size="small"
-                        @click="handleDataItemClick(selectedDataItem, selectedModule, true)"
+                        @click="
+                          handleDataItemClick(
+                            selectedDataItem,
+                            selectedModule,
+                            true,
+                          )
+                        "
                       >
                         <Icon icon="lucide:save" class="mr-1" />
                         编辑
                       </ElButton>
                     </div>
                   </div>
-                  
+
                   <transition name="fade" mode="out-in">
-                    <div v-if="selectedDataItem" class="data-tab-content" :key="selectedDataItem.id">
+                    <div
+                      v-if="selectedDataItem"
+                      class="data-tab-content"
+                      :key="selectedDataItem.id"
+                    >
                       <div class="data-content-detail">
-                      <div class="data-row">
-                        <span class="data-label">日期:</span>
-                        <span class="data-value">{{ selectedDataItem.date }}</span>
-                      </div>
-                      <div v-if="selectedDataItem.files && selectedDataItem.files.length > 0" class="attachments-preview-section">
-                        <div class="attachments-preview-grid" ref="attachmentsGridRef">
+                        <div class="data-row">
+                          <span class="data-label">日期:</span>
+                          <span class="data-value">{{
+                            selectedDataItem.date
+                          }}</span>
+                        </div>
+                        <div
+                          v-if="
+                            selectedDataItem.files &&
+                            selectedDataItem.files.length > 0
+                          "
+                          class="attachments-preview-section"
+                        >
                           <div
-                            v-for="(file, index) in selectedDataItem.files"
-                            :key="file.id"
-                            class="attachment-preview-item"
-                            @click.stop="handleFilePreview(file)"
+                            class="attachments-preview-grid"
+                            ref="attachmentsGridRef"
                           >
-                            <!-- 图片类型直接预览 -->
-                            <div v-if="file.fileName && (file.fileName.toLowerCase().endsWith('.jpg') || file.fileName.toLowerCase().endsWith('.jpeg') || file.fileName.toLowerCase().endsWith('.png') || file.fileName.toLowerCase().endsWith('.gif'))" class="image-preview">
-                              <img :src="file.localPreviewUrl || file.previewUrl" alt="{{ file.fileName || file.name }}" class="preview-image" />
-                            </div>
-                            <!-- 其他文件类型显示图标 -->
-                            <div v-else class="file-icon-preview">
-                              <Icon icon="lucide:file" class="file-icon" />
-                              <span class="file-name">{{ file.fileName || file.name }}</span>
-                            </div>
-                            <div class="attachment-actions-overlay">
-                              <span
-                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
-                                @click.stop="handleFilePreview(file)"
+                            <div
+                              v-for="(file, index) in selectedDataItem.files"
+                              :key="file.id"
+                              class="attachment-preview-item"
+                              @click.stop="handleFilePreview(file)"
+                            >
+                              <!-- 图片类型直接预览 -->
+                              <div
+                                v-if="
+                                  file.fileName &&
+                                  (file.fileName
+                                    .toLowerCase()
+                                    .endsWith('.jpg') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.jpeg') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.png') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.gif'))
+                                "
+                                class="image-preview"
                               >
-                                <Icon icon="lucide:eye" />
-                                预览
-                              </span>
-                              <span
-                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
-                                @click.stop="handleFileDownload(file)"
-                              >
-                                <Icon icon="lucide:download" />
-                                下载
-                              </span>
+                                <img
+                                  :src="file.localPreviewUrl || file.previewUrl"
+                                  alt="{{ file.fileName || file.name }}"
+                                  class="preview-image"
+                                />
+                              </div>
+                              <!-- 其他文件类型显示图标 -->
+                              <div v-else class="file-icon-preview">
+                                <Icon icon="lucide:file" class="file-icon" />
+                                <span class="file-name">{{
+                                  file.fileName || file.name
+                                }}</span>
+                              </div>
+                              <div class="attachment-actions-overlay">
+                                <span
+                                  style="
+                                    color: white;
+                                    cursor: pointer;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 4px;
+                                  "
+                                  @click.stop="handleFilePreview(file)"
+                                >
+                                  <Icon icon="lucide:eye" />
+                                  预览
+                                </span>
+                                <span
+                                  style="
+                                    color: white;
+                                    cursor: pointer;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 4px;
+                                  "
+                                  @click.stop="handleFileDownload(file)"
+                                >
+                                  <Icon icon="lucide:download" />
+                                  下载
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                       
-
                       </div>
                     </div>
                   </transition>
@@ -1573,7 +1791,10 @@ const closeQrCodeDialog = () => {
             </ElCard>
           </div>
           <div v-else class="no-module-selected">
-            <ElEmpty description="请从左侧选择一个模块查看详情" :image-size="120" />
+            <ElEmpty
+              description="请从左侧选择一个模块查看详情"
+              :image-size="120"
+            />
           </div>
         </div>
       </div>
@@ -1594,7 +1815,11 @@ const closeQrCodeDialog = () => {
             label-width="100px"
           >
             <ElFormItem label="标题" prop="title">
-              <ElInput v-model="formData.title" placeholder="请输入标题" :autosize="false" />
+              <ElInput
+                v-model="formData.title"
+                placeholder="请输入标题"
+                :autosize="false"
+              />
             </ElFormItem>
             <ElFormItem label="内容" prop="content">
               <ElInput
@@ -1619,7 +1844,7 @@ const closeQrCodeDialog = () => {
         </ElTabPane>
         <ElTabPane label="附件" name="attachments">
           <div class="attachments-container">
-            <div class="upload-actions" style="display: flex; gap: 12px;">
+            <div class="upload-actions" style="display: flex; gap: 12px">
               <ElUpload
                 ref="upload"
                 v-model:file-list="uploadFiles"
@@ -1641,12 +1866,12 @@ const closeQrCodeDialog = () => {
                 手机上传
               </ElButton>
             </div>
-            
+
             <div v-if="uploadFiles.length > 0" class="upload-tip">
               <Icon icon="lucide:info" class="mr-1" />
               支持拖拽调整文件顺序，点击图片可预览，点击文件可在线预览
             </div>
-            
+
             <div ref="fileListContainer" class="file-list-container">
               <div
                 v-for="(file, index) in uploadFiles"
@@ -1657,7 +1882,14 @@ const closeQrCodeDialog = () => {
                 <div class="file-drag-handle">
                   <Icon icon="lucide:grip-vertical" />
                 </div>
-                <div class="file-preview" @click="isImageFile(file.name) ? handleImagePreview(file) : handleFilePreview(file)">
+                <div
+                  class="file-preview"
+                  @click="
+                    isImageFile(file.name)
+                      ? handleImagePreview(file)
+                      : handleFilePreview(file)
+                  "
+                >
                   <div v-if="isImageFile(file.name)" class="image-preview">
                     <img v-if="file.url" :src="file.url" :alt="file.name" />
                     <div v-else class="no-preview">
@@ -1669,13 +1901,21 @@ const closeQrCodeDialog = () => {
                   </div>
                 </div>
                 <div class="file-info">
-                  <div class="file-name" :title="file.name">{{ file.name }}</div>
+                  <div class="file-name" :title="file.name">
+                    {{ file.name }}
+                  </div>
                   <div class="file-meta">
                     <span class="file-size">{{ (file.size / 1024).toFixed(2) }} KB</span>
-                    <span v-if="file.status === 'success'" class="file-status success">
+                    <span
+                      v-if="file.status === 'success'"
+                      class="file-status success"
+                    >
                       <Icon icon="lucide:check-circle" />
                     </span>
-                    <span v-else-if="file.status === 'uploading'" class="file-status uploading">
+                    <span
+                      v-else-if="file.status === 'uploading'"
+                      class="file-status uploading"
+                    >
                       <Icon icon="lucide:loader-2" class="spin" />
                     </span>
                   </div>
@@ -1685,7 +1925,11 @@ const closeQrCodeDialog = () => {
                     type="primary"
                     size="small"
                     text
-                    @click.stop="isImageFile(file.name) ? handleImagePreview(file) : handleFilePreview(file)"
+                    @click.stop="
+                      isImageFile(file.name)
+                        ? handleImagePreview(file)
+                        : handleFilePreview(file)
+                    "
                   >
                     <Icon icon="lucide:eye" />
                   </ElButton>
@@ -1700,7 +1944,7 @@ const closeQrCodeDialog = () => {
                 </div>
               </div>
             </div>
-            
+
             <div v-if="uploadFiles.length === 0" class="empty-state">
               <Icon icon="lucide:inbox" class="empty-icon" />
               <p>暂无附件，请点击上方按钮上传文件</p>
@@ -1708,7 +1952,7 @@ const closeQrCodeDialog = () => {
           </div>
         </ElTabPane>
       </ElTabs>
-      
+
       <template #footer>
         <ElButton @click="showAddDialog = false">取消</ElButton>
         <ElButton type="primary" @click="handleAddSubmit">
@@ -1733,7 +1977,12 @@ const closeQrCodeDialog = () => {
       class="file-preview-dialog"
     >
       <div class="file-preview-content">
-        <iframe v-if="previewFileUrl" :src="previewFileUrl" class="preview-iframe" frameborder="0"></iframe>
+        <iframe
+          v-if="previewFileUrl"
+          :src="previewFileUrl"
+          class="preview-iframe"
+          frameborder="0"
+        ></iframe>
       </div>
     </ElDialog>
 
@@ -1757,7 +2006,10 @@ const closeQrCodeDialog = () => {
             <p>3. 等待上传完成后，文件将自动显示在附件列表中</p>
           </div>
           <div class="qr-code-expire">
-            二维码将在 {{ Math.floor(qrCodeExpireTime / 60) }}:{{ (qrCodeExpireTime % 60).toString().padStart(2, '0') }} 后过期
+            二维码将在 {{ Math.floor(qrCodeExpireTime / 60) }}:{{
+              (qrCodeExpireTime % 60).toString().padStart(2, '0')
+            }}
+            后过期
           </div>
         </div>
       </div>
@@ -1766,7 +2018,6 @@ const closeQrCodeDialog = () => {
 </template>
 
 <style scoped>
-
 .process-content {
   display: flex;
   flex-direction: column;
@@ -1852,20 +2103,27 @@ const closeQrCodeDialog = () => {
 .stage-tab-item.initial-stage .stage-tab-icon {
   transform: translate(-50%, -50%) scale(1.2);
   border: 2px solid #ffffff;
-  box-shadow: 0 0 0 3px currentColor, 0 0 15px rgba(64, 158, 255, 0.5);
+  box-shadow:
+    0 0 0 3px currentColor,
+    0 0 15px rgba(64, 158, 255, 0.5);
   animation: pulse 2s ease-in-out infinite;
   z-index: 3;
 }
 
 /* 为当前阶段添加脉冲动画 */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(-50%, -50%) scale(1.2);
-    box-shadow: 0 0 0 3px currentColor, 0 0 15px rgba(64, 158, 255, 0.5);
+    box-shadow:
+      0 0 0 3px currentColor,
+      0 0 15px rgba(64, 158, 255, 0.5);
   }
   50% {
     transform: translate(-50%, -50%) scale(1.3);
-    box-shadow: 0 0 0 3px currentColor, 0 0 20px rgba(64, 158, 255, 0.8);
+    box-shadow:
+      0 0 0 3px currentColor,
+      0 0 20px rgba(64, 158, 255, 0.8);
   }
 }
 
@@ -1890,7 +2148,12 @@ const closeQrCodeDialog = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
   animation: shimmer 2s ease-in-out infinite;
 }
 
@@ -1939,8 +2202,6 @@ const closeQrCodeDialog = () => {
   }
 }
 
-
-
 .stage-tab-item.active {
   --active-stage-color: var(--current-stage-color);
 }
@@ -1979,19 +2240,19 @@ const closeQrCodeDialog = () => {
 }
 
 .stage-tab-item:nth-child(1).active {
-  --current-stage-color: #409EFF;
+  --current-stage-color: #409eff;
 }
 
 .stage-tab-item:nth-child(2).active {
-  --current-stage-color: #67C23A;
+  --current-stage-color: #67c23a;
 }
 
 .stage-tab-item:nth-child(3).active {
-  --current-stage-color: #E6A23C;
+  --current-stage-color: #e6a23c;
 }
 
 .stage-tab-item:nth-child(4).active {
-  --current-stage-color: #F56C6C;
+  --current-stage-color: #f56c6c;
 }
 
 .stage-tab-item:nth-child(5).active {
@@ -1999,11 +2260,11 @@ const closeQrCodeDialog = () => {
 }
 
 .stage-tab-item:nth-child(6).active {
-  --current-stage-color: #FF6B6B;
+  --current-stage-color: #ff6b6b;
 }
 
 .stage-tab-item:nth-child(7).active {
-  --current-stage-color: #4CAF50;
+  --current-stage-color: #4caf50;
 }
 
 .stage-tab-title {
@@ -2398,11 +2659,11 @@ const closeQrCodeDialog = () => {
   .attachments-preview-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
-  
+
   .attachment-preview-item {
     height: 140px;
   }
-  
+
   .save-button-container {
     position: static;
     margin-top: 20px;
@@ -2608,7 +2869,9 @@ const closeQrCodeDialog = () => {
 /* 标签切换动画 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .fade-enter-from {
@@ -2641,7 +2904,8 @@ const closeQrCodeDialog = () => {
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -3102,7 +3366,7 @@ const closeQrCodeDialog = () => {
   .stage-modules-sidebar {
     width: 280px;
   }
-  
+
   .file-list-container {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
@@ -3112,16 +3376,16 @@ const closeQrCodeDialog = () => {
   .stage-modules-container {
     flex-direction: column;
   }
-  
+
   .stage-modules-sidebar {
     width: 100%;
     max-height: 300px;
   }
-  
+
   .stage-modules-content {
     min-height: 500px;
   }
-  
+
   .file-list-container {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
@@ -3131,37 +3395,37 @@ const closeQrCodeDialog = () => {
   .stage-modules-container {
     flex-direction: column;
   }
-  
+
   .stage-modules-sidebar {
     width: 100%;
     max-height: 250px;
   }
-  
+
   .module-detail-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .module-info-section {
     width: 100%;
   }
-  
+
   .module-status-actions {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .data-tabs {
     flex-wrap: wrap;
     padding: 8px;
     gap: 6px;
   }
-  
+
   .data-tab-item {
     padding: 8px 12px;
   }
-  
+
   .file-list-container {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -3171,81 +3435,81 @@ const closeQrCodeDialog = () => {
   .process-header {
     padding: 16px 20px;
   }
-  
+
   .page-title {
     font-size: 18px;
   }
-  
+
   .stage-modules-container {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .stage-modules-sidebar {
     width: 100%;
     max-height: 200px;
   }
-  
+
   .stage-modules-content {
     min-height: 400px;
   }
-  
+
   .file-list-container {
     grid-template-columns: 1fr;
   }
-  
+
   .sidebar-module-item {
     padding: 12px;
   }
-  
+
   .sidebar-module-title {
     font-size: 13px;
   }
-  
+
   .module-detail-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .module-info-section {
     width: 100%;
   }
-  
+
   .module-description-inline {
     font-size: 12px;
     padding: 6px 10px;
   }
-  
+
   .module-status-actions {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .data-tabs {
     flex-wrap: wrap;
     padding: 8px;
     gap: 6px;
   }
-  
+
   .data-tab-item {
     padding: 8px 12px;
     font-size: 13px;
   }
-  
+
   .data-tab-title {
     font-size: 13px;
   }
-  
+
   .data-tab-content {
     padding: 16px;
   }
-  
+
   .data-tab-actions {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .data-tab-actions .el-button {
     width: 100%;
   }

@@ -46,6 +46,8 @@ export namespace DocumentServiceApi {
     updateTime: string;
     createUserId: number;
     updateUserId: number;
+    documentNumber: string;
+    abbreviation: string;
   }
 
   /** 文书列表响应 */
@@ -396,5 +398,15 @@ export async function submitDocumentForApprovalWithFilesApi(
       },
       timeout: 60_000,
     },
+  );
+}
+
+/**
+ * 获取最新文书编号缩写
+ * 用于前端自动填充缩写字段
+ */
+export async function getLatestAbbreviationApi() {
+  return documentRequestClient.get<{ code: number; message: string; data: string }>(
+    '/api/v1/document-delivery/latest-abbreviation',
   );
 }

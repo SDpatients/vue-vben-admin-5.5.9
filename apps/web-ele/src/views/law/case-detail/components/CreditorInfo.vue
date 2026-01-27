@@ -19,9 +19,9 @@ import {
 
 import {
   createCreditorApi,
+  deleteCreditorApi,
   getCreditorListApi,
   updateCreditorApi,
-  deleteCreditorApi,
 } from '#/api/core/creditor';
 
 const props = defineProps<{
@@ -51,7 +51,40 @@ const singleForm = reactive({
   idNumber: '',
   legalRepresentative: '',
   registeredCapital: '',
+  status: '',
 });
+
+// 编辑对话框
+const showEditDialog = ref(false);
+const editLoading = ref(false);
+const editForm = reactive({
+  creditorId: 0,
+  creditorName: '',
+  creditorType: '',
+  contactPhone: '',
+  contactEmail: '',
+  address: '',
+  idNumber: '',
+  legalRepresentative: '',
+  registeredCapital: '',
+  status: '',
+});
+
+// 搜索相关数据
+const searchName = ref('');
+const searchStatus = ref('');
+
+// 状态选项
+const statusOptions = [
+  { label: '已知债权人', value: 'KNOWN' },
+  { label: '确认债权人', value: 'CONFIRMED' },
+];
+
+// 状态映射
+const statusMap: Record<string, string> = {
+  KNOWN: '已知债权人',
+  CONFIRMED: '确认债权人',
+};
 
 // 债权人类型映射 (英文转中文)
 const creditorTypeMap: Record<string, string> = {
@@ -61,11 +94,11 @@ const creditorTypeMap: Record<string, string> = {
   GOVERNMENT: '政府机构',
   OTHER: '其他',
   // 保留中文值作为键，处理已有中文数据
-  '金融机构': '金融机构',
-  '企业': '企业',
-  '个人': '个人',
-  '政府机构': '政府机构',
-  '其他': '其他',
+  金融机构: '金融机构',
+  企业: '企业',
+  个人: '个人',
+  政府机构: '政府机构',
+  其他: '其他',
 };
 
 // 债权人类型选项
@@ -87,12 +120,12 @@ const toCamelCase = (obj: any) => {
     return obj;
   }
   if (Array.isArray(obj)) {
-    return obj.map(item => toCamelCase(item));
+    return obj.map((item) => toCamelCase(item));
   }
   const camelCaseObj: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      const camelKey = key.replaceAll(/_([a-z])/g, (g) => g[1].toUpperCase());
       camelCaseObj[camelKey] = toCamelCase(obj[key]);
     }
   }
@@ -106,6 +139,8 @@ const fetchCreditors = async () => {
       caseId: Number(props.caseId),
       pageNum: currentPage.value,
       pageSize: pageSize.value,
+      creditorName: searchName.value,
+      status: searchStatus.value,
     });
     if (response.code === 200 && response.data) {
       // 转换债权人类型为中文
@@ -126,6 +161,97 @@ const fetchCreditors = async () => {
     total.value = 0;
   } finally {
     loading.value = false;
+  }
+};
+
+// 搜索功能
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchCreditors();
+};
+
+// 重置搜索
+const handleResetSearch = () => {
+  searchName.value = '';
+  searchStatus.value = '';
+  currentPage.value = 1;
+  fetchCreditors();
+};
+
+// 打开编辑对话框
+const openEditDialog = (row: any) => {
+  editForm.creditorId = row.id;
+  editForm.creditorName = row.creditorName;
+  editForm.creditorType = row.creditorType;
+  editForm.contactPhone = row.contactPhone || '';
+  editForm.contactEmail = row.contactEmail || '';
+  editForm.address = row.address || '';
+  editForm.idNumber = row.idNumber || '';
+  editForm.legalRepresentative = row.legalRepresentative || '';
+  editForm.registeredCapital = row.registeredCapital || '';
+  editForm.status = row.status || '';
+  showEditDialog.value = true;
+};
+
+// 关闭编辑对话框
+const closeEditDialog = () => {
+  showEditDialog.value = false;
+};
+
+// 提交编辑表单
+const handleEditSubmit = async () => {
+  if (!editForm.creditorName) {
+    ElMessage.warning('请输入债权人名称');
+    return;
+  }
+  if (!editForm.creditorType) {
+    ElMessage.warning('请选择债权人类型');
+    return;
+  }
+
+  editLoading.value = true;
+  try {
+    const response = await updateCreditorApi(editForm.creditorId, {
+      creditorName: editForm.creditorName,
+      creditorType: editForm.creditorType,
+      contactPhone: editForm.contactPhone,
+      contactEmail: editForm.contactEmail,
+      address: editForm.address,
+      idNumber: editForm.idNumber,
+      legalRepresentative: editForm.legalRepresentative,
+      registeredCapital: editForm.registeredCapital
+        ? Number(editForm.registeredCapital)
+        : undefined,
+      status: editForm.status,
+    });
+    if (response.code === 200) {
+      ElMessage.success('成功更新债权人信息');
+      await fetchCreditors();
+      closeEditDialog();
+    } else {
+      ElMessage.error(`更新失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('更新债权人失败:', error);
+    ElMessage.error('更新债权人失败');
+  } finally {
+    editLoading.value = false;
+  }
+};
+
+// 删除债权人
+const handleDeleteCreditor = async (row: any) => {
+  try {
+    const response = await deleteCreditorApi(row.id);
+    if (response.code === 200) {
+      ElMessage.success('成功删除债权人');
+      await fetchCreditors();
+    } else {
+      ElMessage.error(`删除失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('删除债权人失败:', error);
+    ElMessage.error('删除债权人失败');
   }
 };
 
@@ -173,6 +299,7 @@ const resetSingleForm = () => {
   singleForm.idNumber = '';
   singleForm.legalRepresentative = '';
   singleForm.registeredCapital = '';
+  singleForm.status = '';
 };
 
 const handleBatchAdd = async () => {
@@ -251,7 +378,10 @@ const handleSingleAdd = async () => {
       address: singleForm.address,
       idNumber: singleForm.idNumber,
       legalRepresentative: singleForm.legalRepresentative,
-      registeredCapital: singleForm.registeredCapital ? Number(singleForm.registeredCapital) : undefined,
+      registeredCapital: singleForm.registeredCapital
+        ? Number(singleForm.registeredCapital)
+        : undefined,
+      status: singleForm.status,
     };
 
     const response = await createCreditorApi(requestData);
@@ -269,6 +399,8 @@ const handleSingleAdd = async () => {
     singleAddLoading.value = false;
   }
 };
+
+
 
 // 导出债权人信息
 const handleExport = () => {
@@ -328,7 +460,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
-            <Icon icon="lucide:users" class="mr-2 text-primary" />
+            <Icon icon="lucide:users" class="text-primary mr-2" />
             <span class="text-lg font-semibold">债权人信息</span>
           </div>
           <div class="flex space-x-2">
@@ -347,6 +479,41 @@ onMounted(() => {
           </div>
         </div>
       </template>
+
+      <!-- 搜索区域 -->
+      <div class="mb-4 rounded-lg bg-gray-50 p-4">
+        <div class="flex flex-wrap gap-4">
+          <ElInput
+            v-model="searchName"
+            placeholder="债权人名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+          <ElSelect
+            v-model="searchStatus"
+            placeholder="状态"
+            clearable
+            style="width: 150px"
+            @change="handleSearch"
+          >
+            <ElOption
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </ElSelect>
+          <ElButton type="primary" @click="handleSearch">
+            <Icon icon="lucide:search" class="mr-1" />
+            搜索
+          </ElButton>
+          <ElButton @click="handleResetSearch">
+            <Icon icon="lucide:refresh-cw" class="mr-1" />
+            重置
+          </ElButton>
+        </div>
+      </div>
 
       <div v-loading="loading" class="creditor-list-container">
         <ElTable
@@ -385,6 +552,38 @@ onMounted(() => {
             label="注册资本"
             width="120"
           />
+          <ElTableColumn prop="status" label="状态" width="120" align="center">
+            <template #default="scope">
+              <ElTag
+                :type="scope.row.status === 'CONFIRMED' ? 'success' : 'warning'"
+                size="small"
+              >
+                {{ statusMap[scope.row.status] || scope.row.status }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="操作" width="150" align="center" fixed="right">
+            <template #default="scope">
+              <ElButton
+                size="small"
+                text
+                @click="openEditDialog(scope.row)"
+                class="text-primary"
+              >
+                <Icon icon="lucide:edit" class="mr-1" />
+                编辑
+              </ElButton>
+              <ElButton
+                size="small"
+                text
+                @click="handleDeleteCreditor(scope.row)"
+                class="text-danger ml-2"
+              >
+                <Icon icon="lucide:trash-2" class="mr-1" />
+                删除
+              </ElButton>
+            </template>
+          </ElTableColumn>
         </ElTable>
 
         <div v-if="total > 0" class="pagination-container flex justify-end">
@@ -518,6 +717,19 @@ onMounted(() => {
               placeholder="请输入注册资本"
             />
           </ElFormItem>
+          <ElFormItem label="状态">
+            <ElSelect
+              v-model="singleForm.status"
+              placeholder="请选择状态"
+            >
+              <ElOption
+                v-for="option in statusOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </ElSelect>
+          </ElFormItem>
         </ElForm>
       </div>
       <template #footer>
@@ -527,6 +739,96 @@ onMounted(() => {
             type="primary"
             @click="handleSingleAdd"
             :loading="singleAddLoading"
+          >
+            确定
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 编辑对话框 -->
+    <ElDialog
+      v-model="showEditDialog"
+      title="编辑债权人"
+      width="600px"
+      destroy-on-close
+    >
+      <div class="edit-dialog-container">
+        <ElForm label-width="120px" :model="editForm">
+          <ElFormItem label="债权人名称" required>
+            <ElInput
+              v-model="editForm.creditorName"
+              placeholder="请输入债权人名称"
+            />
+          </ElFormItem>
+          <ElFormItem label="债权人类型" required>
+            <ElSelect
+              v-model="editForm.creditorType"
+              placeholder="请选择债权人类型"
+            >
+              <ElOption
+                v-for="option in creditorTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="联系电话">
+            <ElInput
+              v-model="editForm.contactPhone"
+              placeholder="请输入联系电话"
+            />
+          </ElFormItem>
+          <ElFormItem label="联系邮箱">
+            <ElInput
+              v-model="editForm.contactEmail"
+              placeholder="请输入联系邮箱"
+            />
+          </ElFormItem>
+          <ElFormItem label="证件号码">
+            <ElInput
+              v-model="editForm.idNumber"
+              placeholder="请输入证件号码"
+            />
+          </ElFormItem>
+          <ElFormItem label="法定代表人">
+            <ElInput
+              v-model="editForm.legalRepresentative"
+              placeholder="请输入法定代表人"
+            />
+          </ElFormItem>
+          <ElFormItem label="地址">
+            <ElInput v-model="editForm.address" placeholder="请输入地址" />
+          </ElFormItem>
+          <ElFormItem label="注册资本">
+            <ElInput
+              v-model="editForm.registeredCapital"
+              placeholder="请输入注册资本"
+            />
+          </ElFormItem>
+          <ElFormItem label="状态">
+            <ElSelect
+              v-model="editForm.status"
+              placeholder="请选择状态"
+            >
+              <ElOption
+                v-for="option in statusOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </ElSelect>
+          </ElFormItem>
+        </ElForm>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeEditDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleEditSubmit"
+            :loading="editLoading"
           >
             确定
           </ElButton>

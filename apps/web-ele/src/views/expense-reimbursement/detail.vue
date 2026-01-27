@@ -241,7 +241,12 @@ onMounted(() => {
         <template #header>
           <div class="card-header">
             <span>基本信息</span>
-            <el-tag :type="getApprovalStatusTag(detail.approvalStatus).type">
+            <el-tag
+              :type="getApprovalStatusTag(detail.approvalStatus).type"
+              effect="dark"
+              size="large"
+              style="font-weight: bold; padding: 8px 16px; font-size: 15px;"
+            >
               {{ getApprovalStatusTag(detail.approvalStatus).text }}
             </el-tag>
           </div>
