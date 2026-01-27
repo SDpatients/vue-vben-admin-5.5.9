@@ -1674,7 +1674,7 @@ const handleUpload = async (options: any) => {
   return false; // 阻止默认上传行为，使用自定义上传
 };
 
-const handleFileChange = (fileObj: any) => {
+const handleFileChange = async (fileObj: any) => {
   if (fileObj.status === 'ready' && fileObj.raw) {
     await handleUpload({
       raw: fileObj.raw,
