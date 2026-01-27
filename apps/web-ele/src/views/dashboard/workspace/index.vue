@@ -468,22 +468,8 @@ const loadCaseList = async () => {
     caseList.value = res.data?.list || [];
     totalCases.value = res.data?.total || 0;
 
-    // 更新案件统计（获取所有状态的案件总数）
-    if (isAdminOrSuperAdmin.value) {
-      const allCasesRes = await getCaseListApi({
-        pageNum: 1,
-        pageSize: 9999,
-      });
-      caseCount.value = allCasesRes.data?.total || 0;
-    } else {
-      const chatUserId = localStorage.getItem('chat_user_id');
-      const userId = Number(chatUserId) || 0;
-      const allCasesRes = await getUserCaseListApi(userId, {
-        pageNum: 1,
-        pageSize: 9999,
-      });
-      caseCount.value = allCasesRes.data?.total || 0;
-    }
+    // 使用当前筛选条件下的案件数作为案件总数
+    caseCount.value = totalCases.value;
   } catch (error) {
     console.error('加载案件数据失败:', error);
     caseList.value = [];
@@ -699,7 +685,7 @@ onMounted(() => {
             <div v-loading="loading" class="case-list">
               <div
                 v-if="caseList.length > 0"
-                class="grid grid-cols-1 gap-3 md:grid-cols-3"
+                class="grid grid-cols-1 gap-10 md:grid-cols-3"
               >
                 <div
                   v-for="item in caseList"
@@ -814,15 +800,18 @@ onMounted(() => {
             <div class="min-w-0 flex-1" style="flex: 1 1 calc(66.666% - 160px)">
               <div v-if="isAdminOrSuperAdmin" class="mb-5" style="height: 100%">
                 <AnalysisChartCard title="最新动态" style="height: 100%">
-                  <ActivityTimeline @update:count="(count) => { todoCount = count; todoTotal = count; }" />
+                  <div class="activity-timeline-container">
+                    <ActivityTimeline @update:count="(count) => { todoCount = count; todoTotal = count; }" />
+                  </div>
                 </AnalysisChartCard>
               </div>
-              <TodoList
-                v-else
-                class="mb-5"
-                title="待办事项管理"
-                style="height: 100%"
-              />
+              <div v-else class="mb-5" style="height: 100%">
+                <AnalysisChartCard title="待办事项管理" style="height: 100%">
+                  <div class="todo-list-container">
+                    <TodoList />
+                  </div>
+                </AnalysisChartCard>
+              </div>
             </div>
 
             <!-- 公告板块 - 宽度增加160px -->
@@ -835,13 +824,12 @@ onMounted(() => {
                 <div
                   v-loading="announcementLoading"
                   class="announcement-list"
-                  style="height: 450px; overflow-y: auto; padding-right: 8px;"
                 >
-                  <div v-if="announcements.length > 0" class="space-y-3">
+                  <div v-if="announcements.length > 0">
                     <div
                       v-for="item in announcements"
                       :key="item.id"
-                      class="announcement-card cursor-pointer rounded-lg bg-white p-3 shadow transition-shadow hover:shadow-md"
+                      class="announcement-card cursor-pointer"
                       @click="viewAnnouncementDetail(item)"
                     >
                       <div
@@ -868,9 +856,7 @@ onMounted(() => {
                             "
                             effect="light"
                           >
-                            {{
-                              item.status === 'PUBLISHED' ? '已发布' : '草稿'
-                            }}
+                            {{ item.status === 'PUBLISHED' ? '已发布' : '草稿' }}
                           </ElTag>
                         </div>
                       </div>
@@ -893,19 +879,13 @@ onMounted(() => {
                             size="small"
                             effect="plain"
                           >
-                            {{
-                              announcementTypeMap[item.announcementType]
-                                ?.label || '普通'
-                            }}
+                            {{ announcementTypeMap[item.announcementType]
+                                ?.label || '普通' }}
                           </ElTag>
-                          <span class="ml-2">{{
-                            item.publisherName || '系统'
-                          }}</span>
+                          <span class="ml-2">{{ item.publisherName || '系统' }}</span>
                         </div>
                         <div class="flex items-center">
-                          <span class="mr-2">{{
-                            formatDateTime(item.publishTime || item.createTime)
-                          }}</span>
+                          <span class="mr-2">{{ formatDateTime(item.publishTime || item.createTime) }}</span>
                           <span class="flex items-center">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -955,23 +935,23 @@ onMounted(() => {
                     </svg>
                     <span>暂无公告</span>
                   </div>
-                </div>
 
-                <!-- 公告分页 -->
-                <div
-                  v-if="announcementTotal > 0"
-                  class="announcement-pagination mt-4 flex justify-center"
-                >
-                  <ElPagination
-                    v-model:current-page="announcementCurrentPage"
-                    v-model:page-size="announcementPageSize"
-                    :page-sizes="[5, 10, 20]"
-                    layout="total, sizes, prev, pager, next, jumper"
-                    :total="announcementTotal"
-                    @size-change="loadAnnouncements"
-                    @current-change="loadAnnouncements"
-                    size="small"
-                  />
+                  <!-- 公告分页 -->
+                  <div
+                    v-if="announcementTotal > 0"
+                    class="announcement-pagination mt-4 flex justify-center"
+                  >
+                    <ElPagination
+                      v-model:current-page="announcementCurrentPage"
+                      v-model:page-size="announcementPageSize"
+                      :page-sizes="[5, 10, 20]"
+                      layout="total, sizes, prev, pager, next, jumper"
+                      :total="announcementTotal"
+                      @size-change="loadAnnouncements"
+                      @current-change="loadAnnouncements"
+                      size="small"
+                    />
+                  </div>
                 </div>
               </AnalysisChartCard>
             </div>
@@ -1602,6 +1582,122 @@ onMounted(() => {
 :deep(.el-scrollbar__bar.is-horizontal) {
   height: 8px !important;
   bottom: 2px !important;
+}
+
+/* 最新动态样式 */
+.activity-timeline-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.activity-timeline-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-timeline-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.activity-timeline-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.activity-timeline-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 待办事项样式 */
+.todo-list-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.todo-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.todo-list-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.todo-list-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.todo-list-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 公告列表样式 */
+.announcement-list {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.announcement-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.announcement-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.announcement-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.announcement-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.announcement-card {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.announcement-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #dee2e6;
+  transform: translateY(-2px);
+}
+
+.announcement-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #343a40;
+  margin-bottom: 8px;
+}
+
+.announcement-content {
+  font-size: 13px;
+  color: #6c757d;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.announcement-meta {
+  font-size: 12px;
+  color: #adb5bd;
 }
 
 /* 清理不需要的样式 */

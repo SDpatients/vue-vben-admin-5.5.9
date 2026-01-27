@@ -532,13 +532,9 @@ const initAttachmentSortable = () => {
     sortableInstance.destroy();
     sortableInstance = null;
   }
-
-  // 如果没有选中的数据项或没有附件，直接返回
-  if (
-    !selectedDataItem.value ||
-    !selectedDataItem.value.files ||
-    selectedDataItem.value.files.length <= 1
-  ) {
+  
+  // 如果没有选中的数据项或没有附件元素，直接返回
+  if (!selectedDataItem.value || !selectedDataItem.value.files) {
     return;
   }
 
@@ -1308,41 +1304,157 @@ const handleAddSubmit = async () => {
       ElMessage.error('任务不存在，请先创建任务');
       return;
     }
-
-    const taskId = currentModule.value.task.id;
-
-    // 创建任务提交记录
-    const createResponse = await CaseTaskSubmissionApi.createSubmission({
-      caseTaskId: taskId,
-      submissionTitle: formData.value.title,
-      submissionContent: formData.value.content,
-      submissionType: 'NORMAL',
-    });
-
-    if (createResponse.code !== 200) {
-      ElMessage.error(createResponse.message || '创建提交记录失败');
-      return;
+    
+    let submissionId;
+    
+    if (isEditMode.value && currentItem.value) {
+      // 编辑模式：使用现有提交ID
+      submissionId = currentItem.value.id;
+      // 注意：API文档中没有更新提交记录的接口，跳过标题和内容更新
+    } else {
+      // 新增模式：创建新提交记录
+      const createResponse = await CaseTaskSubmissionApi.createSubmission({
+        caseTaskId: currentModule.value.task.id,
+        submissionTitle: formData.value.title,
+        submissionContent: formData.value.content,
+        submissionType: 'NORMAL',
+      });
+      
+      if (createResponse.code !== 200) {
+        ElMessage.error(createResponse.message || '创建提交记录失败');
+        return;
+      }
+      
+      submissionId = createResponse.data.submissionId;
     }
-
-    const submissionId = createResponse.data.submissionId;
-
-    // 上传文件
+    
+    // 上传文件：只上传没有id的本地文件
     if (uploadFiles.value.length > 0) {
-      for (const file of uploadFiles.value) {
-        if (file.raw) {
-          await CaseTaskSubmissionApi.uploadSubmissionFile(
-            submissionId,
-            file.raw,
-          );
+      const uploadedFiles = [];
+      
+      // 上传本地文件（没有id的文件）
+      for (let index = 0; index < uploadFiles.value.length; index++) {
+        const file = uploadFiles.value[index];
+        if (file.raw && !file.id) {
+          // 上传本地文件，传递排序序号
+          const uploadResponse = await CaseTaskSubmissionApi.uploadSubmissionFile(submissionId, file.raw, undefined, index + 1);
+          uploadedFiles.push(uploadResponse.data);
         }
       }
+      
+      // 上传完成后，调用批量更新排序接口，确保所有文件排序正确
+    try {
+      // 构建排序请求数据：包含所有文件（已上传的和新上传的）
+      const sortRequest = uploadFiles.value.map((file, index) => {
+        // 查找新上传的文件，使用返回的fileId
+        const uploadedFile = uploadedFiles.find(uf => uf.originalFileName === file.name);
+        return {
+          fileId: file.id || uploadedFile?.id,
+          sortOrder: index + 1
+        };
+      }).filter(item => item.fileId !== undefined); // 只包含有fileId的文件
+      
+      if (sortRequest.length > 0) {
+        await CaseTaskSubmissionApi.updateFileSortOrder(submissionId, sortRequest);
+        // 排序更新成功，后续会在保存成功后统一刷新文件数据
+      }
+    } catch (error) {
+      console.error('更新文件排序失败:', error);
+      ElMessage.warning('文件排序更新失败，但文件已成功上传');
+    }
     }
 
     ElMessage.success('提交成功');
     showAddDialog.value = false;
-
-    // 重新加载当前阶段数据
-    await loadStageData(currentStageIndex.value);
+    
+    // 只刷新当前数据项的文件数据，不需要重新加载整个阶段
+    if (currentItem.value && currentModule.value) {
+      try {
+        // 重新获取当前数据项的文件列表，确保显示最新的排序
+        const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(currentItem.value.id);
+        if (filesResponse.code === 200 && filesResponse.data) {
+          let updatedFiles = filesResponse.data;
+          
+          // 获取token用于后续请求
+          const token = localStorage.getItem('token');
+          
+          // 处理文件，为图片类型添加本地预览URL
+          if (token) {
+            updatedFiles = await Promise.all(updatedFiles.map(async (f: any) => {
+              const fileData = {
+                id: f.id,
+                fileName: f.originalFileName,
+                originalFileName: f.originalFileName,
+                filePath: f.filePath,
+                fileSize: f.fileSize,
+                uploadTime: f.uploadTime,
+                uploadUserName: f.uploadUserName,
+                previewUrl: `/api/v1/file/preview/${f.id}`,
+              };
+              
+              // 检查是否为图片文件
+              if (f.originalFileName && (f.originalFileName.toLowerCase().endsWith('.jpg') || f.originalFileName.toLowerCase().endsWith('.jpeg') || f.originalFileName.toLowerCase().endsWith('.png') || f.originalFileName.toLowerCase().endsWith('.gif') || f.originalFileName.toLowerCase().endsWith('.webp'))) {
+                try {
+                  // 调用API获取图片，添加JWT令牌
+                  const response = await fetch(fileData.previewUrl, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (response.ok) {
+                    // 转换为Blob URL用于本地预览
+                    const blob = await response.blob();
+                    fileData.localPreviewUrl = window.URL.createObjectURL(blob);
+                  }
+                } catch (error) {
+                  console.error(`获取图片ID ${f.id} 的预览失败:`, error);
+                }
+              }
+              
+              return fileData;
+            }));
+          }
+          
+          // 更新当前数据项的文件列表
+          currentItem.value.files = updatedFiles;
+          
+          // 同时更新选中的数据项，确保界面立即显示最新的排序
+          if (selectedDataItem.value && selectedDataItem.value.id === currentItem.value.id) {
+            selectedDataItem.value.files = updatedFiles;
+          }
+          
+          // 也更新模块数据中的对应项
+          const moduleIndex = stages[currentStageIndex.value].modules.findIndex(
+            m => m.id === currentModule.value.id
+          );
+          if (moduleIndex !== -1) {
+            const itemIndex = stages[currentStageIndex.value].modules[moduleIndex].data.findIndex(
+              item => item.id === currentItem.value.id
+            );
+            if (itemIndex !== -1) {
+              stages[currentStageIndex.value].modules[moduleIndex].data[itemIndex].files = updatedFiles;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('刷新文件数据失败:', error);
+      }
+    } else if (currentModule.value && !currentItem.value) {
+      // 新增模式：找到新创建的数据项并更新
+      await loadStageData(currentStageIndex.value);
+      
+      // 重新选择当前模块和数据项
+      const refreshedModule = stages[currentStageIndex.value].modules.find(
+        m => m.id === currentModule.value.id
+      );
+      if (refreshedModule && refreshedModule.data.length > 0) {
+        selectedModule.value = refreshedModule;
+        // 选择最新的一个数据项（刚刚创建的）
+        selectedDataItem.value = refreshedModule.data[refreshedModule.data.length - 1];
+      }
+    }
   } catch (error: any) {
     if (
       error &&
@@ -1408,6 +1520,33 @@ const openMobileUploadDialog = () => {
 
   // 开始轮询检查上传状态
   startQrCodePolling(uploadSessionId);
+};
+
+// 保存文件排序
+const saveFileSortOrder = async () => {
+  if (!currentItem.value || uploadFiles.value.length <= 1) {
+    return;
+  }
+  
+  try {
+    const submissionId = currentItem.value.id;
+    
+    // 构建排序请求数据
+    const sortRequest = {
+      files: uploadFiles.value.map((file, index) => ({
+        fileId: file.id,
+        sortOrder: index + 1
+      }))
+    };
+    
+    // 调用批量更新排序的API
+    await CaseTaskSubmissionApi.updateFileSortOrder(submissionId, sortRequest.files);
+    
+    ElMessage.success('文件排序已保存');
+  } catch (error) {
+    console.error('保存文件排序失败:', error);
+    ElMessage.error('保存文件排序失败');
+  }
 };
 
 // 开始轮询检查手机上传状态
@@ -1693,92 +1832,48 @@ const closeQrCodeDialog = () => {
                       :key="selectedDataItem.id"
                     >
                       <div class="data-content-detail">
-                        <div class="data-row">
-                          <span class="data-label">日期:</span>
-                          <span class="data-value">{{
-                            selectedDataItem.date
-                          }}</span>
-                        </div>
-                        <div
-                          v-if="
-                            selectedDataItem.files &&
-                            selectedDataItem.files.length > 0
-                          "
-                          class="attachments-preview-section"
-                        >
+                      <div class="data-row">
+                        <span class="data-label">日期:</span>
+                        <span class="data-value">{{ selectedDataItem.date }}</span>
+                      </div>
+                      <div v-if="selectedDataItem.files && selectedDataItem.files.length > 0" class="attachments-preview-section">
+                        <div class="attachments-preview-grid" ref="attachmentsGridRef">
                           <div
-                            class="attachments-preview-grid"
-                            ref="attachmentsGridRef"
+                            v-for="(file, index) in selectedDataItem.files"
+                            :key="file.id"
+                            class="attachment-preview-item"
+                            @click.stop="handleFilePreview(file)"
                           >
-                            <div
-                              v-for="(file, index) in selectedDataItem.files"
-                              :key="file.id"
-                              class="attachment-preview-item"
-                              @click.stop="handleFilePreview(file)"
-                            >
-                              <!-- 图片类型直接预览 -->
-                              <div
-                                v-if="
-                                  file.fileName &&
-                                  (file.fileName
-                                    .toLowerCase()
-                                    .endsWith('.jpg') ||
-                                    file.fileName
-                                      .toLowerCase()
-                                      .endsWith('.jpeg') ||
-                                    file.fileName
-                                      .toLowerCase()
-                                      .endsWith('.png') ||
-                                    file.fileName
-                                      .toLowerCase()
-                                      .endsWith('.gif'))
-                                "
-                                class="image-preview"
+                            <!-- 图片类型直接预览 -->
+                            <div v-if="file.fileName && (file.fileName.toLowerCase().endsWith('.jpg') || file.fileName.toLowerCase().endsWith('.jpeg') || file.fileName.toLowerCase().endsWith('.png') || file.fileName.toLowerCase().endsWith('.gif') || file.fileName.toLowerCase().endsWith('.webp'))" class="image-preview">
+                              <img :src="file.localPreviewUrl || file.previewUrl" alt="{{ file.fileName || file.name }}" class="preview-image" />
+                            </div>
+                            <!-- 其他文件类型显示图标 -->
+                            <div v-else class="file-icon-preview">
+                              <Icon icon="lucide:file" class="file-icon" />
+                              <span class="file-name">{{ file.fileName || file.name }}</span>
+                            </div>
+                            <div class="attachment-actions-overlay">
+                              <span
+                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                                @click.stop="handleFilePreview(file)"
                               >
-                                <img
-                                  :src="file.localPreviewUrl || file.previewUrl"
-                                  alt="{{ file.fileName || file.name }}"
-                                  class="preview-image"
-                                />
-                              </div>
-                              <!-- 其他文件类型显示图标 -->
-                              <div v-else class="file-icon-preview">
-                                <Icon icon="lucide:file" class="file-icon" />
-                                <span class="file-name">{{
-                                  file.fileName || file.name
-                                }}</span>
-                              </div>
-                              <div class="attachment-actions-overlay">
-                                <span
-                                  style="
-                                    color: white;
-                                    cursor: pointer;
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 4px;
-                                  "
-                                  @click.stop="handleFilePreview(file)"
-                                >
-                                  <Icon icon="lucide:eye" />
-                                  预览
-                                </span>
-                                <span
-                                  style="
-                                    color: white;
-                                    cursor: pointer;
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 4px;
-                                  "
-                                  @click.stop="handleFileDownload(file)"
-                                >
-                                  <Icon icon="lucide:download" />
-                                  下载
-                                </span>
-                              </div>
+                                <Icon icon="lucide:eye" />
+                                预览
+                              </span>
+                              <span
+                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                                @click.stop="handleFileDownload(file)"
+                              >
+                                <Icon icon="lucide:download" />
+                                下载
+                              </span>
                             </div>
                           </div>
                         </div>
+                      </div>
+                       
+
                       </div>
                     </div>
                   </transition>
@@ -1815,11 +1910,7 @@ const closeQrCodeDialog = () => {
             label-width="100px"
           >
             <ElFormItem label="标题" prop="title">
-              <ElInput
-                v-model="formData.title"
-                placeholder="请输入标题"
-                :autosize="false"
-              />
+              <ElInput v-model="formData.title" placeholder="请输入标题" :autosize="false" :disabled="isEditMode" />
             </ElFormItem>
             <ElFormItem label="内容" prop="content">
               <ElInput
@@ -1828,6 +1919,7 @@ const closeQrCodeDialog = () => {
                 :rows="6"
                 placeholder="请输入内容"
                 :autosize="false"
+                :disabled="isEditMode"
               />
             </ElFormItem>
             <ElFormItem label="日期" prop="date">
@@ -1838,6 +1930,7 @@ const closeQrCodeDialog = () => {
                 style="width: 100%"
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
+                :disabled="isEditMode"
               />
             </ElFormItem>
           </ElForm>

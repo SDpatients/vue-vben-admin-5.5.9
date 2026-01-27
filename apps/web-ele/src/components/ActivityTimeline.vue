@@ -152,10 +152,11 @@ defineExpose({
 .activity-timeline {
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  background: #fff;
+  padding: 16px;
+  background: #ffe6e6;
   border-radius: 8px;
-  height: 100%; /* 确保组件占满父容器高度 */
+  min-height: 200px;
+  max-height: 100%;
 }
 
 /* 表头 */
@@ -199,7 +200,8 @@ defineExpose({
 /* 列表容器 */
 .activity-list-wrapper {
   flex: 1;
-  height: calc(100% - 50px); /* 固定高度，减去header高度 */
+  min-height: 150px;
+  max-height: 350px;
   overflow: hidden;
 }
 
@@ -217,10 +219,17 @@ defineExpose({
   padding-top: 10px;
   padding-bottom: 20px;
   margin-top: 0;
-  margin-bottom: 4px;
-  background-color: #fff;
+  margin-bottom: 8px;
+  background-color: #e6f7ff;
   border-radius: 8px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  transition: all 0.3s;
+}
+
+.activity-item:hover {
+  background-color: #bae7ff;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  transform: translateY(-2px);
 }
 
 .activity-icon {

@@ -71,6 +71,13 @@ export namespace CaseTaskSubmissionApi {
     return requestClient8085.delete(`/api/case-task-submissions/${id}`);
   }
 
+  export async function updateSubmission(id: number, data: {
+    submissionTitle?: string;
+    submissionContent?: string;
+  }) {
+    return requestClient8085.put(`/api/case-task-submissions/${id}`, data);
+  }
+
   export async function getLatestSubmissions(params: {
     caseTaskId: number;
     limit?: number;
@@ -78,16 +85,25 @@ export namespace CaseTaskSubmissionApi {
     return requestClient8085.get<CaseTaskSubmission[]>('/api/case-task-submissions/latest', { params });
   }
 
-  export async function uploadSubmissionFile(submissionId: number, file: File, description?: string) {
+  export async function uploadSubmissionFile(submissionId: number, file: File, description?: string, sortOrder?: number) {
     const formData = new FormData();
     formData.append('file', file);
     if (description) {
       formData.append('description', description);
     }
-    return requestClient8085.post<SubmissionFile>(`/api/case-task-submissions/${submissionId}/files`, formData, {
+    if (sortOrder !== undefined) {
+      formData.append('sortOrder', sortOrder.toString());
+    }
+    return requestClient8085.post<SubmissionFile & { sortOrder: number }>(`/api/case-task-submissions/${submissionId}/files`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+    });
+  }
+
+  export async function updateFileSortOrder(submissionId: number, files: Array<{ fileId: number; sortOrder: number }>) {
+    return requestClient8085.put(`/api/case-task-submissions/${submissionId}/files/sort-order`, {
+      files,
     });
   }
 
