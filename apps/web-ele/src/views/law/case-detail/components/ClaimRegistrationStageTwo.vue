@@ -34,6 +34,7 @@ import {
 import {
   createClaimReviewApi,
   submitClaimReviewApi,
+  updateClaimReviewApi,
 } from '#/api/core/claim-review';
 import {
   getClaimRegistrationDetailApi,
@@ -222,22 +223,27 @@ const openReviewDialog = async (row: any) => {
     console.log('获取债权详情响应:', response);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
+      
       if (response.data.reviewInfo) {
         Object.assign(reviewForm, response.data.reviewInfo);
         console.log('使用现有审查信息填充表单');
-      } else {
-        reviewForm.declaredPrincipal = response.data.principal || 0;
-        reviewForm.declaredInterest = response.data.interest || 0;
-        reviewForm.declaredPenalty = response.data.penalty || 0;
-        reviewForm.declaredOtherLosses = response.data.otherLosses || 0;
-        reviewForm.declaredTotalAmount = response.data.totalAmount || 0;
+      }
+      
+      reviewForm.declaredPrincipal = response.data.principal || 0;
+      reviewForm.declaredInterest = response.data.interest || 0;
+      reviewForm.declaredPenalty = response.data.penalty || 0;
+      reviewForm.declaredOtherLosses = response.data.otherLosses || 0;
+      reviewForm.declaredTotalAmount = response.data.totalAmount || 0;
+      
+      if (!response.data.reviewInfo || response.data.reviewInfo.confirmedPrincipal === null) {
         reviewForm.confirmedPrincipal = response.data.principal || 0;
         reviewForm.confirmedInterest = response.data.interest || 0;
         reviewForm.confirmedPenalty = response.data.penalty || 0;
         reviewForm.confirmedOtherLosses = response.data.otherLosses || 0;
         reviewForm.confirmedTotalAmount = response.data.totalAmount || 0;
-        console.log('使用申报信息初始化审查表单');
+        console.log('使用申报信息初始化确认金额');
       }
+      
       showReviewDialog.value = true;
     } else {
       ElMessage.error('获取债权详情失败');
@@ -424,23 +430,34 @@ const handleSubmitReview = async () => {
       reviewSummary: reviewForm.reviewSummary || null,
       reviewReport: reviewForm.reviewReport || null,
       reviewAttachments: reviewForm.reviewAttachments || null,
-      reviewStatus: reviewForm.reviewStatus,
+      reviewStatus: 'COMPLETED',
       remarks: reviewForm.remarks || null,
     };
-    const response = await submitClaimReviewApi(
+
+    const updateResponse = await updateClaimReviewApi(
       currentClaim.value.reviewInfo.id,
       requestData
     );
-    if (response.code === 200) {
+    
+    if (updateResponse.code !== 200) {
+      throw new Error(updateResponse.message || '更新审查记录失败');
+    }
+
+    const submitResponse = await submitClaimReviewApi(
+      currentClaim.value.reviewInfo.id,
+      requestData
+    );
+    
+    if (submitResponse.code === 200) {
       ElMessage.success('提交审查成功');
       await fetchClaims();
       closeReviewDialog();
     } else {
-      ElMessage.error(`提交失败：${response.message || '未知错误'}`);
+      ElMessage.error(`提交失败：${submitResponse.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('提交审查失败:', error);
-    ElMessage.error('提交审查失败');
+    ElMessage.error(error.message || '提交审查失败');
   } finally {
     reviewLoading.value = false;
   }
@@ -505,23 +522,6 @@ onMounted(() => {
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
           <ElTableColumn
-            prop="creditor_name"
-            label="债权人姓名或名称"
-            min-width="180"
-          />
-          <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
-          <ElTableColumn
-            prop="credit_code"
-            label="统一社会信用代码"
-            width="180"
-          />
-          <ElTableColumn prop="principal" label="申报本金" width="120" />
-          <ElTableColumn prop="interest" label="申报利息" width="120" />
-          <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
-          <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
-          <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn
-            v-if="claims.some((c) => c.reviewInfo)"
             label="审查状态"
             width="100"
           >
@@ -538,6 +538,22 @@ onMounted(() => {
               <ElTag v-else type="warning" size="small"> 待审查 </ElTag>
             </template>
           </ElTableColumn>
+          <ElTableColumn
+            prop="creditor_name"
+            label="债权人姓名或名称"
+            min-width="180"
+          />
+          <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
+          <ElTableColumn
+            prop="credit_code"
+            label="统一社会信用代码"
+            width="180"
+          />
+          <ElTableColumn prop="principal" label="申报本金" width="120" />
+          <ElTableColumn prop="interest" label="申报利息" width="120" />
+          <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
+          <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
+          <ElTableColumn prop="claim_type" label="债权种类" width="120" />
           <ElTableColumn label="操作" width="250" fixed="right">
             <template #default="scope">
               <ElButton
@@ -781,6 +797,7 @@ onMounted(() => {
                     v-model="reviewForm.declaredPrincipal"
                     type="number"
                     placeholder="申报本金"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -790,6 +807,7 @@ onMounted(() => {
                     v-model="reviewForm.declaredInterest"
                     type="number"
                     placeholder="申报利息"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -799,6 +817,7 @@ onMounted(() => {
                     v-model="reviewForm.declaredPenalty"
                     type="number"
                     placeholder="申报违约金"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -808,6 +827,7 @@ onMounted(() => {
                     v-model="reviewForm.declaredOtherLosses"
                     type="number"
                     placeholder="申报其他损失"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>

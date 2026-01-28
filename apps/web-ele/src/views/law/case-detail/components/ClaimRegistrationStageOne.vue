@@ -122,6 +122,10 @@ const totalAmount = computed(() => {
   return (principal + interest + penalty + otherLosses).toFixed(2);
 });
 
+const hasRegisteredClaims = computed(() => {
+  return claims.value.some((claim: any) => claim.registrationStatus === 'REGISTERED');
+});
+
 const fetchClaims = async () => {
   loading.value = true;
   try {
@@ -554,6 +558,7 @@ const getMaterialCompletenessTag = (completeness: string) => {
 };
 
 defineExpose({
+  hasRegisteredClaims,
   openAddDialog,
 });
 
@@ -592,6 +597,46 @@ onMounted(() => {
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
           <ElTableColumn
+            prop="registration_status"
+            label="登记状态"
+            width="150"
+          >
+            <template #default="scope">
+              <div class="flex items-center gap-2">
+                <ElTag
+                  :type="
+                    getRegistrationStatusTag(scope.row.registration_status).type
+                  "
+                  size="small"
+                >
+                  {{ 
+                    getRegistrationStatusTag(scope.row.registration_status).text
+                  }}
+                </ElTag>
+              </div>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn
+            prop="material_completeness"
+            label="材料完整性"
+            width="100"
+          >
+            <template #default="scope">
+              <ElTag
+                :type="
+                  getMaterialCompletenessTag(scope.row.material_completeness)
+                    .type
+                "
+                size="small"
+              >
+                {{ 
+                  getMaterialCompletenessTag(scope.row.material_completeness)
+                    .text
+                }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn
             prop="creditor_name"
             label="债权人姓名或名称"
             min-width="180"
@@ -607,44 +652,6 @@ onMounted(() => {
           <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
           <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
           <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn
-            prop="material_completeness"
-            label="材料完整性"
-            width="100"
-          >
-            <template #default="scope">
-              <ElTag
-                :type="
-                  getMaterialCompletenessTag(scope.row.material_completeness)
-                    .type
-                "
-                size="small"
-              >
-                {{
-                  getMaterialCompletenessTag(scope.row.material_completeness)
-                    .text
-                }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn
-            prop="registration_status"
-            label="登记状态"
-            width="100"
-          >
-            <template #default="scope">
-              <ElTag
-                :type="
-                  getRegistrationStatusTag(scope.row.registration_status).type
-                "
-                size="small"
-              >
-                {{
-                  getRegistrationStatusTag(scope.row.registration_status).text
-                }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
           <ElTableColumn label="操作" width="350" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
@@ -1353,5 +1360,11 @@ onMounted(() => {
   border-top: 1px solid #ebeef5;
   padding-top: 16px;
   margin-top: 16px;
+}
+
+.gap-2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

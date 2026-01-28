@@ -1,8 +1,11 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import { ElButton, ElDialog, ElMessage } from 'element-plus';
+import QRCode from 'qrcode.vue';
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
 
 let stompClient: any = null;
 let socket: any = null;
@@ -24,6 +27,21 @@ const onlineUsers = ref<any[]>([]);
 const showUserInfo = ref(false);
 const selectedUser = ref<any>(null);
 const userInfoDialogVisible = ref(false);
+
+// 文件上传相关
+const showFileUpload = ref(false);
+const uploadedFiles = ref<any[]>([]);
+const uploading = ref(false);
+const uploadProgress = ref(0);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const bizType = ref('common');
+const bizId = ref('1');
+const filePageNum = ref(1);
+const filePageSize = ref(10);
+const fileTotal = ref(0);
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<any>(null);
+const newFileName = ref('');
 
 const addLog = (
   message: string,
@@ -95,8 +113,8 @@ const checkServerAvailability = async () => {
 };
 
 const checkLibraries = () => {
-  const sockjsAvailable = (window as any).SockJS !== undefined;
-  const stompAvailable = (window as any).Stomp !== undefined;
+  const sockjsAvailable = SockJS !== undefined;
+  const stompAvailable = Stomp !== undefined;
 
   addDiagnostic(
     '检查SockJS库',
@@ -200,16 +218,22 @@ const connect = () => {
 
   connecting.value = true;
   addLog('开始连接WebSocket服务器...', 'info');
+  console.log('=== 开始连接WebSocket服务器 ===');
+  console.log('当前时间:', new Date().toISOString());
+  console.log('服务器地址:', serverUrl.value);
+  console.log('Token:', token.value);
+  console.log('SockJS可用:', SockJS !== undefined);
+  console.log('STOMP可用:', Stomp !== undefined);
 
-  if ((window as any).SockJS === undefined) {
-    addLog('SockJS库未加载，请检查index.html中的CDN引用', 'error');
+  if (SockJS === undefined) {
+    addLog('SockJS库未加载', 'error');
     ElMessage.error('SockJS库未加载');
     connecting.value = false;
     return;
   }
 
-  if ((window as any).Stomp === undefined) {
-    addLog('STOMP库未加载，请检查index.html中的CDN引用', 'error');
+  if (Stomp === undefined) {
+    addLog('STOMP库未加载', 'error');
     ElMessage.error('STOMP库未加载');
     connecting.value = false;
     return;
@@ -226,8 +250,8 @@ const connect = () => {
       addLog(`在URL中添加token查询参数: ${sockJsUrl}`, 'info');
     }
     
-    socket = new (window as any).SockJS(sockJsUrl);
-    stompClient = new (window as any).Stomp.over(socket);
+    socket = new SockJS(sockJsUrl);
+    stompClient = Stomp.over(socket);
 
     stompClient.debug = (msg: string) => {
       addLog(`STOMP: ${msg}`, 'info');
@@ -373,6 +397,55 @@ const subscribeMessages = () => {
     console.log('正在输入消息:', message);
   });
   console.log('已订阅 /topic/chat/typing，订阅ID:', typingSubscription.id);
+
+  // 订阅文件操作通知
+  addLog('订阅 /topic/file/upload');
+  console.log('=== 开始订阅文件操作通知 ===');
+  console.log('订阅主题:', '/topic/file/upload');
+  console.log('STOMP客户端状态:', {
+    connected: stompClient.connected,
+    subscriptions: Object.keys(stompClient.subscriptions).length
+  });
+  
+  const fileNotificationSubscription = stompClient.subscribe('/topic/file/upload', (message: any) => {
+    try {
+      console.log('=== 收到文件操作通知 ===');
+      console.log('当前时间:', new Date().toISOString());
+      console.log('完整文件操作通知:', message);
+      console.log('消息头:', message.headers);
+      console.log('消息体:', message.body);
+      
+      addLog(`收到文件操作通知: ${message.body}`);
+      
+      const notification = JSON.parse(message.body);
+      console.log('解析后的文件操作通知:', notification);
+      
+      // 检查通知类型
+      if (notification.type === 'FILE_UPLOADED') {
+        addLog(`文件上传成功: ${notification.fileName || '未知文件'}`, 'success');
+        console.log('文件上传成功，刷新文件列表...');
+      } else if (notification.type === 'FILE_DELETED') {
+        addLog(`文件删除成功: ${notification.fileName || '未知文件'}`, 'success');
+        console.log('文件删除成功，刷新文件列表...');
+      } else if (notification.type === 'FILE_RENAMED') {
+        addLog(`文件重命名成功: ${notification.oldFileName || '未知文件'} -> ${notification.newFileName || '未知文件'}`, 'success');
+        console.log('文件重命名成功，刷新文件列表...');
+      } else {
+        addLog(`收到未知类型的文件操作通知: ${notification.type}`, 'info');
+        console.log('未知通知类型:', notification.type);
+      }
+      
+      // 所有文件操作都刷新文件列表
+      console.log('准备刷新文件列表...');
+      loadFileList();
+      console.log('文件列表刷新完成');
+    } catch (error: any) {
+      addLog(`解析文件操作通知失败: ${error.message}`);
+      console.error('解析文件操作通知失败:', error, '消息内容:', message.body);
+    }
+  });
+  console.log('已订阅 /topic/file/upload，订阅ID:', fileNotificationSubscription.id);
+  console.log('文件操作通知订阅成功，等待接收通知...');
 
   // 订阅聊天消息主题
   addLog('订阅 /user/queue/chat');
@@ -689,12 +762,358 @@ const messageTypes = [
   { label: '视频消息', value: 'VIDEO' },
 ];
 
+// 文件上传相关函数
+const generateQRCode = () => {
+  const baseUrl = window.location.origin;
+  const uploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${bizType.value}&bizId=${bizId.value}`;
+  return uploadUrl;
+};
+
+const triggerFileUpload = () => {
+  fileInputRef.value?.click();
+};
+
+const handleFileChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const files = target.files;
+  if (files && files.length > 0) {
+    await uploadFile(files[0]);
+  }
+  if (target) {
+    target.value = '';
+  }
+};
+
+const uploadFile = async (file: File) => {
+  if (!token.value) {
+    ElMessage.error('请先设置Token');
+    return;
+  }
+
+  uploading.value = true;
+  uploadProgress.value = 0;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bizType', bizType.value);
+    formData.append('bizId', bizId.value);
+
+    const response = await fetch('/api/v1/file/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (result.code === 200) {
+      ElMessage.success('文件上传成功');
+      addLog(`文件上传成功: ${file.name}`, 'success');
+      
+      // 发送文件上传通知（如果WebSocket已连接）
+      if (stompClient && connected.value) {
+        try {
+          const uploadNotification = {
+            type: 'FILE_UPLOADED',
+            fileName: file.name,
+            fileId: result.data.id,
+            bizType: bizType.value,
+            bizId: bizId.value,
+            uploadTime: new Date().toISOString()
+          };
+          
+          console.log('=== 发送文件上传通知 ===');
+          console.log('通知内容:', uploadNotification);
+          console.log('发送主题:', '/app/file/upload/notify');
+          console.log('STOMP客户端状态:', {
+            connected: stompClient.connected,
+            subscriptions: Object.keys(stompClient.subscriptions).length
+          });
+          
+          stompClient.send('/app/file/upload/notify', {}, JSON.stringify(uploadNotification));
+          addLog('发送文件上传通知成功', 'info');
+          console.log('文件上传通知发送成功');
+        } catch (error: any) {
+          addLog(`发送文件上传通知失败: ${error.message}`, 'warning');
+          console.error('发送文件上传通知失败:', error);
+          console.error('STOMP客户端状态:', stompClient);
+        }
+      } else {
+        console.log('WebSocket未连接，跳过发送通知');
+        console.log('stompClient:', stompClient);
+        console.log('connected:', connected.value);
+      }
+      
+      await loadFileList();
+    } else {
+      throw new Error(result.message || '上传失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文件上传失败');
+    addLog(`文件上传失败: ${error.message}`, 'error');
+  } finally {
+    uploading.value = false;
+    uploadProgress.value = 0;
+  }
+};
+
+const loadFileList = async () => {
+  try {
+    const params = new URLSearchParams({
+      pageNum: filePageNum.value.toString(),
+      pageSize: filePageSize.value.toString(),
+      bizType: bizType.value,
+      bizId: bizId.value,
+    });
+
+    const response = await fetch(`/api/v1/file/list?${params}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+      },
+    });
+
+    const result = await response.json();
+
+    if (result.code === 200) {
+      uploadedFiles.value = result.data.list;
+      fileTotal.value = result.data.total;
+    }
+  } catch (error: any) {
+    console.error('加载文件列表失败:', error);
+  }
+};
+
+const downloadFile = (fileId: number, fileName: string) => {
+  const downloadUrl = `/api/v1/file/download/${fileId}`;
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = fileName;
+  link.setAttribute('target', '_blank');
+  
+  // 创建一个XMLHttpRequest来处理带header的下载
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', downloadUrl, true);
+  xhr.setRequestHeader('Authorization', `Bearer ${token.value}`);
+  xhr.responseType = 'blob';
+  
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      const blob = xhr.response;
+      const url = window.URL.createObjectURL(blob);
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }
+  };
+  
+  xhr.send();
+  addLog(`下载文件: ${fileName}`, 'info');
+};
+
+const deleteFile = async (fileId: number, fileName: string) => {
+  if (!confirm(`确定要删除文件 "${fileName}" 吗？`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/v1/file/${fileId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+      },
+    });
+
+    const result = await response.json();
+
+    if (result.code === 200) {
+      ElMessage.success('文件删除成功');
+      addLog(`删除文件成功: ${fileName}`, 'success');
+      
+      // 发送文件删除通知（如果WebSocket已连接）
+      if (stompClient && connected.value) {
+        try {
+          const deleteNotification = {
+            type: 'FILE_DELETED',
+            fileName: fileName,
+            fileId: fileId,
+            bizType: bizType.value,
+            bizId: bizId.value,
+            deleteTime: new Date().toISOString()
+          };
+          
+          stompClient.send('/app/file/delete/notify', {}, JSON.stringify(deleteNotification));
+          addLog('发送文件删除通知成功', 'info');
+        } catch (error: any) {
+          addLog(`发送文件删除通知失败: ${error.message}`, 'warning');
+          console.error('发送文件删除通知失败:', error);
+        }
+      }
+      
+      await loadFileList();
+    } else {
+      throw new Error(result.message || '删除失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文件删除失败');
+    addLog(`删除文件失败: ${error.message}`, 'error');
+  }
+};
+
+const showRenameFileDialog = (file: any) => {
+  currentRenameFile.value = file;
+  newFileName.value = file.originalFileName;
+  showRenameDialog.value = true;
+};
+
+const renameFile = async () => {
+  if (!newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('newFileName', newFileName.value);
+
+    const response = await fetch(
+      `/api/v1/file/${currentRenameFile.value.id}/rename`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token.value}`,
+        },
+        body: formData,
+      }
+    );
+
+    const result = await response.json();
+
+    if (result.code === 200) {
+      ElMessage.success('文件重命名成功');
+      addLog(`重命名文件成功: ${currentRenameFile.value.originalFileName} -> ${newFileName.value}`, 'success');
+      
+      // 发送文件重命名通知（如果WebSocket已连接）
+      if (stompClient && connected.value) {
+        try {
+          const renameNotification = {
+            type: 'FILE_RENAMED',
+            oldFileName: currentRenameFile.value.originalFileName,
+            newFileName: newFileName.value,
+            fileId: currentRenameFile.value.id,
+            bizType: bizType.value,
+            bizId: bizId.value,
+            renameTime: new Date().toISOString()
+          };
+          
+          stompClient.send('/app/file/rename/notify', {}, JSON.stringify(renameNotification));
+          addLog('发送文件重命名通知成功', 'info');
+        } catch (error: any) {
+          addLog(`发送文件重命名通知失败: ${error.message}`, 'warning');
+          console.error('发送文件重命名通知失败:', error);
+        }
+      }
+      
+      showRenameDialog.value = false;
+      await loadFileList();
+    } else {
+      throw new Error(result.message || '重命名失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '文件重命名失败');
+    addLog(`重命名文件失败: ${error.message}`, 'error');
+  }
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+};
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN');
+};
+
+const getFileIcon = (extension: string) => {
+  const iconMap: Record<string, string> = {
+    pdf: 'lucide:file-text',
+    doc: 'lucide:file-text',
+    docx: 'lucide:file-text',
+    xls: 'lucide:file-spreadsheet',
+    xlsx: 'lucide:file-spreadsheet',
+    jpg: 'lucide:image',
+    jpeg: 'lucide:image',
+    png: 'lucide:image',
+    gif: 'lucide:image',
+    mp4: 'lucide:video',
+    mp3: 'lucide:music',
+    zip: 'lucide:archive',
+    rar: 'lucide:archive',
+  };
+  return iconMap[extension.toLowerCase()] || 'lucide:file';
+};
+
+// 检测是否为移动端
+const isMobile = ref(false);
+const showMobileHint = ref(false);
+const isWeChatBrowser = ref(false);
+const showWeChatHint = ref(false);
+
+// 监听文件上传对话框打开，自动加载文件列表
+watch(showFileUpload, (newVal) => {
+  if (newVal) {
+    loadFileList();
+  }
+});
+
 onMounted(() => {
   addLog('WebSocket测试页面已加载');
   const savedToken = localStorage.getItem('token');
   if (savedToken) {
     token.value = savedToken;
     addLog('已从本地存储加载Token');
+  }
+  
+  // 检测移动端和微信浏览器
+  const userAgent = navigator.userAgent;
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  isWeChatBrowser.value = /MicroMessenger/i.test(userAgent);
+  
+  if (isWeChatBrowser.value) {
+    addLog('检测到微信浏览器访问', 'info');
+  }
+  
+  // 检查URL参数，如果是上传模式，自动打开文件上传对话框
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get('mode');
+  if (mode === 'upload') {
+    const urlBizType = urlParams.get('bizType');
+    const urlBizId = urlParams.get('bizId');
+    if (urlBizType) bizType.value = urlBizType;
+    if (urlBizId) bizId.value = urlBizId;
+    
+    if (isWeChatBrowser.value) {
+      // 微信浏览器中，显示特殊提示
+      showWeChatHint.value = true;
+      addLog('检测到微信浏览器上传模式，显示微信上传提示', 'info');
+    } else {
+      // 非微信浏览器，直接打开上传对话框
+      showFileUpload.value = true;
+      addLog('检测到上传模式，自动打开文件上传对话框', 'info');
+    }
+  } else if (isMobile.value) {
+    // 移动端但不是上传模式，显示友好提示
+    showMobileHint.value = true;
+    addLog('检测到移动端访问，显示上传提示', 'info');
   }
 });
 
@@ -709,7 +1128,15 @@ onBeforeUnmount(() => {
   <div class="websocket-test-container">
     <div class="p-5">
       <div class="mb-5">
-        <h2 class="mb-4 text-xl font-semibold">WebSocket 测试工具</h2>
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-xl font-semibold">WebSocket 测试工具</h2>
+          <button
+            @click="showFileUpload = true"
+            class="rounded-md bg-green-500 px-4 py-2 text-white transition-colors hover:bg-green-600"
+          >
+            文件上传
+          </button>
+        </div>
 
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div class="space-y-4">
@@ -1023,6 +1450,303 @@ onBeforeUnmount(() => {
         <ElButton @click="showDiagnostic = false">关闭</ElButton>
       </template>
     </ElDialog>
+
+    <!-- 文件上传对话框 -->
+    <ElDialog
+      v-model="showFileUpload"
+      title="文件上传管理"
+      width="90%"
+      :style="{ maxWidth: '1200px' }"
+      destroy-on-close
+    >
+      <div class="file-upload-container">
+        <!-- 二维码生成区域 -->
+        <div class="mb-6 rounded-lg bg-blue-50 p-4">
+          <h4 class="mb-3 font-medium text-gray-700">手机扫码上传</h4>
+          <div class="flex flex-col items-center gap-4">
+            <div class="rounded-lg bg-white p-4 shadow">
+              <QRCode
+                :value="generateQRCode()"
+                :size="200"
+                level="H"
+              />
+            </div>
+            <p class="text-sm text-gray-600">
+              使用手机扫描二维码，即可上传文件
+            </p>
+            <p class="text-xs text-gray-500">
+              上传链接: {{ generateQRCode() }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 文件上传区域 -->
+        <div class="mb-6">
+          <h4 class="mb-3 font-medium text-gray-700">上传文件</h4>
+          <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">业务类型</label>
+              <select
+                v-model="bizType"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="case">案件文件</option>
+                <option value="creditor">债权人文件</option>
+                <option value="debtor">债务人文件</option>
+                <option value="claim">债权申报文件</option>
+                <option value="announcement">公告文件</option>
+                <option value="fund">资金文件</option>
+                <option value="common">通用文件</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">业务ID</label>
+              <input
+                v-model="bizId"
+                type="text"
+                placeholder="请输入业务ID"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          
+          <input
+            ref="fileInputRef"
+            type="file"
+            @change="handleFileChange"
+            style="display: none"
+          />
+          
+          <button
+            @click="triggerFileUpload"
+            :disabled="uploading"
+            class="w-full rounded-md bg-blue-500 px-4 py-3 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            <Icon
+              v-if="uploading"
+              icon="lucide:loader-2"
+              class="mr-2 inline animate-spin"
+            />
+            {{ uploading ? '上传中...' : '选择文件上传' }}
+          </button>
+          
+          <div v-if="uploading" class="mt-3">
+            <div class="mb-1 flex justify-between text-sm">
+              <span>上传进度</span>
+              <span>{{ uploadProgress }}%</span>
+            </div>
+            <div class="h-2 rounded-full bg-gray-200">
+              <div
+                class="h-2 rounded-full bg-blue-500 transition-all"
+                :style="{ width: uploadProgress + '%' }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文件列表区域 -->
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <h4 class="font-medium text-gray-700">已上传文件 ({{ fileTotal }})</h4>
+            <button
+              @click="loadFileList"
+              class="text-sm text-blue-500 hover:text-blue-600"
+            >
+              刷新
+            </button>
+          </div>
+          
+          <div v-if="uploadedFiles.length === 0" class="py-10 text-center text-gray-400">
+            暂无文件
+          </div>
+          
+          <div v-else class="space-y-2">
+            <div
+              v-for="file in uploadedFiles"
+              :key="file.id"
+              class="rounded border bg-white p-4 shadow-sm"
+            >
+              <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div class="flex-1">
+                  <div class="mb-1 flex items-center gap-2">
+                    <Icon
+                      :icon="getFileIcon(file.fileExtension)"
+                      class="text-2xl text-blue-500"
+                    />
+                    <span class="font-medium text-gray-900">{{ file.originalFileName }}</span>
+                  </div>
+                  <div class="text-sm text-gray-600">
+                    <span class="mr-3">{{ formatFileSize(file.fileSize) }}</span>
+                    <span class="mr-3">{{ file.bizType }}</span>
+                    <span>{{ formatDate(file.uploadTime) }}</span>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    @click="downloadFile(file.id, file.originalFileName)"
+                    class="rounded-md bg-blue-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-600"
+                  >
+                    下载
+                  </button>
+                  <button
+                    @click="showRenameFileDialog(file)"
+                    class="rounded-md bg-yellow-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-yellow-600"
+                  >
+                    重命名
+                  </button>
+                  <button
+                    @click="deleteFile(file.id, file.originalFileName)"
+                    class="rounded-md bg-red-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-red-600"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分页 -->
+          <div v-if="fileTotal > filePageSize" class="mt-4 flex justify-center gap-2">
+            <button
+              @click="filePageNum--"
+              :disabled="filePageNum <= 1"
+              class="rounded-md border border-gray-300 px-4 py-2 text-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              上一页
+            </button>
+            <span class="flex items-center px-4 text-sm text-gray-600">
+              第 {{ filePageNum }} 页，共 {{ Math.ceil(fileTotal / filePageSize) }} 页
+            </span>
+            <button
+              @click="filePageNum++"
+              :disabled="filePageNum >= Math.ceil(fileTotal / filePageSize)"
+              class="rounded-md border border-gray-300 px-4 py-2 text-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="showFileUpload = false">关闭</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 文件重命名对话框 -->
+    <ElDialog
+      v-model="showRenameDialog"
+      title="重命名文件"
+      width="400px"
+      destroy-on-close
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-700">新文件名</label>
+          <input
+            v-model="newFileName"
+            type="text"
+            placeholder="请输入新文件名"
+            class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="showRenameDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="renameFile">确定</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 移动端提示对话框 -->
+    <ElDialog
+      v-model="showMobileHint"
+      title="手机上传提示"
+      width="90%"
+      :style="{ maxWidth: '400px' }"
+      destroy-on-close
+    >
+      <div class="space-y-4">
+        <div class="text-center">
+          <Icon icon="lucide:smartphone" class="mx-auto mb-3 text-4xl text-blue-500" />
+          <h3 class="mb-2 text-lg font-medium text-gray-900">手机文件上传</h3>
+          <p class="text-gray-600">
+            请在电脑端打开文件上传对话框，扫描二维码后上传文件
+          </p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-blue-50">
+          <h4 class="mb-2 font-medium text-blue-800">使用步骤：</h4>
+          <ol class="list-decimal list-inside space-y-2 text-blue-700">
+            <li>在电脑上打开 WebSocket 测试工具</li>
+            <li>点击 "文件上传" 按钮</li>
+            <li>扫描显示的二维码</li>
+            <li>在手机上选择文件上传</li>
+          </ol>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-yellow-50">
+          <h4 class="mb-2 font-medium text-yellow-800">注意事项：</h4>
+          <ul class="list-disc list-inside space-y-2 text-yellow-700">
+            <li>请确保手机和电脑在同一局域网内</li>
+            <li>上传文件大小限制为 50MB</li>
+            <li>支持大多数文件类型</li>
+          </ul>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton type="primary" @click="showMobileHint = false">我知道了</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 微信浏览器提示对话框 -->
+    <ElDialog
+      v-model="showWeChatHint"
+      title="微信上传提示"
+      width="90%"
+      :style="{ maxWidth: '400px' }"
+      destroy-on-close
+    >
+      <div class="space-y-4">
+        <div class="text-center">
+          <Icon icon="lucide:message-circle" class="mx-auto mb-3 text-4xl text-green-500" />
+          <h3 class="mb-2 text-lg font-medium text-gray-900">微信文件上传</h3>
+          <p class="text-gray-600">
+            由于微信浏览器限制，请按照以下方式上传文件
+          </p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-green-50">
+          <h4 class="mb-2 font-medium text-green-800">微信上传方式：</h4>
+          <ol class="list-decimal list-inside space-y-2 text-green-700">
+            <li>点击右上角的 <Icon icon="lucide:more-horizontal" class="inline" /> 按钮</li>
+            <li>选择 "在浏览器中打开" 选项</li>
+            <li>在新打开的浏览器中选择文件上传</li>
+            <li>上传完成后可返回微信</li>
+          </ol>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-blue-50">
+          <h4 class="mb-2 font-medium text-blue-800">推荐浏览器：</h4>
+          <ul class="list-disc list-inside space-y-2 text-blue-700">
+            <li>iOS: Safari 浏览器</li>
+            <li>Android: Chrome 浏览器</li>
+            <li>其他: 系统自带浏览器</li>
+          </ul>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-yellow-50">
+          <h4 class="mb-2 font-medium text-yellow-800">注意事项：</h4>
+          <ul class="list-disc list-inside space-y-2 text-yellow-700">
+            <li>请确保手机和电脑在同一局域网内</li>
+            <li>上传文件大小限制为 50MB</li>
+            <li>支持大多数文件类型</li>
+            <li>上传过程中请勿关闭浏览器</li>
+          </ul>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="showWeChatHint = false; showFileUpload = true">我知道了</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -1070,5 +1794,37 @@ onBeforeUnmount(() => {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+.file-upload-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .file-upload-container {
+    max-height: 80vh;
+  }
+  
+  .grid-cols-1 {
+    grid-template-columns: 1fr;
+  }
+  
+  .md\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .md\:flex-row {
+    flex-direction: column;
+  }
+  
+  .md\:items-center {
+    align-items: flex-start;
+  }
+  
+  .md\:justify-between {
+    justify-content: flex-start;
+  }
 }
 </style>  

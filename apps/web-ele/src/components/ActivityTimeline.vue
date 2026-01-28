@@ -76,24 +76,22 @@ const getActivityColor = (type: string) => {
 
 // 我已知晓，标记为已读
 const markAsKnown = async (id: number) => {
-  try {
-    await notificationApi.markAsRead(id);
-    // 从列表中移除该通知
-    activities.value = activities.value.filter(item => item.id !== id);
-  } catch (error) {
+  // 先从列表中移除该通知，立即更新UI
+  activities.value = activities.value.filter(item => item.id !== id);
+  // 再调用后端接口，不等待返回
+  notificationApi.markAsRead(id).catch(error => {
     console.error('标记为已读失败:', error);
-  }
+  });
 };
 
 // 全部知晓，标记所有为已读
 const markAllAsKnown = async () => {
-  try {
-    await notificationApi.markAllAsRead();
-    // 清空活动列表
-    activities.value = [];
-  } catch (error) {
+  // 先清空活动列表，立即更新UI
+  activities.value = [];
+  // 再调用后端接口，不等待返回
+  notificationApi.markAllAsRead().catch(error => {
     console.error('标记全部为已读失败:', error);
-  }
+  });
 };
 
 // 监听活动数量变化，传递给父组件

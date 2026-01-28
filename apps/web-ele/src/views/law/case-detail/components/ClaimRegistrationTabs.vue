@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
-import { ElButton, ElCard, ElTabPane, ElTabs } from 'element-plus';
+import { ElButton, ElCard, ElTabPane, ElTabs, ElTag } from 'element-plus';
 
 import ClaimRegistrationStageOne from './ClaimRegistrationStageOne.vue';
 import ClaimRegistrationStageTwo from './ClaimRegistrationStageTwo.vue';
@@ -65,6 +65,14 @@ const handleTabChange = (tabName: string) => {
             <div class="tab-label">
               <Icon icon="lucide:file-plus" class="mr-1" />
               债权申报登记
+              <ElTag
+                v-if="stageOneRef?.hasRegisteredClaims"
+                type="success"
+                size="small"
+                class="ml-2"
+              >
+                已登记
+              </ElTag>
             </div>
           </template>
           <ClaimRegistrationStageOne ref="stageOneRef" :case-id="caseId" />
@@ -110,5 +118,9 @@ const handleTabChange = (tabName: string) => {
   display: flex;
   align-items: center;
   font-size: 14px;
+}
+
+.ml-2 {
+  margin-left: 8px;
 }
 </style>

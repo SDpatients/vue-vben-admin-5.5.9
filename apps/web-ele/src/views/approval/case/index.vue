@@ -25,7 +25,7 @@ import {
 } from 'element-plus';
 import { useRouter } from 'vue-router';
 
-import { approvalApi } from '#/api/core/approval';
+import { approvalApi, approvalUtils, type ApprovalContentData, type ApprovalAttachmentData } from '#/api/core/approval';
 
 interface Attachment {
   id: number;
@@ -64,6 +64,9 @@ const approvalForm = ref({
   remark: '',
   status: 'approved' as 'approved' | 'rejected',
 });
+
+const contentData = ref<ApprovalContentData | null>(null);
+const attachmentData = ref<ApprovalAttachmentData | null>(null);
 
 const searchForm = ref({
   status: '',
@@ -245,6 +248,15 @@ const handleReset = () => {
 const handleViewDetail = (row: CaseApproval) => {
   currentCase.value = row;
   dialogType.value = 'view';
+  
+  if (row.description) {
+    contentData.value = approvalUtils.parseApprovalContent(row.description);
+  }
+  
+  if (row.attachments && row.attachments.length > 0) {
+    attachmentData.value = approvalUtils.parseApprovalAttachment(row.attachments[0].filePath);
+  }
+  
   dialogVisible.value = true;
 };
 
@@ -585,6 +597,59 @@ onMounted(() => {
             <div class="content-box">
               {{ currentCase.description }}
             </div>
+            
+            <!-- 解析后的任务信息 -->
+            <div v-if="contentData" class="parsed-content-section">
+              <div class="section-title">任务信息</div>
+              <div class="task-info">
+                <div class="info-row">
+                  <span class="label">任务编码:</span>
+                  <span class="value">{{ contentData.task.taskCode }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">任务名称:</span>
+                  <span class="value">{{ contentData.task.taskName }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">任务状态:</span>
+                  <span class="value">{{ contentData.task.status }}</span>
+                </div>
+                <div v-if="contentData.task.taskDescription" class="info-row">
+                  <span class="label">任务描述:</span>
+                  <span class="value">{{ contentData.task.taskDescription }}</span>
+                </div>
+              </div>
+              
+              <div v-if="contentData.submissions && contentData.submissions.length > 0" class="section-title">提交记录</div>
+              <div v-if="contentData.submissions && contentData.submissions.length > 0" class="submissions-list">
+                <div v-for="submission in contentData.submissions" :key="submission.id" class="submission-item">
+                  <div class="submission-header">
+                    <span class="submission-title">提交记录 #{{ submission.submissionNumber }}: {{ submission.submissionTitle }}</span>
+                    <ElTag size="small" :type="submission.status === 'APPROVED' ? 'success' : submission.status === 'REJECTED' ? 'danger' : 'warning'">
+                      {{ submission.status === 'APPROVED' ? '已通过' : submission.status === 'REJECTED' ? '已驳回' : '待审核' }}
+                    </ElTag>
+                  </div>
+                  <div class="submission-body">
+                    <div class="info-row">
+                      <span class="label">类型:</span>
+                      <span class="value">{{ submission.submissionType }}</span>
+                    </div>
+                    <div v-if="submission.submissionContent" class="info-row">
+                      <span class="label">内容:</span>
+                      <span class="value">{{ submission.submissionContent }}</span>
+                    </div>
+                    <div v-if="submission.reviewOpinion" class="info-row">
+                      <span class="label">审核意见:</span>
+                      <span class="value">{{ submission.reviewOpinion }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="label">提交时间:</span>
+                      <span class="value">{{ formatDateTime(submission.createTime) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- 审批意见 -->
             <div v-if="currentCase.remark" class="remark-section">
@@ -881,6 +946,53 @@ onMounted(() => {
       .approval-section {
         .approval-form-item {
           margin-bottom: 0;
+        }
+      }
+
+      .parsed-content-section {
+        margin-bottom: 24px;
+        padding: 16px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+
+        .task-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        .submissions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .submission-item {
+          padding: 12px;
+          background: #fff;
+          border-radius: 6px;
+          border: 1px solid #dee2e6;
+        }
+
+        .submission-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .submission-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #212529;
+        }
+
+        .submission-body {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
       }
     }

@@ -430,4 +430,45 @@ export async function getAnnouncementViewsApi(
   );
 }
 
+/**
+ * 上传公告附件
+ * POST /case-announcement/{announcementId}/attachments/upload
+ * @param announcementId 公告ID
+ * @param files 文件数组
+ */
+export async function uploadAnnouncementAttachmentsApi(
+  announcementId: number,
+  files: File[],
+) {
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+
+  return announcementRequestClient.post<CaseAnnouncementApi.AnnouncementAttachmentsResponse>(
+    `/case-announcement/${announcementId}/attachments/upload`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+}
+
+/**
+ * 删除公告附件
+ * DELETE /case-announcement/{announcementId}/attachments/{attachmentId}
+ * @param announcementId 公告ID
+ * @param attachmentId 附件ID
+ */
+export async function deleteAnnouncementAttachmentApi(
+  announcementId: number,
+  attachmentId: number,
+) {
+  return announcementRequestClient.delete<CaseAnnouncementApi.CommonResponse>(
+    `/case-announcement/${announcementId}/attachments/${attachmentId}`,
+  );
+}
+
 export type { CaseAnnouncementApi };

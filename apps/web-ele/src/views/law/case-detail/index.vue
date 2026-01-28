@@ -32,6 +32,7 @@ import {
   createAnnouncementApi,
   createViewRecordApi,
   deleteAnnouncementApi,
+  deleteAnnouncementAttachmentApi,
   getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
@@ -39,6 +40,7 @@ import {
   publishAnnouncementApi,
   topAnnouncementApi,
   unTopAnnouncementApi,
+  uploadAnnouncementAttachmentsApi,
 } from '#/api/core/case-announcement';
 import {
   createDocumentWithFilesApi,
@@ -1753,6 +1755,7 @@ const fetchAnnouncements = async () => {
 const saveAnnouncement = async () => {
   try {
     let response;
+    let announcementId: number;
 
     const requestData = {
       caseId: Number(caseId.value),
@@ -1763,9 +1766,6 @@ const saveAnnouncement = async () => {
       title: announcementData.title,
       content: announcementData.content,
       announcementType: announcementData.announcement_type,
-      attachments: announcementData.attachments
-        ? JSON.stringify(announcementData.attachments)
-        : undefined,
     };
 
     if (isEditingAnnouncement.value && currentAnnouncementId.value) {
@@ -1775,23 +1775,51 @@ const saveAnnouncement = async () => {
         requestData,
       );
       if (response.code === 200) {
+        announcementId = currentAnnouncementId.value;
         ElMessage.success('公告更新成功');
-        await fetchAnnouncements();
-        closeAnnouncementDialog();
       } else {
         ElMessage.error(`公告更新失败：${response.message || '未知错误'}`);
+        return;
       }
     } else {
       // 发布新公告
       response = await createAnnouncementApi(requestData);
       if (response.code === 200) {
+        announcementId = response.data.announcementId;
         ElMessage.success('公告发布成功');
-        await fetchAnnouncements();
-        closeAnnouncementDialog();
       } else {
         ElMessage.error(`公告发布失败：${response.message || '未知错误'}`);
+        return;
       }
     }
+
+    // 上传附件（如果有）
+    if (announcementData.attachments && announcementData.attachments.length > 0) {
+      // 筛选出需要上传的新文件（没有file_id的文件）
+      const filesToUpload = announcementData.attachments
+        .filter((attach: any) => !attach.file_id && attach.raw)
+        .map((attach: any) => attach.raw);
+
+      if (filesToUpload.length > 0) {
+        try {
+          const uploadResponse = await uploadAnnouncementAttachmentsApi(
+            announcementId,
+            filesToUpload,
+          );
+          if (uploadResponse.code === 200) {
+            ElMessage.success('附件上传成功');
+          } else {
+            ElMessage.warning(`公告保存成功，但附件上传失败：${uploadResponse.message || '未知错误'}`);
+          }
+        } catch (error: any) {
+          console.error('附件上传失败:', error);
+          ElMessage.warning(`公告保存成功，但附件上传失败：${error.message || '未知错误'}`);
+        }
+      }
+    }
+
+    await fetchAnnouncements();
+    closeAnnouncementDialog();
   } catch (error) {
     console.error('保存公告失败:', error);
     ElMessage.error('保存公告失败');
@@ -1913,37 +1941,30 @@ const editAnnouncement = async (announcement: any) => {
   announcementData.top_expire_time =
     announcement.topExpireTime || announcement.top_expire_time || '';
 
-  // 处理attachments字段，确保是数组格式
-  let attachments = announcement.attachments || [];
-  if (typeof attachments === 'string') {
-    try {
-      attachments = JSON.parse(attachments);
-    } catch (error) {
-      console.error('解析attachments失败:', error);
-      attachments = [];
+  try {
+    // 使用新的附件查询接口获取公告附件
+    const attachmentsResponse = await getAnnouncementAttachmentsApi(Number(announcementId));
+    
+    if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
+      // 处理附件数据格式
+      const attachments = attachmentsResponse.data.map((attach: any) => ({
+        name: attach.originalFileName || '未知文件',
+        file_id: attach.id,
+        file_name: attach.originalFileName || '未知文件',
+        type: attach.mimeType || 'application/octet-stream',
+        size: attach.fileSize || 0,
+        url: `/api/v1/file/download/${attach.id}`, // 构建下载URL
+      }));
+      
+      announcementData.attachments = attachments;
+    } else {
+      announcementData.attachments = [];
     }
+  } catch (error) {
+    console.error('获取公告附件失败:', error);
+    announcementData.attachments = [];
   }
 
-  // 处理附件字段映射，确保使用正确的file_id
-  attachments = attachments.map((attach: any) => ({
-    ...attach,
-    file_name: attach.name || attach.file_name || '未知文件',
-    file_id:
-      attach.file_id ||
-      attach.id ||
-      attach.fileId ||
-      attach.response?.id ||
-      attach.uid ||
-      '',
-    type: attach.type || 'application/octet-stream',
-  }));
-
-  // 过滤掉没有有效file_id的附件
-  attachments = attachments.filter((attach: any) => {
-    return attach.file_id && !isNaN(Number(attach.file_id));
-  });
-
-  announcementData.attachments = attachments;
   announcementData.caseNumber =
     announcement.caseNumber || announcement.ah || '';
   announcementData.principalOfficer =
@@ -2243,8 +2264,22 @@ const handleAttachmentRemove = async (file: any, fileList: any[]) => {
   // 如果文件已经上传到服务器，调用后端删除接口
   if (file.file_id && file.file_id !== undefined) {
     try {
-      const response = await deleteFileApi(Number(file.file_id));
-      ElMessage.success('文件删除成功');
+      if (isEditingAnnouncement.value && currentAnnouncementId.value) {
+        // 使用新的公告附件删除接口
+        const response = await deleteAnnouncementAttachmentApi(
+          currentAnnouncementId.value,
+          Number(file.file_id)
+        );
+        if (response.code === 200) {
+          ElMessage.success('文件删除成功');
+        } else {
+          ElMessage.error(`文件删除失败：${response.message || '未知错误'}`);
+        }
+      } else {
+        // 对于未保存的公告，使用通用文件删除接口
+        const response = await deleteFileApi(Number(file.file_id));
+        ElMessage.success('文件删除成功');
+      }
     } catch (error) {
       console.error('删除文件失败:', error);
       ElMessage.error('文件删除失败');

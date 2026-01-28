@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { approvalApi, type Approval } from '#/api/core/approval';
+import { approvalApi, type Approval, approvalUtils, type ApprovalContentData } from '#/api/core/approval';
 import { Icon } from '@iconify/vue';
 import { ElButton, ElTag, ElCard, ElMessage, ElMessageBox, ElInput } from 'element-plus';
+import { computed } from 'vue';
 
 interface Props {
   approval: Approval;
@@ -13,6 +14,10 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits(['refresh']);
+
+const contentData = computed(() => {
+  return approvalUtils.parseApprovalContent(props.approval.approvalContent);
+});
 
 const formatTime = (time: string) => {
   if (!time) return '';
@@ -160,6 +165,14 @@ const getTypeText = (type: string) => {
         <div v-if="approval.approvalContent" class="info-row">
           <span class="label">审核内容:</span>
           <span class="value">{{ approval.approvalContent }}</span>
+        </div>
+        <div v-if="contentData" class="info-row">
+          <span class="label">任务信息:</span>
+          <span class="value">{{ contentData.task.taskName }} ({{ contentData.task.taskCode }})</span>
+        </div>
+        <div v-if="contentData && contentData.submissions && contentData.submissions.length > 0" class="info-row">
+          <span class="label">提交记录:</span>
+          <span class="value">{{ contentData.submissions.length }} 条</span>
         </div>
         <div v-if="approval.remark" class="info-row">
           <span class="label">备注:</span>

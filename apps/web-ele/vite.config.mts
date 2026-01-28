@@ -13,6 +13,9 @@ export default defineConfig(async (): Promise<any> => {
           format: 'esm',
         }),
       ],
+      define: {
+        global: 'window',
+      },
       server: {
         port: 5779,
         host: '0.0.0.0',

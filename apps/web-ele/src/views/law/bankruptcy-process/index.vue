@@ -22,6 +22,7 @@ import {
   ElTag,
   ElUpload,
 } from 'element-plus';
+import QrcodeVue from 'qrcode.vue';
 // 直接导入sortablejs库
 import Sortable from 'sortablejs';
 
@@ -37,6 +38,9 @@ const props = defineProps<{
 
 const router = useRouter();
 const loading = ref(false);
+const isLoadingStage = ref(false);
+let lastStageChangeTime = 0;
+const STAGE_CHANGE_TIMEOUT = 1; // 1秒超时
 
 const activeStage = ref(props.initialStage || 0);
 // 初始阶段，用于保持视觉样式
@@ -264,6 +268,37 @@ const isImageFile = (fileName: string): boolean => {
     '.svg',
   ];
   return imageExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
+};
+
+// 生成文件预览URL的函数
+const generateFilePreviewUrl = async (fileId: number, fileData: any) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('未登录，无法生成文件预览URL');
+      return;
+    }
+
+    const previewUrl = `/api/v1/file/preview/${fileId}`;
+    const response = await fetch(previewUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`生成预览URL失败: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const localUrl = window.URL.createObjectURL(blob);
+    
+    // 将生成的预览URL赋值给文件数据对象
+    fileData.localPreviewUrl = localUrl;
+  } catch (error) {
+    console.error('生成文件预览URL失败:', error);
+  }
 };
 
 const getFileIcon = (fileName: string): string => {
@@ -532,7 +567,7 @@ const initAttachmentSortable = () => {
     sortableInstance.destroy();
     sortableInstance = null;
   }
-  
+
   // 如果没有选中的数据项或没有附件元素，直接返回
   if (!selectedDataItem.value || !selectedDataItem.value.files) {
     return;
@@ -606,18 +641,25 @@ onMounted(async () => {
   // 初始化选中第一个模块
   if (currentStage.value.modules.length > 0) {
     selectedModule.value = currentStage.value.modules[0];
-    selectedDataItem.value =
+    selectedDataItem.value = 
       currentStage.value.modules[0].data.length > 0
         ? currentStage.value.modules[0].data[0]
         : null;
   }
+  
+  // 初始化WebSocket连接
+  connectWebSocket();
 });
 
-// 加载所有阶段的数据
+// 加载所有阶段的数据（优化版本：批量接口 + 懒加载图片预览）
 const loadAllStageData = async () => {
   loading.value = true;
+  isLoadingStage.value = true;
   try {
-    // 获取所有任务数据
+    const startTime = Date.now();
+    console.log('[性能优化] 开始加载所有阶段数据');
+
+    // 1. 获取所有任务数据
     const response = await CaseTaskApi.getCaseTasks({
       caseId: Number(props.caseId),
       page: 1,
@@ -625,6 +667,10 @@ const loadAllStageData = async () => {
     });
 
     if (response.code === 200 && response.data) {
+      console.log(
+        `[性能优化] 获取任务列表完成，耗时: ${Date.now() - startTime}ms，任务数: ${response.data.content.length}`,
+      );
+
       // 清空所有阶段的模块数据
       stages.forEach((stage) => {
         stage.modules.forEach((module) => {
@@ -633,132 +679,115 @@ const loadAllStageData = async () => {
         });
       });
 
-      // 将返回的所有任务数据分配到对应的模块
-      for (const task of response.data.content) {
-        // 遍历所有阶段，找到匹配的模块
-        for (const stage of stages) {
-          const module = stage.modules.find(
-            (m) =>
-              m.title.includes(task.taskName) ||
-              task.taskName.includes(m.title),
+      // 2. 批量获取所有任务的提交记录
+      const caseTaskIds = response.data.content.map((task) => task.id);
+      const submissionsBatchResponse =
+        await CaseTaskSubmissionApi.getLatestSubmissionsBatch({ caseTaskIds });
+
+      if (
+        submissionsBatchResponse.code === 200 &&
+        submissionsBatchResponse.data
+      ) {
+        console.log(
+          `[性能优化] 批量获取提交记录完成，耗时: ${Date.now() - startTime}ms`,
+        );
+
+        // 3. 批量获取所有提交的文件
+        const allSubmissions = Object.values(
+          submissionsBatchResponse.data,
+        ).flat();
+        const submissionIds = allSubmissions.map((submission) => submission.id);
+
+        let filesBatchResponse;
+        if (submissionIds.length > 0) {
+          filesBatchResponse =
+            await CaseTaskSubmissionApi.getSubmissionFilesBatch({
+              submissionIds,
+            });
+          console.log(
+            `[性能优化] 批量获取文件列表完成，耗时: ${Date.now() - startTime}ms`,
           );
+        }
 
-          if (module) {
-            module.task = task;
-            // 根据任务状态设置完成状态
-            completedModules.value[module.id] = task.status === 'COMPLETED';
+        // 4. 分配数据到对应的模块
+        response.data.content.forEach((task) => {
+          for (const stage of stages) {
+            const module = stage.modules.find(
+              (m) =>
+                m.title.includes(task.taskName) ||
+                task.taskName.includes(m.title),
+            );
 
-            // 获取该任务的最新提交记录
-            try {
-              const submissionsResponse =
-                await CaseTaskSubmissionApi.getLatestSubmissions({
-                  caseTaskId: task.id,
+            if (module) {
+              module.task = task;
+              completedModules.value[module.id] = task.status === 'COMPLETED';
+
+              // 获取该任务的提交记录
+              const taskSubmissions =
+                submissionsBatchResponse.data[task.id] || [];
+
+              // 处理每个提交记录
+              module.data = taskSubmissions.map((submission) => {
+                // 获取该提交的文件列表
+                const submissionFiles =
+                  filesBatchResponse?.data?.[submission.id] || [];
+
+                // 构建文件基础信息，并为图片文件自动生成预览URL
+                const files = submissionFiles.map((f) => {
+                  const fileData = {
+                    id: f.id,
+                    fileName: f.originalFileName,
+                    originalFileName: f.originalFileName,
+                    filePath: f.filePath,
+                    fileSize: f.fileSize,
+                    uploadTime: f.uploadTime,
+                    uploadUserName: f.uploadUserName,
+                    sortOrder: f.sortOrder,
+                  };
+                  
+                  // 为图片文件自动生成预览URL
+                  if (isImageFile(f.originalFileName)) {
+                    // 异步生成预览URL，但不阻塞渲染
+                    generateFilePreviewUrl(f.id, fileData);
+                  }
+                  
+                  return fileData;
                 });
 
-              if (
-                submissionsResponse.code === 200 &&
-                submissionsResponse.data &&
-                submissionsResponse.data.length > 0
-              ) {
-                for (const submission of submissionsResponse.data) {
-                  // 获取提交的文件列表
-                  const filesResponse =
-                    await CaseTaskSubmissionApi.getSubmissionFiles(
-                      submission.id,
-                    );
-                  let files =
-                    filesResponse.code === 200 ? filesResponse.data : [];
+                return {
+                  id: submission.id,
+                  title: submission.submissionTitle,
+                  content: submission.submissionContent,
+                  creator: submission.creatorName,
+                  date: submission.createTime
+                    ? new Date(submission.createTime)
+                        .toISOString()
+                        .split('T')[0]
+                    : '',
+                  files,
+                  status: submission.status,
+                  submissionNumber: submission.submissionNumber,
+                  createTime: submission.createTime,
+                  updateTime: submission.updateTime,
+                  taskId: task.id,
+                };
+              });
 
-                  // 获取token用于后续请求
-                  const token = localStorage.getItem('token');
-
-                  // 处理文件，为图片类型添加本地预览URL
-                  if (token) {
-                    files = await Promise.all(
-                      files.map(async (f) => {
-                        const fileData = {
-                          id: f.id,
-                          fileName: f.originalFileName,
-                          originalFileName: f.originalFileName,
-                          filePath: f.filePath,
-                          fileSize: f.fileSize,
-                          uploadTime: f.uploadTime,
-                          uploadUserName: f.uploadUserName,
-                          // 使用指定的 API 接口生成预览 URL
-                          previewUrl: `/api/v1/file/preview/${f.id}`,
-                        };
-
-                        // 检查是否为图片文件
-                        if (
-                          f.originalFileName &&
-                          (f.originalFileName.toLowerCase().endsWith('.jpg') ||
-                            f.originalFileName
-                              .toLowerCase()
-                              .endsWith('.jpeg') ||
-                            f.originalFileName.toLowerCase().endsWith('.png') ||
-                            f.originalFileName.toLowerCase().endsWith('.gif') ||
-                            f.originalFileName.toLowerCase().endsWith('.webp'))
-                        ) {
-                          try {
-                            // 调用API获取图片，添加JWT令牌
-                            const response = await fetch(fileData.previewUrl, {
-                              method: 'GET',
-                              headers: {
-                                Authorization: `Bearer ${token}`,
-                              },
-                            });
-
-                            if (response.ok) {
-                              // 转换为Blob URL用于本地预览
-                              const blob = await response.blob();
-                              fileData.localPreviewUrl =
-                                window.URL.createObjectURL(blob);
-                            }
-                          } catch (error) {
-                            console.error(
-                              `获取图片ID ${f.id} 的预览失败:`,
-                              error,
-                            );
-                          }
-                        }
-
-                        return fileData;
-                      }),
-                    );
-                  }
-
-                  module.data.push({
-                    id: submission.id,
-                    title: submission.submissionTitle,
-                    content: submission.submissionContent,
-                    creator: submission.creatorName,
-                    date: submission.createTime
-                      ? new Date(submission.createTime)
-                          .toISOString()
-                          .split('T')[0]
-                      : '',
-                    files,
-                    status: submission.status,
-                    submissionNumber: submission.submissionNumber,
-                    createTime: submission.createTime,
-                    updateTime: submission.updateTime,
-                    taskId: task.id,
-                  });
-                }
-              }
-            } catch (error) {
-              console.error('获取任务提交记录失败:', error);
+              break;
             }
-            break; // 找到匹配的模块后退出循环
           }
-        }
+        });
       }
     }
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[性能优化] 所有阶段数据加载完成，总耗时: ${totalTime}ms`);
   } catch (error) {
-    console.error('加载所有阶段数据失败:', error);
+    console.error('[性能优化] 加载所有阶段数据失败:', error);
     ElMessage.error('加载数据失败');
   } finally {
     loading.value = false;
+    isLoadingStage.value = false;
   }
 };
 
@@ -1115,16 +1144,13 @@ const submissionStatusMap: Record<string, string> = {
   REJECTED: '已驳回',
 };
 
-// 加载指定阶段的数据
+// 加载指定阶段的数据（优化版本：批量接口 + 懒加载图片预览）
 const loadStageData = async (stageIndex: number) => {
   loading.value = true;
+  isLoadingStage.value = true;
   try {
-    const stageNum = stageIndex + 1;
-
-    // 获取该阶段所有任务
-    const taskCodes = stages[stageIndex].modules.map(
-      (m) => `TASK_${String(stageNum).padStart(3, '0')}_${m.id.split('-')[1]}`,
-    );
+    const startTime = Date.now();
+    console.log(`[性能优化] 开始加载阶段 ${stageIndex + 1} 数据`);
 
     const response = await CaseTaskApi.getCaseTasks({
       caseId: Number(props.caseId),
@@ -1133,133 +1159,138 @@ const loadStageData = async (stageIndex: number) => {
     });
 
     if (response.code === 200 && response.data) {
+      console.log(
+        `[性能优化] 阶段 ${stageIndex + 1} 获取任务列表完成，耗时: ${Date.now() - startTime}ms`,
+      );
+
       // 清空当前阶段所有模块的数据
       stages[stageIndex].modules.forEach((module) => {
         module.data = [];
         module.task = null;
       });
 
-      // 将返回的任务数据分配到对应的模块
-      for (const task of response.data.content) {
-        const module = stages[stageIndex].modules.find(
+      // 过滤出当前阶段的任务
+      const stageTasks = response.data.content.filter((task) => {
+        return stages[stageIndex].modules.some(
           (m) =>
             m.title.includes(task.taskName) || task.taskName.includes(m.title),
         );
+      });
 
-        if (module) {
-          module.task = task;
-          // 根据任务状态设置完成状态
-          completedModules.value[module.id] = task.status === 'COMPLETED';
+      console.log(
+        `[性能优化] 阶段 ${stageIndex + 1} 任务数: ${stageTasks.length}`,
+      );
 
-          // 获取该任务的最新提交记录
-          try {
-            const submissionsResponse =
-              await CaseTaskSubmissionApi.getLatestSubmissions({
-                caseTaskId: task.id,
+      // 批量获取当前阶段所有任务的提交记录
+      const caseTaskIds = stageTasks.map(task => task.id);
+      const submissionsBatchResponse = await CaseTaskSubmissionApi.getLatestSubmissionsBatch({ caseTaskIds });
+      
+      if (submissionsBatchResponse.code === 200 && submissionsBatchResponse.data) {
+        console.log(`[性能优化] 阶段 ${stageIndex + 1} 批量获取提交记录完成，耗时: ${Date.now() - startTime}ms`);
+
+        // 批量获取当前阶段所有提交的文件
+        const allSubmissions = Object.values(submissionsBatchResponse.data).flat();
+        const submissionIds = allSubmissions.map(submission => submission.id);
+        
+        let filesBatchResponse;
+        if (submissionIds.length > 0) {
+          filesBatchResponse = await CaseTaskSubmissionApi.getSubmissionFilesBatch({ submissionIds });
+          console.log(`[性能优化] 阶段 ${stageIndex + 1} 批量获取文件列表完成，耗时: ${Date.now() - startTime}ms`);
+        }
+
+        // 分配数据到对应的模块
+        stageTasks.forEach((task) => {
+          const module = stages[stageIndex].modules.find(
+            (m) =>
+              m.title.includes(task.taskName) || task.taskName.includes(m.title),
+          );
+
+          if (module) {
+            module.task = task;
+            completedModules.value[module.id] = task.status === 'COMPLETED';
+
+            // 获取该任务的提交记录
+            const taskSubmissions = submissionsBatchResponse.data[task.id] || [];
+            
+            // 处理每个提交记录
+            module.data = taskSubmissions.map((submission) => {
+              // 获取该提交的文件列表
+              const submissionFiles = filesBatchResponse?.data?.[submission.id] || [];
+
+              // 构建文件基础信息，并为图片文件自动生成预览URL
+              const files = submissionFiles.map((f) => {
+                const fileData = {
+                  id: f.id,
+                  fileName: f.originalFileName,
+                  originalFileName: f.originalFileName,
+                  filePath: f.filePath,
+                  fileSize: f.fileSize,
+                  uploadTime: f.uploadTime,
+                  uploadUserName: f.uploadUserName,
+                  sortOrder: f.sortOrder,
+                };
+                
+                // 为图片文件自动生成预览URL
+                if (isImageFile(f.originalFileName)) {
+                  // 异步生成预览URL，但不阻塞渲染
+                  generateFilePreviewUrl(f.id, fileData);
+                }
+                
+                return fileData;
               });
 
-            if (
-              submissionsResponse.code === 200 &&
-              submissionsResponse.data &&
-              submissionsResponse.data.length > 0
-            ) {
-              for (const submission of submissionsResponse.data) {
-                // 获取提交的文件列表
-                const filesResponse =
-                  await CaseTaskSubmissionApi.getSubmissionFiles(submission.id);
-                let files =
-                  filesResponse.code === 200 ? filesResponse.data : [];
-
-                // 获取token用于后续请求
-                const token = localStorage.getItem('token');
-
-                // 处理文件，为图片类型添加本地预览URL
-                if (token) {
-                  files = await Promise.all(
-                    files.map(async (f) => {
-                      const fileData = {
-                        id: f.id,
-                        fileName: f.originalFileName,
-                        originalFileName: f.originalFileName,
-                        filePath: f.filePath,
-                        fileSize: f.fileSize,
-                        uploadTime: f.uploadTime,
-                        uploadUserName: f.uploadUserName,
-                        // 使用指定的 API 接口生成预览 URL
-                        previewUrl: `/api/v1/file/preview/${f.id}`,
-                      };
-
-                      // 检查是否为图片文件
-                      if (
-                        f.originalFileName &&
-                        (f.originalFileName.toLowerCase().endsWith('.jpg') ||
-                          f.originalFileName.toLowerCase().endsWith('.jpeg') ||
-                          f.originalFileName.toLowerCase().endsWith('.png') ||
-                          f.originalFileName.toLowerCase().endsWith('.gif') ||
-                          f.originalFileName.toLowerCase().endsWith('.webp'))
-                      ) {
-                        try {
-                          // 调用API获取图片，添加JWT令牌
-                          const response = await fetch(fileData.previewUrl, {
-                            method: 'GET',
-                            headers: {
-                              Authorization: `Bearer ${token}`,
-                            },
-                          });
-
-                          if (response.ok) {
-                            // 转换为Blob URL用于本地预览
-                            const blob = await response.blob();
-                            fileData.localPreviewUrl =
-                              window.URL.createObjectURL(blob);
-                          }
-                        } catch (error) {
-                          console.error(
-                            `获取图片ID ${f.id} 的预览失败:`,
-                            error,
-                          );
-                        }
-                      }
-
-                      return fileData;
-                    }),
-                  );
-                }
-
-                module.data.push({
-                  id: submission.id,
-                  title: submission.submissionTitle,
-                  content: submission.submissionContent,
-                  creator: submission.creatorName,
-                  date: submission.createTime
-                    ? new Date(submission.createTime)
-                        .toISOString()
-                        .split('T')[0]
-                    : '',
-                  files,
-                  status: submission.status,
-                  submissionNumber: submission.submissionNumber,
-                  createTime: submission.createTime,
-                  updateTime: submission.updateTime,
-                  taskId: task.id,
-                });
-              }
-            }
-          } catch (error) {
-            console.error('获取任务提交记录失败:', error);
+              return {
+                id: submission.id,
+                title: submission.submissionTitle,
+                content: submission.submissionContent,
+                creator: submission.creatorName,
+                date: submission.createTime
+                  ? new Date(submission.createTime)
+                      .toISOString()
+                      .split('T')[0]
+                  : '',
+                files,
+                status: submission.status,
+                submissionNumber: submission.submissionNumber,
+                createTime: submission.createTime,
+                updateTime: submission.updateTime,
+                taskId: task.id,
+              };
+            });
           }
-        }
+        });
       }
     }
+
+    const totalTime = Date.now() - startTime;
+    console.log(
+      `[性能优化] 阶段 ${stageIndex + 1} 数据加载完成，总耗时: ${totalTime}ms`,
+    );
   } catch (error) {
-    console.error('加载阶段数据失败:', error);
+    console.error(`[性能优化] 加载阶段 ${stageIndex + 1} 数据失败:`, error);
     ElMessage.error('加载阶段数据失败');
   } finally {
     loading.value = false;
+    isLoadingStage.value = false;
   }
 };
 
 const handleStageChange = (index: number) => {
+  const now = Date.now();
+  
+  // 检查是否正在加载阶段数据
+  if (isLoadingStage.value) {
+    ElMessage.warning('数据正在加载中，请稍后再切换阶段');
+    return;
+  }
+  
+  // 检查是否在1秒内重复点击
+  if (now - lastStageChangeTime < STAGE_CHANGE_TIMEOUT) {
+    ElMessage.warning('切换过于频繁，请稍后再试');
+    return;
+  }
+  
+  lastStageChangeTime = now;
   activeStage.value = index;
   selectedModule.value = currentStage.value.modules[0] || null;
 };
@@ -1304,9 +1335,9 @@ const handleAddSubmit = async () => {
       ElMessage.error('任务不存在，请先创建任务');
       return;
     }
-    
+
     let submissionId;
-    
+
     if (isEditMode.value && currentItem.value) {
       // 编辑模式：使用现有提交ID
       submissionId = currentItem.value.id;
@@ -1319,122 +1350,153 @@ const handleAddSubmit = async () => {
         submissionContent: formData.value.content,
         submissionType: 'NORMAL',
       });
-      
+
       if (createResponse.code !== 200) {
         ElMessage.error(createResponse.message || '创建提交记录失败');
         return;
       }
-      
+
       submissionId = createResponse.data.submissionId;
     }
-    
+
     // 上传文件：只上传没有id的本地文件
     if (uploadFiles.value.length > 0) {
       const uploadedFiles = [];
-      
+
       // 上传本地文件（没有id的文件）
       for (let index = 0; index < uploadFiles.value.length; index++) {
         const file = uploadFiles.value[index];
         if (file.raw && !file.id) {
           // 上传本地文件，传递排序序号
-          const uploadResponse = await CaseTaskSubmissionApi.uploadSubmissionFile(submissionId, file.raw, undefined, index + 1);
+          const uploadResponse =
+            await CaseTaskSubmissionApi.uploadSubmissionFile(
+              submissionId,
+              file.raw,
+              undefined,
+              index + 1,
+            );
           uploadedFiles.push(uploadResponse.data);
         }
       }
-      
+
       // 上传完成后，调用批量更新排序接口，确保所有文件排序正确
-    try {
-      // 构建排序请求数据：包含所有文件（已上传的和新上传的）
-      const sortRequest = uploadFiles.value.map((file, index) => {
-        // 查找新上传的文件，使用返回的fileId
-        const uploadedFile = uploadedFiles.find(uf => uf.originalFileName === file.name);
-        return {
-          fileId: file.id || uploadedFile?.id,
-          sortOrder: index + 1
-        };
-      }).filter(item => item.fileId !== undefined); // 只包含有fileId的文件
-      
-      if (sortRequest.length > 0) {
-        await CaseTaskSubmissionApi.updateFileSortOrder(submissionId, sortRequest);
-        // 排序更新成功，后续会在保存成功后统一刷新文件数据
+      try {
+        // 构建排序请求数据：包含所有文件（已上传的和新上传的）
+        const sortRequest = uploadFiles.value
+          .map((file, index) => {
+            // 查找新上传的文件，使用返回的fileId
+            const uploadedFile = uploadedFiles.find(
+              (uf) => uf.originalFileName === file.name,
+            );
+            return {
+              fileId: file.id || uploadedFile?.id,
+              sortOrder: index + 1,
+            };
+          })
+          .filter((item) => item.fileId !== undefined); // 只包含有fileId的文件
+
+        if (sortRequest.length > 0) {
+          await CaseTaskSubmissionApi.updateFileSortOrder(
+            submissionId,
+            sortRequest,
+          );
+          // 排序更新成功，后续会在保存成功后统一刷新文件数据
+        }
+      } catch (error) {
+        console.error('更新文件排序失败:', error);
+        ElMessage.warning('文件排序更新失败，但文件已成功上传');
       }
-    } catch (error) {
-      console.error('更新文件排序失败:', error);
-      ElMessage.warning('文件排序更新失败，但文件已成功上传');
-    }
     }
 
     ElMessage.success('提交成功');
     showAddDialog.value = false;
-    
+
     // 只刷新当前数据项的文件数据，不需要重新加载整个阶段
     if (currentItem.value && currentModule.value) {
       try {
         // 重新获取当前数据项的文件列表，确保显示最新的排序
-        const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(currentItem.value.id);
+        const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(
+          currentItem.value.id,
+        );
         if (filesResponse.code === 200 && filesResponse.data) {
           let updatedFiles = filesResponse.data;
-          
+
           // 获取token用于后续请求
           const token = localStorage.getItem('token');
-          
+
           // 处理文件，为图片类型添加本地预览URL
           if (token) {
-            updatedFiles = await Promise.all(updatedFiles.map(async (f: any) => {
-              const fileData = {
-                id: f.id,
-                fileName: f.originalFileName,
-                originalFileName: f.originalFileName,
-                filePath: f.filePath,
-                fileSize: f.fileSize,
-                uploadTime: f.uploadTime,
-                uploadUserName: f.uploadUserName,
-                previewUrl: `/api/v1/file/preview/${f.id}`,
-              };
-              
-              // 检查是否为图片文件
-              if (f.originalFileName && (f.originalFileName.toLowerCase().endsWith('.jpg') || f.originalFileName.toLowerCase().endsWith('.jpeg') || f.originalFileName.toLowerCase().endsWith('.png') || f.originalFileName.toLowerCase().endsWith('.gif') || f.originalFileName.toLowerCase().endsWith('.webp'))) {
-                try {
-                  // 调用API获取图片，添加JWT令牌
-                  const response = await fetch(fileData.previewUrl, {
-                    method: 'GET',
-                    headers: {
-                      'Authorization': `Bearer ${token}`
+            updatedFiles = await Promise.all(
+              updatedFiles.map(async (f: any) => {
+                const fileData = {
+                  id: f.id,
+                  fileName: f.originalFileName,
+                  originalFileName: f.originalFileName,
+                  filePath: f.filePath,
+                  fileSize: f.fileSize,
+                  uploadTime: f.uploadTime,
+                  uploadUserName: f.uploadUserName,
+                  // 移除previewUrl字段，防止直接访问导致401错误
+                };
+
+                // 检查是否为图片文件
+                if (
+                  f.originalFileName &&
+                  (f.originalFileName.toLowerCase().endsWith('.jpg') ||
+                    f.originalFileName.toLowerCase().endsWith('.jpeg') ||
+                    f.originalFileName.toLowerCase().endsWith('.png') ||
+                    f.originalFileName.toLowerCase().endsWith('.gif') ||
+                    f.originalFileName.toLowerCase().endsWith('.webp'))
+                ) {
+                  try {
+                    // 调用API获取图片，添加JWT令牌
+                    const previewUrl = `/api/v1/file/preview/${f.id}`;
+                    const response = await fetch(previewUrl, {
+                      method: 'GET',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    });
+
+                    if (response.ok) {
+                      // 转换为Blob URL用于本地预览
+                      const blob = await response.blob();
+                      fileData.localPreviewUrl =
+                        window.URL.createObjectURL(blob);
                     }
-                  });
-                  
-                  if (response.ok) {
-                    // 转换为Blob URL用于本地预览
-                    const blob = await response.blob();
-                    fileData.localPreviewUrl = window.URL.createObjectURL(blob);
+                  } catch (error) {
+                    console.error(`获取图片ID ${f.id} 的预览失败:`, error);
                   }
-                } catch (error) {
-                  console.error(`获取图片ID ${f.id} 的预览失败:`, error);
                 }
-              }
-              
-              return fileData;
-            }));
+
+                return fileData;
+              }),
+            );
           }
-          
+
           // 更新当前数据项的文件列表
           currentItem.value.files = updatedFiles;
-          
+
           // 同时更新选中的数据项，确保界面立即显示最新的排序
-          if (selectedDataItem.value && selectedDataItem.value.id === currentItem.value.id) {
+          if (
+            selectedDataItem.value &&
+            selectedDataItem.value.id === currentItem.value.id
+          ) {
             selectedDataItem.value.files = updatedFiles;
           }
-          
+
           // 也更新模块数据中的对应项
           const moduleIndex = stages[currentStageIndex.value].modules.findIndex(
-            m => m.id === currentModule.value.id
+            (m) => m.id === currentModule.value.id,
           );
           if (moduleIndex !== -1) {
-            const itemIndex = stages[currentStageIndex.value].modules[moduleIndex].data.findIndex(
-              item => item.id === currentItem.value.id
-            );
+            const itemIndex = stages[currentStageIndex.value].modules[
+              moduleIndex
+            ].data.findIndex((item) => item.id === currentItem.value.id);
             if (itemIndex !== -1) {
-              stages[currentStageIndex.value].modules[moduleIndex].data[itemIndex].files = updatedFiles;
+              stages[currentStageIndex.value].modules[moduleIndex].data[
+                itemIndex
+              ].files = updatedFiles;
             }
           }
         }
@@ -1444,15 +1506,16 @@ const handleAddSubmit = async () => {
     } else if (currentModule.value && !currentItem.value) {
       // 新增模式：找到新创建的数据项并更新
       await loadStageData(currentStageIndex.value);
-      
+
       // 重新选择当前模块和数据项
       const refreshedModule = stages[currentStageIndex.value].modules.find(
-        m => m.id === currentModule.value.id
+        (m) => m.id === currentModule.value.id,
       );
       if (refreshedModule && refreshedModule.data.length > 0) {
         selectedModule.value = refreshedModule;
         // 选择最新的一个数据项（刚刚创建的）
-        selectedDataItem.value = refreshedModule.data[refreshedModule.data.length - 1];
+        selectedDataItem.value =
+          refreshedModule.data[refreshedModule.data.length - 1];
       }
     }
   } catch (error: any) {
@@ -1506,13 +1569,25 @@ const goBack = () => {
 
 // 打开手机上传二维码弹窗
 const openMobileUploadDialog = () => {
+  if (!currentItem.value) {
+    ElMessage.warning('请先选择或创建一个任务提交记录');
+    return;
+  }
+  
   // 生成随机的上传会话ID
   const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-  // 生成二维码URL，包含当前页面的信息和上传会话ID
-  const baseUrl = window.location.origin;
-  // 这里使用一个模拟的手机上传页面URL，实际项目中需要替换为真实的URL
-  const mobileUploadUrl = `${baseUrl}/mobile-upload?sessionId=${uploadSessionId}&caseId=${props.caseId}`;
+  // 生成二维码URL，包含当前页面的信息、上传会话ID和任务提交ID
+  // 使用网络可访问的地址，确保手机能够访问
+  let baseUrl = window.location.origin;
+  
+  // 如果是 localhost，使用服务器的网络IP地址
+  if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+    // 服务器的网络IP地址，确保手机能够访问
+    baseUrl = 'http://192.168.0.120:5780';
+  }
+  
+  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=task_submission&bizId=${currentItem.value.id}&caseId=${props.caseId}&sessionId=${uploadSessionId}`;
 
   qrCodeUrl.value = mobileUploadUrl;
   qrCodeExpireTime.value = 300; // 5分钟过期
@@ -1527,25 +1602,145 @@ const saveFileSortOrder = async () => {
   if (!currentItem.value || uploadFiles.value.length <= 1) {
     return;
   }
-  
+
   try {
     const submissionId = currentItem.value.id;
-    
+
     // 构建排序请求数据
     const sortRequest = {
       files: uploadFiles.value.map((file, index) => ({
         fileId: file.id,
-        sortOrder: index + 1
-      }))
+        sortOrder: index + 1,
+      })),
     };
-    
+
     // 调用批量更新排序的API
-    await CaseTaskSubmissionApi.updateFileSortOrder(submissionId, sortRequest.files);
-    
+    await CaseTaskSubmissionApi.updateFileSortOrder(
+      submissionId,
+      sortRequest.files,
+    );
+
     ElMessage.success('文件排序已保存');
   } catch (error) {
     console.error('保存文件排序失败:', error);
     ElMessage.error('保存文件排序失败');
+  }
+};
+
+// WebSocket连接和消息处理
+import { useWebSocket } from '../../../hooks/useWebSocket';
+
+// 初始化WebSocket连接
+const { connectWebSocket, disconnectWebSocket, sendMessage, isConnected } = useWebSocket();
+
+// 监听WebSocket消息
+const handleWebSocketMessage = (message: any) => {
+  if (message.type === 'FILE_UPLOAD_SUCCESS' && message.data) {
+    ElMessage.success(`文件上传成功: ${message.data.fileName}`);
+    // 刷新当前任务提交的文件列表
+    if (currentItem.value) {
+      refreshSubmissionFiles(currentItem.value.id);
+    }
+  } else if (message.type === 'FILE_DELETE_SUCCESS') {
+    ElMessage.success('文件删除成功');
+    // 刷新当前任务提交的文件列表
+    if (currentItem.value) {
+      refreshSubmissionFiles(currentItem.value.id);
+    }
+  }
+};
+
+// 刷新任务提交的文件列表
+const refreshSubmissionFiles = async (submissionId: number) => {
+  try {
+    const filesResponse = await CaseTaskSubmissionApi.getSubmissionFiles(submissionId);
+    if (filesResponse.code === 200 && filesResponse.data) {
+      let updatedFiles = filesResponse.data;
+
+      // 获取token用于后续请求
+      const token = localStorage.getItem('token');
+
+      // 处理文件，为图片类型添加本地预览URL
+      if (token) {
+        updatedFiles = await Promise.all(
+          updatedFiles.map(async (f: any) => {
+            const fileData = {
+              id: f.id,
+              fileName: f.originalFileName,
+              originalFileName: f.originalFileName,
+              filePath: f.filePath,
+              fileSize: f.fileSize,
+              uploadTime: f.uploadTime,
+              uploadUserName: f.uploadUserName,
+              // 移除previewUrl字段，防止直接访问导致401错误
+            };
+
+            // 检查是否为图片文件
+            if (
+              f.originalFileName &&
+              (f.originalFileName.toLowerCase().endsWith('.jpg') ||
+                f.originalFileName.toLowerCase().endsWith('.jpeg') ||
+                f.originalFileName.toLowerCase().endsWith('.png') ||
+                f.originalFileName.toLowerCase().endsWith('.gif') ||
+                f.originalFileName.toLowerCase().endsWith('.webp'))
+            ) {
+              try {
+                // 调用API获取图片，添加JWT令牌
+                const previewUrl = `/api/v1/file/preview/${f.id}`;
+                const response = await fetch(previewUrl, {
+                  method: 'GET',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                });
+
+                if (response.ok) {
+                  // 转换为Blob URL用于本地预览
+                  const blob = await response.blob();
+                  fileData.localPreviewUrl = window.URL.createObjectURL(blob);
+                }
+              } catch (error) {
+                console.error(`获取图片ID ${f.id} 的预览失败:`, error);
+              }
+            }
+
+            return fileData;
+          }),
+        );
+      }
+
+      // 更新当前数据项的文件列表
+      if (currentItem.value && currentItem.value.id === submissionId) {
+        currentItem.value.files = updatedFiles;
+        
+        // 同时更新上传文件列表
+        uploadFiles.value = updatedFiles.map((file: any) => ({
+          uid: Date.now() + Math.random(),
+          name: file.fileName || file.originalFileName,
+          status: 'success',
+          id: file.id,
+          url: file.localPreviewUrl,
+          response: file,
+        }));
+
+        // 更新选中的数据项
+        if (selectedDataItem.value && selectedDataItem.value.id === submissionId) {
+          selectedDataItem.value.files = updatedFiles;
+        }
+
+        // 更新模块数据中的对应项
+        stages.forEach((stage) => {
+          stage.modules.forEach((module) => {
+            const itemIndex = module.data.findIndex((item: any) => item.id === submissionId);
+            if (itemIndex !== -1) {
+              module.data[itemIndex].files = updatedFiles;
+            }
+          });
+        });
+      }
+    }
+  } catch (error) {
+    console.error('刷新文件数据失败:', error);
   }
 };
 
@@ -1557,7 +1752,7 @@ const startQrCodePolling = (sessionId: string) => {
     qrCodePolling.value = null;
   }
 
-  // 每3秒轮询一次
+  // 每1秒轮询一次
   qrCodePolling.value = setInterval(async () => {
     try {
       // 这里应该调用后端API检查上传状态
@@ -1577,7 +1772,7 @@ const startQrCodePolling = (sessionId: string) => {
     } catch (error) {
       console.error('轮询上传状态失败:', error);
     }
-  }, 3000);
+  }, 1000);
 };
 
 // 关闭二维码弹窗
@@ -1832,48 +2027,99 @@ const closeQrCodeDialog = () => {
                       :key="selectedDataItem.id"
                     >
                       <div class="data-content-detail">
-                      <div class="data-row">
-                        <span class="data-label">日期:</span>
-                        <span class="data-value">{{ selectedDataItem.date }}</span>
-                      </div>
-                      <div v-if="selectedDataItem.files && selectedDataItem.files.length > 0" class="attachments-preview-section">
-                        <div class="attachments-preview-grid" ref="attachmentsGridRef">
+                        <div class="data-row">
+                          <span class="data-label">日期:</span>
+                          <span class="data-value">{{
+                            selectedDataItem.date
+                          }}</span>
+                        </div>
+                        <div
+                          v-if="
+                            selectedDataItem.files &&
+                            selectedDataItem.files.length > 0
+                          "
+                          class="attachments-preview-section"
+                        >
                           <div
-                            v-for="(file, index) in selectedDataItem.files"
-                            :key="file.id"
-                            class="attachment-preview-item"
-                            @click.stop="handleFilePreview(file)"
+                            class="attachments-preview-grid"
+                            ref="attachmentsGridRef"
                           >
-                            <!-- 图片类型直接预览 -->
-                            <div v-if="file.fileName && (file.fileName.toLowerCase().endsWith('.jpg') || file.fileName.toLowerCase().endsWith('.jpeg') || file.fileName.toLowerCase().endsWith('.png') || file.fileName.toLowerCase().endsWith('.gif') || file.fileName.toLowerCase().endsWith('.webp'))" class="image-preview">
-                              <img :src="file.localPreviewUrl || file.previewUrl" alt="{{ file.fileName || file.name }}" class="preview-image" />
-                            </div>
-                            <!-- 其他文件类型显示图标 -->
-                            <div v-else class="file-icon-preview">
-                              <Icon icon="lucide:file" class="file-icon" />
-                              <span class="file-name">{{ file.fileName || file.name }}</span>
-                            </div>
-                            <div class="attachment-actions-overlay">
-                              <span
-                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
-                                @click.stop="handleFilePreview(file)"
+                            <div
+                              v-for="(file, index) in selectedDataItem.files"
+                              :key="file.id"
+                              class="attachment-preview-item"
+                              @click.stop="handleFilePreview(file)"
+                            >
+                              <!-- 图片类型直接预览 -->
+                              <div
+                                v-if="
+                                  file.fileName &&
+                                  (file.fileName
+                                    .toLowerCase()
+                                    .endsWith('.jpg') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.jpeg') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.png') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.gif') ||
+                                    file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.webp'))
+                                "
+                                class="image-preview"
                               >
-                                <Icon icon="lucide:eye" />
-                                预览
-                              </span>
-                              <span
-                                style="color: white; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
-                                @click.stop="handleFileDownload(file)"
-                              >
-                                <Icon icon="lucide:download" />
-                                下载
-                              </span>
+                                <img
+                                  v-if="file.localPreviewUrl"
+                                  :src="file.localPreviewUrl"
+                                  :alt="file.fileName || file.name"
+                                  class="preview-image"
+                                />
+                                <div v-else class="no-preview">
+                                  <Icon icon="lucide:image" />
+                                </div>
+                              </div>
+                              <!-- 其他文件类型显示图标 -->
+                              <div v-else class="file-icon-preview">
+                                <Icon icon="lucide:file" class="file-icon" />
+                                <span class="file-name">{{
+                                  file.fileName || file.name
+                                }}</span>
+                              </div>
+                              <div class="attachment-actions-overlay">
+                                <span
+                                  style="
+                                    color: white;
+                                    cursor: pointer;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 4px;
+                                  "
+                                  @click.stop="handleFilePreview(file)"
+                                >
+                                  <Icon icon="lucide:eye" />
+                                  预览
+                                </span>
+                                <span
+                                  style="
+                                    color: white;
+                                    cursor: pointer;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 4px;
+                                  "
+                                  @click.stop="handleFileDownload(file)"
+                                >
+                                  <Icon icon="lucide:download" />
+                                  下载
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                       
-
                       </div>
                     </div>
                   </transition>
@@ -1910,7 +2156,12 @@ const closeQrCodeDialog = () => {
             label-width="100px"
           >
             <ElFormItem label="标题" prop="title">
-              <ElInput v-model="formData.title" placeholder="请输入标题" :autosize="false" :disabled="isEditMode" />
+              <ElInput
+                v-model="formData.title"
+                placeholder="请输入标题"
+                :autosize="false"
+                :disabled="isEditMode"
+              />
             </ElFormItem>
             <ElFormItem label="内容" prop="content">
               <ElInput
@@ -1928,8 +2179,8 @@ const closeQrCodeDialog = () => {
                 type="date"
                 placeholder="选择日期"
                 style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
+                :format="'YYYY-MM-DD'"
+                :value-format="'YYYY-MM-DD'"
                 :disabled="isEditMode"
               />
             </ElFormItem>
@@ -1998,7 +2249,9 @@ const closeQrCodeDialog = () => {
                     {{ file.name }}
                   </div>
                   <div class="file-meta">
-                    <span class="file-size">{{ (file.size / 1024).toFixed(2) }} KB</span>
+                    <span class="file-size"
+                      >{{ (file.size / 1024).toFixed(2) }} KB</span
+                    >
                     <span
                       v-if="file.status === 'success'"
                       class="file-status success"

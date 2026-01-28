@@ -39,6 +39,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:radio',
           title: 'WebSocket测试',
+          ignoreAccess: true, // 允许未登录访问，用于手机扫码上传
         },
       },
 

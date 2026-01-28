@@ -55,6 +55,7 @@
     "markdown-it": "^14.1.0",
     "pinia": "catalog:",
     "qrcode.vue": "^3.6.0",
+    "sockjs-client": "^1.6.1",
     "sortablejs": "catalog:",
     "stompjs": "^2.3.3",
     "vue": "catalog:",

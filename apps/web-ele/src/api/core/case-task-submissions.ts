@@ -24,6 +24,23 @@ export interface SubmissionFile {
   fileSize: number;
   uploadTime: string;
   uploadUserName: string;
+  sortOrder?: number;
+}
+
+export interface BatchSubmissionsRequest {
+  caseTaskIds: number[];
+}
+
+export interface BatchSubmissionsResponse {
+  [key: string]: CaseTaskSubmission[];
+}
+
+export interface BatchFilesRequest {
+  submissionIds: number[];
+}
+
+export interface BatchFilesResponse {
+  [key: string]: SubmissionFile[];
 }
 
 export interface PageResponse<T> {
@@ -113,5 +130,13 @@ export namespace CaseTaskSubmissionApi {
 
   export async function deleteSubmissionFile(submissionId: number, fileId: number) {
     return requestClient8085.delete(`/api/case-task-submissions/${submissionId}/files/${fileId}`);
+  }
+
+  export async function getLatestSubmissionsBatch(data: BatchSubmissionsRequest) {
+    return requestClient8085.post<BatchSubmissionsResponse>('/api/case-task-submissions/latest/batch', data);
+  }
+
+  export async function getSubmissionFilesBatch(data: BatchFilesRequest) {
+    return requestClient8085.post<BatchFilesResponse>('/api/case-task-submissions/files/batch', data);
   }
 }

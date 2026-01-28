@@ -10,6 +10,50 @@ export interface Attachment {
   uploader: string;
 }
 
+export interface ApprovalFile {
+  id: number;
+  originalFileName: string;
+  storedFileName: string;
+  filePath: string;
+  fileSize: number;
+  fileExtension: string;
+  mimeType: string;
+  description?: string;
+  sortOrder: number;
+  uploadTime: string;
+}
+
+export interface ApprovalSubmission {
+  id: number;
+  submissionTitle: string;
+  submissionContent: string;
+  submissionType: string;
+  submissionNumber: number;
+  status: string;
+  reviewerId?: number;
+  reviewOpinion?: string;
+  reviewTime?: string;
+  createTime: string;
+}
+
+export interface ApprovalTask {
+  id: number;
+  taskCode: string;
+  taskName: string;
+  taskDescription?: string;
+  status: string;
+  sortOrder: number;
+}
+
+export interface ApprovalContentData {
+  task: ApprovalTask;
+  submissions: ApprovalSubmission[];
+}
+
+export interface ApprovalAttachmentData {
+  files: Record<string, ApprovalFile[]>;
+}
+
 export interface CaseApproval {
   id: number;
   caseId: number;
@@ -52,7 +96,21 @@ export interface UpdateApprovalInfoDTO {
   remark?: string;
 }
 
+export interface CreateApprovalDTO {
+  caseId: number;
+  approvalType: string;
+  approvalTitle: string;
+  approvalContent: string;
+  approvalAttachment?: string;
+  remark?: string;
+}
+
 export const approvalApi = {
+  // 创建审批
+  createApproval: (data: CreateApprovalDTO) => {
+    return requestClient.post('/api/v1/approval', data);
+  },
+
   // 获取审批列表
   getApprovalList: (params?: {
     pageNum?: number;
@@ -110,5 +168,35 @@ export const approvalApi = {
         ...params,
       },
     });
+  },
+};
+
+export const approvalUtils = {
+  parseApprovalContent: (content: string | null | undefined): ApprovalContentData | null => {
+    if (!content) return null;
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      console.error('解析 approvalContent 失败:', e);
+      return null;
+    }
+  },
+
+  parseApprovalAttachment: (attachment: string | null | undefined): ApprovalAttachmentData | null => {
+    if (!attachment) return null;
+    try {
+      return JSON.parse(attachment);
+    } catch (e) {
+      console.error('解析 approvalAttachment 失败:', e);
+      return null;
+    }
+  },
+
+  formatFileSize: (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   },
 };

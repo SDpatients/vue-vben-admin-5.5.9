@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { approvalApi, type ApprovalSubmitDTO } from '#/api/core/approval';
+import { approvalApi, type CreateApprovalDTO } from '#/api/core/approval';
 import { Icon } from '@iconify/vue';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElMessage, type FormInstance } from 'element-plus';
 
@@ -9,27 +9,23 @@ const router = useRouter();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 
-const form = ref<ApprovalSubmitDTO>({
-  type: '',
-  applicantName: '',
-  approverId: 0,
-  approverName: '',
-  title: '',
-  description: '',
-  businessData: {},
+const form = ref<CreateApprovalDTO>({
+  caseId: 0,
+  approvalType: '',
+  approvalTitle: '',
+  approvalContent: '',
+  approvalAttachment: '',
+  remark: '',
 });
 
-const approverOptions = ref([
-  { id: 1, name: '张三' },
-  { id: 2, name: '李四' },
-  { id: 3, name: '王五' },
+const caseOptions = ref([
+  { id: 1, caseNumber: '案号001' },
+  { id: 2, caseNumber: '案号002' },
+  { id: 3, caseNumber: '案号003' },
 ]);
 
-const handleApproverChange = (value: number) => {
-  const approver = approverOptions.value.find((item) => item.id === value);
-  if (approver) {
-    form.value.approverName = approver.name;
-  }
+const handleCaseChange = (value: number) => {
+  form.value.caseId = value;
 };
 
 const handleSubmit = async () => {
@@ -38,9 +34,9 @@ const handleSubmit = async () => {
     if (valid) {
       loading.value = true;
       try {
-        await approvalApi.submitApproval(form.value);
+        await approvalApi.createApproval(form.value);
         ElMessage.success('提交成功');
-        router.push('/api/v1/approval/list');
+        router.push('/approval/list');
       } catch (error) {
         ElMessage.error('提交失败');
       } finally {
@@ -55,10 +51,10 @@ const handleCancel = () => {
 };
 
 const rules = {
-  type: [{ required: true, message: '请选择审核类型', trigger: 'change' }],
-  applicantName: [{ required: true, message: '请输入申请人姓名', trigger: 'blur' }],
-  approverId: [{ required: true, message: '请选择审核人', trigger: 'change' }],
-  title: [{ required: true, message: '请输入审核标题', trigger: 'blur' }],
+  caseId: [{ required: true, message: '请选择案件', trigger: 'change' }],
+  approvalType: [{ required: true, message: '请选择审批类型', trigger: 'change' }],
+  approvalTitle: [{ required: true, message: '请输入审批标题', trigger: 'blur' }],
+  approvalContent: [{ required: true, message: '请输入审批内容', trigger: 'blur' }],
 };
 </script>
 
@@ -74,54 +70,83 @@ const rules = {
 
     <div class="page-content">
       <ElCard shadow="hover">
-        <ElForm ref="formRef" :model="form" :rules="rules" label-width="100px">
-          <ElFormItem label="审核类型" prop="type" required>
-            <ElSelect v-model="form.type" placeholder="请选择审核类型" style="width: 100%">
-              <ElOption label="案件审核" value="CASE" />
-              <ElOption label="文书审核" value="DOCUMENT" />
-              <ElOption label="信息审核" value="INFO" />
-            </ElSelect>
-          </ElFormItem>
-
-          <ElFormItem label="申请人" prop="applicantName" required>
-            <ElInput v-model="form.applicantName" placeholder="请输入申请人姓名" />
-          </ElFormItem>
-
-          <ElFormItem label="审核人" prop="approverId" required>
+        <ElForm ref="formRef" :model="form" :rules="rules" label-width="120px">
+          <ElFormItem label="案件" prop="caseId" required>
             <ElSelect
-              v-model="form.approverId"
-              placeholder="请选择审核人"
+              v-model="form.caseId"
+              placeholder="请选择案件"
               style="width: 100%"
-              @change="handleApproverChange"
+              @change="handleCaseChange"
             >
               <ElOption
-                v-for="item in approverOptions"
+                v-for="item in caseOptions"
                 :key="item.id"
-                :label="item.name"
+                :label="item.caseNumber"
                 :value="item.id"
               />
             </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="审核标题" prop="title" required>
-            <ElInput v-model="form.title" placeholder="请输入审核标题" />
+          <ElFormItem label="审批类型" prop="approvalType" required>
+            <ElSelect v-model="form.approvalType" placeholder="请选择审批类型" style="width: 100%">
+              <ElOption label="案件提交审核" value="CASE_SUBMIT" />
+              <ElOption label="案件结案" value="CASE_CLOSE" />
+              <ElOption label="费用申请" value="FEE_APPLY" />
+              <ElOption label="证据上传" value="EVIDENCE_UPLOAD" />
+              <ElOption label="提交破产申请材料" value="TASK_001" />
+              <ElOption label="法院立案形式审查" value="TASK_002" />
+              <ElOption label="破产原因实质审查" value="TASK_003" />
+              <ElOption label="同步选任管理人" value="TASK_004" />
+              <ElOption label="裁定受理并公告" value="TASK_005" />
+              <ElOption label="全面接管债务人" value="TASK_006" />
+              <ElOption label="调查财产及经营状况" value="TASK_007" />
+              <ElOption label="决定合同继续履行或解除" value="TASK_008" />
+              <ElOption label="追收债务人财产" value="TASK_009" />
+              <ElOption label="通知已知债权人并公告" value="TASK_010" />
+              <ElOption label="接收、登记债权申报" value="TASK_011" />
+              <ElOption label="审查申报债权并编制债权表" value="TASK_012" />
+              <ElOption label="筹备第一次债权人会议" value="TASK_013" />
+              <ElOption label="召开会议核查债权与议决事项" value="TASK_014" />
+              <ElOption label="表决通过财产变价/分配方案" value="TASK_015" />
+              <ElOption label="审查宣告破产条件" value="TASK_016" />
+              <ElOption label="裁定宣告债务人破产" value="TASK_017" />
+              <ElOption label="拟定并执行财产变价方案" value="TASK_018" />
+              <ElOption label="执行破产财产分配" value="TASK_019" />
+              <ElOption label="提请终结破产程序" value="TASK_020" />
+              <ElOption label="法院裁定并公告" value="TASK_021" />
+              <ElOption label="办理企业注销登记" value="TASK_022" />
+              <ElOption label="管理人终止执行职务并归档" value="TASK_023" />
+            </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="审核描述" prop="description">
+          <ElFormItem label="审批标题" prop="approvalTitle" required>
+            <ElInput v-model="form.approvalTitle" placeholder="请输入审批标题" />
+          </ElFormItem>
+
+          <ElFormItem label="审批内容" prop="approvalContent" required>
             <ElInput
-              v-model="form.description"
+              v-model="form.approvalContent"
               type="textarea"
-              :rows="4"
-              placeholder="请输入审核描述"
+              :rows="6"
+              placeholder="请输入审批内容"
             />
           </ElFormItem>
 
-          <ElFormItem label="业务数据">
+          <ElFormItem label="审批附件" prop="approvalAttachment">
             <ElInput
-              v-model="form.businessData"
+              v-model="form.approvalAttachment"
               type="textarea"
-              :rows="6"
-              placeholder='请输入业务数据（JSON格式），例如：{"key": "value"}'
+              :rows="4"
+              placeholder="请输入审批附件信息（JSON格式）"
+            />
+          </ElFormItem>
+
+          <ElFormItem label="备注" prop="remark">
+            <ElInput
+              v-model="form.remark"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入备注信息"
             />
           </ElFormItem>
 
@@ -130,7 +155,7 @@ const rules = {
               <ElButton @click="handleCancel">取消</ElButton>
               <ElButton type="primary" :loading="loading" @click="handleSubmit">
                 <Icon icon="lucide:send" :size="16" class="mr-1" />
-                提交审核
+                提交审批
               </ElButton>
             </div>
           </ElFormItem>

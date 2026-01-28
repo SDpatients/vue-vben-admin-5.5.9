@@ -858,6 +858,7 @@ const openStageTwoDialog = async (row: any) => {
     const response = await getClaimRegistrationDetailApi(row.id);
     if (handleApiResponse(response, '', '获取债权详情失败')) {
       currentClaim.value = response.data;
+      
       if (response.data.reviewInfo) {
         Object.assign(reviewForm, response.data.reviewInfo);
       } else {
@@ -2746,12 +2747,12 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="申报本金">
-                <ElInput v-model="reviewForm.declaredPrincipal" type="number" />
+                <ElInput v-model="reviewForm.declaredPrincipal" type="number" disabled />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="申报利息">
-                <ElInput v-model="reviewForm.declaredInterest" type="number" />
+                <ElInput v-model="reviewForm.declaredInterest" type="number" disabled />
               </ElFormItem>
             </ElCol>
           </ElRow>
@@ -2759,7 +2760,7 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="申报罚金">
-                <ElInput v-model="reviewForm.declaredPenalty" type="number" />
+                <ElInput v-model="reviewForm.declaredPenalty" type="number" disabled />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
@@ -2767,6 +2768,7 @@ onMounted(() => {
                 <ElInput
                   v-model="reviewForm.declaredOtherLosses"
                   type="number"
+                  disabled
                 />
               </ElFormItem>
             </ElCol>

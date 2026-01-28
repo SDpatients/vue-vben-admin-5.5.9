@@ -18,7 +18,7 @@ import {
   ElTimelineItem,
 } from 'element-plus';
 
-import { approvalApi } from '#/api/core/approval';
+import { approvalApi, approvalUtils, type ApprovalContentData, type ApprovalAttachmentData, type ApprovalTask, type ApprovalSubmission, type ApprovalFile } from '#/api/core/approval';
 
 const route = useRoute();
 const router = useRouter();
@@ -28,6 +28,9 @@ const approvalHistory = ref<any[]>([]);
 const approvalOpinion = ref('');
 const approvalDialogVisible = ref(false);
 const approvalAction = ref<'approve' | 'reject'>('approve');
+
+const contentData = ref<ApprovalContentData | null>(null);
+const attachmentData = ref<ApprovalAttachmentData | null>(null);
 
 const formatTime = (time: string) => {
   if (!time) return '';
@@ -47,6 +50,11 @@ const loadApprovalDetail = async () => {
     const id = Number(route.params.approvalId);
     const res = await approvalApi.getApprovalDetail(id);
     approval.value = res.data;
+    
+    if (approval.value) {
+      contentData.value = approvalUtils.parseApprovalContent(approval.value.approvalContent);
+      attachmentData.value = approvalUtils.parseApprovalAttachment(approval.value.approvalAttachment);
+    }
   } catch (error) {
     console.error('加载审批详情失败:', error);
     ElMessage.error('加载审批详情失败');
@@ -153,6 +161,10 @@ const getResultColor = (result: string) => {
   return colorMap[result] || 'info';
 };
 
+const handleDownloadFile = (file: ApprovalFile) => {
+  window.open(file.filePath, '_blank');
+};
+
 onMounted(() => {
   loadApprovalDetail();
   loadApprovalHistory();
@@ -255,8 +267,99 @@ onMounted(() => {
                   {{ approval.approvalContent }}
                 </div>
               </div>
+              
               <div
-                v-if="approval.approvalAttachment"
+                v-if="contentData"
+                class="info-item full-width"
+              >
+                <div class="parsed-content-section">
+                  <h4 class="section-title">任务信息</h4>
+                  <div class="task-info">
+                    <div class="info-row">
+                      <span class="label">任务编码:</span>
+                      <span class="value">{{ contentData.task.taskCode }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="label">任务名称:</span>
+                      <span class="value">{{ contentData.task.taskName }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="label">任务状态:</span>
+                      <span class="value">{{ contentData.task.status }}</span>
+                    </div>
+                    <div v-if="contentData.task.taskDescription" class="info-row">
+                      <span class="label">任务描述:</span>
+                      <span class="value">{{ contentData.task.taskDescription }}</span>
+                    </div>
+                  </div>
+                  
+                  <h4 v-if="contentData.submissions && contentData.submissions.length > 0" class="section-title">提交记录</h4>
+                  <div v-if="contentData.submissions && contentData.submissions.length > 0" class="submissions-list">
+                    <div v-for="submission in contentData.submissions" :key="submission.id" class="submission-item">
+                      <div class="submission-header">
+                        <span class="submission-title">提交记录 #{{ submission.submissionNumber }}: {{ submission.submissionTitle }}</span>
+                        <ElTag size="small" :type="getStatusColor(submission.status)">
+                          {{ getStatusText(submission.status) }}
+                        </ElTag>
+                      </div>
+                      <div class="submission-body">
+                        <div class="info-row">
+                          <span class="label">类型:</span>
+                          <span class="value">{{ submission.submissionType }}</span>
+                        </div>
+                        <div v-if="submission.submissionContent" class="info-row">
+                          <span class="label">内容:</span>
+                          <span class="value">{{ submission.submissionContent }}</span>
+                        </div>
+                        <div v-if="submission.reviewOpinion" class="info-row">
+                          <span class="label">审核意见:</span>
+                          <span class="value">{{ submission.reviewOpinion }}</span>
+                        </div>
+                        <div class="info-row">
+                          <span class="label">提交时间:</span>
+                          <span class="value">{{ formatTime(submission.createTime) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div
+                v-if="attachmentData && Object.keys(attachmentData.files).length > 0"
+                class="info-item full-width"
+              >
+                <div class="parsed-content-section">
+                  <h4 class="section-title">审批附件</h4>
+                  <div class="files-list">
+                    <div v-for="(files, submissionId) in attachmentData.files" :key="submissionId" class="files-by-submission">
+                      <div class="files-header">
+                        <span>提交记录 #{{ contentData?.submissions.find(s => s.id.toString() === submissionId)?.submissionNumber || submissionId }} 的文件</span>
+                      </div>
+                      <div class="files-items">
+                        <div v-for="file in files" :key="file.id" class="file-item">
+                          <div class="file-info">
+                            <div class="file-name">{{ file.originalFileName }}</div>
+                            <div class="file-meta">
+                              <span class="file-size">{{ approvalUtils.formatFileSize(file.fileSize) }}</span>
+                              <span class="file-type">{{ file.fileExtension }}</span>
+                              <span class="upload-time">{{ formatTime(file.uploadTime) }}</span>
+                            </div>
+                          </div>
+                          <div class="file-actions">
+                            <ElButton size="small" type="text" @click="handleDownloadFile(file)">
+                              下载
+                            </ElButton>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div
+                v-if="approval.approvalAttachment && !attachmentData"
                 class="info-item full-width"
               >
                 <span class="label">审批附件:</span>
@@ -436,5 +539,138 @@ onMounted(() => {
   margin-top: 4px;
   font-size: 13px;
   color: #606266;
+}
+
+.parsed-content-section {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submission-item {
+  padding: 12px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+}
+
+.submission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.submission-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.submission-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.files-by-submission {
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+  overflow: hidden;
+}
+
+.files-header {
+  padding: 10px 12px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+  font-size: 13px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.files-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.file-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.info-row {
+  display: flex;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.info-row .label {
+  flex-shrink: 0;
+  width: 80px;
+  color: #909399;
+}
+
+.info-row .value {
+  flex: 1;
+  color: #606266;
+  word-break: break-all;
 }
 </style>

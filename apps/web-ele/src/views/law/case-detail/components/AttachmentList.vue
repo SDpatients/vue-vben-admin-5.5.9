@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
-  ElDialog,
   ElEmpty,
   ElImage,
   ElMessage,
@@ -32,10 +31,8 @@ const loading = ref(false);
 const uploadLoading = ref(false);
 const attachments = ref<FileApi.FileRecord[]>([]);
 
-// 预览相关状态
-const previewDialogVisible = ref(false);
-const previewImageUrl = ref('');
-const currentFileName = ref('');
+// 图片URL缓存
+const imageUrls = ref<Map<number, string>>(new Map());
 
 const fetchAttachments = async () => {
   loading.value = true;
@@ -43,6 +40,8 @@ const fetchAttachments = async () => {
     const response = await getAllFilesByBizApi('case', Number(props.caseId));
     if (response.code === 200 && response.data) {
       attachments.value = response.data;
+      // 为图片文件加载URL
+      await loadImageUrls(response.data);
     } else {
       ElMessage.error(`获取附件列表失败：${response.message || '未知错误'}`);
       attachments.value = [];
@@ -53,6 +52,20 @@ const fetchAttachments = async () => {
     attachments.value = [];
   } finally {
     loading.value = false;
+  }
+};
+
+// 加载图片URL
+const loadImageUrls = async (files: FileApi.FileRecord[]) => {
+  const imageFiles = files.filter(file => isImageFile(file.fileExtension));
+  for (const file of imageFiles) {
+    try {
+      const blob = await downloadFileApi(file.id);
+      const url = window.URL.createObjectURL(blob);
+      imageUrls.value.set(file.id, url);
+    } catch (error) {
+      console.error(`加载图片 ${file.originalFileName} 失败:`, error);
+    }
   }
 };
 
@@ -97,6 +110,11 @@ const handleDelete = async (fileId: number) => {
   try {
     const response = await deleteFileApi(fileId);
     if (response.code === 200) {
+      // 清理图片URL缓存
+      if (imageUrls.value.has(fileId)) {
+        window.URL.revokeObjectURL(imageUrls.value.get(fileId)!);
+        imageUrls.value.delete(fileId);
+      }
       ElMessage.success('删除成功');
       await fetchAttachments();
     } else {
@@ -146,31 +164,21 @@ const isImageFile = (extension: string): boolean => {
   return imageExtensions.includes(extension.toLowerCase());
 };
 
-// 预览图片
-const handlePreview = async (fileId: number, fileName: string) => {
-  try {
-    const blob = await downloadFileApi(fileId);
-    const url = window.URL.createObjectURL(blob);
-    previewImageUrl.value = url;
-    currentFileName.value = fileName;
-    previewDialogVisible.value = true;
-  } catch (error) {
-    console.error('预览图片失败:', error);
-    ElMessage.error('预览图片失败');
-  }
-};
-
-// 关闭预览对话框
-const closePreviewDialog = () => {
-  previewDialogVisible.value = false;
-  if (previewImageUrl.value) {
-    window.URL.revokeObjectURL(previewImageUrl.value);
-    previewImageUrl.value = '';
-  }
+// 获取图片URL
+const getImageUrl = (fileId: number): string | undefined => {
+  return imageUrls.value.get(fileId);
 };
 
 onMounted(() => {
   fetchAttachments();
+});
+
+// 组件卸载时清理所有图片URL
+onUnmounted(() => {
+  imageUrls.value.forEach((url) => {
+    window.URL.revokeObjectURL(url);
+  });
+  imageUrls.value.clear();
 });
 </script>
 
@@ -205,17 +213,32 @@ onMounted(() => {
     </div>
     <ElEmpty v-else-if="attachments.length === 0" description="暂无附件" />
     <ElTable v-else :data="attachments" border style="width: 100%" :row-key="(row) => row.id">
-      <ElTableColumn label="文件名" min-width="200">
+      <ElTableColumn label="文件名" min-width="300">
         <template #default="scope">
-          <div class="flex items-center">
-            <Icon :icon="getFileIcon(scope.row.fileExtension)" class="mr-2 text-gray-500" />
-            <span class="mr-2">{{ scope.row.originalFileName }}</span>
-            <span v-if="isImageFile(scope.row.fileExtension)" 
-                  style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 8px;"
-                  @click="handlePreview(scope.row.id, scope.row.originalFileName)">
-              <Icon icon="lucide:eye" class="mr-1" />
-              预览
-            </span>
+          <div class="file-name-container">
+            <div v-if="isImageFile(scope.row.fileExtension)" class="image-preview-container">
+              <ElImage
+                :src="getImageUrl(scope.row.id)"
+                :preview-src-list="[getImageUrl(scope.row.id)!]"
+                fit="cover"
+                class="image-thumbnail"
+                :initial-index="0"
+                preview-teleported
+              >
+                <template #error>
+                  <div class="image-error">
+                    <Icon icon="lucide:image-off" class="text-gray-400" />
+                  </div>
+                </template>
+              </ElImage>
+              <div class="file-info">
+                <span class="file-name">{{ scope.row.originalFileName }}</span>
+              </div>
+            </div>
+            <div v-else class="file-icon-container">
+              <Icon :icon="getFileIcon(scope.row.fileExtension)" class="file-icon text-gray-500" />
+              <span class="file-name">{{ scope.row.originalFileName }}</span>
+            </div>
           </div>
         </template>
       </ElTableColumn>
@@ -260,23 +283,6 @@ onMounted(() => {
       </ElTableColumn>
     </ElTable>
   </ElCard>
-
-  <!-- 图片预览对话框 -->
-  <ElDialog
-    v-model="previewDialogVisible"
-    :title="`图片预览 - ${currentFileName}`"
-    width="80%"
-    destroy-on-close
-    @close="closePreviewDialog"
-  >
-    <div class="preview-container" style="display: flex; justify-content: center; align-items: center; min-height: 500px;">
-      <ElImage
-        :src="previewImageUrl"
-        fit="contain"
-        style="max-width: 100%; max-height: 500px;"
-      />
-    </div>
-  </ElDialog>
 </template>
 
 <style scoped>
@@ -287,7 +293,66 @@ onMounted(() => {
   justify-content: center;
 }
 
-.preview-container {
-  padding: 20px;
+.file-name-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.image-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.image-thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.image-thumbnail:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.image-error {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-icon-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.file-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

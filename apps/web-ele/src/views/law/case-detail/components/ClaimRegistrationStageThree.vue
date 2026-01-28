@@ -24,6 +24,7 @@ import {
 import {
   createClaimConfirmationApi,
   finalizeClaimConfirmationApi,
+  updateClaimConfirmationApi,
 } from '#/api/core/claim-confirmation';
 import {
   getClaimRegistrationDetailApi,
@@ -132,7 +133,7 @@ const handleConfirmClaim = async () => {
     if (currentClaim.value.confirmationInfo) {
       // 已有确认记录，直接提交表决
       confirmationId = currentClaim.value.confirmationInfo.id;
-      await submitVoteApi(confirmationId, {
+      await updateClaimConfirmationApi(confirmationId, {
         voteResult:
           confirmForm.voteResult === '通过'
             ? 'AGREE'
@@ -224,6 +225,51 @@ onMounted(() => {
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
+          <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
+            <template #default="scope">
+              <ElTag
+                :type="
+                  getConfirmationStatusTag(scope.row.confirmationStatus).type
+                "
+                size="small"
+              >
+                {{ 
+                  getConfirmationStatusTag(scope.row.confirmationStatus).text
+                }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn
+            label="审查结论"
+            width="120"
+          >
+            <template #default="scope">
+              <ElTag
+                v-if="scope.row.reviewInfo"
+                :type="
+                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
+                    .type
+                "
+                size="small"
+              >
+                {{ 
+                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
+                    .text
+                }}
+              </ElTag>
+              <ElTag v-else type="info" size="small">
+                待审查
+              </ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn
+            label="确认金额"
+            width="120"
+          >
+            <template #default="scope">
+              {{ scope.row.reviewInfo?.confirmedTotalAmount || 0 }}
+            </template>
+          </ElTableColumn>
           <ElTableColumn
             prop="creditorName"
             label="债权人姓名或名称"
@@ -235,45 +281,6 @@ onMounted(() => {
           <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
           <ElTableColumn prop="claimNature" label="债权性质" width="120" />
           <ElTableColumn prop="claimType" label="债权种类" width="120" />
-          <ElTableColumn
-            prop="reviewInfo.reviewConclusion"
-            label="审查结论"
-            width="120"
-          >
-            <template #default="scope">
-              <ElTag
-                :type="
-                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
-                    .type
-                "
-                size="small"
-              >
-                {{
-                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
-                    .text
-                }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn
-            prop="reviewInfo.confirmedTotalAmount"
-            label="确认金额"
-            width="120"
-          />
-          <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
-            <template #default="scope">
-              <ElTag
-                :type="
-                  getConfirmationStatusTag(scope.row.confirmationStatus).type
-                "
-                size="small"
-              >
-                {{
-                  getConfirmationStatusTag(scope.row.confirmationStatus).text
-                }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
           <ElTableColumn label="操作" width="200" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
@@ -352,19 +359,23 @@ onMounted(() => {
           </ElDescriptionsItem>
           <ElDescriptionsItem label="审查结论">
             <ElTag
+              v-if="currentClaim.reviewInfo"
               :type="
                 getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
                   .type
               "
             >
-              {{
+              {{ 
                 getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
                   .text
               }}
             </ElTag>
+            <ElTag v-else type="info">
+              待审查
+            </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认金额">
-            {{ currentClaim.reviewInfo.confirmedTotalAmount }}
+            {{ currentClaim.reviewInfo?.confirmedTotalAmount || 0 }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认状态">
             <ElTag
