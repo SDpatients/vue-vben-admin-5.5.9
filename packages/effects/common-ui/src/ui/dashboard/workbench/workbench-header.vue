@@ -7,6 +7,7 @@ interface Props {
   todoTotal?: number;
   caseCount?: number;
   teamCount?: number;
+  realName?: string;
 }
 
 defineOptions({
@@ -19,17 +20,41 @@ withDefaults(defineProps<Props>(), {
   todoTotal: 0,
   caseCount: 0,
   teamCount: 0,
+  realName: '',
 });
+
+const emit = defineEmits(['logout']);
+
+const handleLogout = () => {
+  emit('logout');
+};
 </script>
 <template>
   <div class="card-box p-4 py-6 lg:flex">
-    <VbenAvatar :src="avatar" class="size-20" />
+    <div class="size-10 relative flex flex-shrink-0 items-center">
+      <span class="inline-flex items-center justify-center font-normal text-foreground select-none shrink-0 bg-secondary overflow-hidden rounded-full text-xs size-full">
+        <template v-if="realName && realName.length > 0">
+          <span class="text-sm font-medium">{{ realName.charAt(0) }}</span>
+        </template>
+        <template v-else>
+          <img role="img" src="https://unpkg.com/@vbenjs/static-source@0.1.7/source/avatar-v1.webp" class="h-full w-full object-cover" alt="avatar" style="object-fit: cover;">
+        </template>
+      </span>
+    </div>
     <div
       v-if="$slots.title || $slots.description"
       class="flex flex-col justify-center md:ml-6 md:mt-0"
     >
       <h1 v-if="$slots.title" class="text-md font-semibold md:text-xl">
-        <slot name="title"></slot>
+        <div class="flex items-center justify-between">
+          <slot name="title"></slot>
+          <button 
+            class="text-primary text-sm ml-4 hover:underline"
+            @click="handleLogout"
+          >
+            [退出登录]
+          </button>
+        </div>
       </h1>
       <span v-if="$slots.description" class="text-foreground/80 mt-1">
         <slot name="description"></slot>
