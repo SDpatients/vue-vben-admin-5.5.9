@@ -126,8 +126,8 @@ defineExpose({
             :key="item.id"
             class="activity-item"
           >
-            <div class="activity-icon" :style="{ backgroundColor: getActivityColor(item.type) }">
-              <Icon :icon="getActivityIcon(item.type)" :size="16" color="#fff" />
+            <div class="activity-icon">
+              <Icon :icon="getActivityIcon(item.type)" :size="16" color="#333" />
             </div>
             <div class="activity-content-wrapper">
               <div class="activity-user">{{ item.title }}</div>
@@ -151,7 +151,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: #ffe6e6;
+  background: #ffffff;
   border-radius: 8px;
   min-height: 200px;
   max-height: 100%;
@@ -218,14 +218,14 @@ defineExpose({
   padding-bottom: 20px;
   margin-top: 0;
   margin-bottom: 8px;
-  background-color: #e6f7ff;
+  background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
   transition: all 0.3s;
 }
 
 .activity-item:hover {
-  background-color: #bae7ff;
+  background-color: #f5f5f5;
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   transform: translateY(-2px);
 }
@@ -240,6 +240,8 @@ defineExpose({
   height: 32px;
   margin-right: 12px;
   border-radius: 50%;
+  background-color: #ffffff;
+  border: 1px solid #e8e8e8;
 }
 
 .activity-content-wrapper {
