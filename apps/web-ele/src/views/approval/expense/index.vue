@@ -138,11 +138,9 @@ const handleApprove = async () => {
   } catch (error: any) {
     if (error === 'cancel') {
       try {
-        const { value } = await ElMessageBox.prompt('请输入拒绝理由', '拒绝操作', {
+        const { value } = await ElMessageBox.prompt('请输入拒绝理由（可选）', '拒绝操作', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
-          inputPattern: /.+/,
-          inputErrorMessage: '请输入拒绝理由',
         });
 
         detailLoading.value = true;
@@ -224,11 +222,9 @@ const handleBatchReject = async () => {
   }
 
   try {
-    const { value } = await ElMessageBox.prompt('请输入拒绝理由', '批量拒绝确认', {
+    const { value } = await ElMessageBox.prompt('请输入拒绝理由（可选）', '批量拒绝确认', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      inputPattern: /.+/,
-      inputErrorMessage: '请输入拒绝理由',
     });
 
     loading.value = true;

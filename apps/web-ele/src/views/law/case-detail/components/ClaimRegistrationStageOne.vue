@@ -34,6 +34,7 @@ import {
   deleteClaimRegistrationApi,
   getClaimRegistrationDetailApi,
   getClaimRegistrationListApi,
+  importClaimRegistrationApi,
   receiveClaimMaterialApi,
   updateClaimRegistrationStatusApi,
 } from '#/api/core/claim-registration';
@@ -57,11 +58,15 @@ const pageSize = ref(10);
 const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
 const showMaterialDialog = ref(false);
+const showImportDialog = ref(false);
+const showImportErrorDialog = ref(false);
 const addLoading = ref(false);
 const materialLoading = ref(false);
+const importLoading = ref(false);
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(
   null,
 );
+const importResult = ref<any>(null);
 
 const materialForm = reactive({
   receiver: '',
@@ -371,6 +376,31 @@ const handleRegisterClaim = async (row: any) => {
     });
 };
 
+const handleRejectClaim = async (row: any) => {
+  ElMessageBox.confirm('确定要驳回这条债权申报吗？', '驳回确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(async () => {
+      try {
+        const response = await updateClaimRegistrationStatusApi(row.id, 'REJECTED');
+        if (response.code === 200) {
+          ElMessage.success('债权申报驳回成功');
+          await fetchClaims();
+        } else {
+          ElMessage.error(`驳回失败：${response.message || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('驳回债权申报失败:', error);
+        ElMessage.error('驳回债权申报失败');
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消驳回操作');
+    });
+};
+
 const handleDeleteClaim = async (row: any) => {
   try {
     const response = await deleteClaimRegistrationApi(row.id);
@@ -557,9 +587,60 @@ const getMaterialCompletenessTag = (completeness: string) => {
   return statusMap[completeness] || { type: 'info', text: completeness };
 };
 
+// Excel导入相关方法
+const handleImportFileChange = (file: any, fileList: any[]) => {
+  // 只保留最新的文件
+  if (fileList.length > 1) {
+    fileList.shift();
+  }
+};
+
+const handleImportFileRemove = (file: any, fileList: any[]) => {
+  // 文件移除处理
+};
+
+const handleImportSubmit = async (file: any) => {
+  if (!file) {
+    ElMessage.warning('请选择Excel文件');
+    return;
+  }
+
+  importLoading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('file', file.raw);
+    formData.append('caseId', props.caseId);
+
+    const response = await importClaimRegistrationApi(formData);
+    if (response.code === 200) {
+      importResult.value = response.data;
+      ElMessage.success(`导入完成，成功${response.data.successCount}条，失败${response.data.failCount}条`);
+      
+      if (response.data.failCount > 0) {
+        showImportErrorDialog.value = true;
+      }
+      
+      await fetchClaims();
+      showImportDialog.value = false;
+    } else {
+      ElMessage.error(`导入失败：${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('Excel导入失败:', error);
+    ElMessage.error('Excel导入失败');
+  } finally {
+    importLoading.value = false;
+  }
+};
+
+const openImportDialog = () => {
+  showImportDialog.value = true;
+};
+
 defineExpose({
   hasRegisteredClaims,
   openAddDialog,
+  openImportDialog,
 });
 
 onMounted(() => {
@@ -577,6 +658,10 @@ onMounted(() => {
             <span class="text-lg font-semibold">债权申报登记</span>
           </div>
           <div class="flex space-x-2">
+            <ElButton type="success" @click="openImportDialog">
+              <Icon icon="lucide:file-spreadsheet" class="mr-1" />
+              Excel导入
+            </ElButton>
             <ElButton type="primary" @click="fetchClaims">
               <Icon icon="lucide:refresh-cw" class="mr-1" />
               刷新
@@ -652,17 +737,27 @@ onMounted(() => {
           <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
           <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
           <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="350" fixed="right">
+          <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
+                v-if="scope.row.registration_status === 'PENDING'"
                 link
                 size="small"
                 @click="handleRegisterClaim(scope.row)"
               >
                 登记
+              </ElButton>
+              <ElButton
+                v-if="scope.row.registration_status === 'PENDING'"
+                link
+                size="small"
+                type="danger"
+                @click="handleRejectClaim(scope.row)"
+              >
+                驳回
               </ElButton>
               <ElPopconfirm
                 title="确定要删除这条债权登记吗？"
@@ -1317,6 +1412,90 @@ onMounted(() => {
         </span>
       </template>
     </ElDialog>
+
+    <!-- Excel导入对话框 -->
+    <ElDialog
+      v-model="showImportDialog"
+      title="Excel导入债权登记"
+      width="600px"
+      destroy-on-close
+    >
+      <div class="import-dialog-container">
+        <ElAlert title="导入说明" type="info" :closable="false" class="mb-4">
+          <div>
+            <p>请上传符合格式要求的Excel文件。</p>
+            <p>Excel文件需包含以下必填列：债权人名称、债权人类型、债权类型、总金额。</p>
+            <p>支持的文件格式：.xlsx 或 .xls</p>
+            <p>文件大小限制：不超过10MB</p>
+          </div>
+        </ElAlert>
+
+        <ElUpload
+          class="upload-demo"
+          :auto-upload="false"
+          :on-change="handleImportFileChange"
+          :on-remove="handleImportFileRemove"
+          :limit="1"
+          accept=".xlsx,.xls"
+          :show-file-list="true"
+        >
+          <template #trigger>
+            <ElButton type="primary">
+              <Icon icon="lucide:upload" class="mr-1" />
+              选择文件
+            </ElButton>
+          </template>
+          <template #tip>
+            <div class="el-upload__tip">
+              只能上传 .xlsx 或 .xls 文件，且不超过 10MB
+            </div>
+          </template>
+        </ElUpload>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="showImportDialog = false">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="() => {
+              const upload = document.querySelector('.upload-demo .el-upload__input');
+              if (upload) {
+                const fileInput = upload as HTMLInputElement;
+                if (fileInput.files && fileInput.files.length > 0) {
+                  handleImportSubmit(fileInput.files[0]);
+                } else {
+                  ElMessage.warning('请选择Excel文件');
+                }
+              }
+            }"
+            :loading="importLoading"
+          >
+            开始导入
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 导入错误详情对话框 -->
+    <ElDialog
+      v-model="showImportErrorDialog"
+      title="导入错误详情"
+      width="80%"
+      destroy-on-close
+    >
+      <div v-if="importResult && importResult.errors" class="import-error-container">
+        <ElTable :data="importResult.errors" border style="width: 100%">
+          <ElTableColumn prop="row" label="行号" width="80" />
+          <ElTableColumn prop="creditorName" label="债权人名称" width="150" />
+          <ElTableColumn prop="message" label="错误信息" />
+        </ElTable>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="showImportErrorDialog = false">关闭</ElButton>
+        </span>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -1366,5 +1545,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.import-dialog-container,
+.import-error-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.upload-demo {
+  margin: 20px 0;
 }
 </style>

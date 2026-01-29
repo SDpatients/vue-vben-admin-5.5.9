@@ -332,6 +332,50 @@ export async function getAllFilesByBizApi(
 }
 
 /**
+ * 下载文件（旧数据，使用 filePath）
+ * @param filePath 文件路径
+ * @param fileName 文件名（可选）
+ */
+export async function downloadFileByPathApi(
+  filePath: string,
+  fileName?: string,
+): Promise<Blob> {
+  const params: Record<string, string> = {
+    filePath: encodeURIComponent(filePath),
+  };
+  if (fileName) {
+    params.fileName = encodeURIComponent(fileName);
+  }
+  return fileUploadRequestClient.get<Blob>('/api/v1/file/download-by-path', {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/**
+ * 预览文件（旧数据，使用 filePath）
+ * @param filePath 文件路径
+ * @param fileName 文件名（可选）
+ */
+export async function previewFileByPathApi(
+  filePath: string,
+  fileName?: string,
+): Promise<void> {
+  const params: Record<string, string> = {
+    filePath: encodeURIComponent(filePath),
+  };
+  if (fileName) {
+    params.fileName = encodeURIComponent(fileName);
+  }
+  const blob = await fileUploadRequestClient.get<Blob>('/api/v1/file/preview-by-path', {
+    params,
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+/**
  * 业务类型映射表
  */
 export const BizTypeMap = {

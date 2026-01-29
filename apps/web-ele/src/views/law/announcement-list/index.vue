@@ -20,6 +20,7 @@ import {
 
 import {
   createAnnouncementApi,
+  createViewRecordApi,
   getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
@@ -129,6 +130,13 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
   currentAnnouncement.value = announcement;
 
   try {
+    // 调用添加查看记录接口
+    await createViewRecordApi({
+      announcementId: announcement.id,
+      announcementTitle: announcement.title,
+      caseId: announcement.caseId,
+    });
+
     const [detailResponse, attachmentsResponse] = await Promise.all([
       getAnnouncementDetailApi(announcement.id),
       getAnnouncementAttachmentsApi(announcement.id),

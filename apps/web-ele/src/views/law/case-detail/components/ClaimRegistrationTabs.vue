@@ -32,6 +32,20 @@ const handleTabChange = (tabName: string) => {
           </div>
           <div class="flex space-x-2">
             <ElButton
+              type="success"
+              @click="
+                () => {
+                  activeTab = 'stage1';
+                  $nextTick(() => {
+                    stageOneRef?.openImportDialog();
+                  });
+                }
+              "
+            >
+              <Icon icon="lucide:file-spreadsheet" class="mr-1" />
+              Excel导入
+            </ElButton>
+            <ElButton
               type="primary"
               @click="
                 () => {
@@ -65,14 +79,6 @@ const handleTabChange = (tabName: string) => {
             <div class="tab-label">
               <Icon icon="lucide:file-plus" class="mr-1" />
               债权申报登记
-              <ElTag
-                v-if="stageOneRef?.hasRegisteredClaims"
-                type="success"
-                size="small"
-                class="ml-2"
-              >
-                已登记
-              </ElTag>
             </div>
           </template>
           <ClaimRegistrationStageOne ref="stageOneRef" :case-id="caseId" />

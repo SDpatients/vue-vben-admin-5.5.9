@@ -55,11 +55,9 @@ const handleApprove = async () => {
 
 const handleReject = async () => {
   try {
-    const { value: opinion } = await ElMessageBox.prompt('请输入驳回原因', '确认驳回', {
+    const { value: opinion } = await ElMessageBox.prompt('请输入驳回原因（可选）', '确认驳回', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      inputPattern: /\S+/,
-      inputErrorMessage: '驳回原因不能为空',
       inputType: 'textarea',
       inputPlaceholder: '请输入驳回原因',
     });

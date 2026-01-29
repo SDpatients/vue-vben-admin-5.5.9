@@ -43,6 +43,13 @@ const showRenameDialog = ref(false);
 const currentRenameFile = ref<any>(null);
 const newFileName = ref('');
 
+// 移动端上传配置
+const mobileUploadConfig = ref({
+  ip: '',
+  port: 5780,
+  autoDetect: true
+});
+
 const addLog = (
   message: string,
   type: 'error' | 'info' | 'success' | 'warning' = 'info',
@@ -764,8 +771,26 @@ const messageTypes = [
 
 // 文件上传相关函数
 const generateQRCode = () => {
-  const baseUrl = window.location.origin;
-  const uploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${bizType.value}&bizId=${bizId.value}`;
+  let baseUrl = window.location.origin;
+  
+  // 强制使用配置的端口
+  const currentUrl = new URL(window.location.href);
+  if (mobileUploadConfig.value.ip) {
+    // 使用配置的IP和端口
+    baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+  } else {
+    // 使用当前主机名和配置的端口
+    baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+  }
+  
+  let uploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${bizType.value}&bizId=${bizId.value}`;
+  
+  // 添加JWT token
+  if (token.value) {
+    const tokenValue = token.value.startsWith('Bearer ') ? token.value.substring(7) : token.value;
+    uploadUrl += `&token=${encodeURIComponent(tokenValue)}`;
+  }
+  
   return uploadUrl;
 };
 
@@ -1062,6 +1087,56 @@ const getFileIcon = (extension: string) => {
   return iconMap[extension.toLowerCase()] || 'lucide:file';
 };
 
+// 检测本机局域网IP地址
+const detectLocalIP = async () => {
+  try {
+    addLog('开始检测本机IP地址...', 'info');
+    
+    // 方法1: 通过WebRTC获取本地IP
+    const rtc = new RTCPeerConnection({ iceServers: [] });
+    rtc.createDataChannel('');
+    const offer = await rtc.createOffer();
+    await rtc.setLocalDescription(offer);
+    
+    return new Promise<string>((resolve) => {
+      rtc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidate = event.candidate.candidate;
+          const match = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+          if (match && !match[1].startsWith('127.')) {
+            rtc.close();
+            const ip = match[1];
+            addLog(`检测到本机IP: ${ip}`, 'success');
+            mobileUploadConfig.value.ip = ip;
+            resolve(ip);
+          }
+        }
+      };
+      
+      // 超时处理
+      setTimeout(() => {
+        rtc.close();
+        addLog('IP检测超时，请手动设置IP地址', 'warning');
+        resolve('');
+      }, 3000);
+    });
+  } catch (error: any) {
+    addLog(`IP检测失败: ${error.message}`, 'error');
+    return '';
+  }
+};
+
+// 获取当前页面的实际URL
+const getCurrentPageUrl = () => {
+  return window.location.href;
+};
+
+// 检查是否为上传模式
+const isUploadMode = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('mode') === 'upload';
+};
+
 // 检测是否为移动端
 const isMobile = ref(false);
 const showMobileHint = ref(false);
@@ -1075,7 +1150,7 @@ watch(showFileUpload, (newVal) => {
   }
 });
 
-onMounted(() => {
+onMounted(async () => {
   addLog('WebSocket测试页面已加载');
   const savedToken = localStorage.getItem('token');
   if (savedToken) {
@@ -1090,6 +1165,11 @@ onMounted(() => {
   
   if (isWeChatBrowser.value) {
     addLog('检测到微信浏览器访问', 'info');
+  }
+  
+  // 自动检测本机IP地址
+  if (mobileUploadConfig.value.autoDetect) {
+    await detectLocalIP();
   }
   
   // 检查URL参数，如果是上传模式，自动打开文件上传对话框
@@ -1460,6 +1540,75 @@ onBeforeUnmount(() => {
       destroy-on-close
     >
       <div class="file-upload-container">
+        <!-- IP地址配置区域 -->
+        <div class="mb-6 rounded-lg bg-yellow-50 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h4 class="font-medium text-gray-700">移动端访问配置</h4>
+            <button
+              @click="detectLocalIP"
+              class="rounded-md bg-blue-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-600"
+            >
+              重新检测IP
+            </button>
+          </div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">IP地址</label>
+              <input
+                v-model="mobileUploadConfig.ip"
+                type="text"
+                placeholder="自动检测或手动输入"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">端口</label>
+              <input
+                v-model="mobileUploadConfig.port"
+                type="number"
+                placeholder="5779"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">业务类型</label>
+              <input
+                v-model="bizType"
+                type="text"
+                placeholder="如case、creditor等"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">业务ID</label>
+              <input
+                v-model="bizId"
+                type="text"
+                placeholder="业务唯一标识"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">当前访问URL</label>
+              <div class="flex items-center gap-2">
+                <input
+                  :value="getCurrentPageUrl()"
+                  type="text"
+                  readonly
+                  class="flex-1 rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-gray-600">
+            <p>💡 提示：手机扫描二维码前，请确保IP地址和端口配置正确</p>
+            <p>📱 手机和电脑需要在同一局域网内</p>
+            <p v-if="isUploadMode()" class="text-blue-600 font-medium">
+              🔗 已从二维码获取任务参数，将上传到对应业务记录
+            </p>
+          </div>
+        </div>
+
         <!-- 二维码生成区域 -->
         <div class="mb-6 rounded-lg bg-blue-50 p-4">
           <h4 class="mb-3 font-medium text-gray-700">手机扫码上传</h4>
@@ -1661,15 +1810,35 @@ onBeforeUnmount(() => {
       v-model="showMobileHint"
       title="手机上传提示"
       width="90%"
-      :style="{ maxWidth: '400px' }"
+      :style="{ maxWidth: '500px' }"
       destroy-on-close
     >
       <div class="space-y-4">
         <div class="text-center">
           <Icon icon="lucide:smartphone" class="mx-auto mb-3 text-4xl text-blue-500" />
-          <h3 class="mb-2 text-lg font-medium text-gray-900">手机文件上传</h3>
+          <h3 class="mb-2 text-lg font-medium text-gray-900">手机上传提示</h3>
           <p class="text-gray-600">
             请在电脑端打开文件上传对话框，扫描二维码后上传文件
+          </p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-green-50 border border-green-200" v-if="isUploadMode()">
+          <h4 class="mb-2 font-medium text-green-800 flex items-center gap-2">
+            <Icon icon="lucide:check-circle" class="text-green-600" />
+            任务参数已获取
+          </h4>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <span class="text-sm font-medium">业务类型：</span>
+              <span class="text-sm font-medium text-green-700">{{ bizType }}</span>
+            </div>
+            <div>
+              <span class="text-sm font-medium">业务ID：</span>
+              <span class="text-sm font-medium text-green-700">{{ bizId }}</span>
+            </div>
+          </div>
+          <p class="mt-2 text-sm text-green-700">
+            文件将自动上传到对应业务记录中
           </p>
         </div>
         
@@ -1680,6 +1849,7 @@ onBeforeUnmount(() => {
             <li>点击 "文件上传" 按钮</li>
             <li>扫描显示的二维码</li>
             <li>在手机上选择文件上传</li>
+            <li>等待上传完成，文件将自动显示在附件列表中</li>
           </ol>
         </div>
         
@@ -1689,6 +1859,7 @@ onBeforeUnmount(() => {
             <li>请确保手机和电脑在同一局域网内</li>
             <li>上传文件大小限制为 50MB</li>
             <li>支持大多数文件类型</li>
+            <li>上传过程中请勿关闭浏览器</li>
           </ul>
         </div>
       </div>
@@ -1702,7 +1873,7 @@ onBeforeUnmount(() => {
       v-model="showWeChatHint"
       title="微信上传提示"
       width="90%"
-      :style="{ maxWidth: '400px' }"
+      :style="{ maxWidth: '500px' }"
       destroy-on-close
     >
       <div class="space-y-4">
@@ -1712,6 +1883,24 @@ onBeforeUnmount(() => {
           <p class="text-gray-600">
             由于微信浏览器限制，请按照以下方式上传文件
           </p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-red-50 border border-red-200">
+          <h4 class="mb-2 font-medium text-red-800 flex items-center gap-2">
+            <Icon icon="lucide:alert-triangle" class="text-red-600" />
+            连接失败解决方案
+          </h4>
+          <ul class="list-disc list-inside space-y-2 text-red-700 text-sm">
+            <li><strong>错误信息：</strong>网页无法打开 (-6, net::ERR_CONNECTION_REFUSED)</li>
+            <li><strong>原因：</strong>IP地址或端口配置不正确，或微信浏览器安全限制</li>
+            <li><strong>解决方法：</strong>
+              <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
+                <li>点击右上角 <Icon icon="lucide:more-horizontal" class="inline" /> 按钮</li>
+                <li>选择 "在浏览器中打开"</li>
+                <li>使用系统浏览器（Safari/Chrome）访问</li>
+              </ol>
+            </li>
+          </ul>
         </div>
         
         <div class="p-4 rounded-lg bg-green-50">
@@ -1737,14 +1926,27 @@ onBeforeUnmount(() => {
           <h4 class="mb-2 font-medium text-yellow-800">注意事项：</h4>
           <ul class="list-disc list-inside space-y-2 text-yellow-700">
             <li>请确保手机和电脑在同一局域网内</li>
+            <li>检查IP地址配置是否正确（当前: {{ mobileUploadConfig.ip || '未设置' }}）</li>
+            <li>检查端口配置是否正确（当前: {{ mobileUploadConfig.port }}）</li>
             <li>上传文件大小限制为 50MB</li>
             <li>支持大多数文件类型</li>
             <li>上传过程中请勿关闭浏览器</li>
           </ul>
         </div>
+        
+        <div class="p-4 rounded-lg bg-purple-50">
+          <h4 class="mb-2 font-medium text-purple-800">故障排除：</h4>
+          <ul class="list-disc list-inside space-y-2 text-purple-700 text-sm">
+            <li>如果仍然无法访问，请尝试手动输入URL</li>
+            <li>确保电脑防火墙允许该端口访问</li>
+            <li>检查Vite开发服务器是否正常运行</li>
+            <li>尝试使用电脑的IP地址而非localhost</li>
+          </ul>
+        </div>
       </div>
       <template #footer>
-        <ElButton @click="showWeChatHint = false; showFileUpload = true">我知道了</ElButton>
+        <ElButton @click="showWeChatHint = false">关闭</ElButton>
+        <ElButton type="primary" @click="showWeChatHint = false; showFileUpload = true">继续上传</ElButton>
       </template>
     </ElDialog>
   </div>

@@ -26,6 +26,7 @@ import {
 import { useRouter } from 'vue-router';
 
 import { approvalApi, approvalUtils, type ApprovalContentData, type ApprovalAttachmentData } from '#/api/core/approval';
+import { downloadFileApi, previewFileApi, downloadFileByPathApi, previewFileByPathApi } from '#/api/core/file';
 
 interface Attachment {
   id: number;
@@ -35,6 +36,12 @@ interface Attachment {
   filePath: string;
   uploadTime: string;
   uploader: string;
+}
+
+interface FileItem {
+  id: number;
+  originalFileName?: string;
+  filePath?: string;
 }
 
 interface CaseApproval {
@@ -60,13 +67,21 @@ const dialogVisible = ref(false);
 const currentCase = ref<CaseApproval | null>(null);
 // 弹窗类型：view-查看详情，approve-审批操作
 const dialogType = ref<'view' | 'approve'>('view');
+// 当前选中的任务ID
+const selectedTaskId = ref<string | null>(null);
+// 图片预览
+const previewDialogVisible = ref(false);
+const previewImageUrl = ref('');
+const previewImageName = ref('');
 const approvalForm = ref({
   remark: '',
   status: 'approved' as 'approved' | 'rejected',
 });
 
-const contentData = ref<ApprovalContentData | null>(null);
-const attachmentData = ref<ApprovalAttachmentData | null>(null);
+const contentData = ref<ApprovalContentData | { originalContent: string } | null>(null);
+const attachmentData = ref<ApprovalAttachmentData | { originalAttachment: string } | null>(null);
+const previewUrls = ref<Record<number, string>>({});
+const isLoading = ref(false);
 
 const searchForm = ref({
   status: '',
@@ -216,13 +231,13 @@ const loadCases = async () => {
       approvalTitle: searchForm.value.keyword || undefined,
     });
 
-    // API直接返回数据，没有code字段
-    if (response.list) {
+    // API直接返回data字段的数据
+    if (response && response.list) {
       const transformedData = transformApiDataToPageData(response.list);
       caseList.value = transformedData;
       pagination.value.total = response.total || 0;
     } else {
-      ElMessage.error(response.message || '加载案件列表失败');
+      ElMessage.error('加载案件列表失败');
     }
   } catch (error) {
     ElMessage.error('加载案件列表失败');
@@ -245,53 +260,159 @@ const handleReset = () => {
   loadCases();
 };
 
-const handleViewDetail = (row: CaseApproval) => {
-  currentCase.value = row;
-  dialogType.value = 'view';
-  
-  if (row.description) {
-    contentData.value = approvalUtils.parseApprovalContent(row.description);
+const handleViewDetail = async (row: CaseApproval) => {
+  loading.value = true;
+  isLoading.value = true;
+  try {
+    // 调用API获取审批详情
+    const approvalDetail = await approvalApi.getApprovalDetail(row.id);
+    
+    // 更新当前案件数据
+    currentCase.value = {
+      id: approvalDetail.id,
+      caseId: approvalDetail.caseId,
+      caseNumber: approvalDetail.caseNumber,
+      caseTitle: approvalDetail.approvalTitle || approvalDetail.caseTitle || approvalDetail.approvalContent,
+      caseType: approvalDetail.approvalType || 'other',
+      submitter: approvalDetail.realName || '未知提交人',
+      submitTime: formatDateTime(approvalDetail.createTime),
+      approvalTime: approvalDetail.approvalDate ? formatDateTime(approvalDetail.approvalDate) : undefined,
+      status: approvalStatusMap[approvalDetail.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
+      priority: (approvalDetail.priority as 'high' | 'low' | 'medium') || 'medium',
+      description: approvalDetail.approvalContent,
+      remark: approvalDetail.remark,
+      attachments: approvalDetail.attachments || [],
+    };
+    
+    dialogType.value = 'view';
+    
+    // 重置解析数据
+    contentData.value = null;
+    attachmentData.value = null;
+    previewUrls.value = {};
+    selectedTaskId.value = null;
+    
+    // 尝试解析 approvalContent 字段
+    if (approvalDetail.approvalContent) {
+      contentData.value = approvalUtils.parseApprovalContent(approvalDetail.approvalContent);
+    }
+    
+    // 尝试解析 approvalAttachment 字段
+    if (approvalDetail.approvalAttachment) {
+      console.log('原始附件数据:', approvalDetail.approvalAttachment);
+      attachmentData.value = approvalUtils.parseApprovalAttachment(approvalDetail.approvalAttachment);
+      console.log('解析后的附件数据:', attachmentData.value);
+      
+      // 自动选择第一个任务
+      if (attachmentData.value && 'files' in attachmentData.value) {
+        const taskIds = Object.keys(attachmentData.value.files);
+        if (taskIds.length > 0) {
+          selectedTaskId.value = taskIds[0];
+        }
+      }
+    } else {
+      console.log('无附件数据');
+    }
+    
+    // 先显示弹窗
+    dialogVisible.value = true;
+    
+    // 异步预加载图片
+    if (approvalDetail.approvalAttachment) {
+      setTimeout(async () => {
+        await preloadImages(approvalDetail.id);
+        isLoading.value = false;
+      }, 100);
+    } else {
+      isLoading.value = false;
+    }
+  } catch (error) {
+    console.error('获取审批详情失败:', error);
+    ElMessage.error('获取审批详情失败');
+    isLoading.value = false;
+  } finally {
+    loading.value = false;
   }
-  
-  if (row.attachments && row.attachments.length > 0) {
-    attachmentData.value = approvalUtils.parseApprovalAttachment(row.attachments[0].filePath);
-  }
-  
-  dialogVisible.value = true;
 };
 
-const handleApprove = (row: CaseApproval) => {
-  currentCase.value = row;
-  dialogType.value = 'approve';
-  approvalForm.value = {
-    remark: '',
-    status: 'approved',
-  };
-  dialogVisible.value = true;
+const handleApprove = async (row: CaseApproval) => {
+  loading.value = true;
+  try {
+    // 调用API获取审批详情
+    const approvalDetail = await approvalApi.getApprovalDetail(row.id);
+    
+    // 更新当前案件数据
+    currentCase.value = {
+      id: approvalDetail.id,
+      caseId: approvalDetail.caseId,
+      caseNumber: approvalDetail.caseNumber,
+      caseTitle: approvalDetail.approvalTitle || approvalDetail.caseTitle || approvalDetail.approvalContent,
+      caseType: approvalDetail.approvalType || 'other',
+      submitter: approvalDetail.realName || '未知提交人',
+      submitTime: formatDateTime(approvalDetail.createTime),
+      approvalTime: approvalDetail.approvalDate ? formatDateTime(approvalDetail.approvalDate) : undefined,
+      status: approvalStatusMap[approvalDetail.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
+      priority: (approvalDetail.priority as 'high' | 'low' | 'medium') || 'medium',
+      description: approvalDetail.approvalContent,
+      remark: approvalDetail.remark,
+      attachments: approvalDetail.attachments || [],
+    };
+    
+    dialogType.value = 'approve';
+    approvalForm.value = {
+      remark: '',
+      status: 'approved',
+    };
+    dialogVisible.value = true;
+  } catch (error) {
+    console.error('获取审批详情失败:', error);
+    ElMessage.error('获取审批详情失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
-const handleReject = (row: CaseApproval) => {
-  currentCase.value = row;
-  dialogType.value = 'approve';
-  approvalForm.value = {
-    remark: '',
-    status: 'rejected',
-  };
-  dialogVisible.value = true;
+const handleReject = async (row: CaseApproval) => {
+  loading.value = true;
+  try {
+    // 调用API获取审批详情
+    const approvalDetail = await approvalApi.getApprovalDetail(row.id);
+    
+    // 更新当前案件数据
+    currentCase.value = {
+      id: approvalDetail.id,
+      caseId: approvalDetail.caseId,
+      caseNumber: approvalDetail.caseNumber,
+      caseTitle: approvalDetail.approvalTitle || approvalDetail.caseTitle || approvalDetail.approvalContent,
+      caseType: approvalDetail.approvalType || 'other',
+      submitter: approvalDetail.realName || '未知提交人',
+      submitTime: formatDateTime(approvalDetail.createTime),
+      approvalTime: approvalDetail.approvalDate ? formatDateTime(approvalDetail.approvalDate) : undefined,
+      status: approvalStatusMap[approvalDetail.approvalStatus as keyof typeof approvalStatusMap] || 'pending',
+      priority: (approvalDetail.priority as 'high' | 'low' | 'medium') || 'medium',
+      description: approvalDetail.approvalContent,
+      remark: approvalDetail.remark,
+      attachments: approvalDetail.attachments || [],
+    };
+    
+    dialogType.value = 'approve';
+    approvalForm.value = {
+      remark: '',
+      status: 'rejected',
+    };
+    dialogVisible.value = true;
+  } catch (error) {
+    console.error('获取审批详情失败:', error);
+    ElMessage.error('获取审批详情失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
 
 
 const handleConfirmApproval = async () => {
   if (!currentCase.value) return;
-
-  if (
-    approvalForm.value.status === 'rejected' &&
-    !approvalForm.value.remark.trim()
-  ) {
-    ElMessage.warning('驳回时必须填写审批意见');
-    return;
-  }
 
   loading.value = true;
   try {
@@ -333,9 +454,225 @@ const getPriorityInfo = (priority: string) => {
   return item || { label: priority, type: 'info' as const };
 };
 
+// 文件操作函数
+const handleDownloadFile = async (fileId: number | null, fileName: string, filePath?: string) => {
+  try {
+    console.log('handleDownloadFile 参数:', { fileId, fileName, filePath });
+    let blob: Blob;
+    
+    if (filePath && (fileId === null || fileId === 0)) {
+      // 旧数据：使用 filePath
+      console.log('使用旧数据接口');
+      blob = await downloadFileByPathApi(filePath, fileName);
+    } else if (fileId !== null && fileId !== 0) {
+      // 新数据：使用 fileId
+      console.log('使用新数据接口');
+      blob = await downloadFileApi(fileId);
+    } else {
+      throw new Error('文件信息不完整');
+    }
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('文件下载失败:', error);
+    ElMessage.error('文件下载失败');
+  }
+};
+
+const handlePreviewFile = async (fileId: number | null, filePath?: string) => {
+  try {
+    console.log('handlePreviewFile 参数:', { fileId, filePath });
+    // 检查是否为图片文件
+    const file = attachmentData.value?.files[selectedTaskId.value!]?.find(f => f.id === fileId);
+    if (file && file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i) && fileId !== null && previewUrls.value[fileId as number]) {
+      // 图片文件使用本地预览
+      console.log('使用本地图片预览');
+      previewImageUrl.value = previewUrls.value[fileId as number];
+      previewImageName.value = file.originalFileName || '图片';
+      previewDialogVisible.value = true;
+    } else if (filePath && (fileId === null || fileId === 0)) {
+      // 旧数据：使用 filePath
+      console.log('使用旧数据预览接口');
+      await previewFileByPathApi(filePath, file?.originalFileName);
+    } else if (fileId !== null && fileId !== 0) {
+      // 新数据：使用 fileId
+      console.log('使用新数据预览接口');
+      await previewFileApi(fileId);
+    } else {
+      throw new Error('文件信息不完整');
+    }
+  } catch (error) {
+    console.error('文件预览失败:', error);
+    ElMessage.error('文件预览失败');
+  }
+};
+
+const canPreviewFile = (fileExtension: string | undefined): boolean => {
+  if (!fileExtension) return false;
+  const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'csv'];
+  return previewableTypes.includes(fileExtension.toLowerCase());
+};
+
+// 检查缓存
+const getCachedImage = (approvalId: number, fileId: number): string | null => {
+  try {
+    const key = `approval_${approvalId}_file_${fileId}`;
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const data = JSON.parse(cached);
+      if (data.expiry > Date.now() && data.imageData) {
+        return data.imageData;
+      } else {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (error) {
+    console.error('读取缓存失败:', error);
+  }
+  return null;
+};
+
+// 缓存图片
+const cacheImage = (approvalId: number, fileId: number, imageData: string): void => {
+  try {
+    const key = `approval_${approvalId}_file_${fileId}`;
+    const data = {
+      imageData,
+      expiry: Date.now() + 24 * 60 * 60 * 1000 // 24小时过期
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error('缓存图片失败:', error);
+  }
+};
+
+// 预加载图片
+const preloadImages = async (approvalId: number) => {
+  if (!attachmentData.value || !('files' in attachmentData.value)) return;
+  
+  try {
+    // 尝试使用新的批量获取附件接口
+    const attachmentsResponse = await approvalApi.getApprovalAttachments(approvalId, {
+      includeImages: true,
+      includeFiles: true
+    });
+    
+    console.log('批量获取附件成功:', attachmentsResponse);
+    
+    if (attachmentsResponse && attachmentsResponse.attachments) {
+      const { attachments } = attachmentsResponse;
+      
+      for (const [submissionId, files] of Object.entries(attachments)) {
+        for (const file of files) {
+          if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i) && file.imageData) {
+            try {
+              // 检查缓存
+              const cachedImageData = getCachedImage(approvalId, file.id);
+              if (cachedImageData) {
+                previewUrls.value[file.id] = cachedImageData;
+                console.log('使用缓存图片:', file.id);
+                continue;
+              }
+              
+              // 直接使用base64数据
+              previewUrls.value[file.id] = file.imageData;
+              // 缓存图片
+              cacheImage(approvalId, file.id, file.imageData);
+              console.log('使用批量接口图片:', file.id);
+            } catch (error) {
+              console.error('处理批量接口图片失败:', error);
+              // 降级到单个文件API
+              await loadSingleImage(approvalId, file.id, file.filePath);
+            }
+          }
+        }
+      }
+      return;
+    }
+  } catch (error) {
+    console.error('调用批量获取附件接口失败:', error);
+    // 降级到原有的单个文件加载方式
+  }
+  
+  // 原有逻辑：单个文件加载
+  const filesBySubmission = attachmentData.value.files;
+  
+  for (const [submissionId, files] of Object.entries(filesBySubmission)) {
+    for (const file of files) {
+      if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i)) {
+        await loadSingleImage(approvalId, file.id, file.filePath);
+      }
+    }
+  }
+};
+
+// 加载单个图片
+const loadSingleImage = async (approvalId: number, fileId: number | null, filePath?: string) => {
+  // 对于旧数据（fileId为null或0），不加载图片预览
+  if (fileId === null || fileId === 0) {
+    return;
+  }
+  
+  // 先检查缓存
+  const cachedImageData = getCachedImage(approvalId, fileId);
+  if (cachedImageData) {
+    previewUrls.value[fileId] = cachedImageData;
+    console.log('使用缓存图片:', fileId);
+    return;
+  }
+  
+  try {
+    let blob: Blob;
+    
+    if (filePath) {
+      // 旧数据：使用 filePath
+      blob = await downloadFileByPathApi(filePath);
+    } else {
+      // 新数据：使用 fileId
+      blob = await downloadFileApi(fileId);
+    }
+    
+    // 将Blob转换为base64字符串
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    
+    return new Promise<void>((resolve) => {
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        previewUrls.value[fileId] = base64data;
+        // 缓存图片
+        cacheImage(approvalId, fileId, base64data);
+        console.log('加载并缓存图片:', fileId);
+        resolve();
+      };
+    });
+  } catch (error) {
+    console.error('加载图片失败:', error);
+    // 加载失败时使用默认图标
+    previewUrls.value[fileId] = '';
+  }
+};
+
 onMounted(() => {
   loadCases();
 });
+
+// 添加CSS动画样式
+const style = document.createElement('style');
+style.textContent = `
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+`;
+document.head.appendChild(style);
 </script>
 
 <template>
@@ -523,239 +860,171 @@ onMounted(() => {
     <ElDialog
       v-model="dialogVisible"
       :title="currentCase?.status === 'pending' ? '审批案件' : '案件详情'"
-      width="1100px"
+      width="70vw"
+      :fullscreen="false"
     >
       <div v-if="currentCase" class="case-detail">
-        <!-- 顶部信息板块 -->
-        <div class="header-info-section">
-          <div class="header-info-item">
-            <span class="header-label">审核标题</span>
-            <span class="header-value">{{ currentCase.caseTitle }}</span>
-          </div>
-          <div class="header-info-item">
-            <span class="header-label">提交人</span>
-            <span class="header-value">{{ currentCase.submitter }}</span>
-          </div>
-          <div class="header-info-item">
-            <span class="header-label">提交时间</span>
-            <span class="header-value">{{ currentCase.submitTime }}</span>
-          </div>
-        </div>
-
-        <!-- 案件基本信息 -->
-        <div class="basic-info-section">
-          <div class="info-item">
-            <span class="info-label">案号</span>
-            <span class="info-value">
-              <ElButton 
-                type="primary" 
-                size="small" 
-                link 
-                @click="goToCaseDetail(currentCase.caseId)"
-              >
-                {{ currentCase.caseNumber }}
-              </ElButton>
-            </span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">审核类型</span>
-            <ElTag type="info" size="small">
-              {{ getApprovalTypeName(currentCase.caseType) }}
-            </ElTag>
-          </div>
-          <div class="info-item">
-            <span class="info-label">优先级</span>
-            <ElTag
-              :type="getPriorityInfo(currentCase.priority).type"
-              size="small"
-            >
-              {{ getPriorityInfo(currentCase.priority).label }}
-            </ElTag>
-          </div>
-          <div class="info-item">
-            <span class="info-label">审批状态</span>
-            <ElTag
-              :type="statusMap[currentCase.status].type"
-              effect="dark"
-              size="large"
-              style="font-weight: bold; padding: 8px 12px; font-size: 14px;"
-            >
-              {{ statusMap[currentCase.status].text }}
-            </ElTag>
-          </div>
-          <div v-if="currentCase.approvalTime" class="info-item">
-            <span class="info-label">审批时间</span>
-            <span class="info-value">{{ currentCase.approvalTime }}</span>
-          </div>
-        </div>
-
-        <!-- 内容区域：案件描述和附件列表左右并排 -->
-        <div class="content-section">
-          <!-- 左侧：案件描述 -->
-          <div class="description-section">
-            <div class="section-title">案件描述</div>
-            <div class="content-box">
-              {{ currentCase.description }}
+        <!-- 附件列表 -->
+        <div class="attachments-section">
+          <div class="section-title">附件列表</div>
+          <div class="attachment-content">
+            <!-- 任务切换标签栏 -->
+            <div v-if="attachmentData && 'files' in attachmentData && Object.keys(attachmentData.files).length > 0" class="task-tabs">
+              <ElTabs v-model="selectedTaskId" type="border-card">
+                <ElTabPane 
+                  v-for="(files, submissionId) in attachmentData.files" 
+                  :key="submissionId" 
+                  :label="contentData?.task?.taskName || contentData?.submissions?.find(s => s.id.toString() === submissionId)?.submissionTitle || '任务'"
+                  :name="submissionId"
+                />
+              </ElTabs>
             </div>
             
-            <!-- 解析后的任务信息 -->
-            <div v-if="contentData" class="parsed-content-section">
-              <div class="section-title">任务信息</div>
-              <div class="task-info">
-                <div class="info-row">
-                  <span class="label">任务编码:</span>
-                  <span class="value">{{ contentData.task.taskCode }}</span>
+            <!-- 附件列表内容 -->
+            <div v-if="attachmentData && 'files' in attachmentData && Object.keys(attachmentData.files).length > 0" class="attachment-list">
+              <!-- 当前选中任务的附件 -->
+              <div v-if="selectedTaskId && attachmentData.files[selectedTaskId]" class="task-attachments">
+                <div class="task-header">
+                  <span class="task-title">{{ contentData?.task?.taskName || contentData?.submissions?.find(s => s.id.toString() === selectedTaskId)?.submissionTitle || '任务' }}</span>
+                  <span class="file-count">({{ attachmentData.files[selectedTaskId].length }}个文件)</span>
                 </div>
-                <div class="info-row">
-                  <span class="label">任务名称:</span>
-                  <span class="value">{{ contentData.task.taskName }}</span>
+                
+                <!-- 任务内容 -->
+                <div v-if="contentData?.task?.taskDescription || contentData?.submissions?.find(s => s.id.toString() === selectedTaskId)?.submissionContent" class="task-content">
+                  <div class="content-label">任务内容：</div>
+                  <div class="content-text">{{ contentData?.task?.taskDescription || contentData?.submissions?.find(s => s.id.toString() === selectedTaskId)?.submissionContent }}</div>
                 </div>
-                <div class="info-row">
-                  <span class="label">任务状态:</span>
-                  <span class="value">{{ contentData.task.status }}</span>
-                </div>
-                <div v-if="contentData.task.taskDescription" class="info-row">
-                  <span class="label">任务描述:</span>
-                  <span class="value">{{ contentData.task.taskDescription }}</span>
-                </div>
-              </div>
-              
-              <div v-if="contentData.submissions && contentData.submissions.length > 0" class="section-title">提交记录</div>
-              <div v-if="contentData.submissions && contentData.submissions.length > 0" class="submissions-list">
-                <div v-for="submission in contentData.submissions" :key="submission.id" class="submission-item">
-                  <div class="submission-header">
-                    <span class="submission-title">提交记录 #{{ submission.submissionNumber }}: {{ submission.submissionTitle }}</span>
-                    <ElTag size="small" :type="submission.status === 'APPROVED' ? 'success' : submission.status === 'REJECTED' ? 'danger' : 'warning'">
-                      {{ submission.status === 'APPROVED' ? '已通过' : submission.status === 'REJECTED' ? '已驳回' : '待审核' }}
-                    </ElTag>
-                  </div>
-                  <div class="submission-body">
-                    <div class="info-row">
-                      <span class="label">类型:</span>
-                      <span class="value">{{ submission.submissionType }}</span>
-                    </div>
-                    <div v-if="submission.submissionContent" class="info-row">
-                      <span class="label">内容:</span>
-                      <span class="value">{{ submission.submissionContent }}</span>
-                    </div>
-                    <div v-if="submission.reviewOpinion" class="info-row">
-                      <span class="label">审核意见:</span>
-                      <span class="value">{{ submission.reviewOpinion }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="label">提交时间:</span>
-                      <span class="value">{{ formatDateTime(submission.createTime) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 审批意见 -->
-            <div v-if="currentCase.remark" class="remark-section">
-              <div class="section-title">备注</div>
-              <div class="remark-box">
-                {{ currentCase.remark }}
-              </div>
-
-            <!-- 审批操作 -->
-            <div
-              v-if="currentCase.status === 'pending'"
-              class="approval-section"
-            >
-              <div class="section-title">审批操作</div>
-              <ElFormItem label="审批意见" class="approval-form-item">
-                <ElInput
-                  v-model="approvalForm.remark"
-                  type="textarea"
-                  :rows="4"
-                  placeholder="请输入审批意见（驳回时必填）"
-                />
-              </ElFormItem>
-            </div>
-          </div>
-
-          <!-- 右侧：附件列表 -->
-          <div class="attachments-section">
-            <div class="section-title">附件列表</div>
-            <div class="attachment-content">
-              <!-- 附件列表 -->
-              <div
-                v-if="
-                  currentCase.attachments && currentCase.attachments.length > 0
-                "
-                class="attachment-list"
-              >
-                <div class="attachment-items">
-                  <div
-                    v-for="attachment in currentCase.attachments"
-                    :key="attachment.id"
-                    class="attachment-item"
+                
+                <!-- 图片文件网格布局 -->
+                <div v-if="attachmentData.files[selectedTaskId].some(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="image-grid">
+                  <div 
+                    v-for="file in attachmentData.files[selectedTaskId].filter(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 
+                    :key="file.id || file.filePath"
+                    class="image-item"
+                    @click="handlePreviewFile(file.id, file.filePath)"
                   >
-                    <div class="attachment-info">
-                      <div class="attachment-icon">
-                        <i
-                          v-if="attachment.fileType === 'pdf'"
-                          class="i-lucide-file-text"
-                        ></i>
-                        <i
-                          v-else-if="
-                            attachment.fileType === 'doc' ||
-                            attachment.fileType === 'docx'
-                          "
-                          class="i-lucide-file-word"
-                        ></i>
-                        <i
-                          v-else-if="
-                            attachment.fileType === 'xls' ||
-                            attachment.fileType === 'xlsx'
-                          "
-                          class="i-lucide-file-excel"
-                        ></i>
-                        <i
-                          v-else-if="
-                            attachment.fileType === 'jpg' ||
-                            attachment.fileType === 'jpeg' ||
-                            attachment.fileType === 'png'
-                          "
-                          class="i-lucide-file-image"
-                        ></i>
+                    <div class="image-container">
+                      <img 
+                        :src="file.id !== null ? (previewUrls[file.id] || '') : ''" 
+                        :alt="file.originalFileName"
+                        @error="(e) => { e.target.src = ''; e.target.alt = '图片加载失败'; }"
+                      />
+                      <div v-if="file.id !== null && !previewUrls[file.id]" class="image-loading">
+                        <div class="loading-spinner"></div>
+                      </div>
+                    </div>
+                    <div class="image-name">{{ file.originalFileName || '未知文件' }}</div>
+                  </div>
+                </div>
+                
+                <!-- 非图片文件列表 -->
+                <div v-if="attachmentData.files[selectedTaskId].some(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="non-image-files">
+                  <div class="section-subtitle">其他文件</div>
+                  <div 
+                    v-for="file in attachmentData.files[selectedTaskId].filter(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 
+                    :key="file.id || file.filePath"
+                    class="file-item"
+                  >
+                    <div class="file-info">
+                      <div class="file-icon">
+                        <i v-if="file.originalFileName?.includes('.pdf')" class="i-lucide-file-text"></i>
+                        <i v-else-if="file.originalFileName?.includes('.doc')" class="i-lucide-file-word"></i>
+                        <i v-else-if="file.originalFileName?.includes('.xls')" class="i-lucide-file-excel"></i>
                         <i v-else class="i-lucide-file"></i>
                       </div>
-                      <div class="attachment-details">
-                        <div class="attachment-name">
-                          {{ attachment.fileName }}
-                        </div>
-                        <div class="attachment-meta">
-                          <span class="attachment-size"
-                            >{{ 
-                              (attachment.fileSize / 1024 / 1024).toFixed(2)
-                            }} MB</span
-                          >
-                          <span class="attachment-uploader">{{
-                            attachment.uploader
-                          }}</span>
-                          <span class="attachment-time">{{
-                            attachment.uploadTime
-                          }}</span>
+                      <div class="file-details">
+                        <div class="file-name">{{ file.originalFileName || '未知文件' }}</div>
+                        <div class="file-meta">
+                          <span>0 B</span>
+                          <span>{{ file.originalFileName ? file.originalFileName.split('.').pop() || '未知' : '未知' }}</span>
                         </div>
                       </div>
                     </div>
-                    <div class="attachment-actions">
-                      <ElButton type="primary" size="small" link>
-                        <i class="i-lucide-download mr-1"></i>
-                        下载
-                      </ElButton>
-                      <ElButton type="primary" size="small" link>
+                    <div class="file-actions">
+                      <ElButton 
+                        type="primary" 
+                        size="small" 
+                        link 
+                        @click.stop="handlePreviewFile(file.id, file.filePath)"
+                      >
                         <i class="i-lucide-eye mr-1"></i>
                         预览
                       </ElButton>
+                      <ElButton 
+                        type="primary" 
+                        size="small" 
+                        link 
+                        @click.stop="handleDownloadFile(file.id, file.originalFileName || '未知文件', file.filePath)"
+                      >
+                        <i class="i-lucide-download mr-1"></i>
+                        下载
+                      </ElButton>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            
+            <!-- 解析失败的原始附件内容 -->
+            <div v-else-if="attachmentData && 'originalAttachment' in attachmentData" class="content-box">
+              {{ attachmentData.originalAttachment }}
             </div>
+            
+            <!-- 原始附件列表（仅当解析失败时显示） -->
+            <div v-else-if="currentCase.attachments && currentCase.attachments.length > 0" class="attachment-list">
+              <div class="attachment-items">
+                <div v-for="attachment in currentCase.attachments" :key="attachment.id" class="attachment-item">
+                  <div class="attachment-info">
+                    <div class="attachment-icon">
+                      <i v-if="attachment.fileType === 'pdf'" class="i-lucide-file-text"></i>
+                      <i v-else-if="['doc', 'docx'].includes(attachment.fileType)" class="i-lucide-file-word"></i>
+                      <i v-else-if="['xls', 'xlsx'].includes(attachment.fileType)" class="i-lucide-file-excel"></i>
+                      <i v-else-if="['jpg', 'jpeg', 'png', 'gif'].includes(attachment.fileType)" class="i-lucide-file-image"></i>
+                      <i v-else class="i-lucide-file"></i>
+                    </div>
+                    <div class="attachment-details">
+                      <div class="attachment-name">{{ attachment.fileName }}</div>
+                      <div class="attachment-meta">
+                        <span class="attachment-size">{{ (attachment.fileSize / 1024 / 1024).toFixed(2) }} MB</span>
+                        <span class="attachment-type">{{ attachment.fileType }}</span>
+                        <span class="attachment-time">{{ attachment.uploadTime }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="attachment-actions">
+                    <ElButton type="primary" size="small" link @click="handleDownloadFile(attachment.id, attachment.fileName, attachment.filePath)">
+                      <i class="i-lucide-download mr-1"></i>
+                      下载
+                    </ElButton>
+                    <ElButton type="primary" size="small" link @click="handlePreviewFile(attachment.id, attachment.filePath)">
+                      <i class="i-lucide-eye mr-1"></i>
+                      预览
+                    </ElButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 无附件提示 -->
+            <div v-else class="no-attachments">
+              <ElEmpty description="暂无附件" />
+            </div>
+          </div>
+          
+          <!-- 审批操作 -->
+          <div
+            v-if="currentCase.status === 'pending'"
+            class="approval-section"
+          >
+            <div class="section-title">审批操作</div>
+            <ElFormItem label="审批意见" class="approval-form-item">
+              <ElInput
+                v-model="approvalForm.remark"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入审批意见（可选）"
+              />
+            </ElFormItem>
           </div>
         </div>
       </div>
@@ -798,6 +1067,25 @@ onMounted(() => {
         </ElButton>
       </template>
     </ElDialog>
+
+    <!-- 图片预览弹窗 -->
+    <ElDialog
+      v-model="previewDialogVisible"
+      :title="previewImageName"
+      width="70vw"
+      top="20px"
+    >
+      <div class="image-preview-container">
+        <img 
+          :src="previewImageUrl" 
+          :alt="previewImageName"
+          class="preview-image"
+        />
+      </div>
+      <template #footer>
+        <ElButton @click="previewDialogVisible = false">关闭</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -832,179 +1120,9 @@ onMounted(() => {
     }
 
   .case-detail {
-    /* 顶部信息板块 */
-    .header-info-section {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-
-      .header-info-item {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-
-        .header-label {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.85);
-          font-weight: 500;
-        }
-
-        .header-value {
-          font-size: 15px;
-          color: #ffffff;
-          font-weight: 600;
-          word-break: break-word;
-        }
-      }
-    }
-
-    /* 案件基本信息 */
-    .basic-info-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      padding: 20px;
-      margin-bottom: 24px;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e9ecef;
-
-      .info-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        .info-label {
-          font-size: 14px;
-          color: #495057;
-          font-weight: 500;
-          min-width: 80px;
-        }
-
-        .info-value {
-          font-size: 14px;
-          color: #212529;
-          font-weight: 600;
-        }
-      }
-    }
-
-    /* 内容区域：左右并排布局 */
-    .content-section {
-      display: flex;
-      gap: 24px;
-      align-items: flex-start;
-
-      @media (max-width: 1200px) {
-        flex-direction: column;
-      }
-    }
-
-    /* 左侧：案件描述 */
-    .description-section {
-      flex: 1;
-      min-width: 0;
-
-      .section-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #212529;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
-      }
-
-      .content-box {
-        min-height: 120px;
-        padding: 16px;
-        line-height: 1.8;
-        color: #495057;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-        margin-bottom: 24px;
-      }
-
-      .remark-section {
-        margin-bottom: 24px;
-
-        .remark-box {
-          padding: 16px;
-          line-height: 1.6;
-          color: #dc3545;
-          background-color: #f8d7da;
-          border-radius: 8px;
-          border: 1px solid #f5c6cb;
-        }
-      }
-
-      .approval-section {
-        .approval-form-item {
-          margin-bottom: 0;
-        }
-      }
-
-      .parsed-content-section {
-        margin-bottom: 24px;
-        padding: 16px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-
-        .task-info {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          margin-bottom: 16px;
-        }
-
-        .submissions-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .submission-item {
-          padding: 12px;
-          background: #fff;
-          border-radius: 6px;
-          border: 1px solid #dee2e6;
-        }
-
-        .submission-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 8px;
-        }
-
-        .submission-title {
-          font-size: 14px;
-          font-weight: 500;
-          color: #212529;
-        }
-
-        .submission-body {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-      }
-    }
-
-    /* 右侧：附件列表 */
+    /* 附件列表 */
     .attachments-section {
-      width: 400px;
-      flex-shrink: 0;
-
-      @media (max-width: 1200px) {
-        width: 100%;
-      }
+      width: 100%;
 
       .section-title {
         font-size: 16px;
@@ -1020,6 +1138,7 @@ onMounted(() => {
         border-radius: 8px;
         padding: 16px;
         border: 1px solid #e9ecef;
+        margin-bottom: 20px;
       }
 
       .attachment-list {
@@ -1029,7 +1148,7 @@ onMounted(() => {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          max-height: 400px;
+          max-height: 500px;
           overflow-y: auto;
         }
 
@@ -1102,99 +1221,258 @@ onMounted(() => {
         }
       }
 
-      .upload-section {
-        .upload-title {
-          font-size: 14px;
+      .no-attachments {
+        padding: 40px 20px;
+        text-align: center;
+      }
+
+      .task-title {
+        font-weight: 600;
+        color: #212529;
+        margin-right: 8px;
+      }
+
+      .file-count {
+        font-size: 13px;
+        color: #6c757d;
+      }
+
+      .content-box {
+        min-height: 120px;
+        padding: 16px;
+        line-height: 1.8;
+        color: #495057;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        margin-bottom: 24px;
+      }
+
+      /* 任务切换标签栏 */
+      .task-tabs {
+        margin-bottom: 20px;
+      }
+
+      /* 任务附件 */
+      .task-attachments {
+        background: white;
+        border: 1px solid #e4e7ed;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .task-header {
+        padding: 12px 16px;
+        background: #f5f7fa;
+        border-bottom: 1px solid #e4e7ed;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* 任务内容 */
+      .task-content {
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e4e7ed;
+        line-height: 1.6;
+      }
+
+      .content-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 4px;
+      }
+
+      .content-text {
+        font-size: 14px;
+        color: #495057;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* 图片网格布局 */
+      .image-grid {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      @media (max-width: 768px) {
+        .image-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .image-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .image-item {
+        background: #f8f9fa;
+        border: 1px solid #e4e7ed;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .image-item:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      }
+
+      .image-container {
+        width: 100%;
+        aspect-ratio: 1/1;
+        border: 1px solid #f0f0f0;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+        background: #fff;
+        margin-bottom: 8px;
+      }
+
+      .image-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* 图片预览弹窗 */
+      .image-preview-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        min-height: 50vh;
+      }
+
+      .preview-image {
+        max-width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+      }
+
+      .image-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #f5f7fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .loading-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #667eea;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .image-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: #212529;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* 非图片文件 */
+      .non-image-files {
+        padding: 16px;
+        border-top: 1px solid #e4e7ed;
+      }
+
+      .section-subtitle {
+        font-size: 14px;
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+        background: #fafafa;
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+
+      .file-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .file-icon {
+        font-size: 20px;
+        color: #667eea;
+      }
+
+      .file-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .file-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #212529;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .file-meta {
+        font-size: 12px;
+        color: #909399;
+        display: flex;
+        gap: 12px;
+      }
+
+      .file-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      /* 审批操作 */
+      .approval-section {
+        margin-top: 20px;
+        width: 100%;
+
+        .section-title {
+          font-size: 16px;
           font-weight: 600;
           color: #212529;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #667eea;
         }
 
-        .upload-tip {
-          font-size: 12px;
-          color: #6c757d;
-          margin-top: 8px;
-        }
-
-        .upload-progress-container {
-          margin: 16px 0;
-
-          .progress-text {
-            text-align: center;
-            margin-top: 8px;
-            font-size: 14px;
-            color: #6c757d;
-            font-weight: 500;
-          }
-        }
-
-        .selected-files {
-          margin-top: 16px;
-          padding: 16px;
-          background: white;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-
-          .selected-files-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #212529;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #dee2e6;
-          }
-
-          .selected-file-items {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 16px;
-          }
-
-          .selected-file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-
-            &:hover {
-              background: #e9ecef;
-            }
-          }
-
-          .file-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex: 1;
-            min-width: 0;
-          }
-
-          .file-name {
-            font-size: 13px;
-            color: #212529;
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-
-          .file-size {
-            font-size: 12px;
-            color: #6c757d;
-            flex-shrink: 0;
-          }
-
-          .upload-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-          }
+        .approval-form-item {
+          margin-bottom: 0;
         }
       }
     }

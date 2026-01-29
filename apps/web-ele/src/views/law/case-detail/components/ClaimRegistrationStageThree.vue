@@ -13,6 +13,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElSelect,
@@ -24,11 +25,12 @@ import {
 import {
   createClaimConfirmationApi,
   finalizeClaimConfirmationApi,
+  getClaimConfirmationDetailApi,
+  getClaimConfirmationsByCaseIdApi,
   updateClaimConfirmationApi,
 } from '#/api/core/claim-confirmation';
 import {
   getClaimRegistrationDetailApi,
-  getClaimRegistrationListApi,
 } from '#/api/core/claim-registration';
 
 const props = defineProps<{
@@ -49,13 +51,40 @@ const currentClaim = ref<any>(null);
 const confirmForm = reactive({
   voteResult: '通过',
   voteNotes: '',
+  confirmedAmount: 0,
+  meetingType: 'FIRST',
+  meetingDate: '',
+  meetingLocation: '',
+  hasObjection: 0,
+  objector: '',
+  objectionReason: '',
+  objectionAmount: 0,
+  objectionDate: '',
+  negotiationResult: '',
+  negotiationDate: '',
+  negotiationParticipants: '',
+  courtRulingDate: '',
+  courtRulingNo: '',
+  courtRulingResult: '',
+  courtRulingAmount: 0,
+  courtRulingNotes: '',
+  hasLawsuit: 0,
+  lawsuitCaseNo: '',
+  lawsuitStatus: '',
+  lawsuitResult: '',
+  lawsuitAmount: 0,
+  lawsuitNotes: '',
+  finalConfirmationDate: '',
+  finalConfirmationBasis: '',
+  confirmationAttachments: '',
+  confirmationStatus: 'CONFIRMED',
+  remarks: '',
 });
 
 const fetchClaims = async () => {
   loading.value = true;
   try {
-    const response = await getClaimRegistrationListApi({
-      caseId: Number(props.caseId),
+    const response = await getClaimConfirmationsByCaseIdApi(Number(props.caseId), {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     });
@@ -63,8 +92,16 @@ const fetchClaims = async () => {
     if (response.code === 200 && response.data) {
       claims.value = response.data.list.map((item: any) => ({
         ...item,
-        confirmationStatus:
-          item.confirmationInfo?.confirmationStatus || 'PENDING',
+        creditorName: item.creditorName,
+        creditorType: item.creditorType || item.creditor_type || '-',
+        creditCode: item.creditCode || item.credit_code || '-',
+        claimNo: item.claimNo || item.claimRegistrationId,
+        principal: item.principal || item.declaredPrincipal || 0,
+        totalAmount: item.finalConfirmedAmount || item.confirmedTotalAmount || item.declaredTotalAmount || 0,
+        claimNature: item.confirmedClaimNature || item.claimNature || '-',
+        claimType: item.claimType || item.claim_type || '-',
+        confirmationStatus: item.confirmationStatus || 'PENDING',
+        reviewInfo: item.reviewInfo || null,
       }));
       total.value = response.data.total || 0;
     } else {
@@ -97,22 +134,48 @@ const handlePageSizeChange = (size: number) => {
 
 const openDetailDialog = async (row: any) => {
   try {
-    const response = await getClaimRegistrationDetailApi(row.id);
+    const response = await getClaimConfirmationDetailApi(row.id);
     if (response.code === 200 && response.data) {
       currentClaim.value = response.data;
       showDetailDialog.value = true;
     } else {
-      ElMessage.error('获取债权详情失败');
+      ElMessage.error('获取确认详情失败');
     }
   } catch (error) {
-    console.error('获取债权详情失败:', error);
-    ElMessage.error('获取债权详情失败');
+    console.error('获取确认详情失败:', error);
+    ElMessage.error('获取确认详情失败');
   }
 };
 
 const openConfirmDialog = async (row: any) => {
-  currentClaim.value = row;
-  showConfirmDialog.value = true;
+  try {
+    let response;
+    if (row.confirmationInfo) {
+      response = await getClaimConfirmationDetailApi(row.confirmationInfo.id);
+      console.log('获取确认详情响应:', response);
+      if (response.code === 200 && response.data) {
+        currentClaim.value = row;
+        Object.assign(confirmForm, {
+          voteResult: response.data.voteResult === 'AGREE' ? '通过' : response.data.voteResult === 'DISAGREE' ? '不通过' : '待定',
+          voteNotes: response.data.voteNotes || '',
+          confirmedAmount: response.data.finalConfirmedAmount || response.data.confirmedTotalAmount || row.reviewInfo?.confirmedTotalAmount || 0,
+        });
+        showConfirmDialog.value = true;
+      } else {
+        ElMessage.error('获取确认详情失败');
+      }
+    } else {
+      // 没有确认记录，直接使用row数据
+      currentClaim.value = row;
+      Object.assign(confirmForm, {
+        confirmedAmount: row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
+      });
+      showConfirmDialog.value = true;
+    }
+  } catch (error) {
+    console.error('获取确认详情失败:', error);
+    ElMessage.error('获取确认详情失败');
+  }
 };
 
 const closeConfirmDialog = () => {
@@ -120,6 +183,34 @@ const closeConfirmDialog = () => {
   currentClaim.value = null;
   confirmForm.voteResult = '通过';
   confirmForm.voteNotes = '';
+  confirmForm.confirmedAmount = 0;
+  confirmForm.meetingType = 'FIRST';
+  confirmForm.meetingDate = '';
+  confirmForm.meetingLocation = '';
+  confirmForm.hasObjection = 0;
+  confirmForm.objector = '';
+  confirmForm.objectionReason = '';
+  confirmForm.objectionAmount = 0;
+  confirmForm.objectionDate = '';
+  confirmForm.negotiationResult = '';
+  confirmForm.negotiationDate = '';
+  confirmForm.negotiationParticipants = '';
+  confirmForm.courtRulingDate = '';
+  confirmForm.courtRulingNo = '';
+  confirmForm.courtRulingResult = '';
+  confirmForm.courtRulingAmount = 0;
+  confirmForm.courtRulingNotes = '';
+  confirmForm.hasLawsuit = 0;
+  confirmForm.lawsuitCaseNo = '';
+  confirmForm.lawsuitStatus = '';
+  confirmForm.lawsuitResult = '';
+  confirmForm.lawsuitAmount = 0;
+  confirmForm.lawsuitNotes = '';
+  confirmForm.finalConfirmationDate = '';
+  confirmForm.finalConfirmationBasis = '';
+  confirmForm.confirmationAttachments = '';
+  confirmForm.confirmationStatus = 'CONFIRMED';
+  confirmForm.remarks = '';
 };
 
 const handleConfirmClaim = async () => {
@@ -127,44 +218,47 @@ const handleConfirmClaim = async () => {
 
   confirmLoading.value = true;
   try {
-    // 检查是否已有确认记录
-    let confirmationId: number;
-
-    if (currentClaim.value.confirmationInfo) {
-      // 已有确认记录，直接提交表决
-      confirmationId = currentClaim.value.confirmationInfo.id;
-      await updateClaimConfirmationApi(confirmationId, {
-        voteResult:
-          confirmForm.voteResult === '通过'
-            ? 'AGREE'
-            : confirmForm.voteResult === '不通过'
-              ? 'DISAGREE'
-              : 'ABSTAIN',
-        voteNotes: confirmForm.voteNotes,
-      });
-    } else {
-      // 创建新的确认记录
-      const createResponse = await createClaimConfirmationApi({
-        claimRegistrationId: currentClaim.value.id,
-        caseId: currentClaim.value.caseId,
-        creditorName: currentClaim.value.creditorName,
-        meetingType: 'FIRST',
-        voteResult:
-          confirmForm.voteResult === '通过'
-            ? 'AGREE'
-            : confirmForm.voteResult === '不通过'
-              ? 'DISAGREE'
-              : 'ABSTAIN',
-        voteNotes: confirmForm.voteNotes,
-        confirmationStatus: 'CONFIRMED',
-      });
-
-      if (createResponse.code !== 200) {
-        throw new Error(createResponse.message || '创建确认记录失败');
-      }
-
-      confirmationId = createResponse.data.confirmationId;
-    }
+    // 直接使用 currentClaim.value.id 作为确认记录的 ID
+    const confirmationId = currentClaim.value.id;
+    
+    // 更新确认记录
+    await updateClaimConfirmationApi(confirmationId, {
+      meetingType: confirmForm.meetingType,
+      meetingDate: confirmForm.meetingDate || null,
+      meetingLocation: confirmForm.meetingLocation || null,
+      voteResult:
+        confirmForm.voteResult === '通过'
+          ? 'AGREE'
+          : confirmForm.voteResult === '不通过'
+            ? 'DISAGREE'
+            : 'ABSTAIN',
+      voteNotes: confirmForm.voteNotes || null,
+      hasObjection: confirmForm.hasObjection,
+      objector: confirmForm.objector || null,
+      objectionReason: confirmForm.objectionReason || null,
+      objectionAmount: confirmForm.objectionAmount,
+      objectionDate: confirmForm.objectionDate || null,
+      negotiationResult: confirmForm.negotiationResult || null,
+      negotiationDate: confirmForm.negotiationDate || null,
+      negotiationParticipants: confirmForm.negotiationParticipants || null,
+      courtRulingDate: confirmForm.courtRulingDate || null,
+      courtRulingNo: confirmForm.courtRulingNo || null,
+      courtRulingResult: confirmForm.courtRulingResult || null,
+      courtRulingAmount: confirmForm.courtRulingAmount,
+      courtRulingNotes: confirmForm.courtRulingNotes || null,
+      hasLawsuit: confirmForm.hasLawsuit,
+      lawsuitCaseNo: confirmForm.lawsuitCaseNo || null,
+      lawsuitStatus: confirmForm.lawsuitStatus || null,
+      lawsuitResult: confirmForm.lawsuitResult || null,
+      lawsuitAmount: confirmForm.lawsuitAmount,
+      lawsuitNotes: confirmForm.lawsuitNotes || null,
+      finalConfirmedAmount: confirmForm.confirmedAmount,
+      finalConfirmationDate: confirmForm.finalConfirmationDate || null,
+      finalConfirmationBasis: confirmForm.finalConfirmationBasis || null,
+      confirmationAttachments: confirmForm.confirmationAttachments || null,
+      confirmationStatus: confirmForm.confirmationStatus,
+      remarks: confirmForm.remarks || null,
+    });
 
     // 最终确认债权
     await finalizeClaimConfirmationApi(confirmationId);
@@ -178,6 +272,36 @@ const handleConfirmClaim = async () => {
   } finally {
     confirmLoading.value = false;
   }
+};
+
+const handleRejectClaim = async (row: any) => {
+  ElMessageBox.confirm('确定要驳回这条债权确认吗？', '驳回确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(async () => {
+      try {
+        // 直接使用 row.id 作为确认记录的 ID
+        const confirmationId = row.id;
+        
+        // 更新确认记录为驳回状态
+        await updateClaimConfirmationApi(confirmationId, {
+          voteResult: 'DISAGREE',
+          voteNotes: '驳回',
+          confirmationStatus: 'OBJECTION',
+        });
+
+        ElMessage.success('债权确认驳回成功');
+        await fetchClaims();
+      } catch (error) {
+        console.error('驳回债权确认失败:', error);
+        ElMessage.error('驳回债权确认失败');
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消驳回操作');
+    });
 };
 
 const getConfirmationStatusTag = (status: string) => {
@@ -281,7 +405,7 @@ onMounted(() => {
           <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
           <ElTableColumn prop="claimNature" label="债权性质" width="120" />
           <ElTableColumn prop="claimType" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="200" fixed="right">
+          <ElTableColumn label="操作" width="300" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情
@@ -293,6 +417,14 @@ onMounted(() => {
                 @click="openConfirmDialog(scope.row)"
               >
                 确认
+              </ElButton>
+              <ElButton
+                v-if="scope.row.confirmationStatus === 'PENDING'"
+                type="danger"
+                size="small"
+                @click="handleRejectClaim(scope.row)"
+              >
+                驳回
               </ElButton>
             </template>
           </ElTableColumn>
@@ -318,64 +450,68 @@ onMounted(() => {
 
     <ElDialog
       v-model="showDetailDialog"
-      title="债权详情"
+      title="债权确认详情"
       width="90%"
       destroy-on-close
     >
       <div v-if="currentClaim" class="detail-dialog-container">
         <ElDescriptions :column="2" border>
-          <ElDescriptionsItem label="债权编号">
-            {{ currentClaim.claimNo }}
+          <ElDescriptionsItem label="确认ID">
+            {{ currentClaim.id }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="案件名称">
-            {{ currentClaim.caseName }}
+          <ElDescriptionsItem label="债权登记ID">
+            {{ currentClaim.claimRegistrationId }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债务人">
-            {{ currentClaim.debtor }}
+          <ElDescriptionsItem label="案件ID">
+            {{ currentClaim.caseId }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="债权人">
             {{ currentClaim.creditorName }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权人类型">
-            {{ currentClaim.creditorType }}
+          <ElDescriptionsItem label="会议类型">
+            {{ currentClaim.meetingType || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="统一社会信用代码">
-            {{ currentClaim.creditCode }}
+          <ElDescriptionsItem label="会议日期">
+            {{ currentClaim.meetingDate || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="申报本金">
-            {{ currentClaim.principal }}
+          <ElDescriptionsItem label="会议地点">
+            {{ currentClaim.meetingLocation || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="申报利息">
-            {{ currentClaim.interest }}
+          <ElDescriptionsItem label="表决结果">
+            {{ currentClaim.voteResult || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="申报总金额">
-            {{ currentClaim.totalAmount }}
+          <ElDescriptionsItem label="表决说明">
+            {{ currentClaim.voteNotes || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权性质">
-            {{ currentClaim.claimNature || '-' }}
+          <ElDescriptionsItem label="是否有异议">
+            {{ currentClaim.hasObjection ? '是' : '否' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权种类">
-            {{ currentClaim.claimType }}
+          <ElDescriptionsItem label="异议人">
+            {{ currentClaim.objector || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查结论">
-            <ElTag
-              v-if="currentClaim.reviewInfo"
-              :type="
-                getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
-                  .type
-              "
-            >
-              {{ 
-                getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion)
-                  .text
-              }}
-            </ElTag>
-            <ElTag v-else type="info">
-              待审查
-            </ElTag>
+          <ElDescriptionsItem label="异议原因">
+            {{ currentClaim.objectionReason || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="确认金额">
-            {{ currentClaim.reviewInfo?.confirmedTotalAmount || 0 }}
+          <ElDescriptionsItem label="异议金额">
+            {{ currentClaim.objectionAmount || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="异议日期">
+            {{ currentClaim.objectionDate || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="是否有诉讼">
+            {{ currentClaim.hasLawsuit ? '是' : '否' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="诉讼案号">
+            {{ currentClaim.lawsuitCaseNo || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="最终确认金额">
+            {{ currentClaim.finalConfirmedAmount || 0 }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="最终确认日期">
+            {{ currentClaim.finalConfirmationDate || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="最终确认依据">
+            {{ currentClaim.finalConfirmationBasis || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认状态">
             <ElTag
@@ -383,10 +519,13 @@ onMounted(() => {
                 getConfirmationStatusTag(currentClaim.confirmationStatus).type
               "
             >
-              {{
+              {{ 
                 getConfirmationStatusTag(currentClaim.confirmationStatus).text
               }}
             </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="备注">
+            {{ currentClaim.remarks || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
       </div>
@@ -437,6 +576,14 @@ onMounted(() => {
         <div class="confirm-form-section">
           <h4 class="section-title mb-2">确认操作</h4>
           <ElForm label-width="120px" v-model="confirmForm">
+            <ElFormItem label="确认金额" required>
+              <ElInput
+                v-model="confirmForm.confirmedAmount"
+                type="number"
+                placeholder="请输入确认金额"
+                style="width: 100%"
+              />
+            </ElFormItem>
             <ElFormItem label="表决结果" required>
               <ElSelect
                 v-model="confirmForm.voteResult"
@@ -454,6 +601,298 @@ onMounted(() => {
                 type="textarea"
                 :rows="3"
                 placeholder="请输入表决说明"
+              />
+            </ElFormItem>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">会议信息</h4>
+            </div>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="会议类型">
+                  <ElSelect
+                    v-model="confirmForm.meetingType"
+                    placeholder="请选择会议类型"
+                    style="width: 100%"
+                  >
+                    <ElOption label="第一次会议" value="FIRST" />
+                    <ElOption label="第二次会议" value="SECOND" />
+                    <ElOption label="临时会议" value="TEMPORARY" />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="会议日期">
+                  <ElInput
+                    v-model="confirmForm.meetingDate"
+                    type="datetime-local"
+                    placeholder="请选择会议日期"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="会议地点">
+              <ElInput
+                v-model="confirmForm.meetingLocation"
+                placeholder="请输入会议地点"
+              />
+            </ElFormItem>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">异议信息</h4>
+            </div>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="是否有异议">
+                  <ElSelect
+                    v-model="confirmForm.hasObjection"
+                    placeholder="请选择是否有异议"
+                    style="width: 100%"
+                  >
+                    <ElOption label="否" value="0" />
+                    <ElOption label="是" value="1" />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="异议人">
+                  <ElInput
+                    v-model="confirmForm.objector"
+                    placeholder="请输入异议人"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="异议原因">
+              <ElInput
+                v-model="confirmForm.objectionReason"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入异议原因"
+              />
+            </ElFormItem>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="异议金额">
+                  <ElInput
+                    v-model="confirmForm.objectionAmount"
+                    type="number"
+                    placeholder="请输入异议金额"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="异议日期">
+                  <ElInput
+                    v-model="confirmForm.objectionDate"
+                    type="datetime-local"
+                    placeholder="请选择异议日期"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">协商信息</h4>
+            </div>
+            <ElFormItem label="协商结果">
+              <ElInput
+                v-model="confirmForm.negotiationResult"
+                placeholder="请输入协商结果"
+              />
+            </ElFormItem>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="协商日期">
+                  <ElInput
+                    v-model="confirmForm.negotiationDate"
+                    type="datetime-local"
+                    placeholder="请选择协商日期"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="协商参与人">
+                  <ElInput
+                    v-model="confirmForm.negotiationParticipants"
+                    placeholder="请输入协商参与人"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">法院裁定信息</h4>
+            </div>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="裁定日期">
+                  <ElInput
+                    v-model="confirmForm.courtRulingDate"
+                    type="datetime-local"
+                    placeholder="请选择裁定日期"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="裁定编号">
+                  <ElInput
+                    v-model="confirmForm.courtRulingNo"
+                    placeholder="请输入裁定编号"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="裁定结果">
+              <ElInput
+                v-model="confirmForm.courtRulingResult"
+                placeholder="请输入裁定结果"
+              />
+            </ElFormItem>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="裁定金额">
+                  <ElInput
+                    v-model="confirmForm.courtRulingAmount"
+                    type="number"
+                    placeholder="请输入裁定金额"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="裁定备注">
+              <ElInput
+                v-model="confirmForm.courtRulingNotes"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入裁定备注"
+              />
+            </ElFormItem>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">诉讼信息</h4>
+            </div>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="是否有诉讼">
+                  <ElSelect
+                    v-model="confirmForm.hasLawsuit"
+                    placeholder="请选择是否有诉讼"
+                    style="width: 100%"
+                  >
+                    <ElOption label="否" value="0" />
+                    <ElOption label="是" value="1" />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="案号">
+                  <ElInput
+                    v-model="confirmForm.lawsuitCaseNo"
+                    placeholder="请输入案号"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="诉讼状态">
+                  <ElInput
+                    v-model="confirmForm.lawsuitStatus"
+                    placeholder="请输入诉讼状态"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :span="12">
+                <ElFormItem label="诉讼结果">
+                  <ElInput
+                    v-model="confirmForm.lawsuitResult"
+                    placeholder="请输入诉讼结果"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="诉讼金额">
+                  <ElInput
+                    v-model="confirmForm.lawsuitAmount"
+                    type="number"
+                    placeholder="请输入诉讼金额"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="诉讼备注">
+              <ElInput
+                v-model="confirmForm.lawsuitNotes"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入诉讼备注"
+              />
+            </ElFormItem>
+            
+            <div class="section-divider mb-4">
+              <h4 class="section-title">最终确认信息</h4>
+            </div>
+            <ElRow :gutter="20">
+              <ElCol :span="12">
+                <ElFormItem label="最终确认日期">
+                  <ElInput
+                    v-model="confirmForm.finalConfirmationDate"
+                    type="datetime-local"
+                    placeholder="请选择最终确认日期"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+            </ElRow>
+            <ElFormItem label="最终确认依据">
+              <ElInput
+                v-model="confirmForm.finalConfirmationBasis"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入最终确认依据"
+              />
+            </ElFormItem>
+            <ElFormItem label="确认附件">
+              <ElInput
+                v-model="confirmForm.confirmationAttachments"
+                placeholder="请输入确认附件"
+              />
+            </ElFormItem>
+            <ElFormItem label="确认状态">
+              <ElSelect
+                v-model="confirmForm.confirmationStatus"
+                placeholder="请选择确认状态"
+                style="width: 100%"
+              >
+                <ElOption label="待确认" value="PENDING" />
+                <ElOption label="已确认" value="CONFIRMED" />
+                <ElOption label="有异议" value="OBJECTION" />
+                <ElOption label="法院裁定中" value="COURT" />
+                <ElOption label="诉讼中" value="LAWSUIT" />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem label="备注">
+              <ElInput
+                v-model="confirmForm.remarks"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入备注"
               />
             </ElFormItem>
           </ElForm>

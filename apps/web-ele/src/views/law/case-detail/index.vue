@@ -50,6 +50,9 @@ import {
   getDocumentListApi,
   updateDocumentApi,
   updateDocumentSendStatusApi,
+  directUploadDocumentApi,
+  submitDocumentForApprovalApi,
+  getCaseAbbreviationApi,
 } from '#/api/core/document-service';
 import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
@@ -858,6 +861,7 @@ const documentForm = reactive({
   attachment: '',
   sendStatus: '已发送',
   abbreviation: '',
+  documentNumber: '',
 });
 
 // 文书上传表单数据（直接上传，无需审批）
@@ -875,6 +879,7 @@ const directUploadForm = reactive({
   serviceContent: '',
   attachment: '',
   abbreviation: '',
+  documentNumber: '',
 });
 
 // 文书审批表单数据（需要审批流程）
@@ -894,6 +899,8 @@ const approvalSubmitForm = reactive({
   approvalTitle: '',
   approvalContent: '',
   remark: '',
+  abbreviation: '',
+  documentNumber: '',
 });
 
 // 文书类型选项
@@ -1003,24 +1010,46 @@ const openAddDocumentDialog = async () => {
 };
 
 // 打开文书上传弹窗（直接上传，无需审批）
-const openDirectUploadDialog = () => {
+const openDirectUploadDialog = async () => {
   // 重置表单
   resetDirectUploadForm();
   // 设置案件ID、案号和名称
   directUploadForm.caseId = caseId.value;
   directUploadForm.caseNumber = caseDetail.value?.案号 || '';
   directUploadForm.caseName = caseDetail.value?.案件名称 || '';
+  
+  // 获取案件文书编号缩写
+  try {
+    const response = await getCaseAbbreviationApi(Number(caseId.value));
+    if (response.code === 200 && response.data) {
+      directUploadForm.abbreviation = response.data;
+    }
+  } catch (error) {
+    console.error('获取案件文书编号缩写失败:', error);
+  }
+  
   showDirectUploadDialog.value = true;
 };
 
 // 打开文书审批弹窗（需要审批流程）
-const openApprovalSubmitDialog = () => {
+const openApprovalSubmitDialog = async () => {
   // 重置表单
   resetApprovalSubmitForm();
   // 设置案件ID、案号和名称
   approvalSubmitForm.caseId = caseId.value;
   approvalSubmitForm.caseNumber = caseDetail.value?.案号 || '';
   approvalSubmitForm.caseName = caseDetail.value?.案件名称 || '';
+  
+  // 获取案件文书编号缩写
+  try {
+    const response = await getCaseAbbreviationApi(Number(caseId.value));
+    if (response.code === 200 && response.data) {
+      approvalSubmitForm.abbreviation = response.data;
+    }
+  } catch (error) {
+    console.error('获取案件文书编号缩写失败:', error);
+  }
+  
   showApprovalSubmitDialog.value = true;
 };
 
@@ -1044,6 +1073,8 @@ const editDocument = (row: any) => {
   documentForm.serviceContent = row.deliveryContent;
   documentForm.attachment = row.documentAttachment;
   documentForm.sendStatus = row.sendStatus === 'SENT' ? '已发送' : '暂存送达';
+  documentForm.abbreviation = row.abbreviation || '';
+  documentForm.documentNumber = row.documentNumber || '';
 
   // 打开弹窗
   showAddDocumentDialog.value = true;
@@ -1065,6 +1096,7 @@ const resetDocumentForm = () => {
   documentForm.attachment = '';
   documentForm.sendStatus = '已发送';
   documentForm.abbreviation = '';
+  documentForm.documentNumber = '';
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1147,12 +1179,23 @@ const submitDirectUploadForm = async () => {
       deliveryMethod: directUploadForm.serviceMethod,
       deliveryContent: directUploadForm.serviceContent,
       documentAttachment,
+      abbreviation: directUploadForm.abbreviation,
     };
 
     const response = await directUploadDocumentApi(requestData);
 
     if (response.code === 200) {
-      ElMessage.success('文书上传成功');
+      const documentNumber = response.data?.documentNumber || '';
+      const abbreviation = response.data?.abbreviation || '';
+      
+      if (documentNumber) {
+        directUploadForm.documentNumber = documentNumber;
+        directUploadForm.abbreviation = abbreviation;
+        ElMessage.success(`文书上传成功，文书编号：${documentNumber}`);
+      } else {
+        ElMessage.success('文书上传成功');
+      }
+      
       showDirectUploadDialog.value = false;
       resetDirectUploadForm();
       fetchDocumentList();
@@ -1169,13 +1212,8 @@ const submitDirectUploadForm = async () => {
 // 提交文书审批（需要审批流程）
 const submitApprovalForm = async () => {
   // 表单验证
-  if (!approvalSubmitForm.documentName || !approvalSubmitForm.recipient) {
+  if (!approvalSubmitForm.documentName || !approvalSubmitForm.recipient || !approvalSubmitForm.approvalTitle) {
     ElMessage.error('请填写必填项');
-    return;
-  }
-
-  if (!approvalSubmitForm.approvalTitle || !approvalSubmitForm.approvalContent) {
-    ElMessage.error('请填写审批标题和审批内容');
     return;
   }
 
@@ -1214,15 +1252,25 @@ const submitApprovalForm = async () => {
       deliveryMethod: approvalSubmitForm.serviceMethod,
       deliveryContent: approvalSubmitForm.serviceContent,
       documentAttachment,
-      approvalTitle: approvalSubmitForm.approvalTitle,
-      approvalContent: approvalSubmitForm.approvalContent,
       remark: approvalSubmitForm.remark,
+      abbreviation: approvalSubmitForm.abbreviation,
+      approvalTitle: approvalSubmitForm.approvalTitle,
     };
 
     const response = await submitDocumentForApprovalApi(requestData);
 
     if (response.code === 200) {
-      ElMessage.success('文书审批申请提交成功');
+      const documentNumber = response.data?.documentNumber || '';
+      const abbreviation = response.data?.abbreviation || '';
+      
+      if (documentNumber) {
+        approvalSubmitForm.documentNumber = documentNumber;
+        approvalSubmitForm.abbreviation = abbreviation;
+        ElMessage.success(`文书审批申请提交成功，文书编号：${documentNumber}`);
+      } else {
+        ElMessage.success('文书审批申请提交成功');
+      }
+      
       showApprovalSubmitDialog.value = false;
       resetApprovalSubmitForm();
       fetchDocumentList();
@@ -1378,10 +1426,24 @@ const submitDocumentForm = async () => {
       const response = await createDocumentWithFilesApi(formData);
 
       if (response.code === 200) {
-        ElMessage.success('文书送达创建成功');
-        showAddDocumentDialog.value = false;
-        resetDocumentForm();
-        fetchDocumentList();
+        const documentNumber = response.data?.documentNumber || '';
+        const abbreviation = response.data?.abbreviation || '';
+        
+        // 更新表单显示文书编号
+        if (documentNumber) {
+          documentForm.documentNumber = documentNumber;
+          documentForm.abbreviation = abbreviation;
+          ElMessage.success(`文书送达创建成功，文书编号：${documentNumber}`);
+        } else {
+          ElMessage.success('文书送达创建成功');
+        }
+        
+        // 延迟关闭弹窗，让用户看到生成的文书编号
+        setTimeout(() => {
+          showAddDocumentDialog.value = false;
+          resetDocumentForm();
+          fetchDocumentList();
+        }, 2000);
       } else {
         ElMessage.error(response.message || '文书送达创建失败');
       }
@@ -5962,6 +6024,18 @@ const checkPermissions = async () => {
                 </ElRow>
 
                 <ElRow :gutter="20">
+                  <ElCol :span="24">
+                    <ElFormItem label="文书编号">
+                      <ElInput
+                        v-model="documentForm.documentNumber"
+                        placeholder="上传后自动生成"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
                   <ElCol :span="12">
                     <ElFormItem label="文书名称" prop="documentName">
                       <ElInput
@@ -6214,6 +6288,26 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
+                    <ElFormItem label="文书编号">
+                      <ElInput
+                        v-model="directUploadForm.documentNumber"
+                        placeholder="自动生成"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="文书缩写">
+                      <ElInput
+                        v-model="directUploadForm.abbreviation"
+                        placeholder="请输入文书缩写"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
                     <ElFormItem label="文书名称" prop="documentName">
                       <ElInput
                         v-model="directUploadForm.documentName"
@@ -6432,6 +6526,37 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
+                    <ElFormItem label="文书编号">
+                      <ElInput
+                        v-model="approvalSubmitForm.documentNumber"
+                        placeholder="自动生成"
+                        disabled
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="文书缩写">
+                      <ElInput
+                        v-model="approvalSubmitForm.abbreviation"
+                        placeholder="请输入文书缩写"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="24">
+                    <ElFormItem label="审批标题" required>
+                      <ElInput
+                        v-model="approvalSubmitForm.approvalTitle"
+                        placeholder="请输入审批标题"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
                     <ElFormItem label="文书名称" prop="documentName">
                       <ElInput
                         v-model="approvalSubmitForm.documentName"
@@ -6533,21 +6658,7 @@ const checkPermissions = async () => {
                   />
                 </ElFormItem>
 
-                <ElDivider content-position="left">审批信息</ElDivider>
 
-                <ElFormItem label="审批标题" prop="approvalTitle">
-                  <ElInput
-                    v-model="approvalSubmitForm.approvalTitle"
-                    placeholder="请输入审批标题"
-                  />
-                </ElFormItem>
-
-                <ElFormItem label="审批内容" prop="approvalContent">
-                  <RichTextEditor
-                    v-model="approvalSubmitForm.approvalContent"
-                    placeholder="请输入审批内容"
-                  />
-                </ElFormItem>
 
                 <ElFormItem label="备注" prop="remark">
                   <ElInput
@@ -6669,6 +6780,18 @@ const checkPermissions = async () => {
                   <span class="detail-label">文书类型：</span>
                   <span class="detail-value">{{
                     documentDetail.documentType
+                  }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">文书编号：</span>
+                  <span class="detail-value">{{
+                    documentDetail.documentNumber || '-' 
+                  }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">缩写：</span>
+                  <span class="detail-value">{{
+                    documentDetail.abbreviation || '-' 
                   }}</span>
                 </div>
                 <div class="detail-item">

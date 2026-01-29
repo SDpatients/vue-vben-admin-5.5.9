@@ -19,6 +19,7 @@ import {
 } from 'element-plus';
 
 import { approvalApi, approvalUtils, type ApprovalContentData, type ApprovalAttachmentData, type ApprovalTask, type ApprovalSubmission, type ApprovalFile } from '#/api/core/approval';
+import { downloadFileApi, previewFileApi } from '#/api/core/file';
 
 const route = useRoute();
 const router = useRouter();
@@ -29,8 +30,8 @@ const approvalOpinion = ref('');
 const approvalDialogVisible = ref(false);
 const approvalAction = ref<'approve' | 'reject'>('approve');
 
-const contentData = ref<ApprovalContentData | null>(null);
-const attachmentData = ref<ApprovalAttachmentData | null>(null);
+const contentData = ref<ApprovalContentData | { originalContent: string } | null>(null);
+const attachmentData = ref<ApprovalAttachmentData | { originalAttachment: string } | null>(null);
 
 const formatTime = (time: string) => {
   if (!time) return '';
@@ -87,11 +88,6 @@ const handleRejectClick = () => {
 
 const handleConfirmApproval = async () => {
   if (!approval.value) return;
-
-  if (approvalAction.value === 'reject' && !approvalOpinion.value.trim()) {
-    ElMessage.warning('驳回时必须填写审批意见');
-    return;
-  }
 
   try {
     await approvalApi.approve(approval.value.id, {
@@ -161,8 +157,36 @@ const getResultColor = (result: string) => {
   return colorMap[result] || 'info';
 };
 
-const handleDownloadFile = (file: ApprovalFile) => {
-  window.open(file.filePath, '_blank');
+const handleDownloadFile = async (file: ApprovalFile) => {
+  try {
+    const blob = await downloadFileApi(file.id);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.originalFileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('文件下载失败:', error);
+    ElMessage.error('文件下载失败');
+  }
+};
+
+const handlePreviewFile = async (file: ApprovalFile) => {
+  try {
+    await previewFileApi(file.id);
+  } catch (error) {
+    console.error('文件预览失败:', error);
+    ElMessage.error('文件预览失败');
+  }
+};
+
+const canPreviewFile = (file: ApprovalFile): boolean => {
+  if (!file.fileExtension) return false;
+  const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'csv'];
+  return previewableTypes.includes(file.fileExtension.toLowerCase());
 };
 
 onMounted(() => {
@@ -269,7 +293,7 @@ onMounted(() => {
               </div>
               
               <div
-                v-if="contentData"
+                v-if="contentData && 'task' in contentData"
                 class="info-item full-width"
               >
                 <div class="parsed-content-section">
@@ -326,7 +350,17 @@ onMounted(() => {
               </div>
               
               <div
-                v-if="attachmentData && Object.keys(attachmentData.files).length > 0"
+                v-if="contentData && 'originalContent' in contentData"
+                class="info-item full-width"
+              >
+                <span class="label">审批内容:</span>
+                <div class="value content-text">
+                  {{ contentData.originalContent }}
+                </div>
+              </div>
+              
+              <div
+                v-if="attachmentData && 'files' in attachmentData && Object.keys(attachmentData.files).length > 0"
                 class="info-item full-width"
               >
                 <div class="parsed-content-section">
@@ -334,7 +368,7 @@ onMounted(() => {
                   <div class="files-list">
                     <div v-for="(files, submissionId) in attachmentData.files" :key="submissionId" class="files-by-submission">
                       <div class="files-header">
-                        <span>提交记录 #{{ contentData?.submissions.find(s => s.id.toString() === submissionId)?.submissionNumber || submissionId }} 的文件</span>
+                        <span>提交记录 #{{ contentData?.submissions?.find(s => s.id.toString() === submissionId)?.submissionNumber || submissionId }} 的文件 ({{ files.length }}个)</span>
                       </div>
                       <div class="files-items">
                         <div v-for="file in files" :key="file.id" class="file-item">
@@ -347,6 +381,14 @@ onMounted(() => {
                             </div>
                           </div>
                           <div class="file-actions">
+                            <ElButton 
+                              v-if="canPreviewFile(file)" 
+                              size="small" 
+                              type="text" 
+                              @click="handlePreviewFile(file)"
+                            >
+                              预览
+                            </ElButton>
                             <ElButton size="small" type="text" @click="handleDownloadFile(file)">
                               下载
                             </ElButton>
@@ -356,6 +398,14 @@ onMounted(() => {
                     </div>
                   </div>
                 </div>
+              </div>
+              
+              <div
+                v-if="attachmentData && 'originalAttachment' in attachmentData"
+                class="info-item full-width"
+              >
+                <span class="label">审批附件:</span>
+                <div class="value">{{ attachmentData.originalAttachment }}</div>
               </div>
               
               <div
@@ -420,7 +470,7 @@ onMounted(() => {
             :rows="4"
             :placeholder="
               approvalAction === 'reject'
-                ? '请输入驳回原因（必填）'
+                ? '请输入驳回原因（可选）'
                 : '请输入审批意见（选填）'
             "
           />

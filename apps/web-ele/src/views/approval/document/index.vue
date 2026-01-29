@@ -494,14 +494,6 @@ const handleReject = (row: DocumentApproval) => {
 const handleConfirmApproval = async () => {
   if (!currentDocument.value) return;
 
-  if (
-    approvalForm.value.status === 'REJECTED' &&
-    !approvalForm.value.remark.trim()
-  ) {
-    ElMessage.warning('驳回时必须填写审批意见');
-    return;
-  }
-
   loading.value = true;
   try {
     await updateDocumentStatusRemarkApi(currentDocument.value.id, {
@@ -809,7 +801,7 @@ onMounted(() => {
                   v-model="approvalForm.remark"
                   type="textarea"
                   :rows="4"
-                  placeholder="请输入审批意见（驳回时必填）"
+                  placeholder="请输入审批意见（可选）"
                 />
               </ElFormItem>
             </div>

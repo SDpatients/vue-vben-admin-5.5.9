@@ -21,6 +21,7 @@ export interface ApprovalFile {
   description?: string;
   sortOrder: number;
   uploadTime: string;
+  imageData?: string;
 }
 
 export interface ApprovalSubmission {
@@ -169,26 +170,54 @@ export const approvalApi = {
       },
     });
   },
+
+  // 获取审批附件（批量）
+  getApprovalAttachments: (approvalId: number, params?: {
+    includeImages?: boolean;
+    includeFiles?: boolean;
+  }) => {
+    return requestClient.get(`/api/v1/approval/${approvalId}/attachments`, {
+      params: {
+        includeImages: params?.includeImages || false,
+        includeFiles: params?.includeFiles || true,
+        ...params,
+      },
+    });
+  },
 };
 
 export const approvalUtils = {
-  parseApprovalContent: (content: string | null | undefined): ApprovalContentData | null => {
+  parseApprovalContent: (content: string | null | undefined): ApprovalContentData | { originalContent: string } | null => {
     if (!content) return null;
     try {
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      // 验证解析结果是否符合预期格式
+      if (parsed && typeof parsed === 'object' && 'task' in parsed && 'submissions' in parsed) {
+        return parsed;
+      } else {
+        // 格式不符合预期，返回原始内容
+        return { originalContent: content };
+      }
     } catch (e) {
-      console.error('解析 approvalContent 失败:', e);
-      return null;
+      // 如果不是 JSON，返回原始内容，不打印错误信息
+      return { originalContent: content };
     }
   },
 
-  parseApprovalAttachment: (attachment: string | null | undefined): ApprovalAttachmentData | null => {
+  parseApprovalAttachment: (attachment: string | null | undefined): ApprovalAttachmentData | { originalAttachment: string } | null => {
     if (!attachment) return null;
     try {
-      return JSON.parse(attachment);
+      const parsed = JSON.parse(attachment);
+      // 验证解析结果是否符合预期格式
+      if (parsed && typeof parsed === 'object' && 'files' in parsed) {
+        return parsed;
+      } else {
+        // 格式不符合预期，返回原始内容
+        return { originalAttachment: attachment };
+      }
     } catch (e) {
-      console.error('解析 approvalAttachment 失败:', e);
-      return null;
+      // 如果不是 JSON，返回原始内容，不打印错误信息
+      return { originalAttachment: attachment };
     }
   },
 

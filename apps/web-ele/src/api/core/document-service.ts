@@ -73,6 +73,8 @@ export namespace DocumentServiceApi {
     message: string;
     data: {
       deliveryId: number;
+      documentNumber: string;
+      abbreviation: string;
     };
   }
 
@@ -134,6 +136,8 @@ export namespace DocumentServiceApi {
     message: string;
     data: {
       deliveryId: number;
+      documentNumber: string;
+      abbreviation: string;
       files: {
         fileExtension: string;
         fileId: number;
@@ -408,5 +412,15 @@ export async function submitDocumentForApprovalWithFilesApi(
 export async function getLatestAbbreviationApi() {
   return documentRequestClient.get<{ code: number; message: string; data: string }>(
     '/api/v1/document-delivery/latest-abbreviation',
+  );
+}
+
+/**
+ * 获取案件文书编号缩写
+ * 用于前端根据案件ID获取对应的文书编号缩写
+ */
+export async function getCaseAbbreviationApi(caseId: number) {
+  return documentRequestClient.get<{ code: number; message: string; data: string | null }>(
+    `/api/v1/document-delivery/case-abbreviation/${caseId}`,
   );
 }

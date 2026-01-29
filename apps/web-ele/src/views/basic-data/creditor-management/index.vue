@@ -161,6 +161,20 @@ const resetSearch = () => {
   fetchCreditorList();
 };
 
+// 显示全部债权人
+const showAllCreditors = () => {
+  searchStatus.value = '';
+  pagination.value.page = 1;
+  fetchCreditorList();
+};
+
+// 显示确认债权人
+const showConfirmedCreditors = () => {
+  searchStatus.value = 'CONFIRMED';
+  pagination.value.page = 1;
+  fetchCreditorList();
+};
+
 // 格式化日期显示
 const formatDate = (dateString: null | string) => {
   if (!dateString) return '-';
@@ -544,6 +558,14 @@ const handleDeleteSubmit = async (id: number) => {
           <ElButton @click="resetSearch">
             <i class="i-lucide-refresh-cw mr-1"></i>
             重置
+          </ElButton>
+          <ElButton type="info" @click="showAllCreditors">
+            <i class="i-lucide-users mr-1"></i>
+            已知债权人（全部）
+          </ElButton>
+          <ElButton type="success" @click="showConfirmedCreditors">
+            <i class="i-lucide-check-circle mr-1"></i>
+            确认债权人
           </ElButton>
         </div>
       </div>

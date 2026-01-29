@@ -159,11 +159,9 @@ const handleApprove = async (row: any) => {
   } catch (error: any) {
     if (error === 'cancel') {
       try {
-        const { value } = await ElMessageBox.prompt('请输入拒绝理由', '拒绝操作', {
+        const { value } = await ElMessageBox.prompt('请输入拒绝理由（可选）', '拒绝操作', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
-          inputPattern: /.+/,
-          inputErrorMessage: '请输入拒绝理由',
         });
 
         loading.value = true;

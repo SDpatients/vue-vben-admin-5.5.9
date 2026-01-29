@@ -78,6 +78,13 @@ const qrCodeUrl = ref('');
 const qrCodeExpireTime = ref(0);
 const qrCodePolling = ref<NodeJS.Timeout | null>(null);
 
+// 移动端上传配置
+const mobileUploadConfig = ref({
+  ip: '192.168.0.120',
+  port: 5780,
+  autoDetect: false
+});
+
 // 控制当前激活的标签页
 const activeTab = ref('basic');
 const formData = ref({
@@ -268,6 +275,45 @@ const isImageFile = (fileName: string): boolean => {
     '.svg',
   ];
   return imageExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
+};
+
+// 检测本机局域网IP地址
+const detectLocalIP = async () => {
+  try {
+    console.log('开始检测本机IP地址...');
+    
+    // 方法1: 通过WebRTC获取本地IP
+    const rtc = new RTCPeerConnection({ iceServers: [] });
+    rtc.createDataChannel('');
+    const offer = await rtc.createOffer();
+    await rtc.setLocalDescription(offer);
+    
+    return new Promise<string>((resolve) => {
+      rtc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidate = event.candidate.candidate;
+          const match = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+          if (match && !match[1].startsWith('127.')) {
+            rtc.close();
+            const ip = match[1];
+            console.log(`检测到本机IP: ${ip}`);
+            mobileUploadConfig.value.ip = ip;
+            resolve(ip);
+          }
+        }
+      };
+      
+      // 超时处理
+      setTimeout(() => {
+        rtc.close();
+        console.log('IP检测超时，请手动设置IP地址');
+        resolve('');
+      }, 3000);
+    });
+  } catch (error: any) {
+    console.error(`IP检测失败: ${error.message}`);
+    return '';
+  }
 };
 
 // 生成文件预览URL的函数
@@ -634,6 +680,11 @@ watch(
 
 // 组件挂载时加载所有阶段的数据并初始化动画进度
 onMounted(async () => {
+  // 自动检测本机IP地址
+  if (mobileUploadConfig.value.autoDetect) {
+    await detectLocalIP();
+  }
+  
   // 加载所有阶段的数据
   await loadAllStageData();
   // 初始化并动画显示所有阶段的进度条
@@ -1568,10 +1619,15 @@ const goBack = () => {
 };
 
 // 打开手机上传二维码弹窗
-const openMobileUploadDialog = () => {
+const openMobileUploadDialog = async () => {
   if (!currentItem.value) {
     ElMessage.warning('请先选择或创建一个任务提交记录');
     return;
+  }
+  
+  // 自动检测本地IP地址
+  if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
+    await detectLocalIP();
   }
   
   // 生成随机的上传会话ID
@@ -1581,13 +1637,20 @@ const openMobileUploadDialog = () => {
   // 使用网络可访问的地址，确保手机能够访问
   let baseUrl = window.location.origin;
   
-  // 如果是 localhost，使用服务器的网络IP地址
-  if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
-    // 服务器的网络IP地址，确保手机能够访问
-    baseUrl = 'http://192.168.0.120:5780';
+  // 强制使用配置的端口
+  const currentUrl = new URL(window.location.href);
+  if (mobileUploadConfig.value.ip) {
+    // 使用配置的IP和端口
+    baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+    console.log(`使用配置的IP和端口: ${baseUrl}`);
+  } else {
+    // 使用当前主机名和配置的端口
+    baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+    console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
   }
   
-  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=task_submission&bizId=${currentItem.value.id}&caseId=${props.caseId}&sessionId=${uploadSessionId}`;
+  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=CASE_TASK_SUBMISSION&bizId=${currentItem.value.id}&caseId=${props.caseId}&sessionId=${uploadSessionId}`;
+  console.log(`生成的二维码URL: ${mobileUploadUrl}`);
 
   qrCodeUrl.value = mobileUploadUrl;
   qrCodeExpireTime.value = 300; // 5分钟过期

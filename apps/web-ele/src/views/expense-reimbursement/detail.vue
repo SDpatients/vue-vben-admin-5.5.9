@@ -120,13 +120,11 @@ const handleApprove = async () => {
     if (error === 'cancel') {
       try {
         const { value } = await ElMessageBox.prompt(
-          '请输入拒绝理由',
+          '请输入拒绝理由（可选）',
           '拒绝操作',
           {
             confirmButtonText: '确定',
             cancelButtonText: '取消',
-            inputPattern: /.+/,
-            inputErrorMessage: '请输入拒绝理由',
           },
         );
 

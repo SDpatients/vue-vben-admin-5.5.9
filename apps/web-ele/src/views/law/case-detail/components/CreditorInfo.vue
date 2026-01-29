@@ -178,6 +178,20 @@ const handleResetSearch = () => {
   fetchCreditors();
 };
 
+// 显示全部债权人
+const showAllCreditors = () => {
+  searchStatus.value = '';
+  currentPage.value = 1;
+  fetchCreditors();
+};
+
+// 显示确认债权人
+const showConfirmedCreditors = () => {
+  searchStatus.value = 'CONFIRMED';
+  currentPage.value = 1;
+  fetchCreditors();
+};
+
 // 打开编辑对话框
 const openEditDialog = (row: any) => {
   editForm.creditorId = row.id;
@@ -212,6 +226,7 @@ const handleEditSubmit = async () => {
   editLoading.value = true;
   try {
     const response = await updateCreditorApi(editForm.creditorId, {
+      creditorId: editForm.creditorId,
       creditorName: editForm.creditorName,
       creditorType: editForm.creditorType,
       contactPhone: editForm.contactPhone,
@@ -490,20 +505,6 @@ onMounted(() => {
             style="width: 200px"
             @keyup.enter="handleSearch"
           />
-          <ElSelect
-            v-model="searchStatus"
-            placeholder="状态"
-            clearable
-            style="width: 150px"
-            @change="handleSearch"
-          >
-            <ElOption
-              v-for="option in statusOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </ElSelect>
           <ElButton type="primary" @click="handleSearch">
             <Icon icon="lucide:search" class="mr-1" />
             搜索
@@ -511,6 +512,14 @@ onMounted(() => {
           <ElButton @click="handleResetSearch">
             <Icon icon="lucide:refresh-cw" class="mr-1" />
             重置
+          </ElButton>
+          <ElButton type="info" @click="showAllCreditors">
+            <Icon icon="lucide:users" class="mr-1" />
+            已知债权人（全部）
+          </ElButton>
+          <ElButton type="success" @click="showConfirmedCreditors">
+            <Icon icon="lucide:check-circle" class="mr-1" />
+            确认债权人
           </ElButton>
         </div>
       </div>

@@ -282,6 +282,22 @@ export namespace ClaimRegistrationApi {
     message: string;
     data: null;
   }
+
+  /** 导入结果响应 */
+  export interface ImportResultResponse {
+    code: number;
+    message: string;
+    data: {
+      successCount: number;
+      failCount: number;
+      message: string;
+      errors: Array<{
+        row: number;
+        message: string;
+        creditorName: string;
+      }>;
+    };
+  }
 }
 
 /**
@@ -349,6 +365,18 @@ export async function updateClaimRegistrationStatusApi(claimId: number, status: 
 export async function receiveClaimMaterialApi(claimId: number, data: ClaimRegistrationApi.ReceiveMaterialRequest) {
   return requestClient8085.post<ClaimRegistrationApi.ReceiveMaterialResponse>(`/claim-registration/${claimId}/material`, null, {
     params: data,
+  });
+}
+
+/**
+ * Excel导入债权登记
+ * POST /api/v1/claim-registration/import
+ */
+export async function importClaimRegistrationApi(formData: FormData) {
+  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
 }
 
