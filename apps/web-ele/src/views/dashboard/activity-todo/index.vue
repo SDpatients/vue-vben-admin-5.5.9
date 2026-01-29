@@ -113,7 +113,6 @@ const loadTodos = async () => {
   try {
     // 新API页码从0开始，所以传递0而不是1
     const res = await todoApi.getTodoList(
-      selectedStatus.value || undefined,
       selectedPriority.value || undefined,
       0,
       20,

@@ -25,7 +25,7 @@ import {
   getAnnouncementListApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
-import { fileUploadRequestClient } from '#/api/request';
+import { fileUploadRequestClient, workTeamRequestClient } from '#/api/request';
 
 interface Announcement {
   id: number;
@@ -50,6 +50,43 @@ const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
+
+// 案号选择相关
+const caseOptions = ref<any[]>([]);
+const selectedCaseId = ref<number | null>(null);
+
+// 展开状态管理
+const expandedAnnouncements = ref<Record<number, boolean>>({});
+
+// 切换展开/收起状态
+const toggleExpand = (announcementId: number) => {
+  expandedAnnouncements.value[announcementId] = !expandedAnnouncements.value[announcementId];
+};
+
+// 获取案号列表
+const fetchCaseList = async () => {
+  try {
+    // 使用项目配置的API客户端，确保路径正确且带有认证信息
+    const response = await workTeamRequestClient.get('/case/simple-list', {
+      params: {
+        page: 1,
+        size: 10000
+      }
+    });
+    if (response.code === 200) {
+      caseOptions.value = response.data.list || [];
+    }
+  } catch (error) {
+    console.error('获取案号列表失败:', error);
+  }
+};
+
+// 处理案号选择变化
+const handleCaseChange = (caseId: number | null) => {
+  selectedCaseId.value = caseId;
+  currentPage.value = 1; // 重置页码
+  fetchAnnouncements(); // 重新获取公告列表
+};
 
 const showDetailDialog = ref(false);
 const currentAnnouncement = ref<Announcement | null>(null);
@@ -96,10 +133,18 @@ const formatDate = (dateStr: string) => {
 const fetchAnnouncements = async () => {
   loading.value = true;
   try {
-    const response = await getAnnouncementListApi({
+    // 构建请求参数
+    const requestParams: any = {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
-    });
+    };
+    
+    // 如果选择了案号，添加caseId参数
+    if (selectedCaseId.value !== null && selectedCaseId.value > 0) {
+      requestParams.caseId = selectedCaseId.value;
+    }
+    
+    const response = await getAnnouncementListApi(requestParams);
     if (response.code === 200) {
       const list = response.data.list || [];
       announcements.value = list.sort((a, b) => {
@@ -328,7 +373,8 @@ const submitPublishForm = async () => {
 };
 
 onMounted(() => {
-  fetchAnnouncements();
+  fetchCaseList(); // 先获取案号列表
+  fetchAnnouncements(); // 再获取公告列表
 });
 </script>
 
@@ -337,15 +383,40 @@ onMounted(() => {
     <div class="announcement-container">
       <ElCard shadow="hover">
         <template #header>
-          <div class="card-header flex items-center justify-between">
-            <div class="flex items-center">
-              <Icon icon="lucide:bell" class="mr-2" />
-              <span class="text-lg font-semibold">公告列表</span>
+          <div class="card-header flex flex-col items-start justify-between w-full">
+            <div class="flex items-center w-full justify-between mb-4">
+              <div class="flex items-center">
+                <Icon icon="lucide:bell" class="mr-2" />
+                <span class="text-lg font-semibold">公告列表</span>
+              </div>
+              <ElButton type="primary" @click="openPublishDialog">
+                <Icon icon="lucide:plus" class="mr-1" />
+                发布公告
+              </ElButton>
             </div>
-            <ElButton type="primary" @click="openPublishDialog">
-              <Icon icon="lucide:plus" class="mr-1" />
-              发布公告
-            </ElButton>
+            <div class="w-full">
+              <ElSelect
+                v-model="selectedCaseId"
+                placeholder="请选择案号"
+                filterable
+                clearable
+                style="width: 250px"
+                @change="handleCaseChange"
+                @clear="handleCaseChange(null)"
+              >
+                <ElOption
+                  v-for="caseItem in caseOptions"
+                  :key="caseItem.id"
+                  :label="caseItem.caseName"
+                  :value="caseItem.id"
+                >
+                  <div class="flex flex-col">
+                    <span>{{ caseItem.caseName }}</span>
+                    <span class="text-xs text-gray-500">{{ caseItem.caseNumber }}</span>
+                  </div>
+                </ElOption>
+              </ElSelect>
+            </div>
           </div>
         </template>
 
@@ -402,15 +473,7 @@ onMounted(() => {
                     size="small"
                     class="ml-2"
                   >
-                    {{
-                      item.announcementType === 'ANNOUNCEMENT'
-                        ? '公告'
-                        : item.announcementType === 'NOTICE'
-                          ? '通知'
-                          : item.announcementType === 'WARNING'
-                            ? '警告'
-                            : '普通'
-                    }}
+                    {{ item.announcementType === 'ANNOUNCEMENT' ? '公告' : item.announcementType === 'NOTICE' ? '通知' : item.announcementType === 'WARNING' ? '警告' : '普通' }}
                   </ElTag>
                   <ElTag
                     :type="
@@ -423,13 +486,7 @@ onMounted(() => {
                     size="small"
                     class="status-tag ml-2"
                   >
-                    {{
-                      item.status === 'PUBLISHED'
-                        ? '已发布'
-                        : item.status === 'DRAFT'
-                          ? '草稿'
-                          : '已撤回'
-                    }}
+                    {{ item.status === 'PUBLISHED' ? '已发布' : item.status === 'DRAFT' ? '草稿' : '已撤回' }}
                   </ElTag>
                 </div>
                 <ElButton
@@ -441,19 +498,35 @@ onMounted(() => {
                 </ElButton>
               </div>
 
+              <!-- 公告内容 -->
+              <div class="announcement-content">
+                <div 
+                  class="content-preview"
+                  :class="{ full: expandedAnnouncements[item.id] }"
+                  v-html="item.content"
+                ></div>
+                <button 
+                  v-if="item.content && item.content.length > 100"
+                  class="expand-btn"
+                  @click="toggleExpand(item.id)"
+                >
+                  {{ expandedAnnouncements[item.id] ? '收起' : '展开' }}
+                </button>
+              </div>
+
               <div class="announcement-meta">
-                <span class="meta-item">
+                <div class="meta-item">
                   <Icon icon="lucide:user" class="icon" />
-                  发布人：{{ item.publisherName }}
-                </span>
-                <span class="meta-item">
+                  <span>发布人：{{ item.publisherName }}</span>
+                </div>
+                <div class="meta-item">
                   <Icon icon="lucide:calendar" class="icon" />
-                  发布时间：{{ formatDate(item.publishTime) }}
-                </span>
-                <span class="meta-item">
+                  <span>发布时间：{{ formatDate(item.publishTime) }}</span>
+                </div>
+                <div class="meta-item">
                   <Icon icon="lucide:eye" class="icon" />
-                  浏览次数：{{ item.viewCount }}
-                </span>
+                  <span>浏览次数：{{ item.viewCount }}</span>
+                </div>
               </div>
             </div>
 
@@ -1035,11 +1108,69 @@ onMounted(() => {
 .meta-item {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .meta-item .icon {
-  margin-right: 4px;
+  margin-right: 0;
   font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.meta-item span {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* 公告内容样式 */
+.announcement-content {
+  margin: 12px 0;
+  position: relative;
+}
+
+.content-preview {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563;
+  max-height: 4.8em; /* 4行 * 1.2行高 */
+  overflow: hidden;
+  position: relative;
+}
+
+.content-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 1.6em;
+  background: linear-gradient(to top, #fff, transparent);
+  pointer-events: none;
+}
+
+.content-preview.full {
+  max-height: none;
+}
+
+.content-preview.full::after {
+  display: none;
+}
+
+/* 展开按钮 */
+.expand-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #fff;
+  padding: 0 8px;
+  font-size: 12px;
+  color: #3b82f6;
+  cursor: pointer;
+  border: none;
+  outline: none;
 }
 
 .pagination-container {

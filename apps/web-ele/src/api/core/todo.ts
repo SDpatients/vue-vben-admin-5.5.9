@@ -92,14 +92,34 @@ export interface TodoDTO {
 
 export const todoApi = {
   getTodoList: (
-    status?: string,
     priority?: string,
     pageNum: number = 0,
-    pageSize: number = 10,
+    pageSize: number = 100,
+    startTime?: string,
+    endTime?: string,
   ) => {
     const userId = getUserId();
+    
+    // 如果没有提供开始和结束日期，使用当前月份
+    let start, end;
+    if (startTime && endTime) {
+      start = startTime;
+      end = endTime;
+    } else {
+      // 获取当前月份的第一天和最后一天
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      // 格式化日期为ISO格式
+      start = firstDay.toISOString();
+      end = new Date(lastDay.setHours(23, 59, 59, 999)).toISOString();
+    }
+    
     return requestClient.get('/api/v1/todo/list', {
-      params: { userId, status, priority, pageNum, pageSize },
+      params: { userId, priority, pageNum, pageSize, startTime: start, endTime: end },
     });
   },
 
@@ -129,13 +149,32 @@ export const todoApi = {
 
   getUserTodoList: (
     targetUserId: number,
-    status?: string,
     priority?: string,
     pageNum: number = 0,
-    pageSize: number = 10,
+    pageSize: number = 100,
+    startTime?: string,
+    endTime?: string,
   ) => {
+    // 如果没有提供开始和结束日期，使用当前月份
+    let start, end;
+    if (startTime && endTime) {
+      start = startTime;
+      end = endTime;
+    } else {
+      // 获取当前月份的第一天和最后一天
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      // 格式化日期为ISO格式
+      start = firstDay.toISOString();
+      end = new Date(lastDay.setHours(23, 59, 59, 999)).toISOString();
+    }
+    
     return requestClient.get(`/api/v1/todo/list`, {
-      params: { userId: targetUserId, status, priority, pageNum, pageSize },
+      params: { userId: targetUserId, priority, pageNum, pageSize, startTime: start, endTime: end },
     });
   },
 

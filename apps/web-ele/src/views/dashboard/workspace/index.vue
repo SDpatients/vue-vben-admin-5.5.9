@@ -11,7 +11,6 @@ import { useUserStore } from '@vben/stores';
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
-  ElCalendar,
   ElDialog,
   ElEmpty,
   ElMessage,
@@ -21,6 +20,12 @@ import {
   ElTag,
   ElTooltip,
 } from 'element-plus';
+import FullCalendar from '@fullcalendar/vue3';
+import locale from '@fullcalendar/core/locales/zh-cn';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
+import interactionPlugin from '@fullcalendar/interaction';
 
 import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
 import {
@@ -33,6 +38,7 @@ import {
 import { downloadFileApi } from '#/api/core/file';
 import { todoApi } from '#/api/core/todo';
 import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
+import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { fileUploadRequestClient } from '#/api/request';
 import TodoList from '#/components/TodoList.vue';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
@@ -145,24 +151,320 @@ const showAnnouncementDetailDialog = ref(false);
 const announcementDetail = ref<Announcement | null>(null);
 const detailLoading = ref(false);
 
-// 日历相关
-const calendarValue = ref(new Date());
-const pickedDate = ref<Date | null>(null);
-const calendarData = ref<Record<string, any[]>>({});
+// FullCalendar 日历相关
+const FullCalendar_ref = ref();
+const calendarOptions = ref({
+  locale: locale,
+  plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+  initialView: 'dayGridMonth',
+  weekends: true,
+  headerToolbar: {
+    left: 'prev,next today',
+    center: 'title',
+    right: ''
+  },
+  events: [],
+  eventClick: (info) => {
+    console.log('Event clicked:', info.event);
+  },
+  eventDoubleClick: (info) => {
+    console.log('Event double clicked:', info.event);
+    // 双击事件时显示详情窗口
+    showTodoDetail(info.event);
+  },
+  dateClick: (info) => {
+    console.log('Date clicked:', info.dateStr);
+  },
+  viewDidMount: (info) => {
+    console.log('您切换了视图', info);
+    // 切换视图时重新加载数据
+    loadCalendarEvents();
+  },
+  viewDidUpdate: (info) => {
+    console.log('您切换了月份', info);
+    // 月份变化时重新加载数据
+    loadCalendarEvents();
+  },
+  datesSet: (info) => {
+    console.log('您切换了日期范围', info);
+    // 日期范围变化时重新加载数据
+    loadCalendarEvents();
+  }
+});
+
+// 加载日历事件数据
+const loadCalendarEvents = async () => {
+  try {
+    console.log('开始加载日历事件数据...');
+    
+    // 获取当前日历视图的日期范围
+    const calendarApi = FullCalendar_ref.value?.getApi();
+    console.log('FullCalendar_ref.value:', FullCalendar_ref.value);
+    console.log('calendarApi:', calendarApi);
+    
+    const view = calendarApi?.view;
+    console.log('view:', view);
+    
+    const currentDate = view?.currentStart || new Date();
+    console.log('currentDate:', currentDate);
+    
+    // 获取当前月份的第一天和最后一天
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // 计算开始日期：当前月份1号往前推12天
+    const startDateObj = new Date(firstDay);
+    startDateObj.setDate(startDateObj.getDate() - 12);
+    
+    // 计算结束日期：下一个月份的12号
+    const endDateObj = new Date(year, month + 1, 12);
+    
+    console.log('日期范围:', startDateObj, '到', endDateObj);
+
+    // 格式化日期为YYYY-MM-DD
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const startDate = formatDate(startDateObj);
+    const endDate = formatDate(endDateObj);
+    console.log('格式化后的日期范围:', startDate, '到', endDate);
+
+    // 调用案件管理API获取数据
+    console.log('开始获取案件数据...');
+    const casesRes = await getCaseListApi({
+      pageNum: 1,
+      pageSize: 100,
+      startTime: startDate,
+      endTime: endDate,
+    });
+    console.log('案件API响应:', casesRes);
+
+    // 调用待办事项API获取数据
+    console.log('开始获取待办事项数据...');
+    const todosRes = await todoApi.getTodoList(undefined, 0, 100, startDate + 'T00:00:00', endDate + 'T23:59:59');
+    console.log('待办事项API响应:', todosRes);
+
+    // 调用工作规划API获取数据
+    console.log('开始获取工作规划数据...');
+    const workPlansRes = await getWorkPlanListByTimeApi(startDate, endDate, 1, 100);
+    console.log('工作规划API响应:', workPlansRes);
+
+    // 处理案件数据
+    const caseItems = casesRes?.content || [];
+    const todoItems = todosRes?.content || [];
+    const workPlanItems = workPlansRes?.data?.list || [];
+    console.log('待办事项数据:', todoItems);
+    console.log('工作规划数据:', workPlanItems);
+
+    // 构建日历事件
+    const events = [];
+
+    // 处理案件数据
+    caseItems.forEach((item: any) => {
+      if (item.startDate || item.filingDate) {
+        events.push({
+          id: `case-${item.id}`,
+          title: item.caseNumber,
+          start: item.startDate || item.filingDate,
+          color: '#3498db',
+          textColor: 'white',
+          type: 'case',
+          extendedProps: {
+            priority: item.priority,
+            status: item.status
+          }
+        });
+      }
+    });
+
+    // 处理待办事项数据
+    console.log('开始处理待办事项数据...');
+    todoItems.forEach((item: any) => {
+      if (item.deadline) {
+        // 格式化deadline为ISO格式
+        let deadline = item.deadline;
+        if (deadline.includes(' ')) {
+          deadline = deadline.replace(' ', 'T');
+        }
+        if (!deadline.includes('T')) {
+          deadline += 'T00:00:00';
+        }
+        
+        const event = {
+          id: item.id,
+          title: item.title,
+          start: deadline,
+          end: deadline,
+          allDay: false,
+          isSlippage: false,
+          color: '#e74c3c',
+          textColor: 'white',
+          type: 'todo',
+          extendedProps: {
+            priority: item.priority,
+            status: item.status
+          }
+        };
+        
+        events.push(event);
+        console.log('添加待办事项事件:', event);
+      }
+    });
+
+    // 处理工作规划数据
+    console.log('开始处理工作规划数据...');
+    workPlanItems.forEach((item: any) => {
+      if (item.startDate || item.endDate) {
+        events.push({
+          id: `workplan-${item.id}`,
+          title: item.planContent,
+          start: item.startDate,
+          end: item.endDate,
+          color: '#27ae60',
+          textColor: 'white',
+          type: 'workplan',
+          extendedProps: {
+            planType: item.planType,
+            executionStatus: item.executionStatus,
+            responsibleUserId: item.responsibleUserId
+          }
+        });
+        console.log('添加工作规划事件:', item.planContent, '开始时间:', item.startDate, '结束时间:', item.endDate);
+      }
+    });
+
+    console.log('最终日历事件:', events);
+    calendarOptions.value.events = events;
+    console.log('日历事件已更新');
+  } catch (error) {
+    console.error('加载日历事件数据失败:', error);
+    ElMessage.error('加载日历事件数据失败');
+  }
+};
+
+// 切换日历视图
+const switchToView = (mode: string) => {
+  FullCalendar_ref.value?.getApi().changeView(mode);
+};
+
+// 定位到今天
+const toToday = () => {
+  FullCalendar_ref.value?.getApi().today();
+};
+
+// 日历翻页
+const pageTurning = (mode: string) => {
+  if (mode == 'prev') {
+    FullCalendar_ref.value?.getApi().prev();
+  } else {
+    FullCalendar_ref.value?.getApi().next();
+  }
+};
+
+// 模拟接口获取日历列表事项
+const getMatter = async () => {
+  try {
+    // 获取当前日历视图的日期范围
+    const calendarApi = FullCalendar_ref.value?.getApi();
+    const view = calendarApi?.view;
+    const currentDate = view?.currentStart || new Date();
+    
+    // 获取当前月份的第一天
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    
+    // 计算开始日期：当前月份1号往前推12天
+    const startDateObj = new Date(firstDay);
+    startDateObj.setDate(startDateObj.getDate() - 12);
+    
+    // 计算结束日期：下一个月份的12号
+    const endDateObj = new Date(year, month + 1, 12);
+
+    // 格式化日期为YYYY-MM-DD
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const startDate = formatDate(startDateObj);
+    const endDate = formatDate(endDateObj);
+
+    // 调用待办事项API获取数据
+    const res = await todoApi.getTodoList(undefined, 0, 100, startDate + 'T00:00:00', endDate + 'T23:59:59');
+    
+    // 从API响应中获取待办事项数据
+    const todoItems = res?.content || [];
+    
+    // 转换为日历事件格式
+    const events = todoItems.map((item: any) => {
+      if (!item.deadline) return null;
+      
+      // 格式化deadline为ISO格式
+      let deadline = item.deadline;
+      if (deadline.includes(' ')) {
+        deadline = deadline.replace(' ', 'T');
+      }
+      if (!deadline.includes('T')) {
+        deadline += 'T00:00:00';
+      }
+      
+      return {
+        id: item.id,
+        title: item.title,
+        start: deadline,
+        end: deadline,
+        allDay: false,
+        isSlippage: false,
+        color: '#e74c3c',
+        textColor: 'white',
+        type: 'todo',
+        extendedProps: {
+          priority: item.priority,
+          status: item.status,
+          description: item.description
+        }
+      };
+    }).filter(item => item !== null);
+    
+    calendarOptions.value.events = events;
+  } catch (error) {
+    console.error('获取日历列表事项失败:', error);
+    ElMessage.error('获取日历列表事项失败');
+  }
+};
+
+// 动态插入事项数据(新增事项)
+const addMatter = () => {
+  showTodoDialog.value = true;
+};
+
+// 获取当前日历视图数据
+const getViewsData = () => {
+  const calendarApi = FullCalendar_ref.value?.getApi();
+  if (calendarApi) {
+    const view = calendarApi.view;
+    console.log('当前日历标题:', view.currentData.viewTitle);
+    console.log('当前日历开始日期:', view.currentStart);
+    console.log('当前日历结束日期:', view.currentEnd);
+    console.log('当前日历事件:', view.currentData.events);
+  }
+};
+
+// 重置清空日历列表事项
+const clearAllList = () => {
+  calendarOptions.value.events = [];
+};
+
+// 对话框相关
 const showTodoDialog = ref(false);
-const selectedDate = ref('');
-
-// 单击提示框相关
-const showClickTooltip = ref(false);
-const clickTooltipContent = ref('');
-const clickTooltipPosition = ref({ top: 0, left: 0 });
-
-// 日期数据详情对话框
 const showDateDetailDialog = ref(false);
-const selectedDateData = ref<any[]>([]);
+const showTodoDetailDialog = ref(false);
+const selectedTodo = ref<any>(null);
 const selectedDateStr = ref('');
-
-// 待办事项表单
+const selectedDateData = ref<any[]>([]);
 const todoForm = ref({
   title: '',
   description: '',
@@ -170,308 +472,9 @@ const todoForm = ref({
   deadline: ''
 });
 
-// 计算当前年月
-const currentYearMonth = computed(() => {
-  const date = calendarValue.value;
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  return `${year}年${month}月`;
-});
-
-// 上个月
-const prevMonth = async () => {
-  const date = new Date(calendarValue.value);
-  date.setMonth(date.getMonth() - 1);
-  calendarValue.value = date;
-  await initCalendarData();
-};
-
-// 下个月
-const nextMonth = async () => {
-  const date = new Date(calendarValue.value);
-  date.setMonth(date.getMonth() + 1);
-  calendarValue.value = date;
-  await initCalendarData();
-};
-
-// 简单的农历日期计算（实际项目中建议使用专门的农历库）
-const getLunarDate = (date: Date) => {
-  const monthNames = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
-  const dayNames = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
-                    '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
-                    '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
-  
-  const month = date.getMonth();
-  const day = date.getDate();
-  
-  return `${monthNames[month]}${dayNames[day - 1]}`;
-};
-
-// 模拟日期状态数据
-const dateStatusMap: Record<string, string> = {
-  '2024-09-01': '立项中',
-  '2024-09-03': '立项中',
-  '2024-09-04': '开发中',
-  '2024-09-14': '开发中',
-  '2024-09-15': '提案中',
-  '2024-09-17': '提案中',
-  '2024-09-18': '质检中',
-  '2024-09-20': '质检中',
-};
-
-// 获取日期状态
-const getDateStatus = (date: Date) => {
-  const dateStr = date.toISOString().split('T')[0];
-  return dateStatusMap[dateStr];
-};
-
-// 获取日期状态对应的CSS类
-const getDateStatusClass = (date: Date) => {
-  const status = getDateStatus(date);
-  switch (status) {
-    case '立项中':
-      return 'status-planning';
-    case '开发中':
-      return 'status-developing';
-    case '提案中':
-      return 'status-proposing';
-    case '质检中':
-      return 'status-testing';
-    case '已完成':
-      return 'status-completed';
-    default:
-      return '';
-  }
-};
-
-// 初始化日历数据
-const initCalendarData = async () => {
-  try {
-    // 确保calendarValue.value是一个有效的Date对象
-    let currentDate = calendarValue.value;
-    if (!(currentDate instanceof Date) || isNaN(currentDate.getTime())) {
-      currentDate = new Date();
-      calendarValue.value = currentDate;
-    }
-    
-    // 获取当前日历显示的月份范围
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
-    
-    // 生成模拟数据
-    const generateMockData = () => {
-      const mockData: any[] = [];
-      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-      
-      // 为每个日期生成至少一个待办事项，确保日历中有数据
-      for (let i = 1; i <= daysInMonth; i++) {
-        // 生成1-2个待办事项
-        const todoCount = Math.floor(Math.random() * 2) + 1;
-        for (let j = 0; j < todoCount; j++) {
-          mockData.push({
-            type: 'todo',
-            title: `待办事项 ${i}-${j+1}`,
-            priority: ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)],
-            content: `这是 ${currentYear}年${currentMonth+1}月${i}日的第${j+1}个待办事项描述`,
-            deadline: `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(i).padStart(2, '0')} 18:00:00`
-          });
-        }
-        
-        // 为一半的日期生成案件
-        if (i % 2 === 0) {
-          mockData.push({
-            type: 'case',
-            title: `案件 ${i}`,
-            content: `这是 ${currentYear}年${currentMonth+1}月${i}日的案件`,
-            filingDate: `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
-          });
-        }
-      }
-      
-      console.log('生成的模拟数据:', mockData);
-      return mockData;
-    };
-    
-    // 使用模拟数据
-    const mockData = generateMockData();
-    
-    // 处理模拟数据，按日期分组
-    const newCalendarData: Record<string, any[]> = {};
-    mockData.forEach((item: any) => {
-      try {
-        let dateStr: string;
-        if (item.type === 'todo' && item.deadline) {
-          dateStr = item.deadline.split(' ')[0];
-        } else if (item.type === 'case' && item.filingDate) {
-          dateStr = item.filingDate;
-        } else {
-          return;
-        }
-        
-        if (!newCalendarData[dateStr]) {
-          newCalendarData[dateStr] = [];
-        }
-        newCalendarData[dateStr].push({
-          type: item.type,
-          title: item.title,
-          priority: item.priority,
-          content: item.content
-        });
-      } catch (error) {
-        console.error('处理模拟数据失败:', error);
-      }
-    });
-    
-    // 处理案件数据，按日期分组
-    caseList.value.forEach(caseItem => {
-      if (caseItem.filingDate) {
-        try {
-          const date = new Date(caseItem.filingDate).toISOString().split('T')[0];
-          if (!newCalendarData[date]) {
-            newCalendarData[date] = [];
-          }
-          newCalendarData[date].push({
-            type: 'case',
-            title: caseItem.caseNumber,
-            content: caseItem.caseName || '案件'
-          });
-        } catch (error) {
-          console.error('处理案件日期失败:', error);
-        }
-      }
-    });
-    
-    // 打印存储的日历数据，以便在控制台中查看
-    console.log('存储的日历数据:', newCalendarData);
-    
-    // 直接替换整个calendarData.value，确保触发响应式更新
-    calendarData.value = newCalendarData;
-  } catch (error) {
-    console.error('初始化日历数据失败:', error);
-    calendarData.value = {};
-  }
-};
-
-// 日历单元格类名
-const getCalendarCellClass = (date: Date) => {
-  const dateStr = date.toISOString().split('T')[0];
-  const hasData = calendarData.value[dateStr]?.length > 0;
-  // 检查是否有待办事项（type为todo）
-  const hasTodo = calendarData.value[dateStr]?.some((item: any) => item.type === 'todo');
-  return {
-    'has-case': hasData,
-    'has-todo': hasTodo
-  };
-};
-
-// 日历单元格内容
-const getCalendarCellContent = (date: Date) => {
-  const dateStr = date.toISOString().split('T')[0];
-  const cases = calendarData.value[dateStr] || [];
-  return {
-    date: date.getDate(),
-    cases
-  };
-};
-
-// 获取日历悬停提示内容
-const getCalendarTooltipContent = (date: Date) => {
-  const dateStr = date.toISOString().split('T')[0];
-  const cases = calendarData.value[dateStr] || [];
-  
-  console.log('getCalendarTooltipContent - dateStr:', dateStr);
-  console.log('getCalendarTooltipContent - calendarData.value:', calendarData.value);
-  console.log('getCalendarTooltipContent - cases:', cases);
-  
-  if (cases.length === 0) {
-    return '';
-  }
-  
-  // 生成提示内容
-  const content = cases.map((item: any) => {
-    let itemContent = item.title;
-    if (item.priority) {
-      itemContent += ` (${item.priority})`;
-    }
-    if (item.content) {
-      itemContent += `: ${item.content}`;
-    }
-    return itemContent;
-  }).join('\n');
-  
-  console.log('getCalendarTooltipContent - content:', content);
-  return content;
-};
-
-// 处理日历单击事件
-const handleCalendarClickEvent = (date: Date, event: MouseEvent) => {
-  console.log('handleCalendarClickEvent 被调用');
-  
-  const content = getCalendarTooltipContent(date);
-  if (content) {
-    clickTooltipContent.value = content;
-    showClickTooltip.value = true;
-    
-    // 获取鼠标位置
-    const mouseX = event.clientX;
-    const mouseY = event.clientY;
-    
-    // 设置提示框位置（在鼠标下方）
-    clickTooltipPosition.value = {
-      top: mouseY + 10,
-      left: mouseX + 10
-    };
-    
-    // 3秒后自动关闭提示框
-    setTimeout(() => {
-      showClickTooltip.value = false;
-    }, 3000);
-  }
-};
-
-// 日历点击事件
-const handleCalendarClick = (event: any) => {
-  try {
-    // 直接使用calendarValue.value作为日期来源
-    // 因为Element Plus的ElCalendar组件会在用户点击日期时更新calendarValue
-    let dateObj: Date = calendarValue.value;
-    
-    // 确保dateObj是一个有效的Date对象
-    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
-      dateObj = new Date();
-    }
-    
-    // 格式化日期为YYYY-MM-DD格式
-    const dateStr = dateObj.toISOString().split('T')[0];
-    
-    // 检查该日期是否有数据
-    const dateData = calendarData.value[dateStr];
-    if (dateData && dateData.length > 0) {
-      // 显示日期数据详情对话框
-      selectedDateStr.value = dateStr;
-      selectedDateData.value = dateData;
-      showDateDetailDialog.value = true;
-    } else {
-      // 没有数据时，打开待办事项创建对话框
-      selectedDate.value = dateStr;
-      // 设置截止日期为当前日期时间
-      todoForm.value.deadline = dateObj.toISOString().slice(0, 19).replace('T', ' ');
-      showTodoDialog.value = true;
-    }
-  } catch (error) {
-    console.error('处理日历点击事件失败:', error);
-    // 失败时使用当前日期
-    const now = new Date();
-    selectedDate.value = now.toISOString().split('T')[0];
-    todoForm.value.deadline = now.toISOString().slice(0, 19).replace('T', ' ');
-    showTodoDialog.value = true;
-  }
-};
-
 // 添加待办事项
 const addTodoItem = async () => {
   try {
-    // 调用与TodoList组件相同的API来创建待办事项
     await todoApi.createTodo(todoForm.value);
     ElMessage.success('待办事项添加成功');
     showTodoDialog.value = false;
@@ -482,10 +485,29 @@ const addTodoItem = async () => {
       priority: 'MEDIUM',
       deadline: ''
     };
+    // 重新加载日历事件
+    loadCalendarEvents();
   } catch (error) {
     console.error('添加待办事项失败:', error);
     ElMessage.error('添加待办事项失败');
   }
+};
+
+// 显示待办事项详情
+const showTodoDetail = (event: any) => {
+  console.log('显示待办事项详情:', event);
+  selectedTodo.value = {
+    id: event.id,
+    title: event.title,
+    start: event.start,
+    end: event.end,
+    allDay: event.allDay,
+    isSlippage: event.extendedProps?.isSlippage || false,
+    priority: event.extendedProps?.priority || 'MEDIUM',
+    status: event.extendedProps?.status || 'PENDING',
+    description: event.extendedProps?.description || ''
+  };
+  showTodoDetailDialog.value = true;
 };
 
 // 浏览记录相关
@@ -751,7 +773,7 @@ const downloadAttachment = async (attachment: any) => {
 const loadTodoItems = async () => {
   try {
     // 新API页码从0开始，所以传递0而不是1
-    const res = await todoApi.getTodoList('PENDING', undefined, 0, 5);
+    const res = await todoApi.getTodoList(undefined, 0, 5);
     // 新API响应格式中，待办事项在content字段中
     const todos: Todo[] = res.data?.content || [];
     todoItems.value = todos.map((item: Todo) => ({
@@ -777,6 +799,12 @@ const isAdminOrSuperAdmin = computed(() => {
   return roles.includes('管理员') || roles.includes('超级管理员');
 });
 
+// 判断用户是否为律师
+const isLawyer = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('律师');
+});
+
 // 加载案件列表
 const loadCaseList = async () => {
   loading.value = true;
@@ -788,6 +816,14 @@ const loadCaseList = async () => {
       已结: 'COMPLETED',
     };
     const caseStatusEn = statusMap[caseStatus.value] || 'ONGOING';
+
+    console.log('[loadCaseList] 开始加载案件数据', {
+      caseStatus: caseStatus.value,
+      caseStatusEn,
+      currentPage: currentPage.value,
+      pageSize: pageSize.value,
+      isAdmin: isAdminOrSuperAdmin.value
+    });
 
     let res;
 
@@ -802,7 +838,7 @@ const loadCaseList = async () => {
     } else {
       const chatUserId = localStorage.getItem('chat_user_id');
       const userId = Number(chatUserId) || 0;
-
+      console.log('[loadCaseList] 律师查看自己的案件', { userId });
       res = await getUserCaseListApi(userId, {
         pageNum: currentPage.value,
         pageSize: pageSize.value,
@@ -810,20 +846,34 @@ const loadCaseList = async () => {
       });
     }
 
+    console.log('[loadCaseList] API响应:', res);
+    console.log('[loadCaseList] 响应数据结构:', {
+      hasData: !!res.data,
+      hasList: !!res.data?.list,
+      listLength: res.data?.list?.length,
+      total: res.data?.total
+    });
+
+    // 直接使用接口返回的完整数据结构
     caseList.value = res.data?.list || [];
     totalCases.value = res.data?.total || 0;
 
+    console.log('[loadCaseList] 案件列表数据:', caseList.value);
+    console.log('[loadCaseList] 案件总数:', totalCases.value);
+
     // 使用当前筛选条件下的案件数作为案件总数
     caseCount.value = totalCases.value;
+    console.log('[loadCaseList] 案件计数更新为:', caseCount.value);
     
-    // 初始化日历数据
-    initCalendarData();
+    // 初始化日历数据 - 暂时注释掉，因为initCalendarData函数未定义
+    // initCalendarData();
   } catch (error) {
     console.error('加载案件数据失败:', error);
     caseList.value = [];
     totalCases.value = 0;
   } finally {
     loading.value = false;
+    console.log('[loadCaseList] 加载完成，loading状态:', loading.value);
   }
 };
 
@@ -1010,92 +1060,32 @@ const handleMonthChange = async (value: any) => {
     }
     
     calendarValue.value = dateObj;
-    await initCalendarData();
+    // 暂时注释掉，因为initCalendarData函数未定义
+    // await initCalendarData();
   } catch (error) {
     console.error('处理月份变化失败:', error);
     calendarValue.value = new Date();
-    await initCalendarData();
+    // 暂时注释掉，因为initCalendarData函数未定义
+    // await initCalendarData();
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   loadTodoItems();
   loadCaseList();
   loadAnnouncements();
   loadTeamCount();
   initWeather();
-  initCalendarData();
+  await loadCalendarEvents();
 });
 </script>
 
 <style scoped>
-.calendar-cell {
-  position: relative;
-  height: 100%;
-  min-height: 80px;
-}
-
-.calendar-cell-todos {
-  margin-top: 4px;
-  font-size: 10px;
-  color: #333;
-  max-height: 40px;
-  overflow: hidden;
-}
-
-.calendar-cell-todo-item {
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.calendar-cell-todo-priority {
-  color: #ff4d4f;
-  font-weight: bold;
-}
-
-.has-todo {
-  position: relative;
-}
-
-.has-todo::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 1px solid #ff4d4f;
-  border-radius: 4px;
-  pointer-events: none;
-}
-
-.click-tooltip {
-  position: fixed;
-  z-index: 9999;
-  background-color: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  max-width: 300px;
-  min-width: 150px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #333;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.click-tooltip-content {
-  margin: 0;
-}
 </style>
 
 <template>
   <div class="workspace-container">
-    <div class="p-5">
+    <div class="p-0">
       <WorkbenchHeader
         :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
         :todo-count="todoCount"
@@ -1118,77 +1108,40 @@ onMounted(() => {
         </template>
       </WorkbenchHeader>
 
-      <div class="mt-5 flex flex-col lg:flex-row gap-5">
+      <div class="mt-0 flex flex-col lg:flex-row gap-[5px]">
         <!-- 左侧主要内容区 - 占页面总宽度的3/4 -->
         <div class="w-full lg:w-3/4">
           <!-- 日历板块 -->
-          <AnalysisChartCard title="日历" class="mb-5 bg-white">
+          <AnalysisChartCard v-if="isLawyer" title="日历" class="mb-[5px] bg-white">
             <div class="calendar-container w-full">
-              <div class="calendar-header mb-4 flex items-center justify-between">
-                <div class="calendar-navigation flex items-center">
-                  <button class="calendar-nav-btn mr-4" @click="prevMonth">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h3 class="calendar-title text-lg font-semibold">{{ currentYearMonth }}</h3>
-                  <button class="calendar-nav-btn ml-4" @click="nextMonth">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-                <div class="calendar-status-tags flex gap-2">
-                  <span class="status-tag status-planning">立项中</span>
-                  <span class="status-tag status-developing">开发中</span>
-                  <span class="status-tag status-testing">测试中</span>
-                  <span class="status-tag status-completed">已完成</span>
-                </div>
+              <!-- 自定义工具组 -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <button @click="switchToView('dayGridMonth')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">月视图</button>
+                <!-- <button @click="switchToView('timeGridWeek')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">周视图</button> -->
+                <!-- <button @click="switchToView('listDay')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">日视图</button> -->
+                <button @click="pageTurning('prev')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"><</button>
+                <button @click="toToday()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">今天</button>
+                <button @click="pageTurning('next')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">></button>
               </div>
-              <ElCalendar v-model="calendarValue" @dblclick="handleCalendarClick" @pick="handleMonthChange">
-                <template #dateCell="{ date, data }">
-                    <div 
-                      :class="[getCalendarCellClass(date), getDateStatusClass(date)]" 
-                      class="calendar-cell"
-                      @click="handleCalendarClickEvent(date, $event)"
-                    >
-                      <div class="calendar-cell-content">
-                        <div class="calendar-cell-day">{{ data.day }}</div>
-                        <div class="calendar-cell-lunar">{{ getLunarDate(date) }}</div>
-                        <div v-if="getDateStatus(date)" class="calendar-cell-status">{{ getDateStatus(date) }}</div>
-                        <!-- 显示所有数据 -->
-                        <div v-if="getCalendarCellContent(date).cases.length > 0" class="calendar-cell-data">
-                          <div 
-                            v-for="(item, index) in getCalendarCellContent(date).cases.slice(0, 3)" 
-                            :key="index"
-                            class="calendar-cell-item"
-                            :class="item.type"
-                          >
-                            {{ item.title }}
-                            <span v-if="item.priority" class="calendar-cell-item-priority">({{ item.priority }})</span>
-                          </div>
-                          <div v-if="getCalendarCellContent(date).cases.length > 3" class="calendar-cell-more">
-                            +{{ getCalendarCellContent(date).cases.length - 3 }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- 单击提示框 -->
-                    <div
-                      v-if="showClickTooltip"
-                      class="click-tooltip"
-                      :style="{ top: clickTooltipPosition.top + 'px', left: clickTooltipPosition.left + 'px' }"
-                    >
-                      <div class="click-tooltip-content">{{ clickTooltipContent }}</div>
-                    </div>
-                </template>
-              </ElCalendar>
+              <hr class="my-4">
+              <!-- 其他按钮操作 -->
+              <div class="flex flex-wrap gap-2 mt-4">
+                <!-- <button @click="getViewsData()" class="px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded text-sm">获取当前日历视图数据</button> -->
+                <!-- <button @click="clearAllList()" class="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-sm">重置清空日历</button> -->
+              </div>
+              <div class="fullcalendar-header flex justify-between mb-4">
+                <button @click="getMatter()" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-sm">接口获取列表</button>
+                <button @click="addMatter()" class="px-3 py-1 bg-green-100 hover:bg-green-200 rounded text-sm">[新增]动态插入事项</button>
+              </div>
+              <!-- 日历组件 -->
+              <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" />
+              <!-- 动态插入数据 -->
+          
             </div>
           </AnalysisChartCard>
 
           <!-- 我的案件板块 -->
-          <AnalysisChartCard title="我的案件" class="mb-5 bg-white">
+          <AnalysisChartCard title="我的案件" class="mb-[5px] bg-white">
             <div class="case-header mb-4">
               <div class="case-tabs flex">
                 <button
@@ -1344,7 +1297,7 @@ onMounted(() => {
           </AnalysisChartCard>
 
           <!-- 待办事项板块 -->
-          <div class="w-full mb-5" v-if="false">
+          <div class="w-full mb-[5px]" v-if="isLawyer">
             <AnalysisChartCard title="待办事项" class="bg-white">
               <div class="module-container">
                 <div class="module-content">
@@ -1355,12 +1308,10 @@ onMounted(() => {
           </div>
 
           <!-- 最新动态板块 -->
-          <div class="w-full">
+          <div class="w-full" v-if="!isLawyer">
             <AnalysisChartCard title="最新动态" class="bg-white">
               <div class="module-container">
-                <div class="module-header mb-4">
-                  <button class="module-header-btn" @click="markAllAsRead">全部知晓</button>
-                </div>
+  
                 <div class="module-content">
                   <ActivityTimeline @update:count="(count) => { todoCount = count; todoTotal = count; }" />
                 </div>
@@ -1974,6 +1925,67 @@ onMounted(() => {
       </template>
     </ElDialog>
 
+    <!-- 待办事项详情对话框 -->
+    <ElDialog
+      v-model="showTodoDetailDialog"
+      title="待办事项详情"
+      width="500px"
+      destroy-on-close
+    >
+      <div v-if="selectedTodo" class="todo-detail-container">
+        <div class="detail-item">
+          <div class="label">标题：</div>
+          <div class="value">{{ selectedTodo.title }}</div>
+        </div>
+        <div class="detail-item">
+          <div class="label">优先级：</div>
+          <div class="value">
+            <ElTag :type="{
+              'HIGH': 'danger',
+              'MEDIUM': 'warning',
+              'LOW': 'success'
+            }[selectedTodo.priority] || 'info'">
+              {{ {
+                'HIGH': '高',
+                'MEDIUM': '中',
+                'LOW': '低'
+              }[selectedTodo.priority] || selectedTodo.priority }}
+            </ElTag>
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="label">状态：</div>
+          <div class="value">
+            <ElTag :type="{
+              'PENDING': 'warning',
+              'COMPLETED': 'success',
+              'CANCELLED': 'info'
+            }[selectedTodo.status] || 'info'">
+              {{ {
+                'PENDING': '待处理',
+                'COMPLETED': '已完成',
+                'CANCELLED': '已取消'
+              }[selectedTodo.status] || selectedTodo.status }}
+            </ElTag>
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="label">截止时间：</div>
+          <div class="value">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '无' }}</div>
+        </div>
+        <div class="detail-item">
+          <div class="label">描述：</div>
+          <div class="value">{{ selectedTodo.description || '无' }}</div>
+        </div>
+      </div>
+      <ElEmpty v-else description="暂无详情" />
+      <template #footer>
+        <div class="dialog-footer">
+          <ElButton @click="showTodoDetailDialog = false">关闭</ElButton>
+        </div>
+      </template>
+    </ElDialog>
+
     <!-- 日期数据详情对话框 -->
     <ElDialog
       v-model="showDateDetailDialog"
@@ -2475,210 +2487,34 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-/* 日历样式 */
-.calendar-header {
-  padding: 0 16px;
+/* 待办事项详情对话框样式 */
+.todo-detail-container {
+  padding: 20px 0;
 }
 
-.calendar-navigation {
+.detail-item {
   display: flex;
-  align-items: center;
+  margin-bottom: 16px;
+  align-items: flex-start;
 }
 
-.calendar-nav-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: all 0.3s ease;
+.detail-item .label {
+  width: 80px;
+  font-weight: 500;
   color: #606266;
+  flex-shrink: 0;
+  padding-top: 4px;
 }
 
-.calendar-nav-btn:hover {
-  background-color: #f0f0f0;
-  color: #1890ff;
-}
-
-.calendar-title {
-  font-size: 16px;
-  font-weight: 600;
+.detail-item .value {
+  flex: 1;
   color: #303133;
-  margin: 0 16px;
+  word-break: break-word;
+  padding-top: 4px;
 }
 
-.calendar-status-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.status-tag {
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.status-planning {
-  background-color: #e6f7ff;
-  color: #1890ff;
-}
-
-.status-tag.status-developing {
-  background-color: #f6ffed;
-  color: #52c41a;
-}
-
-.status-tag.status-proposing {
-  background-color: #fff7e6;
-  color: #fa8c16;
-}
-
-.status-tag.status-testing {
-  background-color: #fff1f0;
-  color: #f5222d;
-}
-
-.status-tag.status-completed {
-  background-color: #f0f5ff;
-  color: #722ed1;
-}
-
-/* 日历单元格样式 */
-.calendar-cell {
-  height: 100px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.calendar-cell:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-
-/* 有待办事项的日期样式 */
-.calendar-cell.has-todo .calendar-cell-day {
-  color: #f5222d; /* 红色 */
-  font-weight: 600;
-}
-
-.calendar-cell.has-todo {
-  background-color: #fff1f0;
-  border: 1px solid #ffccc7;
-}
-
-.calendar-cell-day {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.calendar-cell-lunar {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
-
-.calendar-cell-status {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 6px;
-  border-radius: 8px;
-  align-self: flex-start;
-  margin-top: 4px;
-}
-
-.calendar-cell-data {
-  margin-top: 4px;
-  font-size: 10px;
-  color: #333;
-  max-height: 40px;
-  overflow: hidden;
-}
-
-.calendar-cell-item {
-  margin-top: 2px;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.calendar-cell-item.todo {
-  color: #f5222d;
-}
-
-.calendar-cell-item.case {
-  color: #1890ff;
-}
-
-.calendar-cell-item-priority {
-  font-size: 9px;
-  color: #999;
-}
-
-.calendar-cell-more {
-  margin-top: 2px;
-  font-size: 9px;
-  color: #999;
-  font-style: italic;
-}
-
-/* 日期状态样式 */
-.calendar-cell.status-planning {
-  background-color: #e6f7ff;
-  border: 1px solid #91d5ff;
-}
-
-.calendar-cell.status-developing {
-  background-color: #f6ffed;
-  border: 1px solid #b7eb8f;
-}
-
-.calendar-cell.status-proposing {
-  background-color: #fff7e6;
-  border: 1px solid #ffd591;
-}
-
-.calendar-cell.status-testing {
-  background-color: #fff1f0;
-  border: 1px solid #ffccc7;
-}
-
-.calendar-cell.status-completed {
-  background-color: #f0f5ff;
-  border: 1px solid #adc6ff;
-}
-
-.calendar-cell.status-planning .calendar-cell-status {
-  background-color: #1890ff;
-  color: #fff;
-}
-
-.calendar-cell.status-developing .calendar-cell-status {
-  background-color: #52c41a;
-  color: #fff;
-}
-
-.calendar-cell.status-proposing .calendar-cell-status {
-  background-color: #fa8c16;
-  color: #fff;
-}
-
-.calendar-cell.status-testing .calendar-cell-status {
-  background-color: #f5222d;
-  color: #fff;
-}
-
-.calendar-cell.status-completed .calendar-cell-status {
-  background-color: #722ed1;
-  color: #fff;
+.detail-item .value :deep(.el-tag) {
+  margin-right: 0;
 }
 
 /* 全局滚动条样式 */
@@ -2738,8 +2574,8 @@ onMounted(() => {
 .module-content {
   height: 100%;
   overflow-y: auto;
-  padding: 12px;
-  background-color: #f8f9fa;
+  padding: 0;
+  background-color: #ffffff;
   border-radius: 6px;
 }
 
@@ -2824,43 +2660,6 @@ onMounted(() => {
 .announcement-meta {
   font-size: 12px;
   color: #adb5bd;
-}
-
-/* 日历样式 */
-.calendar-container {
-  margin: 0 auto;
-}
-
-.calendar-cell {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.calendar-cell:hover {
-  background-color: #f0f9ff;
-  border-radius: 4px;
-}
-
-.has-case {
-  position: relative;
-}
-
-.has-case::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 6px;
-  height: 6px;
-  background-color: #409eff;
-  border-radius: 50%;
 }
 
 /* 待办事项表单样式 */

@@ -205,7 +205,7 @@ export async function deleteWorkLogApi(logId: number) {
 
 export async function createWorkLogWithFilesApi(formData: FormData) {
   return fileUploadRequestClient.post<WorkLogApi.CreateWorkLogWithFilesResponse>(
-    '/work-log/with-files',
+    '/api/v1/work-log/with-files',
     formData,
     {
       headers: {
@@ -226,7 +226,7 @@ export async function updateWorkLogWithFilesApi(
   formData: FormData,
 ) {
   return fileUploadRequestClient.put<WorkLogApi.UpdateWorkLogWithFilesResponse>(
-    `/work-log/${logId}/with-files`,
+    `/api/v1/work-log/${logId}/with-files`,
     formData,
     {
       headers: {
@@ -238,6 +238,6 @@ export async function updateWorkLogWithFilesApi(
 
 export async function deleteWorkLogWithFilesApi(logId: number) {
   return fileUploadRequestClient.delete<WorkLogApi.CommonResponse>(
-    `/work-log/${logId}/with-files`,
+    `/api/v1/work-log/${logId}/with-files`,
   );
 }

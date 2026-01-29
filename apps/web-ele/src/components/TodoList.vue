@@ -59,7 +59,6 @@ const loadTodos = async () => {
     } else {
       // 调用原接口获取其他状态的待办事项
       res = await todoApi.getTodoList(
-        selectedStatus.value || undefined,
         selectedPriority.value || undefined,
         0,
         20,

@@ -150,6 +150,7 @@ const loadingAdministratorsForLeader = ref(false);
 const loadingStaffForLeader = ref(false);
 const selectedLeader = ref<any>(null);
 const selectedLeaderAdministratorId = ref<null | number>(null);
+const currentAdministratorId = ref<null | number>(null);
 
 // 管理员机构和用户选择相关
 const administrators = ref<any[]>([]);
@@ -456,6 +457,56 @@ const downloadWorkLogFile = async (file: any) => {
     ElMessage.success('文件下载开始');
   } catch (error: any) {
     ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
+  }
+};
+
+const previewWorkLogFile = async (file: any) => {
+  try {
+    if (!file.id) {
+      ElMessage.error('无效的文件ID');
+      return;
+    }
+
+    const fileId = Number(file.id);
+    if (isNaN(fileId)) {
+      ElMessage.error('文件ID必须是数字');
+      return;
+    }
+
+    previewLoading.value = true;
+    previewAttachment.value = file;
+
+    try {
+      ElMessage.info('正在加载文件...');
+
+      const response = await fileUploadRequestClient.get(
+        `/api/v1/file/preview/${fileId}`,
+        {
+          responseType: 'blob',
+        },
+      );
+
+      const blob = new Blob([response], {
+        type: response.type || 'application/octet-stream',
+      });
+
+      if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl.value);
+      }
+
+      previewUrl.value = URL.createObjectURL(blob);
+      showPreviewDialog.value = true;
+      ElMessage.success('文件加载成功');
+    } catch (error) {
+      console.error('预览附件失败:', error);
+      ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
+    } finally {
+      previewLoading.value = false;
+    }
+  } catch (error) {
+    console.error('预览附件失败:', error);
+    ElMessage.error('文件预览失败');
+    previewLoading.value = false;
   }
 };
 
@@ -3107,6 +3158,7 @@ const openAddTeamDialog = () => {
 const openLeaderSelectDialog = () => {
   selectedLeader.value = null;
   selectedLeaderAdministratorId.value = null;
+  currentAdministratorId.value = null;
   leaderSelectDialogVisible.value = true;
   loadAdministratorsForLeader();
 };
@@ -3156,6 +3208,25 @@ const loadStaffForLeader = async (administratorId: number) => {
     ElMessage.error('加载员工列表失败');
   } finally {
     loadingStaffForLeader.value = false;
+  }
+};
+
+// 切换管理人类型
+const switchAdministrator = async (administratorId: number) => {
+  currentAdministratorId.value = administratorId;
+  selectedLeader.value = null;
+  
+  // 如果该管理人的员工数据还未加载，则加载
+  if (!administratorsStaffMap.value.has(administratorId)) {
+    await loadStaffForLeader(administratorId);
+  }
+};
+
+// 选择团队成员
+const handleStaffSelect = (currentRow: any) => {
+  if (currentRow) {
+    selectedLeader.value = currentRow;
+    selectedLeaderAdministratorId.value = currentAdministratorId.value;
   }
 };
 
@@ -4749,30 +4820,32 @@ const checkPermissions = async () => {
                         v-if="isCreator"
                       >
                         <template #default="{ row }">
-                          <ElButton
-                            size="small"
-                            @click="handleEditMember(row)"
-                            text
-                            class="text-primary"
-                          >
-                            <Icon icon="lucide:pencil" class="mr-1" />
-                            编辑
-                          </ElButton>
-                          <ElPopconfirm
-                            title="确定要移除该成员吗？"
-                            @confirm="handleRemoveMember(team.id, row.id)"
-                          >
-                            <template #reference>
-                              <ElButton
-                                size="small"
-                                text
-                                class="text-danger ml-2"
-                              >
-                                <Icon icon="lucide:trash-2" class="mr-1" />
-                                移除
-                              </ElButton>
-                            </template>
-                          </ElPopconfirm>
+                          <div style="display: flex; align-items: center;">
+                            <ElButton
+                              size="small"
+                              @click="handleEditMember(row)"
+                              text
+                              class="text-primary"
+                            >
+                              <Icon icon="lucide:pencil" class="mr-1" />
+                              编辑
+                            </ElButton>
+                            <ElPopconfirm
+                              title="确定要移除该成员吗？"
+                              @confirm="handleRemoveMember(team.id, row.id)"
+                            >
+                              <template #reference>
+                                <ElButton
+                                  size="small"
+                                  text
+                                  class="text-danger ml-2"
+                                >
+                                  <Icon icon="lucide:trash-2" class="mr-1" />
+                                  移除
+                                </ElButton>
+                              </template>
+                            </ElPopconfirm>
+                          </div>
                         </template>
                       </ElTableColumn>
                     </ElTable>
@@ -4822,7 +4895,7 @@ const checkPermissions = async () => {
             <div
               style="
                 padding: 20px;
-                background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+                background: white;
                 border-bottom: 1px solid #e9ecef;
               "
             >
@@ -4841,13 +4914,13 @@ const checkPermissions = async () => {
                       justify-content: center;
                       width: 48px;
                       height: 48px;
-                      background: rgba(255, 255, 255, 0.2);
+                      background: rgba(76, 175, 80, 0.1);
                       border-radius: 50%;
                     "
                   >
                     <Icon
                       icon="lucide:calendar-check"
-                      style="font-size: 24px; color: white"
+                      style="font-size: 24px; color: #4caf50"
                     />
                   </div>
                   <div>
@@ -4856,7 +4929,7 @@ const checkPermissions = async () => {
                         margin: 0;
                         font-size: 20px;
                         font-weight: 600;
-                        color: white;
+                        color: #333;
                       "
                     >
                       工作日志管理
@@ -4865,7 +4938,7 @@ const checkPermissions = async () => {
                       style="
                         margin: 4px 0 0;
                         font-size: 14px;
-                        color: rgba(255, 255, 255, 0.8);
+                        color: #666;
                       "
                     >
                       记录案件处理过程中的重要工作内容
@@ -4876,7 +4949,7 @@ const checkPermissions = async () => {
                   <ElButton
                     type="primary"
                     @click="openAddWorkLogDialog"
-                    style="color: #4caf50; background: white; border: none"
+                    style="color: #4caf50; background: white; border: 1px solid #4caf50"
                   >
                     <Icon icon="lucide:plus" class="mr-1" />
                     添加日志
@@ -4898,7 +4971,7 @@ const checkPermissions = async () => {
                   v-model="workLogForm.workType"
                   placeholder="工作类型"
                   clearable
-                  style="width: 150px"
+                  style="width: 200px"
                   @change="fetchWorkLogs"
                 >
                   <ElOption
@@ -4932,7 +5005,6 @@ const checkPermissions = async () => {
                     padding: 16px;
                     background: #f8f9fa;
                     border-radius: 8px;
-                    border-left: 4px solid #4caf50;
                     transition: all 0.3s ease;
                   "
                   :style="{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }"
@@ -5119,6 +5191,14 @@ const checkPermissions = async () => {
                         </span>
                       </div>
                       <div style="display: flex; gap: 4px; flex-shrink: 0">
+                        <ElButton
+                          link
+                          size="small"
+                          @click="previewWorkLogFile(file)"
+                          style="padding: 2px 8px; font-size: 12px"
+                        >
+                          <Icon icon="lucide:eye" />
+                        </ElButton>
                         <ElButton
                           link
                           size="small"
@@ -5618,158 +5698,114 @@ const checkPermissions = async () => {
         <ElDialog
           v-model="leaderSelectDialogVisible"
           title="选择团队负责人"
-          width="900px"
+          width="1000px"
           destroy-on-close
           :close-on-click-modal="false"
+          id="leaderSelectDialog"
         >
           <div
             v-loading="loadingAdministratorsForLeader"
-            style="min-height: 400px"
+            style="min-height: 300px; max-height: 400px; display: flex; flex-direction: column;"
           >
             <div v-if="administratorsForLeader.length > 0">
-              <div
-                v-for="admin in administratorsForLeader"
-                :key="admin.sepId"
-                style="
-                  margin-bottom: 20px;
-                  border: 1px solid #ebeef5;
-                  border-radius: 4px;
-                  overflow: hidden;
-                "
-              >
-                <div
-                  style="
-                    padding: 12px 16px;
-                    background: #f5f7fa;
-                    border-bottom: 1px solid #ebeef5;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                  "
-                >
-                  <div style="display: flex; align-items: center; gap: 8px">
+              <div style="display: flex; min-height: 280px; max-height: 380px; border: 1px solid #ebeef5; border-radius: 4px; overflow: hidden;">
+                <!-- 左侧管理人类型切换（Tab） -->
+                <div style="width: 240px; border-right: 1px solid #ebeef5; background: #f5f7fa;">
+                  <div
+                    v-for="admin in administratorsForLeader"
+                    :key="admin.sepId"
+                    class="admin-tab"
+                    :class="[{ active: currentAdministratorId === admin.sepId }]"
+                    style="
+                      padding: 16px 20px;
+                      cursor: pointer;
+                      transition: all 0.3s;
+                      border-bottom: 1px solid #ebeef5;
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                    "
+                    @click="switchAdministrator(admin.sepId)"
+                  >
                     <Icon
                       icon="lucide:building-2"
-                      style="font-size: 18px; color: #409eff"
+                      style="font-size: 16px; color: #409eff"
                     />
-                    <span style="font-weight: 600; font-size: 15px">{{
-                      admin.lsswsid
-                    }}</span>
+                    <span style="font-size: 14px; font-weight: 500;">{{ admin.lsswsid }}</span>
                   </div>
-                  <ElButton
-                    size="small"
-                    type="primary"
-                    link
-                    @click="loadStaffForLeader(admin.sepId)"
-                    :loading="
-                      loadingStaffForLeader &&
-                      selectedLeaderAdministratorId === admin.sepId
-                    "
-                  >
-                    <Icon icon="lucide:users" class="mr-1" />
-                    查看员工
-                  </ElButton>
                 </div>
-
-                <div
-                  v-if="administratorsStaffMap.has(admin.sepId)"
-                  style="padding: 16px"
-                >
+                
+                <!-- 右侧团队成员列表 -->
+                <div style="flex: 1; display: flex; flex-direction: column;">
                   <div
-                    v-if="administratorsStaffMap.get(admin.sepId)?.length > 0"
-                    style="
-                      display: grid;
-                      grid-template-columns: repeat(
-                        auto-fill,
-                        minmax(280px, 1fr)
-                      );
-                      gap: 12px;
-                    "
+                    v-loading="loadingStaffForLeader"
+                    style="flex: 1; overflow: hidden;
+                  "
                   >
-                    <div
-                      v-for="staff in administratorsStaffMap.get(admin.sepId)"
-                      :key="staff.id"
-                      class="staff-card"
-                      :class="[{ selected: selectedLeader?.id === staff.id }]"
-                      style="
-                        padding: 12px;
-                        border: 1px solid #dcdfe6;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        transition: all 0.3s;
-                        background: #fff;
-                      "
-                      @click="selectLeader(staff, admin.sepId)"
-                    >
-                      <div
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 10px;
-                          margin-bottom: 8px;
-                        "
-                      >
-                        <div
-                          style="
-                            width: 40px;
-                            height: 40px;
-                            background: #ecf5ff;
-                            border-radius: 50%;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                          "
+                    <div v-if="currentAdministratorId && administratorsStaffMap.has(currentAdministratorId)">
+                      <div v-if="administratorsStaffMap.get(currentAdministratorId)?.length > 0">
+                        <ElTable
+                          :data="administratorsStaffMap.get(currentAdministratorId) || []"
+                          style="width: 100%; height: 100%; border: none;"
+                          size="small"
+                          highlight-current-row
+                          @current-change="handleStaffSelect"
+                          :current-row-key="selectedLeader?.id"
                         >
-                          <Icon
-                            icon="lucide:user"
-                            style="font-size: 20px; color: #409eff"
+                          <ElTableColumn
+                            prop="name"
+                            label="成员姓名"
+                            width="120"
+                            align="left"
                           />
-                        </div>
-                        <div style="flex: 1">
-                          <div
-                            style="
-                              font-weight: 600;
-                              font-size: 14px;
-                              color: #303133;
-                            "
+                          <ElTableColumn
+                            prop="contactPhone"
+                            label="手机号码"
+                            width="150"
+                            align="left"
                           >
-                            {{ staff.name }}
-                          </div>
-                          <div style="font-size: 12px; color: #909399">
-                            {{ staff.staffType }}
-                          </div>
-                        </div>
-                        <Icon
-                          v-if="selectedLeader?.id === staff.id"
-                          icon="lucide:check-circle"
-                          style="font-size: 20px; color: #67c23a"
-                        />
+                            <template #default="scope">
+                              {{ scope.row.contactPhone || '-' }}
+                            </template>
+                          </ElTableColumn>
+                          <ElTableColumn
+                            prop="email"
+                            label="电子邮箱"
+                            min-width="200"
+                            align="left"
+                          >
+                            <template #default="scope">
+                              {{ scope.row.email || '-' }}
+                            </template>
+                          </ElTableColumn>
+
+                        </ElTable>
                       </div>
-                      <div
-                        style="
-                          font-size: 12px;
-                          color: #606266;
-                          line-height: 1.6;
-                        "
-                      >
-                        <div>联系电话：{{ staff.contactPhone || '-' }}</div>
-                        <div>邮箱：{{ staff.email || '-' }}</div>
-                        <div>入职日期：{{ staff.appointmentDate || '-' }}</div>
+                      <div v-else style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                        <ElEmpty description="暂无员工数据" :image-size="100" />
                       </div>
                     </div>
+                    <div v-else style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                      <ElEmpty description="请选择左侧管理人类型" :image-size="100" />
+                    </div>
                   </div>
-                  <ElEmpty v-else description="暂无员工数据" :image-size="80" />
                 </div>
               </div>
             </div>
-            <ElEmpty v-else description="暂无管理人数据" :image-size="80" />
+            <div v-else style="min-height: 350px; max-height: 400px; display: flex; align-items: center; justify-content: center;">
+              <ElEmpty description="暂无管理人数据" :image-size="100" />
+            </div>
           </div>
           <template #footer>
             <div class="dialog-footer">
               <ElButton @click="leaderSelectDialogVisible = false">
                 取消
               </ElButton>
-              <ElButton type="primary" @click="confirmSelectLeader">
+              <ElButton
+                type="primary"
+                @click="confirmSelectLeader"
+                :disabled="!selectedLeader"
+              >
                 确定
               </ElButton>
             </div>
@@ -8162,5 +8198,72 @@ const checkPermissions = async () => {
 .slide-up-leave-to {
   opacity: 0;
   transform: translateY(-20px);
+}
+
+/* 团队负责人选择对话框新样式 */
+.admin-tab {
+  transition: all 0.3s ease;
+}
+
+.admin-tab:hover {
+  background-color: #ecf5ff;
+}
+
+.admin-tab.active {
+  background-color: #409eff;
+  color: white;
+  font-weight: 600;
+  transform: translateX(4px);
+}
+
+.admin-tab.active:hover {
+  background-color: #409eff;
+}
+
+/* 表格样式优化 */
+:deep(.el-table) {
+  border-radius: 0;
+}
+
+:deep(.el-table__header-wrapper th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
+
+:deep(.el-table__row) {
+  transition: all 0.2s ease;
+}
+
+:deep(.el-table__row:hover) {
+  background-color: #f8fafc !important;
+}
+
+:deep(.el-table__row.current-row) {
+  background-color: #ecf5ff !important;
+}
+
+:deep(.el-table__row.current-row > td) {
+  border-color: #d9ecff !important;
+}
+
+/* 对话框动画效果 */
+:deep(.el-dialog) {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.el-dialog__wrapper) {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* 选择团队负责人对话框样式优化 */
+:deep(.el-dialog:has(#leaderSelectDialog)) .el-dialog__body {
+  padding: 20px;
+  margin-bottom: 0;
+}
+
+/* 调整对话框内容区域的边距 */
+.leader-select-content {
+  margin-bottom: 0;
 }
 </style>
