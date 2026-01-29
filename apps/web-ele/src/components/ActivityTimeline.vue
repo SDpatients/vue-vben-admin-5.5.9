@@ -150,7 +150,7 @@ defineExpose({
 .activity-timeline {
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 0;
   background: #ffffff;
   border-radius: 8px;
   min-height: 200px;
@@ -164,7 +164,7 @@ defineExpose({
   justify-content: space-between;
   height: 40px;
   padding: 8px 0;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   background-color: #fff;
 }
 
@@ -201,6 +201,7 @@ defineExpose({
   min-height: 150px;
   max-height: 350px;
   overflow: hidden;
+  margin-top: 0;
 }
 
 /* 列表区域 */

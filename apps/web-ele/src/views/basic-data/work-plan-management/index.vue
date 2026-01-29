@@ -26,12 +26,12 @@ import {
 } from 'element-plus';
 
 import { getCaseSimpleListApi } from '#/api/core/case';
-import { getAllWorkPlanApi } from '#/api/core/case-process';
 import {
   createWorkPlanApi,
   deleteWorkPlanApi,
   getWorkPlanDetailApi,
 } from '#/api/core/work-plan';
+import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { exportToExcel } from '#/utils/export-excel';
 
 // 定义新的工作计划类型
@@ -248,13 +248,26 @@ const handleDeleteWorkPlan = async (row: WorkPlanInfo) => {
 const fetchWorkPlanList = async () => {
   loading.value = true;
   try {
-    const response = await getAllWorkPlanApi(
-      undefined, // caseId 可选
+    // 计算日期范围：从当前日期往前推30天到往后推30天
+    const today = new Date();
+    const startDateObj = new Date(today);
+    startDateObj.setDate(startDateObj.getDate() - 30);
+    const endDateObj = new Date(today);
+    endDateObj.setDate(endDateObj.getDate() + 30);
+
+    // 格式化日期为YYYY-MM-DD
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const startDate = formatDate(startDateObj);
+    const endDate = formatDate(endDateObj);
+
+    const response = await getWorkPlanListByTimeApi(
+      startDate,
+      endDate,
       pagination.value.page,
       pagination.value.pageSize,
-      undefined, // planType 可选
-      undefined, // executionStatus 可选
-      undefined, // status 可选
     );
 
     if (response.code === 200) {

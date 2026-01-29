@@ -187,3 +187,45 @@ export async function deleteWorkPlanApi(
     `/work-plan/${planId}`,
   );
 }
+
+/**
+ * 根据时间范围获取工作计划列表
+ */
+export async function getWorkPlanListByTimeApi(
+  startDate: string,
+  endDate: string,
+  pageNum: number = 1,
+  pageSize: number = 10,
+) {
+  return requestClient8085.get<{
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: Array<{
+        id: number;
+        createTime: string;
+        createUserId: number;
+        isDeleted: boolean;
+        status: string;
+        updateTime: string;
+        updateUserId: number;
+        caseId: number;
+        endDate: string;
+        executionStatus: string;
+        planContent: string;
+        planNumber: string;
+        planType: string;
+        responsibleUserId: number;
+        startDate: string;
+      }>;
+    };
+  }>('/work-plan/list-by-time', {
+    params: {
+      startDate,
+      endDate,
+      pageNum,
+      pageSize,
+    },
+  });
+}
