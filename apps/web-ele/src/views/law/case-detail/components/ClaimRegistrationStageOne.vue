@@ -8,6 +8,8 @@ import {
   ElAlert,
   ElButton,
   ElCard,
+  ElCheckbox,
+  ElCol,
   ElDescriptions,
   ElDescriptionsItem,
   ElDialog,
@@ -24,12 +26,15 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
   ElTag,
+  ElUpload,
 } from 'element-plus';
 
 import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
-import { getCreditorListApi } from '#/api/core/creditor';
+import { getCreditorClaimStagesApi, getCreditorListApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
 
 import { useClaimForm } from './composables/useClaimForm';
@@ -525,6 +530,35 @@ const getMaterialCompletenessTag = (completeness: string) => {
   return statusMap[completeness] || { type: 'info', text: completeness };
 };
 
+const formatCurrency = (value: number | string | undefined | null) => {
+  if (value === undefined || value === null || value === '') return '-';
+  const num = Number(value);
+  if (isNaN(num)) return '-';
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
+
+const formatDate = (dateStr: string | undefined | null) => {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    return '-';
+  }
+};
+
 // Excel导入相关变量
 const currentImportFile = ref<any>(null);
 
@@ -821,6 +855,8 @@ const getFieldLabel = (field: string) => {
   return labelMapping[field] || field;
 };
 
+
+
 defineExpose({
   hasRegisteredClaims,
   openAddDialog,
@@ -951,6 +987,7 @@ onMounted(() => {
             label="债权人姓名或名称"
             min-width="180"
           />
+
           <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
           <ElTableColumn
             prop="credit_code"
@@ -2080,42 +2117,123 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.excel-upload-section h4 {
-  font-size: 14px;
+.upload-demo {
+  margin: 20px 0;
+}
+
+
+
+:deep(.el-tabs--border-card) {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+:deep(.el-tabs--border-card > .el-tabs__header) {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+:deep(.el-tabs--border-card > .el-tabs__header .el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+:deep(.el-tabs--border-card > .el-tabs__header .el-tabs__item) {
+  border: none;
+  background: transparent;
+  color: #606266;
+  font-weight: 500;
+  padding: 0 24px;
+  height: 36px;
+  line-height: 36px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+:deep(.el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active) {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+:deep(.el-tabs--border-card > .el-tabs__content) {
+  padding: 0;
+  border: none;
+}
+
+:deep(.el-descriptions) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(.el-descriptions__header) {
+  background: #f5f7fa;
+  padding: 12px 16px;
   font-weight: 600;
+  color: #2c3e50;
+}
+
+:deep(.el-descriptions__body) {
+  background: white;
+}
+
+:deep(.el-descriptions__label) {
+  background: #fafbfc;
+  color: #606266;
+  font-weight: 500;
+  padding: 12px 16px;
+}
+
+:deep(.el-descriptions__content) {
   color: #303133;
+  padding: 12px 16px;
 }
 
-.field-filled {
-  animation: highlight 1s ease-in-out;
+:deep(.el-descriptions--bordered .el-descriptions__cell) {
+  border-color: #e8ecf1;
 }
 
-@keyframes highlight {
-  0% {
-    background-color: #fff3cd;
-  }
-  100% {
-    background-color: transparent;
-  }
+:deep(.el-dialog__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  margin: 0;
+  border-radius: 12px 12px 0 0;
 }
 
-.bg-light {
-  background-color: #f5f7fa;
+:deep(.el-dialog__title) {
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.ml-2 {
-  margin-left: 8px;
+:deep(.el-dialog__headerbtn .el-dialog__close) {
+  color: white;
+  font-size: 20px;
 }
 
-.mb-4 {
-  margin-bottom: 16px;
+:deep(.el-dialog__headerbtn .el-dialog__close:hover) {
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.mt-2 {
-  margin-top: 8px;
+:deep(.el-dialog__body) {
+  padding: 24px;
 }
 
-.p-4 {
-  padding: 16px;
+:deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #e8ecf1;
+  background: #fafbfc;
+}
+
+:deep(.el-empty) {
+  padding: 60px 0;
+}
+
+:deep(.el-empty__description) {
+  color: #909399;
+  font-size: 14px;
 }
 </style>
