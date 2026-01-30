@@ -149,6 +149,7 @@ const debouncedFetchUserList = debounce(fetchUserList, 300);
 
 fetchCourtList();
 fetchManagerList();
+// 首次加载时获取用户列表数据
 fetchUserList();
 
 const validateFile = (file: File) => {
@@ -484,11 +485,10 @@ const submitForm = async () => {
                     v-model="form.mainResponsiblePerson"
                     placeholder="请输入或选择主要负责人"
                     filterable
-                    remote
-                    :remote-method="debouncedFetchUserList"
-                    :loading="userListLoading"
                     allow-create
                     style="width: 100%"
+                    @visible-change="(visible) => { if (visible && userList.length === 0) fetchUserList() }"
+                    @input="(value) => { if (value) debouncedFetchUserList(value) }"
                   >
                     <el-option
                       v-for="user in userList"
@@ -506,11 +506,10 @@ const submitForm = async () => {
                     v-model="form.undertakingPersonnel"
                     placeholder="请输入或选择承办人员"
                     filterable
-                    remote
-                    :remote-method="debouncedFetchUserList"
-                    :loading="userListLoading"
                     allow-create
                     style="width: 100%"
+                    @visible-change="(visible) => { if (visible && userList.length === 0) fetchUserList() }"
+                    @input="(value) => { if (value) debouncedFetchUserList(value) }"
                   >
                     <el-option
                       v-for="user in userList"

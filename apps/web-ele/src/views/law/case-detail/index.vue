@@ -3082,13 +3082,56 @@ const handleProgressUpdated = async () => {
     // 重新获取案件详情，确保显示最新进度
     const response = await getCaseDetailApi(Number.parseInt(caseId.value, 10));
     const responseData = response as any;
-    if (responseData.success && responseData.data) {
-      caseDetail.value = mapCaseData(responseData.data);
-      ElMessage.success('案件进度已更新');
+
+    // 检查API响应结构 - 适配新的API响应格式
+    if (responseData.code === 200 && responseData.data) {
+      const caseData = responseData.data;
+
+      if (caseData) {
+        // 映射API返回的英文字段为中文显示
+        caseDetail.value = {
+          案件ID: caseData.id || caseId.value,
+          案号: caseData.caseNumber,
+          案件名称: caseData.caseName,
+          受理日期: caseData.acceptanceDate,
+          案件来源: caseData.caseSource,
+          受理法院: caseData.acceptanceCourt,
+          管理人负责人: caseData.mainResponsiblePerson,
+          指定法官: caseData.designatedJudge,
+          案由: caseData.caseReason,
+          债权申报截止时间: caseData.debtClaimDeadline,
+          是否简化审: caseData.isSimplifiedTrial ? '是' : '否',
+          案件进度: mapCaseProgress(caseData.caseProgress),
+          立案日期: caseData.filingDate,
+          破产时间: caseData.bankruptcyDate,
+          终结时间: caseData.terminationDate,
+          注销时间: caseData.cancellationDate,
+          归档时间: caseData.archivingDate,
+          结案日期: caseData.closingDate,
+          指定机构: caseData.designatedInstitution,
+          承办人员: caseData.undertakingPersonnel,
+          创建者: caseData.creatorName,
+          审核状态: mapReviewStatus(caseData.reviewStatus),
+          审核时间: caseData.reviewTime,
+          审核意见: caseData.reviewOpinion,
+          审核次数: caseData.reviewCount,
+          案件状态: mapCaseStatus(caseData.caseStatus),
+          创建时间: caseData.createTime,
+          修改时间: caseData.updateTime,
+          备注: caseData.remarks,
+          文件上传路径: caseData.fileUploadPath,
+        };
+        ElMessage.success('案件进度已更新');
+      } else {
+        throw new Error('API返回的数据结构异常');
+      }
+    } else {
+      const errorMsg = responseData.message || responseData.data?.error || '未知错误';
+      ElMessage.error(`获取案件详情失败：${errorMsg}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('更新案件进度后获取案件详情失败:', error);
-    ElMessage.error('更新案件进度后获取案件详情失败');
+    ElMessage.error(`更新案件进度后获取案件详情失败：${error.message || '未知错误'}`);
   } finally {
     loading.value = false;
   }
@@ -3118,7 +3161,7 @@ onMounted(async () => {
           案件来源: caseData.caseSource,
           受理法院: caseData.acceptanceCourt,
           管理人负责人: caseData.mainResponsiblePerson,
-          承办法官: caseData.designatedJudge,
+          指定法官: caseData.designatedJudge,
           案由: caseData.caseReason,
           债权申报截止时间: caseData.debtClaimDeadline,
           是否简化审: caseData.isSimplifiedTrial ? '是' : '否',
@@ -3160,7 +3203,7 @@ onMounted(async () => {
         案件来源: '债权人申请',
         受理法院: '某某市中级人民法院',
         管理人负责人: '李经理',
-        承办法官: '张法官',
+        指定法官: '张法官',
         案由: '破产清算',
         债权申报截止时间: '2023-03-15',
         是否简化审: '否',
@@ -3198,7 +3241,7 @@ onMounted(async () => {
       案件来源: '债权人申请',
       受理法院: '某某市中级人民法院',
       管理人负责人: '李经理',
-      承办法官: '张法官',
+      指定法官: '张法官',
       案由: '破产清算',
       债权申报截止时间: '2023-03-15',
       是否简化审: '否',
@@ -3272,6 +3315,17 @@ const getInitialStageIndex = (): number => {
   if (!caseDetail.value) return 0;
 
   const progress = caseDetail.value.案件进度;
+  
+  // 匹配mapCaseProgress返回的格式："一、申请与受理"、"二、管理人履职与财产接管"等
+  if (progress.startsWith('一、')) return 0;
+  if (progress.startsWith('二、')) return 1;
+  if (progress.startsWith('三、')) return 2;
+  if (progress.startsWith('四、')) return 3;
+  if (progress.startsWith('五、')) return 4;
+  if (progress.startsWith('六、')) return 5;
+  if (progress.startsWith('七、')) return 6;
+  
+  // 兼容旧格式："第一阶段"、"第二阶段"等
   const progressIndexMap: Record<string, number> = {
     第一阶段: 0,
     第二阶段: 1,
@@ -3600,13 +3654,44 @@ const handleSearchLeader = async (keyword: string) => {
 };
 
 // 打开添加工作团队对话框
-const openAddTeamDialog = () => {
+const openAddTeamDialog = async () => {
   addTeamForm.value = {
     teamName: '',
     teamLeaderId: null,
     teamDescription: '',
   };
   selectedLeader.value = null;
+  
+  // 获取当前案件的承办人员
+  const undertakingPersonnel = caseDetail.value?.承办人员;
+  if (undertakingPersonnel) {
+    try {
+      // 根据承办人员姓名搜索用户
+      const response = await getUsersApi(undertakingPersonnel);
+      let staffList = [];
+      
+      if (response.data && response.data.users && Array.isArray(response.data.users)) {
+        staffList = response.data.users;
+      } else if (response.data && Array.isArray(response.data)) {
+        staffList = response.data;
+      } else if (response.data && response.data.list && Array.isArray(response.data.list)) {
+        staffList = response.data.list;
+      }
+      
+      // 如果找到匹配的用户，设置为团队负责人
+      if (staffList.length > 0) {
+        const leader = staffList[0];
+        addTeamForm.value.teamLeaderId = leader.id;
+        selectedLeader.value = {
+          userId: leader.id,
+          name: leader.realName || leader.name,
+        };
+      }
+    } catch (error) {
+      console.error('设置默认团队负责人失败:', error);
+    }
+  }
+  
   addTeamDialogVisible.value = true;
 };
 

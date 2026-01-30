@@ -375,15 +375,41 @@ const handleAddClaim = async () => {
   addLoading.value = false;
 };
 
+const getRegistrationStatusTag = (status: string) => {
+  const statusMap: Record<string, any> = {
+    PENDING: { type: 'warning', text: '待登记' },
+    REGISTERED: { type: 'success', text: '已登记' },
+    REJECTED: { type: 'danger', text: '已驳回' },
+  };
+  return statusMap[status] || { type: 'info', text: status };
+};
+
+const getMaterialCompletenessTag = (completeness: string) => {
+  const statusMap: Record<string, any> = {
+    COMPLETE: { type: 'success', text: '完整' },
+    INCOMPLETE: { type: 'warning', text: '不完整' },
+    PENDING: { type: 'info', text: '待补充' },
+  };
+  return statusMap[completeness] || { type: 'info', text: completeness };
+};
+
+// Excel导入相关变量
+const currentImportFile = ref<any>(null);
+
+// Excel导入相关方法
 const handleImportFileChange = (file: any, fileList: any[]) => {
   if (fileList.length > 1) {
     fileList.shift();
   }
+  // 存储当前选择的文件
+  currentImportFile.value = fileList[0];
 };
 
-const handleImportFileRemove = (file: any, fileList: any[]) => {};
+const handleImportFileRemove = (file: any, fileList: any[]) => {  currentImportFile.value = null;
+};
 
-const handleImportSubmit = async (file: any) => {
+const handleImportSubmit = async () => {
+  const file = currentImportFile.value;
   if (!file) {
     ElMessage.warning('请选择Excel文件');
     return;
@@ -1228,17 +1254,7 @@ onMounted(() => {
           <ElButton @click="showImportDialog = false">取消</ElButton>
           <ElButton
             type="primary"
-            @click="() => {
-              const upload = document.querySelector('.upload-demo .el-upload__input');
-              if (upload) {
-                const fileInput = upload as HTMLInputElement;
-                if (fileInput.files && fileInput.files.length > 0) {
-                  handleImportSubmit(fileInput.files[0]);
-                } else {
-                  ElMessage.warning('请选择Excel文件');
-                }
-              }
-            }"
+            @click="handleImportSubmit"
             :loading="importLoading"
           >
             开始导入
