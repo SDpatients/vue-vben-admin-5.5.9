@@ -70,6 +70,13 @@ const weather = ref({
   tempMax: '',
 });
 
+interface WorkbenchTodoItem {
+  title: string;
+  content: string;
+  date: string;
+  completed: boolean;
+}
+
 const todoItems = ref<WorkbenchTodoItem[]>([]);
 const loading = ref(false);
 
@@ -465,6 +472,7 @@ const showTodoDetailDialog = ref(false);
 const selectedTodo = ref<any>(null);
 const selectedDateStr = ref('');
 const selectedDateData = ref<any[]>([]);
+const calendarValue = ref(new Date());
 const todoForm = ref({
   title: '',
   description: '',

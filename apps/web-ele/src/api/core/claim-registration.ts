@@ -305,6 +305,37 @@ export namespace ClaimRegistrationApi {
       }>;
     };
   }
+
+  /** 解析Excel响应 */
+  export interface ParseExcelResponse {
+    code: number;
+    message: string;
+    data: {
+      receiptNumber?: string;
+      creditorName?: string;
+      declarationTime?: string;
+      addressAndPostalCode?: string;
+      serviceAddress?: string;
+      contactPhone?: string;
+      declaredAmount?: string;
+      nature?: string;
+      legalRepresentative?: string;
+      agentName?: string;
+      agentPhone?: string;
+      claimNature?: string;
+      claimType?: string;
+      accountName?: string;
+      bankName?: string;
+      bankAccount?: string;
+      litigationStatus?: string;
+      remarks?: string;
+      principal?: string;
+      interest?: string;
+      penalty?: string;
+      otherLosses?: string;
+      totalAmount?: string;
+    };
+  }
 }
 
 /**
@@ -417,6 +448,18 @@ export async function exportClaimRegistrationApi(params?: { caseId?: number; reg
   return requestClient8085.get<Blob>('/claim-registration/export', {
     params,
     responseType: 'blob',
+  });
+}
+
+/**
+ * 解析Excel文件并返回字段映射数据
+ * POST /api/v1/claim-registration/parse-excel
+ */
+export async function parseExcelApi(formData: FormData) {
+  return requestClient8085.post<ClaimRegistrationApi.ParseExcelResponse>('/claim-registration/parse-excel', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
 }
 

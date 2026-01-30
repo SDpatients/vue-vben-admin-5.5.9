@@ -7,8 +7,28 @@ export const getRegistrationStatusTag = (status: string) => {
     CONFIRMED: { type: 'success', text: '确认完成' },
     REGISTERED: { type: 'success', text: '已登记' },
     REJECTED: { type: 'danger', text: '已驳回' },
+    // 添加可能的小写变体
+    pending: { type: 'warning', text: '待处理' },
+    reviewing: { type: 'primary', text: '审查中' },
+    review_completed: { type: 'success', text: '审查完成' },
+    confirming: { type: 'info', text: '确认中' },
+    confirmed: { type: 'success', text: '确认完成' },
+    registered: { type: 'success', text: '已登记' },
+    rejected: { type: 'danger', text: '已驳回' },
   };
-  return statusMap[status] || { type: 'info', text: '未知' };
+  // 首先尝试直接查找
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  // 然后尝试大写查找
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  // 如果都找不到，返回未知
+  return { type: 'info', text: '未知' };
 };
 
 export const getReviewStatusTag = (status: string) => {

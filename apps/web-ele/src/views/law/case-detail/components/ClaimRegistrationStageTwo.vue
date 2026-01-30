@@ -64,7 +64,7 @@ const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } =
 
 const fetchClaims = async () => {
   loading.value = true;
-  const result = await ClaimService.fetchClaimReviews(
+  const result = await ClaimService.fetchClaims(
     Number(props.caseId),
     currentPage.value,
     pageSize.value,
@@ -80,7 +80,7 @@ const fetchClaims = async () => {
 };
 
 const openDetailDialog = async (row: any) => {
-  const result = await ClaimService.getReviewDetail(row.id);
+  const result = await ClaimService.getClaimDetail(row.id);
   if (result.success) {
     currentClaim.value = result.data;
     showDetailDialog.value = true;
@@ -89,37 +89,64 @@ const openDetailDialog = async (row: any) => {
 
 const openReviewDialog = async (row: any) => {
   let response;
-  if (row.reviewInfo) {
-    const result = await ClaimService.getReviewDetail(row.reviewInfo.id);
-    if (result.success) {
-      response = result.data;
-      currentClaim.value = row;
-      Object.assign(reviewForm, result.data);
-    }
-  } else {
-    const result = await ClaimService.getClaimDetail(row.id);
-    if (result.success) {
-      response = result.data;
-      currentClaim.value = result.data;
+  try {
+    if (row.reviewInfo) {
+      const result = await ClaimService.getReviewDetail(row.reviewInfo.id);
+      if (result.success) {
+        response = result.data;
+        currentClaim.value = row;
+        Object.assign(reviewForm, result.data);
+      } else {
+        ElMessage.error('获取审查详情失败');
+        return;
+      }
+    } else {
+      const result = await ClaimService.getClaimDetail(row.id);
+      if (result.success) {
+        response = result.data;
+        currentClaim.value = result.data;
 
-      reviewForm.declaredPrincipal = result.data.principal || 0;
-      reviewForm.declaredInterest = result.data.interest || 0;
-      reviewForm.declaredPenalty = result.data.penalty || 0;
-      reviewForm.declaredOtherLosses = result.data.otherLosses || 0;
-      reviewForm.declaredTotalAmount = result.data.totalAmount || 0;
+        reviewForm.declaredPrincipal = result.data.principal || 0;
+        reviewForm.declaredInterest = result.data.interest || 0;
+        reviewForm.declaredPenalty = result.data.penalty || 0;
+        reviewForm.declaredOtherLosses = result.data.otherLosses || 0;
+        reviewForm.declaredTotalAmount = result.data.totalAmount || 0;
 
-      if (!result.data.reviewInfo || result.data.reviewInfo.confirmedPrincipal === null) {
-        reviewForm.confirmedPrincipal = result.data.principal || 0;
-        reviewForm.confirmedInterest = result.data.interest || 0;
-        reviewForm.confirmedPenalty = result.data.penalty || 0;
-        reviewForm.confirmedOtherLosses = result.data.otherLosses || 0;
-        reviewForm.confirmedTotalAmount = result.data.totalAmount || 0;
+        if (!result.data.reviewInfo || result.data.reviewInfo.confirmedPrincipal === null) {
+          reviewForm.confirmedPrincipal = result.data.principal || 0;
+          reviewForm.confirmedInterest = result.data.interest || 0;
+          reviewForm.confirmedPenalty = result.data.penalty || 0;
+          reviewForm.confirmedOtherLosses = result.data.otherLosses || 0;
+          reviewForm.confirmedTotalAmount = result.data.totalAmount || 0;
+        }
+      } else {
+        ElMessage.error('获取债权详情失败');
+        return;
       }
     }
-  }
 
-  if (response) {
-    showReviewDialog.value = true;
+    if (response) {
+      // 如果状态不是 REVIEWING，自动更新为 REVIEWING
+      if (row.registration_status !== 'REVIEWING') {
+        const startReviewResult = await ClaimService.startReview(row.id);
+        if (startReviewResult.success) {
+          // 重新获取数据以更新状态
+          await fetchClaims();
+          // 重新获取当前债权详情
+          const claimResult = await ClaimService.getClaimDetail(row.id);
+          if (claimResult.success) {
+            currentClaim.value = claimResult.data;
+          }
+        } else {
+          ElMessage.error('开始审查失败');
+          return;
+        }
+      }
+      showReviewDialog.value = true;
+    }
+  } catch (error) {
+    console.error('打开审查对话框失败:', error);
+    ElMessage.error('打开审查对话框失败');
   }
 };
 
@@ -182,86 +209,59 @@ const handleSaveReview = async () => {
     reviewSummary: reviewForm.reviewSummary || null,
     reviewReport: reviewForm.reviewReport || null,
     reviewAttachments: reviewForm.reviewAttachments || null,
-    reviewStatus: reviewForm.reviewStatus,
     remarks: reviewForm.remarks || null,
   };
 
-  const result = await ClaimService.createReview(requestData);
-  if (result.success) {
-    await fetchClaims();
-    closeReviewDialog();
+  let result;
+  if (currentClaim.value.reviewInfo) {
+    result = await ClaimService.updateReview(currentClaim.value.reviewInfo.id, requestData);
+  } else {
+    result = await ClaimService.createReview(requestData);
   }
-  reviewLoading.value = false;
-};
 
-const handleSubmitReview = async () => {
-  if (!currentClaim.value || !currentClaim.value.reviewInfo) return;
-
-  reviewLoading.value = true;
-  const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
-    claimRegistrationId: currentClaim.value.id,
-    caseId: currentClaim.value.caseId,
-    creditorName: currentClaim.value.creditorName,
-    reviewDate: reviewForm.reviewDate || null,
-    reviewer: reviewForm.reviewer || null,
-    reviewRound: Number(reviewForm.reviewRound) || 1,
-    reviewBasis: reviewForm.reviewBasis || null,
-    declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
-    declaredInterest: Number(reviewForm.declaredInterest) || 0,
-    declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
-    declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
-    declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
-    confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
-    confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
-    confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
-    confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
-    confirmedTotalAmount: Number(confirmedTotalAmount.value) || 0,
-    unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
-    unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
-    unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
-    unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
-    unconfirmedTotalAmount: Number(unconfirmedTotalAmount.value) || 0,
-    adjustmentReason: reviewForm.adjustmentReason || null,
-    unconfirmedReason: reviewForm.unconfirmedReason || null,
-    insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
-    expiredReason: reviewForm.expiredReason || null,
-    evidenceAuthenticity: reviewForm.evidenceAuthenticity,
-    evidenceRelevance: reviewForm.evidenceRelevance || null,
-    evidenceLegality: reviewForm.evidenceLegality || null,
-    evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
-    confirmedClaimNature: reviewForm.confirmedClaimNature || null,
-    isJointLiability: reviewForm.isJointLiability ? 1 : 0,
-    isConditional: reviewForm.isConditional ? 1 : 0,
-    isTerm: reviewForm.isTerm ? 1 : 0,
-    collateralType: reviewForm.collateralType || null,
-    collateralProperty: reviewForm.collateralProperty || null,
-    collateralAmount: Number(reviewForm.collateralAmount) || null,
-    collateralTerm: reviewForm.collateralTerm || null,
-    collateralValidity: reviewForm.collateralValidity,
-    reviewConclusion: reviewForm.reviewConclusion,
-    reviewSummary: reviewForm.reviewSummary || null,
-    reviewReport: reviewForm.reviewReport || null,
-    reviewAttachments: reviewForm.reviewAttachments || null,
-    reviewStatus: 'COMPLETED',
-    remarks: reviewForm.remarks || null,
-  };
-
-  const updateResult = await ClaimService.updateReview(
-    currentClaim.value.reviewInfo.id,
-    requestData
-  );
-  
-  if (updateResult.success) {
-    const submitResult = await ClaimService.submitReview(
-      currentClaim.value.reviewInfo.id,
-      requestData
-    );
-    if (submitResult.success) {
+  try {
+    if (result.success) {
       await fetchClaims();
       closeReviewDialog();
     }
+  } finally {
+    reviewLoading.value = false;
   }
-  reviewLoading.value = false;
+};
+
+const handleStartReview = async (row: any) => {
+  ElMessageBox.confirm('确定要开始审查这条债权吗？', '开始审查', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'info',
+  })
+    .then(async () => {
+      const result = await ClaimService.startReview(row.id);
+      if (result.success) {
+        await fetchClaims();
+        await openReviewDialog(row);
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消操作');
+    });
+};
+
+const handleCompleteReview = async (row: any) => {
+  ElMessageBox.confirm('确定要完成审查吗？', '完成审查', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(async () => {
+      const result = await ClaimService.completeReview(row.id);
+      if (result.success) {
+        await fetchClaims();
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消操作');
+    });
 };
 
 const handleRejectReview = async (row: any) => {
@@ -276,7 +276,6 @@ const handleRejectReview = async (row: any) => {
         caseId: row.caseId,
         creditorName: row.creditorName,
         reviewConclusion: 'UNCONFIRMED' as ClaimReviewApi.ReviewConclusion,
-        reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
       };
 
       let result;
@@ -287,7 +286,10 @@ const handleRejectReview = async (row: any) => {
       }
 
       if (result.success) {
-        await fetchClaims();
+        const completeResult = await ClaimService.completeReview(row.id);
+        if (completeResult.success) {
+          await fetchClaims();
+        }
       }
     })
     .catch(() => {
@@ -296,17 +298,13 @@ const handleRejectReview = async (row: any) => {
 };
 
 const handleStartConfirmation = async (row: any) => {
-  if (!row.reviewInfo) return;
-
   ElMessageBox.confirm('确定要开始债权确认流程吗？', '开始确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'info',
   })
     .then(async () => {
-      const result = await ClaimService.updateReview(row.reviewInfo.id, {
-        reviewStatus: 'CONFIRMING' as ClaimReviewApi.ReviewStatus,
-      });
+      const result = await ClaimService.startConfirmation(row.id);
       if (result.success) {
         ElMessage.success('已开始债权确认流程');
         await fetchClaims();
@@ -348,14 +346,28 @@ onMounted(() => {
         class="mb-4"
       >
         <div>
-          <p>本页面展示所有已登记但待审查的债权申报记录。</p>
-          <p>点击"查看详情"可查看债权详细信息。</p>
-          <p>点击"审查"可进行债权审查操作。</p>
+          <p>本页面展示所有待审查的债权申报记录。</p>
+          <p>点击"开始审查"可开始债权审查流程。</p>
+          <p>点击"审查"可填写审查信息。</p>
+          <p>点击"完成审查"可完成审查并进入确认阶段。</p>
         </div>
       </ElAlert>
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
+          <ElTableColumn
+            label="申报状态"
+            width="100"
+          >
+            <template #default="scope">
+              <ElTag
+                :type="getRegistrationStatusTag(scope.row.registration_status).type"
+                size="small"
+              >
+                {{ getRegistrationStatusTag(scope.row.registration_status).text }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
           <ElTableColumn
             label="审查状态"
             width="100"
@@ -389,7 +401,7 @@ onMounted(() => {
           <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
           <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
           <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="400" fixed="right">
+          <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
               <ElButton
                 link
@@ -399,10 +411,20 @@ onMounted(() => {
                 查看详情
               </ElButton>
               <ElButton
+                v-if="scope.row.registration_status === 'REGISTERED'"
+                link
+                size="small"
+                type="primary"
+                @click="handleStartReview(scope.row)"
+              >
+                开始审查
+              </ElButton>
+              <ElButton
                 v-if="
-                  !scope.row.reviewInfo ||
-                  scope.row.reviewInfo.reviewStatus === 'PENDING' ||
-                  scope.row.reviewInfo.reviewStatus === 'IN_PROGRESS'
+                  scope.row.registration_status === 'REVIEWING' ||
+                  (scope.row.reviewInfo &&
+                  (scope.row.reviewInfo.reviewStatus === 'PENDING' ||
+                   scope.row.reviewInfo.reviewStatus === 'IN_PROGRESS'))
                 "
                 link
                 size="small"
@@ -411,10 +433,16 @@ onMounted(() => {
                 审查
               </ElButton>
               <ElButton
+                v-if="scope.row.registration_status === 'REVIEWING'"
+                type="success"
+                size="small"
+                @click="handleCompleteReview(scope.row)"
+              >
+                完成审查
+              </ElButton>
+              <ElButton
                 v-if="
-                  !scope.row.reviewInfo ||
-                  scope.row.reviewInfo.reviewStatus === 'PENDING' ||
-                  scope.row.reviewInfo.reviewStatus === 'IN_PROGRESS'
+                  scope.row.registration_status === 'REVIEWING'
                 "
                 link
                 size="small"
@@ -425,8 +453,7 @@ onMounted(() => {
               </ElButton>
               <ElButton
                 v-if="
-                  scope.row.reviewInfo &&
-                  scope.row.reviewInfo.reviewStatus === 'COMPLETED'
+                  scope.row.registration_status === 'REVIEW_COMPLETED'
                 "
                 link
                 size="small"
@@ -459,164 +486,128 @@ onMounted(() => {
 
     <ElDialog
       v-model="showDetailDialog"
-      title="债权审查详情"
+      title="债权申报详情"
       width="90%"
       destroy-on-close
     >
       <div v-if="currentClaim" class="detail-dialog-container">
         <ElDescriptions :column="2" border>
-          <ElDescriptionsItem label="审查ID">
-            {{ currentClaim.id }}
+          <ElDescriptionsItem label="债权编号">
+            {{ currentClaim.claimNo }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权登记ID">
-            {{ currentClaim.claimRegistrationId }}
+          <ElDescriptionsItem label="案件名称">
+            {{ currentClaim.caseName }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="案件ID">
-            {{ currentClaim.caseId }}
+          <ElDescriptionsItem label="债务人">
+            {{ currentClaim.debtor }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="债权人">
             {{ currentClaim.creditorName }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查日期">
-            {{ currentClaim.reviewDate || '-' }}
+          <ElDescriptionsItem label="债权人类型">
+            {{ currentClaim.creditorType }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查人">
-            {{ currentClaim.reviewer || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查轮次">
-            {{ currentClaim.reviewRound }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查依据">
-            {{ currentClaim.reviewBasis || '-' }}
+          <ElDescriptionsItem label="统一社会信用代码">
+            {{ currentClaim.creditCode }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报本金">
-            {{ currentClaim.declaredPrincipal }}
+            {{ currentClaim.principal }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报利息">
-            {{ currentClaim.declaredInterest }}
+            {{ currentClaim.interest }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报罚金">
-            {{ currentClaim.declaredPenalty }}
+            {{ currentClaim.penalty }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报其他损失">
-            {{ currentClaim.declaredOtherLosses }}
+            {{ currentClaim.otherLosses }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报总金额">
-            {{ currentClaim.declaredTotalAmount }}
+            {{ currentClaim.totalAmount }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权类型">
+            {{ currentClaim.claimType }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权性质">
+            {{ currentClaim.claimNature || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权标识">
+            {{ currentClaim.claimIdentifier || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="债权事实" :span="2">
+            {{ currentClaim.claimFacts || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="申报状态">
+            <ElTag
+              :type="
+                getRegistrationStatusTag(currentClaim.registrationStatus).type
+              "
+            >
+              {{ getRegistrationStatusTag(currentClaim.registrationStatus).text }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="登记日期">
+            {{ currentClaim.registrationDate }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收人">
+            {{ currentClaim.materialReceiver }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料接收日期">
+            {{ currentClaim.materialReceiveDate }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="材料完整性">
+            <ElTag
+              :type="
+                currentClaim.materialCompleteness === 'COMPLETE'
+                  ? 'success'
+                  : 'warning'
+              "
+            >
+              {{ currentClaim.materialCompleteness === 'COMPLETE' ? '完整' : currentClaim.materialCompleteness === 'INCOMPLETE' ? '不完整' : '待补充' }}
+            </ElTag>
+          </ElDescriptionsItem>
+        </ElDescriptions>
+
+        <div v-if="currentClaim.reviewInfo" class="section-divider mb-4 mt-4">
+          <h4 class="section-title">审查信息</h4>
+        </div>
+        <ElDescriptions v-if="currentClaim.reviewInfo" :column="2" border>
+          <ElDescriptionsItem label="审查日期">
+            {{ currentClaim.reviewInfo.reviewDate || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="审查人">
+            {{ currentClaim.reviewInfo.reviewer || '-' }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="审查轮次">
+            {{ currentClaim.reviewInfo.reviewRound }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="审查依据">
+            {{ currentClaim.reviewInfo.reviewBasis || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认本金">
-            {{ currentClaim.confirmedPrincipal }}
+            {{ currentClaim.reviewInfo.confirmedPrincipal }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认利息">
-            {{ currentClaim.confirmedInterest }}
+            {{ currentClaim.reviewInfo.confirmedInterest }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认罚金">
-            {{ currentClaim.confirmedPenalty }}
+            {{ currentClaim.reviewInfo.confirmedPenalty }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认其他损失">
-            {{ currentClaim.confirmedOtherLosses }}
+            {{ currentClaim.reviewInfo.confirmedOtherLosses }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认总金额">
-            {{ currentClaim.confirmedTotalAmount || 0 }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认本金">
-            {{ currentClaim.unconfirmedPrincipal }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认利息">
-            {{ currentClaim.unconfirmedInterest }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认罚金">
-            {{ currentClaim.unconfirmedPenalty }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认其他损失">
-            {{ currentClaim.unconfirmedOtherLosses }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认总金额">
-            {{ currentClaim.unconfirmedTotalAmount || 0 }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="调整原因" :span="2">
-            {{ currentClaim.adjustmentReason || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="未确认原因" :span="2">
-            {{ currentClaim.unconfirmedReason || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="证据不足原因">
-            {{ currentClaim.insufficientEvidenceReason || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="过期原因">
-            {{ currentClaim.expiredReason || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="证据真实性">
-            {{ currentClaim.evidenceAuthenticity }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="证据相关性">
-            {{ currentClaim.evidenceRelevance }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="证据合法性">
-            {{ currentClaim.evidenceLegality }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="证据审查备注" :span="2">
-            {{ currentClaim.evidenceReviewNotes || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="确认债权性质">
-            {{ currentClaim.confirmedClaimNature || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="是否连带责任">
-            {{ currentClaim.isJointLiability ? '是' : '否' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="是否附条件">
-            {{ currentClaim.isConditional ? '是' : '否' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="是否附期限">
-            {{ currentClaim.isTerm ? '是' : '否' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="担保类型">
-            {{ currentClaim.collateralType || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="担保财产">
-            {{ currentClaim.collateralProperty || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="担保金额">
-            {{ currentClaim.collateralAmount || 0 }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="担保期限">
-            {{ currentClaim.collateralTerm || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="担保有效性">
-            {{ currentClaim.collateralValidity }}
+            {{ currentClaim.reviewInfo.confirmedTotalAmount || 0 }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="审查结论">
             <ElTag
-              :type="
-                getReviewConclusionTag(currentClaim.reviewConclusion).type
-              "
+              :type="getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).type"
             >
-              {{ getReviewConclusionTag(currentClaim.reviewConclusion).text }}
-            </ElTag>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查状态">
-            <ElTag
-              :type="
-                getReviewStatusTag(currentClaim.reviewStatus).type
-              "
-            >
-              {{ getReviewStatusTag(currentClaim.reviewStatus).text }}
+              {{ getReviewConclusionTag(currentClaim.reviewInfo.reviewConclusion).text }}
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="审查摘要" :span="2">
-            {{ currentClaim.reviewSummary || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="审查报告" :span="2">
-            {{ currentClaim.reviewReport || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="备注" :span="2">
-            {{ currentClaim.remarks || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="创建时间">
-            {{ currentClaim.createTime }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="更新时间">
-            {{ currentClaim.updateTime }}
+            {{ currentClaim.reviewInfo.reviewSummary || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
       </div>
@@ -1096,14 +1087,6 @@ onMounted(() => {
             :loading="reviewLoading"
           >
             保存
-          </ElButton>
-          <ElButton
-            v-if="currentClaim?.reviewInfo"
-            type="success"
-            @click="handleSubmitReview"
-            :loading="reviewLoading"
-          >
-            提交
           </ElButton>
         </span>
       </template>

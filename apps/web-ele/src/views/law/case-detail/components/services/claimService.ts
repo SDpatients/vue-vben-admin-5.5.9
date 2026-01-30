@@ -67,13 +67,20 @@ export class ClaimService {
     caseId: number,
     pageNum: number,
     pageSize: number,
+    registrationStatus?: string,
   ) {
     try {
-      const response = await getClaimRegistrationListApi({
+      const params: any = {
         caseId,
         pageNum,
         pageSize,
-      });
+      };
+      // 如果提供了registrationStatus参数，则使用该参数
+      if (registrationStatus) {
+        params.registrationStatus = registrationStatus;
+      }
+      
+      const response = await getClaimRegistrationListApi(params);
       if (response.code === 200 && response.data) {
         const formattedList = (response.data.list || []).map((item: any) => ({
           ...item,
@@ -120,12 +127,19 @@ export class ClaimService {
     caseId: number,
     pageNum: number,
     pageSize: number,
+    reviewStatus?: string,
   ) {
     try {
-      const response = await getClaimReviewsByCaseIdApi(caseId, {
+      const params: any = {
         pageNum,
         pageSize,
-      });
+      };
+      // 如果提供了reviewStatus参数，则使用该参数
+      if (reviewStatus) {
+        params.reviewStatus = reviewStatus;
+      }
+      
+      const response = await getClaimReviewsByCaseIdApi(caseId, params);
       if (response.code === 200 && response.data) {
         const formattedList = (response.data.list || []).map((item: any) => ({
           ...item,
@@ -165,16 +179,18 @@ export class ClaimService {
     caseId: number,
     pageNum: number,
     pageSize: number,
-    status?: string,
+    confirmationStatus?: string,
   ) {
     try {
       const params: any = {
         pageNum,
         pageSize,
       };
-      if (status) {
-        params.status = status;
+      // 如果提供了confirmationStatus参数，则使用该参数
+      if (confirmationStatus) {
+        params.confirmationStatus = confirmationStatus;
       }
+      
       const response = await getClaimConfirmationsByCaseIdApi(caseId, params);
       if (response.code === 200 && response.data) {
         const formattedList = (response.data.list || []).map((item: any) => ({
@@ -403,6 +419,32 @@ export class ClaimService {
     }
   }
 
+  static async startReview(claimId: number) {
+    try {
+      const response = await updateClaimRegistrationStatusApi(claimId, 'REVIEWING');
+      if (this.handleApiResponse(response, '开始审查成功', '开始审查失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '开始审查失败');
+      return { success: false };
+    }
+  }
+
+  static async completeReview(claimId: number) {
+    try {
+      const response = await updateClaimRegistrationStatusApi(claimId, 'REVIEW_COMPLETED');
+      if (this.handleApiResponse(response, '审查完成', '审查完成失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '审查完成失败');
+      return { success: false };
+    }
+  }
+
   static async createConfirmation(
     data: ClaimConfirmationApi.CreateClaimConfirmationRequest,
   ) {
@@ -453,6 +495,32 @@ export class ClaimService {
       return { success: false };
     } catch (error) {
       this.handleApiError(error, '债权确认失败');
+      return { success: false };
+    }
+  }
+
+  static async startConfirmation(claimId: number) {
+    try {
+      const response = await updateClaimRegistrationStatusApi(claimId, 'CONFIRMING');
+      if (this.handleApiResponse(response, '开始确认成功', '开始确认失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '开始确认失败');
+      return { success: false };
+    }
+  }
+
+  static async completeConfirmation(claimId: number) {
+    try {
+      const response = await updateClaimRegistrationStatusApi(claimId, 'CONFIRMED');
+      if (this.handleApiResponse(response, '确认完成', '确认完成失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '确认完成失败');
       return { success: false };
     }
   }

@@ -40,6 +40,7 @@ import {
   getRegistrationStatusTag,
 } from './utils/claimStatusMapper';
 import { claimFormRules } from './utils/claimFormRules';
+import { parseExcelApi } from '#/api/core/claim-registration';
 
 const props = defineProps<{
   caseId: string;
@@ -56,6 +57,10 @@ const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
 const showMaterialDialog = ref(false);
 const showImportDialog = ref(false);
+const showEditDialog = ref(false);
+const editLoading = ref(false);
+const currentEditClaim = ref<any>(null);
+const statusFilter = ref<string>('PENDING');
 const showImportErrorDialog = ref(false);
 const addLoading = ref(false);
 const materialLoading = ref(false);
@@ -80,6 +85,11 @@ const creditorList = ref<any[]>([]);
 const debtorListLoading = ref(false);
 const creditorListLoading = ref(false);
 
+// 文件导入相关变量
+const selectedFile = ref<any>(null);
+const importing = ref(false);
+const uploadRef = ref<any>(null);
+
 const hasRegisteredClaims = computed(() => {
   return claims.value.some(
     (claim: any) => claim.registration_status === 'REGISTERED',
@@ -92,6 +102,7 @@ const fetchClaims = async () => {
     Number(props.caseId),
     currentPage.value,
     pageSize.value,
+    statusFilter.value,
   );
   if (result.success) {
     claims.value = result.data;
@@ -180,7 +191,6 @@ const openMaterialDialog = async (row: any) => {
   const result = await ClaimService.getClaimDetail(row.id);
   if (result.success) {
     currentClaim.value = result.data;
-
     try {
       const userResponse = await getCurrentUserApi();
       materialForm.receiver =
@@ -191,7 +201,6 @@ const openMaterialDialog = async (row: any) => {
       console.error('获取当前用户信息失败:', error);
       materialForm.receiver = '当前用户';
     }
-
     materialForm.completeness = 'COMPLETE';
     showMaterialDialog.value = true;
   }
@@ -274,6 +283,128 @@ const handleDeleteClaim = async (row: any) => {
   }
 };
 
+const handleEditClaim = async (row: any) => {
+  try {
+    const result = await ClaimService.getClaimDetail(row.id);
+    if (result.success) {
+      currentEditClaim.value = result.data;
+      // 填充表单数据
+      claimForm.caseNumber = result.data.caseNumber || '';
+      claimForm.debtor = result.data.debtor || '';
+      claimForm.creditorName = result.data.creditorName || '';
+      claimForm.creditorType = result.data.creditorType || '';
+      claimForm.creditCode = result.data.creditCode || '';
+      claimForm.legalRepresentative = result.data.legalRepresentative || '';
+      claimForm.serviceAddress = result.data.serviceAddress || '';
+      claimForm.agentName = result.data.agentName || '';
+      claimForm.agentPhone = result.data.agentPhone || '';
+      claimForm.agentIdCard = result.data.agentIdCard || '';
+      claimForm.agentAddress = result.data.agentAddress || '';
+      claimForm.accountName = result.data.accountName || '';
+      claimForm.bankAccount = result.data.creditorBankAccount || '';
+      claimForm.bankName = result.data.bankName || '';
+      claimForm.principal = result.data.principal?.toString() || '';
+      claimForm.interest = result.data.interest?.toString() || '';
+      claimForm.penalty = result.data.penalty?.toString() || '';
+      claimForm.otherLosses = result.data.otherLosses?.toString() || '';
+      claimForm.claimNature = result.data.claimNature || '';
+      claimForm.claimType = result.data.claimType || '';
+      claimForm.hasCourtJudgment = result.data.hasCourtJudgment === 1;
+      claimForm.courtJudgmentNo = result.data.courtJudgmentNo || '';
+      claimForm.judgmentDate = result.data.judgmentDate || '';
+      claimForm.judgmentAmount = result.data.judgmentAmount?.toString() || '';
+      claimForm.claimFacts = result.data.claimFacts || '';
+      claimForm.claimIdentifier = result.data.claimIdentifier || '';
+      claimForm.remarks = result.data.remarks || '';
+      
+      // 打开修改对话框
+      showEditDialog.value = true;
+    }
+  } catch (error) {
+    console.error('获取债权详情失败:', error);
+    ElMessage.error('获取债权详情失败');
+  }
+};
+
+const handleSaveEdit = async () => {
+  if (!currentEditClaim.value) {
+    ElMessage.warning('请先选择债权');
+    return;
+  }
+
+  // 验证表单数据
+  if (!claimForm.creditorName) {
+    ElMessage.warning('请输入债权人姓名或名称');
+    return;
+  }
+  if (!claimForm.creditorType) {
+    ElMessage.warning('请选择债权人类型');
+    return;
+  }
+  if (!claimForm.claimType) {
+    ElMessage.warning('请选择债权种类');
+    return;
+  }
+
+  const calculatedTotalAmount = Number.parseFloat(totalAmount.value) || 0;
+  if (calculatedTotalAmount === 0) {
+    ElMessage.warning('申报总金额不能为0，请输入有效的金额信息');
+    return;
+  }
+
+  editLoading.value = true;
+  try {
+    const requestData = {
+      caseId: Number(props.caseId),
+      caseNumber: claimForm.caseNumber || undefined,
+      debtor: claimForm.debtor || undefined,
+      creditorName: claimForm.creditorName,
+      creditorType: claimForm.creditorType,
+      creditCode: claimForm.creditCode || undefined,
+      legalRepresentative: claimForm.legalRepresentative || undefined,
+      serviceAddress: claimForm.serviceAddress || undefined,
+      agentName: claimForm.agentName || undefined,
+      agentPhone: claimForm.agentPhone || undefined,
+      agentIdCard: claimForm.agentIdCard || undefined,
+      agentAddress: claimForm.agentAddress || undefined,
+      accountName: claimForm.accountName || undefined,
+      creditorBankAccount: claimForm.bankAccount || undefined,
+      bankName: claimForm.bankName || undefined,
+      principal: Number.parseFloat(claimForm.principal) || 0,
+      interest: Number.parseFloat(claimForm.interest) || 0,
+      penalty: Number.parseFloat(claimForm.penalty) || 0,
+      otherLosses: Number.parseFloat(claimForm.otherLosses) || 0,
+      totalAmount: Number.parseFloat(totalAmount.value) || 0,
+      hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
+      courtJudgmentNo: claimForm.courtJudgmentNo || undefined,
+      judgmentDate: claimForm.judgmentDate || undefined,
+      judgmentAmount: Number.parseFloat(claimForm.judgmentAmount) || undefined,
+      claimNature: claimForm.claimNature || undefined,
+      claimType: claimForm.claimType,
+      claimFacts: claimForm.claimFacts || undefined,
+      claimIdentifier: claimForm.claimIdentifier || undefined,
+      remarks: claimForm.remarks || undefined,
+    };
+
+    const result = await ClaimService.updateClaim(currentEditClaim.value.id, requestData);
+    if (result.success) {
+      await fetchClaims();
+      closeEditDialog();
+    }
+  } catch (error) {
+    console.error('修改债权失败:', error);
+    ElMessage.error('修改债权失败');
+  } finally {
+    editLoading.value = false;
+  }
+};
+
+const closeEditDialog = () => {
+  showEditDialog.value = false;
+  currentEditClaim.value = null;
+  resetClaimForm();
+};
+
 const handleCreditorChange = (value: string) => {
   const selectedCreditor = creditorList.value.find(
     (creditor) => creditor.label === value,
@@ -287,7 +418,6 @@ const openAddDialog = async () => {
   showAddDialog.value = true;
   await fetchDebtorList();
   await fetchCreditorList();
-
   try {
     const caseResponse = await getCaseReviewStatusApi(Number(props.caseId));
     if (caseResponse.code === 200 && caseResponse.data?.caseNumber) {
@@ -302,6 +432,7 @@ const closeAddDialog = () => {
   showAddDialog.value = false;
   resetClaimForm();
   fileList.value = [];
+  selectedFile.value = null;
 };
 
 const handleAddClaim = async () => {
@@ -347,8 +478,9 @@ const handleAddClaim = async () => {
     otherLosses: Number.parseFloat(claimForm.otherLosses) || 0,
     totalAmount: Number.parseFloat(totalAmount.value) || 0,
     hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
-    hasExecution: claimForm.hasExecution ? 1 : 0,
-    hasCollateral: claimForm.hasCollateral ? 1 : 0,
+    courtJudgmentNo: claimForm.courtJudgmentNo || undefined,
+    judgmentDate: claimForm.judgmentDate || undefined,
+    judgmentAmount: Number.parseFloat(claimForm.judgmentAmount) || undefined,
     claimNature: claimForm.claimNature || undefined,
     claimType: claimForm.claimType,
     claimFacts: claimForm.claimFacts || undefined,
@@ -405,8 +537,7 @@ const handleImportFileChange = (file: any, fileList: any[]) => {
   currentImportFile.value = fileList[0];
 };
 
-const handleImportFileRemove = (file: any, fileList: any[]) => {  currentImportFile.value = null;
-};
+const handleImportFileRemove = (file: any, fileList: any[]) => { currentImportFile.value = null; };
 
 const handleImportSubmit = async () => {
   const file = currentImportFile.value;
@@ -436,6 +567,260 @@ const openImportDialog = () => {
   showImportDialog.value = true;
 };
 
+// 文件选择处理（支持原生input和Element Plus Upload）
+const handleFileChange = (event: any) => {
+  let file: File | null = null;
+  
+  // 判断是原生input事件还是Element Plus Upload事件
+  if (event.target && event.target.files) {
+    // 原生input事件
+    file = event.target.files[0];
+  } else if (event.raw) {
+    // Element Plus Upload事件
+    file = event.raw;
+  } else if (event.name) {
+    // Element Plus Upload事件（另一种格式）
+    file = event;
+  }
+  
+  if (!file) {
+    selectedFile.value = null;
+    return;
+  }
+  
+  // 检查文件选择
+  console.log('选择的文件:', {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    lastModified: file.lastModified
+  });
+  
+  const fileName = file.name.toLowerCase();
+  if (!fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
+    ElMessage.error('请选择Excel文件（.xls或.xlsx格式）');
+    selectedFile.value = null;
+    return;
+  }
+  
+  if (file.size > 10 * 1024 * 1024) { // 10MB
+    ElMessage.error('文件大小不能超过10MB');
+    selectedFile.value = null;
+    return;
+  }
+  
+  selectedFile.value = file;
+};
+
+// 导入Excel并自动填充
+const handleImportExcel = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择Excel文件');
+    return;
+  }
+  
+  importing.value = true;
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile.value);
+    formData.append('sheetIndex', '0'); // 默认解析第一个Sheet
+    
+    // 检查FormData内容
+    console.log('FormData内容:');
+    for (let pair of formData.entries()) {
+      if (pair[1] instanceof File) {
+        console.log(pair[0] + ': File(' + pair[1].name + ')');
+      } else {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
+    }
+    
+    console.log('发送请求到: /api/v1/claim-registration/parse-excel');
+    
+    const response = await parseExcelApi(formData);
+    
+    console.log('响应状态:', response.code);
+    console.log('响应数据:', response);
+    
+    if (response.code === 200) {
+      // 自动填充表单
+      fillForm(response.data);
+      
+      // 高亮填充的字段
+      highlightFilledFields(response.data);
+      
+      ElMessage.success('导入成功，已自动填充匹配字段');
+    } else {
+      ElMessage.error('导入失败：' + response.message);
+    }
+  } catch (error: any) {
+    console.error('导入Excel失败', error);
+    ElMessage.error('导入失败：' + (error.message || '网络错误'));
+  } finally {
+    importing.value = false;
+  }
+};
+
+// 填充表单
+const fillForm = (data: any) => {
+  // 字段映射：API返回字段 -> 表单字段
+  const fieldMapping: Record<string, string> = {
+    receiptNumber: 'caseNumber',
+    creditorName: 'creditorName',
+    declarationTime: 'registrationDate',
+    addressAndPostalCode: 'serviceAddress',
+    contactPhone: 'agentPhone',
+    declaredAmount: 'principal',
+    nature: 'claimNature',
+    legalRepresentative: 'legalRepresentative',
+    agentName: 'agentName',
+    agentPhone: 'agentPhone',
+    claimNature: 'claimNature',
+    claimType: 'claimType',
+    accountName: 'accountName',
+    bankName: 'bankName',
+    bankAccount: 'bankAccount',
+    litigationStatus: 'claimFacts',
+    remarks: 'remarks',
+    principal: 'principal',
+    interest: 'interest',
+    penalty: 'penalty',
+    otherLosses: 'otherLosses',
+    totalAmount: 'totalAmount',
+  };
+  
+  console.log('开始填充表单，API返回数据:', data);
+  const filledFields: any[] = [];
+  
+  // 遍历返回的字段，填充对应表单
+  Object.keys(data).forEach(key => {
+    if (!data[key]) return;
+    
+    const formField = fieldMapping[key] || key;
+    
+    // 特殊处理金额字段
+    if (['principal', 'interest', 'penalty', 'otherLosses', 'totalAmount'].includes(formField)) {
+      const amountStr = String(data[key]).replace(/,/g, '');
+      const formattedAmount = parseFloat(amountStr).toString();
+      (claimForm as any)[formField] = formattedAmount;
+      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: formattedAmount });
+    } 
+    // 特殊处理日期字段
+    else if (formField === 'registrationDate' && data[key]) {
+      const dateStr = data[key];
+      let formattedDate: string;
+      if (dateStr.includes('/')) {
+        const [year, month, day] = dateStr.split('/');
+        formattedDate = `${year}-${month}-${day}`;
+      } else if (dateStr.includes('-')) {
+        formattedDate = dateStr;
+      } else {
+        formattedDate = dateStr;
+      }
+      (claimForm as any)[formField] = formattedDate;
+      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: formattedDate });
+    }
+    // 其他字段直接赋值
+    else {
+      (claimForm as any)[formField] = data[key];
+      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: data[key] });
+    }
+  });
+  
+  console.log('表单填充完成，填充的字段:', filledFields);
+  console.log('填充后表单数据:', claimForm);
+};
+
+// 高亮填充的字段
+const highlightFilledFields = (data: any) => {
+  const filledFields = Object.keys(data);
+  
+  console.log('开始高亮填充的字段:', filledFields);
+  
+  // 字段映射：API返回字段 -> 表单字段
+  const fieldMapping: Record<string, string> = {
+    receiptNumber: 'caseNumber',
+    creditorName: 'creditorName',
+    declarationTime: 'registrationDate',
+    addressAndPostalCode: 'serviceAddress',
+    contactPhone: 'agentPhone',
+    declaredAmount: 'principal',
+    nature: 'claimNature',
+    legalRepresentative: 'legalRepresentative',
+    agentName: 'agentName',
+    agentPhone: 'agentPhone',
+    claimNature: 'claimNature',
+    claimType: 'claimType',
+    accountName: 'accountName',
+    bankName: 'bankName',
+    bankAccount: 'bankAccount',
+    litigationStatus: 'claimFacts',
+    remarks: 'remarks',
+    principal: 'principal',
+    interest: 'interest',
+    penalty: 'penalty',
+    otherLosses: 'otherLosses',
+    totalAmount: 'totalAmount',
+  };
+  
+  // 高亮填充的字段
+  filledFields.forEach(apiField => {
+    const formField = fieldMapping[apiField] || apiField;
+    console.log(`高亮字段: API字段=${apiField}, 表单字段=${formField}`);
+    
+    // 尝试通过不同方式查找元素
+    const selectors = [
+      `[name="${formField}"]`,
+      `[prop="${formField}"]`,
+      `[v-model="claimForm.${formField}"]`,
+      `input[placeholder*="${formField}"]`,
+      `.el-form-item__label:contains("${getFieldLabel(formField)}") + .el-form-item__content input`
+    ];
+    
+    let elementFound = false;
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        element.classList.add('field-filled');
+        console.log(`找到并高亮元素: ${selector}`);
+        elementFound = true;
+        break;
+      }
+    }
+    
+    if (!elementFound) {
+      console.log(`未找到字段对应的元素: ${formField}`);
+    }
+  });
+};
+
+// 获取字段标签
+const getFieldLabel = (field: string) => {
+  const labelMapping: Record<string, string> = {
+    caseNumber: '案件编号',
+    creditorName: '债权人姓名或名称',
+    registrationDate: '申报时间',
+    serviceAddress: '送达地址',
+    agentPhone: '代理人电话',
+    principal: '本金',
+    legalRepresentative: '法定代表人',
+    agentName: '代理人姓名',
+    claimNature: '债权性质',
+    claimType: '债权种类',
+    accountName: '账户名称',
+    bankName: '开户银行',
+    bankAccount: '银行账号',
+    claimFacts: '债权事实',
+    remarks: '备注',
+    interest: '利息',
+    penalty: '违约金',
+    otherLosses: '其他损失',
+    totalAmount: '申报总金额'
+  };
+  return labelMapping[field] || field;
+};
+
 defineExpose({
   hasRegisteredClaims,
   openAddDialog,
@@ -457,6 +842,19 @@ onMounted(() => {
             <span class="text-lg font-semibold">债权申报登记</span>
           </div>
           <div class="flex space-x-2">
+            <ElSelect v-model="statusFilter" placeholder="选择状态" style="width: 200px" @change="fetchClaims">
+              <ElOption label="待处理" value="PENDING" />
+              <ElOption label="审查中" value="REVIEWING" />
+              <ElOption label="审查完成" value="REVIEW_COMPLETED" />
+              <ElOption label="确认中" value="CONFIRMING" />
+              <ElOption label="确认完成" value="CONFIRMED" />
+              <ElOption label="已登记" value="REGISTERED" />
+              <ElOption label="已驳回" value="REJECTED" />
+            </ElSelect>
+            <ElButton type="primary" @click="openAddDialog">
+              <Icon icon="lucide:plus" class="mr-1" />
+              新增债权
+            </ElButton>
             <ElButton type="success" @click="openImportDialog">
               <Icon icon="lucide:file-spreadsheet" class="mr-1" />
               Excel导入
@@ -475,26 +873,54 @@ onMounted(() => {
           <p>点击"查看详情"可查看债权详细信息。</p>
           <p>点击"接收材料"可记录材料接收情况。</p>
           <p>点击"登记"可将债权状态更新为"已登记"。</p>
+          <p>点击"修改"可修改未进入审查的债权申报数据。</p>
         </div>
       </ElAlert>
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
           <ElTableColumn
-            prop="registration_status"
             label="登记状态"
             width="150"
           >
             <template #default="scope">
               <div class="flex items-center gap-2">
                 <ElTag
-                  :type="
-                    getRegistrationStatusTag(scope.row.registration_status).type
-                  "
+                  :type="{
+                    'PENDING': 'warning',
+                    'REVIEWING': 'primary',
+                    'REVIEW_COMPLETED': 'success',
+                    'CONFIRMING': 'info',
+                    'CONFIRMED': 'success',
+                    'REGISTERED': 'success',
+                    'REJECTED': 'danger',
+                    'pending': 'warning',
+                    'reviewing': 'primary',
+                    'review_completed': 'success',
+                    'confirming': 'info',
+                    'confirmed': 'success',
+                    'registered': 'success',
+                    'rejected': 'danger'
+                  }[scope.row?.registration_status] || 'info'"
                   size="small"
                 >
-                  {{
-                    getRegistrationStatusTag(scope.row.registration_status).text
+                  {{ 
+                    {
+                      'PENDING': '待处理',
+                      'REVIEWING': '审查中',
+                      'REVIEW_COMPLETED': '审查完成',
+                      'CONFIRMING': '确认中',
+                      'CONFIRMED': '确认完成',
+                      'REGISTERED': '已登记',
+                      'REJECTED': '已驳回',
+                      'pending': '待处理',
+                      'reviewing': '审查中',
+                      'review_completed': '审查完成',
+                      'confirming': '确认中',
+                      'confirmed': '确认完成',
+                      'registered': '已登记',
+                      'rejected': '已驳回'
+                    }[scope.row?.registration_status] || '未知'
                   }}
                 </ElTag>
               </div>
@@ -548,6 +974,15 @@ onMounted(() => {
                 @click="handleRegisterClaim(scope.row)"
               >
                 登记
+              </ElButton>
+              <ElButton
+                v-if="scope.row.registration_status === 'PENDING'"
+                link
+                size="small"
+                type="primary"
+                @click="handleEditClaim(scope.row)"
+              >
+                修改
               </ElButton>
               <ElButton
                 v-if="scope.row.registration_status === 'PENDING'"
@@ -614,9 +1049,6 @@ onMounted(() => {
           <ElDescriptionsItem label="统一社会信用代码">
             {{ currentClaim.creditCode }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="法定代表人">
-            {{ currentClaim.legalRepresentative }}
-          </ElDescriptionsItem>
           <ElDescriptionsItem label="申报本金">
             {{ currentClaim.principal }}
           </ElDescriptionsItem>
@@ -647,16 +1079,6 @@ onMounted(() => {
           <ElDescriptionsItem label="是否有法院判决">
             <ElTag :type="currentClaim.hasCourtJudgment ? 'success' : 'info'">
               {{ currentClaim.hasCourtJudgment ? '是' : '否' }}
-            </ElTag>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="是否有执行">
-            <ElTag :type="currentClaim.hasExecution ? 'success' : 'info'">
-              {{ currentClaim.hasExecution ? '是' : '否' }}
-            </ElTag>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="是否有担保">
-            <ElTag :type="currentClaim.hasCollateral ? 'success' : 'info'">
-              {{ currentClaim.hasCollateral ? '是' : '否' }}
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="登记状态">
@@ -729,11 +1151,8 @@ onMounted(() => {
           <ElDescriptionsItem label="银行账户">
             {{ currentClaim.creditorBankAccount || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="银行名称">
+          <ElDescriptionsItem label="开户银行">
             {{ currentClaim.bankName || '-' }}
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="服务地址">
-            {{ currentClaim.serviceAddress || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
 
@@ -741,14 +1160,14 @@ onMounted(() => {
           <h4 class="section-title">其他信息</h4>
         </div>
         <ElDescriptions :column="1" border>
-          <ElDescriptionsItem label="备注">
-            {{ currentClaim.remarks || '-' }}
-          </ElDescriptionsItem>
           <ElDescriptionsItem label="创建时间">
             {{ currentClaim.createTime }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="更新时间">
             {{ currentClaim.updateTime }}
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="备注">
+            {{ currentClaim.remarks || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
       </div>
@@ -774,7 +1193,6 @@ onMounted(() => {
             {{ currentClaim.totalAmount }}
           </ElDescriptionsItem>
         </ElDescriptions>
-
         <ElForm label-width="120px">
           <ElFormItem label="接收人" required>
             <ElInput
@@ -810,408 +1228,6 @@ onMounted(() => {
     </ElDialog>
 
     <ElDialog
-      v-model="showAddDialog"
-      title="新增债权登记"
-      width="90%"
-      destroy-on-close
-    >
-      <div class="add-dialog-container">
-        <ElForm label-width="180px" :rules="claimFormRules">
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="案号">
-                <ElInput
-                  v-model="claimForm.caseNumber"
-                  placeholder="请输入案号"
-                  disabled
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="债务人">
-                <ElSelect
-                  v-model="claimForm.debtor"
-                  placeholder="请选择债务人"
-                  :loading="debtorListLoading"
-                  style="width: 100%"
-                >
-                  <ElOption
-                    v-for="debtor in debtorList"
-                    :key="debtor.value"
-                    :label="`${debtor.label} (${debtor.caseNumber})`"
-                    :value="debtor.label"
-                  />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="债权人姓名或名称" prop="creditorName">
-                <ElSelect
-                  v-model="claimForm.creditorName"
-                  placeholder="请选择或输入债权人姓名或名称"
-                  filterable
-                  allow-create
-                  :loading="creditorListLoading"
-                  @change="handleCreditorChange"
-                  style="width: 100%"
-                >
-                  <ElOption
-                    v-for="creditor in creditorList"
-                    :key="creditor.value"
-                    :label="creditor.label"
-                    :value="creditor.label"
-                  />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="债权人类型" prop="creditorType">
-                <ElSelect
-                  v-model="claimForm.creditorType"
-                  placeholder="请选择债权人类型"
-                  style="width: 100%"
-                >
-                  <ElOption label="金融机构" value="金融机构" />
-                  <ElOption label="企业" value="企业" />
-                  <ElOption label="个人" value="个人" />
-                  <ElOption label="其他" value="其他" />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="统一社会信用代码" prop="creditCode">
-                <ElInput
-                  v-model="claimForm.creditCode"
-                  placeholder="请输入统一社会信用代码"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="法定代表人">
-                <ElInput
-                  v-model="claimForm.legalRepresentative"
-                  placeholder="请输入法定代表人"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="送达地址">
-                <ElInput
-                  v-model="claimForm.serviceAddress"
-                  placeholder="请输入送达地址"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人姓名">
-                <ElInput
-                  v-model="claimForm.agentName"
-                  placeholder="请输入代理人姓名"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人电话" prop="agentPhone">
-                <ElInput
-                  v-model="claimForm.agentPhone"
-                  placeholder="请输入代理人电话"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人身份证号码" prop="agentIdCard">
-                <ElInput
-                  v-model="claimForm.agentIdCard"
-                  placeholder="请输入代理人身份证号码"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人联系地址">
-                <ElInput
-                  v-model="claimForm.agentAddress"
-                  placeholder="请输入代理人联系地址"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="账户名称">
-                <ElInput
-                  v-model="claimForm.accountName"
-                  placeholder="请输入账户名称"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="银行账号">
-                <ElInput
-                  v-model="claimForm.bankAccount"
-                  placeholder="请输入银行账号"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="开户银行">
-                <ElInput
-                  v-model="claimForm.bankName"
-                  placeholder="请输入开户银行"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <div class="section-divider mb-4">
-            <h4 class="section-title">债权金额信息</h4>
-          </div>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="申报本金" prop="principal">
-                <ElInput
-                  v-model="claimForm.principal"
-                  placeholder="请输入申报本金"
-                  type="number"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="申报利息" prop="interest">
-                <ElInput
-                  v-model="claimForm.interest"
-                  placeholder="请输入申报利息"
-                  type="number"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="申报违约金" prop="penalty">
-                <ElInput
-                  v-model="claimForm.penalty"
-                  placeholder="请输入申报违约金"
-                  type="number"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="申报其他损失" prop="otherLosses">
-                <ElInput
-                  v-model="claimForm.otherLosses"
-                  placeholder="请输入申报其他损失"
-                  type="number"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="申报总金额">
-                <ElInput
-                  :model-value="totalAmount"
-                  placeholder="自动计算"
-                  disabled
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <div class="section-divider mb-4">
-            <h4 class="section-title">债权其他信息</h4>
-          </div>
-
-          <ElRow :gutter="20">
-            <ElCol :span="8">
-              <ElFormItem label="是否有法院判决或仲裁裁决">
-                <ElCheckbox v-model="claimForm.hasCourtJudgment">是</ElCheckbox>
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="8">
-              <ElFormItem label="是否已申请执行">
-                <ElCheckbox v-model="claimForm.hasExecution">是</ElCheckbox>
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="8">
-              <ElFormItem label="是否有抵押物或质押物">
-                <ElCheckbox v-model="claimForm.hasCollateral">是</ElCheckbox>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="债权性质">
-                <ElSelect
-                  v-model="claimForm.claimNature"
-                  placeholder="请选择债权性质"
-                  style="width: 100%"
-                >
-                  <ElOption label="普通债权" value="普通债权" />
-                  <ElOption label="优先债权" value="优先债权" />
-                  <ElOption label="有财产担保债权" value="有财产担保债权" />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="债权种类" prop="claimType">
-                <ElSelect
-                  v-model="claimForm.claimType"
-                  placeholder="请选择债权种类"
-                  style="width: 100%"
-                >
-                  <ElOption label="借款债权" value="借款债权" />
-                  <ElOption label="货款债权" value="货款债权" />
-                  <ElOption label="工程款债权" value="工程款债权" />
-                  <ElOption label="其他债权" value="其他债权" />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElFormItem label="债权事实与理由描述">
-            <ElInput
-              v-model="claimForm.claimFacts"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入债权事实与理由描述"
-            />
-          </ElFormItem>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="债权标识">
-                <ElInput
-                  v-model="claimForm.claimIdentifier"
-                  placeholder="请输入债权标识"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElFormItem label="证据清单">
-            <ElInput
-              v-model="claimForm.evidenceList"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入证据清单"
-            />
-          </ElFormItem>
-
-          <ElFormItem label="证据材料">
-            <ElInput
-              v-model="claimForm.evidenceMaterials"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入证据材料"
-            />
-          </ElFormItem>
-
-          <div class="section-divider mb-4">
-            <h4 class="section-title">登记信息</h4>
-          </div>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="登记日期">
-                <ElInput
-                  v-model="claimForm.registrationDate"
-                  type="datetime-local"
-                  placeholder="请选择登记日期"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="登记截止日期">
-                <ElInput
-                  v-model="claimForm.registrationDeadline"
-                  type="datetime-local"
-                  placeholder="请选择登记截止日期"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="材料接收人">
-                <ElInput
-                  v-model="claimForm.materialReceiver"
-                  placeholder="请输入材料接收人"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="材料接收日期">
-                <ElInput
-                  v-model="claimForm.materialReceiveDate"
-                  type="datetime-local"
-                  placeholder="请选择材料接收日期"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="材料完整性">
-                <ElSelect
-                  v-model="claimForm.materialCompleteness"
-                  placeholder="请选择材料完整性"
-                  style="width: 100%"
-                >
-                  <ElOption label="完整" value="COMPLETE" />
-                  <ElOption label="不完整" value="INCOMPLETE" />
-                  <ElOption label="待补充" value="PENDING" />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElFormItem label="备注">
-            <ElInput
-              v-model="claimForm.remarks"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入备注"
-            />
-          </ElFormItem>
-        </ElForm>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <ElButton @click="closeAddDialog">取消</ElButton>
-          <ElButton
-            type="primary"
-            @click="handleAddClaim"
-            :loading="addLoading"
-          >
-            确定
-          </ElButton>
-        </span>
-      </template>
-    </ElDialog>
-
-    <ElDialog
       v-model="showImportDialog"
       title="Excel导入债权登记"
       width="600px"
@@ -1228,36 +1244,34 @@ onMounted(() => {
         </ElAlert>
 
         <ElUpload
-          class="upload-demo"
+          ref="uploadRef"
           :auto-upload="false"
+          :show-file-list="false"
           :on-change="handleImportFileChange"
-          :on-remove="handleImportFileRemove"
-          :limit="1"
-          accept=".xlsx,.xls"
-          :show-file-list="true"
-        >
-          <template #trigger>
-            <ElButton type="primary">
-              <Icon icon="lucide:upload" class="mr-1" />
-              选择文件
-            </ElButton>
-          </template>
-          <template #tip>
-            <div class="el-upload__tip">
-              只能上传 .xlsx 或 .xls 文件，且不超过 10MB
-            </div>
-          </template>
+          accept=".xls,.xlsx"
+          :limit="1">
+          <ElButton type="primary" icon="el-icon-upload">选择Excel文件</ElButton>
         </ElUpload>
+
+        <ElAlert 
+          v-if="selectedFile" 
+          :message="`已选择文件: ${selectedFile.name}`" 
+          type="success" 
+          :closable="false" 
+          class="mt-2" 
+        />
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <ElButton @click="showImportDialog = false">取消</ElButton>
-          <ElButton
-            type="primary"
-            @click="handleImportSubmit"
-            :loading="importLoading"
-          >
-            开始导入
+          <ElButton @click="showImportDialog = false">关闭</ElButton>
+          <ElButton 
+            type="success" 
+            icon="el-icon-magic-stick" 
+            @click="handleImportExcel"
+            :loading="importing"
+            :disabled="!selectedFile"
+            class="ml-2">
+            导入并自动填充
           </ElButton>
         </span>
       </template>
@@ -1279,6 +1293,715 @@ onMounted(() => {
       <template #footer>
         <span class="dialog-footer">
           <ElButton @click="showImportErrorDialog = false">关闭</ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 修改债权对话框 -->
+    <ElDialog
+      v-model="showEditDialog"
+      title="修改债权申报"
+      width="800px"
+      destroy-on-close
+    >
+      <div class="add-claim-dialog">
+        <ElForm label-width="120px" :model="claimForm">
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="案件编号">
+                <ElInput
+                  v-model="claimForm.caseNumber"
+                  placeholder="请输入案件编号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债务人">
+                <ElSelect
+                  v-model="claimForm.debtor"
+                  placeholder="请选择债务人"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="debtor in debtorList"
+                    :key="debtor.value"
+                    :label="debtor.label"
+                    :value="debtor.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权人姓名或名称" required>
+                <ElInput
+                  v-model="claimForm.creditorName"
+                  placeholder="请输入债权人姓名或名称"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债权人类型" required>
+                <ElSelect
+                  v-model="claimForm.creditorType"
+                  placeholder="请选择债权人类型"
+                  style="width: 100%"
+                >
+                  <ElOption label="自然人" value="自然人" />
+                  <ElOption label="法人" value="法人" />
+                  <ElOption label="其他组织" value="其他组织" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="统一社会信用代码">
+                <ElInput
+                  v-model="claimForm.creditCode"
+                  placeholder="请输入统一社会信用代码"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="法定代表人">
+                <ElInput
+                  v-model="claimForm.legalRepresentative"
+                  placeholder="请输入法定代表人"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="送达地址">
+                <ElInput
+                  v-model="claimForm.serviceAddress"
+                  placeholder="请输入送达地址"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">代理人信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="代理人姓名">
+                <ElInput
+                  v-model="claimForm.agentName"
+                  placeholder="请输入代理人姓名"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="代理人电话">
+                <ElInput
+                  v-model="claimForm.agentPhone"
+                  placeholder="请输入代理人电话"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="代理人身份证号">
+                <ElInput
+                  v-model="claimForm.agentIdCard"
+                  placeholder="请输入代理人身份证号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="代理人地址">
+                <ElInput
+                  v-model="claimForm.agentAddress"
+                  placeholder="请输入代理人地址"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">银行账户信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="账户名称">
+                <ElInput
+                  v-model="claimForm.accountName"
+                  placeholder="请输入账户名称"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="银行账号">
+                <ElInput
+                  v-model="claimForm.bankAccount"
+                  placeholder="请输入银行账号"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="开户银行">
+                <ElInput
+                  v-model="claimForm.bankName"
+                  placeholder="请输入开户银行"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">债权金额</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="6">
+              <ElFormItem label="本金">
+                <ElInput
+                  v-model="claimForm.principal"
+                  type="number"
+                  placeholder="请输入本金"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="利息">
+                <ElInput
+                  v-model="claimForm.interest"
+                  type="number"
+                  placeholder="请输入利息"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="违约金">
+                <ElInput
+                  v-model="claimForm.penalty"
+                  type="number"
+                  placeholder="请输入违约金"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="其他损失">
+                <ElInput
+                  v-model="claimForm.otherLosses"
+                  type="number"
+                  placeholder="请输入其他损失"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报总金额">
+                <ElInput
+                  :model-value="totalAmount"
+                  placeholder="自动计算"
+                  disabled
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">债权信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权性质">
+                <ElInput
+                  v-model="claimForm.claimNature"
+                  placeholder="请输入债权性质"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债权种类" required>
+                <ElSelect
+                  v-model="claimForm.claimType"
+                  placeholder="请选择债权种类"
+                  style="width: 100%"
+                >
+                  <ElOption label="普通债权" value="普通债权" />
+                  <ElOption label="担保债权" value="担保债权" />
+                  <ElOption label="优先债权" value="优先债权" />
+                  <ElOption label="其他债权" value="其他债权" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="债权事实">
+                <ElInput
+                  v-model="claimForm.claimFacts"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入债权事实"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权标识">
+                <ElInput
+                  v-model="claimForm.claimIdentifier"
+                  placeholder="请输入债权标识"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="是否有判决书">
+                <ElCheckbox v-model="claimForm.hasCourtJudgment">是</ElCheckbox>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="判决书编号">
+                <ElInput
+                  v-model="claimForm.courtJudgmentNo"
+                  placeholder="请输入判决书编号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="判决日期">
+                <ElInput
+                  v-model="claimForm.judgmentDate"
+                  type="datetime-local"
+                  placeholder="请选择判决日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="判决金额">
+                <ElInput
+                  v-model="claimForm.judgmentAmount"
+                  type="number"
+                  placeholder="请输入判决金额"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="备注">
+                <ElInput
+                  v-model="claimForm.remarks"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="请输入备注"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeEditDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleSaveEdit"
+            :loading="editLoading"
+          >
+            保存修改
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 新增债权对话框 -->
+    <ElDialog
+      v-model="showAddDialog"
+      title="新增债权申报"
+      width="800px"
+      destroy-on-close
+    >
+      <div class="add-claim-dialog">
+        <div class="excel-upload-section mb-4">
+          <ElAlert title="文件导入" type="info" :closable="false" class="mb-2">
+            <p>上传Excel文件可自动填充表单字段</p>
+          </ElAlert>
+          <div class="flex items-center gap-2">
+            <input
+              ref="uploadRef"
+              type="file"
+              accept=".xls,.xlsx"
+              @change="handleFileChange"
+              style="display: none"
+            />
+            <ElButton @click="uploadRef?.click()">
+              <Icon icon="lucide:upload" class="mr-1" />
+              选择Excel文件
+            </ElButton>
+            <ElButton
+              type="success"
+              @click="handleImportExcel"
+              :loading="importing"
+              :disabled="!selectedFile"
+            >
+              <Icon icon="lucide:magic-wand" class="mr-1" />
+              导入并自动填充
+            </ElButton>
+            <span v-if="selectedFile" class="text-sm text-gray-600">
+              已选择: {{ selectedFile.name }}
+            </span>
+          </div>
+        </div>
+
+        <ElForm label-width="120px" :model="claimForm">
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="案件编号">
+                <ElInput
+                  v-model="claimForm.caseNumber"
+                  placeholder="请输入案件编号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债务人">
+                <ElSelect
+                  v-model="claimForm.debtor"
+                  placeholder="请选择债务人"
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="debtor in debtorList"
+                    :key="debtor.value"
+                    :label="debtor.label"
+                    :value="debtor.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权人姓名或名称" required>
+                <ElInput
+                  v-model="claimForm.creditorName"
+                  placeholder="请输入债权人姓名或名称"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债权人类型" required>
+                <ElSelect
+                  v-model="claimForm.creditorType"
+                  placeholder="请选择债权人类型"
+                  style="width: 100%"
+                >
+                  <ElOption label="自然人" value="自然人" />
+                  <ElOption label="法人" value="法人" />
+                  <ElOption label="其他组织" value="其他组织" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="统一社会信用代码">
+                <ElInput
+                  v-model="claimForm.creditCode"
+                  placeholder="请输入统一社会信用代码"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="法定代表人">
+                <ElInput
+                  v-model="claimForm.legalRepresentative"
+                  placeholder="请输入法定代表人"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="送达地址">
+                <ElInput
+                  v-model="claimForm.serviceAddress"
+                  placeholder="请输入送达地址"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">代理人信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="代理人姓名">
+                <ElInput
+                  v-model="claimForm.agentName"
+                  placeholder="请输入代理人姓名"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="代理人电话">
+                <ElInput
+                  v-model="claimForm.agentPhone"
+                  placeholder="请输入代理人电话"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="代理人身份证号">
+                <ElInput
+                  v-model="claimForm.agentIdCard"
+                  placeholder="请输入代理人身份证号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="代理人地址">
+                <ElInput
+                  v-model="claimForm.agentAddress"
+                  placeholder="请输入代理人地址"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">银行账户信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="账户名称">
+                <ElInput
+                  v-model="claimForm.accountName"
+                  placeholder="请输入账户名称"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="银行账号">
+                <ElInput
+                  v-model="claimForm.bankAccount"
+                  placeholder="请输入银行账号"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="开户银行">
+                <ElInput
+                  v-model="claimForm.bankName"
+                  placeholder="请输入开户银行"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">债权金额</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="6">
+              <ElFormItem label="本金">
+                <ElInput
+                  v-model="claimForm.principal"
+                  type="number"
+                  placeholder="请输入本金"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="利息">
+                <ElInput
+                  v-model="claimForm.interest"
+                  type="number"
+                  placeholder="请输入利息"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="违约金">
+                <ElInput
+                  v-model="claimForm.penalty"
+                  type="number"
+                  placeholder="请输入违约金"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="其他损失">
+                <ElInput
+                  v-model="claimForm.otherLosses"
+                  type="number"
+                  placeholder="请输入其他损失"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="申报总金额">
+                <ElInput
+                  :model-value="totalAmount"
+                  placeholder="自动计算"
+                  disabled
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">债权信息</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权性质">
+                <ElInput
+                  v-model="claimForm.claimNature"
+                  placeholder="请输入债权性质"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="债权种类" required>
+                <ElSelect
+                  v-model="claimForm.claimType"
+                  placeholder="请选择债权种类"
+                  style="width: 100%"
+                >
+                  <ElOption label="普通债权" value="普通债权" />
+                  <ElOption label="担保债权" value="担保债权" />
+                  <ElOption label="优先债权" value="优先债权" />
+                  <ElOption label="其他债权" value="其他债权" />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="债权事实">
+                <ElInput
+                  v-model="claimForm.claimFacts"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入债权事实"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="债权标识">
+                <ElInput
+                  v-model="claimForm.claimIdentifier"
+                  placeholder="请输入债权标识"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="是否有判决书">
+                <ElCheckbox v-model="claimForm.hasCourtJudgment">是</ElCheckbox>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="判决书编号">
+                <ElInput
+                  v-model="claimForm.courtJudgmentNo"
+                  placeholder="请输入判决书编号"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="判决日期">
+                <ElInput
+                  v-model="claimForm.judgmentDate"
+                  type="datetime-local"
+                  placeholder="请选择判决日期"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
+            <ElCol :span="12">
+              <ElFormItem label="判决金额">
+                <ElInput
+                  v-model="claimForm.judgmentAmount"
+                  type="number"
+                  placeholder="请输入判决金额"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="备注">
+                <ElInput
+                  v-model="claimForm.remarks"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="请输入备注"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeAddDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleAddClaim"
+            :loading="addLoading"
+          >
+            提交
+          </ElButton>
         </span>
       </template>
     </ElDialog>
@@ -1324,12 +2047,30 @@ onMounted(() => {
 .section-divider {
   border-top: 1px solid #ebeef5;
   padding-top: 16px;
-  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.excel-upload-section {
+  background-color: #f5f7fa;
+  padding: 16px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.field-filled {
+  border-color: #67c23a !important;
+  background-color: #f0f9eb;
 }
 
 .gap-2 {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -1339,7 +2080,42 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.upload-demo {
-  margin: 20px 0;
+.excel-upload-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.field-filled {
+  animation: highlight 1s ease-in-out;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: #fff3cd;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.bg-light {
+  background-color: #f5f7fa;
+}
+
+.ml-2 {
+  margin-left: 8px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.p-4 {
+  padding: 16px;
 }
 </style>
