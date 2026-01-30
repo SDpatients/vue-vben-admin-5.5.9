@@ -10,12 +10,16 @@ import {
   ElTableColumn,
   ElTag,
   ElLoading,
+  ElDialog,
+  ElUpload,
+  ElMessage,
 } from 'element-plus';
 
 import {
   getClaimRegistrationListApi,
   receiveClaimMaterialApi,
   updateClaimRegistrationStatusApi,
+  importClaimRegistrationApi,
 } from '#/api/core/claim-registration';
 
 import { getClaimReviewsByCaseIdApi } from '#/api/core/claim-review';
@@ -35,6 +39,47 @@ const reviewCurrentPage = ref(1);
 const pageSize = ref(10);
 
 const refreshKey = ref(0);
+
+// Excel导入相关变量
+const showImportDialog = ref(false);
+const importLoading = ref(false);
+const importResult = ref<any>(null);
+const showImportErrorDialog = ref(false);
+
+// 处理Excel导入
+const handleImport = async (file: File) => {
+  importLoading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('caseId', props.caseId);
+
+    const response = await importClaimRegistrationApi(formData);
+    if (response.code === 200) {
+      ElMessage.success('Excel导入成功');
+      await fetchClaims();
+      showImportDialog.value = false;
+    } else {
+      ElMessage.error(`Excel导入失败: ${response.message || '未知错误'}`);
+    }
+  } catch (error) {
+    console.error('Excel导入失败:', error);
+    ElMessage.error('Excel导入失败');
+  } finally {
+    importLoading.value = false;
+  }
+};
+
+// 打开导入对话框
+const openImportDialog = () => {
+  showImportDialog.value = true;
+};
+
+// 关闭导入对话框
+const closeImportDialog = () => {
+  showImportDialog.value = false;
+  importResult.value = null;
+};
 
 const fetchClaims = async () => {
   loading.value = true;
@@ -207,19 +252,29 @@ watch(() => props.moduleType, () => {
     <ElCard v-if="!props.moduleType || props.moduleType === 'registration'" shadow="hover" class="mb-6">
       <template #header>
         <div class="card-header flex items-center justify-between">
-          <div class="flex items-center">
-            <Icon icon="lucide:file-text" class="text-primary mr-2" />
-            <span class="text-lg font-semibold">接收、登记债权申报</span>
+            <div class="flex items-center">
+              <Icon icon="lucide:file-text" class="text-primary mr-2" />
+              <span class="text-lg font-semibold">接收、登记债权申报</span>
+            </div>
+            <div class="flex space-x-2">
+              <ElButton 
+                type="success" 
+                @click="openImportDialog"
+                :loading="importLoading"
+              >
+                <Icon icon="lucide:file-spreadsheet" class="mr-1" />
+                新增
+              </ElButton>
+              <ElButton 
+                type="primary" 
+                @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
+                :loading="loading"
+              >
+                <Icon icon="lucide:refresh-cw" class="mr-1" />
+                刷新数据
+              </ElButton>
+            </div>
           </div>
-          <ElButton 
-            type="primary" 
-            @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
-            :loading="loading"
-          >
-            <Icon icon="lucide:refresh-cw" class="mr-1" />
-            刷新数据
-          </ElButton>
-        </div>
       </template>
 
       <div v-loading="loading" class="module-content">
@@ -298,19 +353,29 @@ watch(() => props.moduleType, () => {
     <ElCard v-if="!props.moduleType || props.moduleType === 'review'" shadow="hover">
       <template #header>
         <div class="card-header flex items-center justify-between">
-          <div class="flex items-center">
-            <Icon icon="lucide:check-square" class="text-primary mr-2" />
-            <span class="text-lg font-semibold">审查申报债权并编制债权表</span>
+            <div class="flex items-center">
+              <Icon icon="lucide:check-square" class="text-primary mr-2" />
+              <span class="text-lg font-semibold">审查申报债权并编制债权表</span>
+            </div>
+            <div class="flex space-x-2">
+              <ElButton 
+                type="success" 
+                @click="openImportDialog"
+                :loading="importLoading"
+              >
+                <Icon icon="lucide:file-spreadsheet" class="mr-1" />
+                新增
+              </ElButton>
+              <ElButton 
+                type="primary" 
+                @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
+                :loading="loading"
+              >
+                <Icon icon="lucide:refresh-cw" class="mr-1" />
+                刷新数据
+              </ElButton>
+            </div>
           </div>
-          <ElButton 
-            type="primary" 
-            @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
-            :loading="loading"
-          >
-            <Icon icon="lucide:refresh-cw" class="mr-1" />
-            刷新数据
-          </ElButton>
-        </div>
       </template>
 
       <div v-loading="loading" class="module-content">
@@ -383,6 +448,59 @@ watch(() => props.moduleType, () => {
         </div>
       </div>
     </ElCard>
+
+    <!-- Excel导入对话框 -->
+    <ElDialog
+      v-model="showImportDialog"
+      title="Excel导入债权申报"
+      width="600px"
+      destroy-on-close
+    >
+      <div class="import-dialog-container">
+        <div class="template-description mb-4">
+          <p class="mb-2 text-sm text-gray-600">
+            请上传Excel文件导入债权申报数据：
+          </p>
+          <div class="template-example rounded bg-gray-50 p-3 text-sm">
+            <p class="mb-1 font-semibold">文件格式要求：</p>
+            <p class="text-gray-700">
+              1. 支持.xlsx、.xls格式
+            </p>
+            <p class="text-gray-700">
+              2. 文件第一行为表头，包含必要字段
+            </p>
+            <p class="text-gray-700">
+              3. 请确保数据格式正确，避免导入失败
+            </p>
+          </div>
+        </div>
+
+        <div class="upload-container">
+          <ElUpload
+            class="upload-demo"
+            action=""
+            :auto-upload="false"
+            :on-change="(file) => handleImport(file.raw)"
+            :show-file-list="false"
+            accept=".xlsx,.xls"
+            :disabled="importLoading"
+          >
+            <ElButton type="primary" :loading="importLoading">
+              <Icon icon="lucide:upload" class="mr-1" />
+              选择Excel文件
+            </ElButton>
+          </ElUpload>
+          <p class="mt-2 text-xs text-gray-500">
+            请选择要导入的Excel文件，系统将自动解析并导入数据
+          </p>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="closeImportDialog">取消</ElButton>
+        </span>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -404,6 +522,37 @@ watch(() => props.moduleType, () => {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+/* Excel导入对话框样式 */
+.import-dialog-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.template-description {
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.template-example {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.template-example p {
+  margin: 4px 0;
+}
+
+.upload-container {
+  margin: 20px 0;
+}
+
+.upload-demo {
+  margin: 20px 0;
 }
 
 @media (max-width: 1200px) {

@@ -130,6 +130,155 @@ export namespace CreditorApi {
     message: string;
     data: null;
   }
+
+  /** 债权申报阶段信息 */
+  export interface ClaimRegistrationInfo {
+    id: number;
+    claimNo: string;
+    caseId: number;
+    caseName: string;
+    debtor: string;
+    creditorType: string;
+    creditCode: string;
+    legalRepresentative: string;
+    serviceAddress: string;
+    agentName: string;
+    agentPhone: string;
+    agentIdCard: string;
+    agentAddress: string;
+    accountName: string;
+    creditorBankAccount: string;
+    bankName: string;
+    principal: number;
+    interest: number;
+    penalty: number;
+    otherLosses: number;
+    totalAmount: number;
+    hasCourtJudgment: boolean;
+    hasExecution: boolean;
+    hasCollateral: boolean;
+    claimNature: string;
+    claimType: string;
+    claimFacts: string;
+    claimIdentifier: string;
+    evidenceList: string;
+    evidenceMaterials: string;
+    evidenceAttachments: string;
+    registrationDate: string;
+    registrationDeadline: string;
+    materialReceiver: string;
+    materialReceiveDate: string;
+    materialCompleteness: string;
+    registrationStatus: string;
+    remarks: string;
+    createTime: string;
+    updateTime: string;
+  }
+
+  /** 债权审查阶段信息 */
+  export interface ClaimReviewInfo {
+    id: number;
+    claimRegistrationId: number;
+    caseId: number;
+    creditorName: string;
+    reviewDate: string;
+    reviewer: string;
+    reviewRound: number;
+    reviewBasis: string;
+    declaredPrincipal: number;
+    declaredInterest: number;
+    declaredPenalty: number;
+    declaredOtherLosses: number;
+    declaredTotalAmount: number;
+    confirmedPrincipal: number;
+    confirmedInterest: number;
+    confirmedPenalty: number;
+    confirmedOtherLosses: number;
+    confirmedTotalAmount: number;
+    unconfirmedPrincipal: number;
+    unconfirmedInterest: number;
+    unconfirmedPenalty: number;
+    unconfirmedOtherLosses: number;
+    unconfirmedTotalAmount: number;
+    adjustmentReason: string;
+    unconfirmedReason: string;
+    insufficientEvidenceReason: string;
+    expiredReason: string;
+    evidenceAuthenticity: string;
+    evidenceRelevance: string;
+    evidenceLegality: string;
+    evidenceReviewNotes: string;
+    confirmedClaimNature: string;
+    isJointLiability: boolean;
+    isConditional: boolean;
+    isTerm: boolean;
+    collateralType: string;
+    collateralProperty: string;
+    collateralAmount: number;
+    collateralTerm: string;
+    collateralValidity: string;
+    reviewConclusion: string;
+    reviewSummary: string;
+    reviewReport: string;
+    reviewAttachments: string;
+    reviewStatus: string;
+    remarks: string;
+    createTime: string;
+    updateTime: string;
+  }
+
+  /** 债权确认阶段信息 */
+  export interface ClaimConfirmationInfo {
+    id: number;
+    claimRegistrationId: number;
+    caseId: number;
+    creditorName: string;
+    meetingType: string;
+    meetingDate: string;
+    meetingLocation: string;
+    voteResult: string;
+    voteNotes: string;
+    hasObjection: boolean;
+    objector: string;
+    objectionReason: string;
+    objectionAmount: number | null;
+    objectionDate: string | null;
+    negotiationResult: string;
+    negotiationDate: string;
+    negotiationParticipants: string;
+    courtRulingDate: string | null;
+    courtRulingNo: string;
+    courtRulingResult: string;
+    courtRulingAmount: number | null;
+    courtRulingNotes: string;
+    hasLawsuit: boolean;
+    lawsuitCaseNo: string;
+    lawsuitStatus: string;
+    lawsuitResult: string;
+    lawsuitAmount: number | null;
+    lawsuitNotes: string;
+    finalConfirmedAmount: number;
+    finalConfirmationDate: string;
+    finalConfirmationBasis: string;
+    confirmationAttachments: string;
+    confirmationStatus: string;
+    remarks: string;
+    createTime: string;
+    updateTime: string;
+  }
+
+  /** 债权人债权阶段详情响应 */
+  export interface CreditorClaimStagesResponse {
+    code: number;
+    message: string;
+    data: {
+      creditorId: number;
+      creditorName: string;
+      claimRegistrations: ClaimRegistrationInfo[];
+      claimReviews: ClaimReviewInfo[];
+      claimConfirmations: ClaimConfirmationInfo[];
+    };
+  }
 }
 
 /**
@@ -178,6 +327,14 @@ export async function deleteCreditorApi(creditorId: number) {
  */
 export async function batchAddCreditorsApi(data: CreditorApi.BatchAddCreditorsRequest) {
   return requestClient8085.post<CreditorApi.BatchAddCreditorsResponse>('/creditor/batch', data);
+}
+
+/**
+ * 获取债权人债权阶段详情
+ * GET /creditor/{creditorId}/claim-stages
+ */
+export async function getCreditorClaimStagesApi(creditorId: number) {
+  return requestClient8085.get<CreditorApi.CreditorClaimStagesResponse>(`/creditor/${creditorId}/claim-stages`);
 }
 
 export type { CreditorApi };
