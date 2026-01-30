@@ -6,7 +6,6 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
-  ElAlert,
   ElButton,
   ElCard,
   ElCheckbox,
@@ -19,9 +18,9 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
-  ElPopconfirm,
   ElRadioGroup,
   ElRadioButton,
   ElRow,
@@ -31,16 +30,17 @@ import {
   ElTag,
 } from 'element-plus';
 
+import { getClaimRegistrationDetailApi } from '#/api/core/claim-registration';
+
+import { useReviewForm } from './composables/useClaimForm';
+import { useClaimPagination } from './composables/useClaimPagination';
+import { ClaimService } from './services/claimService';
 import {
-  createClaimReviewApi,
-  getClaimReviewDetailApi,
-  getClaimReviewsByCaseIdApi,
-  submitClaimReviewApi,
-  updateClaimReviewApi,
-} from '#/api/core/claim-review';
-import {
-  getClaimRegistrationDetailApi,
-} from '#/api/core/claim-registration';
+  getRegistrationStatusTag,
+  getReviewConclusionTag,
+  getReviewStatusTag,
+} from './utils/claimStatusMapper';
+import { reviewFormRules } from './utils/claimFormRules';
 
 const props = defineProps<{
   caseId: string;
@@ -52,9 +52,6 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const claims = ref<any[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(10);
 
 const showDetailDialog = ref(false);
 const showReviewDialog = ref(false);
@@ -62,201 +59,67 @@ const reviewLoading = ref(false);
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null);
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
 
-const reviewForm = reactive({
-  reviewDate: '',
-  reviewer: '',
-  reviewRound: 1,
-  reviewBasis: '',
-  declaredPrincipal: 0,
-  declaredInterest: 0,
-  declaredPenalty: 0,
-  declaredOtherLosses: 0,
-  declaredTotalAmount: 0,
-  confirmedPrincipal: 0,
-  confirmedInterest: 0,
-  confirmedPenalty: 0,
-  confirmedOtherLosses: 0,
-  confirmedTotalAmount: 0,
-  unconfirmedPrincipal: 0,
-  unconfirmedInterest: 0,
-  unconfirmedPenalty: 0,
-  unconfirmedOtherLosses: 0,
-  unconfirmedTotalAmount: 0,
-  adjustmentReason: '',
-  unconfirmedReason: '',
-  insufficientEvidenceReason: '',
-  expiredReason: '',
-  evidenceAuthenticity: 'AUTHENTIC' as ClaimReviewApi.EvidenceAuthenticity,
-  evidenceRelevance: 'RELEVANT' as ClaimReviewApi.EvidenceRelevance,
-  evidenceLegality: 'LEGAL' as ClaimReviewApi.EvidenceLegality,
-  evidenceReviewNotes: '',
-  confirmedClaimNature: '',
-  isJointLiability: false,
-  isConditional: false,
-  isTerm: false,
-  collateralType: '',
-  collateralProperty: '',
-  collateralAmount: 0,
-  collateralTerm: '',
-  collateralValidity: 'VALID' as ClaimReviewApi.CollateralValidity,
-  reviewConclusion: 'CONFIRMED' as ClaimReviewApi.ReviewConclusion,
-  reviewSummary: '',
-  reviewReport: '',
-  reviewAttachments: '',
-  reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
-  remarks: '',
-});
-
-const declaredTotalAmount = computed(() => {
-  const principal = Number(reviewForm.declaredPrincipal) || 0;
-  const interest = Number(reviewForm.declaredInterest) || 0;
-  const penalty = Number(reviewForm.declaredPenalty) || 0;
-  const otherLosses = Number(reviewForm.declaredOtherLosses) || 0;
-  return (principal + interest + penalty + otherLosses).toFixed(2);
-});
-
-const confirmedTotalAmount = computed(() => {
-  const principal = Number(reviewForm.confirmedPrincipal) || 0;
-  const interest = Number(reviewForm.confirmedInterest) || 0;
-  const penalty = Number(reviewForm.confirmedPenalty) || 0;
-  const otherLosses = Number(reviewForm.confirmedOtherLosses) || 0;
-  return (principal + interest + penalty + otherLosses).toFixed(2);
-});
-
-const unconfirmedTotalAmount = computed(() => {
-  const principal = Number(reviewForm.unconfirmedPrincipal) || 0;
-  const interest = Number(reviewForm.unconfirmedInterest) || 0;
-  const penalty = Number(reviewForm.unconfirmedPenalty) || 0;
-  const otherLosses = Number(reviewForm.unconfirmedOtherLosses) || 0;
-  return (principal + interest + penalty + otherLosses).toFixed(2);
-});
+const { reviewForm, declaredTotalAmount, confirmedTotalAmount, unconfirmedTotalAmount, resetReviewForm } = useReviewForm();
+const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } = useClaimPagination();
 
 const fetchClaims = async () => {
-  console.log('开始获取债权审查列表，参数:', {
-    caseId: Number(props.caseId),
-    pageNum: currentPage.value,
-    pageSize: pageSize.value,
-  });
   loading.value = true;
-  try {
-    const response = await getClaimReviewsByCaseIdApi(Number(props.caseId), {
-      pageNum: currentPage.value,
-      pageSize: pageSize.value,
-    });
-    console.log('获取债权审查列表响应:', response);
-    if (response.code === 200 && response.data) {
-        const formattedList = (response.data.list || []).map((item: any) => ({
-          ...item,
-          creditor_name: item.creditorName,
-          creditor_type: item.creditorType || item.creditor_type || '-',
-          credit_code: item.creditCode || item.credit_code || '-',
-          principal: item.declaredPrincipal,
-          interest: item.declaredInterest,
-          total_amount: item.declaredTotalAmount,
-          claim_nature: item.confirmedClaimNature || item.claimNature || '-',
-          claim_type: item.claimType || item.claim_type || '-',
-          registration_status: 'REGISTERED',
-          reviewInfo: {
-            ...item,
-            review_status: item.reviewStatus,
-            review_conclusion: item.reviewConclusion,
-          },
-        }));
-        claims.value = formattedList;
-        total.value = response.data.total || 0;
-        console.log(
-          '更新债权审查列表，数量:',
-          claims.value.length,
-          '总数量:',
-          total.value,
-        );
-      } else {
-      ElMessage.error(`获取债权审查列表失败：${response.message || '未知错误'}`);
-      claims.value = [];
-      total.value = 0;
-    }
-  } catch (error) {
-    console.error('获取债权审查列表失败:', error);
-    ElMessage.error('获取债权审查列表失败');
+  const result = await ClaimService.fetchClaimReviews(
+    Number(props.caseId),
+    currentPage.value,
+    pageSize.value,
+  );
+  if (result.success) {
+    claims.value = result.data;
+    total.value = result.total;
+  } else {
     claims.value = [];
     total.value = 0;
-  } finally {
-    loading.value = false;
   }
-};
-
-const handlePageChange = (page: number) => {
-  currentPage.value = page;
-  fetchClaims();
-};
-
-const handlePageSizeChange = (size: number) => {
-  pageSize.value = size;
-  currentPage.value = 1;
-  fetchClaims();
+  loading.value = false;
 };
 
 const openDetailDialog = async (row: any) => {
-  console.log('[ClaimRegistrationStageTwo] 打开详情对话框，行数据:', row);
-  try {
-    const response = await getClaimReviewDetailApi(row.id);
-    console.log('[ClaimRegistrationStageTwo] 获取审查详情响应:', response);
-    if (response.code === 200 && response.data) {
-      console.log('[ClaimRegistrationStageTwo] 设置 currentClaim:', response.data);
-      currentClaim.value = response.data;
-      showDetailDialog.value = true;
-    } else {
-      console.error('[ClaimRegistrationStageTwo] 获取审查详情失败:', response.message);
-      ElMessage.error('获取审查详情失败');
-    }
-  } catch (error) {
-    console.error('[ClaimRegistrationStageTwo] 获取审查详情失败:', error);
-    ElMessage.error('获取审查详情失败');
+  const result = await ClaimService.getReviewDetail(row.id);
+  if (result.success) {
+    currentClaim.value = result.data;
+    showDetailDialog.value = true;
   }
 };
 
 const openReviewDialog = async (row: any) => {
-  try {
-    let response;
-    if (row.reviewInfo) {
-      response = await getClaimReviewDetailApi(row.reviewInfo.id);
-      console.log('获取审查详情响应:', response);
-    } else {
-      response = await getClaimRegistrationDetailApi(row.id);
-      console.log('获取债权详情响应:', response);
+  let response;
+  if (row.reviewInfo) {
+    const result = await ClaimService.getReviewDetail(row.reviewInfo.id);
+    if (result.success) {
+      response = result.data;
+      currentClaim.value = row;
+      Object.assign(reviewForm, result.data);
     }
-    
-    if (response.code === 200 && response.data) {
-      if (row.reviewInfo) {
-        currentClaim.value = response.data;
-        Object.assign(reviewForm, response.data);
-        console.log('使用现有审查信息填充表单');
-      } else {
-        currentClaim.value = response.data;
-        
-        reviewForm.declaredPrincipal = response.data.principal || 0;
-        reviewForm.declaredInterest = response.data.interest || 0;
-        reviewForm.declaredPenalty = response.data.penalty || 0;
-        reviewForm.declaredOtherLosses = response.data.otherLosses || 0;
-        reviewForm.declaredTotalAmount = response.data.totalAmount || 0;
-        
-        if (!response.data.reviewInfo || response.data.reviewInfo.confirmedPrincipal === null) {
-          reviewForm.confirmedPrincipal = response.data.principal || 0;
-          reviewForm.confirmedInterest = response.data.interest || 0;
-          reviewForm.confirmedPenalty = response.data.penalty || 0;
-          reviewForm.confirmedOtherLosses = response.data.otherLosses || 0;
-          reviewForm.confirmedTotalAmount = response.data.totalAmount || 0;
-          console.log('使用申报信息初始化确认金额');
-        }
+  } else {
+    const result = await ClaimService.getClaimDetail(row.id);
+    if (result.success) {
+      response = result.data;
+      currentClaim.value = result.data;
+
+      reviewForm.declaredPrincipal = result.data.principal || 0;
+      reviewForm.declaredInterest = result.data.interest || 0;
+      reviewForm.declaredPenalty = result.data.penalty || 0;
+      reviewForm.declaredOtherLosses = result.data.otherLosses || 0;
+      reviewForm.declaredTotalAmount = result.data.totalAmount || 0;
+
+      if (!result.data.reviewInfo || result.data.reviewInfo.confirmedPrincipal === null) {
+        reviewForm.confirmedPrincipal = result.data.principal || 0;
+        reviewForm.confirmedInterest = result.data.interest || 0;
+        reviewForm.confirmedPenalty = result.data.penalty || 0;
+        reviewForm.confirmedOtherLosses = result.data.otherLosses || 0;
+        reviewForm.confirmedTotalAmount = result.data.totalAmount || 0;
       }
-      
-      showReviewDialog.value = true;
-    } else {
-      ElMessage.error('获取债权详情失败');
     }
-  } catch (error) {
-    console.error('获取债权详情失败:', error);
-    ElMessage.error('获取债权详情失败');
+  }
+
+  if (response) {
+    showReviewDialog.value = true;
   }
 };
 
@@ -264,53 +127,6 @@ const closeReviewDialog = () => {
   showReviewDialog.value = false;
   resetReviewForm();
   currentClaim.value = null;
-};
-
-const resetReviewForm = () => {
-  Object.assign(reviewForm, {
-    reviewDate: '',
-    reviewer: '',
-    reviewRound: 1,
-    reviewBasis: '',
-    declaredPrincipal: 0,
-    declaredInterest: 0,
-    declaredPenalty: 0,
-    declaredOtherLosses: 0,
-    declaredTotalAmount: 0,
-    confirmedPrincipal: 0,
-    confirmedInterest: 0,
-    confirmedPenalty: 0,
-    confirmedOtherLosses: 0,
-    confirmedTotalAmount: 0,
-    unconfirmedPrincipal: 0,
-    unconfirmedInterest: 0,
-    unconfirmedPenalty: 0,
-    unconfirmedOtherLosses: 0,
-    unconfirmedTotalAmount: 0,
-    adjustmentReason: '',
-    unconfirmedReason: '',
-    insufficientEvidenceReason: '',
-    expiredReason: '',
-    evidenceAuthenticity: 'AUTHENTIC' as ClaimReviewApi.EvidenceAuthenticity,
-    evidenceRelevance: 'RELEVANT' as ClaimReviewApi.EvidenceRelevance,
-    evidenceLegality: 'LEGAL' as ClaimReviewApi.EvidenceLegality,
-    evidenceReviewNotes: '',
-    confirmedClaimNature: '',
-    isJointLiability: false,
-    isConditional: false,
-    isTerm: false,
-    collateralType: '',
-    collateralProperty: '',
-    collateralAmount: 0,
-    collateralTerm: '',
-    collateralValidity: 'VALID' as ClaimReviewApi.CollateralValidity,
-    reviewConclusion: 'CONFIRMED' as ClaimReviewApi.ReviewConclusion,
-    reviewSummary: '',
-    reviewReport: '',
-    reviewAttachments: '',
-    reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
-    remarks: '',
-  });
 };
 
 const handleSaveReview = async () => {
@@ -322,179 +138,130 @@ const handleSaveReview = async () => {
   }
 
   reviewLoading.value = true;
-  try {
-    const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
-      claimRegistrationId: currentClaim.value.id,
-      caseId: currentClaim.value.caseId,
-      creditorName: currentClaim.value.creditorName,
-      reviewDate: reviewForm.reviewDate || null,
-      reviewer: reviewForm.reviewer || null,
-      reviewRound: Number(reviewForm.reviewRound) || 1,
-      reviewBasis: reviewForm.reviewBasis || null,
-      declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
-      declaredInterest: Number(reviewForm.declaredInterest) || 0,
-      declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
-      declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
-      declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
-      confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
-      confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
-      confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
-      confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
-      confirmedTotalAmount: Number(confirmedTotalAmount.value) || 0,
-      unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
-      unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
-      unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
-      unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
-      unconfirmedTotalAmount: Number(unconfirmedTotalAmount.value) || 0,
-      adjustmentReason: reviewForm.adjustmentReason || null,
-      unconfirmedReason: reviewForm.unconfirmedReason || null,
-      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
-      expiredReason: reviewForm.expiredReason || null,
-      evidenceAuthenticity: reviewForm.evidenceAuthenticity,
-      evidenceRelevance: reviewForm.evidenceRelevance || null,
-      evidenceLegality: reviewForm.evidenceLegality || null,
-      evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
-      confirmedClaimNature: reviewForm.confirmedClaimNature || null,
-      isJointLiability: reviewForm.isJointLiability ? 1 : 0,
-      isConditional: reviewForm.isConditional ? 1 : 0,
-      isTerm: reviewForm.isTerm ? 1 : 0,
-      collateralType: reviewForm.collateralType || null,
-      collateralProperty: reviewForm.collateralProperty || null,
-      collateralAmount: Number(reviewForm.collateralAmount) || null,
-      collateralTerm: reviewForm.collateralTerm || null,
-      collateralValidity: reviewForm.collateralValidity,
-      reviewConclusion: reviewForm.reviewConclusion,
-      reviewSummary: reviewForm.reviewSummary || null,
-      reviewReport: reviewForm.reviewReport || null,
-      reviewAttachments: reviewForm.reviewAttachments || null,
-      reviewStatus: reviewForm.reviewStatus,
-      remarks: reviewForm.remarks || null,
-    };
+  const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+    claimRegistrationId: currentClaim.value.id,
+    caseId: currentClaim.value.caseId,
+    creditorName: currentClaim.value.creditorName,
+    reviewDate: reviewForm.reviewDate || null,
+    reviewer: reviewForm.reviewer || null,
+    reviewRound: Number(reviewForm.reviewRound) || 1,
+    reviewBasis: reviewForm.reviewBasis || null,
+    declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
+    declaredInterest: Number(reviewForm.declaredInterest) || 0,
+    declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
+    declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
+    declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
+    confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
+    confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
+    confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
+    confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
+    confirmedTotalAmount: Number(confirmedTotalAmount.value) || 0,
+    unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
+    unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
+    unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
+    unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
+    unconfirmedTotalAmount: Number(unconfirmedTotalAmount.value) || 0,
+    adjustmentReason: reviewForm.adjustmentReason || null,
+    unconfirmedReason: reviewForm.unconfirmedReason || null,
+    insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
+    expiredReason: reviewForm.expiredReason || null,
+    evidenceAuthenticity: reviewForm.evidenceAuthenticity,
+    evidenceRelevance: reviewForm.evidenceRelevance || null,
+    evidenceLegality: reviewForm.evidenceLegality || null,
+    evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
+    confirmedClaimNature: reviewForm.confirmedClaimNature || null,
+    isJointLiability: reviewForm.isJointLiability ? 1 : 0,
+    isConditional: reviewForm.isConditional ? 1 : 0,
+    isTerm: reviewForm.isTerm ? 1 : 0,
+    collateralType: reviewForm.collateralType || null,
+    collateralProperty: reviewForm.collateralProperty || null,
+    collateralAmount: Number(reviewForm.collateralAmount) || null,
+    collateralTerm: reviewForm.collateralTerm || null,
+    collateralValidity: reviewForm.collateralValidity,
+    reviewConclusion: reviewForm.reviewConclusion,
+    reviewSummary: reviewForm.reviewSummary || null,
+    reviewReport: reviewForm.reviewReport || null,
+    reviewAttachments: reviewForm.reviewAttachments || null,
+    reviewStatus: reviewForm.reviewStatus,
+    remarks: reviewForm.remarks || null,
+  };
 
-    const response = await createClaimReviewApi(requestData);
-    if (response.code === 200) {
-      ElMessage.success('保存审查记录成功');
-      await fetchClaims();
-      closeReviewDialog();
-    } else {
-      ElMessage.error(`保存失败：${response.message || '未知错误'}`);
-    }
-  } catch (error) {
-    console.error('保存审查记录失败:', error);
-    ElMessage.error('保存审查记录失败');
-  } finally {
-    reviewLoading.value = false;
+  const result = await ClaimService.createReview(requestData);
+  if (result.success) {
+    await fetchClaims();
+    closeReviewDialog();
   }
+  reviewLoading.value = false;
 };
 
 const handleSubmitReview = async () => {
   if (!currentClaim.value || !currentClaim.value.reviewInfo) return;
 
   reviewLoading.value = true;
-  try {
-    const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
-      claimRegistrationId: currentClaim.value.id,
-      caseId: currentClaim.value.caseId,
-      creditorName: currentClaim.value.creditorName,
-      reviewDate: reviewForm.reviewDate || null,
-      reviewer: reviewForm.reviewer || null,
-      reviewRound: Number(reviewForm.reviewRound) || 1,
-      reviewBasis: reviewForm.reviewBasis || null,
-      declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
-      declaredInterest: Number(reviewForm.declaredInterest) || 0,
-      declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
-      declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
-      declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
-      confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
-      confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
-      confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
-      confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
-      confirmedTotalAmount: Number(confirmedTotalAmount.value) || 0,
-      unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
-      unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
-      unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
-      unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
-      unconfirmedTotalAmount: Number(unconfirmedTotalAmount.value) || 0,
-      adjustmentReason: reviewForm.adjustmentReason || null,
-      unconfirmedReason: reviewForm.unconfirmedReason || null,
-      insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
-      expiredReason: reviewForm.expiredReason || null,
-      evidenceAuthenticity: reviewForm.evidenceAuthenticity,
-      evidenceRelevance: reviewForm.evidenceRelevance || null,
-      evidenceLegality: reviewForm.evidenceLegality || null,
-      evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
-      confirmedClaimNature: reviewForm.confirmedClaimNature || null,
-      isJointLiability: reviewForm.isJointLiability ? 1 : 0,
-      isConditional: reviewForm.isConditional ? 1 : 0,
-      isTerm: reviewForm.isTerm ? 1 : 0,
-      collateralType: reviewForm.collateralType || null,
-      collateralProperty: reviewForm.collateralProperty || null,
-      collateralAmount: Number(reviewForm.collateralAmount) || null,
-      collateralTerm: reviewForm.collateralTerm || null,
-      collateralValidity: reviewForm.collateralValidity,
-      reviewConclusion: reviewForm.reviewConclusion,
-      reviewSummary: reviewForm.reviewSummary || null,
-      reviewReport: reviewForm.reviewReport || null,
-      reviewAttachments: reviewForm.reviewAttachments || null,
-      reviewStatus: 'COMPLETED',
-      remarks: reviewForm.remarks || null,
-    };
+  const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+    claimRegistrationId: currentClaim.value.id,
+    caseId: currentClaim.value.caseId,
+    creditorName: currentClaim.value.creditorName,
+    reviewDate: reviewForm.reviewDate || null,
+    reviewer: reviewForm.reviewer || null,
+    reviewRound: Number(reviewForm.reviewRound) || 1,
+    reviewBasis: reviewForm.reviewBasis || null,
+    declaredPrincipal: Number(reviewForm.declaredPrincipal) || 0,
+    declaredInterest: Number(reviewForm.declaredInterest) || 0,
+    declaredPenalty: Number(reviewForm.declaredPenalty) || 0,
+    declaredOtherLosses: Number(reviewForm.declaredOtherLosses) || 0,
+    declaredTotalAmount: Number(reviewForm.declaredTotalAmount) || 0,
+    confirmedPrincipal: Number(reviewForm.confirmedPrincipal) || 0,
+    confirmedInterest: Number(reviewForm.confirmedInterest) || 0,
+    confirmedPenalty: Number(reviewForm.confirmedPenalty) || 0,
+    confirmedOtherLosses: Number(reviewForm.confirmedOtherLosses) || 0,
+    confirmedTotalAmount: Number(confirmedTotalAmount.value) || 0,
+    unconfirmedPrincipal: Number(reviewForm.unconfirmedPrincipal) || 0,
+    unconfirmedInterest: Number(reviewForm.unconfirmedInterest) || 0,
+    unconfirmedPenalty: Number(reviewForm.unconfirmedPenalty) || 0,
+    unconfirmedOtherLosses: Number(reviewForm.unconfirmedOtherLosses) || 0,
+    unconfirmedTotalAmount: Number(unconfirmedTotalAmount.value) || 0,
+    adjustmentReason: reviewForm.adjustmentReason || null,
+    unconfirmedReason: reviewForm.unconfirmedReason || null,
+    insufficientEvidenceReason: reviewForm.insufficientEvidenceReason || null,
+    expiredReason: reviewForm.expiredReason || null,
+    evidenceAuthenticity: reviewForm.evidenceAuthenticity,
+    evidenceRelevance: reviewForm.evidenceRelevance || null,
+    evidenceLegality: reviewForm.evidenceLegality || null,
+    evidenceReviewNotes: reviewForm.evidenceReviewNotes || null,
+    confirmedClaimNature: reviewForm.confirmedClaimNature || null,
+    isJointLiability: reviewForm.isJointLiability ? 1 : 0,
+    isConditional: reviewForm.isConditional ? 1 : 0,
+    isTerm: reviewForm.isTerm ? 1 : 0,
+    collateralType: reviewForm.collateralType || null,
+    collateralProperty: reviewForm.collateralProperty || null,
+    collateralAmount: Number(reviewForm.collateralAmount) || null,
+    collateralTerm: reviewForm.collateralTerm || null,
+    collateralValidity: reviewForm.collateralValidity,
+    reviewConclusion: reviewForm.reviewConclusion,
+    reviewSummary: reviewForm.reviewSummary || null,
+    reviewReport: reviewForm.reviewReport || null,
+    reviewAttachments: reviewForm.reviewAttachments || null,
+    reviewStatus: 'COMPLETED',
+    remarks: reviewForm.remarks || null,
+  };
 
-    const updateResponse = await updateClaimReviewApi(
+  const updateResult = await ClaimService.updateReview(
+    currentClaim.value.reviewInfo.id,
+    requestData
+  );
+  
+  if (updateResult.success) {
+    const submitResult = await ClaimService.submitReview(
       currentClaim.value.reviewInfo.id,
       requestData
     );
-    
-    if (updateResponse.code !== 200) {
-      throw new Error(updateResponse.message || '更新审查记录失败');
-    }
-
-    const submitResponse = await submitClaimReviewApi(
-      currentClaim.value.reviewInfo.id,
-      requestData
-    );
-    
-    if (submitResponse.code === 200) {
-      ElMessage.success('提交审查成功');
+    if (submitResult.success) {
       await fetchClaims();
       closeReviewDialog();
-    } else {
-      ElMessage.error(`提交失败：${submitResponse.message || '未知错误'}`);
     }
-  } catch (error) {
-    console.error('提交审查失败:', error);
-    ElMessage.error(error.message || '提交审查失败');
-  } finally {
-    reviewLoading.value = false;
   }
-};
-
-const getRegistrationStatusTag = (status: string) => {
-  const statusMap: Record<string, any> = {
-    PENDING: { type: 'warning', text: '待登记' },
-    REGISTERED: { type: 'success', text: '已登记' },
-    REJECTED: { type: 'danger', text: '已驳回' },
-  };
-  return statusMap[status] || { type: 'info', text: status };
-};
-
-const getReviewStatusTag = (status: string) => {
-  const statusMap: Record<string, any> = {
-    PENDING: { type: 'warning', text: '待审查' },
-    IN_PROGRESS: { type: 'primary', text: '审查中' },
-    COMPLETED: { type: 'success', text: '审查通过' },
-    SUPPLEMENT: { type: 'danger', text: '待补充' },
-  };
-  return statusMap[status] || { type: 'info', text: status };
-};
-
-const getReviewConclusionTag = (conclusion: string) => {
-  const conclusionMap: Record<string, any> = {
-    CONFIRMED: { type: 'success', text: '确认' },
-    PARTIAL_CONFIRMED: { type: 'warning', text: '部分确认' },
-    UNCONFIRMED: { type: 'danger', text: '不予确认' },
-  };
-  return conclusionMap[conclusion] || { type: 'info', text: conclusion };
+  reviewLoading.value = false;
 };
 
 const handleRejectReview = async (row: any) => {
@@ -504,25 +271,23 @@ const handleRejectReview = async (row: any) => {
     type: 'warning',
   })
     .then(async () => {
-      try {
-        const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
-          claimRegistrationId: row.id,
-          caseId: row.caseId,
-          creditorName: row.creditorName,
-          reviewConclusion: 'UNCONFIRMED' as ClaimReviewApi.ReviewConclusion,
-          reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
-        };
+      const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+        claimRegistrationId: row.id,
+        caseId: row.caseId,
+        creditorName: row.creditorName,
+        reviewConclusion: 'UNCONFIRMED' as ClaimReviewApi.ReviewConclusion,
+        reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
+      };
 
-        const response = await createClaimReviewApi(requestData);
-        if (response.code === 200) {
-          ElMessage.success('债权审查驳回成功');
-          await fetchClaims();
-        } else {
-          ElMessage.error(`驳回失败：${response.message || '未知错误'}`);
-        }
-      } catch (error) {
-        console.error('驳回债权审查失败:', error);
-        ElMessage.error('驳回债权审查失败');
+      let result;
+      if (row.reviewInfo) {
+        result = await ClaimService.updateReview(row.reviewInfo.id, requestData);
+      } else {
+        result = await ClaimService.createReview(requestData);
+      }
+
+      if (result.success) {
+        await fetchClaims();
       }
     })
     .catch(() => {
@@ -530,8 +295,30 @@ const handleRejectReview = async (row: any) => {
     });
 };
 
+const handleStartConfirmation = async (row: any) => {
+  if (!row.reviewInfo) return;
+
+  ElMessageBox.confirm('确定要开始债权确认流程吗？', '开始确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'info',
+  })
+    .then(async () => {
+      const result = await ClaimService.updateReview(row.reviewInfo.id, {
+        reviewStatus: 'CONFIRMING' as ClaimReviewApi.ReviewStatus,
+      });
+      if (result.success) {
+        ElMessage.success('已开始债权确认流程');
+        await fetchClaims();
+        emit('switch-tab', 'stage3');
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消操作');
+    });
+};
+
 onMounted(() => {
-  console.log('债权审查页面已挂载，props.caseId:', props.caseId);
   fetchClaims();
 });
 </script>
@@ -602,7 +389,7 @@ onMounted(() => {
           <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
           <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
           <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="350" fixed="right">
+          <ElTableColumn label="操作" width="400" fixed="right">
             <template #default="scope">
               <ElButton
                 link
@@ -614,7 +401,8 @@ onMounted(() => {
               <ElButton
                 v-if="
                   !scope.row.reviewInfo ||
-                  scope.row.reviewInfo.reviewStatus === 'PENDING'
+                  scope.row.reviewInfo.reviewStatus === 'PENDING' ||
+                  scope.row.reviewInfo.reviewStatus === 'IN_PROGRESS'
                 "
                 link
                 size="small"
@@ -625,7 +413,8 @@ onMounted(() => {
               <ElButton
                 v-if="
                   !scope.row.reviewInfo ||
-                  scope.row.reviewInfo.reviewStatus === 'PENDING'
+                  scope.row.reviewInfo.reviewStatus === 'PENDING' ||
+                  scope.row.reviewInfo.reviewStatus === 'IN_PROGRESS'
                 "
                 link
                 size="small"
@@ -633,6 +422,18 @@ onMounted(() => {
                 @click="handleRejectReview(scope.row)"
               >
                 驳回
+              </ElButton>
+              <ElButton
+                v-if="
+                  scope.row.reviewInfo &&
+                  scope.row.reviewInfo.reviewStatus === 'COMPLETED'
+                "
+                link
+                size="small"
+                type="primary"
+                @click="handleStartConfirmation(scope.row)"
+              >
+                开始确认
               </ElButton>
             </template>
           </ElTableColumn>
@@ -847,10 +648,10 @@ onMounted(() => {
 
         <div class="review-form-section">
           <h4 class="section-title mb-2">审查信息</h4>
-          <ElForm label-width="150px">
+          <ElForm label-width="150px" :rules="reviewFormRules">
             <ElRow :gutter="20">
               <ElCol :span="12">
-                <ElFormItem label="审查日期">
+                <ElFormItem label="审查日期" prop="reviewDate">
                   <ElInput
                     v-model="reviewForm.reviewDate"
                     type="datetime-local"
@@ -859,7 +660,7 @@ onMounted(() => {
                 </ElFormItem>
               </ElCol>
               <ElCol :span="12">
-                <ElFormItem label="审查人">
+                <ElFormItem label="审查人" prop="reviewer">
                   <ElInput
                     v-model="reviewForm.reviewer"
                     placeholder="请输入审查人"
@@ -1245,7 +1046,7 @@ onMounted(() => {
 
             <ElRow :gutter="20">
               <ElCol :span="12">
-                <ElFormItem label="审查结论" required>
+                <ElFormItem label="审查结论" prop="reviewConclusion">
                   <ElSelect
                     v-model="reviewForm.reviewConclusion"
                     placeholder="请选择审查结论"

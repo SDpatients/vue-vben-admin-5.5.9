@@ -27,8 +27,15 @@ import {
   updateDocumentStatusRemarkApi,
 } from '#/api/core/document-service';
 
+import {
+  downloadFileApi,
+  previewFileApi,
+  downloadFileByPathApi,
+  previewFileByPathApi,
+} from '#/api/core/file';
+
 interface DocumentAttachment {
-  id: number;
+  id: number | null;
   originalFileName: string;
   storedFileName: string;
   filePath: string;
@@ -87,13 +94,15 @@ const formatFileSize = (size: number): string => {
 };
 
 // 判断文件是否可预览
-const canPreview = (fileExtension: string): boolean => {
+const canPreview = (fileExtension: string | null | undefined): boolean => {
+  if (!fileExtension) return false;
   const previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'txt'];
   return previewableTypes.includes(fileExtension.toLowerCase());
 };
 
 // 判断文件是否为图片
-const isImageFile = (fileExtension: string): boolean => {
+const isImageFile = (fileExtension: string | null | undefined): boolean => {
+  if (!fileExtension) return false;
   const imageTypes = ['jpg', 'jpeg', 'png'];
   return imageTypes.includes(fileExtension.toLowerCase());
 };
@@ -117,30 +126,23 @@ const formatDateTime = (dateString: string | undefined): string => {
 // 预览文件
 const previewFile = async (file: DocumentAttachment) => {
   previewingFile.value = file;
-  const token = localStorage.getItem('token');
 
   if (file.fileType === 'txt') {
     previewTextContent.value = `这是 ${file.fileName} 的预览内容。\n\n实际应用中，这里会显示文本文件的真实内容。`;
   } else if (['jpeg', 'jpg', 'pdf', 'png'].includes(file.fileType)) {
     try {
-      const response = await fetch(
-        `${window.location.origin}/api/v1/file/download/${file.id}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        ElMessage.error(errorData.message || '预览失败');
+      if (file.id) {
+        // 使用fileId预览
+        const blob = await downloadFileApi(file.id);
+        file.previewUrl = window.URL.createObjectURL(blob);
+      } else if (file.filePath) {
+        // 使用filePath预览
+        const blob = await downloadFileByPathApi(file.filePath, file.fileName);
+        file.previewUrl = window.URL.createObjectURL(blob);
+      } else {
+        ElMessage.error('文件信息不完整，无法预览');
         return;
       }
-
-      const blob = await response.blob();
-      file.previewUrl = window.URL.createObjectURL(blob);
     } catch (error) {
       console.error('预览失败:', error);
       ElMessage.error('预览失败，请重试');
@@ -153,50 +155,22 @@ const previewFile = async (file: DocumentAttachment) => {
 
 // 下载文件
 const downloadFile = async (file: DocumentAttachment) => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    ElMessage.error('未找到登录信息，请先登录');
-    return;
-  }
-
   try {
-    const response = await fetch(
-      `${window.location.origin}/api/v1/file/download/${file.id}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
+    let blob: Blob;
+    let fileName = file.originalFileName;
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      ElMessage.error(errorData.message || '下载失败');
+    if (file.id) {
+      // 使用fileId下载
+      blob = await downloadFileApi(file.id);
+    } else if (file.filePath) {
+      // 使用filePath下载
+      blob = await downloadFileByPathApi(file.filePath, file.fileName);
+    } else {
+      ElMessage.error('文件信息不完整，无法下载');
       return;
     }
 
-    // 优先使用文件对象中的原始文件名，避免依赖响应头
-    let fileName = file.originalFileName;
-
-    // 如果原始文件名不存在，尝试从响应头获取
-    if (!fileName) {
-      const contentDisposition = response.headers.get('Content-Disposition');
-      if (contentDisposition) {
-        const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
-        if (fileNameMatch && fileNameMatch[1]) {
-          fileName = decodeURIComponent(fileNameMatch[1]);
-        } else {
-          // 如果都获取不到，使用默认文件名
-          fileName = `file_${file.id}`;
-        }
-      } else {
-        fileName = `file_${file.id}`;
-      }
-    }
-
     // 处理文件下载
-    const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -429,9 +403,54 @@ const handleViewDetail = async (row: DocumentApproval) => {
     const response = await getDocumentAttachmentsApi(row.id);
     if (response.data) {
       const token = localStorage.getItem('token');
-      // 转换附件数据格式并添加计算属性
-      currentDocument.value.attachments = await Promise.all(
-        response.data.map(async (attach: any) => {
+      const attachments: DocumentAttachment[] = [];
+      
+      // 处理每个附件记录
+      for (const attach of response.data) {
+        // 检查filePath是否包含多个文件路径
+        if (attach.filePath && attach.filePath.includes(';')) {
+          // 分割多个文件路径
+          const filePaths = attach.filePath.split(';').filter((path: string) => path.trim());
+          
+          // 为每个文件路径创建附件对象
+          for (const filePath of filePaths) {
+            // 从文件路径中提取文件名
+            const fileNameMatch = filePath.match(/[^\\/]+$/);
+            const fileName = fileNameMatch ? fileNameMatch[0] : '未知文件';
+            // 提取文件扩展名
+            const extensionMatch = fileName.match(/\.([^.]+)$/);
+            const fileExtension = extensionMatch ? extensionMatch[1].toLowerCase() : '';
+            
+            const attachment = {
+              ...attach,
+              id: null, // 多文件路径时id为null
+              filePath: filePath.trim(),
+              originalFileName: fileName,
+              fileExtension: fileExtension,
+              uploadTime: formatDateTime(attach.uploadTime),
+              // 添加计算属性
+              get fileName() {
+                return this.originalFileName;
+              },
+              get fileType() {
+                return this.fileExtension;
+              },
+            };
+            
+            // 为图片附件预加载预览URL
+            if (isImageFile(attachment.fileType) && attachment.filePath) {
+              try {
+                const blob = await downloadFileByPathApi(attachment.filePath, attachment.fileName);
+                attachment.previewUrl = window.URL.createObjectURL(blob);
+              } catch (error) {
+                console.error('预加载图片失败:', error);
+              }
+            }
+            
+            attachments.push(attachment);
+          }
+        } else {
+          // 单个文件路径
           const attachment = {
             ...attach,
             uploadTime: formatDateTime(attach.uploadTime),
@@ -443,29 +462,29 @@ const handleViewDetail = async (row: DocumentApproval) => {
               return this.fileExtension;
             },
           };
-
+          
           // 为图片附件预加载预览URL
           if (isImageFile(attachment.fileType)) {
             try {
-              const fileResponse = await fetch(`${window.location.origin}/api/v1/file/download/${attachment.id}`, {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
-              
-              if (fileResponse.ok) {
-                const blob = await fileResponse.blob();
+              if (attachment.id) {
+                // 使用fileId预加载
+                const blob = await downloadFileApi(attachment.id);
+                attachment.previewUrl = window.URL.createObjectURL(blob);
+              } else if (attachment.filePath) {
+                // 使用filePath预加载
+                const blob = await downloadFileByPathApi(attachment.filePath, attachment.fileName);
                 attachment.previewUrl = window.URL.createObjectURL(blob);
               }
             } catch (error) {
               console.error('预加载图片失败:', error);
             }
           }
-
-          return attachment;
-        })
-      );
+          
+          attachments.push(attachment);
+        }
+      }
+      
+      currentDocument.value.attachments = attachments;
     }
   } catch (error) {
     console.error('获取附件列表失败:', error);
@@ -815,8 +834,8 @@ onMounted(() => {
               class="attachment-list"
             >
               <div
-                v-for="attachment in currentDocument.attachments"
-                :key="attachment.id"
+                v-for="(attachment, index) in currentDocument.attachments"
+                :key="attachment.id || `attachment-${index}`"
                 class="attachment-item"
                 :class="{
                   'image-attachment': isImageFile(attachment.fileType),

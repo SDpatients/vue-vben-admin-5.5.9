@@ -2,7 +2,14 @@ import { requestClient8085 } from '#/api/request';
 
 export namespace ClaimRegistrationApi {
   /** 登记状态枚举 */
-  export type RegistrationStatus = 'PENDING' | 'REGISTERED' | 'REJECTED';
+  export type RegistrationStatus =
+    | 'PENDING'
+    | 'REVIEWING'
+    | 'REVIEW_COMPLETED'
+    | 'CONFIRMING'
+    | 'CONFIRMED'
+    | 'REGISTERED'
+    | 'REJECTED';
 
   /** 材料完整性枚举 */
   export type MaterialCompleteness = 'COMPLETE' | 'INCOMPLETE' | 'PENDING';
@@ -58,8 +65,8 @@ export namespace ClaimRegistrationApi {
     remarks: string;
     createTime: string;
     updateTime: string;
-    reviewInfo?: ReviewInfo;
-    confirmationInfo?: ConfirmationInfo;
+    reviewInfo: ReviewInfo | null;
+    confirmationInfo: ConfirmationInfo | null;
   }
 
   /** 审查信息 */
@@ -374,6 +381,51 @@ export async function receiveClaimMaterialApi(claimId: number, data: ClaimRegist
  */
 export async function importClaimRegistrationApi(formData: FormData) {
   return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+/**
+ * EasyExcel导入债权登记
+ * POST /api/v1/claim-registration/import-easy
+ */
+export async function importClaimRegistrationEasyApi(formData: FormData) {
+  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-easy', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+/**
+ * 下载Excel导入模板
+ * GET /api/v1/claim-registration/template
+ */
+export async function downloadClaimRegistrationTemplateApi() {
+  return requestClient8085.get<Blob>('/claim-registration/template', {
+    responseType: 'blob',
+  });
+}
+
+/**
+ * 导出债权登记到Excel
+ * GET /api/v1/claim-registration/export
+ */
+export async function exportClaimRegistrationApi(params?: { caseId?: number; registrationStatus?: ClaimRegistrationApi.RegistrationStatus }) {
+  return requestClient8085.get<Blob>('/claim-registration/export', {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/**
+ * 导入已申报债权登记簿格式
+ * POST /api/v1/claim-registration/import-declared-claims
+ */
+export async function importDeclaredClaimsApi(formData: FormData) {
+  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-declared-claims', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

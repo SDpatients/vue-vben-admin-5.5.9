@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
-import { ElButton, ElCard, ElTabPane, ElTabs, ElTag } from 'element-plus';
+import { ElButton, ElCard, ElTabPane, ElTabs } from 'element-plus';
 
 import ClaimRegistrationStageOne from './ClaimRegistrationStageOne.vue';
 import ClaimRegistrationStageTwo from './ClaimRegistrationStageTwo.vue';
@@ -14,10 +14,26 @@ const props = defineProps<{
 }>();
 
 const activeTab = ref('stage1');
-const stageOneRef = ref<any>(null);
+const stageOneRef = ref<InstanceType<typeof ClaimRegistrationStageOne> | null>(
+  null,
+);
 
 const handleTabChange = (tabName: string) => {
   console.log('切换标签页:', tabName);
+};
+
+const handleImport = () => {
+  activeTab.value = 'stage1';
+  setTimeout(() => {
+    stageOneRef.value?.openImportDialog();
+  }, 0);
+};
+
+const handleAdd = () => {
+  activeTab.value = 'stage1';
+  setTimeout(() => {
+    stageOneRef.value?.openAddDialog();
+  }, 0);
 };
 </script>
 
@@ -31,31 +47,11 @@ const handleTabChange = (tabName: string) => {
             <span class="text-lg font-semibold">债权登记表</span>
           </div>
           <div class="flex space-x-2">
-            <ElButton
-              type="success"
-              @click="
-                () => {
-                  activeTab = 'stage1';
-                  $nextTick(() => {
-                    stageOneRef?.openImportDialog();
-                  });
-                }
-              "
-            >
+            <ElButton type="success" @click="handleImport">
               <Icon icon="lucide:file-spreadsheet" class="mr-1" />
               Excel导入
             </ElButton>
-            <ElButton
-              type="primary"
-              @click="
-                () => {
-                  activeTab = 'stage1';
-                  $nextTick(() => {
-                    stageOneRef?.openAddDialog();
-                  });
-                }
-              "
-            >
+            <ElButton type="primary" @click="handleAdd">
               <Icon icon="lucide:plus" class="mr-1" />
               新增债权
             </ElButton>
@@ -103,7 +99,6 @@ const handleTabChange = (tabName: string) => {
           </template>
           <ClaimRegistrationStageThree :case-id="caseId" />
         </ElTabPane>
-
       </ElTabs>
     </ElCard>
   </div>
@@ -124,9 +119,5 @@ const handleTabChange = (tabName: string) => {
   display: flex;
   align-items: center;
   font-size: 14px;
-}
-
-.ml-2 {
-  margin-left: 8px;
 }
 </style>

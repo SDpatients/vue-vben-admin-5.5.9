@@ -53,8 +53,9 @@ import {
   directUploadDocumentApi,
   submitDocumentForApprovalApi,
   getCaseAbbreviationApi,
+  getLatestAbbreviationApi,
 } from '#/api/core/document-service';
-import { deleteFileApi, downloadFileApi, uploadFileApi } from '#/api/core/file';
+import { deleteFileApi, downloadFileApi, uploadFileApi, batchUploadFilesApi } from '#/api/core/file';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
@@ -1127,6 +1128,42 @@ const editDocument = (row: any) => {
   documentForm.abbreviation = row.abbreviation || '';
   documentForm.documentNumber = row.documentNumber || '';
 
+  // 加载原有附件
+  if (row.documentAttachment) {
+    const attachmentPaths = row.documentAttachment.split(';').filter((path: string) => path.trim());
+    
+    // 清空现有文件列表
+    uploadedFiles.value = [];
+    
+    // 添加原有附件
+    attachmentPaths.forEach((filePath: string, index: number) => {
+      // 从文件路径中提取文件名
+      const fileName = filePath.split('\\').pop() || filePath.split('/').pop() || `文件${index + 1}`;
+      
+      // 创建一个虚拟的 File 对象，用于显示
+      const virtualFile = {
+        name: fileName,
+        size: 0,
+        type: '',
+        lastModified: Date.now(),
+        // 添加一些额外属性
+        filePath: filePath,
+        isExisting: true // 标记为原有文件
+      } as any;
+      
+      // 添加到上传文件列表
+      uploadedFiles.value.push({
+        file: virtualFile,
+        fileId: `existing_${index}`,
+        name: fileName,
+        url: '' // 原有文件没有本地 URL
+      });
+    });
+  } else {
+    // 没有附件，清空文件列表
+    uploadedFiles.value = [];
+  }
+
   // 打开弹窗
   showAddDocumentDialog.value = true;
 };
@@ -1205,16 +1242,19 @@ const submitDirectUploadForm = async () => {
     // 上传文件
     let documentAttachment = '';
     if (uploadedFiles.value.length > 0) {
-      const file = uploadedFiles.value[0].file;
-      const uploadResponse = await uploadFileApi(
-        file,
+      const files = uploadedFiles.value.map(item => item.file);
+      const uploadResponse = await batchUploadFilesApi(
+        files,
         'document',
         Number(directUploadForm.caseId),
       );
 
-      if (uploadResponse.code === 200 && uploadResponse.data) {
-        documentAttachment =
-          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
+        // 将所有文件路径拼接成一个字符串，使用分号分隔
+        documentAttachment = uploadResponse.data
+          .map((fileData: any) => fileData.filePath || fileData.storedFileName)
+          .filter((path: string) => path)
+          .join(';');
       }
     }
 
@@ -1278,16 +1318,19 @@ const submitApprovalForm = async () => {
     // 上传文件
     let documentAttachment = '';
     if (uploadedFiles.value.length > 0) {
-      const file = uploadedFiles.value[0].file;
-      const uploadResponse = await uploadFileApi(
-        file,
+      const files = uploadedFiles.value.map(item => item.file);
+      const uploadResponse = await batchUploadFilesApi(
+        files,
         'document',
         Number(approvalSubmitForm.caseId),
       );
 
-      if (uploadResponse.code === 200 && uploadResponse.data) {
-        documentAttachment =
-          uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+      if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
+        // 将所有文件路径拼接成一个字符串，使用分号分隔
+        documentAttachment = uploadResponse.data
+          .map((fileData: any) => fileData.filePath || fileData.storedFileName)
+          .filter((path: string) => path)
+          .join(';');
       }
     }
 
@@ -1386,6 +1429,7 @@ const submitDocumentForm = async () => {
     // 编辑模式使用原有接口
     if (isEditingDocument.value && currentDocumentId.value) {
       const requestData: any = {
+        id: currentDocumentId.value, // 添加文书ID
         caseId: Number(documentForm.caseId),
         documentName: documentForm.documentName,
         documentType: documentForm.documentType,
@@ -1403,16 +1447,41 @@ const submitDocumentForm = async () => {
       };
 
       if (uploadedFiles.value.length > 0) {
-        const file = uploadedFiles.value[0].file;
-        const uploadResponse = await uploadFileApi(
-          file,
-          'document',
-          Number(documentForm.caseId),
-        );
+        // 分离原有附件和新上传的附件
+        const existingFiles = uploadedFiles.value.filter(item => item.file && item.file.isExisting);
+        const newFiles = uploadedFiles.value.filter(item => !(item.file && item.file.isExisting));
+        
+        // 收集所有文件路径
+        const filePaths: string[] = [];
+        
+        // 添加原有附件的文件路径
+        existingFiles.forEach(item => {
+          if (item.file && item.file.filePath) {
+            filePaths.push(item.file.filePath);
+          }
+        });
+        
+        // 上传新文件
+        if (newFiles.length > 0) {
+          const filesToUpload = newFiles.map(item => item.file);
+          const uploadResponse = await batchUploadFilesApi(
+            filesToUpload,
+            'document',
+            Number(documentForm.caseId),
+          );
 
-        if (uploadResponse.code === 200 && uploadResponse.data) {
-          requestData.documentAttachment =
-            uploadResponse.data.filePath || uploadResponse.data.storedFileName;
+          if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
+            // 添加新上传文件的路径
+            const newFilePaths = uploadResponse.data
+              .map((fileData: any) => fileData.filePath || fileData.storedFileName)
+              .filter((path: string) => path);
+            filePaths.push(...newFilePaths);
+          }
+        }
+        
+        // 将所有文件路径拼接成一个字符串，使用分号分隔
+        if (filePaths.length > 0) {
+          requestData.documentAttachment = filePaths.join(';');
         }
       }
 
@@ -1594,14 +1663,48 @@ const removeFile = (index: number) => {
 };
 
 // 下载文件
-const downloadFile = (file: any) => {
-  if (file.url) {
-    const a = document.createElement('a');
-    a.href = file.url;
-    a.download = file.name;
-    document.body.append(a);
-    a.click();
-    a.remove();
+const downloadFile = async (file: any) => {
+  try {
+    if (file.file && file.file.isExisting && file.file.filePath) {
+      // 原有附件，使用 filePath 下载
+      const params: Record<string, string> = {
+        filePath: encodeURIComponent(file.file.filePath),
+      };
+      if (file.name) {
+        params.fileName = encodeURIComponent(file.name);
+      }
+      
+      const blob = await fileUploadRequestClient.get<Blob>('/api/v1/file/download-by-path', {
+        params,
+        responseType: 'blob',
+        // 添加 JWT 认证头
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.append(a);
+      a.click();
+      setTimeout(() => {
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } else if (file.url) {
+      // 新上传的文件，使用本地 URL 下载
+      const a = document.createElement('a');
+      a.href = file.url;
+      a.download = file.name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+    }
+  } catch (error: any) {
+    console.error('下载文件失败:', error);
+    ElMessage.error('文件下载失败');
   }
 };
 
@@ -1643,28 +1746,319 @@ const loadDocumentAttachments = async (documentId: number) => {
     if (response.code === 200) {
       documentAttachments.value = response.data || [];
     }
+    
+    // 兼容处理：如果附件列表为空或数量少于 documentAttachment 中的文件数量，从 documentAttachment 字段解析
+    if (documentDetail.value && documentDetail.value.documentAttachment) {
+      const attachmentPaths = documentDetail.value.documentAttachment.split(';').filter((path: string) => path.trim());
+      
+      if (attachmentPaths.length > 0 && documentAttachments.value.length < attachmentPaths.length) {
+        // 从文件路径中提取文件名
+        const parsedAttachments = attachmentPaths.map((filePath: string, index: number) => {
+          // 从文件路径中提取文件名
+          const fileName = filePath.split('\\').pop() || filePath.split('/').pop() || `文件${index + 1}`;
+          return {
+            id: null, // 旧数据可能没有id
+            originalFileName: fileName,
+            filePath: filePath,
+            fileSize: null,
+            fileExtension: fileName.split('.').pop() || '',
+            uploadTime: documentDetail.value?.createTime || new Date().toISOString(),
+            // 其他必要字段
+            status: 'ACTIVE',
+            isDeleted: false,
+            createTime: documentDetail.value?.createTime,
+            updateTime: documentDetail.value?.updateTime,
+            createUserId: documentDetail.value?.createUserId,
+            updateUserId: documentDetail.value?.updateUserId,
+            storedFileName: null,
+            mimeType: null,
+            fileHash: null,
+            bizType: 'DOCUMENT_DELIVERY',
+            bizId: documentDetail.value?.id.toString(),
+            uploadUserId: documentDetail.value?.createUserId,
+            fileStatus: 1,
+            deleteTime: null,
+            deleteUserId: null,
+            description: null,
+            sortOrder: null
+          };
+        });
+        
+        // 如果API返回的附件列表为空，使用解析的附件
+        if (documentAttachments.value.length === 0) {
+          documentAttachments.value = parsedAttachments;
+        } else if (documentAttachments.value.length < parsedAttachments.length) {
+          // 如果API返回的附件数量少于解析的数量，补充缺失的附件
+          const existingFileNames = new Set(documentAttachments.value.map(a => a.originalFileName));
+          const missingAttachments = parsedAttachments.filter(a => !existingFileNames.has(a.originalFileName));
+          documentAttachments.value = [...documentAttachments.value, ...missingAttachments];
+        }
+      }
+    }
   } catch (error: any) {
     console.error('加载附件列表失败:', error);
-    ElMessage.error('加载附件列表失败');
+    
+    // 失败时尝试从 documentAttachment 字段解析
+    if (documentDetail.value && documentDetail.value.documentAttachment) {
+      const attachmentPaths = documentDetail.value.documentAttachment.split(';').filter((path: string) => path.trim());
+      if (attachmentPaths.length > 0) {
+        documentAttachments.value = attachmentPaths.map((filePath: string, index: number) => {
+          const fileName = filePath.split('\\').pop() || filePath.split('/').pop() || `文件${index + 1}`;
+          return {
+            id: null,
+            originalFileName: fileName,
+            filePath: filePath,
+            fileSize: null,
+            fileExtension: fileName.split('.').pop() || '',
+            uploadTime: documentDetail.value?.createTime || new Date().toISOString(),
+            status: 'ACTIVE',
+            isDeleted: false,
+            createTime: documentDetail.value?.createTime,
+            updateTime: documentDetail.value?.updateTime,
+            createUserId: documentDetail.value?.createUserId,
+            updateUserId: documentDetail.value?.updateUserId,
+            storedFileName: null,
+            mimeType: null,
+            fileHash: null,
+            bizType: 'DOCUMENT_DELIVERY',
+            bizId: documentDetail.value?.id.toString(),
+            uploadUserId: documentDetail.value?.createUserId,
+            fileStatus: 1,
+            deleteTime: null,
+            deleteUserId: null,
+            description: null,
+            sortOrder: null
+          };
+        });
+      }
+    }
   }
 };
 
 // 下载文书附件
 const downloadDocumentAttachment = async (attachment: any) => {
   try {
-    const blob = await downloadFileApi(attachment.id);
+    let blob: Blob;
+    
+    if (attachment.id !== null && attachment.id !== undefined) {
+      // 新数据：使用 fileId
+      blob = await fileUploadRequestClient.get<Blob>(
+        `/api/v1/file/download/${attachment.id}`,
+        {
+          responseType: 'blob',
+          // 添加 JWT 认证头
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        }
+      );
+    } else if (attachment.filePath) {
+      // 旧数据：使用 filePath
+      const params: Record<string, string> = {
+        filePath: encodeURIComponent(attachment.filePath),
+      };
+      if (attachment.originalFileName) {
+        params.fileName = encodeURIComponent(attachment.originalFileName);
+      }
+      blob = await fileUploadRequestClient.get<Blob>('/api/v1/file/download-by-path', {
+        params,
+        responseType: 'blob',
+        // 添加 JWT 认证头
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+    } else {
+      throw new Error('附件信息不完整');
+    }
+    
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = attachment.originalFileName;
     document.body.append(link);
     link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    // 使用 setTimeout 确保链接被点击后再移除
+    setTimeout(() => {
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }, 100);
     ElMessage.success('文件下载成功');
   } catch (error: any) {
     console.error('下载文件失败:', error);
     ElMessage.error('文件下载失败');
+  }
+};
+
+// 预览文书附件
+const previewDocumentAttachment = async (attachment: any) => {
+  try {
+    let blob: Blob;
+    let contentType: string;
+    
+    if (attachment.id !== null && attachment.id !== undefined) {
+      // 新数据：使用 fileId
+      const response = await fileUploadRequestClient.get<any>(
+        `/api/v1/file/preview/${attachment.id}`,
+        {
+          responseType: 'blob',
+          // 添加 JWT 认证头
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        }
+      );
+      blob = response;
+      contentType = response.type;
+    } else if (attachment.filePath) {
+      // 旧数据：使用 filePath
+      const params: Record<string, string> = {
+        filePath: encodeURIComponent(attachment.filePath),
+      };
+      if (attachment.originalFileName) {
+        params.fileName = encodeURIComponent(attachment.originalFileName);
+      }
+      const response = await fileUploadRequestClient.get<any>('/api/v1/file/preview-by-path', {
+        params,
+        responseType: 'blob',
+        // 添加 JWT 认证头
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      blob = response;
+      contentType = response.type;
+    } else {
+      throw new Error('附件信息不完整');
+    }
+    
+    // 获取文件扩展名
+    const fileName = attachment.originalFileName;
+    const fileExtension = fileName ? fileName.split('.').pop()?.toLowerCase() : '';
+    
+    // 检查是否为浏览器可直接预览的文件类型
+    const previewableTypes = {
+      images: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+      documents: ['pdf', 'txt', 'html', 'htm', 'xml', 'json'],
+      media: ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'flac']
+    };
+    
+    const isPreviewable = 
+      previewableTypes.images.includes(fileExtension) ||
+      previewableTypes.documents.includes(fileExtension) ||
+      previewableTypes.media.includes(fileExtension);
+    
+    if (isPreviewable) {
+      // 浏览器可直接预览的文件类型
+      const url = window.URL.createObjectURL(blob);
+      
+      // 创建预览容器
+      const previewContainer = document.createElement('div');
+      previewContainer.style.position = 'fixed';
+      previewContainer.style.top = '0';
+      previewContainer.style.left = '0';
+      previewContainer.style.width = '100%';
+      previewContainer.style.height = '100%';
+      previewContainer.style.backgroundColor = 'white';
+      previewContainer.style.zIndex = '9999';
+      previewContainer.style.padding = '20px';
+      previewContainer.style.overflow = 'auto';
+      
+      // 创建标题栏
+      const header = document.createElement('div');
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+      header.style.marginBottom = '20px';
+      header.style.paddingBottom = '10px';
+      header.style.borderBottom = '1px solid #eaeaea';
+      
+      const title = document.createElement('h3');
+      title.textContent = fileName;
+      title.style.margin = '0';
+      
+      const closeButton = document.createElement('button');
+      closeButton.textContent = '关闭';
+      closeButton.style.padding = '8px 16px';
+      closeButton.style.backgroundColor = '#f0f0f0';
+      closeButton.style.border = 'none';
+      closeButton.style.borderRadius = '4px';
+      closeButton.style.cursor = 'pointer';
+      closeButton.addEventListener('click', () => {
+        document.body.removeChild(previewContainer);
+        window.URL.revokeObjectURL(url);
+      });
+      
+      header.appendChild(title);
+      header.appendChild(closeButton);
+      
+      // 根据文件类型创建不同的预览元素
+      let previewElement;
+      
+      if (previewableTypes.images.includes(fileExtension)) {
+        // 图片预览
+        previewElement = document.createElement('img');
+        previewElement.src = url;
+        previewElement.style.maxWidth = '100%';
+        previewElement.style.maxHeight = '80vh';
+        previewElement.style.objectFit = 'contain';
+        previewElement.style.display = 'block';
+        previewElement.style.margin = '0 auto';
+      } else if (previewableTypes.media.includes(fileExtension)) {
+        // 媒体预览
+        if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+          // 视频预览
+          previewElement = document.createElement('video');
+          previewElement.src = url;
+          previewElement.controls = true;
+          previewElement.style.width = '100%';
+          previewElement.style.maxWidth = '800px';
+          previewElement.style.display = 'block';
+          previewElement.style.margin = '0 auto';
+        } else {
+          // 音频预览
+          previewElement = document.createElement('audio');
+          previewElement.src = url;
+          previewElement.controls = true;
+          previewElement.style.width = '100%';
+          previewElement.style.maxWidth = '500px';
+          previewElement.style.display = 'block';
+          previewElement.style.margin = '0 auto';
+        }
+      } else {
+        // 其他可预览文件类型（PDF、文本等）
+        previewElement = document.createElement('iframe');
+        previewElement.src = url;
+        previewElement.style.width = '100%';
+        previewElement.style.height = '80vh';
+        previewElement.style.border = 'none';
+        previewElement.style.display = 'block';
+        previewElement.style.margin = '0 auto';
+      }
+      
+      previewContainer.appendChild(header);
+      previewContainer.appendChild(previewElement);
+      
+      document.body.appendChild(previewContainer);
+    } else {
+      // 浏览器不可直接预览的文件类型，提示用户下载
+      ElMessage.info('该文件类型无法直接预览，将开始下载');
+      
+      // 触发下载
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.append(link);
+      link.click();
+      setTimeout(() => {
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    }
+  } catch (error: any) {
+    console.error('预览文件失败:', error);
+    ElMessage.error('文件预览失败');
   }
 };
 
@@ -6992,13 +7386,17 @@ const checkPermissions = async () => {
                     <div class="attachment-name">
                       {{ attachment.originalFileName }}
                     </div>
-                    <div class="attachment-meta">
-                      <span>{{ formatFileSize(attachment.fileSize) }}</span>
-                      <span class="separator">·</span>
-                      <span>{{ formatDateTime(attachment.uploadTime) }}</span>
-                    </div>
                   </div>
                   <div class="attachment-actions">
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      link
+                      @click="previewDocumentAttachment(attachment)"
+                    >
+                      <Icon icon="lucide:eye" class="mr-1" />
+                      预览
+                    </ElButton>
                     <ElButton
                       type="primary"
                       size="small"

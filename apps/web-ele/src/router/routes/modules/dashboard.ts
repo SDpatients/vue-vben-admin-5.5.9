@@ -42,6 +42,15 @@ const routes: RouteRecordRaw[] = [
           ignoreAccess: true, // 允许未登录访问，用于手机扫码上传
         },
       },
+      {
+        name: 'EasyExcelTest',
+        path: '/easy-excel-test',
+        component: () => import('#/views/dashboard/easy-excel-test/index.vue'),
+        meta: {
+          icon: 'lucide:file-spreadsheet',
+          title: 'EasyExcel测试',
+        },
+      },
 
     ],
   },

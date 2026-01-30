@@ -490,7 +490,8 @@ const handlePreviewFile = async (fileId: number | null, filePath?: string) => {
   try {
     console.log('handlePreviewFile 参数:', { fileId, filePath });
     // 检查是否为图片文件
-    const file = attachmentData.value?.files[selectedTaskId.value!]?.find(f => f.id === fileId);
+    const files = attachmentData.value?.files[selectedTaskId.value!];
+    const file = Array.isArray(files) ? files.find(f => f.id === fileId) : null;
     if (file && file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i) && fileId !== null && previewUrls.value[fileId as number]) {
       // 图片文件使用本地预览
       console.log('使用本地图片预览');
@@ -570,6 +571,7 @@ const preloadImages = async (approvalId: number) => {
       const { attachments } = attachmentsResponse;
       
       for (const [submissionId, files] of Object.entries(attachments)) {
+        if (!Array.isArray(files)) continue;
         for (const file of files) {
           if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i) && file.imageData) {
             try {
@@ -605,6 +607,7 @@ const preloadImages = async (approvalId: number) => {
   const filesBySubmission = attachmentData.value.files;
   
   for (const [submissionId, files] of Object.entries(filesBySubmission)) {
+    if (!Array.isArray(files)) continue;
     for (const file of files) {
       if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i)) {
         await loadSingleImage(approvalId, file.id, file.filePath);
@@ -886,7 +889,7 @@ document.head.appendChild(style);
               <div v-if="selectedTaskId && attachmentData.files[selectedTaskId]" class="task-attachments">
                 <div class="task-header">
                   <span class="task-title">{{ contentData?.task?.taskName || contentData?.submissions?.find(s => s.id.toString() === selectedTaskId)?.submissionTitle || '任务' }}</span>
-                  <span class="file-count">({{ attachmentData.files[selectedTaskId].length }}个文件)</span>
+                  <span class="file-count">({{ Array.isArray(attachmentData.files[selectedTaskId]) ? attachmentData.files[selectedTaskId].length : 0 }}个文件)</span>
                 </div>
                 
                 <!-- 任务内容 -->
@@ -896,7 +899,7 @@ document.head.appendChild(style);
                 </div>
                 
                 <!-- 图片文件网格布局 -->
-                <div v-if="attachmentData.files[selectedTaskId].some(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="image-grid">
+                <div v-if="Array.isArray(attachmentData.files[selectedTaskId]) && attachmentData.files[selectedTaskId].some(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="image-grid">
                   <div 
                     v-for="file in attachmentData.files[selectedTaskId].filter(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 
                     :key="file.id || file.filePath"
@@ -918,7 +921,7 @@ document.head.appendChild(style);
                 </div>
                 
                 <!-- 非图片文件列表 -->
-                <div v-if="attachmentData.files[selectedTaskId].some(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="non-image-files">
+                <div v-if="Array.isArray(attachmentData.files[selectedTaskId]) && attachmentData.files[selectedTaskId].some(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="non-image-files">
                   <div class="section-subtitle">其他文件</div>
                   <div 
                     v-for="file in attachmentData.files[selectedTaskId].filter(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 

@@ -179,11 +179,6 @@ const openUploadDialog = () => {
 };
 
 const uploadFiles = async () => {
-  if (uploadFileList.value.length === 0) {
-    ElMessage.warning('请选择要上传的文件');
-    return;
-  }
-
   if (!uploadFormRef.value) return;
 
   try {
@@ -206,7 +201,6 @@ const uploadFiles = async () => {
     if (response.code === 200) {
       ElMessage.success('文件上传成功');
       uploadDialogVisible.value = false;
-      uploadFileList.value = [];
       if (selectedNode.value?.categoryCode) {
         await loadFileList(selectedNode.value.categoryCode);
       }
@@ -219,7 +213,7 @@ const uploadFiles = async () => {
   }
 };
 
-const handleFileSelect = (file: UploadFile) => {
+const handleFileSelect = (file: any) => {
   const rawFile = file.raw as File;
   if (!rawFile) return false;
 
@@ -239,7 +233,7 @@ const handleFileSelect = (file: UploadFile) => {
 
 const downloadFile = async (file: ArchiveApi.ArchiveRecord) => {
   try {
-    const blob = await downloadArchiveFileApi(file.fileId);
+    const blob = await downloadArchiveFileApi(file.id);
     const link = document.createElement('a');
     const url = window.URL.createObjectURL(blob);
     link.href = url;
@@ -259,7 +253,7 @@ const previewFile = async (file: ArchiveApi.ArchiveRecord) => {
   const previewableExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
   if (previewableExtensions.includes(file.file.fileExtension.toLowerCase())) {
     try {
-      const blob = await previewArchiveFileApi(file.fileId);
+      const blob = await previewArchiveFileApi(file.id);
       const url = window.URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch (error) {
@@ -421,15 +415,21 @@ defineExpose({
           </template>
 
           <div v-if="!selectedNode?.categoryCode" class="empty-state">
-            <ElEmpty description="请从左侧选择一个归档目录" />
+            <div>
+              <ElEmpty description="请从左侧选择一个归档目录" />
+            </div>
           </div>
 
           <div v-else-if="fileListLoading" class="loading-state">
-            <ElEmpty description="加载中..." />
+            <div>
+              <ElEmpty description="加载中..." />
+            </div>
           </div>
 
           <div v-else-if="fileList.length === 0" class="empty-state">
-            <ElEmpty description="暂无文件" />
+            <div>
+              <ElEmpty description="暂无文件" />
+            </div>
           </div>
 
           <div v-else class="file-list">
@@ -480,7 +480,7 @@ defineExpose({
                 width="180"
                 :formatter="(row) => formatDate(row.uploadTime)"
               />
-              <ElTableColumn label="操作" width="320" fixed="right">
+              <ElTableColumn label="操作" width="320">
                 <template #default="{ row }">
                   <ElButton
                     size="small"
@@ -558,7 +558,9 @@ defineExpose({
             :show-file-list="false"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.txt"
           >
-            <ElButton type="primary"> 选择文件 </ElButton>
+            <div>
+              <ElButton type="primary"> 选择文件 </ElButton>
+            </div>
             <template #tip>
               <div class="text-xs text-gray-500">
                 支持格式: pdf, doc, docx, xls, xlsx, ppt, pptx, jpg, jpeg, png,
@@ -677,6 +679,7 @@ defineExpose({
   display: flex;
   gap: 20px;
   height: 100%;
+  overflow: hidden;
 }
 
 .archive-sidebar {
@@ -725,6 +728,7 @@ defineExpose({
   display: flex;
   flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .content-card {
@@ -733,7 +737,7 @@ defineExpose({
 
 .content-card :deep(.el-card__body) {
   height: calc(100% - 60px);
-  overflow-y: auto;
+  overflow: auto;
 }
 
 .content-header {
@@ -763,6 +767,7 @@ defineExpose({
 
 .file-list {
   height: 100%;
+  overflow-x: auto;
 }
 
 .upload-tip {

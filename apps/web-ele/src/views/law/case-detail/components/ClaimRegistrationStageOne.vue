@@ -29,17 +29,17 @@ import {
 
 import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
-import {
-  createClaimRegistrationApi,
-  deleteClaimRegistrationApi,
-  getClaimRegistrationDetailApi,
-  getClaimRegistrationListApi,
-  importClaimRegistrationApi,
-  receiveClaimMaterialApi,
-  updateClaimRegistrationStatusApi,
-} from '#/api/core/claim-registration';
 import { getCreditorListApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
+
+import { useClaimForm } from './composables/useClaimForm';
+import { useClaimPagination } from './composables/useClaimPagination';
+import { ClaimService } from './services/claimService';
+import {
+  getMaterialCompletenessTag,
+  getRegistrationStatusTag,
+} from './utils/claimStatusMapper';
+import { claimFormRules } from './utils/claimFormRules';
 
 const props = defineProps<{
   caseId: string;
@@ -51,9 +51,6 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const claims = ref<any[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(10);
 
 const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
@@ -73,116 +70,37 @@ const materialForm = reactive({
   completeness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
 });
 
-const claimForm = reactive({
-  caseNumber: '',
-  debtor: '',
-  creditorName: '',
-  creditorType: '',
-  creditCode: '',
-  legalRepresentative: '',
-  serviceAddress: '',
-  agentName: '',
-  agentPhone: '',
-  agentIdCard: '',
-  agentAddress: '',
-  accountName: '',
-  bankAccount: '',
-  bankName: '',
-  principal: '',
-  interest: '',
-  penalty: '',
-  otherLosses: '',
-  totalAmount: '',
-  hasCourtJudgment: false,
-  hasExecution: false,
-  hasCollateral: false,
-  claimNature: '',
-  claimType: '',
-  claimFacts: '',
-  claimIdentifier: '',
-  evidenceList: '',
-  evidenceMaterials: '',
-  evidenceAttachments: [],
-  registrationDate: '',
-  registrationDeadline: '',
-  materialReceiver: '',
-  materialReceiveDate: '',
-  materialCompleteness: 'COMPLETE' as ClaimRegistrationApi.MaterialCompleteness,
-  remarks: '',
-  registrationStatus: 'PENDING' as ClaimRegistrationApi.RegistrationStatus,
-});
+const { claimForm, totalAmount, resetClaimForm } = useClaimForm();
+const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } =
+  useClaimPagination();
 
 const fileList = ref<any[]>([]);
-
 const debtorList = ref<any[]>([]);
 const creditorList = ref<any[]>([]);
 const debtorListLoading = ref(false);
 const creditorListLoading = ref(false);
 
-const totalAmount = computed(() => {
-  const principal = Number.parseFloat(claimForm.principal) || 0;
-  const interest = Number.parseFloat(claimForm.interest) || 0;
-  const penalty = Number.parseFloat(claimForm.penalty) || 0;
-  const otherLosses = Number.parseFloat(claimForm.otherLosses) || 0;
-  return (principal + interest + penalty + otherLosses).toFixed(2);
-});
-
 const hasRegisteredClaims = computed(() => {
-  return claims.value.some((claim: any) => claim.registrationStatus === 'REGISTERED');
+  return claims.value.some(
+    (claim: any) => claim.registration_status === 'REGISTERED',
+  );
 });
 
 const fetchClaims = async () => {
   loading.value = true;
-  try {
-    const response = await getClaimRegistrationListApi({
-      caseId: Number(props.caseId),
-      pageNum: currentPage.value,
-      pageSize: pageSize.value,
-    });
-    if (response.code === 200 && response.data) {
-      const formattedList = (response.data.list || []).map((item: any) => ({
-        ...item,
-        creditor_name: item.creditorName,
-        creditor_type: item.creditorType,
-        credit_code: item.creditCode,
-        total_amount: item.totalAmount,
-        claim_nature: item.claimNature,
-        claim_type: item.claimType,
-        registration_status: item.registrationStatus,
-        material_completeness: item.materialCompleteness,
-      }));
-      claims.value = formattedList;
-      total.value = response.data.total || 0;
-      console.log(
-        '更新待登记债权列表，数量:',
-        claims.value.length,
-        '总数量:',
-        total.value,
-      );
-    } else {
-      ElMessage.error(`获取债权登记表失败：${response.message || '未知错误'}`);
-      claims.value = [];
-      total.value = 0;
-    }
-  } catch (error) {
-    console.error('获取债权登记表失败:', error);
-    ElMessage.error('获取债权登记表失败');
+  const result = await ClaimService.fetchClaims(
+    Number(props.caseId),
+    currentPage.value,
+    pageSize.value,
+  );
+  if (result.success) {
+    claims.value = result.data;
+    total.value = result.total;
+  } else {
     claims.value = [];
     total.value = 0;
-  } finally {
-    loading.value = false;
   }
-};
-
-const handlePageChange = (page: number) => {
-  currentPage.value = page;
-  fetchClaims();
-};
-
-const handlePageSizeChange = (size: number) => {
-  pageSize.value = size;
-  currentPage.value = 1;
-  fetchClaims();
+  loading.value = false;
 };
 
 const fetchDebtorList = async () => {
@@ -208,14 +126,12 @@ const fetchDebtorList = async () => {
   }
 };
 
-// 债权人类型映射 (英文转中文)
 const creditorTypeMap: Record<string, string> = {
   ENTERPRISE: '企业',
   INDIVIDUAL: '个人',
   FINANCIAL_INSTITUTION: '金融机构',
   GOVERNMENT: '政府机构',
   OTHER: '其他',
-  // 保留中文值作为键，处理已有中文数据
   金融机构: '金融机构',
   企业: '企业',
   个人: '个人',
@@ -223,7 +139,6 @@ const creditorTypeMap: Record<string, string> = {
   其他: '其他',
 };
 
-// 转换债权人类型为中文
 const convertCreditorType = (type: string): string => {
   return creditorTypeMap[type] || type;
 };
@@ -254,47 +169,31 @@ const fetchCreditorList = async (keyword: string = '') => {
 };
 
 const openDetailDialog = async (row: any) => {
-  console.log('点击查看详情，row:', row);
-  try {
-    const response = await getClaimRegistrationDetailApi(row.id);
-    if (response.code === 200 && response.data) {
-      currentClaim.value = response.data;
-      showDetailDialog.value = true;
-    } else {
-      console.error('响应code或data异常:', response);
-      ElMessage.error('获取债权详情失败');
-    }
-  } catch (error) {
-    console.error('获取债权详情失败:', error);
-    ElMessage.error('获取债权详情失败');
+  const result = await ClaimService.getClaimDetail(row.id);
+  if (result.success) {
+    currentClaim.value = result.data;
+    showDetailDialog.value = true;
   }
 };
 
 const openMaterialDialog = async (row: any) => {
-  try {
-    const response = await getClaimRegistrationDetailApi(row.id);
-    if (response.code === 200 && response.data) {
-      currentClaim.value = response.data;
+  const result = await ClaimService.getClaimDetail(row.id);
+  if (result.success) {
+    currentClaim.value = result.data;
 
-      try {
-        const userResponse = await getCurrentUserApi();
-        materialForm.receiver =
-          userResponse.code === 200 && userResponse.data
-            ? userResponse.data.realName || '当前用户'
-            : '当前用户';
-      } catch (error) {
-        console.error('获取当前用户信息失败:', error);
-        materialForm.receiver = '当前用户';
-      }
-
-      materialForm.completeness = 'COMPLETE';
-      showMaterialDialog.value = true;
-    } else {
-      ElMessage.error('获取债权详情失败');
+    try {
+      const userResponse = await getCurrentUserApi();
+      materialForm.receiver =
+        userResponse.code === 200 && userResponse.data
+          ? userResponse.data.realName || '当前用户'
+          : '当前用户';
+    } catch (error) {
+      console.error('获取当前用户信息失败:', error);
+      materialForm.receiver = '当前用户';
     }
-  } catch (error) {
-    console.error('获取债权详情失败:', error);
-    ElMessage.error('获取债权详情失败');
+
+    materialForm.completeness = 'COMPLETE';
+    showMaterialDialog.value = true;
   }
 };
 
@@ -317,58 +216,33 @@ const handleReceiveMaterial = async () => {
   }
 
   materialLoading.value = true;
-  try {
-    const response = await receiveClaimMaterialApi(currentClaim.value.id, {
-      receiver: materialForm.receiver,
-      completeness: materialForm.completeness,
-    });
-    if (response.code === 200) {
-      ElMessage.success('接收材料成功');
-      await fetchClaims();
-      closeMaterialDialog();
-    } else {
-      ElMessage.error(`接收材料失败：${response.message || '未知错误'}`);
-    }
-  } catch (error) {
-    console.error('接收材料失败:', error);
-    ElMessage.error('接收材料失败');
-  } finally {
-    materialLoading.value = false;
+  const result = await ClaimService.receiveMaterial(currentClaim.value.id, {
+    receiver: materialForm.receiver,
+    completeness: materialForm.completeness,
+  });
+  if (result.success) {
+    await fetchClaims();
+    closeMaterialDialog();
   }
+  materialLoading.value = false;
 };
 
 const handleRegisterClaim = async (row: any) => {
-  // 添加确认机制
   ElMessageBox.confirm('确定要完成债权申报登记吗？', '操作确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
   })
     .then(async () => {
-      try {
-        const response = await receiveClaimMaterialApi(row.id, {
-          receiver: '当前用户',
-          completeness: 'COMPLETE',
-        });
-        if (response.code === 200) {
-          const statusResponse = await updateClaimRegistrationStatusApi(
-            row.id,
-            'REGISTERED',
-          );
-          if (statusResponse.code === 200) {
-            ElMessage.success('债权申报登记成功');
-            await fetchClaims();
-          } else {
-            ElMessage.error(
-              `状态更新失败：${statusResponse.message || '未知错误'}`,
-            );
-          }
-        } else {
-          ElMessage.error(`操作失败：${response.message || '未知错误'}`);
+      const receiveResult = await ClaimService.receiveMaterial(row.id, {
+        receiver: '当前用户',
+        completeness: 'COMPLETE',
+      });
+      if (receiveResult.success) {
+        const statusResult = await ClaimService.updateClaimStatus(row.id, 'REGISTERED');
+        if (statusResult.success) {
+          await fetchClaims();
         }
-      } catch (error) {
-        console.error('债权申报登记失败:', error);
-        ElMessage.error('债权申报登记失败');
       }
     })
     .catch(() => {
@@ -383,17 +257,9 @@ const handleRejectClaim = async (row: any) => {
     type: 'warning',
   })
     .then(async () => {
-      try {
-        const response = await updateClaimRegistrationStatusApi(row.id, 'REJECTED');
-        if (response.code === 200) {
-          ElMessage.success('债权申报驳回成功');
-          await fetchClaims();
-        } else {
-          ElMessage.error(`驳回失败：${response.message || '未知错误'}`);
-        }
-      } catch (error) {
-        console.error('驳回债权申报失败:', error);
-        ElMessage.error('驳回债权申报失败');
+      const result = await ClaimService.updateClaimStatus(row.id, 'REJECTED');
+      if (result.success) {
+        await fetchClaims();
       }
     })
     .catch(() => {
@@ -402,21 +268,12 @@ const handleRejectClaim = async (row: any) => {
 };
 
 const handleDeleteClaim = async (row: any) => {
-  try {
-    const response = await deleteClaimRegistrationApi(row.id);
-    if (response.code === 200) {
-      ElMessage.success('删除成功');
-      await fetchClaims();
-    } else {
-      ElMessage.error(`删除失败：${response.message || '未知错误'}`);
-    }
-  } catch (error) {
-    console.error('删除债权登记失败:', error);
-    ElMessage.error('删除债权登记失败');
+  const result = await ClaimService.deleteClaim(row.id);
+  if (result.success) {
+    await fetchClaims();
   }
 };
 
-// 新增债权相关方法
 const handleCreditorChange = (value: string) => {
   const selectedCreditor = creditorList.value.find(
     (creditor) => creditor.label === value,
@@ -431,7 +288,6 @@ const openAddDialog = async () => {
   await fetchDebtorList();
   await fetchCreditorList();
 
-  // Fetch current case detail to get caseNumber
   try {
     const caseResponse = await getCaseReviewStatusApi(Number(props.caseId));
     if (caseResponse.code === 200 && caseResponse.data?.caseNumber) {
@@ -444,51 +300,11 @@ const openAddDialog = async () => {
 
 const closeAddDialog = () => {
   showAddDialog.value = false;
-  resetForm();
-};
-
-const resetForm = () => {
-  claimForm.caseNumber = '';
-  claimForm.debtor = '';
-  claimForm.creditorName = '';
-  claimForm.creditorType = '';
-  claimForm.creditCode = '';
-  claimForm.legalRepresentative = '';
-  claimForm.serviceAddress = '';
-  claimForm.agentName = '';
-  claimForm.agentPhone = '';
-  claimForm.agentIdCard = '';
-  claimForm.agentAddress = '';
-  claimForm.accountName = '';
-  claimForm.bankAccount = '';
-  claimForm.bankName = '';
-  claimForm.principal = '';
-  claimForm.interest = '';
-  claimForm.penalty = '';
-  claimForm.otherLosses = '';
-  claimForm.totalAmount = '';
-  claimForm.hasCourtJudgment = false;
-  claimForm.hasExecution = false;
-  claimForm.hasCollateral = false;
-  claimForm.claimNature = '';
-  claimForm.claimType = '';
-  claimForm.claimFacts = '';
-  claimForm.claimIdentifier = '';
-  claimForm.evidenceList = '';
-  claimForm.evidenceMaterials = '';
-  claimForm.evidenceAttachments = [];
-  claimForm.registrationDate = '';
-  claimForm.registrationDeadline = '';
-  claimForm.materialReceiver = '';
-  claimForm.materialReceiveDate = '';
-  claimForm.materialCompleteness = 'COMPLETE';
-  claimForm.remarks = '';
-  claimForm.registrationStatus = 'PENDING';
+  resetClaimForm();
   fileList.value = [];
 };
 
 const handleAddClaim = async () => {
-  // 验证必填字段
   if (!claimForm.creditorName) {
     ElMessage.warning('请输入债权人姓名或名称');
     return;
@@ -509,95 +325,63 @@ const handleAddClaim = async () => {
   }
 
   addLoading.value = true;
-  try {
-    const requestData = {
-      caseId: Number(props.caseId),
-      caseNumber: claimForm.caseNumber || undefined,
-      debtor: claimForm.debtor || undefined,
-      creditorName: claimForm.creditorName,
-      creditorType: claimForm.creditorType,
-      creditCode: claimForm.creditCode || undefined,
-      legalRepresentative: claimForm.legalRepresentative || undefined,
-      serviceAddress: claimForm.serviceAddress || undefined,
-      agentName: claimForm.agentName || undefined,
-      agentPhone: claimForm.agentPhone || undefined,
-      agentIdCard: claimForm.agentIdCard || undefined,
-      agentAddress: claimForm.agentAddress || undefined,
-      accountName: claimForm.accountName || undefined,
-      creditorBankAccount: claimForm.bankAccount || undefined,
-      bankName: claimForm.bankName || undefined,
-      principal: Number.parseFloat(claimForm.principal) || 0,
-      interest: Number.parseFloat(claimForm.interest) || 0,
-      penalty: Number.parseFloat(claimForm.penalty) || 0,
-      otherLosses: Number.parseFloat(claimForm.otherLosses) || 0,
-      totalAmount: Number.parseFloat(totalAmount.value) || 0,
-      hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
-      hasExecution: claimForm.hasExecution ? 1 : 0,
-      hasCollateral: claimForm.hasCollateral ? 1 : 0,
-      claimNature: claimForm.claimNature || undefined,
-      claimType: claimForm.claimType,
-      claimFacts: claimForm.claimFacts || undefined,
-      claimIdentifier: claimForm.claimIdentifier || undefined,
-      evidenceList: claimForm.evidenceList || undefined,
-      evidenceMaterials: claimForm.evidenceMaterials || undefined,
-      evidenceAttachments:
-        claimForm.evidenceAttachments &&
-        claimForm.evidenceAttachments.length > 0
-          ? claimForm.evidenceAttachments
-          : null,
-      registrationDate: claimForm.registrationDate || null,
-      registrationDeadline: claimForm.registrationDeadline || null,
-      materialReceiver: claimForm.materialReceiver || undefined,
-      materialReceiveDate: claimForm.materialReceiveDate || null,
-      materialCompleteness: claimForm.materialCompleteness,
-      remarks: claimForm.remarks || undefined,
-    };
+  const requestData = {
+    caseId: Number(props.caseId),
+    caseNumber: claimForm.caseNumber || undefined,
+    debtor: claimForm.debtor || undefined,
+    creditorName: claimForm.creditorName,
+    creditorType: claimForm.creditorType,
+    creditCode: claimForm.creditCode || undefined,
+    legalRepresentative: claimForm.legalRepresentative || undefined,
+    serviceAddress: claimForm.serviceAddress || undefined,
+    agentName: claimForm.agentName || undefined,
+    agentPhone: claimForm.agentPhone || undefined,
+    agentIdCard: claimForm.agentIdCard || undefined,
+    agentAddress: claimForm.agentAddress || undefined,
+    accountName: claimForm.accountName || undefined,
+    creditorBankAccount: claimForm.bankAccount || undefined,
+    bankName: claimForm.bankName || undefined,
+    principal: Number.parseFloat(claimForm.principal) || 0,
+    interest: Number.parseFloat(claimForm.interest) || 0,
+    penalty: Number.parseFloat(claimForm.penalty) || 0,
+    otherLosses: Number.parseFloat(claimForm.otherLosses) || 0,
+    totalAmount: Number.parseFloat(totalAmount.value) || 0,
+    hasCourtJudgment: claimForm.hasCourtJudgment ? 1 : 0,
+    hasExecution: claimForm.hasExecution ? 1 : 0,
+    hasCollateral: claimForm.hasCollateral ? 1 : 0,
+    claimNature: claimForm.claimNature || undefined,
+    claimType: claimForm.claimType,
+    claimFacts: claimForm.claimFacts || undefined,
+    claimIdentifier: claimForm.claimIdentifier || undefined,
+    evidenceList: claimForm.evidenceList || undefined,
+    evidenceMaterials: claimForm.evidenceMaterials || undefined,
+    evidenceAttachments:
+      claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0
+        ? claimForm.evidenceAttachments
+        : null,
+    registrationDate: claimForm.registrationDate || null,
+    registrationDeadline: claimForm.registrationDeadline || null,
+    materialReceiver: claimForm.materialReceiver || undefined,
+    materialReceiveDate: claimForm.materialReceiveDate || null,
+    materialCompleteness: claimForm.materialCompleteness,
+    remarks: claimForm.remarks || undefined,
+  };
 
-    const response = await createClaimRegistrationApi(requestData);
-    if (response.code === 200) {
-      ElMessage.success('成功添加债权登记');
-      await fetchClaims();
-      closeAddDialog();
-    } else {
-      ElMessage.error(`添加失败：${response.message || '未知错误'}`);
-    }
-  } catch (error) {
-    console.error('添加债权登记失败:', error);
-    ElMessage.error('添加债权登记失败');
-  } finally {
-    addLoading.value = false;
+  const result = await ClaimService.createClaim(requestData);
+  if (result.success) {
+    await fetchClaims();
+    closeAddDialog();
   }
+  addLoading.value = false;
 };
 
-const getRegistrationStatusTag = (status: string) => {
-  const statusMap: Record<string, any> = {
-    PENDING: { type: 'warning', text: '待登记' },
-    REGISTERED: { type: 'success', text: '已登记' },
-    REJECTED: { type: 'danger', text: '已驳回' },
-  };
-  return statusMap[status] || { type: 'info', text: status };
-};
-
-const getMaterialCompletenessTag = (completeness: string) => {
-  const statusMap: Record<string, any> = {
-    COMPLETE: { type: 'success', text: '完整' },
-    INCOMPLETE: { type: 'warning', text: '不完整' },
-    PENDING: { type: 'info', text: '待补充' },
-  };
-  return statusMap[completeness] || { type: 'info', text: completeness };
-};
-
-// Excel导入相关方法
 const handleImportFileChange = (file: any, fileList: any[]) => {
-  // 只保留最新的文件
   if (fileList.length > 1) {
     fileList.shift();
   }
 };
 
-const handleImportFileRemove = (file: any, fileList: any[]) => {
-  // 文件移除处理
-};
+const handleImportFileRemove = (file: any, fileList: any[]) => {};
 
 const handleImportSubmit = async (file: any) => {
   if (!file) {
@@ -606,31 +390,20 @@ const handleImportSubmit = async (file: any) => {
   }
 
   importLoading.value = true;
-  try {
-    const formData = new FormData();
-    formData.append('file', file.raw);
-    formData.append('caseId', props.caseId);
+  const formData = new FormData();
+  formData.append('file', file.raw);
+  formData.append('caseId', props.caseId);
 
-    const response = await importClaimRegistrationApi(formData);
-    if (response.code === 200) {
-      importResult.value = response.data;
-      ElMessage.success(`导入完成，成功${response.data.successCount}条，失败${response.data.failCount}条`);
-      
-      if (response.data.failCount > 0) {
-        showImportErrorDialog.value = true;
-      }
-      
-      await fetchClaims();
-      showImportDialog.value = false;
-    } else {
-      ElMessage.error(`导入失败：${response.message || '未知错误'}`);
+  const result = await ClaimService.importClaims(formData);
+  if (result.success) {
+    importResult.value = result.data;
+    if (result.data.failCount > 0) {
+      showImportErrorDialog.value = true;
     }
-  } catch (error) {
-    console.error('Excel导入失败:', error);
-    ElMessage.error('Excel导入失败');
-  } finally {
-    importLoading.value = false;
+    await fetchClaims();
+    showImportDialog.value = false;
   }
+  importLoading.value = false;
 };
 
 const openImportDialog = () => {
@@ -694,7 +467,7 @@ onMounted(() => {
                   "
                   size="small"
                 >
-                  {{ 
+                  {{
                     getRegistrationStatusTag(scope.row.registration_status).text
                   }}
                 </ElTag>
@@ -714,7 +487,7 @@ onMounted(() => {
                 "
                 size="small"
               >
-                {{ 
+                {{
                   getMaterialCompletenessTag(scope.row.material_completeness)
                     .text
                 }}
@@ -1010,7 +783,6 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <!-- 新增债权对话框 -->
     <ElDialog
       v-model="showAddDialog"
       title="新增债权登记"
@@ -1018,7 +790,7 @@ onMounted(() => {
       destroy-on-close
     >
       <div class="add-dialog-container">
-        <ElForm label-width="180px">
+        <ElForm label-width="180px" :rules="claimFormRules">
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="案号">
@@ -1050,7 +822,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权人姓名或名称" required>
+              <ElFormItem label="债权人姓名或名称" prop="creditorName">
                 <ElSelect
                   v-model="claimForm.creditorName"
                   placeholder="请选择或输入债权人姓名或名称"
@@ -1070,7 +842,7 @@ onMounted(() => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="债权人类型" required>
+              <ElFormItem label="债权人类型" prop="creditorType">
                 <ElSelect
                   v-model="claimForm.creditorType"
                   placeholder="请选择债权人类型"
@@ -1087,7 +859,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="统一社会信用代码">
+              <ElFormItem label="统一社会信用代码" prop="creditCode">
                 <ElInput
                   v-model="claimForm.creditCode"
                   placeholder="请输入统一社会信用代码"
@@ -1125,7 +897,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="代理人电话">
+              <ElFormItem label="代理人电话" prop="agentPhone">
                 <ElInput
                   v-model="claimForm.agentPhone"
                   placeholder="请输入代理人电话"
@@ -1133,7 +905,7 @@ onMounted(() => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="代理人身份证号码">
+              <ElFormItem label="代理人身份证号码" prop="agentIdCard">
                 <ElInput
                   v-model="claimForm.agentIdCard"
                   placeholder="请输入代理人身份证号码"
@@ -1186,7 +958,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="申报本金">
+              <ElFormItem label="申报本金" prop="principal">
                 <ElInput
                   v-model="claimForm.principal"
                   placeholder="请输入申报本金"
@@ -1195,7 +967,7 @@ onMounted(() => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="申报利息">
+              <ElFormItem label="申报利息" prop="interest">
                 <ElInput
                   v-model="claimForm.interest"
                   placeholder="请输入申报利息"
@@ -1207,7 +979,7 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="申报违约金">
+              <ElFormItem label="申报违约金" prop="penalty">
                 <ElInput
                   v-model="claimForm.penalty"
                   placeholder="请输入申报违约金"
@@ -1216,7 +988,7 @@ onMounted(() => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="申报其他损失">
+              <ElFormItem label="申报其他损失" prop="otherLosses">
                 <ElInput
                   v-model="claimForm.otherLosses"
                   placeholder="请输入申报其他损失"
@@ -1275,7 +1047,7 @@ onMounted(() => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="债权种类" required>
+              <ElFormItem label="债权种类" prop="claimType">
                 <ElSelect
                   v-model="claimForm.claimType"
                   placeholder="请选择债权种类"
@@ -1413,7 +1185,6 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <!-- Excel导入对话框 -->
     <ElDialog
       v-model="showImportDialog"
       title="Excel导入债权登记"
@@ -1476,7 +1247,6 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <!-- 导入错误详情对话框 -->
     <ElDialog
       v-model="showImportErrorDialog"
       title="导入错误详情"

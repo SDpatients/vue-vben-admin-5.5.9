@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
+  ElCol,
   ElDescriptions,
   ElDescriptionsItem,
   ElDialog,
@@ -16,22 +17,21 @@ import {
   ElMessageBox,
   ElOption,
   ElPagination,
+  ElRow,
   ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus';
 
+import { ClaimService } from './services/claimService';
+import { useConfirmationForm } from './composables/useClaimForm';
+import { useClaimPagination } from './composables/useClaimPagination';
 import {
-  createClaimConfirmationApi,
-  finalizeClaimConfirmationApi,
-  getClaimConfirmationDetailApi,
-  getClaimConfirmationsByCaseIdApi,
-  updateClaimConfirmationApi,
-} from '#/api/core/claim-confirmation';
-import {
-  getClaimRegistrationDetailApi,
-} from '#/api/core/claim-registration';
+  getConfirmationStatusTag,
+  getReviewConclusionTag,
+} from './utils/claimStatusMapper';
+import { confirmationFormRules } from './utils/claimFormRules';
 
 const props = defineProps<{
   caseId: string;
@@ -39,136 +39,71 @@ const props = defineProps<{
 
 const loading = ref(false);
 const claims = ref<any[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(10);
+
+const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } =
+  useClaimPagination();
+
+const { confirmationForm, resetConfirmationForm } = useConfirmationForm();
 
 const showDetailDialog = ref(false);
 const showConfirmDialog = ref(false);
 const confirmLoading = ref(false);
 const currentClaim = ref<any>(null);
 
-const confirmForm = reactive({
-  voteResult: '通过',
-  voteNotes: '',
-  confirmedAmount: 0,
-  meetingType: 'FIRST',
-  meetingDate: '',
-  meetingLocation: '',
-  hasObjection: 0,
-  objector: '',
-  objectionReason: '',
-  objectionAmount: 0,
-  objectionDate: '',
-  negotiationResult: '',
-  negotiationDate: '',
-  negotiationParticipants: '',
-  courtRulingDate: '',
-  courtRulingNo: '',
-  courtRulingResult: '',
-  courtRulingAmount: 0,
-  courtRulingNotes: '',
-  hasLawsuit: 0,
-  lawsuitCaseNo: '',
-  lawsuitStatus: '',
-  lawsuitResult: '',
-  lawsuitAmount: 0,
-  lawsuitNotes: '',
-  finalConfirmationDate: '',
-  finalConfirmationBasis: '',
-  confirmationAttachments: '',
-  confirmationStatus: 'CONFIRMED',
-  remarks: '',
-});
-
 const fetchClaims = async () => {
   loading.value = true;
   try {
-    const response = await getClaimConfirmationsByCaseIdApi(Number(props.caseId), {
-      pageNum: currentPage.value,
-      pageSize: pageSize.value,
-    });
-
-    if (response.code === 200 && response.data) {
-      claims.value = response.data.list.map((item: any) => ({
-        ...item,
-        creditorName: item.creditorName,
-        creditorType: item.creditorType || item.creditor_type || '-',
-        creditCode: item.creditCode || item.credit_code || '-',
-        claimNo: item.claimNo || item.claimRegistrationId,
-        principal: item.principal || item.declaredPrincipal || 0,
-        totalAmount: item.finalConfirmedAmount || item.confirmedTotalAmount || item.declaredTotalAmount || 0,
-        claimNature: item.confirmedClaimNature || item.claimNature || '-',
-        claimType: item.claimType || item.claim_type || '-',
-        confirmationStatus: item.confirmationStatus || 'PENDING',
-        reviewInfo: item.reviewInfo || null,
-      }));
-      total.value = response.data.total || 0;
-    } else {
-      ElMessage.error(
-        `获取债权确认列表失败：${response.message || '未知错误'}`,
-      );
-      claims.value = [];
-      total.value = 0;
+    const result = await ClaimService.fetchClaimConfirmations(
+      Number(props.caseId),
+      currentPage.value,
+      pageSize.value,
+      undefined,
+    );
+    if (result.success) {
+      claims.value = result.data;
+      total.value = result.total;
     }
-  } catch (error) {
-    console.error('获取债权确认列表失败:', error);
-    ElMessage.error('获取债权确认列表失败');
-    claims.value = [];
-    total.value = 0;
   } finally {
     loading.value = false;
   }
 };
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page;
-  fetchClaims();
-};
-
-const handlePageSizeChange = (size: number) => {
-  pageSize.value = size;
-  currentPage.value = 1;
-  fetchClaims();
-};
-
 const openDetailDialog = async (row: any) => {
-  try {
-    const response = await getClaimConfirmationDetailApi(row.id);
-    if (response.code === 200 && response.data) {
-      currentClaim.value = response.data;
-      showDetailDialog.value = true;
-    } else {
-      ElMessage.error('获取确认详情失败');
-    }
-  } catch (error) {
-    console.error('获取确认详情失败:', error);
-    ElMessage.error('获取确认详情失败');
+  const result = await ClaimService.getConfirmationDetail(row.id);
+  if (result.success) {
+    currentClaim.value = result.data;
+    showDetailDialog.value = true;
   }
 };
 
 const openConfirmDialog = async (row: any) => {
   try {
-    let response;
+    let result;
     if (row.confirmationInfo) {
-      response = await getClaimConfirmationDetailApi(row.confirmationInfo.id);
-      console.log('获取确认详情响应:', response);
-      if (response.code === 200 && response.data) {
+      result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
+      if (result.success) {
         currentClaim.value = row;
-        Object.assign(confirmForm, {
-          voteResult: response.data.voteResult === 'AGREE' ? '通过' : response.data.voteResult === 'DISAGREE' ? '不通过' : '待定',
-          voteNotes: response.data.voteNotes || '',
-          confirmedAmount: response.data.finalConfirmedAmount || response.data.confirmedTotalAmount || row.reviewInfo?.confirmedTotalAmount || 0,
+        Object.assign(confirmationForm, {
+          voteResult:
+            result.data.voteResult === 'AGREE'
+              ? '通过'
+              : result.data.voteResult === 'DISAGREE'
+                ? '不通过'
+                : '待定',
+          voteNotes: result.data.voteNotes || '',
+          finalConfirmedAmount:
+            result.data.finalConfirmedAmount ||
+            result.data.confirmedTotalAmount ||
+            row.reviewInfo?.confirmedTotalAmount ||
+            0,
         });
         showConfirmDialog.value = true;
-      } else {
-        ElMessage.error('获取确认详情失败');
       }
     } else {
-      // 没有确认记录，直接使用row数据
       currentClaim.value = row;
-      Object.assign(confirmForm, {
-        confirmedAmount: row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
+      Object.assign(confirmationForm, {
+        finalConfirmedAmount:
+          row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
       });
       showConfirmDialog.value = true;
     }
@@ -181,36 +116,7 @@ const openConfirmDialog = async (row: any) => {
 const closeConfirmDialog = () => {
   showConfirmDialog.value = false;
   currentClaim.value = null;
-  confirmForm.voteResult = '通过';
-  confirmForm.voteNotes = '';
-  confirmForm.confirmedAmount = 0;
-  confirmForm.meetingType = 'FIRST';
-  confirmForm.meetingDate = '';
-  confirmForm.meetingLocation = '';
-  confirmForm.hasObjection = 0;
-  confirmForm.objector = '';
-  confirmForm.objectionReason = '';
-  confirmForm.objectionAmount = 0;
-  confirmForm.objectionDate = '';
-  confirmForm.negotiationResult = '';
-  confirmForm.negotiationDate = '';
-  confirmForm.negotiationParticipants = '';
-  confirmForm.courtRulingDate = '';
-  confirmForm.courtRulingNo = '';
-  confirmForm.courtRulingResult = '';
-  confirmForm.courtRulingAmount = 0;
-  confirmForm.courtRulingNotes = '';
-  confirmForm.hasLawsuit = 0;
-  confirmForm.lawsuitCaseNo = '';
-  confirmForm.lawsuitStatus = '';
-  confirmForm.lawsuitResult = '';
-  confirmForm.lawsuitAmount = 0;
-  confirmForm.lawsuitNotes = '';
-  confirmForm.finalConfirmationDate = '';
-  confirmForm.finalConfirmationBasis = '';
-  confirmForm.confirmationAttachments = '';
-  confirmForm.confirmationStatus = 'CONFIRMED';
-  confirmForm.remarks = '';
+  resetConfirmationForm();
 };
 
 const handleConfirmClaim = async () => {
@@ -218,57 +124,48 @@ const handleConfirmClaim = async () => {
 
   confirmLoading.value = true;
   try {
-    // 直接使用 currentClaim.value.id 作为确认记录的 ID
     const confirmationId = currentClaim.value.id;
-    
-    // 更新确认记录
-    await updateClaimConfirmationApi(confirmationId, {
-      meetingType: confirmForm.meetingType,
-      meetingDate: confirmForm.meetingDate || null,
-      meetingLocation: confirmForm.meetingLocation || null,
+
+    await ClaimService.updateConfirmation(confirmationId, {
+      meetingType: confirmationForm.meetingType,
+      meetingDate: confirmationForm.meetingDate || null,
+      meetingLocation: confirmationForm.meetingLocation || null,
       voteResult:
-        confirmForm.voteResult === '通过'
+        confirmationForm.voteResult === '通过'
           ? 'AGREE'
-          : confirmForm.voteResult === '不通过'
+          : confirmationForm.voteResult === '不通过'
             ? 'DISAGREE'
             : 'ABSTAIN',
-      voteNotes: confirmForm.voteNotes || null,
-      hasObjection: confirmForm.hasObjection,
-      objector: confirmForm.objector || null,
-      objectionReason: confirmForm.objectionReason || null,
-      objectionAmount: confirmForm.objectionAmount,
-      objectionDate: confirmForm.objectionDate || null,
-      negotiationResult: confirmForm.negotiationResult || null,
-      negotiationDate: confirmForm.negotiationDate || null,
-      negotiationParticipants: confirmForm.negotiationParticipants || null,
-      courtRulingDate: confirmForm.courtRulingDate || null,
-      courtRulingNo: confirmForm.courtRulingNo || null,
-      courtRulingResult: confirmForm.courtRulingResult || null,
-      courtRulingAmount: confirmForm.courtRulingAmount,
-      courtRulingNotes: confirmForm.courtRulingNotes || null,
-      hasLawsuit: confirmForm.hasLawsuit,
-      lawsuitCaseNo: confirmForm.lawsuitCaseNo || null,
-      lawsuitStatus: confirmForm.lawsuitStatus || null,
-      lawsuitResult: confirmForm.lawsuitResult || null,
-      lawsuitAmount: confirmForm.lawsuitAmount,
-      lawsuitNotes: confirmForm.lawsuitNotes || null,
-      finalConfirmedAmount: confirmForm.confirmedAmount,
-      finalConfirmationDate: confirmForm.finalConfirmationDate || null,
-      finalConfirmationBasis: confirmForm.finalConfirmationBasis || null,
-      confirmationAttachments: confirmForm.confirmationAttachments || null,
-      confirmationStatus: confirmForm.confirmationStatus,
-      remarks: confirmForm.remarks || null,
+      voteNotes: confirmationForm.voteNotes || null,
+      hasObjection: confirmationForm.hasObjection,
+      objector: confirmationForm.objector || null,
+      objectionReason: confirmationForm.objectionReason || null,
+      objectionAmount: confirmationForm.objectionAmount,
+      objectionDate: confirmationForm.objectionDate || null,
+      negotiationResult: confirmationForm.negotiationResult || null,
+      negotiationDate: confirmationForm.negotiationDate || null,
+      negotiationParticipants: confirmationForm.negotiationParticipants || null,
+      courtRulingDate: confirmationForm.courtRulingDate || null,
+      courtRulingNo: confirmationForm.courtRulingNo || null,
+      courtRulingResult: confirmationForm.courtRulingResult || null,
+      courtRulingAmount: confirmationForm.courtRulingAmount,
+      courtRulingNotes: confirmationForm.courtRulingNotes || null,
+      hasLawsuit: confirmationForm.hasLawsuit,
+      lawsuitCaseNo: confirmationForm.lawsuitCaseNo || null,
+      lawsuitStatus: confirmationForm.lawsuitStatus || null,
+      lawsuitResult: confirmationForm.lawsuitResult || null,
+      lawsuitAmount: confirmationForm.lawsuitAmount,
+      lawsuitNotes: confirmationForm.lawsuitNotes || null,
+      finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+      finalConfirmationDate: confirmationForm.finalConfirmationDate || null,
+      finalConfirmationBasis: confirmationForm.finalConfirmationBasis || null,
+      confirmationAttachments: confirmationForm.confirmationAttachments || null,
+      confirmationStatus: 'CONFIRMED',
+      remarks: confirmationForm.remarks || null,
     });
 
-    // 最终确认债权
-    await finalizeClaimConfirmationApi(confirmationId);
-
-    ElMessage.success('债权确认成功');
     await fetchClaims();
     closeConfirmDialog();
-  } catch (error: any) {
-    console.error('债权确认失败:', error);
-    ElMessage.error(error.message || '债权确认失败');
   } finally {
     confirmLoading.value = false;
   }
@@ -281,47 +178,17 @@ const handleRejectClaim = async (row: any) => {
     type: 'warning',
   })
     .then(async () => {
-      try {
-        // 直接使用 row.id 作为确认记录的 ID
-        const confirmationId = row.id;
-        
-        // 更新确认记录为驳回状态
-        await updateClaimConfirmationApi(confirmationId, {
-          voteResult: 'DISAGREE',
-          voteNotes: '驳回',
-          confirmationStatus: 'OBJECTION',
-        });
-
-        ElMessage.success('债权确认驳回成功');
-        await fetchClaims();
-      } catch (error) {
-        console.error('驳回债权确认失败:', error);
-        ElMessage.error('驳回债权确认失败');
-      }
+      const confirmationId = row.id;
+      await ClaimService.updateConfirmation(confirmationId, {
+        voteResult: 'DISAGREE',
+        voteNotes: '驳回',
+        confirmationStatus: 'OBJECTION',
+      });
+      await fetchClaims();
     })
     .catch(() => {
       ElMessage.info('已取消驳回操作');
     });
-};
-
-const getConfirmationStatusTag = (status: string) => {
-  const statusMap: Record<string, any> = {
-    PENDING: { type: 'warning', text: '待确认' },
-    CONFIRMED: { type: 'success', text: '已确认' },
-    OBJECTION: { type: 'danger', text: '有异议' },
-    COURT: { type: 'info', text: '法院裁定中' },
-    LAWSUIT: { type: 'warning', text: '诉讼中' },
-  };
-  return statusMap[status] || { type: 'info', text: status };
-};
-
-const getReviewConclusionTag = (conclusion: string) => {
-  const conclusionMap: Record<string, any> = {
-    CONFIRMED: { type: 'success', text: '确认' },
-    PARTIAL_CONFIRMED: { type: 'warning', text: '部分确认' },
-    UNCONFIRMED: { type: 'danger', text: '不予确认' },
-  };
-  return conclusionMap[conclusion] || { type: 'info', text: conclusion };
 };
 
 onMounted(() => {
@@ -352,21 +219,14 @@ onMounted(() => {
           <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
             <template #default="scope">
               <ElTag
-                :type="
-                  getConfirmationStatusTag(scope.row.confirmationStatus).type
-                "
+                :type="getConfirmationStatusTag(scope.row.confirmationStatus || scope.row.confirmationStatus).type"
                 size="small"
               >
-                {{ 
-                  getConfirmationStatusTag(scope.row.confirmationStatus).text
-                }}
+                {{ getConfirmationStatusTag(scope.row.confirmationStatus || scope.row.confirmationStatus).text }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn
-            label="审查结论"
-            width="120"
-          >
+          <ElTableColumn label="审查结论" width="120">
             <template #default="scope">
               <ElTag
                 v-if="scope.row.reviewInfo"
@@ -376,7 +236,7 @@ onMounted(() => {
                 "
                 size="small"
               >
-                {{ 
+                {{
                   getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
                     .text
                 }}
@@ -386,10 +246,7 @@ onMounted(() => {
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn
-            label="确认金额"
-            width="120"
-          >
+          <ElTableColumn label="确认金额" width="120">
             <template #default="scope">
               {{ scope.row.reviewInfo?.confirmedTotalAmount || 0 }}
             </template>
@@ -405,13 +262,16 @@ onMounted(() => {
           <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
           <ElTableColumn prop="claimNature" label="债权性质" width="120" />
           <ElTableColumn prop="claimType" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="300" fixed="right">
+          <ElTableColumn label="操作" width="350" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
-                v-if="scope.row.confirmationStatus === 'PENDING'"
+                v-if="
+                  scope.row.confirmationStatus === 'PENDING' ||
+                  scope.row.confirmationStatus === 'IN_PROGRESS'
+                "
                 type="primary"
                 size="small"
                 @click="openConfirmDialog(scope.row)"
@@ -419,7 +279,10 @@ onMounted(() => {
                 确认
               </ElButton>
               <ElButton
-                v-if="scope.row.confirmationStatus === 'PENDING'"
+                v-if="
+                  scope.row.confirmationStatus === 'PENDING' ||
+                  scope.row.confirmationStatus === 'IN_PROGRESS'
+                "
                 type="danger"
                 size="small"
                 @click="handleRejectClaim(scope.row)"
@@ -515,13 +378,9 @@ onMounted(() => {
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认状态">
             <ElTag
-              :type="
-                getConfirmationStatusTag(currentClaim.confirmationStatus).type
-              "
+              :type="getConfirmationStatusTag(currentClaim.confirmationStatus).type"
             >
-              {{ 
-                getConfirmationStatusTag(currentClaim.confirmationStatus).text
-              }}
+              {{ getConfirmationStatusTag(currentClaim.confirmationStatus).text }}
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="备注">
@@ -575,10 +434,10 @@ onMounted(() => {
 
         <div class="confirm-form-section">
           <h4 class="section-title mb-2">确认操作</h4>
-          <ElForm label-width="120px" v-model="confirmForm">
+          <ElForm label-width="120px" :model="confirmationForm">
             <ElFormItem label="确认金额" required>
               <ElInput
-                v-model="confirmForm.confirmedAmount"
+                v-model="confirmationForm.finalConfirmedAmount"
                 type="number"
                 placeholder="请输入确认金额"
                 style="width: 100%"
@@ -586,7 +445,7 @@ onMounted(() => {
             </ElFormItem>
             <ElFormItem label="表决结果" required>
               <ElSelect
-                v-model="confirmForm.voteResult"
+                v-model="confirmationForm.voteResult"
                 placeholder="请选择表决结果"
                 style="width: 100%"
               >
@@ -597,13 +456,13 @@ onMounted(() => {
             </ElFormItem>
             <ElFormItem label="表决说明">
               <ElInput
-                v-model="confirmForm.voteNotes"
+                v-model="confirmationForm.voteNotes"
                 type="textarea"
                 :rows="3"
                 placeholder="请输入表决说明"
               />
             </ElFormItem>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">会议信息</h4>
             </div>
@@ -611,7 +470,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="会议类型">
                   <ElSelect
-                    v-model="confirmForm.meetingType"
+                    v-model="confirmationForm.meetingType"
                     placeholder="请选择会议类型"
                     style="width: 100%"
                   >
@@ -624,7 +483,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="会议日期">
                   <ElInput
-                    v-model="confirmForm.meetingDate"
+                    v-model="confirmationForm.meetingDate"
                     type="datetime-local"
                     placeholder="请选择会议日期"
                     style="width: 100%"
@@ -634,11 +493,11 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="会议地点">
               <ElInput
-                v-model="confirmForm.meetingLocation"
+                v-model="confirmationForm.meetingLocation"
                 placeholder="请输入会议地点"
               />
             </ElFormItem>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">异议信息</h4>
             </div>
@@ -646,7 +505,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="是否有异议">
                   <ElSelect
-                    v-model="confirmForm.hasObjection"
+                    v-model="confirmationForm.hasObjection"
                     placeholder="请选择是否有异议"
                     style="width: 100%"
                   >
@@ -658,7 +517,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="异议人">
                   <ElInput
-                    v-model="confirmForm.objector"
+                    v-model="confirmationForm.objector"
                     placeholder="请输入异议人"
                     style="width: 100%"
                   />
@@ -667,7 +526,7 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="异议原因">
               <ElInput
-                v-model="confirmForm.objectionReason"
+                v-model="confirmationForm.objectionReason"
                 type="textarea"
                 :rows="2"
                 placeholder="请输入异议原因"
@@ -677,7 +536,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="异议金额">
                   <ElInput
-                    v-model="confirmForm.objectionAmount"
+                    v-model="confirmationForm.objectionAmount"
                     type="number"
                     placeholder="请输入异议金额"
                     style="width: 100%"
@@ -687,7 +546,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="异议日期">
                   <ElInput
-                    v-model="confirmForm.objectionDate"
+                    v-model="confirmationForm.objectionDate"
                     type="datetime-local"
                     placeholder="请选择异议日期"
                     style="width: 100%"
@@ -695,13 +554,13 @@ onMounted(() => {
                 </ElFormItem>
               </ElCol>
             </ElRow>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">协商信息</h4>
             </div>
             <ElFormItem label="协商结果">
               <ElInput
-                v-model="confirmForm.negotiationResult"
+                v-model="confirmationForm.negotiationResult"
                 placeholder="请输入协商结果"
               />
             </ElFormItem>
@@ -709,7 +568,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="协商日期">
                   <ElInput
-                    v-model="confirmForm.negotiationDate"
+                    v-model="confirmationForm.negotiationDate"
                     type="datetime-local"
                     placeholder="请选择协商日期"
                     style="width: 100%"
@@ -719,14 +578,14 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="协商参与人">
                   <ElInput
-                    v-model="confirmForm.negotiationParticipants"
+                    v-model="confirmationForm.negotiationParticipants"
                     placeholder="请输入协商参与人"
                     style="width: 100%"
                   />
                 </ElFormItem>
               </ElCol>
             </ElRow>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">法院裁定信息</h4>
             </div>
@@ -734,7 +593,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="裁定日期">
                   <ElInput
-                    v-model="confirmForm.courtRulingDate"
+                    v-model="confirmationForm.courtRulingDate"
                     type="datetime-local"
                     placeholder="请选择裁定日期"
                     style="width: 100%"
@@ -744,7 +603,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="裁定编号">
                   <ElInput
-                    v-model="confirmForm.courtRulingNo"
+                    v-model="confirmationForm.courtRulingNo"
                     placeholder="请输入裁定编号"
                     style="width: 100%"
                   />
@@ -753,7 +612,7 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="裁定结果">
               <ElInput
-                v-model="confirmForm.courtRulingResult"
+                v-model="confirmationForm.courtRulingResult"
                 placeholder="请输入裁定结果"
               />
             </ElFormItem>
@@ -761,7 +620,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="裁定金额">
                   <ElInput
-                    v-model="confirmForm.courtRulingAmount"
+                    v-model="confirmationForm.courtRulingAmount"
                     type="number"
                     placeholder="请输入裁定金额"
                     style="width: 100%"
@@ -771,13 +630,13 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="裁定备注">
               <ElInput
-                v-model="confirmForm.courtRulingNotes"
+                v-model="confirmationForm.courtRulingNotes"
                 type="textarea"
                 :rows="2"
                 placeholder="请输入裁定备注"
               />
             </ElFormItem>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">诉讼信息</h4>
             </div>
@@ -785,7 +644,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="是否有诉讼">
                   <ElSelect
-                    v-model="confirmForm.hasLawsuit"
+                    v-model="confirmationForm.hasLawsuit"
                     placeholder="请选择是否有诉讼"
                     style="width: 100%"
                   >
@@ -797,7 +656,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="案号">
                   <ElInput
-                    v-model="confirmForm.lawsuitCaseNo"
+                    v-model="confirmationForm.lawsuitCaseNo"
                     placeholder="请输入案号"
                     style="width: 100%"
                   />
@@ -808,7 +667,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="诉讼状态">
                   <ElInput
-                    v-model="confirmForm.lawsuitStatus"
+                    v-model="confirmationForm.lawsuitStatus"
                     placeholder="请输入诉讼状态"
                     style="width: 100%"
                   />
@@ -817,7 +676,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="诉讼结果">
                   <ElInput
-                    v-model="confirmForm.lawsuitResult"
+                    v-model="confirmationForm.lawsuitResult"
                     placeholder="请输入诉讼结果"
                     style="width: 100%"
                   />
@@ -828,7 +687,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="诉讼金额">
                   <ElInput
-                    v-model="confirmForm.lawsuitAmount"
+                    v-model="confirmationForm.lawsuitAmount"
                     type="number"
                     placeholder="请输入诉讼金额"
                     style="width: 100%"
@@ -838,13 +697,13 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="诉讼备注">
               <ElInput
-                v-model="confirmForm.lawsuitNotes"
+                v-model="confirmationForm.lawsuitNotes"
                 type="textarea"
                 :rows="2"
                 placeholder="请输入诉讼备注"
               />
             </ElFormItem>
-            
+
             <div class="section-divider mb-4">
               <h4 class="section-title">最终确认信息</h4>
             </div>
@@ -852,7 +711,7 @@ onMounted(() => {
               <ElCol :span="12">
                 <ElFormItem label="最终确认日期">
                   <ElInput
-                    v-model="confirmForm.finalConfirmationDate"
+                    v-model="confirmationForm.finalConfirmationDate"
                     type="datetime-local"
                     placeholder="请选择最终确认日期"
                     style="width: 100%"
@@ -862,7 +721,7 @@ onMounted(() => {
             </ElRow>
             <ElFormItem label="最终确认依据">
               <ElInput
-                v-model="confirmForm.finalConfirmationBasis"
+                v-model="confirmationForm.finalConfirmationBasis"
                 type="textarea"
                 :rows="2"
                 placeholder="请输入最终确认依据"
@@ -870,13 +729,13 @@ onMounted(() => {
             </ElFormItem>
             <ElFormItem label="确认附件">
               <ElInput
-                v-model="confirmForm.confirmationAttachments"
+                v-model="confirmationForm.confirmationAttachments"
                 placeholder="请输入确认附件"
               />
             </ElFormItem>
             <ElFormItem label="确认状态">
               <ElSelect
-                v-model="confirmForm.confirmationStatus"
+                v-model="confirmationForm.confirmationStatus"
                 placeholder="请选择确认状态"
                 style="width: 100%"
               >
@@ -889,7 +748,7 @@ onMounted(() => {
             </ElFormItem>
             <ElFormItem label="备注">
               <ElInput
-                v-model="confirmForm.remarks"
+                v-model="confirmationForm.remarks"
                 type="textarea"
                 :rows="2"
                 placeholder="请输入备注"
