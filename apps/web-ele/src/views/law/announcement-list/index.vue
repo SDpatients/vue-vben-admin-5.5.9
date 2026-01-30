@@ -559,6 +559,7 @@ onMounted(() => {
         :title="currentAnnouncement?.title || '公告详情'"
         width="70%"
         destroy-on-close
+        @close="fetchAnnouncements"
       >
         <div v-loading="detailLoading" class="announcement-detail-container">
           <div v-if="currentAnnouncement" class="detail-content">

@@ -31,6 +31,8 @@ import { CaseTaskApi } from '../../../api/core/case-tasks';
 // 导入API请求客户端
 import { requestClient8085 } from '../../../api/request';
 
+import ClaimProcessingModules from '../case-detail/components/ClaimProcessingModules.vue';
+
 const props = defineProps<{
   caseId: string;
   initialStage?: number;
@@ -1973,7 +1975,15 @@ const closeQrCodeDialog = () => {
 
         <div class="stage-modules-content">
           <div v-if="selectedModule" class="module-detail">
-            <ElCard class="module-detail-card" shadow="hover">
+            <!-- 第三阶段的债权申报与核查模块 -->
+            <div v-if="activeStage === 2 && (selectedModule.id === '3-2' || selectedModule.id === '3-3')">
+              <ClaimProcessingModules 
+                :caseId="caseId" 
+                :moduleType="selectedModule.id === '3-2' ? 'registration' : 'review'" 
+              />
+            </div>
+            <!-- 其他模块 -->
+            <ElCard v-else class="module-detail-card" shadow="hover">
               <template #header>
                 <div class="module-detail-header">
                   <div class="module-info-section">

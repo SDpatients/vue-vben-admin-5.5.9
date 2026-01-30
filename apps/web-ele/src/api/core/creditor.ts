@@ -98,6 +98,32 @@ export namespace CreditorApi {
     data: null;
   }
 
+  /** 批量添加债权人请求 */
+  export interface BatchAddCreditorsRequest {
+    caseId: string;
+    creditorsList: Array<{
+      creditor_name: string;
+      creditor_type: string;
+      contact_phone: string;
+      contact_email: string;
+      address: string;
+      id_number: string;
+      legal_representative: string;
+      registered_capital: string;
+      status: string;
+      created_by: string;
+    }>;
+  }
+
+  /** 批量添加债权人响应 */
+  export interface BatchAddCreditorsResponse {
+    code: number;
+    message: string;
+    data: {
+      successCount: number;
+    };
+  }
+
   /** 通用响应 */
   export interface CommonResponse {
     code: number;
@@ -144,6 +170,14 @@ export async function updateCreditorApi(creditorId: number, data: CreditorApi.Up
  */
 export async function deleteCreditorApi(creditorId: number) {
   return requestClient8085.delete<CreditorApi.DeleteCreditorResponse>(`/creditor/${creditorId}`);
+}
+
+/**
+ * 批量添加债权人
+ * POST /creditor/batch
+ */
+export async function batchAddCreditorsApi(data: CreditorApi.BatchAddCreditorsRequest) {
+  return requestClient8085.post<CreditorApi.BatchAddCreditorsResponse>('/creditor/batch', data);
 }
 
 export type { CreditorApi };

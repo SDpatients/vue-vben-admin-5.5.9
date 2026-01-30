@@ -587,19 +587,26 @@ const getMaterialCompletenessTag = (completeness: string) => {
   return statusMap[completeness] || { type: 'info', text: completeness };
 };
 
+// Excel导入相关变量
+const currentImportFile = ref<any>(null);
+
 // Excel导入相关方法
 const handleImportFileChange = (file: any, fileList: any[]) => {
   // 只保留最新的文件
   if (fileList.length > 1) {
     fileList.shift();
   }
+  // 存储当前选择的文件
+  currentImportFile.value = fileList[0];
 };
 
 const handleImportFileRemove = (file: any, fileList: any[]) => {
   // 文件移除处理
+  currentImportFile.value = null;
 };
 
-const handleImportSubmit = async (file: any) => {
+const handleImportSubmit = async () => {
+  const file = currentImportFile.value;
   if (!file) {
     ElMessage.warning('请选择Excel文件');
     return;
@@ -1457,17 +1464,7 @@ onMounted(() => {
           <ElButton @click="showImportDialog = false">取消</ElButton>
           <ElButton
             type="primary"
-            @click="() => {
-              const upload = document.querySelector('.upload-demo .el-upload__input');
-              if (upload) {
-                const fileInput = upload as HTMLInputElement;
-                if (fileInput.files && fileInput.files.length > 0) {
-                  handleImportSubmit(fileInput.files[0]);
-                } else {
-                  ElMessage.warning('请选择Excel文件');
-                }
-              }
-            }"
+            @click="handleImportSubmit"
             :loading="importLoading"
           >
             开始导入

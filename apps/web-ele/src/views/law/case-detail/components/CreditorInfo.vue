@@ -22,6 +22,7 @@ import {
   deleteCreditorApi,
   getCreditorListApi,
   updateCreditorApi,
+  batchAddCreditorsApi,
 } from '#/api/core/creditor';
 
 const props = defineProps<{
@@ -203,7 +204,7 @@ const openEditDialog = (row: any) => {
   editForm.idNumber = row.idNumber || '';
   editForm.legalRepresentative = row.legalRepresentative || '';
   editForm.registeredCapital = row.registeredCapital || '';
-  editForm.status = row.status || '';
+  editForm.status = row.creditorStatus || '';
   showEditDialog.value = true;
 };
 
@@ -237,7 +238,7 @@ const handleEditSubmit = async () => {
       registeredCapital: editForm.registeredCapital
         ? Number(editForm.registeredCapital)
         : undefined,
-      status: editForm.status,
+      creditorStatus: editForm.status,
     });
     if (response.code === 200) {
       ElMessage.success('成功更新债权人信息');
@@ -396,7 +397,7 @@ const handleSingleAdd = async () => {
       registeredCapital: singleForm.registeredCapital
         ? Number(singleForm.registeredCapital)
         : undefined,
-      status: singleForm.status,
+      creditorStatus: singleForm.status,
     };
 
     const response = await createCreditorApi(requestData);
@@ -458,7 +459,7 @@ const getCreditorTypeTag = (type: string) => {
   const typeMap: Record<string, any> = {
     金融机构: { type: 'success' },
     企业: { type: 'primary' },
-    个人: { type: 'warning' },
+    个人: { type: 'primary' },
     其他: { type: 'info' },
   };
   return typeMap[type] || { type: 'info' };
@@ -561,36 +562,38 @@ onMounted(() => {
             label="注册资本"
             width="120"
           />
-          <ElTableColumn prop="status" label="状态" width="120" align="center">
+          <ElTableColumn prop="creditorStatus" label="债权人状态" width="120" align="center">
             <template #default="scope">
               <ElTag
-                :type="scope.row.status === 'CONFIRMED' ? 'success' : 'warning'"
+                :type="scope.row.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'"
                 size="small"
               >
-                {{ statusMap[scope.row.status] || scope.row.status }}
+                {{ statusMap[scope.row.creditorStatus] || scope.row.creditorStatus }}
               </ElTag>
             </template>
           </ElTableColumn>
           <ElTableColumn label="操作" width="150" align="center" fixed="right">
             <template #default="scope">
-              <ElButton
-                size="small"
-                text
-                @click="openEditDialog(scope.row)"
-                class="text-primary"
-              >
-                <Icon icon="lucide:edit" class="mr-1" />
-                编辑
-              </ElButton>
-              <ElButton
-                size="small"
-                text
-                @click="handleDeleteCreditor(scope.row)"
-                class="text-danger ml-2"
-              >
-                <Icon icon="lucide:trash-2" class="mr-1" />
-                删除
-              </ElButton>
+              <div class="flex items-center justify-center gap-2">
+                <ElButton
+                  size="small"
+                  text
+                  @click="openEditDialog(scope.row)"
+                  class="text-primary"
+                >
+                  <Icon icon="lucide:edit" class="mr-1" />
+                  编辑
+                </ElButton>
+                <ElButton
+                  size="small"
+                  text
+                  type="danger"
+                  @click="handleDeleteCreditor(scope.row)"
+                >
+                  <Icon icon="lucide:trash-2" class="mr-1" />
+                  删除
+                </ElButton>
+              </div>
             </template>
           </ElTableColumn>
         </ElTable>
