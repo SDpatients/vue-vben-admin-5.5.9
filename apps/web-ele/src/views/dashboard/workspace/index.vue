@@ -1138,8 +1138,8 @@ onMounted(async () => {
                 <!-- <button @click="clearAllList()" class="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-sm">重置清空日历</button> -->
               </div>
               <div class="fullcalendar-header flex justify-between mb-4">
-                <button @click="getMatter()" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-sm">接口获取列表</button>
-                <button @click="addMatter()" class="px-3 py-1 bg-green-100 hover:bg-green-200 rounded text-sm">[新增]动态插入事项</button>
+                <button @click="getMatter()" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-sm">刷新</button>
+                <button @click="addMatter()" class="px-3 py-1 bg-green-100 hover:bg-green-200 rounded text-sm">[新增]待办事项</button>
               </div>
               <!-- 日历组件 -->
               <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" />

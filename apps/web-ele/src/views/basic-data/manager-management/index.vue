@@ -128,14 +128,19 @@ const dialogVisible = ref(false);
 // 管理人类型选项
 const managerTypeOptions = [
   { label: '律师事务所', value: '律师事务所' },
+  { label: '会计师事务所', value: '会计师事务所' },
+  { label: '破产清算事务所', value: '破产清算事务所' },
+  { label: '个人管理人', value: '个人管理人' },
+  { label: '联合管理人', value: '联合管理人' },
   { label: '法人', value: '法人' },
   { label: '自然人', value: '自然人' },
 ];
 
 // 新增管理人表单数据
 const addManagerForm = reactive({
-  administratorName: '',
   administratorType: '',
+  administratorName: '',
+  responsiblePerson: '',
   contactPhone: '',
   contactEmail: '',
   officeAddress: '',
@@ -148,6 +153,8 @@ const editDialogVisible = ref(false);
 const editManagerForm = reactive({
   id: '', // 用于存储管理人ID，用于更新请求的路径参数
   administratorType: '',
+  administratorName: '',
+  responsiblePerson: '',
   contactPhone: '',
   contactEmail: '',
   officeAddress: '',
@@ -173,8 +180,9 @@ const handleAdd = () => {
 const handleCloseDialog = () => {
   // 重置表单
   Object.assign(addManagerForm, {
-    administratorName: '',
     administratorType: '',
+    administratorName: '',
+    responsiblePerson: '',
     contactPhone: '',
     contactEmail: '',
     officeAddress: '',
@@ -205,6 +213,8 @@ const handleEdit = (row: ManagerApi.ManagerInfo) => {
   Object.assign(editManagerForm, {
     id: row.id,
     administratorType: row.administratorType,
+    administratorName: row.administratorName,
+    responsiblePerson: row.responsiblePerson,
     contactPhone: row.contactPhone,
     contactEmail: row.contactEmail,
     officeAddress: row.officeAddress,
@@ -218,6 +228,8 @@ const handleCloseEditDialog = () => {
   Object.assign(editManagerForm, {
     id: '',
     administratorType: '',
+    administratorName: '',
+    responsiblePerson: '',
     contactPhone: '',
     contactEmail: '',
     officeAddress: '',
@@ -302,6 +314,7 @@ const exportManagerData = () => {
   const exportColumns: ExportColumnConfig[] = [
     { field: 'administratorType', title: '管理人类型', width: 12 },
     { field: 'administratorName', title: '管理人名称', width: 18 },
+    { field: 'responsiblePerson', title: '负责人', width: 12 },
     { field: 'contactPhone', title: '联系电话', width: 12 },
     { field: 'contactEmail', title: '联系邮箱', width: 18 },
     { field: 'officeAddress', title: '办公地址', width: 20 },
@@ -432,9 +445,8 @@ onMounted(() => {
           align="center"
           show-overflow-tooltip
         >
-          <template #default>
-            <!-- 先不填数据，留空或显示占位符 -->
-            -
+          <template #default="{ row }">
+            {{ row.responsiblePerson || '-' }}
           </template>
         </ElTableColumn>
         <ElTableColumn
@@ -511,12 +523,6 @@ onMounted(() => {
       @close="handleCloseDialog"
     >
       <ElForm :model="addManagerForm" label-width="100px" :rules="rules">
-        <ElFormItem label="管理人名称" prop="administratorName">
-          <ElInput
-            v-model="addManagerForm.administratorName"
-            placeholder="请输入管理人名称"
-          />
-        </ElFormItem>
         <ElFormItem label="管理人类型">
           <ElSelect
             v-model="addManagerForm.administratorType"
@@ -529,6 +535,18 @@ onMounted(() => {
               :value="option.value"
             />
           </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="管理人名称" prop="administratorName">
+          <ElInput
+            v-model="addManagerForm.administratorName"
+            placeholder="请输入管理人名称"
+          />
+        </ElFormItem>
+        <ElFormItem label="负责人">
+          <ElInput
+            v-model="addManagerForm.responsiblePerson"
+            placeholder="请输入负责人"
+          />
         </ElFormItem>
         <ElFormItem label="联系电话">
           <ElInput
@@ -578,6 +596,18 @@ onMounted(() => {
               :value="option.value"
             />
           </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="管理人名称">
+          <ElInput
+            v-model="editManagerForm.administratorName"
+            placeholder="请输入管理人名称"
+          />
+        </ElFormItem>
+        <ElFormItem label="负责人">
+          <ElInput
+            v-model="editManagerForm.responsiblePerson"
+            placeholder="请输入负责人"
+          />
         </ElFormItem>
         <ElFormItem label="联系电话">
           <ElInput
