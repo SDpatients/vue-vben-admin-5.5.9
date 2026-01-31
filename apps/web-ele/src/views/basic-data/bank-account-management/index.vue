@@ -307,7 +307,11 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editFormData.accountNumber = row.accountNumber;
   editFormData.accountType = row.accountType;
   editFormData.openingBank = row.bankName; // 直接使用bankName
+  editFormData.password = '******';
   editFormData.currentBalance = row.currentBalance;
+  editFormData.currency = row.currency || '';
+  editFormData.openingDate = row.openingDate || '';
+  editFormData.closingDate = row.closingDate || null;
   editFormData.status = row.status;
   // 显示编辑弹窗
   editDialogVisible.value = true;
@@ -338,8 +342,9 @@ const handleEditSubmit = async () => {
     editFormLoading.value = true;
 
     // 转换表单数据，将openingBank映射为bankName
+    const { password, ...restFormData } = editFormData;
     const submitData = {
-      ...editFormData,
+      ...restFormData,
       bankName: editFormData.openingBank, // 转换字段名
       openingBank: undefined, // 移除原始字段
     };
@@ -1102,6 +1107,22 @@ const handleSubmit = async () => {
         <!-- 行号列 -->
         <ElTableColumn type="index" label="序号" width="60" align="center" />
 
+        <!-- 案号列 -->
+        <ElTableColumn
+          prop="caseNumber"
+          label="案号"
+          width="200"
+          show-overflow-tooltip
+        />
+
+        <!-- 案件名称列 -->
+        <ElTableColumn
+          prop="caseName"
+          label="案件名称"
+          width="200"
+          show-overflow-tooltip
+        />
+
         <!-- 账户名称列 -->
         <ElTableColumn
           prop="accountName"
@@ -1703,6 +1724,7 @@ const handleSubmit = async () => {
                   placeholder="请输入密码"
                   size="large"
                   style="width: 100%"
+                  readonly
                 />
               </ElFormItem>
             </ElCol>

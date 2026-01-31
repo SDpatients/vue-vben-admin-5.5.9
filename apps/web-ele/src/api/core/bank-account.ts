@@ -10,18 +10,24 @@ export namespace BankAccountApi {
   }
 
   /** 银行账户信息 */
-  export interface BankAccountInfo {
-    id: number; // 银行账户ID
-    accountName: string; // 账户名称
-    accountNumber: string; // 账户号码
-    accountType: string; // 账户类型
-    bankName: string; // 银行名称/开户行
-    currentBalance: number; // 当前余额
-    status: string; // 状态
-    caseId: number;
-    createTime: string; // 创建时间
-    updateTime: string; // 更新时间
-  }
+export interface BankAccountInfo {
+  id: number; // 银行账户ID
+  accountName: string; // 账户名称
+  accountNumber: string; // 账户号码
+  accountType: string; // 账户类型
+  bankName: string; // 银行名称/开户行
+  currentBalance: number; // 当前余额
+  status: string; // 状态
+  caseId: number;
+  caseNumber: string; // 案号
+  caseName: string; // 案件名称
+  createTime: string; // 创建时间
+  updateTime: string; // 更新时间
+  password?: string; // 密码
+  currency?: string; // 币种
+  openingDate?: string; // 开户日期
+  closingDate?: string | null; // 销户日期
+}
 
   /** 银行账户列表响应 */
   export interface BankAccountListResponse {

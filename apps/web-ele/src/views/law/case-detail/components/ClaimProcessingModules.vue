@@ -191,14 +191,14 @@ const handleReceiveMaterial = async (row: any) => {
       completeness: 'COMPLETE',
     });
     if (response.code === 200) {
-      const statusResponse = await updateClaimRegistrationStatusApi(
-        row.id,
-        'REGISTERED'
-      );
-      if (statusResponse.code === 200) {
-        await fetchClaims();
+        const statusResponse = await updateClaimRegistrationStatusApi(
+          row.id,
+          'REVIEWING'
+        );
+        if (statusResponse.code === 200) {
+          await fetchClaims();
+        }
       }
-    }
   } catch (error) {
     console.error('接收材料失败:', error);
   } finally {

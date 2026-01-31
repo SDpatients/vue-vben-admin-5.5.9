@@ -49,6 +49,7 @@ interface WorkPlanInfo {
   startDate: string;
   endDate: string;
   responsibleUserId: number;
+  responsibleUserName: string;
   executionStatus: string;
   caseId: number;
 }
@@ -88,6 +89,7 @@ const addFormData = reactive({
   startDate: '',
   endDate: '',
   responsibleUserId: 1,
+  responsibleUserName: '',
 });
 
 // 计划类型选项
@@ -112,9 +114,6 @@ const addFormRules = {
   planContent: [{ required: true, message: '请输入计划内容', trigger: 'blur' }],
   startDate: [{ required: true, message: '请选择开始日期', trigger: 'change' }],
   endDate: [{ required: true, message: '请选择结束日期', trigger: 'change' }],
-  responsibleUserId: [
-    { required: true, message: '请输入负责人ID', trigger: 'blur' },
-  ],
 };
 
 // 获取案件列表
@@ -167,6 +166,17 @@ const handleViewDetail = async (row: WorkPlanInfo) => {
 
 // 打开新增弹窗
 const handleAddWorkPlan = () => {
+  // 从本地存储获取用户信息
+  const chatUserInfoStr = localStorage.getItem('chat_user_info');
+  if (chatUserInfoStr) {
+    try {
+      const chatUserInfo = JSON.parse(chatUserInfoStr);
+      addFormData.responsibleUserName = chatUserInfo.realName || '';
+      addFormData.responsibleUserId = chatUserInfo.userId || 1;
+    } catch (error) {
+      console.error('解析本地存储用户信息失败:', error);
+    }
+  }
   addDialogVisible.value = true;
   getCaseList();
 };
@@ -212,6 +222,7 @@ const resetAddForm = () => {
   addFormData.startDate = '';
   addFormData.endDate = '';
   addFormData.responsibleUserId = 1;
+  addFormData.responsibleUserName = '';
   addFormRef.value?.clearValidate();
 };
 
@@ -404,6 +415,7 @@ const exportWorkPlanData = () => {
       width: 12,
       formatter: (value) => formatDate(value),
     },
+    { field: 'responsibleUserName', title: '负责人', width: 12 },
     { field: 'responsibleUserId', title: '负责人ID', width: 10 },
     {
       field: 'executionStatus',
@@ -524,14 +536,13 @@ const exportWorkPlanData = () => {
           </template>
         </ElTableColumn>
         <ElTableColumn
-          prop="responsibleUserId"
-          label="负责人ID"
+          label="负责人"
           width="120"
           align="center"
         >
           <template #default="{ row }">
-            <span v-if="row.responsibleUserId">{{
-              row.responsibleUserId
+            <span v-if="row.responsibleUserName">{{
+              row.responsibleUserName
             }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
@@ -646,8 +657,8 @@ const exportWorkPlanData = () => {
           <ElDescriptionsItem label="结束日期">
             {{ formatDate(currentWorkPlan.endDate) }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="负责人ID">
-            {{ currentWorkPlan.responsibleUserId }}
+          <ElDescriptionsItem label="负责人">
+            {{ currentWorkPlan.responsibleUserName || currentWorkPlan.responsibleUserId || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="执行状态">
             <ElTag
@@ -751,11 +762,11 @@ const exportWorkPlanData = () => {
             style="width: 100%"
           />
         </ElFormItem>
-        <ElFormItem label="负责人ID" prop="responsibleUserId">
+        <ElFormItem label="负责人">
           <ElInput
-            v-model="addFormData.responsibleUserId"
-            type="number"
-            placeholder="请输入负责人ID"
+            v-model="addFormData.responsibleUserName"
+            placeholder="请输入负责人"
+            readonly
           />
         </ElFormItem>
       </ElForm>

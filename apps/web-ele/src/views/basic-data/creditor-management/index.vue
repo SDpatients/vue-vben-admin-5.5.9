@@ -355,7 +355,7 @@ const handleEditCreditor = (row: CreditorApi.CreditorInfo) => {
   editFormData.idNumber = row.idNumber;
   editFormData.legalRepresentative = row.legalRepresentative || '';
   editFormData.registeredCapital = row.registeredCapital || 0;
-  editFormData.status = row.status || '';
+  editFormData.status = row.status || 'KNOWN';
   editDialogVisible.value = true;
 };
 
