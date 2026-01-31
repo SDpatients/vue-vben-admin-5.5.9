@@ -374,8 +374,7 @@ const handleSaveEdit = async () => {
   try {
     const requestData = {
       caseId: Number(props.caseId),
-      caseNumber: claimForm.caseNumber || undefined,
-      debtor: claimForm.debtor || undefined,
+      debtor: String(claimForm.debtor || ''),
       creditorName: claimForm.creditorName,
       creditorType: claimForm.creditorType,
       creditCode: claimForm.creditCode || undefined,
@@ -401,6 +400,10 @@ const handleSaveEdit = async () => {
       claimType: claimForm.claimType,
       claimFacts: claimForm.claimFacts || undefined,
       claimIdentifier: claimForm.claimIdentifier || undefined,
+      evidenceAttachments:
+        claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0
+          ? claimForm.evidenceAttachments.join(',')
+          : undefined,
       remarks: claimForm.remarks || undefined,
     };
 
@@ -476,8 +479,7 @@ const handleAddClaim = async () => {
   addLoading.value = true;
   const requestData = {
     caseId: Number(props.caseId),
-    caseNumber: claimForm.caseNumber || undefined,
-    debtor: claimForm.debtor || undefined,
+    debtor: String(claimForm.debtor || ''),
     creditorName: claimForm.creditorName,
     creditorType: claimForm.creditorType,
     creditCode: claimForm.creditCode || undefined,
@@ -503,12 +505,10 @@ const handleAddClaim = async () => {
     claimType: claimForm.claimType,
     claimFacts: claimForm.claimFacts || undefined,
     claimIdentifier: claimForm.claimIdentifier || undefined,
-    evidenceList: claimForm.evidenceList || undefined,
-    evidenceMaterials: claimForm.evidenceMaterials || undefined,
     evidenceAttachments:
       claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0
-        ? claimForm.evidenceAttachments
-        : null,
+        ? claimForm.evidenceAttachments.join(',')
+        : undefined,
     registrationDate: claimForm.registrationDate || null,
     registrationDeadline: claimForm.registrationDeadline || null,
     materialReceiver: claimForm.materialReceiver || undefined,
