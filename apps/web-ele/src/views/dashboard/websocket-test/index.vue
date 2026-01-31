@@ -46,7 +46,7 @@ const newFileName = ref('');
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 5780,
+  port: 5779,
   autoDetect: true
 });
 
@@ -1881,30 +1881,22 @@ onBeforeUnmount(() => {
           <Icon icon="lucide:message-circle" class="mx-auto mb-3 text-4xl text-green-500" />
           <h3 class="mb-2 text-lg font-medium text-gray-900">微信文件上传</h3>
           <p class="text-gray-600">
-            由于微信浏览器限制，请按照以下方式上传文件
+            检测到您正在使用微信浏览器
           </p>
         </div>
         
-        <div class="p-4 rounded-lg bg-red-50 border border-red-200">
-          <h4 class="mb-2 font-medium text-red-800 flex items-center gap-2">
-            <Icon icon="lucide:alert-triangle" class="text-red-600" />
-            连接失败解决方案
+        <div class="p-4 rounded-lg bg-orange-50 border border-orange-200">
+          <h4 class="mb-2 font-medium text-orange-800 flex items-center gap-2">
+            <Icon icon="lucide:alert-triangle" class="text-orange-600" />
+            重要提示
           </h4>
-          <ul class="list-disc list-inside space-y-2 text-red-700 text-sm">
-            <li><strong>错误信息：</strong>网页无法打开 (-6, net::ERR_CONNECTION_REFUSED)</li>
-            <li><strong>原因：</strong>IP地址或端口配置不正确，或微信浏览器安全限制</li>
-            <li><strong>解决方法：</strong>
-              <ol class="list-decimal list-inside ml-4 mt-1 space-y-1">
-                <li>点击右上角 <Icon icon="lucide:more-horizontal" class="inline" /> 按钮</li>
-                <li>选择 "在浏览器中打开"</li>
-                <li>使用系统浏览器（Safari/Chrome）访问</li>
-              </ol>
-            </li>
-          </ul>
+          <p class="text-sm text-orange-700 mb-2">
+            微信浏览器可能存在安全限制，建议使用系统浏览器进行文件上传，以获得更好的体验。
+          </p>
         </div>
         
         <div class="p-4 rounded-lg bg-green-50">
-          <h4 class="mb-2 font-medium text-green-800">微信上传方式：</h4>
+          <h4 class="mb-2 font-medium text-green-800">推荐上传方式：</h4>
           <ol class="list-decimal list-inside space-y-2 text-green-700">
             <li>点击右上角的 <Icon icon="lucide:more-horizontal" class="inline" /> 按钮</li>
             <li>选择 "在浏览器中打开" 选项</li>
@@ -1922,25 +1914,13 @@ onBeforeUnmount(() => {
           </ul>
         </div>
         
-        <div class="p-4 rounded-lg bg-yellow-50">
-          <h4 class="mb-2 font-medium text-yellow-800">注意事项：</h4>
-          <ul class="list-disc list-inside space-y-2 text-yellow-700">
-            <li>请确保手机和电脑在同一局域网内</li>
-            <li>检查IP地址配置是否正确（当前: {{ mobileUploadConfig.ip || '未设置' }}）</li>
-            <li>检查端口配置是否正确（当前: {{ mobileUploadConfig.port }}）</li>
-            <li>上传文件大小限制为 50MB</li>
-            <li>支持大多数文件类型</li>
-            <li>上传过程中请勿关闭浏览器</li>
-          </ul>
-        </div>
-        
-        <div class="p-4 rounded-lg bg-purple-50">
-          <h4 class="mb-2 font-medium text-purple-800">故障排除：</h4>
-          <ul class="list-disc list-inside space-y-2 text-purple-700 text-sm">
-            <li>如果仍然无法访问，请尝试手动输入URL</li>
-            <li>确保电脑防火墙允许该端口访问</li>
-            <li>检查Vite开发服务器是否正常运行</li>
-            <li>尝试使用电脑的IP地址而非localhost</li>
+        <div class="p-4 rounded-lg bg-gray-50">
+          <h4 class="mb-2 font-medium text-gray-800">当前配置信息：</h4>
+          <ul class="list-disc list-inside space-y-1 text-gray-700 text-sm">
+            <li>IP地址: {{ mobileUploadConfig.ip || '未设置' }}</li>
+            <li>端口: {{ mobileUploadConfig.port }}</li>
+            <li>业务类型: {{ bizType }}</li>
+            <li>业务ID: {{ bizId }}</li>
           </ul>
         </div>
       </div>

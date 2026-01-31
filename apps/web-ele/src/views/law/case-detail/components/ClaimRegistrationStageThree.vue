@@ -24,6 +24,8 @@ import {
   ElTag,
 } from 'element-plus';
 
+import FileUpload from './FileUpload.vue';
+
 import { ClaimService } from './services/claimService';
 import { useConfirmationForm } from './composables/useClaimForm';
 import { useClaimPagination } from './composables/useClaimPagination';
@@ -41,8 +43,21 @@ const props = defineProps<{
 const loading = ref(false);
 const claims = ref<any[]>([]);
 
-const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } =
-  useClaimPagination();
+const { currentPage, pageSize, total } = useClaimPagination();
+const confirmationStatusFilter = ref<string>('');
+const showAllConfirmations = ref(true);
+
+// 自定义分页处理函数
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+  fetchClaims();
+};
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchClaims();
+};
 
 const { confirmationForm, resetConfirmationForm } = useConfirmationForm();
 
@@ -54,10 +69,11 @@ const currentClaim = ref<any>(null);
 const fetchClaims = async () => {
   loading.value = true;
   try {
-    const result = await ClaimService.fetchClaims(
+    const result = await ClaimService.fetchConfirmations(
       Number(props.caseId),
       currentPage.value,
       pageSize.value,
+      confirmationStatusFilter.value || undefined,
     );
     if (result.success) {
       claims.value = result.data;
@@ -69,7 +85,15 @@ const fetchClaims = async () => {
 };
 
 const openDetailDialog = async (row: any) => {
-  const result = await ClaimService.getClaimDetail(row.id);
+  let result;
+  // 如果有confirmationInfo，则调用确认详情接口
+  if (row.confirmationInfo) {
+    result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
+  } else {
+    // 否则调用债权详情接口
+    const claimId = row.claimRegistrationId || row.id;
+    result = await ClaimService.getClaimDetail(claimId);
+  }
   if (result.success) {
     currentClaim.value = result.data;
     showDetailDialog.value = true;
@@ -78,27 +102,16 @@ const openDetailDialog = async (row: any) => {
 
 const openConfirmDialog = async (row: any) => {
   try {
-    // 无论状态如何，都重新获取最新的债权详情
-    const claimResult = await ClaimService.getClaimDetail(row.id);
-    if (claimResult.success) {
-      row = claimResult.data;
-      currentClaim.value = row;
-    } else {
-      ElMessage.error('获取债权详情失败');
-      return;
-    }
-
-    // 如果状态不是 CONFIRMING，自动更新为 CONFIRMING
+    // 首先确保状态为 CONFIRMING
     if (row.registration_status !== 'CONFIRMING') {
       const startConfirmResult = await ClaimService.startConfirmation(row.id);
       if (startConfirmResult.success) {
         // 重新获取数据以更新状态
         await fetchClaims();
-        // 再次获取最新的债权详情
-        const updatedClaimResult = await ClaimService.getClaimDetail(row.id);
-        if (updatedClaimResult.success) {
-          row = updatedClaimResult.data;
-          currentClaim.value = row;
+        // 从重新获取的数据中找到对应的行
+        const updatedRow = claims.value.find(item => item.id === row.id);
+        if (updatedRow) {
+          row = updatedRow;
         }
       } else {
         ElMessage.error('开始确认失败');
@@ -106,10 +119,13 @@ const openConfirmDialog = async (row: any) => {
       }
     }
 
-    let result;
+    // 直接使用确认信息或创建新的确认记录
     if (row.confirmationInfo) {
-      result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
+      // 如果有确认信息，获取确认详情
+      const result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
       if (result.success) {
+        currentClaim.value = result.data;
+        
         // 完整填充确认表单数据
         Object.assign(confirmationForm, {
           meetingType: result.data.meetingType || '',
@@ -151,12 +167,14 @@ const openConfirmDialog = async (row: any) => {
           confirmationAttachments: result.data.confirmationAttachments || '',
           remarks: result.data.remarks || '',
         });
-        showConfirmDialog.value = true;
       } else {
         ElMessage.error('获取确认详情失败');
         return;
       }
     } else {
+      // 没有确认信息，使用基本信息初始化
+      currentClaim.value = row;
+      
       // 初始化表单数据
       Object.assign(confirmationForm, {
         meetingType: '',
@@ -190,8 +208,9 @@ const openConfirmDialog = async (row: any) => {
         confirmationAttachments: '',
         remarks: '',
       });
-      showConfirmDialog.value = true;
     }
+    
+    showConfirmDialog.value = true;
   } catch (error) {
     console.error('打开确认对话框失败:', error);
     ElMessage.error('打开确认对话框失败');
@@ -209,10 +228,11 @@ const handleSaveConfirmation = async () => {
 
   confirmLoading.value = true;
   try {
-    const requestData: any = {
-      claimRegistrationId: currentClaim.value.id,
-      caseId: currentClaim.value.caseId,
-      creditorName: currentClaim.value.creditorName,
+    const claimId = currentClaim.value.claimRegistrationId || currentClaim.value.id;
+  const requestData: any = {
+    claimRegistrationId: claimId,
+    caseId: currentClaim.value.caseId || currentClaim.value.caseId,
+    creditorName: currentClaim.value.creditorName || currentClaim.value.creditorName,
       meetingType: confirmationForm.meetingType,
       meetingDate: confirmationForm.meetingDate || null,
       meetingLocation: confirmationForm.meetingLocation || null,
@@ -275,10 +295,11 @@ const handleCompleteConfirmation = async (row: any) => {
     type: 'warning',
   })
     .then(async () => {
+      const claimId = row.claimRegistrationId || row.id;
       // 先检查是否有确认信息，如果没有，创建一个默认的
       if (!row.confirmationInfo) {
         const requestData: any = {
-          claimRegistrationId: row.id,
+          claimRegistrationId: claimId,
           caseId: row.caseId,
           creditorName: row.creditorName,
           voteResult: 'AGREE',
@@ -292,7 +313,7 @@ const handleCompleteConfirmation = async (row: any) => {
       }
       
       // 完成确认状态更新
-      const result = await ClaimService.completeConfirmation(row.id);
+      const result = await ClaimService.completeConfirmation(claimId);
       if (result.success) {
         await fetchClaims();
       }
@@ -309,8 +330,9 @@ const handleRejectClaim = async (row: any) => {
     type: 'warning',
   })
     .then(async () => {
+      const claimId = row.claimRegistrationId || row.id;
       const requestData: any = {
-        claimRegistrationId: row.id,
+        claimRegistrationId: claimId,
         caseId: row.caseId,
         creditorName: row.creditorName,
         voteResult: 'DISAGREE',
@@ -328,7 +350,7 @@ const handleRejectClaim = async (row: any) => {
       }
 
       if (result.success) {
-        const completeResult = await ClaimService.completeConfirmation(row.id);
+        const completeResult = await ClaimService.completeConfirmation(claimId);
         if (completeResult.success) {
           await fetchClaims();
         }
@@ -354,6 +376,13 @@ onMounted(() => {
             <span class="text-lg font-semibold">债权确认</span>
           </div>
           <div class="flex space-x-2">
+            <ElSelect v-model="confirmationStatusFilter" placeholder="选择确认状态" style="width: 200px" @change="fetchClaims">
+              <ElOption label="全部" value="" />
+              <ElOption label="进行中" value="IN_PROGRESS" />
+              <ElOption label="已完成" value="CONFIRMED" />
+              <ElOption label="异议" value="OBJECTION" />
+              <ElOption label="诉讼中" value="LAWSUIT" />
+            </ElSelect>
             <ElButton type="primary" @click="fetchClaims">
               <Icon icon="lucide:refresh-cw" class="mr-1" />
               刷新
@@ -627,6 +656,17 @@ onMounted(() => {
             {{ currentClaim.confirmationInfo.remarks || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
+
+        <div v-if="currentClaim.confirmationInfo" class="section-divider mb-4 mt-4">
+          <h4 class="section-title">附件信息</h4>
+        </div>
+        <FileUpload
+          v-if="currentClaim.confirmationInfo"
+          :biz-type="'claim-confirmation'"
+          :biz-id="currentClaim.confirmationInfo.id"
+          :disabled="true"
+          title="债权确认附件"
+        />
       </div>
       <template #footer>
         <span class="dialog-footer">
@@ -967,22 +1007,40 @@ onMounted(() => {
                 placeholder="请输入最终确认依据"
               />
             </ElFormItem>
-            <ElFormItem label="确认附件">
-              <ElInput
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">附件上传</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <FileUpload
                 v-model="confirmationForm.confirmationAttachments"
-                placeholder="请输入确认附件"
+                :biz-type="'claim-confirmation'"
+                :biz-id="currentClaim?.confirmationInfo?.id || 0"
+                :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
+                :max-size="50 * 1024 * 1024"
+                :multiple="true"
+                title="债权确认附件"
+                :disabled="false"
               />
-            </ElFormItem>
-            <ElFormItem label="备注">
-              <ElInput
-                v-model="confirmationForm.remarks"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入备注"
-              />
-            </ElFormItem>
-          </ElForm>
-        </div>
+            </ElCol>
+          </ElRow>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <ElFormItem label="备注">
+                <ElInput
+                  v-model="confirmationForm.remarks"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="请输入备注"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+      </div>
       </div>
       <template #footer>
         <span class="dialog-footer">

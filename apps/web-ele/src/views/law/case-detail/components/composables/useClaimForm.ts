@@ -34,7 +34,7 @@ export function useClaimForm() {
     claimIdentifier: '',
     evidenceList: '',
     evidenceMaterials: '',
-    evidenceAttachments: [],
+    evidenceAttachments: [] as number[],
     registrationDate: '',
     registrationDeadline: '',
     materialReceiver: '',
@@ -86,7 +86,7 @@ export function useClaimForm() {
     claimForm.claimIdentifier = '';
     claimForm.evidenceList = '';
     claimForm.evidenceMaterials = '';
-    claimForm.evidenceAttachments = [];
+    claimForm.evidenceAttachments = [] as number[];
     claimForm.registrationDate = '';
     claimForm.registrationDeadline = '';
     claimForm.materialReceiver = '';
@@ -146,7 +146,7 @@ export function useReviewForm() {
     reviewConclusion: 'CONFIRMED' as ClaimReviewApi.ReviewConclusion,
     reviewSummary: '',
     reviewReport: '',
-    reviewAttachments: '',
+    reviewAttachments: [] as number[],
     reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
     remarks: '',
   });
@@ -222,7 +222,7 @@ export function useReviewForm() {
       reviewConclusion: 'CONFIRMED' as ClaimReviewApi.ReviewConclusion,
       reviewSummary: '',
       reviewReport: '',
-      reviewAttachments: '',
+      reviewAttachments: [] as number[],
       reviewStatus: 'COMPLETED' as ClaimReviewApi.ReviewStatus,
       remarks: '',
     });
@@ -266,7 +266,7 @@ export function useConfirmationForm() {
     finalConfirmedAmount: 0,
     finalConfirmationDate: '',
     finalConfirmationBasis: 'MEETING' as 'MEETING' | 'COURT' | 'SETTLEMENT' | 'OTHER',
-    confirmationAttachments: '',
+    confirmationAttachments: [] as number[],
     confirmationStatus: 'PENDING' as 'PENDING' | 'CONFIRMED' | 'OBJECTION' | 'COURT' | 'LAWSUIT',
     remarks: '',
   });
@@ -318,7 +318,7 @@ export function useConfirmationForm() {
       finalConfirmedAmount: 0,
       finalConfirmationDate: '',
       finalConfirmationBasis: 'MEETING',
-      confirmationAttachments: '',
+      confirmationAttachments: [] as number[],
       confirmationStatus: 'PENDING',
       remarks: '',
     });

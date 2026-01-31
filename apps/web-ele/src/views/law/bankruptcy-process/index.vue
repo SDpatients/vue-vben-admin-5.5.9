@@ -82,10 +82,14 @@ const qrCodePolling = ref<NodeJS.Timeout | null>(null);
 
 // 移动端上传配置
 const mobileUploadConfig = ref({
-  ip: '192.168.0.120',
-  port: 5780,
-  autoDetect: false
+  ip: '',
+  port: 5779,
+  autoDetect: true
 });
+
+// 检测移动端和微信浏览器
+const isWeChatBrowser = ref(false);
+const showWeChatHint = ref(false);
 
 // 控制当前激活的标签页
 const activeTab = ref('basic');
@@ -682,6 +686,10 @@ watch(
 
 // 组件挂载时加载所有阶段的数据并初始化动画进度
 onMounted(async () => {
+  // 检测移动端和微信浏览器
+  const userAgent = navigator.userAgent;
+  isWeChatBrowser.value = /MicroMessenger/i.test(userAgent);
+  
   // 自动检测本机IP地址
   if (mobileUploadConfig.value.autoDetect) {
     await detectLocalIP();
@@ -2424,6 +2432,23 @@ const closeQrCodeDialog = () => {
             <p>2. 在手机端选择要上传的文件</p>
             <p>3. 等待上传完成后，文件将自动显示在附件列表中</p>
           </div>
+          
+          <!-- 微信浏览器提示 -->
+          <div v-if="isWeChatBrowser" class="wechat-tip">
+            <div class="wechat-tip-header">
+              <Icon icon="lucide:alert-triangle" class="wechat-tip-icon" />
+              <span>微信浏览器提示</span>
+            </div>
+            <div class="wechat-tip-content">
+              <p>检测到您正在使用微信浏览器，请按以下步骤操作：</p>
+              <ol>
+                <li>点击右上角的 <Icon icon="lucide:more-horizontal" class="inline-icon" /> 按钮</li>
+                <li>选择 "在浏览器中打开" 选项</li>
+                <li>在新打开的浏览器中选择文件上传</li>
+              </ol>
+            </div>
+          </div>
+          
           <div class="qr-code-expire">
             二维码将在 {{ Math.floor(qrCodeExpireTime / 60) }}:{{
               (qrCodeExpireTime % 60).toString().padStart(2, '0')
@@ -3986,5 +4011,54 @@ const closeQrCodeDialog = () => {
   color: #ff6b6b;
   margin-top: 10px;
   font-weight: 500;
+}
+
+.wechat-tip {
+  width: 100%;
+  max-width: 350px;
+  padding: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.wechat-tip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c2410c;
+  margin-bottom: 8px;
+}
+
+.wechat-tip-icon {
+  font-size: 18px;
+}
+
+.wechat-tip-content {
+  font-size: 13px;
+  color: #9a3412;
+  line-height: 1.6;
+}
+
+.wechat-tip-content p {
+  margin: 0 0 8px 0;
+}
+
+.wechat-tip-content ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.wechat-tip-content li {
+  margin: 4px 0;
+}
+
+.inline-icon {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 16px;
 }
 </style>

@@ -123,6 +123,107 @@ export class ClaimService {
     }
   }
 
+  static async fetchReviews(
+    caseId: number,
+    pageNum: number,
+    pageSize: number,
+    reviewStatus?: string,
+  ) {
+    try {
+      const params: any = {
+        pageNum,
+        pageSize,
+      };
+      // 如果提供了reviewStatus参数，则使用该参数
+      if (reviewStatus) {
+        params.reviewStatus = reviewStatus;
+      }
+      
+      const response = await getClaimReviewsByCaseIdApi(caseId, params);
+      if (response.code === 200 && response.data) {
+        const formattedList = (response.data.list || []).map((item: any) => ({
+          ...item,
+          creditor_name: item.creditorName,
+          creditor_type: item.creditorType || item.creditor_type || '-',
+          credit_code: item.creditCode || item.credit_code || '-',
+          principal: item.declaredPrincipal,
+          interest: item.declaredInterest,
+          total_amount: item.declaredTotalAmount,
+          claim_nature: item.confirmedClaimNature || item.claimNature || '-',
+          claim_type: item.claimType || item.claim_type || '-',
+          registration_status: item.reviewStatus === 'IN_PROGRESS' || item.reviewStatus === 'PENDING' ? 'REVIEWING' : 'REVIEW_COMPLETED',
+          reviewInfo: {
+            ...item,
+            review_status: item.reviewStatus,
+            review_conclusion: item.reviewConclusion,
+          },
+        }));
+        return {
+          success: true,
+          data: formattedList,
+          total: response.data.total || 0,
+        };
+      } else {
+        ElMessage.error(
+          `获取债权审查列表失败：${response.message || '未知错误'}`,
+        );
+        return { success: false, data: [], total: 0 };
+      }
+    } catch (error) {
+      this.handleApiError(error, '获取债权审查列表失败');
+      return { success: false, data: [], total: 0 };
+    }
+  }
+
+  static async fetchConfirmations(
+    caseId: number,
+    pageNum: number,
+    pageSize: number,
+    confirmationStatus?: string,
+  ) {
+    try {
+      const params: any = {
+        pageNum,
+        pageSize,
+      };
+      // 如果提供了confirmationStatus参数，则使用该参数
+      if (confirmationStatus) {
+        params.confirmationStatus = confirmationStatus;
+      }
+      
+      const response = await getClaimConfirmationsByCaseIdApi(caseId, params);
+      if (response.code === 200 && response.data) {
+        const formattedList = (response.data.list || []).map((item: any) => ({
+          ...item,
+          creditorName: item.creditorName,
+          creditorType: item.creditorType || item.creditor_type || '-',
+          creditCode: item.creditCode || item.credit_code || '-',
+          claimNo: item.claimNo || item.claimRegistrationId,
+          principal: item.principal || item.declaredPrincipal || 0,
+          totalAmount: item.finalConfirmedAmount || item.confirmedTotalAmount || item.declaredTotalAmount || 0,
+          claimNature: item.confirmedClaimNature || item.claimNature || '-',
+          claimType: item.claimType || item.claim_type || '-',
+          confirmationStatus: item.confirmationStatus || 'PENDING',
+          registration_status: item.confirmationStatus === 'IN_PROGRESS' ? 'CONFIRMING' : 'CONFIRMED',
+          reviewInfo: item.reviewInfo || null,
+        }));
+        return {
+          success: true,
+          data: formattedList,
+          total: response.data.total || 0,
+        };
+      } else {
+        ElMessage.error(
+          `获取债权确认列表失败：${response.message || '未知错误'}`,
+        );
+        return { success: false, data: [], total: 0 };
+      }
+    } catch (error) {
+      this.handleApiError(error, '获取债权确认列表失败');
+      return { success: false, data: [], total: 0 };
+    }
+  }
+
   static async fetchClaimReviews(
     caseId: number,
     pageNum: number,

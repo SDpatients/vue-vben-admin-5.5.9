@@ -32,6 +32,8 @@ import {
   ElUpload,
 } from 'element-plus';
 
+import FileUpload from './FileUpload.vue';
+
 import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
 import { getCreditorClaimStagesApi, getCreditorListApi } from '#/api/core/creditor';
@@ -81,8 +83,19 @@ const materialForm = reactive({
 });
 
 const { claimForm, totalAmount, resetClaimForm } = useClaimForm();
-const { currentPage, pageSize, total, handlePageChange, handlePageSizeChange } =
-  useClaimPagination();
+const { currentPage, pageSize, total } = useClaimPagination();
+
+// 自定义分页处理函数
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+  fetchClaims();
+};
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchClaims();
+};
 
 const fileList = ref<any[]>([]);
 const debtorList = ref<any[]>([]);
@@ -253,11 +266,11 @@ const handleRegisterClaim = async (row: any) => {
         completeness: 'COMPLETE',
       });
       if (receiveResult.success) {
-        const statusResult = await ClaimService.updateClaimStatus(row.id, 'REGISTERED');
-        if (statusResult.success) {
-          await fetchClaims();
+          const statusResult = await ClaimService.updateClaimStatus(row.id, 'REVIEWING');
+          if (statusResult.success) {
+            await fetchClaims();
+          }
         }
-      }
     })
     .catch(() => {
       ElMessage.info('已取消债权申报登记');
@@ -698,25 +711,92 @@ const handleImportExcel = async () => {
 
 // 填充表单
 const fillForm = (data: any) => {
-  // 字段映射：API返回字段 -> 表单字段
+  // 字段映射：API返回字段 -> 表单字段（根据用户提供的表单表头优化）
   const fieldMapping: Record<string, string> = {
-    receiptNumber: 'caseNumber',
+    // 表单表头：债权人 -> creditorName
     creditorName: 'creditorName',
+    '债权人': 'creditorName',
+    '债权人名称': 'creditorName',
+    '申报人': 'creditorName',
+    
+    // 表单表头：申报时间 -> registrationDate
     declarationTime: 'registrationDate',
+    '申报时间': 'registrationDate',
+    '申报日期': 'registrationDate',
+    '登记日期': 'registrationDate',
+    
+    // 表单表头：住所/邮编 -> serviceAddress
     addressAndPostalCode: 'serviceAddress',
+    '住所/邮编': 'serviceAddress',
+    '住所': 'serviceAddress',
+    '邮编': 'serviceAddress',
+    '地址': 'serviceAddress',
+    
+    // 表单表头：联系电话 -> agentPhone
     contactPhone: 'agentPhone',
+    '联系电话': 'agentPhone',
+    '电话': 'agentPhone',
+    '手机号': 'agentPhone',
+    
+    // 表单表头：申报金额 -> principal
     declaredAmount: 'principal',
+    '申报金额': 'principal',
+    '金额': 'principal',
+    '债权金额': 'principal',
+    '总金额': 'principal',
+    
+    // 表单表头：性质 -> claimNature
     nature: 'claimNature',
+    '性质': 'claimNature',
+    
+    // 表单表头：法定代表人 -> legalRepresentative
     legalRepresentative: 'legalRepresentative',
+    '法定代表人': 'legalRepresentative',
+    '法人': 'legalRepresentative',
+    
+    // 表单表头：代理人 -> agentName
     agentName: 'agentName',
-    agentPhone: 'agentPhone',
+    '代理人': 'agentName',
+    '委托代理人': 'agentName',
+    
+    // 表单表头：债权性质 -> claimNature
     claimNature: 'claimNature',
+    '债权性质': 'claimNature',
+    
+    // 表单表头：债权种类 -> claimType
     claimType: 'claimType',
+    '债权种类': 'claimType',
+    '债权类型': 'claimType',
+    
+    // 表单表头：开户名 -> accountName
     accountName: 'accountName',
+    '开户名': 'accountName',
+    '账户名': 'accountName',
+    
+    // 表单表头：开户行 -> bankName
     bankName: 'bankName',
+    '开户行': 'bankName',
+    '开户银行': 'bankName',
+    '银行名称': 'bankName',
+    
+    // 表单表头：账号 -> bankAccount
     bankAccount: 'bankAccount',
+    '账号': 'bankAccount',
+    '银行账号': 'bankAccount',
+    '债权人银行账号': 'bankAccount',
+    
+    // 表单表头：涉讼 -> claimFacts
     litigationStatus: 'claimFacts',
+    '涉讼': 'claimFacts',
+    '涉讼情况': 'claimFacts',
+    '诉讼情况': 'claimFacts',
+    
+    // 表单表头：备注 -> remarks
     remarks: 'remarks',
+    '备注': 'remarks',
+    '说明': 'remarks',
+    
+    // 其他金额字段
     principal: 'principal',
     interest: 'interest',
     penalty: 'penalty',
@@ -727,38 +807,124 @@ const fillForm = (data: any) => {
   console.log('开始填充表单，API返回数据:', data);
   const filledFields: any[] = [];
   
+  // 可能的表头文本列表（包含用户提供的表单表头）
+  const headerTexts = [
+    // 用户提供的表单表头
+    '收件编号', '债权人', '申报时间', '住所/邮编', '联系电话',
+    '申报金额', '性质', '法定代表人', '代理人', '债权性质',
+    '债权种类', '开户名', '开户行', '账号', '涉讼', '备注',
+    
+    // 其他常见表头变体
+    '编号', '序号',
+    '债权人', '债权人名称', '申报人',
+    '申报时间', '申报日期', '登记日期',
+    '住所/邮编', '住所', '地址', '邮编',
+    '联系电话', '电话', '手机号',
+    '申报金额', '金额', '债权金额', '总金额',
+    '性质',
+    '法定代表人', '法人',
+    '代理人', '委托代理人',
+    '债权性质',
+    '债权种类', '债权类型',
+    '开户名', '账户名',
+    '开户行', '开户银行', '银行名称',
+    '账号', '银行账号', '债权人银行账号',
+    '涉讼', '涉讼情况', '诉讼情况',
+    '备注', '说明',
+    
+    // 英文表头
+    'receipt number', 'receipt', 'number', 'serial',
+    'creditor', 'creditor name', 'claimant',
+    'declaration time', 'declaration date', 'registration date',
+    'address/zip', 'address', 'zip code',
+    'contact phone', 'phone', 'mobile',
+    'declared amount', 'amount', 'claim amount', 'total amount',
+    'nature',
+    'legal representative', 'representative',
+    'agent', 'authorized agent',
+    'claim nature',
+    'claim type',
+    'account name', 'account holder',
+    'bank name', 'opening bank',
+    'account number', 'bank account',
+    'litigation', 'lawsuit status',
+    'remarks', 'notes'
+  ];
+  
+  // 检查是否为表头文本
+  const isHeaderText = (value: string): boolean => {
+    const strValue = String(value).trim();
+    // 空值检查
+    if (!strValue) return false;
+    
+    // 检查是否为常见表头文本（大小写不敏感）
+    const lowerValue = strValue.toLowerCase();
+    const lowerHeaders = headerTexts.map(header => header.toLowerCase());
+    
+    if (lowerHeaders.includes(lowerValue)) {
+      return true;
+    }
+    
+    // 检查是否为纯数字（可能是序号，不是表头）
+    if (!isNaN(parseFloat(strValue)) && isFinite(strValue as any)) {
+      return false;
+    }
+    
+    // 不再使用模式匹配，只依赖明确的表头文本列表
+    // 这样可以避免将实际数据（如姓名、地址）误判为表头文本
+    return false;
+  };
+  
   // 遍历返回的字段，填充对应表单
   Object.keys(data).forEach(key => {
     if (!data[key]) return;
     
+    // 跳过收件编号相关字段（用户要求收件编号不作映射）
+    const receiptNumberFields = ['receiptNumber', '收件编号', '编号', '序号'];
+    if (receiptNumberFields.includes(key)) {
+      console.log(`跳过收件编号字段: ${key} = ${data[key]}`);
+      return;
+    }
+    
     const formField = fieldMapping[key] || key;
+    const fieldValue = String(data[key]).trim();
+    
+    // 跳过表头文本
+    if (isHeaderText(fieldValue)) {
+      console.log(`跳过表头文本字段: ${formField} = ${fieldValue}`);
+      return;
+    }
     
     // 特殊处理金额字段
     if (['principal', 'interest', 'penalty', 'otherLosses', 'totalAmount'].includes(formField)) {
-      const amountStr = String(data[key]).replace(/,/g, '');
-      const formattedAmount = parseFloat(amountStr).toString();
-      (claimForm as any)[formField] = formattedAmount;
-      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: formattedAmount });
+      const amountStr = fieldValue.replace(/,/g, '');
+      // 检查是否为数字
+      if (!isNaN(parseFloat(amountStr)) && isFinite(amountStr as any)) {
+        const formattedAmount = parseFloat(amountStr).toString();
+        (claimForm as any)[formField] = formattedAmount;
+        filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: formattedAmount });
+      } else {
+        console.log(`跳过非数字金额字段: ${formField} = ${fieldValue}`);
+      }
     } 
     // 特殊处理日期字段
-    else if (formField === 'registrationDate' && data[key]) {
-      const dateStr = data[key];
+    else if (formField === 'registrationDate' && fieldValue) {
       let formattedDate: string;
-      if (dateStr.includes('/')) {
-        const [year, month, day] = dateStr.split('/');
+      if (fieldValue.includes('/')) {
+        const [year, month, day] = fieldValue.split('/');
         formattedDate = `${year}-${month}-${day}`;
-      } else if (dateStr.includes('-')) {
-        formattedDate = dateStr;
+      } else if (fieldValue.includes('-')) {
+        formattedDate = fieldValue;
       } else {
-        formattedDate = dateStr;
+        formattedDate = fieldValue;
       }
       (claimForm as any)[formField] = formattedDate;
       filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: formattedDate });
     }
     // 其他字段直接赋值
     else {
-      (claimForm as any)[formField] = data[key];
-      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: data[key] });
+      (claimForm as any)[formField] = fieldValue;
+      filledFields.push({ apiField: key, formField, originalValue: data[key], formattedValue: fieldValue });
     }
   });
   
@@ -772,25 +938,92 @@ const highlightFilledFields = (data: any) => {
   
   console.log('开始高亮填充的字段:', filledFields);
   
-  // 字段映射：API返回字段 -> 表单字段
+  // 字段映射：API返回字段 -> 表单字段（与fillForm函数保持一致）
   const fieldMapping: Record<string, string> = {
-    receiptNumber: 'caseNumber',
+    // 表单表头：债权人 -> creditorName
     creditorName: 'creditorName',
+    '债权人': 'creditorName',
+    '债权人名称': 'creditorName',
+    '申报人': 'creditorName',
+    
+    // 表单表头：申报时间 -> registrationDate
     declarationTime: 'registrationDate',
+    '申报时间': 'registrationDate',
+    '申报日期': 'registrationDate',
+    '登记日期': 'registrationDate',
+    
+    // 表单表头：住所/邮编 -> serviceAddress
     addressAndPostalCode: 'serviceAddress',
+    '住所/邮编': 'serviceAddress',
+    '住所': 'serviceAddress',
+    '邮编': 'serviceAddress',
+    '地址': 'serviceAddress',
+    
+    // 表单表头：联系电话 -> agentPhone
     contactPhone: 'agentPhone',
+    '联系电话': 'agentPhone',
+    '电话': 'agentPhone',
+    '手机号': 'agentPhone',
+    
+    // 表单表头：申报金额 -> principal
     declaredAmount: 'principal',
+    '申报金额': 'principal',
+    '金额': 'principal',
+    '债权金额': 'principal',
+    '总金额': 'principal',
+    
+    // 表单表头：性质 -> claimNature
     nature: 'claimNature',
+    '性质': 'claimNature',
+    
+    // 表单表头：法定代表人 -> legalRepresentative
     legalRepresentative: 'legalRepresentative',
+    '法定代表人': 'legalRepresentative',
+    '法人': 'legalRepresentative',
+    
+    // 表单表头：代理人 -> agentName
     agentName: 'agentName',
-    agentPhone: 'agentPhone',
+    '代理人': 'agentName',
+    '委托代理人': 'agentName',
+    
+    // 表单表头：债权性质 -> claimNature
     claimNature: 'claimNature',
+    '债权性质': 'claimNature',
+    
+    // 表单表头：债权种类 -> claimType
     claimType: 'claimType',
+    '债权种类': 'claimType',
+    '债权类型': 'claimType',
+    
+    // 表单表头：开户名 -> accountName
     accountName: 'accountName',
+    '开户名': 'accountName',
+    '账户名': 'accountName',
+    
+    // 表单表头：开户行 -> bankName
     bankName: 'bankName',
+    '开户行': 'bankName',
+    '开户银行': 'bankName',
+    '银行名称': 'bankName',
+    
+    // 表单表头：账号 -> bankAccount
     bankAccount: 'bankAccount',
+    '账号': 'bankAccount',
+    '银行账号': 'bankAccount',
+    '债权人银行账号': 'bankAccount',
+    
+    // 表单表头：涉讼 -> claimFacts
     litigationStatus: 'claimFacts',
+    '涉讼': 'claimFacts',
+    '涉讼情况': 'claimFacts',
+    '诉讼情况': 'claimFacts',
+    
+    // 表单表头：备注 -> remarks
     remarks: 'remarks',
+    '备注': 'remarks',
+    '说明': 'remarks',
+    
+    // 其他金额字段
     principal: 'principal',
     interest: 'interest',
     penalty: 'penalty',
@@ -800,6 +1033,13 @@ const highlightFilledFields = (data: any) => {
   
   // 高亮填充的字段
   filledFields.forEach(apiField => {
+    // 跳过收件编号相关字段（用户要求收件编号不作映射）
+    const receiptNumberFields = ['receiptNumber', '收件编号', '编号', '序号'];
+    if (receiptNumberFields.includes(apiField)) {
+      console.log(`跳过收件编号字段高亮: ${apiField}`);
+      return;
+    }
+    
     const formField = fieldMapping[apiField] || apiField;
     console.log(`高亮字段: API字段=${apiField}, 表单字段=${formField}`);
     
@@ -808,8 +1048,7 @@ const highlightFilledFields = (data: any) => {
       `[name="${formField}"]`,
       `[prop="${formField}"]`,
       `[v-model="claimForm.${formField}"]`,
-      `input[placeholder*="${formField}"]`,
-      `.el-form-item__label:contains("${getFieldLabel(formField)}") + .el-form-item__content input`
+      `input[placeholder*="${formField}"]`
     ];
     
     let elementFound = false;
@@ -829,23 +1068,23 @@ const highlightFilledFields = (data: any) => {
   });
 };
 
-// 获取字段标签
+// 获取字段标签（与用户提供的表单表头完全对应）
 const getFieldLabel = (field: string) => {
   const labelMapping: Record<string, string> = {
     caseNumber: '案件编号',
-    creditorName: '债权人姓名或名称',
+    creditorName: '债权人',
     registrationDate: '申报时间',
-    serviceAddress: '送达地址',
-    agentPhone: '代理人电话',
-    principal: '本金',
+    serviceAddress: '住所/邮编',
+    agentPhone: '联系电话',
+    principal: '申报金额',
+    claimNature: '性质',
     legalRepresentative: '法定代表人',
-    agentName: '代理人姓名',
-    claimNature: '债权性质',
+    agentName: '代理人',
     claimType: '债权种类',
-    accountName: '账户名称',
-    bankName: '开户银行',
-    bankAccount: '银行账号',
-    claimFacts: '债权事实',
+    accountName: '开户名',
+    bankName: '开户行',
+    bankAccount: '账号',
+    claimFacts: '涉讼',
     remarks: '备注',
     interest: '利息',
     penalty: '违约金',
@@ -1207,6 +1446,17 @@ onMounted(() => {
             {{ currentClaim.remarks || '-' }}
           </ElDescriptionsItem>
         </ElDescriptions>
+
+        <div class="section-divider mb-4 mt-4">
+          <h4 class="section-title">附件信息</h4>
+        </div>
+        <FileUpload
+          v-if="currentClaim"
+          :biz-type="'claim'"
+          :biz-id="currentClaim.id"
+          :disabled="true"
+          title="债权申报附件"
+        />
       </div>
       <template #footer>
         <span class="dialog-footer">
@@ -1291,8 +1541,8 @@ onMounted(() => {
         </ElUpload>
 
         <ElAlert 
-          v-if="selectedFile" 
-          :message="`已选择文件: ${selectedFile.name}`" 
+          v-if="currentImportFile" 
+          :message="`已选择文件: ${currentImportFile.name}`" 
           type="success" 
           :closable="false" 
           class="mt-2" 
@@ -1303,12 +1553,12 @@ onMounted(() => {
           <ElButton @click="showImportDialog = false">关闭</ElButton>
           <ElButton 
             type="success" 
-            icon="el-icon-magic-stick" 
-            @click="handleImportExcel"
-            :loading="importing"
-            :disabled="!selectedFile"
+            icon="el-icon-upload"
+            @click="handleImportSubmit"
+            :loading="importLoading"
+            :disabled="!currentImportFile"
             class="ml-2">
-            导入并自动填充
+            开始导入
           </ElButton>
         </span>
       </template>
@@ -1655,6 +1905,25 @@ onMounted(() => {
                   placeholder="请输入备注"
                 />
               </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">附件上传</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <FileUpload
+                v-model="claimForm.evidenceAttachments"
+                :biz-type="'claim'"
+                :biz-id="currentEditClaim?.id || 0"
+                :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
+                :max-size="50 * 1024 * 1024"
+                :multiple="true"
+                title="债权申报附件"
+                :disabled="false"
+              />
             </ElCol>
           </ElRow>
         </ElForm>
@@ -2025,6 +2294,25 @@ onMounted(() => {
                   placeholder="请输入备注"
                 />
               </ElFormItem>
+            </ElCol>
+          </ElRow>
+
+          <div class="section-divider mb-4">
+            <h4 class="section-title">附件上传</h4>
+          </div>
+
+          <ElRow :gutter="20">
+            <ElCol :span="24">
+              <FileUpload
+                v-model="claimForm.evidenceAttachments"
+                :biz-type="'claim'"
+                :biz-id="currentEditClaim?.id || 0"
+                :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
+                :max-size="50 * 1024 * 1024"
+                :multiple="true"
+                title="债权申报附件"
+                :disabled="false"
+              />
             </ElCol>
           </ElRow>
         </ElForm>
