@@ -103,6 +103,10 @@ const creditorList = ref<any[]>([]);
 const debtorListLoading = ref(false);
 const creditorListLoading = ref(false);
 
+const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
+
+const localFileIds = ref<number[]>([]);
+
 // 文件导入相关变量
 const selectedFile = ref<any>(null);
 const importing = ref(false);
@@ -505,10 +509,6 @@ const handleAddClaim = async () => {
     claimType: claimForm.claimType,
     claimFacts: claimForm.claimFacts || undefined,
     claimIdentifier: claimForm.claimIdentifier || undefined,
-    evidenceAttachments:
-      claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0
-        ? claimForm.evidenceAttachments.join(',')
-        : undefined,
     registrationDate: claimForm.registrationDate || null,
     registrationDeadline: claimForm.registrationDeadline || null,
     materialReceiver: claimForm.materialReceiver || undefined,
@@ -519,6 +519,13 @@ const handleAddClaim = async () => {
 
   const result = await ClaimService.createClaim(requestData);
   if (result.success) {
+    const claimId = result.data?.claimId || result.data?.id;
+    if (claimId && fileUploadRef.value) {
+      const uploadedIds = await fileUploadRef.value.uploadLocalFiles(claimId);
+      if (uploadedIds.length > 0) {
+        localFileIds.value = uploadedIds;
+      }
+    }
     await fetchClaims();
     closeAddDialog();
   }
@@ -1588,7 +1595,7 @@ onMounted(() => {
     <ElDialog
       v-model="showEditDialog"
       title="修改债权申报"
-      width="800px"
+      width="1200px"
       destroy-on-close
     >
       <div class="add-claim-dialog">
@@ -1856,43 +1863,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="是否有判决书">
-                <ElCheckbox v-model="claimForm.hasCourtJudgment">是</ElCheckbox>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="判决书编号">
-                <ElInput
-                  v-model="claimForm.courtJudgmentNo"
-                  placeholder="请输入判决书编号"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="判决日期">
-                <ElInput
-                  v-model="claimForm.judgmentDate"
-                  type="datetime-local"
-                  placeholder="请选择判决日期"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="判决金额">
-                <ElInput
-                  v-model="claimForm.judgmentAmount"
-                  type="number"
-                  placeholder="请输入判决金额"
-                />
-              </ElFormItem>
-            </ElCol>
           </ElRow>
 
           <ElRow :gutter="20">
@@ -1915,14 +1885,16 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="24">
               <FileUpload
+                ref="fileUploadRef"
                 v-model="claimForm.evidenceAttachments"
                 :biz-type="'claim'"
-                :biz-id="currentEditClaim?.id || 0"
+                :biz-id="0"
                 :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="债权申报附件"
                 :disabled="false"
+                :local-mode="true"
               />
             </ElCol>
           </ElRow>
@@ -1946,7 +1918,7 @@ onMounted(() => {
     <ElDialog
       v-model="showAddDialog"
       title="新增债权申报"
-      width="800px"
+      width="1200px"
       destroy-on-close
     >
       <div class="add-claim-dialog">
@@ -2304,14 +2276,16 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="24">
               <FileUpload
+                ref="fileUploadRef"
                 v-model="claimForm.evidenceAttachments"
                 :biz-type="'claim'"
-                :biz-id="currentEditClaim?.id || 0"
+                :biz-id="0"
                 :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="债权申报附件"
                 :disabled="false"
+                :local-mode="true"
               />
             </ElCol>
           </ElRow>

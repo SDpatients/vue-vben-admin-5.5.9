@@ -377,12 +377,12 @@ export class ClaimService {
     try {
       const response = await createClaimRegistrationApi(data);
       if (this.handleApiResponse(response, '成功添加债权登记', '添加失败')) {
-        return { success: true };
+        return { success: true, data: response.data };
       }
-      return { success: false };
+      return { success: false, data: null };
     } catch (error) {
       this.handleApiError(error, '添加债权登记失败');
-      return { success: false };
+      return { success: false, data: null };
     }
   }
 

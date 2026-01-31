@@ -249,7 +249,7 @@ export async function deleteClaimConfirmationApi(confirmationId: number) {
  * POST /api/v1/claim-confirmation/{confirmationId}/vote
  */
 export async function submitVoteApi(confirmationId: number, params: { voteResult: ClaimConfirmationApi.VoteResult; voteNotes?: string }) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/vote`, null, { params });
+  return requestClient8085.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/vote`, null, { params });
 }
 
 /**
@@ -289,7 +289,7 @@ export async function updateLawsuitStatusApi(confirmationId: number, status: Cla
  * POST /api/v1/claim-confirmation/{confirmationId}/finalize
  */
 export async function finalizeClaimConfirmationApi(confirmationId: number) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/finalize`);
+  return requestClient8085.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/finalize`);
 }
 
 /**

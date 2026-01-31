@@ -209,12 +209,34 @@ export const approvalUtils = {
     try {
       const parsed = JSON.parse(attachment);
       // 验证解析结果是否符合预期格式
-      if (parsed && typeof parsed === 'object' && 'files' in parsed) {
-        return parsed;
-      } else {
-        // 格式不符合预期，返回原始内容
-        return { originalAttachment: attachment };
+      if (parsed && typeof parsed === 'object') {
+        if ('files' in parsed) {
+          // 检查files是否是数组（API返回格式）
+          if (Array.isArray(parsed.files)) {
+            // 转换API格式为预期格式：{ "case_files": [文件数组] }
+            return {
+              files: {
+                "case_files": parsed.files.map((file: any) => ({
+                  id: file.id,
+                  originalFileName: file.originalFileName,
+                  storedFileName: file.originalFileName,
+                  filePath: '',
+                  fileSize: 0,
+                  fileExtension: file.originalFileName ? file.originalFileName.split('.').pop() || '' : '',
+                  mimeType: '',
+                  sortOrder: 0,
+                  uploadTime: '',
+                  imageData: file.imageData
+                }))
+              }
+            };
+          }
+          // 原始格式：{ "files": { "任务ID": [文件数组] } }
+          return parsed;
+        }
       }
+      // 格式不符合预期，返回原始内容
+      return { originalAttachment: attachment };
     } catch (e) {
       // 如果不是 JSON，返回原始内容，不打印错误信息
       return { originalAttachment: attachment };

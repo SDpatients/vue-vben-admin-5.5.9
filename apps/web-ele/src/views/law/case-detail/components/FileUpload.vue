@@ -37,6 +37,16 @@ interface FileItem {
   uploadTime: string;
 }
 
+interface LocalFileItem {
+  file: File;
+  id: string;
+  originalFileName: string;
+  fileSize: number;
+  fileExtension: string;
+  mimeType: string;
+  uploadTime: string;
+}
+
 const props = defineProps<{
   bizType: string;
   bizId: number;
@@ -46,6 +56,7 @@ const props = defineProps<{
   accept?: string;
   multiple?: boolean;
   title?: string;
+  localMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -53,6 +64,7 @@ const emit = defineEmits<{
   (e: 'upload-success', file: FileApi.FileRecord): void;
   (e: 'upload-error', error: any): void;
   (e: 'delete', fileId: number): void;
+  (e: 'local-files-change', files: LocalFileItem[]): void;
 }>();
 
 const uploading = ref(false);
@@ -60,11 +72,14 @@ const uploadProgress = ref(0);
 const fileList = ref<FileItem[]>([]);
 const uploadLoading = ref(false);
 
-// 预览相关状态
+const localFiles = ref<LocalFileItem[]>([]);
+
+const previewFile = ref<FileItem | LocalFileItem | null>(null);
 const showPreviewDialog = ref(false);
-const previewFile = ref<FileItem | null>(null);
 const previewUrl = ref('');
 const previewLoading = ref(false);
+
+const isLocalMode = computed(() => props.localMode);
 
 const maxSize = computed(() => props.maxSize || 50 * 1024 * 1024);
 
@@ -76,7 +91,7 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-const getFileIcon = (file: FileItem): string => {
+const getFileIcon = (file: FileItem | LocalFileItem): string => {
   const ext = file.fileExtension.toLowerCase();
   const iconMap: Record<string, string> = {
     pdf: 'lucide:file-text',
@@ -95,7 +110,7 @@ const getFileIcon = (file: FileItem): string => {
   return iconMap[ext] || 'lucide:file';
 };
 
-const canPreview = (file: FileItem): boolean => {
+const canPreview = (file: FileItem | LocalFileItem): boolean => {
   const mimeType = file.mimeType;
   return (
     mimeType?.startsWith('image/') ||
@@ -105,14 +120,13 @@ const canPreview = (file: FileItem): boolean => {
 };
 
 const loadFiles = async () => {
+  if (isLocalMode.value) return;
   if (!props.bizId || !props.bizType) return;
 
   try {
     const response = await getAllFilesByBizApi(props.bizType, props.bizId);
     if (response.code === 200 && response.data) {
       fileList.value = response.data;
-      // 自动预览第一个支持预览的文件
-      autoPreviewFirstFile();
     }
   } catch (error) {
     console.error('加载文件列表失败:', error);
@@ -120,7 +134,6 @@ const loadFiles = async () => {
 };
 
 const autoPreviewFirstFile = () => {
-  // 找到第一个支持预览的文件
   const previewableFile = fileList.value.find(file => canPreview(file));
   if (previewableFile) {
     handlePreview(previewableFile);
@@ -153,6 +166,31 @@ const handleFileChange = async (file: any) => {
     }
   }
 
+  if (isLocalMode.value) {
+    handleLocalFileAdd(rawFile);
+  } else {
+    await handleServerFileUpload(rawFile);
+  }
+};
+
+const handleLocalFileAdd = (rawFile: File) => {
+  const fileExt = rawFile.name.substring(rawFile.name.lastIndexOf('.') + 1).toLowerCase();
+  const localFile: LocalFileItem = {
+    file: rawFile,
+    id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    originalFileName: rawFile.name,
+    fileSize: rawFile.size,
+    fileExtension: fileExt,
+    mimeType: rawFile.type,
+    uploadTime: new Date().toISOString(),
+  };
+  
+  localFiles.value.push(localFile);
+  emit('local-files-change', localFiles.value);
+  ElMessage.success('文件添加成功');
+};
+
+const handleServerFileUpload = async (rawFile: File) => {
   uploadLoading.value = true;
   uploading.value = true;
   uploadProgress.value = 0;
@@ -162,7 +200,6 @@ const handleFileChange = async (file: any) => {
     if (response.code === 200 && response.data) {
       ElMessage.success('文件上传成功');
       await loadFiles();
-      // 检查 modelValue 是否存在且是数组
       if (props.modelValue && Array.isArray(props.modelValue)) {
         const newFileIds = [...props.modelValue, response.data.id];
         emit('update:modelValue', newFileIds);
@@ -183,20 +220,24 @@ const handleFileChange = async (file: any) => {
   }
 };
 
-const handlePreview = async (file: FileItem) => {
+const handlePreview = async (file: FileItem | LocalFileItem) => {
   previewFile.value = file;
   previewLoading.value = true;
   
   try {
-    // 获取文件的 blob 数据
-    const blob = await fileUploadRequestClient.get<Blob>(
-      `/api/v1/file/preview/${file.id}`,
-      {
-        responseType: 'blob',
-      },
-    );
+    let blob: Blob;
     
-    // 创建预览 URL
+    if ('file' in file) {
+      blob = file.file;
+    } else {
+      blob = await fileUploadRequestClient.get<Blob>(
+        `/api/v1/file/preview/${file.id}`,
+        {
+          responseType: 'blob',
+        },
+      );
+    }
+    
     previewUrl.value = window.URL.createObjectURL(blob);
     showPreviewDialog.value = true;
   } catch (error) {
@@ -207,9 +248,16 @@ const handlePreview = async (file: FileItem) => {
   }
 };
 
-const handleDownload = async (file: FileItem) => {
+const handleDownload = async (file: FileItem | LocalFileItem) => {
   try {
-    const blob = await downloadFileApi(file.id);
+    let blob: Blob;
+    
+    if ('file' in file) {
+      blob = file.file;
+    } else {
+      blob = await downloadFileApi(file.id);
+    }
+    
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -225,7 +273,24 @@ const handleDownload = async (file: FileItem) => {
   }
 };
 
-const handleDelete = async (file: FileItem) => {
+const handleDelete = async (file: FileItem | LocalFileItem) => {
+  if ('file' in file) {
+    handleLocalFileDelete(file.id);
+  } else {
+    await handleServerFileDelete(file);
+  }
+};
+
+const handleLocalFileDelete = (fileId: string) => {
+  const index = localFiles.value.findIndex(f => f.id === fileId);
+  if (index > -1) {
+    localFiles.value.splice(index, 1);
+    emit('local-files-change', localFiles.value);
+    ElMessage.success('文件删除成功');
+  }
+};
+
+const handleServerFileDelete = async (file: FileItem) => {
   try {
     const response = await deleteFileApi(file.id);
     if (response.code === 200) {
@@ -244,7 +309,6 @@ const handleDelete = async (file: FileItem) => {
 };
 
 const handlePreviewClose = () => {
-  // 清理预览状态
   if (previewUrl.value) {
     window.URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = '';
@@ -252,6 +316,49 @@ const handlePreviewClose = () => {
   previewFile.value = null;
   previewLoading.value = false;
 };
+
+const getLocalFiles = (): LocalFileItem[] => {
+  return localFiles.value;
+};
+
+const clearLocalFiles = () => {
+  localFiles.value = [];
+  emit('local-files-change', localFiles.value);
+};
+
+const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
+  if (localFiles.value.length === 0) return [];
+  
+  uploading.value = true;
+  const uploadedFileIds: number[] = [];
+  
+  try {
+    for (const localFile of localFiles.value) {
+      try {
+        const response = await uploadFileApi(localFile.file, props.bizType, bizId);
+        if (response.code === 200 && response.data) {
+          uploadedFileIds.push(response.data.id);
+        }
+      } catch (error) {
+        console.error(`文件 ${localFile.originalFileName} 上传失败:`, error);
+      }
+    }
+    
+    if (uploadedFileIds.length === localFiles.value.length) {
+      ElMessage.success(`成功上传 ${uploadedFileIds.length} 个文件`);
+    } else {
+      ElMessage.warning(`成功上传 ${uploadedFileIds.length}/${localFiles.value.length} 个文件`);
+    }
+    
+    return uploadedFileIds;
+  } finally {
+    uploading.value = false;
+  }
+};
+
+const displayFiles = computed(() => {
+  return isLocalMode.value ? localFiles.value : fileList.value;
+});
 
 watch(() => [props.bizId, props.bizType], () => {
   loadFiles();
@@ -262,6 +369,12 @@ watch(() => props.modelValue, (newVal) => {
     loadFiles();
   }
 }, { immediate: true });
+
+defineExpose({
+  getLocalFiles,
+  clearLocalFiles,
+  uploadLocalFiles,
+});
 </script>
 
 <template>
@@ -273,8 +386,8 @@ watch(() => props.modelValue, (newVal) => {
           <span class="font-semibold">{{ title || '文件附件' }}</span>
         </div>
         <div class="flex items-center gap-2">
-          <ElTag v-if="fileList.length > 0" type="info" size="small">
-            已上传 {{ fileList.length }} 个文件
+          <ElTag v-if="displayFiles.length > 0" type="info" size="small">
+            {{ isLocalMode ? '已添加' : '已上传' }} {{ displayFiles.length }} 个文件
           </ElTag>
         </div>
       </div>
@@ -293,7 +406,7 @@ watch(() => props.modelValue, (newVal) => {
         <div class="upload-area">
           <Icon icon="lucide:upload-cloud" class="upload-icon" />
           <div class="upload-text">
-            <p class="text-primary font-medium">点击或拖拽文件到此处上传</p>
+            <p class="text-primary font-medium">{{ isLocalMode ? '点击或拖拽文件到此处添加' : '点击或拖拽文件到此处上传' }}</p>
             <p class="text-sm text-gray-500 mt-1">
               支持格式：{{ accept || '所有文件' }}
             </p>
@@ -306,12 +419,12 @@ watch(() => props.modelValue, (newVal) => {
 
       <div v-if="uploading" class="upload-progress mt-4">
         <ElProgress :percentage="uploadProgress" :status="uploadProgress === 100 ? 'success' : undefined" />
-        <p class="text-sm text-gray-500 mt-2 text-center">正在上传...</p>
+        <p class="text-sm text-gray-500 mt-2 text-center">{{ isLocalMode ? '正在处理...' : '正在上传...' }}</p>
       </div>
     </div>
 
-    <div v-if="fileList.length > 0" class="file-list-section">
-      <ElTable :data="fileList" border stripe style="width: 100%">
+    <div v-if="displayFiles.length > 0" class="file-list-section">
+      <ElTable :data="displayFiles" border stripe style="width: 100%">
         <ElTableColumn width="60" align="center">
           <template #default="scope">
             <Icon :icon="getFileIcon(scope.row)" class="file-icon" />
@@ -367,7 +480,6 @@ watch(() => props.modelValue, (newVal) => {
     </div>
   </ElCard>
 
-  <!-- 预览对话框 -->
   <ElDialog
     v-model="showPreviewDialog"
     :title="previewFile?.originalFileName || '文件预览'"
@@ -382,21 +494,18 @@ watch(() => props.modelValue, (newVal) => {
         <span class="loading-text">加载中...</span>
       </div>
       <div v-else-if="previewUrl" class="preview-content">
-        <!-- 图片预览 -->
         <img
           v-if="previewFile?.mimeType?.startsWith('image/')"
           :src="previewUrl"
           class="preview-image"
           alt="预览图片"
         />
-        <!-- PDF预览 -->
         <iframe
           v-else-if="previewFile?.mimeType === 'application/pdf'"
           :src="previewUrl"
           class="preview-pdf"
           frameborder="0"
         ></iframe>
-        <!-- 其他文件类型 -->
         <div v-else class="preview-other">
           <Icon icon="lucide:file" class="file-icon-large" />
           <p class="text-gray-500">该文件类型不支持在线预览</p>
@@ -454,7 +563,6 @@ watch(() => props.modelValue, (newVal) => {
   margin-top: 20px;
 }
 
-/* 预览相关样式 */
 .preview-container {
   width: 100%;
   height: 70vh;

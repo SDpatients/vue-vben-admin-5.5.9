@@ -337,6 +337,7 @@ const handleViewDetail = async (row: CaseApproval) => {
 
 const handleApprove = async (row: CaseApproval) => {
   loading.value = true;
+  isLoading.value = true;
   try {
     // 调用API获取审批详情
     const approvalDetail = await approvalApi.getApprovalDetail(row.id);
@@ -363,10 +364,50 @@ const handleApprove = async (row: CaseApproval) => {
       remark: '',
       status: 'approved',
     };
+    
+    // 重置解析数据
+    contentData.value = null;
+    attachmentData.value = null;
+    previewUrls.value = {};
+    selectedTaskId.value = null;
+    
+    // 尝试解析 approvalContent 字段
+    if (approvalDetail.approvalContent) {
+      contentData.value = approvalUtils.parseApprovalContent(approvalDetail.approvalContent);
+    }
+    
+    // 尝试解析 approvalAttachment 字段
+    if (approvalDetail.approvalAttachment) {
+      console.log('原始附件数据:', approvalDetail.approvalAttachment);
+      attachmentData.value = approvalUtils.parseApprovalAttachment(approvalDetail.approvalAttachment);
+      console.log('解析后的附件数据:', attachmentData.value);
+      
+      // 自动选择第一个任务
+      if (attachmentData.value && 'files' in attachmentData.value) {
+        const taskIds = Object.keys(attachmentData.value.files);
+        if (taskIds.length > 0) {
+          selectedTaskId.value = taskIds[0];
+        }
+      }
+    } else {
+      console.log('无附件数据');
+    }
+    
     dialogVisible.value = true;
+    
+    // 异步预加载图片
+    if (approvalDetail.approvalAttachment) {
+      setTimeout(async () => {
+        await preloadImages(approvalDetail.id);
+        isLoading.value = false;
+      }, 100);
+    } else {
+      isLoading.value = false;
+    }
   } catch (error) {
     console.error('获取审批详情失败:', error);
     ElMessage.error('获取审批详情失败');
+    isLoading.value = false;
   } finally {
     loading.value = false;
   }
@@ -374,6 +415,7 @@ const handleApprove = async (row: CaseApproval) => {
 
 const handleReject = async (row: CaseApproval) => {
   loading.value = true;
+  isLoading.value = true;
   try {
     // 调用API获取审批详情
     const approvalDetail = await approvalApi.getApprovalDetail(row.id);
@@ -400,10 +442,50 @@ const handleReject = async (row: CaseApproval) => {
       remark: '',
       status: 'rejected',
     };
+    
+    // 重置解析数据
+    contentData.value = null;
+    attachmentData.value = null;
+    previewUrls.value = {};
+    selectedTaskId.value = null;
+    
+    // 尝试解析 approvalContent 字段
+    if (approvalDetail.approvalContent) {
+      contentData.value = approvalUtils.parseApprovalContent(approvalDetail.approvalContent);
+    }
+    
+    // 尝试解析 approvalAttachment 字段
+    if (approvalDetail.approvalAttachment) {
+      console.log('原始附件数据:', approvalDetail.approvalAttachment);
+      attachmentData.value = approvalUtils.parseApprovalAttachment(approvalDetail.approvalAttachment);
+      console.log('解析后的附件数据:', attachmentData.value);
+      
+      // 自动选择第一个任务
+      if (attachmentData.value && 'files' in attachmentData.value) {
+        const taskIds = Object.keys(attachmentData.value.files);
+        if (taskIds.length > 0) {
+          selectedTaskId.value = taskIds[0];
+        }
+      }
+    } else {
+      console.log('无附件数据');
+    }
+    
     dialogVisible.value = true;
+    
+    // 异步预加载图片
+    if (approvalDetail.approvalAttachment) {
+      setTimeout(async () => {
+        await preloadImages(approvalDetail.id);
+        isLoading.value = false;
+      }, 100);
+    } else {
+      isLoading.value = false;
+    }
   } catch (error) {
     console.error('获取审批详情失败:', error);
     ElMessage.error('获取审批详情失败');
+    isLoading.value = false;
   } finally {
     loading.value = false;
   }
@@ -573,7 +655,7 @@ const preloadImages = async (approvalId: number) => {
       for (const [submissionId, files] of Object.entries(attachments)) {
         if (!Array.isArray(files)) continue;
         for (const file of files) {
-          if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i) && file.imageData) {
+          if (file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i)) {
             try {
               // 检查缓存
               const cachedImageData = getCachedImage(approvalId, file.id);
@@ -583,11 +665,16 @@ const preloadImages = async (approvalId: number) => {
                 continue;
               }
               
-              // 直接使用base64数据
-              previewUrls.value[file.id] = file.imageData;
-              // 缓存图片
-              cacheImage(approvalId, file.id, file.imageData);
-              console.log('使用批量接口图片:', file.id);
+              // 直接使用base64数据（如果有）
+              if (file.imageData) {
+                previewUrls.value[file.id] = file.imageData;
+                // 缓存图片
+                cacheImage(approvalId, file.id, file.imageData);
+                console.log('使用批量接口图片:', file.id);
+              } else {
+                // 没有imageData，使用单个文件API加载
+                await loadSingleImage(approvalId, file.id, file.filePath);
+              }
             } catch (error) {
               console.error('处理批量接口图片失败:', error);
               // 降级到单个文件API
@@ -653,6 +740,13 @@ const loadSingleImage = async (approvalId: number, fileId: number | null, filePa
         // 缓存图片
         cacheImage(approvalId, fileId, base64data);
         console.log('加载并缓存图片:', fileId);
+        resolve();
+      };
+      
+      reader.onerror = () => {
+        console.error('读取图片失败:', fileId);
+        // 加载失败时使用默认图标
+        previewUrls.value[fileId] = '';
         resolve();
       };
     });
