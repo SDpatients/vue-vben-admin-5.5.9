@@ -299,10 +299,20 @@ const handleRejectClaim = async (row: any) => {
 };
 
 const handleDeleteClaim = async (row: any) => {
-  const result = await ClaimService.deleteClaim(row.id);
-  if (result.success) {
-    await fetchClaims();
-  }
+  ElMessageBox.confirm('确定要删除这条债权申报吗？', '删除确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'danger',
+  })
+    .then(async () => {
+      const result = await ClaimService.deleteClaim(row.id);
+      if (result.success) {
+        await fetchClaims();
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消删除操作');
+    });
 };
 
 const handleEditClaim = async (row: any) => {
@@ -1160,7 +1170,7 @@ onMounted(() => {
       </ElAlert>
 
       <div v-loading="loading" class="claim-list-container">
-        <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
+        <ElTable :data="claims" border stripe style="width: 100%" class="mb-4" @row-click="openDetailDialog">
           <ElTableColumn
             label="登记状态"
             width="150"
@@ -1247,14 +1257,14 @@ onMounted(() => {
           <ElTableColumn prop="claim_type" label="债权种类" width="120" />
           <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
-              <ElButton link size="small" @click="openDetailDialog(scope.row)">
+              <ElButton link size="small" @click.stop="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
                 v-if="scope.row.registration_status === 'PENDING'"
                 link
                 size="small"
-                @click="handleRegisterClaim(scope.row)"
+                @click.stop="handleRegisterClaim(scope.row)"
               >
                 登记
               </ElButton>
@@ -1263,7 +1273,7 @@ onMounted(() => {
                 link
                 size="small"
                 type="primary"
-                @click="handleEditClaim(scope.row)"
+                @click.stop="handleEditClaim(scope.row)"
               >
                 修改
               </ElButton>
@@ -1272,7 +1282,7 @@ onMounted(() => {
                 link
                 size="small"
                 type="danger"
-                @click="handleRejectClaim(scope.row)"
+                @click.stop="handleRejectClaim(scope.row)"
               >
                 驳回
               </ElButton>
@@ -1281,7 +1291,7 @@ onMounted(() => {
                 @confirm="handleDeleteClaim(scope.row)"
               >
                 <template #reference>
-                  <ElButton link size="small"> 删除 </ElButton>
+                  <ElButton link size="small" @click.stop> 删除 </ElButton>
                 </template>
               </ElPopconfirm>
             </template>

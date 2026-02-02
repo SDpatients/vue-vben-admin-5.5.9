@@ -259,24 +259,11 @@ const handleDeleteWorkPlan = async (row: WorkPlanInfo) => {
 const fetchWorkPlanList = async () => {
   loading.value = true;
   try {
-    // 计算日期范围：从当前日期往前推30天到往后推30天
-    const today = new Date();
-    const startDateObj = new Date(today);
-    startDateObj.setDate(startDateObj.getDate() - 30);
-    const endDateObj = new Date(today);
-    endDateObj.setDate(endDateObj.getDate() + 30);
-
-    // 格式化日期为YYYY-MM-DD
-    const formatDate = (date: Date) => {
-      return date.toISOString().split('T')[0];
-    };
-
-    const startDate = formatDate(startDateObj);
-    const endDate = formatDate(endDateObj);
-
     const response = await getWorkPlanListByTimeApi(
-      startDate,
-      endDate,
+      undefined, // caseId
+      undefined, // planType
+      undefined, // executionStatus
+      undefined, // status
       pagination.value.page,
       pagination.value.pageSize,
     );
@@ -598,20 +585,22 @@ const exportWorkPlanData = () => {
         </ElTableColumn>
         <ElTableColumn label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
-            <ElButton
-              type="primary"
-              size="small"
-              @click.stop="handleViewDetail(row)"
-            >
-              查看详情
-            </ElButton>
-            <ElButton
-              type="danger"
-              size="small"
-              @click.stop="handleDeleteWorkPlan(row)"
-            >
-              删除
-            </ElButton>
+            <div class="flex gap-2">
+              <ElButton
+                type="primary"
+                size="small"
+                @click.stop="handleViewDetail(row)"
+              >
+                查看详情
+              </ElButton>
+              <ElButton
+                type="danger"
+                size="small"
+                @click.stop="handleDeleteWorkPlan(row)"
+              >
+                删除
+              </ElButton>
+            </div>
           </template>
         </ElTableColumn>
       </ElTable>

@@ -265,6 +265,16 @@ const handleEditSubmit = async () => {
 // 删除债权人
 const handleDeleteCreditor = async (row: any) => {
   try {
+    await ElMessageBox.confirm(
+      `确定要删除债权人 "${row.creditorName}" 吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'danger',
+      }
+    );
+    
     const response = await deleteCreditorApi(row.id);
     if (response.code === 200) {
       ElMessage.success('成功删除债权人');
@@ -273,8 +283,10 @@ const handleDeleteCreditor = async (row: any) => {
       ElMessage.error(`删除失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
-    console.error('删除债权人失败:', error);
-    ElMessage.error('删除债权人失败');
+    if (error !== 'cancel') {
+      console.error('删除债权人失败:', error);
+      ElMessage.error('删除债权人失败');
+    }
   }
 };
 
@@ -588,22 +600,14 @@ onMounted(() => {
           stripe
           style="width: 100%"
           class="mb-4"
+          @row-click="openCreditorDetailDialog"
         >
           <ElTableColumn
             prop="creditorName"
             label="债权人名称"
             min-width="180"
-          >
-            <template #default="scope">
-              <ElButton
-                link
-                type="primary"
-                @click="openCreditorDetailDialog(scope.row)"
-              >
-                {{ scope.row.creditorName }}
-              </ElButton>
-            </template>
-          </ElTableColumn>
+          />
+
           <ElTableColumn prop="creditorType" label="债权人类型" width="120">
             <template #default="scope">
               <ElTag
@@ -644,7 +648,7 @@ onMounted(() => {
                 <ElButton
                   size="small"
                   text
-                  @click="openEditDialog(scope.row)"
+                  @click.stop="openEditDialog(scope.row)"
                   class="text-primary"
                 >
                   <Icon icon="lucide:edit" class="mr-1" />
@@ -654,7 +658,7 @@ onMounted(() => {
                   size="small"
                   text
                   type="danger"
-                  @click="handleDeleteCreditor(scope.row)"
+                  @click.stop="handleDeleteCreditor(scope.row)"
                 >
                   <Icon icon="lucide:trash-2" class="mr-1" />
                   删除
@@ -928,7 +932,7 @@ onMounted(() => {
               <div class="creditor-name">
                 {{ creditorDetailData.creditorName }}
               </div>
-              <div class="creditor-id">债权人ID: {{ creditorDetailData.creditorId }}</div>
+
             </div>
           </div>
 
@@ -1223,10 +1227,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.creditor-id {
-  font-size: 14px;
-  opacity: 0.9;
-}
+
 
 .claim-card {
   background: white;

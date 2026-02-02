@@ -189,11 +189,13 @@ export async function deleteWorkPlanApi(
 }
 
 /**
- * 根据时间范围获取工作计划列表
+ * 获取工作计划列表（分页）
  */
 export async function getWorkPlanListByTimeApi(
-  startDate: string,
-  endDate: string,
+  caseId?: number,
+  planType?: string,
+  executionStatus?: string,
+  status?: string,
   pageNum: number = 1,
   pageSize: number = 10,
 ) {
@@ -204,26 +206,60 @@ export async function getWorkPlanListByTimeApi(
       total: number;
       list: Array<{
         id: number;
-        createTime: string;
-        createUserId: number;
-        isDeleted: boolean;
-        status: string;
-        updateTime: string;
-        updateUserId: number;
         caseId: number;
-        endDate: string;
-        executionStatus: string;
-        planContent: string;
-        planNumber: string;
         planType: string;
-        responsibleUserId: number;
+        planContent: string;
         startDate: string;
+        endDate: string;
+        responsibleUserId: number;
+        executionStatus: string;
+        status: string;
+        createTime: string;
+        updateTime: string;
       }>;
     };
-  }>('/work-plan/list-by-time', {
+  }>('/work-plan/list', {
     params: {
-      startDate,
-      endDate,
+      caseId,
+      planType,
+      executionStatus,
+      status,
+      pageNum,
+      pageSize,
+    },
+  });
+}
+
+/**
+ * 根据案件ID获取工作计划列表
+ */
+export async function getWorkPlanListByCaseIdApi(
+  caseId: number,
+  pageNum: number = 1,
+  pageSize: number = 10,
+) {
+  return requestClient8085.get<{
+    code: number;
+    message: string;
+    data: {
+      total: number;
+      list: Array<{
+        id: number;
+        caseId: number;
+        planType: string;
+        planContent: string;
+        startDate: string;
+        endDate: string;
+        responsibleUserId: number;
+        executionStatus: string;
+        status: string;
+        createTime: string;
+        updateTime: string;
+      }>;
+    };
+  }>('/work-plan/list', {
+    params: {
+      caseId,
       pageNum,
       pageSize,
     },

@@ -675,7 +675,7 @@ onMounted(() => {
     <ElDialog
       v-model="showConfirmDialog"
       title="债权确认"
-      width="600px"
+      width="50%"
       destroy-on-close
     >
       <div v-if="currentClaim" class="confirm-dialog-container">
@@ -737,6 +737,7 @@ onMounted(() => {
                 type="textarea"
                 :rows="3"
                 placeholder="请输入表决说明"
+                style="width: 100%"
               />
             </ElFormItem>
 
@@ -772,6 +773,7 @@ onMounted(() => {
               <ElInput
                 v-model="confirmationForm.meetingLocation"
                 placeholder="请输入会议地点"
+                style="width: 100%"
               />
             </ElFormItem>
 
@@ -807,6 +809,7 @@ onMounted(() => {
                 type="textarea"
                 :rows="2"
                 placeholder="请输入异议原因"
+                style="width: 100%"
               />
             </ElFormItem>
             <ElRow :gutter="20">
@@ -839,6 +842,7 @@ onMounted(() => {
               <ElInput
                 v-model="confirmationForm.negotiationResult"
                 placeholder="请输入协商结果"
+                style="width: 100%"
               />
             </ElFormItem>
             <ElRow :gutter="20">
@@ -891,6 +895,7 @@ onMounted(() => {
               <ElInput
                 v-model="confirmationForm.courtRulingResult"
                 placeholder="请输入裁定结果"
+                style="width: 100%"
               />
             </ElFormItem>
             <ElRow :gutter="20">
@@ -911,6 +916,7 @@ onMounted(() => {
                 type="textarea"
                 :rows="2"
                 placeholder="请输入裁定备注"
+                style="width: 100%"
               />
             </ElFormItem>
 
@@ -978,6 +984,7 @@ onMounted(() => {
                 type="textarea"
                 :rows="2"
                 placeholder="请输入诉讼备注"
+                style="width: 100%"
               />
             </ElFormItem>
 
@@ -1002,6 +1009,7 @@ onMounted(() => {
                 type="textarea"
                 :rows="2"
                 placeholder="请输入最终确认依据"
+                style="width: 100%"
               />
             </ElFormItem>
 
