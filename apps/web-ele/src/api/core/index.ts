@@ -34,3 +34,4 @@ export * from './user';
 export * from './work-log';
 export * from './work-plan';
 export * from './work-team';
+export * from './excel-templates';

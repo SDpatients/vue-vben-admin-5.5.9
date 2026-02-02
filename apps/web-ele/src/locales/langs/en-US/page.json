@@ -36,5 +36,23 @@
     "workTeamManagement": "Work Team Management",
     "workTeamEdit": "Edit Work Team",
     "managerManagement": "Manager Information"
+  },
+  "chat": {
+    "title": "Chat",
+    "home": "Chat Home",
+    "detail": "Chat Detail",
+    "contactManagement": "Contact Management",
+    "contactAdd": "Add Contact",
+    "contactEdit": "Edit Contact"
+  },
+  "fund": {
+    "title": "Fund Management",
+    "account": "Account Management",
+    "flow": "Fund Flow",
+    "report": "Statistics Report"
+  },
+  "permission": {
+    "title": "Permission Management",
+    "index": "Permission Management"
   }
 }

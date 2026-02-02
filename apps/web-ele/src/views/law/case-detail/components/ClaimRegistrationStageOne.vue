@@ -2217,43 +2217,6 @@ onMounted(() => {
                 />
               </ElFormItem>
             </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="是否有判决书">
-                <ElCheckbox v-model="claimForm.hasCourtJudgment">是</ElCheckbox>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="判决书编号">
-                <ElInput
-                  v-model="claimForm.courtJudgmentNo"
-                  placeholder="请输入判决书编号"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="判决日期">
-                <ElInput
-                  v-model="claimForm.judgmentDate"
-                  type="datetime-local"
-                  placeholder="请选择判决日期"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow v-if="claimForm.hasCourtJudgment" :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="判决金额">
-                <ElInput
-                  v-model="claimForm.judgmentAmount"
-                  type="number"
-                  placeholder="请输入判决金额"
-                />
-              </ElFormItem>
-            </ElCol>
           </ElRow>
 
           <ElRow :gutter="20">

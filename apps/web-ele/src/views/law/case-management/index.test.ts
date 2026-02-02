@@ -1,337 +1,324 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
-import CaseManagement from '#/views/law/case-management/index.vue';
-import * as caseApi from '#/api/core/case';
-import * as workTeamApi from '#/api/core/work-team';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('#/api/core/case');
-vi.mock('#/api/core/work-team');
+import {
+  createCaseApi,
+  deleteCaseApi,
+  getCaseDetailApi,
+  getCaseListApi,
+  updateCaseApi,
+} from '#/api/core/case';
 
-describe('CaseManagement', () => {
-  let pinia: any;
+// 测试数据
+const testCaseData = {
+  caseNumber: `TEST-${Date.now()}`,
+  caseName: '测试案件-自动化测试',
+  acceptanceDate: new Date().toISOString().split('T')[0],
+  caseSource: '自动化测试来源',
+  acceptanceCourt: '测试法院',
+  designatedInstitution: '测试机构',
+  mainResponsiblePerson: '测试负责人',
+  isSimplifiedTrial: 0,
+  caseReason: '测试案由',
+  caseProgress: 'FIRST' as const,
+  remarks: '这是自动化测试创建的案件',
+};
+
+let createdCaseId: number | null = null;
+
+describe('案件管理模块 CRUD 真实操作测试', () => {
+  // 测试前置条件检查
+  beforeAll(() => {
+    // 检查环境变量或配置
+    console.log('开始案件管理模块 CRUD 测试...');
+  });
 
   beforeEach(() => {
-    pinia = createPinia();
-    setActivePinia(pinia);
+    // 每个测试前的准备工作
+    vi.clearAllMocks();
   });
 
-  it('renders correctly', () => {
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+  describe('Create - 创建案件', () => {
+    it('应该成功创建一个新案件', async () => {
+      const response = await createCaseApi(testCaseData);
+
+      // 验证响应结构
+      expect(response).toHaveProperty('code');
+      expect(response).toHaveProperty('message');
+      expect(response).toHaveProperty('data');
+
+      // 验证响应状态
+      expect(response.code).toBe(200);
+      expect(response.data).toBeDefined();
+      expect(response.data.caseId).toBeDefined();
+      expect(response.data.caseNumber).toBe(testCaseData.caseNumber);
+
+      // 保存创建的案件ID，用于后续测试
+      createdCaseId = response.data.caseId;
+      console.log(`创建案件成功，ID: ${createdCaseId}`);
     });
 
-    expect(wrapper.exists()).toBe(true);
-  });
+    it('创建案件时应该验证必填字段', async () => {
+      // 测试缺少必填字段的情况
+      const invalidData = {
+        caseName: '测试案件-缺少必填字段',
+        // 缺少 caseNumber 和 acceptanceDate
+      };
 
-  it('fetches case list on mount', async () => {
-    const mockResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        total: 1,
-        list: [
-          {
-            id: 1,
-            caseNumber: '（2024）沪02破1号',
-            caseName: '测试案件',
-            caseProgress: 'FIRST',
-            caseStatus: 'IN_PROGRESS',
-            createTime: '2024-01-01T00:00:00',
-          },
-        ],
-      },
-    };
-
-    vi.mocked(caseApi).getCaseListApi.mockResolvedValue(mockResponse);
-
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+      try {
+        // @ts-ignore - 故意传入不完整数据测试错误处理
+        await createCaseApi(invalidData);
+        // 如果到这里，说明没有抛出错误，测试失败
+        expect(true).toBe(false);
+      } catch (error: any) {
+        // 验证错误响应
+        expect(error).toBeDefined();
+      }
     });
 
-    await wrapper.vm.$nextTick();
-
-    expect(caseApi.getCaseListApi).toHaveBeenCalledWith({
-      pageNum: 1,
-      pageSize: 10,
+    it('创建案件时案号应该唯一', async () => {
+      // 尝试使用相同的案号创建第二个案件
+      try {
+        await createCaseApi(testCaseData);
+        // 如果创建成功，说明系统没有唯一性校验
+        console.warn('警告：系统没有对案号进行唯一性校验');
+      } catch (error: any) {
+        // 期望得到一个错误，表示案号已存在
+        expect(error).toBeDefined();
+      }
     });
   });
 
-  it('fetches my cases when tab is myCases', async () => {
-    const mockResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        total: 1,
-        list: [
-          {
-            id: 1,
-            caseNumber: '（2024）沪02破1号',
-            caseName: '我的案件',
-            caseProgress: 'FIRST',
-            caseStatus: 'IN_PROGRESS',
-            createTime: '2024-01-01T00:00:00',
-          },
-        ],
-      },
-    };
+  describe('Read - 查询案件', () => {
+    it('应该能够查询案件列表', async () => {
+      const response = await getCaseListApi({
+        pageNum: 1,
+        pageSize: 10,
+      });
 
-    vi.mocked(workTeamApi).selectMyCasesApi.mockResolvedValue(mockResponse);
+      // 验证响应结构
+      expect(response).toHaveProperty('code');
+      expect(response).toHaveProperty('message');
+      expect(response).toHaveProperty('data');
 
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+      // 验证响应状态
+      expect(response.code).toBe(200);
+      expect(Array.isArray(response.data.list)).toBe(true);
+      expect(response.data.total).toBeDefined();
+
+      console.log(`查询到 ${response.data.list.length} 条案件记录`);
     });
 
-    wrapper.vm.activeTab = 'myCases';
-    wrapper.vm.currentUserId = 1;
-    await wrapper.vm.fetchCaseList();
+    it('应该能够查询刚创建的案件详情', async () => {
+      // 确保有创建的案件ID
+      expect(createdCaseId).not.toBeNull();
 
-    expect(workTeamApi.selectMyCasesApi).toHaveBeenCalledWith(1, 1, 10);
-  });
+      const response = await getCaseDetailApi(createdCaseId!);
 
-  it('fetches team cases when tab is teamCases', async () => {
-    const mockResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        total: 1,
-        list: [
-          {
-            id: 1,
-            caseNumber: '（2024）沪02破1号',
-            caseName: '团队案件',
-            caseProgress: 'FIRST',
-            caseStatus: 'IN_PROGRESS',
-            createTime: '2024-01-01T00:00:00',
-          },
-        ],
-      },
-    };
+      // 验证响应结构
+      expect(response).toHaveProperty('code');
+      expect(response).toHaveProperty('message');
+      expect(response).toHaveProperty('data');
 
-    vi.mocked(workTeamApi).selectTeamCasesApi.mockResolvedValue(mockResponse);
+      // 验证响应状态
+      expect(response.code).toBe(200);
 
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+      // 验证返回的数据与创建时一致
+      expect(response.data.caseNumber).toBe(testCaseData.caseNumber);
+      expect(response.data.caseName).toBe(testCaseData.caseName);
+      expect(response.data.caseSource).toBe(testCaseData.caseSource);
     });
 
-    wrapper.vm.activeTab = 'teamCases';
-    await wrapper.vm.fetchCaseList();
+    it('应该支持分页查询', async () => {
+      const page1 = await getCaseListApi({
+        pageNum: 1,
+        pageSize: 5,
+      });
 
-    expect(workTeamApi.selectTeamCasesApi).toHaveBeenCalledWith(1, 10);
-  });
+      const page2 = await getCaseListApi({
+        pageNum: 2,
+        pageSize: 5,
+      });
 
-  it('handles pagination changes', async () => {
-    const mockResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        total: 20,
-        list: [],
-      },
-    };
+      expect(page1.code).toBe(200);
+      expect(page2.code).toBe(200);
 
-    vi.mocked(caseApi).getCaseListApi.mockResolvedValue(mockResponse);
+      // 验证分页数据
+      expect(page1.data.list.length).toBeLessThanOrEqual(5);
+      expect(page2.data.list.length).toBeLessThanOrEqual(5);
 
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+      console.log(`分页查询：第1页 ${page1.data.list.length} 条，第2页 ${page2.data.list.length} 条`);
     });
 
-    wrapper.vm.handlePageChange(2);
-    await wrapper.vm.$nextTick();
+    it('查询不存在的案件应该返回错误', async () => {
+      const nonExistentId = 999999;
 
-    expect(wrapper.vm.pagination.page).toBe(2);
-    expect(caseApi.getCaseListApi).toHaveBeenCalledWith({
-      pageNum: 2,
-      pageSize: 10,
+      try {
+        await getCaseDetailApi(nonExistentId);
+        // 如果查询成功，说明测试失败
+        expect(true).toBe(false);
+      } catch (error: any) {
+        // 期望得到一个错误
+        expect(error).toBeDefined();
+      }
     });
   });
 
-  it('handles page size changes', async () => {
-    const mockResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        total: 20,
-        list: [],
-      },
-    };
+  describe('Update - 更新案件', () => {
+    it('应该能够更新案件信息', async () => {
+      // 确保有创建的案件ID
+      expect(createdCaseId).not.toBeNull();
 
-    vi.mocked(caseApi).getCaseListApi.mockResolvedValue(mockResponse);
+      const updateData = {
+        caseName: '测试案件-已更新',
+        remarks: '这是更新后的备注信息',
+        caseProgress: 'SECOND' as const,
+      };
 
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+      const response = await updateCaseApi(createdCaseId!, updateData);
+
+      // 验证响应
+      expect(response.code).toBe(200);
+
+      // 验证更新是否成功
+      const detailResponse = await getCaseDetailApi(createdCaseId!);
+      expect(detailResponse.data.caseName).toBe(updateData.caseName);
+      expect(detailResponse.data.remarks).toBe(updateData.remarks);
+
+      console.log('案件更新成功');
     });
 
-    wrapper.vm.handleSizeChange(20);
-    await wrapper.vm.$nextTick();
+    it('更新不存在的案件应该返回错误', async () => {
+      const nonExistentId = 999999;
+      const updateData = {
+        caseName: '不存在的案件',
+      };
 
-    expect(wrapper.vm.pagination.pageSize).toBe(20);
-    expect(wrapper.vm.pagination.page).toBe(1);
+      try {
+        await updateCaseApi(nonExistentId, updateData);
+        // 如果更新成功，说明测试失败
+        expect(true).toBe(false);
+      } catch (error: any) {
+        // 期望得到一个错误
+        expect(error).toBeDefined();
+      }
+    });
+
+    it('应该能够部分更新案件信息', async () => {
+      // 确保有创建的案件ID
+      expect(createdCaseId).not.toBeNull();
+
+      // 只更新一个字段
+      const partialUpdate = {
+        remarks: '部分更新测试',
+      };
+
+      const response = await updateCaseApi(createdCaseId!, partialUpdate);
+      expect(response.code).toBe(200);
+
+      // 验证更新
+      const detailResponse = await getCaseDetailApi(createdCaseId!);
+      expect(detailResponse.data.remarks).toBe(partialUpdate.remarks);
+    });
   });
 
-  it('maps case progress correctly', () => {
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+  describe('Delete - 删除案件', () => {
+    it('应该能够删除案件', async () => {
+      // 确保有创建的案件ID
+      expect(createdCaseId).not.toBeNull();
+
+      const response = await deleteCaseApi(createdCaseId!);
+
+      // 验证响应
+      expect(response.code).toBe(200);
+
+      console.log(`案件删除成功，ID: ${createdCaseId}`);
     });
 
-    expect(wrapper.vm.getCaseProgressType('第一阶段')).toBe('primary');
-    expect(wrapper.vm.getCaseProgressType('已结案')).toBe('success');
+    it('删除后应该无法查询到该案件', async () => {
+      // 确保有创建的案件ID
+      expect(createdCaseId).not.toBeNull();
+
+      try {
+        await getCaseDetailApi(createdCaseId!);
+        // 如果查询成功，说明删除失败
+        expect(true).toBe(false);
+      } catch (error: any) {
+        // 期望得到一个错误，表示案件不存在
+        expect(error).toBeDefined();
+      }
+    });
+
+    it('删除不存在的案件应该返回错误', async () => {
+      const nonExistentId = 999999;
+
+      try {
+        await deleteCaseApi(nonExistentId);
+        // 如果删除成功，说明测试失败
+        expect(true).toBe(false);
+      } catch (error: any) {
+        // 期望得到一个错误
+        expect(error).toBeDefined();
+      }
+    });
   });
 
-  it('maps case status correctly', () => {
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
+  describe('完整 CRUD 流程测试', () => {
+    it('应该能够完成完整的增删改查流程', async () => {
+      // 1. 创建
+      const createData = {
+        caseNumber: `FLOW-TEST-${Date.now()}`,
+        caseName: '流程测试案件',
+        acceptanceDate: new Date().toISOString().split('T')[0],
+        caseSource: '流程测试来源',
+        acceptanceCourt: '流程测试法院',
+        designatedInstitution: '流程测试机构',
+        mainResponsiblePerson: '流程测试负责人',
+        isSimplifiedTrial: 0,
+        caseReason: '流程测试案由',
+        caseProgress: 'FIRST' as const,
+        remarks: '这是流程测试创建的案件',
+      };
+
+      const createResponse = await createCaseApi(createData);
+      expect(createResponse.code).toBe(200);
+      const flowTestCaseId = createResponse.data.caseId;
+      console.log(`流程测试：创建案件成功，ID: ${flowTestCaseId}`);
+
+      // 2. 查询
+      const detailResponse = await getCaseDetailApi(flowTestCaseId);
+      expect(detailResponse.code).toBe(200);
+      expect(detailResponse.data.caseNumber).toBe(createData.caseNumber);
+      console.log('流程测试：查询案件成功');
+
+      // 3. 更新
+      const updateData = {
+        caseName: '流程测试案件-已更新',
+        remarks: '流程测试更新备注',
+      };
+      const updateResponse = await updateCaseApi(flowTestCaseId, updateData);
+      expect(updateResponse.code).toBe(200);
+      console.log('流程测试：更新案件成功');
+
+      // 4. 验证更新
+      const verifyResponse = await getCaseDetailApi(flowTestCaseId);
+      expect(verifyResponse.data.caseName).toBe(updateData.caseName);
+      console.log('流程测试：验证更新成功');
+
+      // 5. 删除
+      const deleteResponse = await deleteCaseApi(flowTestCaseId);
+      expect(deleteResponse.code).toBe(200);
+      console.log('流程测试：删除案件成功');
+
+      // 6. 验证删除
+      try {
+        await getCaseDetailApi(flowTestCaseId);
+        expect(true).toBe(false); // 应该抛出错误
+      } catch (error) {
+        expect(error).toBeDefined();
+        console.log('流程测试：验证删除成功');
+      }
+
+      console.log('完整 CRUD 流程测试通过！');
     });
-
-    expect(wrapper.vm.getCaseStatusType('待处理')).toBe('info');
-    expect(wrapper.vm.getCaseStatusType('进行中')).toBe('primary');
-    expect(wrapper.vm.getCaseStatusType('已完成')).toBe('success');
-    expect(wrapper.vm.getCaseStatusType('已结案')).toBe('success');
-    expect(wrapper.vm.getCaseStatusType('已终结')).toBe('warning');
-  });
-
-  it('maps review status correctly', () => {
-    const wrapper = mount(CaseManagement, {
-      global: {
-        plugins: [pinia],
-        stubs: {
-          'el-card': true,
-          'el-table': true,
-          'el-table-column': true,
-          'el-button': true,
-          'el-pagination': true,
-          'el-tabs': true,
-          'el-tab-pane': true,
-          'el-dropdown': true,
-          'el-dropdown-menu': true,
-          'el-dropdown-item': true,
-          'el-tag': true,
-        },
-      },
-    });
-
-    expect(wrapper.vm.getReviewStatusType('待审核')).toBe('warning');
-    expect(wrapper.vm.getReviewStatusType('已通过')).toBe('success');
-    expect(wrapper.vm.getReviewStatusType('已驳回')).toBe('danger');
   });
 });

@@ -90,6 +90,7 @@ import AssetManagement from './components/AssetManagement.vue';
 import AttachmentList from './components/AttachmentList.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
+import FileUpload from './components/FileUpload.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
 
@@ -252,6 +253,7 @@ const isEditingWorkLog = ref(false);
 const savingWorkLog = ref(false);
 const currentWorkLogId = ref<null | number>(null);
 const workLogFormRef = ref();
+const fileUploadRef = ref<any>();
 const workLogForm = reactive({
   workDate: '',
   workType: 'CASE_INVESTIGATION',
@@ -259,7 +261,7 @@ const workLogForm = reactive({
   workResult: '',
   attachmentIds: '',
   remark: '',
-  files: [] as File[],
+  files: [] as any[],
 });
 
 const workLogFormRules = {
@@ -350,78 +352,45 @@ const saveWorkLog = async () => {
     savingWorkLog.value = true;
 
     if (isEditingWorkLog.value && currentWorkLogId.value) {
-      if (workLogForm.files && workLogForm.files.length > 0) {
-        const formData = new FormData();
-        formData.append('workType', workLogForm.workType);
-        formData.append('workContent', workLogForm.workContent);
-        if (workLogForm.workResult) {
-          formData.append('workResult', workLogForm.workResult);
+      // 先更新工作日志基本信息
+      const logData = {
+        caseId: Number(caseId.value),
+        workDate: workLogForm.workDate,
+        workType: workLogForm.workType,
+        workContent: workLogForm.workContent,
+        workResult: workLogForm.workResult || undefined,
+        attachmentIds: workLogForm.attachmentIds || undefined,
+        remark: workLogForm.remark || undefined,
+      };
+      const response = await updateWorkLogApi(currentWorkLogId.value, logData);
+      if (response.code === 200) {
+        // 上传本地文件
+        if (fileUploadRef.value && workLogForm.files.length > 0) {
+          await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
-        if (workLogForm.remark) {
-          formData.append('remark', workLogForm.remark);
-        }
-        workLogForm.files.forEach(file => {
-          formData.append('files', file);
-        });
-
-        const response = await updateWorkLogWithFilesApi(currentWorkLogId.value, formData);
-        if (response.code === 200) {
-          ElMessage.success('工作日志更新成功');
-          await fetchWorkLogs();
-        }
-      } else {
-        const logData = {
-          caseId: Number(caseId.value),
-          workDate: workLogForm.workDate,
-          workType: workLogForm.workType,
-          workContent: workLogForm.workContent,
-          workResult: workLogForm.workResult || undefined,
-          attachmentIds: workLogForm.attachmentIds || undefined,
-          remark: workLogForm.remark || undefined,
-        };
-        const response = await updateWorkLogApi(currentWorkLogId.value, logData);
-        if (response.code === 200) {
-          ElMessage.success('工作日志更新成功');
-          await fetchWorkLogs();
-        }
+        ElMessage.success('工作日志更新成功');
+        await fetchWorkLogs();
       }
     } else {
-      if (workLogForm.files && workLogForm.files.length > 0) {
-        const formData = new FormData();
-        formData.append('caseId', Number(caseId.value).toString());
-        formData.append('workDate', workLogForm.workDate);
-        formData.append('workType', workLogForm.workType);
-        formData.append('workContent', workLogForm.workContent);
-        if (workLogForm.workResult) {
-          formData.append('workResult', workLogForm.workResult);
+      // 先创建工作日志，获取工作日志ID
+      const logData = {
+        caseId: Number(caseId.value),
+        workDate: workLogForm.workDate,
+        workType: workLogForm.workType,
+        workContent: workLogForm.workContent,
+        workResult: workLogForm.workResult || undefined,
+        attachmentIds: workLogForm.attachmentIds || undefined,
+        remark: workLogForm.remark || undefined,
+      };
+      const response = await createWorkLogApi(logData);
+      if (response.code === 200 && response.data) {
+        const workLogId = response.data.id;
+        // 上传本地文件
+        if (fileUploadRef.value && workLogForm.files.length > 0) {
+          await fileUploadRef.value.uploadLocalFiles(workLogId);
         }
-        if (workLogForm.remark) {
-          formData.append('remark', workLogForm.remark);
-        }
-        workLogForm.files.forEach(file => {
-          formData.append('files', file);
-        });
-
-        const response = await createWorkLogWithFilesApi(formData);
-        if (response.code === 200) {
-          ElMessage.success('工作日志创建成功');
-          await fetchWorkLogs();
-        }
-      } else {
-        const logData = {
-          caseId: Number(caseId.value),
-          workDate: workLogForm.workDate,
-          workType: workLogForm.workType,
-          workContent: workLogForm.workContent,
-          workResult: workLogForm.workResult || undefined,
-          attachmentIds: workLogForm.attachmentIds || undefined,
-          remark: workLogForm.remark || undefined,
-        };
-        const response = await createWorkLogApi(logData);
-        if (response.code === 200) {
-          ElMessage.success('工作日志创建成功');
-          await fetchWorkLogs();
-        }
+        ElMessage.success('工作日志创建成功');
+        await fetchWorkLogs();
       }
     }
 
@@ -816,6 +785,12 @@ const submitReview = async () => {
       // 验证阶段和任务是否已选择
       if (!reviewForm.stageId || !reviewForm.taskId) {
         ElMessage.error('请选择阶段和任务');
+        return;
+      }
+
+      // 第三阶段不允许提交批审
+      if (reviewForm.stageId === '3') {
+        ElMessage.error('当前第三阶段无法提交审批。请在"债权登记表"内部完成流程。');
         return;
       }
 
@@ -4790,6 +4765,31 @@ const checkPermissions = async () => {
                   style="width: 100%"
                   :row-key="(row) => row.id"
                 >
+                  <ElTableColumn prop="status" label="审核状态" width="120">
+                    <template #default="scope">
+                      <ElTag
+                        :type="
+                          scope.row.status === 'APPROVED'
+                            ? 'success'
+                            : scope.row.status === 'PENDING'
+                              ? 'warning'
+                              : scope.row.status === 'REJECTED'
+                                ? 'danger'
+                                : 'info'
+                        "
+                      >
+                        {{ 
+                          scope.row.status === 'APPROVED'
+                            ? '已通过'
+                            : scope.row.status === 'PENDING'
+                              ? '待审批'
+                              : scope.row.status === 'REJECTED'
+                                ? '已驳回'
+                                : scope.row.status
+                        }}
+                      </ElTag>
+                    </template>
+                  </ElTableColumn>
                   <ElTableColumn prop="documentNumber" label="文书编号" width="180" />
                   <ElTableColumn prop="abbreviation" label="缩写" width="120" />
                   <ElTableColumn prop="documentName" label="文书名称" />
@@ -4854,31 +4854,6 @@ const checkPermissions = async () => {
                   <ElTableColumn label="送达日期">
                     <template #default="scope">
                       {{ formatDateOnly(scope.row.sendTime) }}
-                    </template>
-                  </ElTableColumn>
-                  <ElTableColumn prop="status" label="审核状态">
-                    <template #default="scope">
-                      <ElTag
-                        :type="
-                          scope.row.status === 'APPROVED'
-                            ? 'success'
-                            : scope.row.status === 'PENDING'
-                              ? 'warning'
-                              : scope.row.status === 'REJECTED'
-                                ? 'danger'
-                                : 'info'
-                        "
-                      >
-                        {{
-                          scope.row.status === 'APPROVED'
-                            ? '已通过'
-                            : scope.row.status === 'PENDING'
-                              ? '待审批'
-                              : scope.row.status === 'REJECTED'
-                                ? '已驳回'
-                                : scope.row.status
-                        }}
-                      </ElTag>
                     </template>
                   </ElTableColumn>
                   <ElTableColumn label="操作" width="400" fixed="right">
@@ -5858,22 +5833,18 @@ const checkPermissions = async () => {
               />
             </ElFormItem>
             <ElFormItem label="附件上传">
-              <ElUpload
-                v-model:file-list="workLogForm.files"
-                :auto-upload="false"
-                :limit="10"
-                multiple
-                :on-change="handleWorkLogFileChange"
-                :on-remove="handleWorkLogFileRemove"
+              <FileUpload
+                ref="fileUploadRef"
+                v-model="workLogForm.files"
+                :biz-type="'work_log'"
+                :biz-id="0"
                 accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
-              >
-                <ElButton type="primary">选择文件</ElButton>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    支持上传 doc, docx, pdf, jpg, png, xls, xlsx 格式文件，最多10个
-                  </div>
-                </template>
-              </ElUpload>
+                :max-size="50 * 1024 * 1024"
+                :multiple="true"
+                title="工作日志附件"
+                :disabled="false"
+                :local-mode="true"
+              />
             </ElFormItem>
             <ElFormItem label="备注">
               <ElInput
@@ -6823,7 +6794,7 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
-                    <ElFormItem label="文书名称" prop="documentName">
+                    <ElFormItem label="文书名称" prop="documentName" required>
                       <ElInput
                         v-model="directUploadForm.documentName"
                         placeholder="请输入文书名称"
@@ -6852,7 +6823,7 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
-                    <ElFormItem label="受送达人" prop="recipient">
+                    <ElFormItem label="受送达人" prop="recipient" required>
                       <ElInput
                         v-model="directUploadForm.recipient"
                         placeholder="请输入受送达人姓名"
@@ -7072,7 +7043,7 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
-                    <ElFormItem label="文书名称" prop="documentName">
+                    <ElFormItem label="文书名称" prop="documentName" required>
                       <ElInput
                         v-model="approvalSubmitForm.documentName"
                         placeholder="请输入文书名称"
@@ -7101,7 +7072,7 @@ const checkPermissions = async () => {
 
                 <ElRow :gutter="20">
                   <ElCol :span="12">
-                    <ElFormItem label="受送达人" prop="recipient">
+                    <ElFormItem label="受送达人" prop="recipient" required>
                       <ElInput
                         v-model="approvalSubmitForm.recipient"
                         placeholder="请输入受送达人姓名"
@@ -7307,6 +7278,12 @@ const checkPermissions = async () => {
                   <span class="detail-label">缩写：</span>
                   <span class="detail-value">{{
                     documentDetail.abbreviation || '-' 
+                  }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">审核意见：</span>
+                  <span class="detail-value">{{
+                    documentDetail.remark || '-' 
                   }}</span>
                 </div>
                 <div class="detail-item">
@@ -7636,6 +7613,29 @@ const checkPermissions = async () => {
                       />
                     </ElSelect>
                   </ElFormItem>
+                </ElCol>
+                <!-- 第三阶段提示信息 -->
+                <ElCol :xs="24">
+                  <div v-if="reviewForm.stageId === '3'" class="third-stage-tip">
+                    <ElAlert
+                      type="warning"
+                      :closable="false"
+                      show-icon
+                    >
+                      <div>
+                        <span class="font-bold">当前第三阶段无法提交审批。</span>
+                        <span>请在</span>
+                        <ElButton 
+                          type="primary" 
+                          link 
+                          @click="activeTab = 'claimRegistration'; showReviewDialog = false"
+                        >
+                          债权登记表
+                        </ElButton>
+                        <span>中完成流程。</span>
+                      </div>
+                    </ElAlert>
+                  </div>
                 </ElCol>
               </template>
             </ElRow>
@@ -8757,6 +8757,19 @@ const checkPermissions = async () => {
   border: none !important;
   box-shadow: none !important;
   color: #3b82f6 !important;
+}
+
+/* 第三阶段提示信息样式 */
+.third-stage-tip {
+  margin-top: 16px;
+}
+
+.third-stage-tip .font-bold {
+  font-weight: 600;
+}
+
+.third-stage-tip .el-button--primary.is-link {
+  margin: 0 4px;
 }
 
 :deep(.el-button--success.is-link) {

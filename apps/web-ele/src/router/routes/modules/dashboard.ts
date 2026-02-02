@@ -51,6 +51,15 @@ const routes: RouteRecordRaw[] = [
           title: 'EasyExcel测试',
         },
       },
+      {
+        name: 'TemplateManager',
+        path: '/template-manager',
+        component: () => import('#/views/dashboard/template-manager/index.vue'),
+        meta: {
+          icon: 'lucide:settings',
+          title: 'Excel模板管理',
+        },
+      },
 
     ],
   },

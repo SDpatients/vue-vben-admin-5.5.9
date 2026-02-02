@@ -669,6 +669,14 @@ const cancelDelete = () => {
             <template #empty>
               <ElEmpty description="暂无案件数据" />
             </template>
+            <!-- 案件ID -->
+            <ElTableColumn
+              prop="id"
+              label="案件ID"
+              min-width="100"
+              show-overflow-tooltip
+            />
+
             <!-- 案号 -->
             <ElTableColumn
               v-if="isColumnVisible('案号')"

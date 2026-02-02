@@ -575,7 +575,6 @@ const addTransactionFormData = reactive({
   businessType: '',
   counterpartyAccount: '',
   counterpartyName: '',
-  balanceAfter: 0,
   remark: '',
   caseId: 0,
 });
@@ -594,7 +593,6 @@ const editTransactionFormData = reactive({
   businessType: '',
   counterpartyAccount: '',
   counterpartyName: '',
-  balanceAfter: 0,
   remark: '',
 });
 
@@ -794,7 +792,6 @@ const handleAddTransaction = () => {
   addTransactionFormData.businessType = '';
   addTransactionFormData.counterpartyAccount = '';
   addTransactionFormData.counterpartyName = '';
-  addTransactionFormData.balanceAfter = 0;
   addTransactionFormData.remark = '';
   addTransactionDialogVisible.value = true;
 };
@@ -828,7 +825,28 @@ const handleSubmitAddTransaction = async () => {
     if (error.name === 'ElValidationError') {
       return;
     }
-    ElMessage.error('交易记录添加失败，请稍后重试');
+    // 处理后端返回的业务异常
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+      switch (errorMessage) {
+        case '账户余额不足，无法完成流出交易':
+          ElMessage.error('账户余额不足，无法完成流出交易');
+          break;
+        case '无效的交易类型，必须是 IN(流入) 或 OUT(流出)':
+          ElMessage.error('无效的交易类型，必须是 流入(IN) 或 流出(OUT)');
+          break;
+        case '银行账户不存在':
+          ElMessage.error('银行账户不存在');
+          break;
+        case '关联银行账户不存在':
+          ElMessage.error('关联银行账户不存在');
+          break;
+        default:
+          ElMessage.error(errorMessage);
+      }
+    } else {
+      ElMessage.error('交易记录添加失败，请稍后重试');
+    }
     console.error('添加交易记录失败:', error);
   } finally {
     addTransactionFormLoading.value = false;
@@ -847,7 +865,6 @@ const handleEditTransaction = (
   editTransactionFormData.businessType = row.businessType || '';
   editTransactionFormData.counterpartyAccount = row.counterpartyAccount || '';
   editTransactionFormData.counterpartyName = row.counterpartyName || '';
-  editTransactionFormData.balanceAfter = row.balanceAfter || 0;
   editTransactionFormData.remark = row.remark || '';
   editTransactionDialogVisible.value = true;
 };
@@ -885,7 +902,28 @@ const handleSubmitEditTransaction = async () => {
     if (error.name === 'ElValidationError') {
       return;
     }
-    ElMessage.error('交易记录更新失败，请稍后重试');
+    // 处理后端返回的业务异常
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+      switch (errorMessage) {
+        case '账户余额不足，无法完成流出交易':
+          ElMessage.error('账户余额不足，无法完成流出交易');
+          break;
+        case '无效的交易类型，必须是 IN(流入) 或 OUT(流出)':
+          ElMessage.error('无效的交易类型，必须是 流入(IN) 或 流出(OUT)');
+          break;
+        case '交易记录不存在':
+          ElMessage.error('交易记录不存在');
+          break;
+        case '无权访问该交易记录':
+          ElMessage.error('无权访问该交易记录');
+          break;
+        default:
+          ElMessage.error(errorMessage);
+      }
+    } else {
+      ElMessage.error('交易记录更新失败，请稍后重试');
+    }
     console.error('更新交易记录失败:', error);
   } finally {
     editTransactionFormLoading.value = false;
@@ -912,10 +950,26 @@ const handleDeleteTransaction = async (
       ElMessage.error(response.message || '交易记录删除失败');
     }
   } catch (error: any) {
-    if (error.name !== 'ElMessageBoxCancel') {
-      ElMessage.error('交易记录删除失败，请稍后重试');
-      console.error('删除交易记录失败:', error);
+    if (error.name === 'ElMessageBoxCancel') {
+      return;
     }
+    // 处理后端返回的业务异常
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+      switch (errorMessage) {
+        case '交易记录不存在':
+          ElMessage.error('交易记录不存在');
+          break;
+        case '无权访问该交易记录':
+          ElMessage.error('无权访问该交易记录');
+          break;
+        default:
+          ElMessage.error(errorMessage);
+      }
+    } else {
+      ElMessage.error('交易记录删除失败，请稍后重试');
+    }
+    console.error('删除交易记录失败:', error);
   }
 };
 
@@ -2164,20 +2218,6 @@ const handleSubmit = async () => {
             </ElCol>
           </ElRow>
           <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="交易后余额">
-                <ElInputNumber
-                  v-model="addTransactionFormData.balanceAfter"
-                  :min="0"
-                  :precision="2"
-                  placeholder="请输入交易后余额"
-                  style="width: 100%"
-                  :controls="false"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-          <ElRow :gutter="20">
             <ElCol :span="24">
               <ElFormItem label="备注">
                 <ElInput
@@ -2309,20 +2349,6 @@ const handleSubmit = async () => {
                   v-model="editTransactionFormData.counterpartyAccount"
                   placeholder="请输入对方账户"
                   maxlength="100"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="交易后余额">
-                <ElInputNumber
-                  v-model="editTransactionFormData.balanceAfter"
-                  :min="0"
-                  :precision="2"
-                  placeholder="请输入交易后余额"
-                  style="width: 100%"
-                  :controls="false"
                 />
               </ElFormItem>
             </ElCol>

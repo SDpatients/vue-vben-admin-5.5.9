@@ -15,8 +15,9 @@ import {
   ElPagination,
   ElSelect,
   ElTag,
-  ElUpload,
 } from 'element-plus';
+
+import FileUpload from '../case-detail/components/FileUpload.vue';
 
 import {
   createAnnouncementApi,
@@ -106,6 +107,7 @@ const publishForm = ref({
   attachments: [] as any[],
 });
 const publishFormRef = ref<InstanceType<typeof ElForm>>();
+const fileUploadRef = ref<any>();
 
 const announcementTypeMap: Record<string, { label: string; type: string }> = {
   NORMAL: { label: '普通', type: 'info' },
@@ -350,27 +352,27 @@ const submitPublishForm = async () => {
 
   publishLoading.value = true;
   try {
-    // 构建请求数据
-    const requestData = {
+    // 先创建公告，获取公告ID
+    const announcementResponse = await createAnnouncementApi({
       caseId: publishForm.value.caseId,
       title: publishForm.value.title,
       content: publishForm.value.content,
       announcementType: publishForm.value.announcementType,
-      attachments:
-        publishForm.value.attachments.length > 0
-          ? JSON.stringify(publishForm.value.attachments)
-          : undefined,
-    };
+    });
 
-    // 调用发布公告API
-    const response = await createAnnouncementApi(requestData);
+    if (announcementResponse.code === 200 && announcementResponse.data) {
+      const announcementId = announcementResponse.data.id;
+      
+      // 上传本地文件
+      if (fileUploadRef.value && publishForm.value.attachments.length > 0) {
+        await fileUploadRef.value.uploadLocalFiles(announcementId);
+      }
 
-    if (response.code === 200) {
       ElMessage.success('公告发布成功');
       showPublishDialog.value = false;
       fetchAnnouncements(); // 刷新公告列表
     } else {
-      ElMessage.error(`公告发布失败：${response.message || '未知错误'}`);
+      ElMessage.error(`公告发布失败：${announcementResponse.message || '未知错误'}`);
     }
   } catch (error) {
     console.error('发布公告失败:', error);
@@ -845,35 +847,18 @@ onMounted(() => {
           </ElFormItem>
 
           <ElFormItem label="附件">
-            <ElUpload
-              :file-list="publishForm.attachments"
-              :on-change="
-                (file) => {
-                  // 处理附件上传，这里仅做模拟
-                  const newFile = {
-                    fileName: file.name,
-                    fileUrl: `http://example.com/files/${file.name}`,
-                    fileType: file.type,
-                  };
-                  publishForm.value.attachments.push(newFile);
-                }
-              "
-              :on-remove="
-                (file, fileList) => {
-                  publishForm.value.attachments = fileList;
-                }
-              "
+            <FileUpload
+              ref="fileUploadRef"
+              v-model="publishForm.attachments"
+              :biz-type="'announcement'"
+              :biz-id="0"
               accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"
-              multiple
-            >
-              <ElButton type="primary" size="small">
-                <Icon icon="lucide:upload" class="mr-1" />
-                上传附件
-              </ElButton>
-              <div class="upload-hint">
-                支持上传doc、docx、pdf、txt、jpg、jpeg、png、gif格式文件
-              </div>
-            </ElUpload>
+              :max-size="50 * 1024 * 1024"
+              :multiple="true"
+              title="公告附件"
+              :disabled="false"
+              :local-mode="true"
+            />
           </ElFormItem>
         </ElForm>
 

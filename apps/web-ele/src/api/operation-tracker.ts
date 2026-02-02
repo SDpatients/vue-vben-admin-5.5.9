@@ -1,6 +1,4 @@
 // 操作记录数据结构
-import { requestClient8085 } from '#/api/request';
-
 export interface OperationRecord {
   id: string;
   operator: string;
@@ -83,26 +81,32 @@ class OperationTracker {
     pages: number;
     records: any[];
   }> {
-    const token = '46f6aecb8e27d95780f18459be9c4807';
-    // 使用requestClient8085客户端，因为所有案件相关API都使用8085端口
-    const response = await requestClient8085.get('/api/web/SelectAllAFollow', {
-      params: {
-        token,
-        page,
-        size,
-      },
-    });
+    try {
+      // 动态导入 requestClient8085 避免循环依赖
+      const { requestClient8085 } = await import('#/api/request');
+      const token = '46f6aecb8e27d95780f18459be9c4807';
+      // 使用requestClient8085客户端，因为所有案件相关API都使用8085端口
+      const response = await requestClient8085.get('/api/web/SelectAllAFollow', {
+        params: {
+          token,
+          page,
+          size,
+        },
+      });
 
-    // 确保返回正确的数据结构
-    if (response && response.data) {
-      return {
-        count: response.data.count || 0,
-        pages: response.data.pages || 0,
-        records: response.data.records || [],
-      };
+      // 确保返回正确的数据结构
+      if (response && response.data) {
+        return {
+          count: response.data.count || 0,
+          pages: response.data.pages || 0,
+          records: response.data.records || [],
+        };
+      }
+    } catch (error) {
+      console.error('获取操作记录失败:', error);
     }
 
-    // 如果API响应格式不正确，返回空数据
+    // 如果API响应格式不正确或发生错误，返回空数据
     return {
       count: 0,
       pages: 0,
@@ -159,9 +163,15 @@ export function createApiTrackingInterceptor() {
     // 响应拦截器
     responseInterceptor: {
       fulfilled: (response: any) => {
+        // 检查 response 是否为 undefined 或 null
+        if (!response) {
+          return response;
+        }
+
         const { config } = response;
 
-        if (config.metadata) {
+        // 检查 config 是否存在且有 metadata
+        if (config?.metadata) {
           const { url, method, startTime } = config.metadata;
           const endTime = Date.now();
           const duration = endTime - startTime;
@@ -186,6 +196,11 @@ export function createApiTrackingInterceptor() {
         return response;
       },
       rejected: (error: any) => {
+        // 检查 error 是否为 undefined 或 null
+        if (!error) {
+          return Promise.reject(error);
+        }
+
         const { config } = error;
 
         if (config?.metadata) {

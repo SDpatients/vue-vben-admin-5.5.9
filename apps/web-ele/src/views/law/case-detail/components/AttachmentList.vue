@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
+  ElDialog,
   ElEmpty,
   ElImage,
   ElMessage,
@@ -14,6 +15,7 @@ import {
   ElTag,
   ElUpload,
 } from 'element-plus';
+import QrcodeVue from 'qrcode.vue';
 
 import {
   deleteFileApi,
@@ -33,6 +35,22 @@ const attachments = ref<FileApi.FileRecord[]>([]);
 
 // 图片URL缓存
 const imageUrls = ref<Map<number, string>>(new Map());
+
+// 手机上传相关
+const showQrCodeDialog = ref(false);
+const qrCodeUrl = ref('');
+const qrCodeExpireTime = ref(0);
+const qrCodePolling = ref<NodeJS.Timeout | null>(null);
+
+// 移动端上传配置
+const mobileUploadConfig = ref({
+  ip: '',
+  port: 5779,
+  autoDetect: true,
+});
+
+// 检测移动端和微信浏览器
+const isWeChatBrowser = ref(false);
 
 const fetchAttachments = async () => {
   loading.value = true;
@@ -171,6 +189,8 @@ const getImageUrl = (fileId: number): string | undefined => {
 
 onMounted(() => {
   fetchAttachments();
+  // 检测是否在微信浏览器中
+  isWeChatBrowser.value = /MicroMessenger/i.test(navigator.userAgent);
 });
 
 // 组件卸载时清理所有图片URL
@@ -179,7 +199,180 @@ onUnmounted(() => {
     window.URL.revokeObjectURL(url);
   });
   imageUrls.value.clear();
+  // 清理轮询
+  if (qrCodePolling.value) {
+    clearInterval(qrCodePolling.value);
+    qrCodePolling.value = null;
+  }
 });
+
+// 检测本机局域网IP地址
+const detectLocalIP = async () => {
+  try {
+    console.log('[IP检测] 开始检测本机IP地址...');
+    console.log('[IP检测] 当前主机名:', window.location.hostname);
+    console.log('[IP检测] 当前页面URL:', window.location.href);
+
+    // 方法1: 通过WebRTC获取本地IP
+    console.log('[IP检测] 尝试通过WebRTC获取IP...');
+    const rtc = new RTCPeerConnection({ iceServers: [] });
+    rtc.createDataChannel('');
+    const offer = await rtc.createOffer();
+    await rtc.setLocalDescription(offer);
+
+    let candidateCount = 0;
+
+    return new Promise<string>((resolve) => {
+      rtc.onicecandidate = (event) => {
+        candidateCount++;
+        console.log(`[IP检测] 收到ICE候选 #${candidateCount}:`, event.candidate);
+
+        if (event.candidate) {
+          const candidate = event.candidate.candidate;
+          console.log('[IP检测] 候选详情:', candidate);
+
+          const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+          console.log('[IP检测] IP匹配结果:', ipMatch);
+
+          if (ipMatch && ipMatch[1]) {
+            const ip = ipMatch[1];
+            console.log('[IP检测] 提取到IP:', ip);
+
+            // 排除回环地址
+            if (!ip.startsWith('127.')) {
+              console.log('[IP检测] ✓ 通过WebRTC获取到有效IP地址:', ip);
+              mobileUploadConfig.value.ip = ip;
+              resolve(ip);
+              rtc.close();
+            } else {
+              console.log('[IP检测] ✗ 排除回环地址:', ip);
+            }
+          }
+        } else {
+          console.log('[IP检测] ICE候选收集完成，未获取更多候选');
+        }
+      };
+
+      // 超时处理 - 1秒超时
+      setTimeout(() => {
+        console.log('[IP检测] 超时，关闭WebRTC连接');
+        rtc.close();
+
+        // 如果WebRTC失败，使用当前主机名
+        const hostname = window.location.hostname;
+        console.log('[IP检测] 检查主机名:', hostname);
+
+        if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+          console.log('[IP检测] ✓ 使用当前主机名作为IP:', hostname);
+          mobileUploadConfig.value.ip = hostname;
+          resolve(hostname);
+        } else {
+          // 默认使用固定IP地址
+          const defaultIP = '192.168.0.120';
+          console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
+          mobileUploadConfig.value.ip = defaultIP;
+          resolve(defaultIP);
+        }
+      }, 1000); // 1秒超时
+    });
+  } catch (error) {
+    console.error('[IP检测] 检测IP过程出错:', error);
+
+    // 使用当前主机名作为后备
+    const hostname = window.location.hostname;
+    console.log('[IP检测] 异常处理 - 检查主机名:', hostname);
+
+    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      console.log('[IP检测] 异常处理 - 使用主机名:', hostname);
+      mobileUploadConfig.value.ip = hostname;
+      return hostname;
+    }
+
+    // 默认使用固定IP地址
+    const defaultIP = '192.168.0.120';
+    console.log('[IP检测] 异常处理 - 使用默认IP:', defaultIP);
+    mobileUploadConfig.value.ip = defaultIP;
+    return defaultIP;
+  }
+};
+
+// 打开手机上传二维码弹窗
+const openMobileUploadDialog = async () => {
+  // 自动检测本地IP地址
+  if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
+    await detectLocalIP();
+  }
+
+  // 生成随机的上传会话ID
+  const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+  // 生成二维码URL，包含当前页面的信息、上传会话ID和案件ID
+  // 使用网络可访问的地址，确保手机能够访问
+  let baseUrl = window.location.origin;
+
+  // 强制使用配置的端口
+  const currentUrl = new URL(window.location.href);
+  if (mobileUploadConfig.value.ip) {
+    // 使用配置的IP和端口
+    baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+    console.log(`使用配置的IP和端口: ${baseUrl}`);
+  } else {
+    // 使用当前主机名和配置的端口
+    baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+    console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
+  }
+
+  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=case&bizId=${props.caseId}&caseId=${props.caseId}&sessionId=${uploadSessionId}`;
+  console.log(`生成的二维码URL: ${mobileUploadUrl}`);
+
+  qrCodeUrl.value = mobileUploadUrl;
+  qrCodeExpireTime.value = 300; // 5分钟过期
+  showQrCodeDialog.value = true;
+
+  // 开始轮询检查上传状态
+  startQrCodePolling(uploadSessionId);
+};
+
+// 开始轮询检查手机上传状态
+const startQrCodePolling = (_sessionId: string) => {
+  // 清除之前的轮询
+  if (qrCodePolling.value) {
+    clearInterval(qrCodePolling.value);
+    qrCodePolling.value = null;
+  }
+
+  qrCodePolling.value = setInterval(async () => {
+    try {
+      // 检查二维码是否过期
+      if (qrCodeExpireTime.value <= 0) {
+        clearInterval(qrCodePolling.value!);
+        qrCodePolling.value = null;
+        ElMessage.warning('二维码已过期，请重新生成');
+        showQrCodeDialog.value = false;
+        return;
+      }
+
+      qrCodeExpireTime.value--;
+    } catch (error) {
+      console.error('轮询检查失败:', error);
+    }
+  }, 1000);
+};
+
+// 关闭二维码弹窗
+const closeQrCodeDialog = () => {
+  showQrCodeDialog.value = false;
+  if (qrCodePolling.value) {
+    clearInterval(qrCodePolling.value);
+    qrCodePolling.value = null;
+  }
+};
+
+// 刷新附件列表
+const handleRefresh = async () => {
+  await fetchAttachments();
+  ElMessage.success('刷新成功');
+};
 </script>
 
 <template>
@@ -194,6 +387,10 @@ onUnmounted(() => {
           </ElTag>
         </div>
         <div class="flex space-x-2">
+          <ElButton type="success" @click="openMobileUploadDialog">
+            <Icon icon="lucide:smartphone" class="mr-1" />
+            手机上传
+          </ElButton>
           <ElUpload
             :show-file-list="false"
             :before-upload="handleUpload"
@@ -204,6 +401,10 @@ onUnmounted(() => {
               上传附件
             </ElButton>
           </ElUpload>
+          <ElButton @click="handleRefresh">
+            <Icon icon="lucide:refresh-cw" class="mr-1" />
+            刷新
+          </ElButton>
         </div>
       </div>
     </template>
@@ -282,6 +483,52 @@ onUnmounted(() => {
         </template>
       </ElTableColumn>
     </ElTable>
+
+    <!-- 手机上传二维码弹窗 -->
+    <ElDialog
+      v-model="showQrCodeDialog"
+      title="手机上传附件"
+      width="500px"
+      destroy-on-close
+      @close="closeQrCodeDialog"
+    >
+      <div class="mobile-upload-dialog">
+        <div class="qr-code-container">
+          <div class="qr-code-title">请使用手机扫描二维码上传文件</div>
+          <div class="qr-code-content">
+            <QrcodeVue :value="qrCodeUrl" :size="200" level="H" />
+          </div>
+          <div class="qr-code-tip">
+            <p>1. 使用手机浏览器扫描二维码</p>
+            <p>2. 在手机端选择要上传的文件</p>
+            <p>3. 等待上传完成后，文件将自动显示在附件列表中</p>
+          </div>
+
+          <!-- 微信浏览器提示 -->
+          <div v-if="isWeChatBrowser" class="wechat-tip">
+            <div class="wechat-tip-header">
+              <Icon icon="lucide:alert-triangle" class="wechat-tip-icon" />
+              <span>微信浏览器提示</span>
+            </div>
+            <div class="wechat-tip-content">
+              <p>检测到您正在使用微信浏览器，请按以下步骤操作：</p>
+              <ol>
+                <li>点击右上角的 <Icon icon="lucide:more-horizontal" class="inline-icon" /> 按钮</li>
+                <li>选择 "在浏览器中打开" 选项</li>
+                <li>在新打开的浏览器中选择文件上传</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="qr-code-expire">
+            二维码将在 {{ Math.floor(qrCodeExpireTime / 60) }}:{{
+              (qrCodeExpireTime % 60).toString().padStart(2, '0')
+            }}
+            后过期
+          </div>
+        </div>
+      </div>
+    </ElDialog>
   </ElCard>
 </template>
 
@@ -354,5 +601,92 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 手机上传弹窗样式 */
+.mobile-upload-dialog {
+  padding: 20px;
+}
+
+.qr-code-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.qr-code-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 20px;
+}
+
+.qr-code-content {
+  padding: 20px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.qr-code-tip {
+  text-align: left;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+
+.qr-code-tip p {
+  margin: 4px 0;
+}
+
+.qr-code-expire {
+  color: #f56c6c;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wechat-tip {
+  width: 100%;
+  background: #fdf6ec;
+  border: 1px solid #f5dab1;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.wechat-tip-header {
+  display: flex;
+  align-items: center;
+  color: #e6a23c;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.wechat-tip-icon {
+  margin-right: 8px;
+}
+
+.wechat-tip-content {
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.wechat-tip-content ol {
+  margin: 8px 0 0 16px;
+  padding: 0;
+}
+
+.wechat-tip-content li {
+  margin: 4px 0;
+}
+
+.inline-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 4px;
 }
 </style>

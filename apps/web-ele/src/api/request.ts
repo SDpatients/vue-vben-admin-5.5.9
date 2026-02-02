@@ -18,7 +18,6 @@ import { ElMessage } from 'element-plus';
 import { useAuthStore } from '#/store';
 
 import { refreshTokenApi } from './core';
-import { createApiTrackingInterceptor } from './operation-tracker';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
@@ -79,13 +78,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   function formatToken(token: null | string) {
     return token ? `Bearer ${token}` : null;
   }
-
-  // API跟踪拦截器
-  const apiTrackingInterceptor = createApiTrackingInterceptor();
-
-  // 添加API跟踪拦截器
-  client.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-  client.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
 
   // 请求头处理
   client.addRequestInterceptor({
@@ -192,3 +184,35 @@ export const workTeamRequestClient = createRequestClient(
     responseReturn: 'body',
   },
 );
+
+// 延迟初始化API跟踪拦截器
+if (typeof window !== 'undefined') {
+  // 在浏览器环境中，延迟添加API跟踪拦截器
+  setTimeout(async () => {
+    try {
+      const { createApiTrackingInterceptor } = await import('./operation-tracker');
+      const apiTrackingInterceptor = createApiTrackingInterceptor();
+
+      // 为所有客户端添加拦截器
+      requestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      requestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
+      chatRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      chatRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
+      requestClient8085.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      requestClient8085.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
+      fileUploadRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      fileUploadRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
+      fundRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      fundRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+
+      workTeamRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+      workTeamRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+    } catch (error) {
+      console.warn('API跟踪拦截器加载失败:', error);
+    }
+  }, 0);
+}

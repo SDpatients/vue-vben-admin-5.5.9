@@ -66,7 +66,6 @@ export namespace BankAccountTransactionApi {
     businessType?: string;
     counterpartyAccount?: string;
     counterpartyName?: string;
-    balanceAfter?: number;
     attachmentId?: number;
     relatedBusinessId?: number;
     remark?: string;
@@ -91,7 +90,6 @@ export namespace BankAccountTransactionApi {
     businessType?: string;
     counterpartyAccount?: string;
     counterpartyName?: string;
-    balanceAfter?: number;
     attachmentId?: number;
     relatedBusinessId?: number;
     remark?: string;

@@ -419,14 +419,10 @@ onMounted(() => {
           <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
             <template #default="scope">
               <ElTag
-                v-if="scope.row.confirmationInfo"
-                :type="getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).type"
+                :type="getConfirmationStatusTag(scope.row.confirmationStatus).type"
                 size="small"
               >
-                {{ getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).text }}
-              </ElTag>
-              <ElTag v-else type="warning" size="small">
-                待确认
+                {{ getConfirmationStatusTag(scope.row.confirmationStatus).text }}
               </ElTag>
             </template>
           </ElTableColumn>
@@ -664,6 +660,7 @@ onMounted(() => {
           v-if="currentClaim.confirmationInfo"
           :biz-type="'claim-confirmation'"
           :biz-id="currentClaim.confirmationInfo.id"
+          :model-value="[]"
           :disabled="true"
           title="债权确认附件"
         />

@@ -23,10 +23,14 @@ withDefaults(defineProps<Props>(), {
   realName: '',
 });
 
-const emit = defineEmits(['logout']);
+const emit = defineEmits(['logout', 'change-password']);
 
 const handleLogout = () => {
   emit('logout');
+};
+
+const handleChangePassword = () => {
+  emit('change-password');
 };
 </script>
 <template>
@@ -48,12 +52,20 @@ const handleLogout = () => {
       <h1 v-if="$slots.title" class="text-md font-semibold md:text-xl">
         <div class="flex items-center justify-between">
           <slot name="title"></slot>
-          <button 
-            class="text-primary text-sm ml-4 hover:underline"
-            @click="handleLogout"
-          >
-            [退出登录]
-          </button>
+          <div class="flex items-center gap-2">
+            <button 
+              class="text-primary text-sm hover:underline"
+              @click="handleChangePassword"
+            >
+              [修改密码]
+            </button>
+            <button 
+              class="text-primary text-sm hover:underline"
+              @click="handleLogout"
+            >
+              [退出登录]
+            </button>
+          </div>
         </div>
       </h1>
       <span v-if="$slots.description" class="text-foreground/80 mt-1">

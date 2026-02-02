@@ -40,6 +40,7 @@ import { todoApi } from '#/api/core/todo';
 import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
 import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { fileUploadRequestClient } from '#/api/request';
+import { changePasswordApi } from '#/api/core/auth';
 import TodoList from '#/components/TodoList.vue';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
 
@@ -1022,6 +1023,70 @@ const markAllAsRead = () => {
   ElMessage.success('已全部知晓');
 };
 
+// 修改密码相关
+const showChangePasswordDialog = ref(false);
+const changePasswordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+});
+const changePasswordLoading = ref(false);
+
+// 打开修改密码弹窗
+const openChangePasswordDialog = () => {
+  changePasswordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  };
+  showChangePasswordDialog.value = true;
+};
+
+// 提交修改密码
+const submitChangePassword = async () => {
+  // 表单验证
+  if (!changePasswordForm.value.oldPassword) {
+    ElMessage.warning('请输入原密码');
+    return;
+  }
+  if (!changePasswordForm.value.newPassword) {
+    ElMessage.warning('请输入新密码');
+    return;
+  }
+  if (changePasswordForm.value.newPassword.length < 6 || changePasswordForm.value.newPassword.length > 20) {
+    ElMessage.warning('新密码长度应为6-20位');
+    return;
+  }
+  if (changePasswordForm.value.newPassword !== changePasswordForm.value.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致');
+    return;
+  }
+
+  changePasswordLoading.value = true;
+  try {
+    const result = await changePasswordApi({
+      oldPassword: changePasswordForm.value.oldPassword,
+      newPassword: changePasswordForm.value.newPassword,
+    });
+
+    if (result.code === 200) {
+      ElMessage.success('密码修改成功，请重新登录');
+      showChangePasswordDialog.value = false;
+      // 修改密码成功后退出登录
+      setTimeout(() => {
+        handleLogout();
+      }, 1500);
+    } else {
+      ElMessage.error(result.message || '密码修改失败');
+    }
+  } catch (error: any) {
+    console.error('修改密码失败:', error);
+    ElMessage.error(error?.message || '密码修改失败');
+  } finally {
+    changePasswordLoading.value = false;
+  }
+};
+
 // 退出登录处理
 const handleLogout = async () => {
   try {
@@ -1102,6 +1167,7 @@ onMounted(async () => {
         :team-count="teamCount"
         :real-name="currentUserInfo?.realName"
         @logout="handleLogout"
+        @change-password="openChangePasswordDialog"
       >
         <template #title>
           <span
@@ -2024,6 +2090,52 @@ onMounted(async () => {
       <template #footer>
         <div class="dialog-footer">
           <ElButton @click="showDateDetailDialog = false">关闭</ElButton>
+        </div>
+      </template>
+    </ElDialog>
+
+    <!-- 修改密码对话框 -->
+    <ElDialog
+      v-model="showChangePasswordDialog"
+      title="修改密码"
+      width="400px"
+      destroy-on-close
+    >
+      <div class="change-password-form">
+        <div class="form-item mb-4">
+          <label class="form-label mb-2 block">原密码</label>
+          <ElInput
+            v-model="changePasswordForm.oldPassword"
+            type="password"
+            placeholder="请输入原密码"
+            show-password
+          />
+        </div>
+        <div class="form-item mb-4">
+          <label class="form-label mb-2 block">新密码</label>
+          <ElInput
+            v-model="changePasswordForm.newPassword"
+            type="password"
+            placeholder="请输入新密码（6-20位）"
+            show-password
+          />
+        </div>
+        <div class="form-item mb-4">
+          <label class="form-label mb-2 block">确认新密码</label>
+          <ElInput
+            v-model="changePasswordForm.confirmPassword"
+            type="password"
+            placeholder="请再次输入新密码"
+            show-password
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <ElButton @click="showChangePasswordDialog = false">取消</ElButton>
+          <ElButton type="primary" :loading="changePasswordLoading" @click="submitChangePassword">
+            确定
+          </ElButton>
         </div>
       </template>
     </ElDialog>

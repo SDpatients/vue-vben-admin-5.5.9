@@ -215,6 +215,33 @@ export async function sendSmsCodeApi(data: AuthApi.SendSmsCodeParams) {
 }
 
 /**
+ * 修改密码参数
+ */
+export interface ChangePasswordParams {
+  oldPassword: string;
+  newPassword: string;
+}
+
+/**
+ * 修改密码
+ */
+export async function changePasswordApi(data: ChangePasswordParams) {
+  const token = localStorage.getItem('token');
+  const result = await baseRequestClient.post<{
+    code: number;
+    data: null;
+    message: string;
+  }>(
+    '/api/v1/auth/change-password',
+    data,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+  return result;
+}
+
+/**
  * 获取当前用户信息
  */
 export async function getCurrentUserApi() {
