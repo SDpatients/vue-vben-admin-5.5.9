@@ -106,7 +106,7 @@ export namespace WorkTeamApi {
   /** 添加团队成员请求 */
   export interface AddTeamMemberRequest {
     caseId: number;
-    userId: number;
+    userId: number[];
     teamRole: string;
     permissionLevel?: PermissionLevel;
   }

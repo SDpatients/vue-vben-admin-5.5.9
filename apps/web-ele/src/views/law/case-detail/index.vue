@@ -92,6 +92,7 @@ import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
+import WorkPlanDrawer from './components/WorkPlanDrawer.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -600,6 +601,10 @@ const textContent = ref('');
 const previewLoading = ref(false);
 
 const fundControlDrawerRef = ref<InstanceType<typeof FundControlDrawer> | null>(
+  null,
+);
+
+const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
   null,
 );
 
@@ -2995,6 +3000,10 @@ const openFundControlDrawer = () => {
   fundControlDrawerRef.value?.openDrawer();
 };
 
+const openWorkPlanDrawer = () => {
+  workPlanDrawerRef.value?.openDrawer();
+};
+
 const openAssetManagementDialog = () => {
   showAssetManagementDialog.value = true;
 };
@@ -3428,7 +3437,18 @@ watch(selectedDeptId, async (newVal) => {
 });
 
 watch(selectedUser, (newVal) => {
-  memberForm.value.userId = newVal ? [newVal.uPid] : [];
+  if (Array.isArray(newVal)) {
+    memberForm.value.userId = newVal.map(user => user.uPid);
+  } else {
+    memberForm.value.userId = newVal ? [newVal.uPid] : [];
+  }
+});
+
+watch(() => memberForm.value.teamRole, (newVal, oldVal) => {
+  if (oldVal === 'MEMBER' && newVal !== 'MEMBER') {
+    selectedUser.value = null;
+    memberForm.value.userId = [];
+  }
 });
 
 const resetSelections = () => {
@@ -3946,12 +3966,17 @@ const handleSaveMember = async () => {
         ElMessage.error(updateResponse.message || '更新团队成员信息失败');
       }
     } else {
+      const userIds = Array.isArray(memberForm.value.userId) 
+        ? memberForm.value.userId 
+        : [memberForm.value.userId];
+      
       const addData = {
         caseId: Number(caseId.value),
-        userId: memberForm.value.userId,
+        userId: userIds,
         teamRole: memberForm.value.teamRole,
         permissionLevel: memberForm.value.permissionLevel,
       };
+      
       const addResponse = await addTeamMemberApi(selectedTeamId.value, addData);
       if (addResponse.code === 200) {
         ElMessage.success('添加团队成员成功');
@@ -4120,10 +4145,7 @@ const checkPermissions = async () => {
                 <Icon icon="lucide:archive" class="mr-2" />
                 案件卷宗归档
               </ElButton>
-              <ElButton
-                type="primary"
-                @click="router.push('/basic-data/work-plan-management')"
-              >
+              <ElButton type="primary" @click="openWorkPlanDrawer">
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
               </ElButton>
@@ -5909,6 +5931,9 @@ const checkPermissions = async () => {
           :case-name="caseDetail?.案件名称 || ''"
         />
 
+        <!-- 工作计划抽屉 -->
+        <WorkPlanDrawer ref="workPlanDrawerRef" :case-id="caseId" />
+
         <!-- 资金管理组件 - 保留但不再使用 -->
         <ElDialog
           v-model="showAssetManagementDialog"
@@ -6391,6 +6416,8 @@ const checkPermissions = async () => {
                   :disabled="!selectedDeptId"
                   value-key="uPid"
                   clearable
+                  :multiple="memberForm.teamRole === 'MEMBER'"
+                  :multiple-limit="memberForm.teamRole === 'MEMBER' ? 0 : 1"
                 >
                   <ElOption
                     v-for="user in availableUsers"

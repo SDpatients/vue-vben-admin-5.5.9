@@ -40,7 +40,6 @@ import { todoApi } from '#/api/core/todo';
 import { getCurrentUserWorkTeamsApi } from '#/api/core/work-team';
 import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { fileUploadRequestClient } from '#/api/request';
-import TodoList from '#/components/TodoList.vue';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
 
 const userStore = useUserStore();
@@ -256,7 +255,7 @@ const loadCalendarEvents = async () => {
 
     // 调用工作规划API获取数据
     console.log('开始获取工作规划数据...');
-    const workPlansRes = await getWorkPlanListByTimeApi(startDate, endDate, 1, 100);
+    const workPlansRes = await getWorkPlanListByTimeApi(undefined, undefined, undefined, undefined, 1, 100);
     console.log('工作规划API响应:', workPlansRes);
 
     // 处理案件数据
@@ -1304,16 +1303,7 @@ onMounted(async () => {
             </div>
           </AnalysisChartCard>
 
-          <!-- 待办事项板块 -->
-          <div class="w-full mb-[5px]" v-if="isLawyer">
-            <AnalysisChartCard title="待办事项" class="bg-white">
-              <div class="module-container">
-                <div class="module-content">
-                  <TodoList />
-                </div>
-              </div>
-            </AnalysisChartCard>
-          </div>
+
 
           <!-- 最新动态板块 -->
           <div class="w-full" v-if="!isLawyer">

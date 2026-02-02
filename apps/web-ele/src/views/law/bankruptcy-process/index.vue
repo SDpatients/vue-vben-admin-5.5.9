@@ -573,6 +573,28 @@ const toggleModuleComplete = async (moduleId: string) => {
   }
 };
 
+// 处理任务状态更新事件
+const handleUpdateTaskStatus = async (status: string) => {
+  try {
+    const response = await CaseTaskApi.getCaseTasks({
+      caseId: Number(props.caseId),
+      page: 1,
+      size: 100,
+    });
+    
+    if (response.code === 200 && response.data && response.data.content) {
+      const updatedTask = response.data.content.find((task: any) => task.id === selectedModule.value?.task?.id);
+      if (updatedTask && selectedModule.value?.task) {
+        selectedModule.value.task.status = updatedTask.status;
+        updateAllAnimatedProgress();
+      }
+    }
+  } catch (error) {
+    console.error('获取任务状态失败:', error);
+    ElMessage.error('获取任务状态失败');
+  }
+};
+
 // 更新所有阶段的动画进度
 const updateAllAnimatedProgress = () => {
   stages.forEach((_, index) => {
@@ -1988,6 +2010,9 @@ const closeQrCodeDialog = () => {
               <ClaimProcessingModules 
                 :caseId="caseId" 
                 :moduleType="selectedModule.id === '3-2' ? 'registration' : 'review'" 
+                :taskId="selectedModule.task?.id"
+                :taskStatus="selectedModule.task?.status"
+                @updateTaskStatus="handleUpdateTaskStatus"
               />
             </div>
             <!-- 其他模块 -->
