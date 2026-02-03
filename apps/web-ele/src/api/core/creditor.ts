@@ -124,6 +124,29 @@ export namespace CreditorApi {
     };
   }
 
+  /** 债权人搜索参数 */
+  export interface CreditorSearchParams {
+    caseId: number;
+    creditorName: string;
+    limit?: number;
+  }
+
+  /** 债权人搜索结果 */
+  export interface CreditorSearchResult {
+    id: number;
+    caseId: number;
+    creditorName: string;
+    idNumber: string;
+    creditorType: string;
+  }
+
+  /** 债权人搜索响应 */
+  export interface CreditorSearchResponse {
+    code: number;
+    message: string;
+    data: CreditorSearchResult[];
+  }
+
   /** 通用响应 */
   export interface CommonResponse {
     code: number;
@@ -335,6 +358,14 @@ export async function batchAddCreditorsApi(data: CreditorApi.BatchAddCreditorsRe
  */
 export async function getCreditorClaimStagesApi(creditorId: number) {
   return requestClient8085.get<CreditorApi.CreditorClaimStagesResponse>(`/creditor/${creditorId}/claim-stages`);
+}
+
+/**
+ * 搜索债权人（模糊查询）
+ * GET /creditor/search
+ */
+export async function searchCreditorApi(params: CreditorApi.CreditorSearchParams) {
+  return requestClient8085.get<CreditorApi.CreditorSearchResponse>('/creditor/search', { params });
 }
 
 export type { CreditorApi };

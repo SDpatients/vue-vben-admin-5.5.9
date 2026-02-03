@@ -124,7 +124,11 @@ const openConfirmDialog = async (row: any) => {
       // 如果有确认信息，获取确认详情
       const result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
       if (result.success) {
-        currentClaim.value = result.data;
+        // 保持currentClaim的结构与row一致，包含confirmationInfo字段
+        currentClaim.value = {
+          ...row,
+          confirmationInfo: result.data
+        };
         
         // 完整填充确认表单数据
         Object.assign(confirmationForm, {

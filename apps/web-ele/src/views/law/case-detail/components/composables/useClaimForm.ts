@@ -1,7 +1,7 @@
 import type { ClaimRegistrationApi } from '#/api/core/claim-registration';
 import type { ClaimReviewApi } from '#/api/core/claim-review';
 
-import { computed, reactive } from 'vue';
+import { computed, reactive, watch } from 'vue';
 
 export function useClaimForm() {
   const claimForm = reactive({
@@ -172,14 +172,66 @@ export function useReviewForm() {
   });
 
   const unconfirmedTotalAmount = computed(() => {
-    const principal = Number(reviewForm.unconfirmedPrincipal) || 0;
-    const interest = Number(reviewForm.unconfirmedInterest) || 0;
-    const penalty = Number(reviewForm.unconfirmedPenalty) || 0;
-    const otherLosses = Number(reviewForm.unconfirmedOtherLosses) || 0;
-    const total =
-      Math.round((principal + interest + penalty + otherLosses) * 100) / 100;
+    const declaredPrincipal = Number(reviewForm.declaredPrincipal) || 0;
+    const declaredInterest = Number(reviewForm.declaredInterest) || 0;
+    const declaredPenalty = Number(reviewForm.declaredPenalty) || 0;
+    const declaredOtherLosses = Number(reviewForm.declaredOtherLosses) || 0;
+    
+    const confirmedPrincipal = Number(reviewForm.confirmedPrincipal) || 0;
+    const confirmedInterest = Number(reviewForm.confirmedInterest) || 0;
+    const confirmedPenalty = Number(reviewForm.confirmedPenalty) || 0;
+    const confirmedOtherLosses = Number(reviewForm.confirmedOtherLosses) || 0;
+    
+    const unconfirmedPrincipal = Math.round((declaredPrincipal - confirmedPrincipal) * 100) / 100;
+    const unconfirmedInterest = Math.round((declaredInterest - confirmedInterest) * 100) / 100;
+    const unconfirmedPenalty = Math.round((declaredPenalty - confirmedPenalty) * 100) / 100;
+    const unconfirmedOtherLosses = Math.round((declaredOtherLosses - confirmedOtherLosses) * 100) / 100;
+    
+    const total = Math.round((unconfirmedPrincipal + unconfirmedInterest + unconfirmedPenalty + unconfirmedOtherLosses) * 100) / 100;
     return total.toFixed(2);
   });
+
+  watch(
+    [
+      () => reviewForm.declaredPrincipal,
+      () => reviewForm.declaredInterest,
+      () => reviewForm.declaredPenalty,
+      () => reviewForm.declaredOtherLosses,
+      () => reviewForm.confirmedPrincipal,
+      () => reviewForm.confirmedInterest,
+      () => reviewForm.confirmedPenalty,
+      () => reviewForm.confirmedOtherLosses,
+    ],
+    () => {
+      const declaredPrincipal = Number(reviewForm.declaredPrincipal) || 0;
+      const declaredInterest = Number(reviewForm.declaredInterest) || 0;
+      const declaredPenalty = Number(reviewForm.declaredPenalty) || 0;
+      const declaredOtherLosses = Number(reviewForm.declaredOtherLosses) || 0;
+      
+      const confirmedPrincipal = Number(reviewForm.confirmedPrincipal) || 0;
+      const confirmedInterest = Number(reviewForm.confirmedInterest) || 0;
+      const confirmedPenalty = Number(reviewForm.confirmedPenalty) || 0;
+      const confirmedOtherLosses = Number(reviewForm.confirmedOtherLosses) || 0;
+      
+      const unconfirmedPrincipal = Math.round((declaredPrincipal - confirmedPrincipal) * 100) / 100;
+      const unconfirmedInterest = Math.round((declaredInterest - confirmedInterest) * 100) / 100;
+      const unconfirmedPenalty = Math.round((declaredPenalty - confirmedPenalty) * 100) / 100;
+      const unconfirmedOtherLosses = Math.round((declaredOtherLosses - confirmedOtherLosses) * 100) / 100;
+      
+      reviewForm.unconfirmedPrincipal = unconfirmedPrincipal;
+      reviewForm.unconfirmedInterest = unconfirmedInterest;
+      reviewForm.unconfirmedPenalty = unconfirmedPenalty;
+      reviewForm.unconfirmedOtherLosses = unconfirmedOtherLosses;
+      
+      // 自动判断确认类型
+      if (unconfirmedPrincipal === 0 && unconfirmedInterest === 0 && unconfirmedPenalty === 0 && unconfirmedOtherLosses === 0) {
+        reviewForm.reviewConclusion = 'CONFIRMED';
+      } else {
+        reviewForm.reviewConclusion = 'PARTIAL_CONFIRMED';
+      }
+    },
+    { immediate: true },
+  );
 
   const resetReviewForm = () => {
     Object.assign(reviewForm, {

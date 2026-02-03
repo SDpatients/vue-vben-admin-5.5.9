@@ -503,8 +503,10 @@ const handleServerFileDelete = async (file: FileItem) => {
     if (response.code === 200) {
       ElMessage.success('文件删除成功');
       await loadFiles();
-      const newFileIds = props.modelValue.filter(id => id !== file.id);
-      emit('update:modelValue', newFileIds);
+      if (props.modelValue && Array.isArray(props.modelValue)) {
+        const newFileIds = props.modelValue.filter(id => id !== file.id);
+        emit('update:modelValue', newFileIds);
+      }
       emit('delete', file.id);
     } else {
       ElMessage.error(response.message || '文件删除失败');
