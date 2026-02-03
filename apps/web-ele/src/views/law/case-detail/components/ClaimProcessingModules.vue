@@ -13,6 +13,7 @@ import {
   ElDialog,
   ElUpload,
   ElMessage,
+  ElMessageBox,
 } from 'element-plus';
 
 import {
@@ -34,10 +35,13 @@ const props = defineProps<{
   taskId?: number;
   taskStatus?: string;
 }>();
-const { moduleType, taskId, taskStatus } = props;
+const { moduleType, taskId } = props;
 const emit = defineEmits<{
   (e: 'updateTaskStatus', status: string): void;
 }>();
+
+// 使用computed属性获取最新的taskStatus
+const currentTaskStatus = computed(() => props.taskStatus);
 const loading = ref(false);
 const claims = ref<any[]>([]);
 const reviewClaims = ref<any[]>([]);
@@ -344,10 +348,22 @@ const handleMarkModuleComplete = async (moduleType: 'registration' | 'review') =
     return;
   }
   
-  const completed = taskStatus === 'COMPLETED';
+  const completed = currentTaskStatus.value === 'COMPLETED';
   const newStatus = completed ? 'IN_PROGRESS' : 'COMPLETED';
+  const actionText = completed ? '撤回' : '标记完成';
   
   try {
+    // 添加确认对话框
+    await ElMessageBox.confirm(
+      `确定要${actionText}吗？`,
+      actionText,
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    
     const response = await CaseTaskApi.updateCaseTask(taskId, {
       status: newStatus,
     });
@@ -359,8 +375,10 @@ const handleMarkModuleComplete = async (moduleType: 'registration' | 'review') =
       ElMessage.error(response.message || '更新任务状态失败');
     }
   } catch (error) {
-    console.error('标记完成失败:', error);
-    ElMessage.error('标记完成失败');
+    if (error !== 'cancel') {
+      console.error('标记完成失败:', error);
+      ElMessage.error('标记完成失败');
+    }
   }
 };
 
@@ -564,7 +582,7 @@ watch(() => props.moduleType, () => {
                 刷新数据
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'registration' && taskStatus === 'COMPLETED'"
+                v-if="moduleType === 'registration' && currentTaskStatus === 'COMPLETED'"
                 type="danger" 
                 @click="handleMarkModuleComplete('registration')"
                 :loading="loading"
@@ -573,7 +591,7 @@ watch(() => props.moduleType, () => {
                 撤回
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'registration' && taskStatus !== 'COMPLETED'"
+                v-if="moduleType === 'registration' && currentTaskStatus !== 'COMPLETED'"
                 type="success" 
                 @click="handleMarkModuleComplete('registration')"
                 :loading="loading"
@@ -683,7 +701,7 @@ watch(() => props.moduleType, () => {
                 刷新数据
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'review' && taskStatus === 'COMPLETED'"
+                v-if="moduleType === 'review' && currentTaskStatus === 'COMPLETED'"
                 type="danger" 
                 @click="handleMarkModuleComplete('review')"
                 :loading="loading"
@@ -692,7 +710,7 @@ watch(() => props.moduleType, () => {
                 撤回
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'review' && taskStatus !== 'COMPLETED'"
+                v-if="moduleType === 'review' && currentTaskStatus !== 'COMPLETED'"
                 type="success" 
                 @click="handleMarkModuleComplete('review')"
                 :loading="loading"
@@ -758,7 +776,7 @@ watch(() => props.moduleType, () => {
           <ElTableColumn label="操作" width="150" fixed="right">
             <template #default="scope">
               <ElButton 
-                type="text" 
+                type="link" 
                 size="small" 
                 @click="handleCompleteReview(scope.row)"
                 :loading="loading"
@@ -767,7 +785,7 @@ watch(() => props.moduleType, () => {
                 完成审查
               </ElButton>
               <ElButton 
-                type="text" 
+                type="link" 
                 size="small" 
                 @click="handleRejectReview(scope.row)"
                 :loading="loading"

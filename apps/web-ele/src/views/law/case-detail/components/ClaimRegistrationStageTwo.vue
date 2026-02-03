@@ -10,6 +10,7 @@ import {
   ElCard,
   ElCheckbox,
   ElCol,
+  ElDatePicker,
   ElDescriptions,
   ElDescriptionsItem,
   ElDialog,
@@ -60,7 +61,7 @@ const showReviewDialog = ref(false);
 const reviewLoading = ref(false);
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null);
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
-const reviewStatusFilter = ref<string>('IN_PROGRESS');
+const reviewStatusFilter = ref<string>(''); // 空字符串表示全部
 
 const { reviewForm, declaredTotalAmount, confirmedTotalAmount, unconfirmedTotalAmount, resetReviewForm } = useReviewForm();
 const { currentPage, pageSize, total } = useClaimPagination();
@@ -83,7 +84,7 @@ const fetchClaims = async () => {
     Number(props.caseId),
     currentPage.value,
     pageSize.value,
-    reviewStatusFilter.value,
+    reviewStatusFilter.value || undefined,
   );
   if (result.success) {
     claims.value = result.data;
@@ -120,6 +121,10 @@ const openReviewDialog = async (row: any) => {
         response = result.data;
         currentClaim.value = row;
         Object.assign(reviewForm, result.data);
+        // 确保reviewAttachments是数组
+        if (!Array.isArray(reviewForm.reviewAttachments)) {
+          reviewForm.reviewAttachments = [];
+        }
       } else {
         ElMessage.error('获取审查详情失败');
         return;
@@ -147,6 +152,24 @@ const openReviewDialog = async (row: any) => {
         ElMessage.error('获取债权详情失败');
         return;
       }
+    }
+
+    // 设置默认审查日期为今天（北京时间），覆盖响应中的数据
+    const now = new Date();
+    // 获取北京时间（UTC+8）
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const beijingTime = new Date(utcTime + 8 * 60 * 60 * 1000);
+    reviewForm.reviewDate = beijingTime;
+
+    // 从本地存储获取审查人，覆盖响应中的数据
+    try {
+      const chatUserInfoStr = localStorage.getItem('chat_user_info');
+      if (chatUserInfoStr) {
+        const chatUserInfo = JSON.parse(chatUserInfoStr);
+        reviewForm.reviewer = chatUserInfo.realName || '';
+      }
+    } catch (error) {
+      console.error('获取本地存储用户信息失败:', error);
     }
 
     if (response) {
@@ -361,6 +384,7 @@ onMounted(() => {
           </div>
           <div class="flex space-x-2">
             <ElSelect v-model="reviewStatusFilter" placeholder="选择审查状态" style="width: 200px" @change="fetchClaims">
+              <ElOption label="全部" value="" />
               <ElOption label="进行中" value="IN_PROGRESS" />
               <ElOption label="已完成" value="COMPLETED" />
             </ElSelect>
@@ -762,21 +786,22 @@ onMounted(() => {
               {{ currentClaim.creditorName }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="申报总金额">
-              {{ currentClaim.totalAmount }}
+              {{ declaredTotalAmount }}
             </ElDescriptionsItem>
           </ElDescriptions>
         </div>
 
         <div class="review-form-section">
           <h4 class="section-title mb-2">审查信息</h4>
-          <ElForm label-width="150px" :rules="reviewFormRules">
+          <ElForm label-width="150px" :model="reviewForm" :rules="reviewFormRules">
             <ElRow :gutter="20">
               <ElCol :span="12">
                 <ElFormItem label="审查日期" prop="reviewDate">
-                  <ElInput
+                  <ElDatePicker
                     v-model="reviewForm.reviewDate"
-                    type="datetime-local"
+                    type="datetime"
                     placeholder="请选择审查日期"
+                    style="width: 100%"
                   />
                 </ElFormItem>
               </ElCol>
@@ -934,7 +959,8 @@ onMounted(() => {
                   <ElInput
                     v-model="reviewForm.unconfirmedPrincipal"
                     type="number"
-                    placeholder="未确认本金"
+                    placeholder="自动计算"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -943,7 +969,8 @@ onMounted(() => {
                   <ElInput
                     v-model="reviewForm.unconfirmedInterest"
                     type="number"
-                    placeholder="未确认利息"
+                    placeholder="自动计算"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -952,7 +979,8 @@ onMounted(() => {
                   <ElInput
                     v-model="reviewForm.unconfirmedPenalty"
                     type="number"
-                    placeholder="未确认违约金"
+                    placeholder="自动计算"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -961,7 +989,8 @@ onMounted(() => {
                   <ElInput
                     v-model="reviewForm.unconfirmedOtherLosses"
                     type="number"
-                    placeholder="未确认其他损失"
+                    placeholder="自动计算"
+                    disabled
                   />
                 </ElFormItem>
               </ElCol>
@@ -1270,6 +1299,8 @@ onMounted(() => {
 .review-dialog-container {
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .section-title {

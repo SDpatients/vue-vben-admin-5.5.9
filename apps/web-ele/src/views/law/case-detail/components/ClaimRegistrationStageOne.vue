@@ -36,7 +36,7 @@ import FileUpload from './FileUpload.vue';
 
 import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
-import { getCreditorClaimStagesApi, getCreditorListApi } from '#/api/core/creditor';
+import { getCreditorClaimStagesApi, getCreditorListApi, searchCreditorApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
 
 import { useClaimForm } from './composables/useClaimForm';
@@ -100,8 +100,10 @@ const handlePageSizeChange = (size: number) => {
 const fileList = ref<any[]>([]);
 const debtorList = ref<any[]>([]);
 const creditorList = ref<any[]>([]);
+const creditorSearchResults = ref<any[]>([]);
 const debtorListLoading = ref(false);
 const creditorListLoading = ref(false);
+const creditorSearchLoading = ref(false);
 
 const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
 
@@ -198,6 +200,30 @@ const fetchCreditorList = async (keyword: string = '') => {
     console.error('获取债权人列表失败:', error);
   } finally {
     creditorListLoading.value = false;
+  }
+};
+
+const searchCreditor = async (keyword: string) => {
+  creditorSearchLoading.value = true;
+  try {
+    const response = await searchCreditorApi({
+      caseId: Number(props.caseId),
+      creditorName: keyword || '',
+      limit: 500,
+    });
+    if (response.code === 200 && response.data) {
+      creditorSearchResults.value = response.data.map((creditor: any) => ({
+        label: creditor.creditorName,
+        value: creditor.id,
+        idNumber: creditor.idNumber,
+        creditorType: convertCreditorType(creditor.creditorType),
+      }));
+    }
+  } catch (error) {
+    console.error('搜索债权人失败:', error);
+    creditorSearchResults.value = [];
+  } finally {
+    creditorSearchLoading.value = false;
   }
 };
 
@@ -320,6 +346,9 @@ const handleEditClaim = async (row: any) => {
     const result = await ClaimService.getClaimDetail(row.id);
     if (result.success) {
       currentEditClaim.value = result.data;
+      await searchCreditor('');
+      await fetchDebtorList();
+      await fetchCreditorList();
       // 填充表单数据
       claimForm.caseNumber = result.data.caseNumber || '';
       claimForm.debtor = result.data.debtor || '';
@@ -449,10 +478,21 @@ const handleCreditorChange = (value: string) => {
   }
 };
 
+const handleCreditorSearchChange = (value: string) => {
+  const selectedCreditor = creditorSearchResults.value.find(
+    (creditor) => creditor.label === value,
+  );
+  if (selectedCreditor) {
+    claimForm.creditCode = selectedCreditor.idNumber || '';
+    claimForm.creditorType = selectedCreditor.creditorType;
+  }
+};
+
 const openAddDialog = async () => {
   showAddDialog.value = true;
   await fetchDebtorList();
   await fetchCreditorList();
+  await searchCreditor('');
   try {
     const caseResponse = await getCaseReviewStatusApi(Number(props.caseId));
     if (caseResponse.code === 200 && caseResponse.data?.caseNumber) {
@@ -1640,10 +1680,25 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="债权人姓名或名称" required>
-                <ElInput
+                <ElSelect
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
-                />
+                  filterable
+                  remote
+                  reserve-keyword
+                  placeholder="请输入债权人姓名或名称进行搜索"
+                  :remote-method="searchCreditor"
+                  :loading="creditorSearchLoading"
+                  style="width: 100%"
+                  @change="handleCreditorSearchChange"
+                  @focus="searchCreditor('')"
+                >
+                  <ElOption
+                    v-for="creditor in creditorSearchResults"
+                    :key="creditor.value"
+                    :label="creditor.label"
+                    :value="creditor.label"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
@@ -1994,10 +2049,25 @@ onMounted(() => {
           <ElRow :gutter="20">
             <ElCol :span="12">
               <ElFormItem label="债权人姓名或名称" required>
-                <ElInput
+                <ElSelect
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
-                />
+                  filterable
+                  remote
+                  reserve-keyword
+                  placeholder="请输入债权人姓名或名称进行搜索"
+                  :remote-method="searchCreditor"
+                  :loading="creditorSearchLoading"
+                  style="width: 100%"
+                  @change="handleCreditorSearchChange"
+                  @focus="searchCreditor('')"
+                >
+                  <ElOption
+                    v-for="creditor in creditorSearchResults"
+                    :key="creditor.value"
+                    :label="creditor.label"
+                    :value="creditor.label"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">

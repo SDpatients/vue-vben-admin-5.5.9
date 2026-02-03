@@ -576,6 +576,14 @@ const toggleModuleComplete = async (moduleId: string) => {
 // 处理任务状态更新事件
 const handleUpdateTaskStatus = async (status: string) => {
   try {
+    // 直接更新本地状态，确保界面立即反映变化
+    if (selectedModule.value?.task) {
+      selectedModule.value.task.status = status;
+      completedModules.value[selectedModule.value.id] = status === 'COMPLETED';
+      updateAllAnimatedProgress();
+    }
+    
+    // 可选：从API获取最新状态以确保数据一致性
     const response = await CaseTaskApi.getCaseTasks({
       caseId: Number(props.caseId),
       page: 1,
@@ -586,6 +594,7 @@ const handleUpdateTaskStatus = async (status: string) => {
       const updatedTask = response.data.content.find((task: any) => task.id === selectedModule.value?.task?.id);
       if (updatedTask && selectedModule.value?.task) {
         selectedModule.value.task.status = updatedTask.status;
+        completedModules.value[selectedModule.value.id] = updatedTask.status === 'COMPLETED';
         updateAllAnimatedProgress();
       }
     }
