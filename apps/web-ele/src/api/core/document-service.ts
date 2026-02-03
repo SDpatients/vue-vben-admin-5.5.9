@@ -294,7 +294,7 @@ export async function getAllDocumentListApi(params?: {
   status?: string;
 }) {
   return documentRequestClient.get<DocumentServiceApi.DocumentListResponse>(
-    '/api/v1/document-delivery/all',
+    '/api/v1/document-delivery/all-with-approval',
     { params },
   );
 }

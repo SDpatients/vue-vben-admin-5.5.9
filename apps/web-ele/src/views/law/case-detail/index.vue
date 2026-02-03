@@ -175,11 +175,31 @@ const stages = [
     name: '一、破产申请与受理',
     description: '包含破产申请材料提交、法院审查、管理人选任等工作',
     modules: [
-      { code: 'TASK_001', name: '提交破产申请材料' },
-      { code: 'TASK_002', name: '法院立案形式审查' },
-      { code: 'TASK_003', name: '破产原因实质审查' },
-      { code: 'TASK_004', name: '同步选任管理人' },
-      { code: 'TASK_005', name: '裁定受理并公告' },
+      {
+        code: 'TASK_001',
+        name: '提交破产申请材料',
+        description: '申请人向法院提交破产申请书及相关证据材料。需上传：1.破产申请书（详细说明申请人基本情况、申请目的、事实与理由）；2.申请人主体资格证明文件（营业执照、身份证等）；3.债务人主体资格证明文件；4.债权债务关系证明材料（合同、借条、判决书等）；5.债务人不能清偿到期债务的证据（财务报表、银行流水、执行记录等）；6.其他相关证据材料。需确认：所有材料真实完整，符合法院要求的格式和份数。'
+      },
+      {
+        code: 'TASK_002',
+        name: '法院立案形式审查',
+        description: '法院对破产申请材料进行形式审查。需确认：1.申请材料是否齐全；2.申请人是否具备主体资格；3.是否属于本院管辖；4.申请书格式是否规范。如材料不全，需在规定期限内补充提交。'
+      },
+      {
+        code: 'TASK_003',
+        name: '破产原因实质审查',
+        description: '法院对债务人是否具备破产原因进行实质审查。需上传：1.债务人资产状况说明；2.债务清偿情况说明；3.不能清偿到期债务的详细证明。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形。'
+      },
+      {
+        code: 'TASK_004',
+        name: '同步选任管理人',
+        description: '法院在审查破产申请的同时，同步选任管理人。需确认：1.管理人名单是否符合规定；2.管理人资质是否符合要求；3.选任程序是否合法合规。'
+      },
+      {
+        code: 'TASK_005',
+        name: '裁定受理并公告',
+        description: '法院裁定受理破产申请并发布公告。需上传：1.法院受理裁定书；2.法院公告文件。需确认：公告内容是否完整，包括受理时间、管理人名称、债权申报期限等重要信息。'
+      },
     ],
   },
   {
@@ -187,10 +207,26 @@ const stages = [
     name: '二、接管与调查',
     description: '管理人全面接管债务人并调查财产经营状况',
     modules: [
-      { code: 'TASK_006', name: '全面接管债务人' },
-      { code: 'TASK_007', name: '调查财产及经营状况' },
-      { code: 'TASK_008', name: '决定合同继续履行或解除' },
-      { code: 'TASK_009', name: '追收债务人财产' },
+      {
+        code: 'TASK_006',
+        name: '全面接管债务人',
+        description: '管理人全面接管债务人的财产、印章、账簿、文书等资料。需上传：1.接管清单（详细列明接管的财产、资料等）；2.接管笔录；3.债务人法定代表人或负责人的配合情况说明。需确认：1.接管是否全面彻底；2.所有资料是否真实完整；3.接管程序是否合法合规。'
+      },
+      {
+        code: 'TASK_007',
+        name: '调查财产及经营状况',
+        description: '管理人调查债务人的财产状况、经营状况等。需上传：1.财产状况调查报告；2.经营状况调查报告；3.债权债务清册；4.资产负债表；5.审计报告（如有）。需确认：1.调查是否全面深入；2.报告内容是否真实准确；3.是否发现财产线索或债务问题。'
+      },
+      {
+        code: 'TASK_008',
+        name: '决定合同继续履行或解除',
+        description: '管理人决定债务人未履行完毕合同的继续履行或解除。需上传：1.合同清单；2.合同履行情况说明；3.继续履行或解除的决定文件；4.相关债权人意见（如有）。需确认：1.决定是否符合法律规定；2.是否充分考虑债权人利益；3.程序是否合法合规。'
+      },
+      {
+        code: 'TASK_009',
+        name: '追收债务人财产',
+        description: '管理人追收债务人的财产，包括到期债权、出资人未缴出资、抽逃出资等。需上传：1.财产追收方案；2.追收进展情况报告；3.相关法律文书（如起诉状、执行申请书等）；4.追收结果说明。需确认：1.追收措施是否合法有效；2.是否充分行使管理人职责；3.追收结果是否及时入账。'
+      },
     ],
   },
   {
@@ -198,9 +234,21 @@ const stages = [
     name: '三、债权申报与核查',
     description: '通知债权人申报、接收登记并审查债权',
     modules: [
-      { code: 'TASK_010', name: '通知已知债权人并公告' },
-      { code: 'TASK_011', name: '接收、登记债权申报' },
-      { code: 'TASK_012', name: '审查申报债权并编制债权表' },
+      {
+        code: 'TASK_010',
+        name: '通知已知债权人并公告',
+        description: '管理人通知已知债权人申报债权，并在指定媒体发布债权申报公告。需上传：1.已知债权人名单及联系方式；2.债权申报通知书及送达证明；3.债权申报公告文件及发布证明；4.公告内容包括申报期限、地点、方式等信息。需确认：1.通知是否送达所有已知债权人；2.公告是否在法定媒体发布；3.内容是否符合法律规定。'
+      },
+      {
+        code: 'TASK_011',
+        name: '接收、登记债权申报',
+        description: '管理人接收债权人的债权申报材料并进行登记。需上传：1.债权申报表；2.债权人身份证明文件；3.债权证明材料（合同、借条、判决书等）；4.债权登记册。需确认：1.申报材料是否齐全；2.登记信息是否准确完整；3.是否按规定处理逾期申报的债权。'
+      },
+      {
+        code: 'TASK_012',
+        name: '审查申报债权并编制债权表',
+        description: '管理人审查申报的债权并编制债权表。需上传：1.债权审查意见；2.债权表；3.债权审查中发现的问题及处理建议；4.债权人对债权表的异议及处理情况。需确认：1.审查是否依法进行；2.债权表是否准确反映债权情况；3.异议处理是否合法合规。'
+      },
     ],
   },
   {
@@ -208,9 +256,21 @@ const stages = [
     name: '四、债权人会议',
     description: '筹备和召开债权人会议，核查债权并议决事项',
     modules: [
-      { code: 'TASK_013', name: '筹备第一次债权人会议' },
-      { code: 'TASK_014', name: '召开会议核查债权与议决事项' },
-      { code: 'TASK_015', name: '表决通过财产变价/分配方案' },
+      {
+        code: 'TASK_013',
+        name: '筹备第一次债权人会议',
+        description: '管理人筹备第一次债权人会议。需上传：1.会议议程；2.会议材料（债权表、管理人工作报告、财产管理方案等）；3.会议通知及送达证明；4.会场布置及设备准备情况。需确认：1.会议材料是否充分完整；2.通知是否送达所有债权人；3.筹备工作是否符合法律规定。'
+      },
+      {
+        code: 'TASK_014',
+        name: '召开会议核查债权与议决事项',
+        description: '召开债权人会议，核查债权并议决相关事项。需上传：1.会议记录；2.债权核查情况报告；3.决议事项表决结果；4.会议签到簿。需确认：1.会议程序是否合法；2.决议是否符合法律规定；3.表决结果是否准确记录。'
+      },
+      {
+        code: 'TASK_015',
+        name: '表决通过财产变价/分配方案',
+        description: '债权人会议表决通过财产变价方案和分配方案。需上传：1.财产变价方案；2.财产分配方案；3.表决结果；4.相关债权人意见。需确认：1.方案是否符合债权人利益；2.表决程序是否合法；3.决议是否通过。'
+      },
     ],
   },
   {
@@ -218,17 +278,38 @@ const stages = [
     name: '五、破产宣告',
     description: '审查并裁定宣告债务人破产',
     modules: [
-      { code: 'TASK_016', name: '审查宣告破产条件' },
-      { code: 'TASK_017', name: '裁定宣告债务人破产' },
+      {
+        code: 'TASK_016',
+        name: '审查宣告破产条件',
+        description: '法院审查债务人是否符合宣告破产的条件。需上传：1.债务人财产状况报告；2.债权清偿情况报告；3.管理人关于宣告破产的申请；4.其他相关材料。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形，且无法达成和解或重整协议。'
+      },
+      {
+        code: 'TASK_017',
+        name: '裁定宣告债务人破产',
+        description: '法院裁定宣告债务人破产。需上传：1.法院宣告破产裁定书；2.破产宣告公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
+      },
     ],
   },
-  { id: 6,
+  { 
+    id: 6,
     name: '六、财产变价与分配',
     description: '拟定执行财产变价方案并分配破产财产',
     modules: [
-      { code: 'TASK_018', name: '拟定并执行财产变价方案' },
-      { code: 'TASK_024', name: '破产费用与共同利益债务' },
-      { code: 'TASK_019', name: '执行破产财产分配' },
+      {
+        code: 'TASK_018',
+        name: '拟定并执行财产变价方案',
+        description: '管理人拟定财产变价方案并执行。需上传：1.财产变价方案；2.财产评估报告（如有）；3.变价方式说明（拍卖、变卖等）；4.变价结果报告。需确认：1.变价方案是否符合债权人会议决议；2.变价程序是否合法透明；3.变价结果是否公平合理。'
+      },
+      {
+        code: 'TASK_024',
+        name: '破产费用与共同利益债务',
+        description: '管理人审核确认破产费用和共益债务。需上传：1.破产费用清单；2.共益债务清单；3.费用支出凭证；4.审核意见。需确认：1.费用是否真实发生；2.是否符合法律规定的范围；3.支出是否合理必要。'
+      },
+      {
+        code: 'TASK_019',
+        name: '执行破产财产分配',
+        description: '管理人执行破产财产分配方案。需上传：1.破产财产分配方案；2.分配明细表；3.分配通知及送达证明；4.分配结果报告。需确认：1.分配是否按照法定顺序进行；2.分配金额是否准确；3.程序是否合法合规。'
+      },
     ],
   },
   {
@@ -236,10 +317,26 @@ const stages = [
     name: '七、程序终结与注销',
     description: '终结破产程序、办理企业注销并归档',
     modules: [
-      { code: 'TASK_020', name: '提请终结破产程序' },
-      { code: 'TASK_021', name: '法院裁定并公告' },
-      { code: 'TASK_022', name: '办理企业注销登记' },
-      { code: 'TASK_023', name: '管理人终止执行职务并归档' },
+      {
+        code: 'TASK_020',
+        name: '提请终结破产程序',
+        description: '管理人提请法院终结破产程序。需上传：1.破产财产分配报告；2.管理人工作报告；3.提请终结破产程序的申请。需确认：1.破产财产是否分配完毕；2.报告内容是否真实完整；3.申请是否符合法律规定。'
+      },
+      {
+        code: 'TASK_021',
+        name: '法院裁定并公告',
+        description: '法院裁定终结破产程序并公告。需上传：1.法院终结破产程序裁定书；2.终结破产程序公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
+      },
+      {
+        code: 'TASK_022',
+        name: '办理企业注销登记',
+        description: '管理人办理债务人企业注销登记。需上传：1.企业注销登记申请书；2.法院终结破产程序裁定书；3.税务注销证明；4.注销登记证明。需确认：1.注销程序是否合法；2.是否完成所有注销手续；3.证明文件是否齐全。'
+      },
+      {
+        code: 'TASK_023',
+        name: '管理人终止执行职务并归档',
+        description: '管理人终止执行职务并将相关资料归档。需上传：1.管理人终止执行职务申请书；2.法院关于终止管理人执行职务的决定书；3.破产案件卷宗归档目录；4.归档证明。需确认：1.所有工作是否完成；2.资料是否完整归档；3.程序是否合法合规。'
+      },
     ],
   },
 ];
@@ -894,6 +991,7 @@ const documentForm = reactive({
   sendStatus: '已发送',
   abbreviation: '',
   documentNumber: '',
+  files: [] as any[],
 });
 
 // 文书上传表单数据（直接上传，无需审批）
@@ -912,6 +1010,7 @@ const directUploadForm = reactive({
   attachment: '',
   abbreviation: '',
   documentNumber: '',
+  files: [] as any[],
 });
 
 // 文书审批表单数据（需要审批流程）
@@ -933,6 +1032,7 @@ const approvalSubmitForm = reactive({
   remark: '',
   abbreviation: '',
   documentNumber: '',
+  files: [] as any[],
 });
 
 // 文书类型选项
@@ -1165,6 +1265,7 @@ const resetDocumentForm = () => {
   documentForm.sendStatus = '已发送';
   documentForm.abbreviation = '';
   documentForm.documentNumber = '';
+  documentForm.files = [];
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1194,6 +1295,7 @@ const resetDirectUploadForm = () => {
   directUploadForm.serviceContent = '';
   directUploadForm.attachment = '';
   directUploadForm.abbreviation = '';
+  directUploadForm.files = [];
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1212,7 +1314,9 @@ const submitDirectUploadForm = async () => {
     return;
   }
 
-  if (uploadedFiles.value.length === 0) {
+  console.log('directUploadForm.files:', directUploadForm.files);
+  console.log('directUploadForm.files.length:', directUploadForm.files.length);
+  if (directUploadForm.files.length === 0) {
     ElMessage.error('请至少选择一个文件');
     return;
   }
@@ -1288,7 +1392,9 @@ const submitApprovalForm = async () => {
     return;
   }
 
-  if (uploadedFiles.value.length === 0) {
+  console.log('approvalSubmitForm.files:', approvalSubmitForm.files);
+  console.log('approvalSubmitForm.files.length:', approvalSubmitForm.files.length);
+  if (approvalSubmitForm.files.length === 0) {
     ElMessage.error('请至少选择一个文件');
     return;
   }
@@ -1375,6 +1481,7 @@ const resetApprovalSubmitForm = () => {
   approvalSubmitForm.approvalTitle = '';
   approvalSubmitForm.approvalContent = '';
   approvalSubmitForm.remark = '';
+  approvalSubmitForm.files = [];
 
   // 清理文件
   uploadedFiles.value.forEach((file) => {
@@ -1399,7 +1506,7 @@ const submitDocumentForm = async () => {
     return;
   }
 
-  if (uploadedFiles.value.length === 0) {
+  if (documentForm.files.length === 0) {
     ElMessage.error('请至少选择一个文件');
     return;
   }
@@ -5858,6 +5965,7 @@ const checkPermissions = async () => {
               <FileUpload
                 ref="fileUploadRef"
                 v-model="workLogForm.files"
+                :model-value="[]"
                 :biz-type="'work_log'"
                 :biz-id="0"
                 accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
@@ -5986,25 +6094,18 @@ const checkPermissions = async () => {
               />
             </ElFormItem>
             <ElFormItem label="附件">
-              <ElUpload
-                v-model:file-list="announcementData.attachments"
-                :http-request="customUpload"
-                :on-remove="handleAttachmentRemove"
-                :before-upload="handleAnnouncementFileBeforeUpload"
-                multiple
-                :limit="10"
-              >
-                <ElButton type="primary" size="small">
-                  <Icon icon="lucide:upload" class="mr-1" />
-                  上传附件
-                </ElButton>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    支持上传 doc、docx、pdf、txt、jpg、jpeg、png、gif
-                    格式文件，单个文件不超过 50MB
-                  </div>
-                </template>
-              </ElUpload>
+              <FileUpload
+                v-model="announcementData.attachments"
+                :model-value="[]"
+                :biz-type="'announcement'"
+                :biz-id="0"
+                accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"
+                :max-size="50 * 1024 * 1024"
+                :multiple="true"
+                title="公告附件"
+                :disabled="false"
+                :local-mode="true"
+              />
             </ElFormItem>
           </div>
           <template #footer>
@@ -6687,61 +6788,18 @@ const checkPermissions = async () => {
                 <ElDivider content-position="left">文书附件</ElDivider>
 
                 <ElFormItem label="上传文书">
-                  <div class="file-upload-container">
-                    <input
-                      ref="fileInput"
-                      type="file"
-                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
-                      class="file-input"
-                      multiple
-                      @change="handleFileChange"
-                    />
-                    <ElButton
-                      type="primary"
-                      @click="fileInput?.click()"
-                      :loading="fileUploadLoading"
-                    >
-                      <Icon icon="lucide:upload" class="mr-1" />
-                      选择文件
-                    </ElButton>
-                    <span class="ml-2 text-sm text-gray-500">
-                      支持上传多个文件，单个文件不超过50MB，最多10个文件
-                    </span>
-                  </div>
-
-                  <div v-if="uploadedFiles.length > 0" class="mt-3">
-                    <ElTable :data="uploadedFiles" style="width: 100%">
-                      <ElTableColumn prop="name" label="文件名称" />
-                      <ElTableColumn prop="size" label="文件大小" width="120">
-                        <template #default="scope">
-                          {{
-                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
-                              2,
-                            )
-                          }}
-                          MB
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn label="操作" width="150">
-                        <template #default="scope">
-                          <ElButton
-                            type="primary"
-                            size="small"
-                            @click="downloadFile(scope.row)"
-                          >
-                            下载
-                          </ElButton>
-                          <ElButton
-                            type="danger"
-                            size="small"
-                            @click="removeFile(scope.$index)"
-                          >
-                            删除
-                          </ElButton>
-                        </template>
-                      </ElTableColumn>
-                    </ElTable>
-                  </div>
+                  <FileUpload
+                    :model-value="[]"
+                    :biz-type="'document'"
+                    :biz-id="0"
+                    accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                    :max-size="50 * 1024 * 1024"
+                    :multiple="true"
+                    title="文书附件"
+                    :disabled="false"
+                    :local-mode="true"
+                    @local-files-change="(files) => { console.log('documentForm files changed:', files); documentForm.files = files }"
+                  />
                 </ElFormItem>
 
                 <ElFormItem>
@@ -6925,61 +6983,19 @@ const checkPermissions = async () => {
                 <ElDivider content-position="left">文书附件</ElDivider>
 
                 <ElFormItem label="上传文书">
-                  <div class="file-upload-container">
-                    <input
-                      ref="fileInput"
-                      type="file"
-                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
-                      class="file-input"
-                      multiple
-                      @change="handleFileChange"
-                    />
-                    <ElButton
-                      type="primary"
-                      @click="fileInput?.click()"
-                      :loading="fileUploadLoading"
-                    >
-                      <Icon icon="lucide:upload" class="mr-1" />
-                      选择文件
-                    </ElButton>
-                    <span class="ml-2 text-sm text-gray-500">
-                      支持上传多个文件，单个文件不超过50MB，最多10个文件
-                    </span>
-                  </div>
-
-                  <div v-if="uploadedFiles.length > 0" class="mt-3">
-                    <ElTable :data="uploadedFiles" style="width: 100%">
-                      <ElTableColumn prop="name" label="文件名称" />
-                      <ElTableColumn prop="size" label="文件大小" width="120">
-                        <template #default="scope">
-                          {{
-                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
-                              2,
-                            )
-                          }}
-                          MB
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn label="操作" width="150">
-                        <template #default="scope">
-                          <ElButton
-                            type="primary"
-                            size="small"
-                            @click="downloadFile(scope.row)"
-                          >
-                            下载
-                          </ElButton>
-                          <ElButton
-                            type="danger"
-                            size="small"
-                            @click="removeFile(scope.$index)"
-                          >
-                            删除
-                          </ElButton>
-                        </template>
-                      </ElTableColumn>
-                    </ElTable>
-                  </div>
+                  <FileUpload
+                    v-model="directUploadForm.files"
+                    :model-value="[]"
+                    :biz-type="'document'"
+                    :biz-id="0"
+                    accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                    :max-size="50 * 1024 * 1024"
+                    :multiple="true"
+                    title="文书附件"
+                    :disabled="false"
+                    :local-mode="true"
+                    @local-files-change="(files) => { directUploadForm.files = files }"
+                  />
                 </ElFormItem>
 
                 <ElFormItem>
@@ -7185,61 +7201,18 @@ const checkPermissions = async () => {
                 <ElDivider content-position="left">文书附件</ElDivider>
 
                 <ElFormItem label="上传文书">
-                  <div class="file-upload-container">
-                    <input
-                      ref="fileInput"
-                      type="file"
-                      accept=".doc,.docx,.pdf,.jpg,.png,.xls,.xlsx"
-                      class="file-input"
-                      multiple
-                      @change="handleFileChange"
-                    />
-                    <ElButton
-                      type="primary"
-                      @click="fileInput?.click()"
-                      :loading="fileUploadLoading"
-                    >
-                      <Icon icon="lucide:upload" class="mr-1" />
-                      选择文件
-                    </ElButton>
-                    <span class="ml-2 text-sm text-gray-500">
-                      支持上传多个文件，单个文件不超过50MB，最多10个文件
-                    </span>
-                  </div>
-
-                  <div v-if="uploadedFiles.length > 0" class="mt-3">
-                    <ElTable :data="uploadedFiles" style="width: 100%">
-                      <ElTableColumn prop="name" label="文件名称" />
-                      <ElTableColumn prop="size" label="文件大小" width="120">
-                        <template #default="scope">
-                          {{
-                            ((scope.row.file?.size || 0) / 1024 / 1024).toFixed(
-                              2,
-                            )
-                          }}
-                          MB
-                        </template>
-                      </ElTableColumn>
-                      <ElTableColumn label="操作" width="150">
-                        <template #default="scope">
-                          <ElButton
-                            type="primary"
-                            size="small"
-                            @click="downloadFile(scope.row)"
-                          >
-                            下载
-                          </ElButton>
-                          <ElButton
-                            type="danger"
-                            size="small"
-                            @click="removeFile(scope.$index)"
-                          >
-                            删除
-                          </ElButton>
-                        </template>
-                      </ElTableColumn>
-                    </ElTable>
-                  </div>
+                  <FileUpload
+                    :model-value="[]"
+                    :biz-type="'document'"
+                    :biz-id="0"
+                    accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                    :max-size="50 * 1024 * 1024"
+                    :multiple="true"
+                    title="文书附件"
+                    :disabled="false"
+                    :local-mode="true"
+                    @local-files-change="(files) => { console.log('approvalSubmitForm files changed:', files); approvalSubmitForm.files = files }"
+                  />
                 </ElFormItem>
 
                 <ElFormItem>

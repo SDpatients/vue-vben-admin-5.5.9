@@ -91,12 +91,7 @@ export async function uploadFileApi(
 
   return fileUploadRequestClient.post<FileApi.UploadResponse>(
     '/api/v1/file/upload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
+    formData
   );
 }
 

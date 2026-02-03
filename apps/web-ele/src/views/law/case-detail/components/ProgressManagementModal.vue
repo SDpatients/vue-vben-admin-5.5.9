@@ -36,49 +36,51 @@ const dialogVisible = computed({
 const progressStages = ref<StageOption[]>([
   {
     id: 1,
-    name: '一、申请与受理',
+    name: '一、破产申请与受理',
     description:
-      '包括提交破产申请材料、法院立案审查、破产原因实质审查、同步选任管理人和裁定受理并公告',
+      '本阶段是破产程序的启动阶段，主要包括：1. 申请人向法院提交破产申请书及相关证据材料；2. 法院进行立案形式审查，确认申请材料是否齐全、申请人是否具备主体资格等；3. 法院对债务人是否具备破产原因进行实质审查；4. 法院同步选任管理人，负责后续破产程序的推进；5. 法院裁定受理破产申请并发布公告，通知相关各方。',
     progressValue: 'FIRST',
   },
   {
     id: 2,
-    name: '二、管理人履职与财产接管',
+    name: '二、接管与调查',
     description:
-      '包括全面接管债务人、调查财产及经营状况、决定合同继续履行或解除、追收债务人财产',
+      '本阶段是管理人全面介入的关键阶段，主要包括：1. 管理人全面接管债务人的财产、印章、账簿、文书等资料，确保破产程序的顺利进行；2. 管理人对债务人的财产状况、经营状况等进行深入调查，编制财产状况报告和经营状况报告；3. 管理人根据实际情况决定债务人未履行完毕合同的继续履行或解除；4. 管理人积极追收债务人的财产，包括到期债权、出资人未缴出资、抽逃出资等，最大限度保护债权人利益。',
     progressValue: 'SECOND',
   },
   {
     id: 3,
     name: '三、债权申报与核查',
     description:
-      '包括通知已知债权人并公告、接收登记债权申报、审查申报债权并编制债权表',
+      '本阶段是保障债权人合法权益的重要环节，主要包括：1. 管理人通知已知债权人申报债权，并在指定媒体发布债权申报公告，明确申报期限、地点、方式等信息；2. 管理人接收债权人的债权申报材料并进行登记，确保申报信息的准确完整；3. 管理人对申报的债权进行审查，核实债权的真实性、合法性和有效性，并编制债权表，为后续的债权核查和清偿做准备。',
     progressValue: 'THIRD',
   },
   {
     id: 4,
     name: '四、债权人会议',
     description:
-      '包括筹备第一次债权人会议、召开会议核查债权与议决事项、表决通过财产变价/分配方案',
+      '本阶段是债权人行使权利、参与破产程序的重要平台，主要包括：1. 管理人筹备第一次债权人会议，准备会议议程、会议材料等；2. 召开债权人会议，核查债权并议决相关事项，确保债权人充分了解破产案件情况；3. 债权人会议表决通过财产变价方案和分配方案，为后续的财产处置和分配奠定基础。',
     progressValue: 'FOURTH',
   },
   {
     id: 5,
     name: '五、破产宣告',
-    description: '包括审查宣告破产条件、裁定宣告债务人破产',
+    description:
+      '本阶段是破产程序的重要转折点，主要包括：1. 法院审查债务人是否符合宣告破产的条件，即债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形，且无法达成和解或重整协议；2. 法院裁定宣告债务人破产，并发布破产宣告公告，正式启动破产清算程序。',
     progressValue: 'FIFTH',
   },
   {
     id: 6,
     name: '六、财产变价与分配',
-    description: '包括拟定并执行财产变价方案、执行破产财产分配',
+    description:
+      '本阶段是实现债权人利益的核心阶段，主要包括：1. 管理人拟定财产变价方案，经债权人会议表决通过后执行，通过拍卖、变卖等方式将债务人财产转化为货币形式；2. 管理人审核确认破产费用和共益债务，确保破产程序的顺利进行；3. 管理人执行破产财产分配方案，按照法定顺序对债权人进行清偿，最大限度实现债权人的合法权益。',
     progressValue: 'SIXTH',
   },
   {
     id: 7,
-    name: '七、程序终结',
+    name: '七、程序终结与注销',
     description:
-      '包括提请终结破产程序、法院裁定并公告、办理企业注销登记、管理人终止执行职务并归档',
+      '本阶段是破产程序的收尾阶段，主要包括：1. 管理人提请法院终结破产程序，提交破产财产分配报告和管理人工作报告；2. 法院裁定终结破产程序并公告，标志着破产程序的正式结束；3. 管理人办理债务人企业注销登记，完成企业法人资格的终止；4. 管理人终止执行职务并将相关资料归档，确保破产案件的完整记录。',
     progressValue: 'SEVENTH',
   },
 ]);
@@ -86,6 +88,11 @@ const progressStages = ref<StageOption[]>([
 // 当前选择的阶段ID
 const selectedStageId = ref(2); // 默认阶段二
 const loading = ref(false);
+
+// 当前选择的阶段信息
+const currentStage = computed(() => {
+  return progressStages.value.find(stage => stage.id === selectedStageId.value) || progressStages.value[0];
+});
 
 // 自定义API请求函数，使用正确的端点和参数格式
 const updateCaseProgressApi = async (
@@ -156,7 +163,7 @@ const closeDialog = () => {
   <ElDialog
     v-model="dialogVisible"
     title="进度管理"
-    width="500px"
+    width="700px"
     :close-on-click-modal="false"
     class="progress-management-dialog"
   >
@@ -165,6 +172,12 @@ const closeDialog = () => {
         <div class="stage-header">
           <Icon icon="lucide:layers" class="stage-icon" />
           <span class="stage-label">选择案件阶段</span>
+        </div>
+
+        <!-- 当前阶段详细描述 -->
+        <div class="stage-description-section" v-if="currentStage">
+          <div class="stage-name">{{ currentStage.name }}</div>
+          <div class="stage-description">{{ currentStage.description }}</div>
         </div>
 
         <!-- 进度跳转选择器 -->
@@ -209,20 +222,22 @@ const closeDialog = () => {
 
 <style scoped>
 .progress-content {
-  padding: 10px 0;
+  padding: 0;
 }
 
 .current-stage-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffffff;
   border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  color: white;
+  padding: 24px;
+  margin-bottom: 0;
+  color: #343a40;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* 进度跳转样式 */
 .progress-jump-section {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .stage-selector {
@@ -230,53 +245,75 @@ const closeDialog = () => {
 }
 
 :deep(.stage-selector .el-select__input) {
-  color: white;
+  color: #343a40;
 }
 
 :deep(.stage-selector .el-select__caret) {
-  color: white;
+  color: #6c757d;
 }
 
 :deep(.stage-selector .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  color: #343a40;
+  transition: all 0.3s ease;
 }
 
 :deep(.stage-selector .el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: #adb5bd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 :deep(.stage-selector .el-input__wrapper.is-focus) {
-  border-color: white;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  border-color: #495057;
+  box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.1);
 }
 
 :deep(.stage-selector .el-select-dropdown) {
   background: white;
-  color: #2c3e50;
+  color: #343a40;
+  max-height: 400px;
+  max-width: 650px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(.stage-selector .el-select-dropdown__wrap) {
+  max-height: 380px;
 }
 
 :deep(.stage-selector .el-option) {
   padding: 12px 16px;
+  border-bottom: 1px solid #f1f3f4;
+  transition: all 0.2s ease;
+}
+
+:deep(.stage-selector .el-option:hover) {
+  background-color: #f8f9fa;
+}
+
+:deep(.stage-selector .el-option:last-child) {
+  border-bottom: none;
 }
 
 .option-content {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .option-title {
   font-weight: 600;
   font-size: 14px;
-  color: #2c3e50;
-  margin-bottom: 4px;
+  color: #343a40;
 }
 
 .option-description {
-  font-size: 12px;
+  font-size: 13px;
   color: #6c757d;
-  line-height: 1.4;
+  line-height: 1.5;
+  max-width: 600px;
 }
 
 /* 对话框底部按钮样式 */
@@ -286,27 +323,75 @@ const closeDialog = () => {
   gap: 12px;
 }
 
+:deep(.progress-management-dialog .el-button) {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+:deep(.progress-management-dialog .el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.progress-management-dialog .el-button--primary) {
+  background-color: #495057;
+  border-color: #495057;
+}
+
+:deep(.progress-management-dialog .el-button--primary:hover) {
+  background-color: #343a40;
+  border-color: #343a40;
+}
+
 .stage-header {
   display: flex;
   align-items: center;
   margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #dee2e6;
 }
 
 .stage-icon {
   font-size: 20px;
   margin-right: 8px;
+  color: #495057;
 }
 
 .stage-label {
-  font-size: 14px;
-  opacity: 0.9;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
+  color: #343a40;
+  opacity: 1;
 }
 
 .stage-name {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.5;
+  color: #343a40;
+  margin-bottom: 8px;
+}
+
+.stage-description-section {
+  margin: 16px 0;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  border-left: 4px solid #495057;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.stage-description-section:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stage-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #495057;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 :deep(.progress-management-dialog .el-dialog__header) {
@@ -325,7 +410,26 @@ const closeDialog = () => {
 }
 
 :deep(.progress-management-dialog .el-dialog__footer) {
-  padding: 16px 24px;
+  padding: 20px 24px;
   border-top: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+}
+
+:deep(.progress-management-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+:deep(.progress-management-dialog .el-dialog__header) {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 20px 24px;
+}
+
+:deep(.progress-management-dialog .el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #343a40;
 }
 </style>

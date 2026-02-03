@@ -10,6 +10,9 @@ import '@vben/styles/ele';
 import { useTitle } from '@vueuse/core';
 import ElementPlus, { ElLoading } from 'element-plus';
 
+// 全局被动事件监听器已禁用，以避免在键盘事件中调用 preventDefault() 时出现错误
+// import 'default-passive-events';
+
 import { $t, setupI18n } from '#/locales';
 
 import { initComponentAdapter } from './adapter/component';

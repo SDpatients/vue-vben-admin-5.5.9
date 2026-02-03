@@ -48,8 +48,16 @@ const uploadFile = async (file: File) => {
     formData.append('bizType', bizType.value);
     formData.append('bizId', bizId.value);
 
+    // 获取localStorage中的token
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = token;
+    }
+
     const response = await fetch('/api/v1/file/upload', {
       method: 'POST',
+      headers,
       body: formData,
     });
 
@@ -78,8 +86,16 @@ const loadFileList = async () => {
       bizId: bizId.value,
     });
 
+    // 获取localStorage中的token
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = token;
+    }
+
     const response = await fetch(`/api/v1/file/list?${params}`, {
       method: 'GET',
+      headers,
     });
 
     const result = await response.json();
@@ -105,6 +121,12 @@ const downloadFile = (fileId: number, fileName: string) => {
   xhr.open('GET', downloadUrl, true);
   xhr.responseType = 'blob';
   
+  // 添加Authorization头
+  const token = localStorage.getItem('token');
+  if (token) {
+    xhr.setRequestHeader('Authorization', token);
+  }
+  
   xhr.onload = function() {
     if (xhr.status === 200) {
       const blob = xhr.response;
@@ -126,8 +148,16 @@ const deleteFile = async (fileId: number, fileName: string) => {
   }
 
   try {
+    // 获取localStorage中的token
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = token;
+    }
+
     const response = await fetch(`/api/v1/file/${fileId}`, {
       method: 'DELETE',
+      headers,
     });
 
     const result = await response.json();
@@ -159,10 +189,18 @@ const renameFile = async () => {
     const formData = new FormData();
     formData.append('newFileName', newFileName.value);
 
+    // 获取localStorage中的token
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = token;
+    }
+
     const response = await fetch(
       `/api/v1/file/${currentRenameFile.value.id}/rename`,
       {
         method: 'PUT',
+        headers,
         body: formData,
       }
     );
@@ -219,12 +257,22 @@ onMounted(async () => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
   isWeChatBrowser.value = /MicroMessenger/i.test(userAgent);
   
-  // 检查URL参数，获取业务类型和业务ID
+  // 检查URL参数，获取业务类型、业务ID和token
   const urlParams = new URLSearchParams(window.location.search);
   const urlBizType = urlParams.get('bizType');
   const urlBizId = urlParams.get('bizId');
+  const urlToken = urlParams.get('token');
+  
   if (urlBizType) bizType.value = urlBizType;
   if (urlBizId) bizId.value = urlBizId;
+  
+  // 如果URL中有token参数，保存到localStorage
+  if (urlToken) {
+    // 确保token格式正确（包含Bearer前缀）
+    const formattedToken = urlToken.startsWith('Bearer ') ? urlToken : `Bearer ${urlToken}`;
+    localStorage.setItem('token', formattedToken);
+    console.log('Token saved to localStorage:', formattedToken);
+  }
   
   if (isWeChatBrowser.value) {
     // 微信浏览器中，显示特殊提示

@@ -707,6 +707,9 @@ importers:
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19
+      default-passive-events:
+        specifier: ^4.0.0
+        version: 4.0.0
       echarts:
         specifier: 'catalog:'
         version: 5.6.0
@@ -5538,6 +5541,9 @@ packages:
   default-browser@5.4.0:
     resolution: {integrity: sha512-XDuvSq38Hr1MdN47EDvYtx3U0MTqpCEn+F6ft8z2vYDzMrvQhVp0ui9oQdqW3MvK3vqUETglt1tVGgjLuJ5izg==}
     engines: {node: '>=18'}
+
+  default-passive-events@4.0.0:
+    resolution: {integrity: sha512-0whk/GqfDOjc0AJIpacXUSqX6kV9TjL3GFSXIxFvuXQYcK+bEdJ6rpJnAEfP4YYMYWibM+jhlwmdlVrlifoepg==}
 
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
@@ -14495,6 +14501,8 @@ snapshots:
     dependencies:
       bundle-name: 4.1.0
       default-browser-id: 5.0.1
+
+  default-passive-events@4.0.0: {}
 
   define-data-property@1.1.4:
     dependencies:

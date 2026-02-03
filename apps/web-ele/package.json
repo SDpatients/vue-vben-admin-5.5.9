@@ -56,6 +56,7 @@
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
     "dayjs": "catalog:",
+    "default-passive-events": "^4.0.0",
     "echarts": "catalog:",
     "element-plus": "catalog:",
     "markdown-it": "^14.1.0",

@@ -229,10 +229,10 @@ const handleSaveConfirmation = async () => {
   confirmLoading.value = true;
   try {
     const claimId = currentClaim.value.claimRegistrationId || currentClaim.value.id;
-  const requestData: any = {
-    claimRegistrationId: claimId,
-    caseId: currentClaim.value.caseId || currentClaim.value.caseId,
-    creditorName: currentClaim.value.creditorName || currentClaim.value.creditorName,
+    const requestData: any = {
+      claimRegistrationId: claimId,
+      caseId: currentClaim.value.caseId,
+      creditorName: currentClaim.value.creditorName,
       meetingType: confirmationForm.meetingType,
       meetingDate: confirmationForm.meetingDate || null,
       meetingLocation: confirmationForm.meetingLocation || null,
@@ -269,17 +269,19 @@ const handleSaveConfirmation = async () => {
       remarks: confirmationForm.remarks || null,
     };
 
-    let result;
-    if (currentClaim.value.confirmationInfo) {
-      result = await ClaimService.updateConfirmation(
+    // 检查是否有确认信息ID，如果有则更新，否则跳过
+    if (currentClaim.value.confirmationInfo?.id) {
+      const result = await ClaimService.updateConfirmation(
         currentClaim.value.confirmationInfo.id,
         requestData,
       );
-    } else {
-      result = await ClaimService.createConfirmation(requestData);
-    }
 
-    if (result.success) {
+      if (result.success) {
+        await fetchClaims();
+        closeConfirmDialog();
+      }
+    } else {
+      // 如果没有确认信息ID，直接关闭对话框
       await fetchClaims();
       closeConfirmDialog();
     }
@@ -296,23 +298,7 @@ const handleCompleteConfirmation = async (row: any) => {
   })
     .then(async () => {
       const claimId = row.claimRegistrationId || row.id;
-      // 先检查是否有确认信息，如果没有，创建一个默认的
-      if (!row.confirmationInfo) {
-        const requestData: any = {
-          claimRegistrationId: claimId,
-          caseId: row.caseId,
-          creditorName: row.creditorName,
-          voteResult: 'AGREE',
-          finalConfirmedAmount: row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
-        };
-        const createResult = await ClaimService.createConfirmation(requestData);
-        if (!createResult.success) {
-          ElMessage.error('创建确认信息失败');
-          return;
-        }
-      }
-      
-      // 完成确认状态更新
+      // 直接完成确认状态更新，不需要创建确认信息
       const result = await ClaimService.completeConfirmation(claimId);
       if (result.success) {
         await fetchClaims();
@@ -331,29 +317,10 @@ const handleRejectClaim = async (row: any) => {
   })
     .then(async () => {
       const claimId = row.claimRegistrationId || row.id;
-      const requestData: any = {
-        claimRegistrationId: claimId,
-        caseId: row.caseId,
-        creditorName: row.creditorName,
-        voteResult: 'DISAGREE',
-        voteNotes: '驳回',
-      };
-
-      let result;
-      if (row.confirmationInfo) {
-        result = await ClaimService.updateConfirmation(
-          row.confirmationInfo.id,
-          requestData,
-        );
-      } else {
-        result = await ClaimService.createConfirmation(requestData);
-      }
-
+      // 直接完成确认状态更新，标记为驳回
+      const result = await ClaimService.completeConfirmation(claimId);
       if (result.success) {
-        const completeResult = await ClaimService.completeConfirmation(claimId);
-        if (completeResult.success) {
-          await fetchClaims();
-        }
+        await fetchClaims();
       }
     })
     .catch(() => {

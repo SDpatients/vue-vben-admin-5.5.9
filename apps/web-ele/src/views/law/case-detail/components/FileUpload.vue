@@ -288,7 +288,16 @@ const openMobileUploadDialog = async () => {
     console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
   }
 
-  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${props.bizType}&bizId=${props.bizId}&sessionId=${uploadSessionId}`;
+  // 获取localStorage中的token
+  const token = localStorage.getItem('token');
+  let tokenParam = '';
+  if (token) {
+    // 提取token值（去掉Bearer前缀）
+    const tokenValue = token.startsWith('Bearer ') ? token.substring(7) : token;
+    tokenParam = `&token=${encodeURIComponent(tokenValue)}`;
+  }
+
+  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${props.bizType}&bizId=${props.bizId}&sessionId=${uploadSessionId}${tokenParam}`;
   console.log(`生成的二维码URL: ${mobileUploadUrl}`);
 
   qrCodeUrl.value = mobileUploadUrl;

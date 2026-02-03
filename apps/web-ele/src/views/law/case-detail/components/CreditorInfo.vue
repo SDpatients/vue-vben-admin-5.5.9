@@ -15,7 +15,13 @@ import {
   ElTable,
   ElTableColumn,
   ElTag,
+  ElSelect,
+  ElOption,
+  ElUpload,
+  ElResult,
 } from 'element-plus';
+import { UploadFilled } from '@element-plus/icons-vue';
+import type { UploadFile, UploadInstance } from 'element-plus';
 
 import {
   createCreditorApi,
@@ -474,6 +480,122 @@ const handleExport = () => {
   }
 };
 
+// 导入功能相关
+const importDialogVisible = ref(false);
+const importLoading = ref(false);
+const selectedFile = ref<File | null>(null);
+const uploadRef = ref<UploadInstance>();
+const selectedTemplateForImport = ref('');
+const importResultVisible = ref(false);
+const importResult = ref<{
+  successCount: number;
+  failCount: number;
+  totalCount: number;
+  message: string;
+  errors: Array<{
+    row: number;
+    message: string;
+    data: string;
+  }>;
+  templateCode: string;
+  caseId?: number;
+} | null>(null);
+
+// 模板列表
+const templates = ref<any[]>([]);
+const loadTemplates = async () => {
+  try {
+    const { excelTemplatesApi } = await import('#/api/core/excel-templates');
+    const response = await excelTemplatesApi.getTemplates();
+    if (response.code === 200) {
+      templates.value = response.data || [];
+      // 自动选择债权人相关的模板
+      const creditorTemplate = templates.value.find(template => 
+        template.templateName.includes('债权人') || 
+        template.templateCode.includes('creditor')
+      );
+      if (creditorTemplate) {
+        selectedTemplateForImport.value = creditorTemplate.templateCode;
+      }
+    }
+  } catch (error) {
+    console.error('加载模板失败:', error);
+  }
+};
+
+// 打开导入对话框
+const handleOpenImportDialog = async () => {
+  await loadTemplates();
+  importDialogVisible.value = true;
+};
+
+// 关闭导入对话框
+const handleCloseImportDialog = () => {
+  importDialogVisible.value = false;
+  selectedFile.value = null;
+  uploadRef.value?.clearFiles();
+  selectedTemplateForImport.value = '';
+};
+
+// 文件选择变化
+const handleFileChange = (uploadFile: UploadFile) => {
+  if (uploadFile.raw) {
+    selectedFile.value = uploadFile.raw;
+  }
+};
+
+// 文件移除
+const handleFileRemove = () => {
+  selectedFile.value = null;
+};
+
+// 导入Excel
+const handleImport = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择Excel文件');
+    return;
+  }
+
+  importLoading.value = true;
+  try {
+    const { excelTemplatesApi } = await import('#/api/core/excel-templates');
+    const response = await excelTemplatesApi.importExcel(
+      selectedFile.value,
+      selectedTemplateForImport.value || undefined,
+      props.caseId
+    );
+
+    if (response.code === 200) {
+      importResult.value = response.data;
+      importResultVisible.value = true;
+
+      // 清空文件选择
+      selectedFile.value = null;
+      uploadRef.value?.clearFiles();
+
+      if (response.data.failCount === 0) {
+        ElMessage.success(`成功导入 ${response.data.successCount} 条数据`);
+      } else {
+        ElMessage.warning(`导入完成，成功 ${response.data.successCount} 条，失败 ${response.data.failCount} 条`);
+      }
+    } else {
+      ElMessage.error(response.message || '导入失败');
+    }
+  } catch (error) {
+    console.error('导入失败:', error);
+    ElMessage.error('导入失败，请检查文件格式');
+  } finally {
+    importLoading.value = false;
+  }
+};
+
+// 关闭导入结果对话框
+const handleCloseImportResultDialog = () => {
+  importResultVisible.value = false;
+  importResult.value = null;
+  fetchCreditors(); // 刷新列表
+};
+
 const getCreditorTypeTag = (type: string) => {
   const typeMap: Record<string, any> = {
     金融机构: { type: 'success' },
@@ -559,6 +681,10 @@ onMounted(() => {
             <ElButton type="warning" @click="handleExport">
               <Icon icon="lucide:download" class="mr-1" />
               导出
+            </ElButton>
+            <ElButton type="info" @click="handleOpenImportDialog">
+              <Icon icon="lucide:upload" class="mr-1" />
+              导入
             </ElButton>
           </div>
         </div>
@@ -1137,6 +1263,101 @@ onMounted(() => {
         <span class="dialog-footer">
           <ElButton @click="showCreditorDetailDialog = false">关闭</ElButton>
         </span>
+      </template>
+    </ElDialog>
+
+    <!-- 导入数据对话框 -->
+    <ElDialog
+      v-model="importDialogVisible"
+      title="导入债权人数据"
+      width="600px"
+      :before-close="handleCloseImportDialog"
+    >
+      <div class="import-container">
+        <ElForm label-width="120px">
+          <ElFormItem label="导入模板">
+            <ElSelect
+              v-model="selectedTemplateForImport"
+              placeholder="选择导入使用的模板（可选）"
+              clearable
+              style="width: 100%"
+            >
+              <ElOption
+                v-for="template in templates"
+                :key="template.id"
+                :label="template.templateName"
+                :value="template.templateCode"
+              />
+            </ElSelect>
+          </ElFormItem>
+          
+          <ElFormItem label="Excel文件" required>
+            <ElUpload
+              ref="uploadRef"
+              action="#"
+              :auto-upload="false"
+              :show-file-list="true"
+              :limit="1"
+              accept=".xlsx,.xls"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+            >
+              <ElButton type="success" :icon="UploadFilled">
+                选择Excel文件
+              </ElButton>
+            </ElUpload>
+            <div class="text-xs text-gray-500 mt-1">
+              支持 .xlsx 和 .xls 格式
+            </div>
+          </ElFormItem>
+        </ElForm>
+      </div>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="handleCloseImportDialog">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleImport"
+            :loading="importLoading"
+            :disabled="!selectedFile"
+          >
+            开始导入
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 导入结果对话框 -->
+    <ElDialog
+      v-model="importResultVisible"
+      title="导入结果"
+      width="600px"
+    >
+      <div v-if="importResult" class="import-result">
+        <ElResult
+          :icon="importResult.failCount > 0 ? 'warning' : 'success'"
+          :title="importResult.failCount > 0 ? '部分导入成功' : '导入成功'"
+        >
+          <template #sub-title>
+            <div class="result-stats">
+              <p>总记录数：<strong>{{ importResult.totalCount }}</strong></p>
+              <p>成功导入：<strong style="color: #67c23a">{{ importResult.successCount }}</strong></p>
+              <p>导入失败：<strong style="color: #f56c6c">{{ importResult.failCount }}</strong></p>
+            </div>
+            <div v-if="importResult.errors && importResult.errors.length > 0" class="error-list">
+              <p style="color: #f56c6c; margin-top: 10px">错误详情：</p>
+              <ElTable :data="importResult.errors" size="small" style="width: 100%; margin-top: 10px" max-height="200">
+                <ElTableColumn prop="row" label="行号" width="80" />
+                <ElTableColumn prop="message" label="错误信息" />
+              </ElTable>
+            </div>
+          </template>
+        </ElResult>
+      </div>
+      
+      <template #footer>
+        <ElButton @click="handleCloseImportResultDialog">确定</ElButton>
       </template>
     </ElDialog>
   </div>

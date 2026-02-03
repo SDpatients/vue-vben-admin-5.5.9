@@ -389,9 +389,20 @@ const fieldNameMapping = ref<Record<string, string>>({});
 // 加载系统字段
 const loadSystemFields = async () => {
   try {
+    console.log('🔍 开始加载系统字段...');
+    console.log('🔍 调用 API: excelTemplatesApi.getSystemFields()');
+    
+    // 先打印一下 api 对象是否存在
+    console.log('🔍 excelTemplatesApi 存在:', !!excelTemplatesApi);
+    console.log('🔍 getSystemFields 方法存在:', typeof excelTemplatesApi.getSystemFields === 'function');
+    
     const response = await excelTemplatesApi.getSystemFields();
+    console.log('🔍 API 响应:', response);
+    
     if (response.code === 200) {
+      console.log('🔍 系统字段数据:', response.data);
       systemFieldGroups.value = response.data || [];
+      console.log('🔍 系统字段分组:', systemFieldGroups.value);
 
       // 动态生成字段名称映射表
       const mapping: Record<string, string> = {};
@@ -403,10 +414,16 @@ const loadSystemFields = async () => {
         });
       });
       fieldNameMapping.value = mapping;
+      console.log('🔍 字段名称映射:', fieldNameMapping.value);
+    } else {
+      console.error('🔍 API 返回错误:', response.message);
+      message.error('加载系统字段失败: ' + response.message);
     }
-  } catch (error) {
-    console.error('加载系统字段失败:', error);
-    message.error('加载系统字段失败');
+  } catch (error: any) {
+    console.error('🔍 加载系统字段失败:', error);
+    console.error('🔍 错误信息:', error.message);
+    console.error('🔍 错误堆栈:', error.stack);
+    message.error('加载系统字段失败: ' + (error.message || '未知错误'));
   }
 };
 

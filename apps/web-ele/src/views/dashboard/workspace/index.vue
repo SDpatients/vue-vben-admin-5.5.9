@@ -3,6 +3,7 @@ import type { Todo } from '#/api/core/todo';
 
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '#/store';
 
 import { AnalysisChartCard, WorkbenchHeader } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
@@ -44,6 +45,7 @@ import { changePasswordApi } from '#/api/core/auth';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
 
 const userStore = useUserStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 // 从本地存储获取用户信息
@@ -1089,24 +1091,8 @@ const submitChangePassword = async () => {
 // 退出登录处理
 const handleLogout = async () => {
   try {
-    // 调用退出登录API
-    const response = await fetch('/api/v1/auth/logout', {
-      method: 'POST',
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      // 清除本地存储的用户信息
-      localStorage.removeItem('chat_user_info');
-      localStorage.removeItem('chat_user_id');
-      
-      // 跳转到登录页面
-      router.push('/auth/login');
-      
-      ElMessage.success('已退出登录');
-    } else {
-      ElMessage.error('退出登录失败');
-    }
+    // 调用authStore中的logout方法，确保在请求头中添加JWT令牌
+    await authStore.logout();
   } catch (error) {
     console.error('退出登录失败:', error);
     ElMessage.error('退出登录失败');
