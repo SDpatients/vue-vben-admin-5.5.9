@@ -308,4 +308,16 @@ export async function getReviewStatisticsApi(caseId: number) {
   return requestClient8085.get<ClaimReviewApi.ReviewStatisticsResponse>(`/claim-review/statistics/${caseId}`);
 }
 
+/**
+ * 驳回债权审查
+ * PUT /api/v1/claim-review/{reviewId}/reject
+ */
+export async function rejectClaimReviewApi(reviewId: number, rejectReason: string) {
+  return requestClient8085.put<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+}
+
 export type { ClaimReviewApi };

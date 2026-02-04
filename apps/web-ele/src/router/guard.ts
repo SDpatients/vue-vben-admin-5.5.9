@@ -63,13 +63,14 @@ function setupAccessGuard(router: Router) {
       return true;
     }
 
+    // 优先检查ignoreAccess，确保即使没有accessToken也能访问
+    if (to.meta.ignoreAccess) {
+      console.log('Route ignoreAccess is true for:', to.path);
+      return true;
+    }
+
     // accessToken 检查
     if (!accessStore.accessToken) {
-      // 明确声明忽略权限访问权限，则可以访问
-      if (to.meta.ignoreAccess) {
-        return true;
-      }
-
       // 没有访问权限，跳转登录页面
       if (to.fullPath !== LOGIN_PATH) {
         return {
@@ -145,33 +146,39 @@ function setupChatGuard(router: Router) {
   router.beforeEach(async (to) => {
     // 检查是否是聊天相关路由
     if (to.path.startsWith('/chat')) {
+      console.log('ChatGuard: Checking chat route:', to.path);
       // 检查本地存储中是否有登录信息
       const chatUserId = localStorage.getItem('chat_user_id');
       const chatLogintime = localStorage.getItem('chat_logintime');
       const chatUsername = localStorage.getItem('chat_username');
-
+      
+      console.log('ChatGuard: chatUserId:', chatUserId);
+      console.log('ChatGuard: chatLogintime:', chatLogintime);
+      console.log('ChatGuard: chatUsername:', chatUsername);
+      
       // 如果本地没有登录信息，尝试从后端获取
       if (!chatUserId || !chatLogintime) {
         if (!chatUsername) {
           // 如果没有用户名，跳转到登录页面
+          console.log('ChatGuard: No chat username, redirecting to login');
           return {
             path: LOGIN_PATH,
             query: { redirect: encodeURIComponent(to.fullPath) },
             replace: true,
           };
         }
-
         try {
           // 调用后端查询登录记录接口，使用从登录接口返回的token
           const token = localStorage.getItem('token');
           if (!token) {
+            console.log('ChatGuard: No token in localStorage, redirecting to login');
             return {
               path: LOGIN_PATH,
               query: { redirect: encodeURIComponent(to.fullPath) },
               replace: true,
             };
           }
-
+          
           const result = await selectLoginRecordApi(
             {
               username: chatUsername,
@@ -194,11 +201,13 @@ function setupChatGuard(router: Router) {
               localStorage.setItem('chat_user_id', latestRecord.userid);
               localStorage.setItem('chat_logintime', latestRecord.logintime);
             }
-
+            
+            console.log('ChatGuard: Chat user info loaded, allowing access');
             // 继续访问聊天页面
             return true;
           } else {
             // 后端也没有记录，跳转到登录页面
+            console.log('ChatGuard: No chat records, redirecting to login');
             return {
               path: LOGIN_PATH,
               query: { redirect: encodeURIComponent(to.fullPath) },
@@ -215,8 +224,13 @@ function setupChatGuard(router: Router) {
           };
         }
       }
+      
+      console.log('ChatGuard: Chat user exists, allowing access');
+      // 不是聊天相关路由，直接通过
+      return true;
     }
-
+    
+    console.log('ChatGuard: Not a chat route, allowing access:', to.path);
     // 不是聊天相关路由，直接通过
     return true;
   });

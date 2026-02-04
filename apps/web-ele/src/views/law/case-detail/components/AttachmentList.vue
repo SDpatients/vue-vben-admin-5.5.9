@@ -322,7 +322,16 @@ const openMobileUploadDialog = async () => {
     console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
   }
 
-  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=case&bizId=${props.caseId}&caseId=${props.caseId}&sessionId=${uploadSessionId}`;
+  // 获取localStorage中的token
+  const token = localStorage.getItem('token');
+  let tokenParam = '';
+  if (token) {
+    // 提取token值（去掉Bearer前缀）
+    const tokenValue = token.startsWith('Bearer ') ? token.substring(7) : token;
+    tokenParam = `&token=${encodeURIComponent(tokenValue)}`;
+  }
+
+  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=case&bizId=${props.caseId}&caseId=${props.caseId}&sessionId=${uploadSessionId}${tokenParam}`;
   console.log(`生成的二维码URL: ${mobileUploadUrl}`);
 
   qrCodeUrl.value = mobileUploadUrl;
@@ -453,13 +462,8 @@ const handleRefresh = async () => {
           {{ formatDate(scope.row.uploadTime) }}
         </template>
       </ElTableColumn>
-      <ElTableColumn prop="status" label="状态" width="100">
-        <template #default="scope">
-          <ElTag :type="scope.row.status === 'ACTIVE' ? 'success' : 'info'">
-            {{ scope.row.status === 'ACTIVE' ? '有效' : '无效' }}
-          </ElTag>
-        </template>
-      </ElTableColumn>
+      <ElTableColumn prop="uploadUserName" label="上传人" width="120" />
+
       <ElTableColumn label="操作" width="200" fixed="right">
         <template #default="scope">
           <span

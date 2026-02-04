@@ -56,6 +56,13 @@ export const useAuthStore = defineStore('auth', () => {
 
         accessStore.setAccessToken(backendUserInfo.accessToken);
         accessStore.setRefreshToken(backendUserInfo.refreshToken);
+        
+        // 直接存储token到localStorage，确保在微信浏览器中也能正常工作
+        localStorage.setItem('token', backendUserInfo.accessToken);
+        localStorage.setItem('refreshToken', backendUserInfo.refreshToken);
+        
+        console.log('Token stored in localStorage:', backendUserInfo.accessToken.substring(0, 30) + '...');
+        console.log('Refresh token stored in localStorage:', backendUserInfo.refreshToken.substring(0, 30) + '...');
 
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);
@@ -63,8 +70,17 @@ export const useAuthStore = defineStore('auth', () => {
           if (onSuccess) {
             await onSuccess?.();
           } else {
-            const targetPath =
+            // 检查URL中是否有redirect参数
+            const currentRoute = router.currentRoute.value;
+            const redirectPath = currentRoute.query.redirect as string;
+            
+            console.log('Login redirect path:', redirectPath);
+            
+            const targetPath = 
+              redirectPath ? decodeURIComponent(redirectPath) : 
               userInfo.homePath || preferences.app.defaultHomePath;
+            
+            console.log('Final target path:', targetPath);
             await router.push(targetPath);
           }
         }

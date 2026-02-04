@@ -764,6 +764,18 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         style="cursor: pointer"
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
+        <ElTableColumn prop="status" label="状态" width="120" align="center">
+          <template #default="scope">
+            <ElTag
+              :type="scope.row.status === 'CONFIRMED' ? 'success' : 'warning'"
+              size="small"
+            >
+              {{ 
+                scope.row.status === 'CONFIRMED' ? '确认债权人' : '已知债权人'
+              }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
         <ElTableColumn
           prop="caseNumber"
           label="案号"
@@ -848,18 +860,6 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         >
           <template #default="scope">
             {{ formatDate(scope.row.createdTime) }}
-          </template>
-        </ElTableColumn>
-        <ElTableColumn prop="status" label="状态" width="120" align="center">
-          <template #default="scope">
-            <ElTag
-              :type="scope.row.status === 'CONFIRMED' ? 'success' : 'warning'"
-              size="small"
-            >
-              {{
-                scope.row.status === 'CONFIRMED' ? '确认债权人' : '已知债权人'
-              }}
-            </ElTag>
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="150" align="center" fixed="right">

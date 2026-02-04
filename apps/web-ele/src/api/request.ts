@@ -76,7 +76,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   }
 
   function formatToken(token: null | string) {
-    return token ? `Bearer ${token}` : null;
+    return token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : null;
   }
 
   // 请求头处理
@@ -85,7 +85,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers['Accept-Language'] = preferences.app.locale;
       const token = localStorage.getItem('token');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        // 确保不会重复添加Bearer前缀
+        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        config.headers.Authorization = formattedToken;
       }
       return config;
     },

@@ -115,12 +115,14 @@ const availableColumns = [
   '受理法院',
   '主要负责人',
   '承办人员',
+  '创建者',
   '创建时间',
   '修改者',
   '修改时间',
   '管理人',
   '是否简化审',
   '立案日期',
+  '受理日期',
   '文件上传',
   '备注',
   '案件状态',
@@ -132,12 +134,16 @@ const availableColumns = [
 
 // 默认显示的列（核心信息）
 const defaultColumns = new Set([
-  '创建时间',
-  '承办人员',
-  '案件名称',
-  '案件进度',
   '案号',
-  '管理人',
+  '案件名称',
+  '案件状态',
+  '案件进度',
+  '承办人员',
+  '主要负责人',
+  '受理法院',
+  '创建者',
+  '创建时间',
+  '受理日期',
 ]);
 
 // 检查列是否可见（用于表格列的 v-if）
@@ -153,7 +159,7 @@ const initColumnVisibility = () => {
 };
 
 // 格式化时间戳
-const formatTimestamp = (timestamp: number | undefined) => {
+const formatTimestamp = (timestamp: number | string | undefined) => {
   if (!timestamp) return '-';
   return new Date(timestamp).toLocaleString('zh-CN', {
     year: 'numeric',
@@ -237,6 +243,7 @@ const fetchCaseList = async () => {
           管理人: item.designatedInstitution,
           是否简化审: item.isSimplifiedTrial ? '是' : '否',
           承办人员: item.undertakingPersonnel,
+          创建者: item.creatorName,
           创建时间: item.createTime,
           修改时间: item.updateTime,
           案件状态: caseStatusMap[item.caseStatus] || item.caseStatus,
@@ -247,6 +254,7 @@ const fetchCaseList = async () => {
           审核意见: item.reviewOpinion,
           审核次数: item.reviewCount,
           立案日期: item.filingDate,
+          受理日期: item.acceptanceDate,
           债权申报截止日期: item.debtClaimDeadline,
           备注: item.remarks,
         };
@@ -587,44 +595,62 @@ const cancelDelete = () => {
                             <ElCheckbox value="案由" name="案由">
                               案由
                             </ElCheckbox>
-                            <ElCheckbox value="承办人" name="承办人">
-                              承办人
+                            <ElCheckbox value="案件名称" name="案件名称">
+                              案件名称
                             </ElCheckbox>
-                            <ElCheckbox value="法院" name="法院">
-                              法院
+                            <ElCheckbox value="案件状态" name="案件状态">
+                              案件状态
+                            </ElCheckbox>
+                            <ElCheckbox value="案件进度" name="案件进度">
+                              案件进度
+                            </ElCheckbox>
+                            <ElCheckbox value="案件来源" name="案件来源">
+                              案件来源
+                            </ElCheckbox>
+                            <ElCheckbox value="受理法院" name="受理法院">
+                              受理法院
+                            </ElCheckbox>
+                            <ElCheckbox value="主要负责人" name="主要负责人">
+                              主要负责人
+                            </ElCheckbox>
+                            <ElCheckbox value="承办人员" name="承办人员">
+                              承办人员
+                            </ElCheckbox>
+                            <ElCheckbox value="创建者" name="创建者">
+                              创建者
+                            </ElCheckbox>
+                            <ElCheckbox value="创建时间" name="创建时间">
+                              创建时间
+                            </ElCheckbox>
+                            <ElCheckbox value="修改时间" name="修改时间">
+                              修改时间
+                            </ElCheckbox>
+                            <ElCheckbox value="受理日期" name="受理日期">
+                              受理日期
+                            </ElCheckbox>
+                            <ElCheckbox value="立案日期" name="立案日期">
+                              立案日期
                             </ElCheckbox>
                             <ElCheckbox value="管理人" name="管理人">
                               管理人
                             </ElCheckbox>
-                            <ElCheckbox value="债权人数" name="债权人数">
-                              债权人数
+                            <ElCheckbox value="是否简化审" name="是否简化审">
+                              是否简化审
                             </ElCheckbox>
-                            <ElCheckbox value="债权总额" name="债权总额">
-                              债权总额
+                            <ElCheckbox value="审核状态" name="审核状态">
+                              审核状态
                             </ElCheckbox>
-                            <ElCheckbox value="财产金额" name="财产金额">
-                              财产金额
+                            <ElCheckbox value="审核时间" name="审核时间">
+                              审核时间
                             </ElCheckbox>
-                            <ElCheckbox value="财产比例" name="财产比例">
-                              财产比例
+                            <ElCheckbox value="审核意见" name="审核意见">
+                              审核意见
                             </ElCheckbox>
-                            <ElCheckbox value="会计账簿" name="会计账簿">
-                              会计账簿
+                            <ElCheckbox value="审核次数" name="审核次数">
+                              审核次数
                             </ElCheckbox>
-                            <ElCheckbox value="银行账户数" name="银行账户数">
-                              银行账户数
-                            </ElCheckbox>
-                            <ElCheckbox
-                              value="银行账户总余额"
-                              name="银行账户总余额"
-                            >
-                              账户余额
-                            </ElCheckbox>
-                            <ElCheckbox value="有效账户数" name="有效账户数">
-                              有效账户
-                            </ElCheckbox>
-                            <ElCheckbox value="案件进度" name="案件进度">
-                              案件进度
+                            <ElCheckbox value="备注" name="备注">
+                              备注
                             </ElCheckbox>
                           </div>
                         </ElCheckboxGroup>
@@ -686,14 +712,7 @@ const cancelDelete = () => {
               show-overflow-tooltip
             />
 
-            <!-- 案由 -->
-            <ElTableColumn
-              v-if="isColumnVisible('案由')"
-              prop="案由"
-              label="案由"
-              min-width="200"
-              show-overflow-tooltip
-            />
+
 
             <!-- 案件名称 -->
             <ElTableColumn
@@ -704,14 +723,20 @@ const cancelDelete = () => {
               show-overflow-tooltip
             />
 
-            <!-- 案件来源 -->
+            <!-- 案件状态 -->
             <ElTableColumn
-              v-if="isColumnVisible('案件来源')"
-              prop="案件来源"
-              label="案件来源"
-              min-width="150"
+              v-if="isColumnVisible('案件状态')"
+              prop="案件状态"
+              label="案件状态"
+              min-width="120"
               show-overflow-tooltip
-            />
+            >
+              <template #default="{ row }">
+                <ElTag :type="getCaseStatusType(row['案件状态'])" size="small">
+                  {{ row['案件状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
 
             <!-- 案件进度 -->
             <ElTableColumn
@@ -731,6 +756,15 @@ const cancelDelete = () => {
               </template>
             </ElTableColumn>
 
+            <!-- 案由 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案由')"
+              prop="案由"
+              label="案由"
+              min-width="200"
+              show-overflow-tooltip
+            />
+
             <!-- 受理法院 -->
             <ElTableColumn
               v-if="isColumnVisible('受理法院')"
@@ -749,6 +783,15 @@ const cancelDelete = () => {
               show-overflow-tooltip
             />
 
+            <!-- 承办人员 -->
+            <ElTableColumn
+              v-if="isColumnVisible('承办人员')"
+              prop="承办人员"
+              label="承办人员"
+              min-width="150"
+              show-overflow-tooltip
+            />
+
             <!-- 创建者 -->
             <ElTableColumn
               v-if="isColumnVisible('创建者')"
@@ -757,6 +800,19 @@ const cancelDelete = () => {
               min-width="120"
               show-overflow-tooltip
             />
+
+            <!-- 受理日期 -->
+            <ElTableColumn
+              v-if="isColumnVisible('受理日期')"
+              prop="受理日期"
+              label="受理日期"
+              min-width="120"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                {{ formatTimestamp(row['受理日期']) }}
+              </template>
+            </ElTableColumn>
 
             <!-- 创建时间 -->
             <ElTableColumn
@@ -770,6 +826,15 @@ const cancelDelete = () => {
                 {{ formatTimestamp(row['创建时间']) }}
               </template>
             </ElTableColumn>
+
+            <!-- 案件来源 -->
+            <ElTableColumn
+              v-if="isColumnVisible('案件来源')"
+              prop="案件来源"
+              label="案件来源"
+              min-width="150"
+              show-overflow-tooltip
+            />
 
             <!-- 修改者 -->
             <ElTableColumn
@@ -842,20 +907,7 @@ const cancelDelete = () => {
               show-overflow-tooltip
             />
 
-            <!-- 案件状态 -->
-            <ElTableColumn
-              v-if="isColumnVisible('案件状态')"
-              prop="案件状态"
-              label="案件状态"
-              min-width="120"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                <ElTag :type="getCaseStatusType(row['案件状态'])" size="small">
-                  {{ row['案件状态'] || '未设置' }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
+
 
             <!-- 审核状态 -->
             <ElTableColumn

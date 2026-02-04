@@ -175,6 +175,7 @@
       </div>
     </ElDialog>
 
+    <!-- Excel导入模板管理卡片 -->
     <ElCard style="margin-top: 20px">
       <template #header>
         <div class="card-header">
@@ -210,6 +211,73 @@
           </template>
         </ElTableColumn>
       </ElTable>
+    </ElCard>
+
+    <!-- 系统字段管理卡片 -->
+    <ElCard style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span>系统字段管理</span>
+          <div class="header-actions">
+            <ElInput
+              v-model="fieldSearchQuery"
+              placeholder="搜索字段（名称、值、分组）"
+              style="width: 300px; margin-right: 10px"
+              clearable
+              @input="handleSystemFieldSearch"
+            >
+              <template #prefix>
+                <ElIcon class="el-input__icon"><Search /></ElIcon>
+              </template>
+            </ElInput>
+            <ElSelect
+              v-model="selectedGroup"
+              placeholder="按分组筛选"
+              style="width: 150px; margin-right: 10px"
+              clearable
+              @change="handleGroupChange"
+            >
+              <ElOption label="全部分组" value="" />
+              <ElOption
+                v-for="group in availableGroups"
+                :key="group"
+                :label="group"
+                :value="group"
+              />
+            </ElSelect>
+            <ElButton type="primary" @click="showCreateFieldDialog" :icon="Plus">
+              新建字段
+            </ElButton>
+          </div>
+        </div>
+      </template>
+
+      <ElTable :data="pagedSystemFields" style="width: 100%">
+        <ElTableColumn prop="groupName" label="分组" width="150" />
+        <ElTableColumn prop="label" label="字段名称" width="150" />
+        <ElTableColumn prop="value" label="字段值" width="150" />
+        <ElTableColumn prop="sortOrder" label="排序" width="80" />
+        <ElTableColumn prop="description" label="描述" width="300" />
+        <ElTableColumn label="操作" width="150" fixed="right">
+          <template #default="scope">
+            <ElButton size="small" @click="showEditFieldDialog(scope.row)">编辑</ElButton>
+            <ElButton size="small" type="danger" @click="deleteField(scope.row)">删除</ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+
+      <!-- 分页组件 -->
+      <div class="pagination-container">
+        <ElPagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="filteredSystemFields.length"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </ElCard>
 
     <!-- 创建/编辑模板对话框 -->
@@ -279,13 +347,17 @@
                 />
                 <ElSelect
                   v-model="mapping.targetField"
-                  placeholder="选择系统字段"
+                  placeholder="选择系统字段（支持搜索）"
                   size="small"
                   style="width: 280px"
+                  filterable
+                  :remote="true"
+                  :remote-method="(query) => handleFieldSelectorSearch(index, query)"
+                  :loading="fieldSearchLoading.value[index]"
                   @change="(value: string) => onFieldSelect(index, value)"
                 >
                   <ElOptionGroup
-                    v-for="group in systemFieldGroups"
+                    v-for="group in (fieldSelectorFieldGroups.value[index] || systemFieldGroups.value)"
                     :key="group.group"
                     :label="group.group"
                   >
@@ -315,13 +387,58 @@
         <ElButton type="primary" @click="saveTemplate">保存</ElButton>
       </template>
     </ElDialog>
+
+    <!-- 创建/编辑系统字段对话框 -->
+    <ElDialog v-model="fieldDialogVisible" :title="fieldDialogTitle" width="800px">
+      <ElForm :model="fieldForm" :rules="fieldFormRules" label-width="120px">
+        <ElFormItem label="分组名称" prop="groupName">
+          <ElSelect v-model="fieldForm.groupName" placeholder="选择字段分组" style="width: 200px">
+            <ElOption
+              v-for="group in fieldGroups"
+              :key="group"
+              :label="group"
+              :value="group"
+            />
+          </ElSelect>
+          <div class="form-tip">字段所属的分组，用于在字段选择器中分类显示</div>
+        </ElFormItem>
+
+        <ElFormItem label="字段名称" prop="label">
+          <ElInput v-model="fieldForm.label" placeholder="请输入字段的中文名称" />
+          <div class="form-tip">字段的显示名称，用于在界面上标识此字段</div>
+        </ElFormItem>
+
+        <ElFormItem label="字段值" prop="value">
+          <ElInput v-model="fieldForm.value" placeholder="请输入字段的英文标识" />
+          <div class="form-tip">
+            字段的唯一标识符，使用驼峰命名法（如 contactPhone）<br>
+            <strong>注意：</strong>创建后不可修改，同一分组下应保持唯一
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="排序" prop="sortOrder">
+          <ElInputNumber v-model="fieldForm.sortOrder" :min="1" :max="999" style="width: 100px" />
+          <div class="form-tip">控制字段在分组中的显示顺序，数值越小显示越靠前</div>
+        </ElFormItem>
+
+        <ElFormItem label="描述">
+          <ElInput v-model="fieldForm.description" type="textarea" :rows="3" placeholder="请输入字段的详细描述" />
+          <div class="form-tip">字段的详细说明，帮助用户了解此字段的用途</div>
+        </ElFormItem>
+      </ElForm>
+
+      <template #footer>
+        <ElButton @click="fieldDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="saveField">保存</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElCard, ElButton, ElTable, ElTableColumn, ElTag, ElSwitch, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElOptionGroup, ElAlert, ElUpload, ElDivider, ElResult } from 'element-plus';
-import { Plus, Delete, Download, Upload, UploadFilled, Document } from '@element-plus/icons-vue';
+import { Plus, Delete, Download, Upload, UploadFilled, Document, Search } from '@element-plus/icons-vue';
 import { excelTemplatesApi } from '#/api/core/excel-templates';
 import type { UploadFile, UploadInstance } from 'element-plus';
 
@@ -386,7 +503,162 @@ const systemFieldGroups = ref<Array<{
 // 字段名称映射表：系统字段值 -> 中文显示名称（动态生成）
 const fieldNameMapping = ref<Record<string, string>>({});
 
-// 加载系统字段
+// 搜索加载状态
+const fieldSearchLoading = ref<boolean[]>([]);
+
+// 过滤后的字段分组（用于字段选择器）
+const fieldSelectorFieldGroups = ref<Array<Array<{
+  group: string;
+  fields: Array<{
+    label: string;
+    value: string;
+    sortOrder: number;
+    description?: string;
+  }>;
+}>>([]);
+
+// 系统字段管理相关状态
+const systemFieldsList = ref<Array<{
+  id: number;
+  groupName: string;
+  label: string;
+  value: string;
+  sortOrder: number;
+  description?: string;
+}>>([]);
+
+// 字段对话框相关状态
+const fieldDialogVisible = ref(false);
+const fieldDialogTitle = ref('新建系统字段');
+
+// 字段表单数据
+const fieldForm = ref({
+  id: undefined as number | undefined,
+  groupName: '',
+  label: '',
+  value: '',
+  sortOrder: 1,
+  description: ''
+});
+
+// 字段表单验证规则
+const fieldFormRules = {
+  groupName: [
+    { required: true, message: '请选择分组名称', trigger: 'blur' }
+  ],
+  label: [
+    { required: true, message: '请输入字段名称', trigger: 'blur' }
+  ],
+  value: [
+    { required: true, message: '请输入字段值', trigger: 'blur' },
+    { pattern: /^[a-zA-Z][a-zA-Z0-9]*$/, message: '字段值只能包含字母和数字，且以字母开头', trigger: 'blur' }
+  ],
+  sortOrder: [
+    { required: true, message: '请输入排序值', trigger: 'blur' },
+    { type: 'number', message: '排序值必须是数字', trigger: 'blur' }
+  ]
+};
+
+// 字段分组列表
+const fieldGroups = ref<string[]>(['基本信息', '债权信息', '联系人信息', '银行信息', '其他信息']);
+
+// 搜索相关状态
+const fieldSearchQuery = ref('');
+const filteredSystemFields = ref<Array<{
+  id: number;
+  groupName: string;
+  label: string;
+  value: string;
+  sortOrder: number;
+  description?: string;
+}>>([]);
+
+// 处理字段搜索函数将在后面重写，使用统一的过滤逻辑
+
+// 分页相关状态
+const currentPage = ref(1);
+const pageSize = ref(10);
+const pagedSystemFields = ref<Array<{
+  id: number;
+  groupName: string;
+  label: string;
+  value: string;
+  sortOrder: number;
+  description?: string;
+}>>([]);
+
+// 计算当前页显示的字段列表
+const calculatePagedFields = () => {
+  const startIndex = (currentPage.value - 1) * pageSize.value;
+  const endIndex = startIndex + pageSize.value;
+  pagedSystemFields.value = filteredSystemFields.value.slice(startIndex, endIndex);
+};
+
+// 处理每页显示数量变化
+const handleSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+  calculatePagedFields();
+};
+
+// 处理页码变化
+const handleCurrentChange = (current: number) => {
+  currentPage.value = current;
+  calculatePagedFields();
+};
+
+// 分组相关状态
+const selectedGroup = ref('');
+const availableGroups = ref<string[]>([]);
+
+// 提取可用的分组列表
+const extractAvailableGroups = () => {
+  // 从系统字段列表中提取所有唯一的分组名称
+  const groups = new Set<string>();
+  systemFieldsList.value.forEach(field => {
+    groups.add(field.groupName);
+  });
+  availableGroups.value = Array.from(groups).sort();
+  console.log('🔍 可用的分组列表:', availableGroups.value);
+};
+
+// 处理分组变更
+const handleGroupChange = () => {
+  // 重新应用搜索和分组过滤
+  applyFilters();
+};
+
+// 应用所有过滤器
+const applyFilters = () => {
+  let filtered = systemFieldsList.value;
+  
+  // 应用分组过滤
+  if (selectedGroup.value) {
+    filtered = filtered.filter(field => field.groupName === selectedGroup.value);
+  }
+  
+  // 应用搜索过滤
+  const query = fieldSearchQuery.value.toLowerCase().trim();
+  if (query) {
+    filtered = filtered.filter(field => {
+      return field.groupName.toLowerCase().includes(query) ||
+             field.label.toLowerCase().includes(query) ||
+             field.value.toLowerCase().includes(query) ||
+             (field.description && field.description.toLowerCase().includes(query));
+    });
+  }
+  
+  filteredSystemFields.value = filtered;
+  currentPage.value = 1;
+  calculatePagedFields();
+};
+
+// 重写搜索处理函数，使用统一的过滤逻辑
+const handleSystemFieldSearch = () => {
+  applyFilters();
+};
+
+// 加载系统字段分组（用于字段选择器）
 const loadSystemFields = async () => {
   try {
     console.log('🔍 开始加载系统字段...');
@@ -424,6 +696,57 @@ const loadSystemFields = async () => {
     console.error('🔍 错误信息:', error.message);
     console.error('🔍 错误堆栈:', error.stack);
     message.error('加载系统字段失败: ' + (error.message || '未知错误'));
+  }
+};
+
+// 加载系统字段列表（用于字段管理）
+const loadSystemFieldsList = async () => {
+  try {
+    console.log('🔍 开始加载系统字段列表...');
+    
+    // 由于 API 中没有直接获取所有字段的接口，我们需要从分组中提取
+    // 首先调用 getSystemFields 获取所有分组
+    const response = await excelTemplatesApi.getSystemFields();
+    
+    if (response.code === 200) {
+      const fields: Array<{
+        id: number;
+        groupName: string;
+        label: string;
+        value: string;
+        sortOrder: number;
+        description?: string;
+      }> = [];
+      
+      // 遍历所有分组，提取字段信息
+      response.data.forEach((group) => {
+        group.fields.forEach((field, index) => {
+          fields.push({
+            id: index + 1, // 临时ID，实际应该从后端获取
+            groupName: group.group,
+            label: field.label,
+            value: field.value,
+            sortOrder: field.sortOrder,
+            description: field.description
+          });
+        });
+      });
+      
+      systemFieldsList.value = fields;
+      filteredSystemFields.value = fields;
+      console.log('🔍 系统字段列表:', systemFieldsList.value);
+      console.log('🔍 过滤后的系统字段列表:', filteredSystemFields.value);
+      // 提取可用的分组列表
+      extractAvailableGroups();
+      // 计算分页数据
+      calculatePagedFields();
+    } else {
+      console.error('🔍 API 返回错误:', response.message);
+      message.error('加载系统字段列表失败: ' + response.message);
+    }
+  } catch (error: any) {
+    console.error('🔍 加载系统字段列表失败:', error);
+    message.error('加载系统字段列表失败: ' + (error.message || '未知错误'));
   }
 };
 
@@ -509,6 +832,20 @@ const showCreateDialog = () => {
     description: '',
     mappings: []
   };
+  
+  // 初始化搜索相关状态
+  if (fieldSearchLoading && typeof fieldSearchLoading === 'object' && 'value' in fieldSearchLoading) {
+    fieldSearchLoading.value = [];
+  } else {
+    fieldSearchLoading = ref<boolean[]>([]);
+  }
+  
+  if (fieldSelectorFieldGroups && typeof fieldSelectorFieldGroups === 'object' && 'value' in fieldSelectorFieldGroups) {
+    fieldSelectorFieldGroups.value = [];
+  } else {
+    fieldSelectorFieldGroups = ref<Array<Array<{ group: string; fields: Array<{ label: string; value: string; sortOrder: number; description?: string; }>; }>>([]);
+  }
+  
   dialogVisible.value = true;
 };
 
@@ -518,6 +855,14 @@ const showEditDialog = (template: any) => {
     ...template,
     mappings: convertFieldMappingsToArray(template.fieldMappings)
   };
+  
+  // 初始化搜索相关状态
+  const mappingCount = templateForm.value.mappings.length;
+  fieldSearchLoading.value = Array(mappingCount).fill(false);
+  // 确保即使 systemFieldGroups.value 是 falsy 值，也能正确初始化
+  const defaultFieldGroups = systemFieldGroups.value || [];
+  fieldSelectorFieldGroups.value = Array(mappingCount).fill(defaultFieldGroups);
+  
   dialogVisible.value = true;
 };
 
@@ -526,10 +871,138 @@ const addMapping = () => {
     excelHeader: '',
     targetField: ''
   });
+  // 初始化搜索相关状态
+  const newIndex = templateForm.value.mappings.length - 1;
+  fieldSearchLoading.value[newIndex] = false;
+  // 确保即使 systemFieldGroups.value 是 falsy 值，也能正确初始化
+  fieldSelectorFieldGroups.value[newIndex] = systemFieldGroups.value || [];
 };
 
 const removeMapping = (index: number) => {
   templateForm.value.mappings.splice(index, 1);
+  // 清理搜索相关状态
+  fieldSearchLoading.value.splice(index, 1);
+  fieldSelectorFieldGroups.value.splice(index, 1);
+};
+
+// 显示创建字段对话框
+const showCreateFieldDialog = () => {
+  fieldDialogTitle.value = '新建系统字段';
+  fieldForm.value = {
+    id: undefined,
+    groupName: '',
+    label: '',
+    value: '',
+    sortOrder: 1,
+    description: ''
+  };
+  fieldDialogVisible.value = true;
+};
+
+// 显示编辑字段对话框
+const showEditFieldDialog = (field: any) => {
+  fieldDialogTitle.value = '编辑系统字段';
+  fieldForm.value = {
+    id: field.id,
+    groupName: field.groupName,
+    label: field.label,
+    value: field.value,
+    sortOrder: field.sortOrder,
+    description: field.description
+  };
+  fieldDialogVisible.value = true;
+};
+
+// 保存系统字段
+const saveField = async () => {
+  try {
+    const request = {
+      groupName: fieldForm.value.groupName,
+      label: fieldForm.value.label,
+      value: fieldForm.value.value,
+      sortOrder: fieldForm.value.sortOrder,
+      description: fieldForm.value.description
+    };
+
+    let response;
+    if (fieldForm.value.id) {
+      // 更新字段
+      response = await excelTemplatesApi.updateSystemField(fieldForm.value.id, request);
+    } else {
+      // 创建字段
+      response = await excelTemplatesApi.createSystemField(request);
+    }
+
+    console.log('Save Field Response:', response);
+    if (response.code === 200) {
+      message.success(fieldForm.value.id ? '更新成功' : '创建成功');
+      fieldDialogVisible.value = false;
+      // 重新加载字段数据
+      await loadSystemFields();
+      await loadSystemFieldsList();
+    } else {
+      message.error(response.message || '操作失败');
+    }
+  } catch (error) {
+    console.error('保存系统字段失败:', error);
+    message.error('操作失败');
+  }
+};
+
+// 删除系统字段
+const deleteField = async (field: any) => {
+  try {
+    const response = await excelTemplatesApi.deleteSystemField(field.id);
+    console.log('Delete Field Response:', response);
+    if (response.code === 200) {
+      message.success('删除成功');
+      // 重新加载字段数据
+      await loadSystemFields();
+      await loadSystemFieldsList();
+    } else {
+      message.error(response.message || '操作失败');
+    }
+  } catch (error) {
+    console.error('删除系统字段失败:', error);
+    message.error('操作失败');
+  }
+};
+
+// 字段选择器搜索处理函数
+const handleFieldSelectorSearch = (index: number, query: string) => {
+  // 确保 systemFieldGroups.value 是数组
+  const fieldGroups = systemFieldGroups.value || [];
+  
+  if (!query.trim()) {
+    // 清空搜索时显示所有字段
+    fieldSelectorFieldGroups.value[index] = fieldGroups;
+    return;
+  }
+
+  // 设置搜索加载状态
+  fieldSearchLoading.value[index] = true;
+
+  // 模拟异步搜索（实际项目中可以调用后端搜索接口）
+  setTimeout(() => {
+    const lowercaseQuery = query.toLowerCase();
+    
+    // 过滤字段分组
+    const filteredGroups = fieldGroups.map(group => {
+      const filteredFields = group.fields.filter(field => {
+        // 搜索条件：匹配字段标签或值
+        return field.label.toLowerCase().includes(lowercaseQuery) ||
+               field.value.toLowerCase().includes(lowercaseQuery);
+      });
+      
+      return {
+        ...group,
+        fields: filteredFields
+      };
+    }).filter(group => group.fields.length > 0);
+    
+    fieldSelectorFieldGroups.value[index] = filteredGroups;
+    fieldSearchLoading.value[index] = false;
+  }, 300);
 };
 
 const saveTemplate = async () => {
@@ -746,6 +1219,7 @@ const handleExport = async () => {
 onMounted(() => {
   loadTemplates();
   loadSystemFields();
+  loadSystemFieldsList();
 });
 </script>
 
@@ -904,6 +1378,38 @@ onMounted(() => {
 .header-label:last-child {
   flex: 0 0 80px;
   text-align: center;
+}
+
+/* 分页容器样式 */
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #e4e7ed;
+}
+
+/* 表头操作区域样式 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 1200px) {
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .header-actions .el-input {
+    width: 250px !important;
+  }
+  
+  .header-actions .el-select {
+    width: 120px !important;
+  }
 }
 
 .mapping-row {

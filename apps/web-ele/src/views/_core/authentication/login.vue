@@ -8,9 +8,35 @@ import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
 import { ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
 
 import { sendSmsCodeApi } from '#/api/core/auth';
 import { useAuthStore } from '#/store';
+
+// 路由实例
+const router = useRouter();
+
+// 调试信息
+const debugInfo = ref({
+  url: '',
+  query: '',
+  redirect: '',
+  localToken: '',
+});
+
+// 初始化调试信息
+const initDebugInfo = () => {
+  const currentRoute = router.currentRoute.value;
+  debugInfo.value.url = currentRoute.fullPath;
+  debugInfo.value.query = JSON.stringify(currentRoute.query);
+  debugInfo.value.redirect = currentRoute.query.redirect as string || 'No redirect';
+  debugInfo.value.localToken = localStorage.getItem('token') || 'No token in localStorage';
+  
+  console.log('Login page debug info:', debugInfo.value);
+};
+
+// 初始化调试信息
+initDebugInfo();
 
 // 登录方式类型
 type LoginType = 'mobile' | 'username';
@@ -209,9 +235,47 @@ const formSchema = computed((): VbenFormSchema[] => {
 </script>
 
 <template>
-  <AuthenticationLogin
-    :form-schema="formSchema"
-    :loading="authStore.loginLoading"
-    @submit="authStore.authLogin"
-  />
+  <div class="login-container">
+    <!-- 调试信息区域 -->
+    <div class="debug-info mb-4 p-4 bg-blue-50 rounded-lg">
+      <h4 class="text-blue-700 font-medium mb-2">调试信息</h4>
+      <div class="space-y-2 text-xs">
+        <div>
+          <strong class="text-blue-900">当前URL:</strong>
+          <pre class="mt-1 p-2 bg-blue-100 rounded whitespace-pre-wrap">{{ debugInfo.url }}</pre>
+        </div>
+        <div>
+          <strong class="text-blue-900">URL参数:</strong>
+          <pre class="mt-1 p-2 bg-blue-100 rounded whitespace-pre-wrap">{{ debugInfo.query }}</pre>
+        </div>
+        <div>
+          <strong class="text-blue-900">重定向路径:</strong>
+          <pre class="mt-1 p-2 bg-blue-100 rounded whitespace-pre-wrap">{{ debugInfo.redirect }}</pre>
+        </div>
+        <div>
+          <strong class="text-blue-900">本地Token:</strong>
+          <pre class="mt-1 p-2 bg-blue-100 rounded whitespace-pre-wrap">{{ debugInfo.localToken.substring(0, 30) }}...</pre>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 登录组件 -->
+    <AuthenticationLogin
+      :form-schema="formSchema"
+      :loading="authStore.loginLoading"
+      @submit="authStore.authLogin"
+    />
+  </div>
 </template>
+
+<style scoped>
+.login-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.debug-info {
+  font-size: 12px;
+}
+</style>

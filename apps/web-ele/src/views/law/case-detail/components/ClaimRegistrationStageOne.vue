@@ -308,13 +308,18 @@ const handleRegisterClaim = async (row: any) => {
 };
 
 const handleRejectClaim = async (row: any) => {
-  ElMessageBox.confirm('确定要驳回这条债权申报吗？', '驳回确认', {
+  ElMessageBox.prompt('请输入驳回理由', '驳回确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
+    inputPlaceholder: '请输入驳回理由',
     type: 'warning',
   })
-    .then(async () => {
-      const result = await ClaimService.updateClaimStatus(row.id, 'REJECTED');
+    .then(async ({ value }) => {
+      if (!value || value.trim() === '') {
+        ElMessage.warning('请输入驳回理由');
+        return;
+      }
+      const result = await ClaimService.rejectClaimRegistration(row.id, value.trim());
       if (result.success) {
         await fetchClaims();
       }

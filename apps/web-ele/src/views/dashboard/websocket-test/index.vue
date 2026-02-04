@@ -17,6 +17,14 @@ const showRenameDialog = ref(false);
 const currentRenameFile = ref<any>(null);
 const newFileName = ref('');
 
+// 调试信息
+const debugInfo = ref({
+  token: '',
+  urlParams: '',
+  localStorageToken: '',
+  apiStatus: '',
+});
+
 // 检测是否为移动端
 const isMobile = ref(false);
 const showMobileHint = ref(false);
@@ -52,8 +60,15 @@ const uploadFile = async (file: File) => {
     const token = localStorage.getItem('token');
     const headers: Record<string, string> = {};
     if (token) {
-      headers['Authorization'] = token;
+      // 确保Authorization头包含Bearer前缀
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      headers['Authorization'] = authHeader;
+      console.log('Authorization header:', authHeader);
+      debugInfo.value.apiStatus = `Authorization header: ${authHeader.substring(0, 20)}...`;
     }
+
+    console.log('Upload request headers:', headers);
+    debugInfo.value.apiStatus = 'Uploading file...';
 
     const response = await fetch('/api/v1/file/upload', {
       method: 'POST',
@@ -63,13 +78,19 @@ const uploadFile = async (file: File) => {
 
     const result = await response.json();
 
+    console.log('Upload response:', result);
+    debugInfo.value.apiStatus = `Upload response: ${result.code} - ${result.message}`;
+
     if (result.code === 200) {
       ElMessage.success('文件上传成功');
       await loadFileList();
     } else {
+      debugInfo.value.apiStatus = `Upload failed: ${result.message}`;
       throw new Error(result.message || '上传失败');
     }
   } catch (error: any) {
+    console.error('Upload error:', error);
+    debugInfo.value.apiStatus = `Upload error: ${error.message || 'Unknown error'}`;
     ElMessage.error(error.message || '文件上传失败');
   } finally {
     uploading.value = false;
@@ -90,8 +111,15 @@ const loadFileList = async () => {
     const token = localStorage.getItem('token');
     const headers: Record<string, string> = {};
     if (token) {
-      headers['Authorization'] = token;
+      // 确保Authorization头包含Bearer前缀
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      headers['Authorization'] = authHeader;
+      console.log('Authorization header:', authHeader);
+      debugInfo.value.apiStatus = `Authorization header: ${authHeader.substring(0, 20)}...`;
     }
+
+    console.log('Load file list request headers:', headers);
+    debugInfo.value.apiStatus = 'Loading file list...';
 
     const response = await fetch(`/api/v1/file/list?${params}`, {
       method: 'GET',
@@ -100,12 +128,17 @@ const loadFileList = async () => {
 
     const result = await response.json();
 
+    console.log('Load file list response:', result);
+    debugInfo.value.apiStatus = `File list response: ${result.code} - ${result.message || 'Success'}`;
+
     if (result.code === 200) {
       uploadedFiles.value = result.data.list;
       fileTotal.value = result.data.total;
+      debugInfo.value.apiStatus = `File list loaded: ${result.data.list.length} files`;
     }
   } catch (error: any) {
     console.error('加载文件列表失败:', error);
+    debugInfo.value.apiStatus = `Load file list error: ${error.message || 'Unknown error'}`;
   }
 };
 
@@ -124,7 +157,10 @@ const downloadFile = (fileId: number, fileName: string) => {
   // 添加Authorization头
   const token = localStorage.getItem('token');
   if (token) {
-    xhr.setRequestHeader('Authorization', token);
+    // 确保Authorization头包含Bearer前缀
+    const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    xhr.setRequestHeader('Authorization', authHeader);
+    console.log('Authorization header:', authHeader);
   }
   
   xhr.onload = function() {
@@ -152,7 +188,10 @@ const deleteFile = async (fileId: number, fileName: string) => {
     const token = localStorage.getItem('token');
     const headers: Record<string, string> = {};
     if (token) {
-      headers['Authorization'] = token;
+      // 确保Authorization头包含Bearer前缀
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      headers['Authorization'] = authHeader;
+      console.log('Authorization header:', authHeader);
     }
 
     const response = await fetch(`/api/v1/file/${fileId}`, {
@@ -193,7 +232,10 @@ const renameFile = async () => {
     const token = localStorage.getItem('token');
     const headers: Record<string, string> = {};
     if (token) {
-      headers['Authorization'] = token;
+      // 确保Authorization头包含Bearer前缀
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      headers['Authorization'] = authHeader;
+      console.log('Authorization header:', authHeader);
     }
 
     const response = await fetch(
@@ -263,6 +305,23 @@ onMounted(async () => {
   const urlBizId = urlParams.get('bizId');
   const urlToken = urlParams.get('token');
   
+  // 收集调试信息
+  debugInfo.value.urlParams = Array.from(urlParams.entries()).map(([key, value]) => `${key}: ${value}`).join('\n');
+  debugInfo.value.token = urlToken || 'No token in URL';
+  
+  // 获取所有localStorage键值
+  const allKeys = Object.keys(localStorage);
+  const tokenKeys = allKeys.filter(key => key.toLowerCase().includes('token') || key.toLowerCase().includes('user') || key.toLowerCase().includes('chat'));
+  
+  console.log('=== WebSocket Test Page Debug Info ===');
+  console.log('Current URL:', window.location.href);
+  console.log('URL Query:', window.location.search);
+  console.log('URL Params:', Array.from(urlParams.entries()));
+  console.log('Token in URL:', urlToken ? urlToken.substring(0, 30) + '...' : 'No token in URL');
+  console.log('All localStorage keys:', allKeys);
+  console.log('Token-related keys:', tokenKeys);
+  console.log('=== End Debug Info ===');
+  
   if (urlBizType) bizType.value = urlBizType;
   if (urlBizId) bizId.value = urlBizId;
   
@@ -272,7 +331,22 @@ onMounted(async () => {
     const formattedToken = urlToken.startsWith('Bearer ') ? urlToken : `Bearer ${urlToken}`;
     localStorage.setItem('token', formattedToken);
     console.log('Token saved to localStorage:', formattedToken);
+    console.log('Token saved to localStorage (full):', formattedToken);
+    console.log('Token saved to localStorage (short):', formattedToken.substring(0, 30) + '...');
+    
+    // 立即验证token是否保存成功
+    const verifyToken = localStorage.getItem('token');
+    console.log('Token verification check:', verifyToken?.substring(0, 30) + '...');
+    
+    debugInfo.value.apiStatus = 'Token saved to localStorage';
+  } else {
+    debugInfo.value.apiStatus = 'No token in URL';
   }
+  
+  // 获取localStorage中的token
+  const storedToken = localStorage.getItem('token');
+  debugInfo.value.localStorageToken = storedToken || 'No token in localStorage';
+  console.log('Token in localStorage:', storedToken);
   
   if (isWeChatBrowser.value) {
     // 微信浏览器中，显示特殊提示
@@ -280,7 +354,13 @@ onMounted(async () => {
   }
   
   // 加载文件列表
-  await loadFileList();
+  try {
+    await loadFileList();
+    debugInfo.value.apiStatus += ' | File list loaded';
+  } catch (error: any) {
+    debugInfo.value.apiStatus += ` | File list error: ${error.message}`;
+    console.error('Load file list error:', error);
+  }
 });
 </script>
 
@@ -308,6 +388,29 @@ onMounted(async () => {
               readonly
               class="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 focus:outline-none"
             />
+          </div>
+        </div>
+      </div>
+
+      <!-- 调试信息区域 -->
+      <div class="mb-6 rounded-lg bg-blue-50 p-4">
+        <h4 class="mb-3 font-medium text-blue-700">调试信息</h4>
+        <div class="space-y-2 text-sm">
+          <div>
+            <strong class="text-blue-900">URL参数:</strong>
+            <pre class="mt-1 p-2 bg-blue-100 rounded text-xs whitespace-pre-wrap">{{ debugInfo.urlParams }}</pre>
+          </div>
+          <div>
+            <strong class="text-blue-900">URL中的Token:</strong>
+            <pre class="mt-1 p-2 bg-blue-100 rounded text-xs whitespace-pre-wrap">{{ debugInfo.token }}</pre>
+          </div>
+          <div>
+            <strong class="text-blue-900">LocalStorage中的Token:</strong>
+            <pre class="mt-1 p-2 bg-blue-100 rounded text-xs whitespace-pre-wrap">{{ debugInfo.localStorageToken }}</pre>
+          </div>
+          <div>
+            <strong class="text-blue-900">API状态:</strong>
+            <pre class="mt-1 p-2 bg-blue-100 rounded text-xs whitespace-pre-wrap">{{ debugInfo.apiStatus }}</pre>
           </div>
         </div>
       </div>

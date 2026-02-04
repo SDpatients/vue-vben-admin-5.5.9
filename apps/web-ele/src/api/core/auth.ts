@@ -108,6 +108,12 @@ export async function loginApi(data: AuthApi.LoginParams) {
     localStorage.setItem('chat_logintime', logintime);
     localStorage.setItem('token', userInfo.accessToken);
     localStorage.setItem('refreshToken', userInfo.refreshToken);
+    
+    // 添加调试日志
+    console.log('Login success - Token stored in localStorage:', userInfo.accessToken.substring(0, 30) + '...');
+    console.log('Login success - Refresh token stored in localStorage:', userInfo.refreshToken.substring(0, 30) + '...');
+    console.log('Login success - All localStorage keys:', Object.keys(localStorage));
+    console.log('Login success - Token value check:', localStorage.getItem('token')?.substring(0, 30) + '...');
   }
 
   return result;

@@ -315,31 +315,44 @@ const handleCompleteReview = async (row: any) => {
 };
 
 const handleRejectReview = async (row: any) => {
-  ElMessageBox.confirm('确定要驳回这条债权审查吗？', '驳回确认', {
+  ElMessageBox.prompt('请输入驳回理由', '驳回确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
+    inputPlaceholder: '请输入驳回理由',
     type: 'warning',
   })
-    .then(async () => {
-      const claimId = row.claimRegistrationId || row.id;
-      const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
-        claimRegistrationId: claimId,
-        caseId: row.caseId,
-        creditorName: row.creditorName,
-        reviewConclusion: 'UNCONFIRMED' as ClaimReviewApi.ReviewConclusion,
-      };
-
-      let result;
-      if (row.reviewInfo) {
-        result = await ClaimService.updateReview(row.reviewInfo.id, requestData);
-      } else {
-        result = await ClaimService.createReview(requestData);
+    .then(async ({ value }) => {
+      if (!value || value.trim() === '') {
+        ElMessage.warning('请输入驳回理由');
+        return;
       }
-
-      if (result.success) {
-        const completeResult = await ClaimService.completeReview(claimId);
-        if (completeResult.success) {
-          await fetchClaims();
+      
+      const claimId = row.claimRegistrationId || row.id;
+      
+      if (row.reviewInfo) {
+        // 已有审查记录，使用驳回接口
+        const rejectResult = await ClaimService.rejectClaimReview(row.reviewInfo.id, value.trim());
+        if (rejectResult.success) {
+          const completeResult = await ClaimService.completeReview(claimId);
+          if (completeResult.success) {
+            await fetchClaims();
+          }
+        }
+      } else {
+        // 无审查记录，创建审查记录并设置为驳回
+        const requestData: ClaimReviewApi.CreateClaimReviewRequest = {
+          claimRegistrationId: claimId,
+          caseId: row.caseId,
+          creditorName: row.creditorName,
+          reviewConclusion: 'UNCONFIRMED' as ClaimReviewApi.ReviewConclusion,
+          remarks: value.trim(),
+        };
+        const createResult = await ClaimService.createReview(requestData);
+        if (createResult.success) {
+          const completeResult = await ClaimService.completeReview(claimId);
+          if (completeResult.success) {
+            await fetchClaims();
+          }
         }
       }
     })
@@ -366,6 +379,20 @@ const handleStartConfirmation = async (row: any) => {
     .catch(() => {
       ElMessage.info('已取消操作');
     });
+};
+
+const handleViewConfirmation = async (row: any) => {
+  try {
+    const claimId = row.claimRegistrationId || row.id;
+    const result = await ClaimService.getConfirmationDetailByClaimId(claimId);
+    if (result.success) {
+      currentClaim.value = result.data;
+      showDetailDialog.value = true;
+    }
+  } catch (error) {
+    console.error('查看确认详情失败:', error);
+    ElMessage.error('查看确认详情失败');
+  }
 };
 
 onMounted(() => {
@@ -510,15 +537,37 @@ onMounted(() => {
               </ElButton>
               <ElButton
                 v-if="
-                  scope.row.registration_status === 'REVIEW_COMPLETED'
+                  scope.row.registration_status === 'REVIEW_COMPLETED' &&
+                  scope.row.reviewInfo.review_status === 'COMPLETED'
                 "
                 link
                 size="small"
                 type="primary"
                 @click="handleStartConfirmation(scope.row)"
               >
-                开始确认
+                进入确认阶段
               </ElButton>
+              <ElButton
+                v-else-if="
+                  scope.row.reviewInfo.review_status === 'COMPLETED' &&
+                  (scope.row.registration_status === 'CONFIRMING' || scope.row.registration_status === 'CONFIRMED')
+                "
+                link
+                size="small"
+                @click="handleViewConfirmation(scope.row)"
+              >
+                查看确认详情
+              </ElButton>
+              <ElTag
+                v-else-if="
+                  scope.row.reviewInfo.review_status === 'COMPLETED' &&
+                  scope.row.registration_status === 'CONFIRMED'
+                "
+                type="success"
+                size="small"
+              >
+                确认完成
+              </ElTag>
             </template>
           </ElTableColumn>
         </ElTable>

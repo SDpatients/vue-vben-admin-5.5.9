@@ -89,7 +89,7 @@ const qrCodePolling = ref<NodeJS.Timeout | null>(null);
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 5779,
+  port: 16640,
   autoDetect: true,
 });
 

@@ -8,10 +8,12 @@ import { batchImportClaimsApi, exportClaimsApi } from '#/api/core/claim';
 import {
   createClaimRegistrationApi,
   deleteClaimRegistrationApi,
+  getClaimRegistrationBasicApi,
   getClaimRegistrationDetailApi,
   getClaimRegistrationListApi,
   importClaimRegistrationApi,
   receiveClaimMaterialApi,
+  rejectClaimRegistrationApi,
   updateClaimRegistrationApi,
   updateClaimRegistrationStatusApi,
 } from '#/api/core/claim-registration';
@@ -19,12 +21,14 @@ import {
   createClaimReviewApi,
   getClaimReviewDetailApi,
   getClaimReviewsByCaseIdApi,
+  rejectClaimReviewApi,
   submitClaimReviewApi,
   updateClaimReviewApi,
 } from '#/api/core/claim-review';
 import {
   createClaimConfirmationApi,
   finalizeClaimConfirmationApi,
+  getClaimConfirmationByClaimIdApi,
   getClaimConfirmationDetailApi,
   getClaimConfirmationsByCaseIdApi,
   submitVoteApi,
@@ -141,23 +145,59 @@ export class ClaimService {
       
       const response = await getClaimReviewsByCaseIdApi(caseId, params);
       if (response.code === 200 && response.data) {
-        const formattedList = (response.data.list || []).map((item: any) => ({
-          ...item,
-          creditor_name: item.creditorName,
-          creditor_type: item.creditorType || item.creditor_type || '-',
-          credit_code: item.creditCode || item.credit_code || '-',
-          principal: item.declaredPrincipal,
-          interest: item.declaredInterest,
-          total_amount: item.declaredTotalAmount,
-          claim_nature: item.confirmedClaimNature || item.claimNature || '-',
-          claim_type: item.claimType || item.claim_type || '-',
-          registration_status: item.reviewStatus === 'IN_PROGRESS' || item.reviewStatus === 'PENDING' ? 'REVIEWING' : 'REVIEW_COMPLETED',
-          reviewInfo: {
+        const items = response.data.list || [];
+        
+        // 并行获取所有申报记录的基本信息
+        const registrationPromises = items.map(async (item: any) => {
+          try {
+            if (item.claimRegistrationId) {
+              const regResponse = await getClaimRegistrationBasicApi(item.claimRegistrationId);
+              return {
+                claimRegistrationId: item.claimRegistrationId,
+                registrationStatus: regResponse.data?.registrationStatus || 'UNKNOWN'
+              };
+            }
+            return {
+              claimRegistrationId: null,
+              registrationStatus: 'UNKNOWN'
+            };
+          } catch (error) {
+            console.error(`获取债权申报基本信息失败 (claimRegistrationId: ${item.claimRegistrationId})`, error);
+            return {
+              claimRegistrationId: item.claimRegistrationId,
+              registrationStatus: 'UNKNOWN'
+            };
+          }
+        });
+        
+        const registrationResults = await Promise.all(registrationPromises);
+        const registrationMap = new Map(
+          registrationResults.map(result => [result.claimRegistrationId, result.registrationStatus])
+        );
+        
+        const formattedList = items.map((item: any) => {
+          const registrationStatus = registrationMap.get(item.claimRegistrationId) || 'UNKNOWN';
+          return {
             ...item,
-            review_status: item.reviewStatus,
-            review_conclusion: item.reviewConclusion,
-          },
-        }));
+            creditor_name: item.creditorName,
+            creditor_type: item.creditorType || item.creditor_type || '-',
+            credit_code: item.creditCode || item.credit_code || '-',
+            principal: item.declaredPrincipal,
+            interest: item.declaredInterest,
+            total_amount: item.declaredTotalAmount,
+            claim_nature: item.confirmedClaimNature || item.claimNature || '-',
+            claim_type: item.claimType || item.claim_type || '-',
+            registration_status: registrationStatus === 'UNKNOWN' 
+              ? (item.reviewStatus === 'IN_PROGRESS' || item.reviewStatus === 'PENDING' ? 'REVIEWING' : 'REVIEW_COMPLETED')
+              : registrationStatus,
+            reviewInfo: {
+              ...item,
+              review_status: item.reviewStatus,
+              review_conclusion: item.reviewConclusion,
+            },
+          };
+        });
+        
         return {
           success: true,
           data: formattedList,
@@ -361,6 +401,21 @@ export class ClaimService {
   static async getConfirmationDetail(id: number) {
     try {
       const response = await getClaimConfirmationDetailApi(id);
+      if (response.code === 200 && response.data) {
+        return { success: true, data: response.data };
+      } else {
+        ElMessage.error(`获取确认详情失败：${response.message || '未知错误'}`);
+        return { success: false, data: null };
+      }
+    } catch (error) {
+      this.handleApiError(error, '获取确认详情失败');
+      return { success: false, data: null };
+    }
+  }
+
+  static async getConfirmationDetailByClaimId(claimId: number) {
+    try {
+      const response = await getClaimConfirmationByClaimIdApi(claimId);
       if (response.code === 200 && response.data) {
         return { success: true, data: response.data };
       } else {
@@ -622,6 +677,45 @@ export class ClaimService {
       return { success: false };
     } catch (error) {
       this.handleApiError(error, '确认完成失败');
+      return { success: false };
+    }
+  }
+
+  static async rejectClaimRegistration(claimId: number, rejectReason: string) {
+    try {
+      const response = await rejectClaimRegistrationApi(claimId, rejectReason);
+      if (this.handleApiResponse(response, '驳回成功', '驳回失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '驳回失败');
+      return { success: false };
+    }
+  }
+
+  static async rejectClaimReview(reviewId: number, rejectReason: string) {
+    try {
+      const response = await rejectClaimReviewApi(reviewId, rejectReason);
+      if (this.handleApiResponse(response, '驳回成功', '驳回失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '驳回失败');
+      return { success: false };
+    }
+  }
+
+  static async deleteCreditor(creditorId: number) {
+    try {
+      const response = await deleteCreditorApi(creditorId);
+      if (this.handleApiResponse(response, '删除成功', '删除失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '删除失败');
       return { success: false };
     }
   }

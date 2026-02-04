@@ -475,4 +475,16 @@ export async function importDeclaredClaimsApi(formData: FormData) {
   });
 }
 
+/**
+ * 驳回债权申报
+ * PUT /api/v1/claim-registration/{claimId}/reject
+ */
+export async function rejectClaimRegistrationApi(claimId: number, rejectReason: string) {
+  return requestClient8085.put<ClaimRegistrationApi.CommonResponse>(`/claim-registration/${claimId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+}
+
 export type { ClaimRegistrationApi };

@@ -313,6 +313,7 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editFormData.openingDate = row.openingDate || '';
   editFormData.closingDate = row.closingDate || null;
   editFormData.status = row.status;
+  editFormData.accountPurpose = row.accountPurpose || '';
   // 显示编辑弹窗
   editDialogVisible.value = true;
   // 打开弹窗时加载案号列表
@@ -534,6 +535,7 @@ const formData = reactive({
   openingDate: '',
   closingDate: null as null | string,
   status: 'ACTIVE',
+  accountPurpose: '', // 账户用途
 });
 
 // 表单验证规则
@@ -987,6 +989,7 @@ const editFormData = reactive({
   openingDate: '',
   closingDate: null as null | string,
   status: 'ACTIVE',
+  accountPurpose: '', // 账户用途
 });
 
 // 开户行选项
@@ -1027,6 +1030,15 @@ const currencyOptions = ref([
   { label: '瑞士法郎 (CHF)', value: 'CHF' },
   { label: '新加坡元 (SGD)', value: 'SGD' },
 ]);
+
+// 账户用途选项
+const accountPurposeOptions = [
+  { label: '日常经营', value: '日常经营' },
+  { label: '项目专用', value: '项目专用' },
+  { label: '资金结算', value: '资金结算' },
+  { label: '工资发放', value: '工资发放' },
+  { label: '其他', value: '其他' },
+];
 
 // 打开新增账户弹窗
 const handleAddBankAccount = () => {
@@ -1169,14 +1181,6 @@ const handleSubmit = async () => {
           show-overflow-tooltip
         />
 
-        <!-- 案件名称列 -->
-        <ElTableColumn
-          prop="caseName"
-          label="案件名称"
-          width="200"
-          show-overflow-tooltip
-        />
-
         <!-- 账户名称列 -->
         <ElTableColumn
           prop="accountName"
@@ -1190,28 +1194,6 @@ const handleSubmit = async () => {
           prop="accountNumber"
           label="账户号码"
           width="180"
-          show-overflow-tooltip
-        />
-
-        <!-- 账户类型列 -->
-        <ElTableColumn
-          prop="accountType"
-          label="账户类型"
-          width="100"
-          align="center"
-        >
-          <template #default="{ row }">
-            <ElTag :type="getAccountType(row.accountType)" size="small">
-              {{ accountTypeTranslation[row.accountType] || row.accountType }}
-            </ElTag>
-          </template>
-        </ElTableColumn>
-
-        <!-- 银行名称/开户行列 -->
-        <ElTableColumn
-          prop="bankName"
-          label="开户行"
-          width="150"
           show-overflow-tooltip
         />
 
@@ -1258,30 +1240,6 @@ const handleSubmit = async () => {
             <span v-else style="color: #9ca3af;">
               <i class="i-lucide-loader-2 animate-spin"></i>
             </span>
-          </template>
-        </ElTableColumn>
-
-        <!-- 创建时间列 -->
-        <ElTableColumn
-          prop="createTime"
-          label="创建时间"
-          width="160"
-          align="center"
-        >
-          <template #default="{ row }">
-            {{ new Date(row.createTime).toLocaleString('zh-CN') }}
-          </template>
-        </ElTableColumn>
-
-        <!-- 更新时间列 -->
-        <ElTableColumn
-          prop="updateTime"
-          label="更新时间"
-          width="160"
-          align="center"
-        >
-          <template #default="{ row }">
-            {{ new Date(row.updateTime).toLocaleString('zh-CN') }}
           </template>
         </ElTableColumn>
 
@@ -1644,6 +1602,25 @@ const handleSubmit = async () => {
               </ElFormItem>
             </ElCol>
           </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账户用途" prop="accountPurpose">
+                <ElSelect
+                  v-model="formData.accountPurpose"
+                  placeholder="请选择账户用途"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="option in accountPurposeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
         </ElForm>
 
         <template #footer>
@@ -1853,6 +1830,25 @@ const handleSubmit = async () => {
                   size="large"
                   style="width: 100%"
                 />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
+            <ElCol :span="12">
+              <ElFormItem label="账户用途" prop="accountPurpose">
+                <ElSelect
+                  v-model="editFormData.accountPurpose"
+                  placeholder="请选择账户用途"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="option in accountPurposeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
               </ElFormItem>
             </ElCol>
           </ElRow>

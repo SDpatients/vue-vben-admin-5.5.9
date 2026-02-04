@@ -1325,8 +1325,8 @@ const submitDirectUploadForm = async () => {
   try {
     // 上传文件
     let documentAttachment = '';
-    if (uploadedFiles.value.length > 0) {
-      const files = uploadedFiles.value.map(item => item.file);
+    if (directUploadForm.files.length > 0) {
+      const files = directUploadForm.files.map(item => item.file);
       const uploadResponse = await batchUploadFilesApi(
         files,
         'document',
@@ -1403,8 +1403,8 @@ const submitApprovalForm = async () => {
   try {
     // 上传文件
     let documentAttachment = '';
-    if (uploadedFiles.value.length > 0) {
-      const files = uploadedFiles.value.map(item => item.file);
+    if (approvalSubmitForm.files.length > 0) {
+      const files = approvalSubmitForm.files.map(item => item.file);
       const uploadResponse = await batchUploadFilesApi(
         files,
         'document',
@@ -1533,42 +1533,23 @@ const submitDocumentForm = async () => {
             : null,
       };
 
-      if (uploadedFiles.value.length > 0) {
-        // 分离原有附件和新上传的附件
-        const existingFiles = uploadedFiles.value.filter(item => item.file && item.file.isExisting);
-        const newFiles = uploadedFiles.value.filter(item => !(item.file && item.file.isExisting));
-        
-        // 收集所有文件路径
-        const filePaths: string[] = [];
-        
-        // 添加原有附件的文件路径
-        existingFiles.forEach(item => {
-          if (item.file && item.file.filePath) {
-            filePaths.push(item.file.filePath);
-          }
-        });
-        
+      if (documentForm.files.length > 0) {
         // 上传新文件
-        if (newFiles.length > 0) {
-          const filesToUpload = newFiles.map(item => item.file);
-          const uploadResponse = await batchUploadFilesApi(
-            filesToUpload,
-            'document',
-            Number(documentForm.caseId),
-          );
+        const filesToUpload = documentForm.files.map(item => item.file);
+        const uploadResponse = await batchUploadFilesApi(
+          filesToUpload,
+          'document',
+          Number(documentForm.caseId),
+        );
 
-          if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
-            // 添加新上传文件的路径
-            const newFilePaths = uploadResponse.data
-              .map((fileData: any) => fileData.filePath || fileData.storedFileName)
-              .filter((path: string) => path);
-            filePaths.push(...newFilePaths);
+        if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
+          // 将所有文件路径拼接成一个字符串，使用分号分隔
+          const filePaths = uploadResponse.data
+            .map((fileData: any) => fileData.filePath || fileData.storedFileName)
+            .filter((path: string) => path);
+          if (filePaths.length > 0) {
+            requestData.documentAttachment = filePaths.join(';');
           }
-        }
-        
-        // 将所有文件路径拼接成一个字符串，使用分号分隔
-        if (filePaths.length > 0) {
-          requestData.documentAttachment = filePaths.join(';');
         }
       }
 
@@ -1625,7 +1606,7 @@ const submitDocumentForm = async () => {
       formData.append('status', 'PENDING');
 
       // 添加文件（支持多个文件）
-      uploadedFiles.value.forEach((file) => {
+      documentForm.files.forEach((file) => {
         formData.append('files', file.file);
       });
 
@@ -6984,7 +6965,6 @@ const checkPermissions = async () => {
 
                 <ElFormItem label="上传文书">
                   <FileUpload
-                    v-model="directUploadForm.files"
                     :model-value="[]"
                     :biz-type="'document'"
                     :biz-id="0"
