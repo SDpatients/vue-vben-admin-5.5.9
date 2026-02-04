@@ -1001,6 +1001,21 @@ const bankOptions = ref([
   { label: '中信银行', value: '中信银行' },
   { label: '兴业银行', value: '兴业银行' },
   { label: '民生银行', value: '民生银行' },
+  { label: '中国邮政储蓄银行', value: '中国邮政储蓄银行' },
+  { label: '广发银行', value: '广发银行' },
+  { label: '平安银行', value: '平安银行' },
+  { label: '华夏银行', value: '华夏银行' },
+  { label: '光大银行', value: '光大银行' },
+  { label: '北京银行', value: '北京银行' },
+  { label: '上海银行', value: '上海银行' },
+  { label: '南京银行', value: '南京银行' },
+  { label: '宁波银行', value: '宁波银行' },
+  { label: '恒丰银行', value: '恒丰银行' },
+  { label: '浙商银行', value: '浙商银行' },
+  { label: '渤海银行', value: '渤海银行' },
+  { label: '杭州银行', value: '杭州银行' },
+  { label: '江苏银行', value: '江苏银行' },
+  { label: '徽商银行', value: '徽商银行' },
 ]);
 
 // 账户类型选项
@@ -1297,33 +1312,35 @@ const handleSubmit = async () => {
         <!-- 操作列 -->
         <ElTableColumn label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
-            <ElButton
-              size="small"
-              text
-              @click="() => handleViewTransactions(row)"
-              class="text-primary"
-            >
-              <i class="i-lucide-list mr-1"></i>
-              交易记录
-            </ElButton>
-            <ElButton
-              size="small"
-              text
-              @click="() => handleEditBankAccount(row)"
-              class="text-primary"
-            >
-              <i class="i-lucide-edit mr-1"></i>
-              编辑
-            </ElButton>
-            <ElButton
-              size="small"
-              text
-              @click="() => handleDeleteBankAccount(row)"
-              class="text-danger ml-2"
-            >
-              <i class="i-lucide-trash-2 mr-1"></i>
-              删除
-            </ElButton>
+            <ElSpace size="small" wrap>
+              <ElButton
+                size="small"
+                text
+                @click="() => handleViewTransactions(row)"
+                class="text-primary"
+              >
+                <i class="i-lucide-list mr-1"></i>
+                交易记录
+              </ElButton>
+              <ElButton
+                size="small"
+                text
+                @click="() => handleEditBankAccount(row)"
+                class="text-primary"
+              >
+                <i class="i-lucide-edit mr-1"></i>
+                编辑
+              </ElButton>
+              <ElButton
+                size="small"
+                text
+                @click="() => handleDeleteBankAccount(row)"
+                class="text-danger"
+              >
+                <i class="i-lucide-trash-2 mr-1"></i>
+                删除
+              </ElButton>
+            </ElSpace>
           </template>
         </ElTableColumn>
       </ElTable>

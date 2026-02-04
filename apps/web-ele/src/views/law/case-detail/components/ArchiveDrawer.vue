@@ -480,7 +480,7 @@ defineExpose({
                 width="180"
                 :formatter="(row) => formatDate(row.uploadTime)"
               />
-              <ElTableColumn label="操作" width="320">
+              <ElTableColumn label="操作" width="320" fixed="right">
                 <template #default="{ row }">
                   <ElButton
                     size="small"

@@ -67,7 +67,7 @@ const showImportDialog = ref(false);
 const showEditDialog = ref(false);
 const editLoading = ref(false);
 const currentEditClaim = ref<any>(null);
-const statusFilter = ref<string>('PENDING');
+const statusFilter = ref<string>('');
 const showImportErrorDialog = ref(false);
 const addLoading = ref(false);
 const materialLoading = ref(false);
@@ -185,7 +185,8 @@ const fetchCreditorList = async (keyword: string = '') => {
       caseId: Number(props.caseId),
       creditorName: keyword || undefined,
       pageNum: 1,
-      pageSize: 100,
+      pageSize: 200,
+      status: 'CONFIRMED',
     });
     if (response.code === 200 && response.data?.list) {
       creditorList.value = response.data.list.map((creditor: any) => ({
@@ -209,9 +210,9 @@ const searchCreditor = async (keyword: string) => {
     const response = await searchCreditorApi({
       caseId: Number(props.caseId),
       creditorName: keyword || '',
-      limit: 500,
+      limit: 200,
     });
-    if (response.code === 200 && response.data) {
+    if ((response.code === 0 || response.code === 200) && response.data) {
       creditorSearchResults.value = response.data.map((creditor: any) => ({
         label: creditor.creditorName,
         value: creditor.id,
@@ -1175,6 +1176,7 @@ onMounted(() => {
           </div>
           <div class="flex space-x-2">
             <ElSelect v-model="statusFilter" placeholder="选择状态" style="width: 200px" @change="fetchClaims">
+              <ElOption label="全部" value="" />
               <ElOption label="待处理" value="PENDING" />
               <ElOption label="审查中" value="REVIEWING" />
               <ElOption label="审查完成" value="REVIEW_COMPLETED" />
@@ -1682,15 +1684,14 @@ onMounted(() => {
               <ElFormItem label="债权人姓名或名称" required>
                 <ElSelect
                   v-model="claimForm.creditorName"
+                  placeholder="请输入债权人姓名或名称"
+                  style="width: 100%"
                   filterable
                   remote
-                  reserve-keyword
-                  placeholder="请输入债权人姓名或名称进行搜索"
+                  allow-create
                   :remote-method="searchCreditor"
                   :loading="creditorSearchLoading"
-                  style="width: 100%"
                   @change="handleCreditorSearchChange"
-                  @focus="searchCreditor('')"
                 >
                   <ElOption
                     v-for="creditor in creditorSearchResults"
@@ -2051,15 +2052,14 @@ onMounted(() => {
               <ElFormItem label="债权人姓名或名称" required>
                 <ElSelect
                   v-model="claimForm.creditorName"
+                  placeholder="请输入债权人姓名或名称"
+                  style="width: 100%"
                   filterable
                   remote
-                  reserve-keyword
-                  placeholder="请输入债权人姓名或名称进行搜索"
+                  allow-create
                   :remote-method="searchCreditor"
                   :loading="creditorSearchLoading"
-                  style="width: 100%"
                   @change="handleCreditorSearchChange"
-                  @focus="searchCreditor('')"
                 >
                   <ElOption
                     v-for="creditor in creditorSearchResults"
