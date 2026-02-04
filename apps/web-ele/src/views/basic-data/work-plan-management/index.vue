@@ -52,6 +52,8 @@ interface WorkPlanInfo {
   responsibleUserName: string;
   executionStatus: string;
   caseId: number;
+  caseNumber: string;
+  caseName: string;
 }
 
 // 响应式数据
@@ -481,6 +483,28 @@ const exportWorkPlanData = () => {
       >
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
+          prop="caseNumber"
+          label="案号"
+          min-width="180"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.caseNumber">{{ row.caseNumber }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
+          prop="caseName"
+          label="案件名称"
+          min-width="200"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span v-if="row.caseName">{{ row.caseName }}</span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn
           prop="planType"
           label="计划类型"
           width="120"
@@ -628,11 +652,11 @@ const exportWorkPlanData = () => {
     >
       <div v-loading="detailLoading">
         <ElDescriptions v-if="currentWorkPlan" :column="1" border>
-          <ElDescriptionsItem label="计划ID">
-            {{ currentWorkPlan.id }}
+          <ElDescriptionsItem label="案号">
+            {{ currentWorkPlan.caseNumber || '-' }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="案件ID">
-            {{ currentWorkPlan.caseId }}
+          <ElDescriptionsItem label="案件名称">
+            {{ currentWorkPlan.caseName || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="计划类型">
             {{ currentWorkPlan.planType }}

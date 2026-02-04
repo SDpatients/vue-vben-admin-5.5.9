@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
@@ -84,6 +84,45 @@ const showCreditorDetailDialog = ref(false);
 const creditorDetailLoading = ref(false);
 const creditorDetailData = ref<any>(null);
 const activeTab = ref('registration');
+const tabRef = ref<HTMLElement | null>(null);
+const dialogRef = ref<HTMLElement | null>(null);
+const isTabFixed = ref(false);
+const tabOffsetTop = ref(0);
+
+// 监听滚动事件
+const handleScroll = () => {
+  if (!tabRef.value || !dialogRef.value) return;
+  
+  // 确保 dialogRef.value 有 scrollTop 属性
+  if (typeof dialogRef.value.scrollTop === 'undefined') return;
+  
+  const scrollTop = dialogRef.value.scrollTop;
+  if (scrollTop > tabOffsetTop.value) {
+    isTabFixed.value = true;
+  } else {
+    isTabFixed.value = false;
+  }
+};
+
+// 计算标签的初始位置
+const calculateTabPosition = () => {
+  if (!tabRef.value || !dialogRef.value) return;
+  
+  // 确保 tabRef.value 有 getBoundingClientRect 方法
+  if (typeof tabRef.value.getBoundingClientRect !== 'function') return;
+  if (typeof dialogRef.value.getBoundingClientRect !== 'function') return;
+  
+  const rect = tabRef.value.getBoundingClientRect();
+  const dialogRect = dialogRef.value.getBoundingClientRect();
+  tabOffsetTop.value = rect.top - dialogRect.top;
+};
+
+// 监听窗口大小变化
+const handleResize = () => {
+  if (isTabFixed.value) {
+    calculateTabPosition();
+  }
+};
 
 // 搜索相关数据
 const searchName = ref('');
@@ -235,6 +274,10 @@ const handleEditSubmit = async () => {
   }
   if (!editForm.creditorType) {
     ElMessage.warning('请选择债权人类型');
+    return;
+  }
+  if (!editForm.status) {
+    ElMessage.warning('请选择状态');
     return;
   }
 
@@ -406,6 +449,10 @@ const handleSingleAdd = async () => {
   }
   if (!singleForm.creditorType) {
     ElMessage.warning('请选择债权人类型');
+    return;
+  }
+  if (!singleForm.status) {
+    ElMessage.warning('请选择状态');
     return;
   }
 
@@ -616,6 +663,13 @@ const openCreditorDetailDialog = async (row: any) => {
     if (response.code === 200 && response.data) {
       creditorDetailData.value = response.data;
       showCreditorDetailDialog.value = true;
+      // 对话框显示后计算标签位置并添加滚动监听器
+      setTimeout(() => {
+        calculateTabPosition();
+        if (dialogRef.value && typeof dialogRef.value.addEventListener === 'function') {
+          dialogRef.value.addEventListener('scroll', handleScroll);
+        }
+      }, 100);
     } else {
       ElMessage.error('获取债权人债权详情失败');
     }
@@ -624,6 +678,16 @@ const openCreditorDetailDialog = async (row: any) => {
     ElMessage.error('获取债权人详情失败');
   } finally {
     creditorDetailLoading.value = false;
+  }
+};
+
+// 关闭债权人详情对话框
+const closeCreditorDetailDialog = () => {
+  showCreditorDetailDialog.value = false;
+  isTabFixed.value = false;
+  // 移除滚动监听器
+  if (dialogRef.value && typeof dialogRef.value.removeEventListener === 'function') {
+    dialogRef.value.removeEventListener('scroll', handleScroll);
   }
 };
 
@@ -658,6 +722,13 @@ const formatDate = (dateStr: string | undefined | null) => {
 
 onMounted(() => {
   fetchCreditors();
+  window.addEventListener('scroll', handleScroll);
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 
@@ -926,7 +997,7 @@ onMounted(() => {
               placeholder="请输入注册资本"
             />
           </ElFormItem>
-          <ElFormItem label="状态">
+          <ElFormItem label="状态" required>
             <ElSelect
               v-model="singleForm.status"
               placeholder="请选择状态"
@@ -1016,7 +1087,7 @@ onMounted(() => {
               placeholder="请输入注册资本"
             />
           </ElFormItem>
-          <ElFormItem label="状态">
+          <ElFormItem label="状态" required>
             <ElSelect
               v-model="editForm.status"
               placeholder="请选择状态"
@@ -1051,8 +1122,10 @@ onMounted(() => {
       title="债权人债权详情"
       width="95%"
       destroy-on-close
+      ref="dialogRef"
+      class="creditor-detail-dialog"
     >
-      <div v-loading="creditorDetailLoading" class="creditor-detail-container">
+      <div v-loading="creditorDetailLoading" class="creditor-detail-container" style="max-height: 70vh; overflow-y: auto;">
         <div v-if="creditorDetailData" class="creditor-detail-content">
           <div class="creditor-header mb-6">
             <div class="creditor-info-card">
@@ -1063,7 +1136,12 @@ onMounted(() => {
             </div>
           </div>
 
-          <ElTabs v-model="activeTab" type="border-card">
+          <ElTabs 
+            ref="tabRef"
+            v-model="activeTab" 
+            type="border-card"
+            :class="{ 'fixed-tab': isTabFixed }"
+          >
             <ElTabPane label="债权申报阶段" name="registration">
               <div v-if="creditorDetailData.claimRegistrations && creditorDetailData.claimRegistrations.length > 0">
                 <div
@@ -1262,7 +1340,7 @@ onMounted(() => {
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <ElButton @click="showCreditorDetailDialog = false">关闭</ElButton>
+          <ElButton @click="closeCreditorDetailDialog">关闭</ElButton>
         </span>
       </template>
     </ElDialog>
@@ -1381,6 +1459,27 @@ onMounted(() => {
 
 .creditor-list-container {
   min-height: 400px;
+}
+
+.pagination-container {
+}
+
+/* 固定标签样式 */
+.creditor-detail-dialog {
+  position: relative;
+}
+
+.fixed-tab {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: white;
+}
+
+/* 为固定标签添加顶部占位符，防止内容跳动 */
+.fixed-tab-placeholder {
+  height: 40px;
 }
 
 .pagination-container {

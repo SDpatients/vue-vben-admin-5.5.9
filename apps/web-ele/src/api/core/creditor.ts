@@ -129,6 +129,7 @@ export namespace CreditorApi {
     caseId: number;
     creditorName: string;
     limit?: number;
+    status?: string;
   }
 
   /** 债权人搜索结果 */

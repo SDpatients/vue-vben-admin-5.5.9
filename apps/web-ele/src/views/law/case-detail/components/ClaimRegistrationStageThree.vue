@@ -168,7 +168,7 @@ const openConfirmDialog = async (row: any) => {
             0,
           finalConfirmationDate: result.data.finalConfirmationDate || '',
           finalConfirmationBasis: result.data.finalConfirmationBasis || '',
-          confirmationAttachments: result.data.confirmationAttachments || '',
+          confirmationAttachments: result.data.confirmationAttachments || [],
           remarks: result.data.remarks || '',
         });
       } else {
@@ -209,7 +209,7 @@ const openConfirmDialog = async (row: any) => {
           row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
         finalConfirmationDate: '',
         finalConfirmationBasis: '',
-        confirmationAttachments: '',
+        confirmationAttachments: [],
         remarks: '',
       });
     }
@@ -646,7 +646,7 @@ onMounted(() => {
     <ElDialog
       v-model="showConfirmDialog"
       title="债权确认"
-      width="50%"
+      width="70%"
       destroy-on-close
     >
       <div v-if="currentClaim" class="confirm-dialog-container">
@@ -1061,6 +1061,10 @@ onMounted(() => {
 .confirm-dialog-container {
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 10px;
 }
 
 .section-title {

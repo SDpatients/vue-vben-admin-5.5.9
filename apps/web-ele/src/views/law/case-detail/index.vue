@@ -4541,8 +4541,6 @@ const checkPermissions = async () => {
                         </template>
                       </div>
                     </div>
-                  </div>
-                  <div class="detail-info-row">
                     <div
                       class="detail-info-item"
                       :class="{ editing: isEditing }"
@@ -4570,8 +4568,6 @@ const checkPermissions = async () => {
                         </template>
                       </div>
                     </div>
-                  </div>
-                  <div class="detail-info-row">
                     <div
                       class="detail-info-item"
                       :class="{ editing: isEditing }"
@@ -7847,11 +7843,23 @@ const checkPermissions = async () => {
 
 .detail-info-item {
   flex: 1;
-  min-width: 50%;
+  min-width: 30%;
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  .detail-info-item {
+    min-width: 50%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .detail-info-item {
+    min-width: 100%;
+  }
 }
 
 .detail-info-label {
@@ -7859,7 +7867,9 @@ const checkPermissions = async () => {
   color: #6b7280;
   font-weight: 500;
   white-space: nowrap;
-  width: 80px;
+  width: 90px;
+  display: flex;
+  align-items: center;
 }
 
 .detail-info-value {
@@ -7868,6 +7878,25 @@ const checkPermissions = async () => {
   flex: 1;
   white-space: normal;
   word-break: break-word;
+  display: flex;
+  align-items: center;
+}
+
+.detail-info-item.editing .detail-info-value {
+  min-height: 36px;
+}
+
+.detail-info-value .el-input__wrapper,
+.detail-info-value .el-select .el-input__wrapper,
+.detail-info-value .el-date-picker__editor .el-input__wrapper {
+  height: 36px !important;
+}
+
+/* 确保编辑状态下的输入框高度一致 */
+.detail-info-item.editing .el-input,
+.detail-info-item.editing .el-select,
+.detail-info-item.editing .el-date-picker {
+  line-height: 36px;
 }
 
 /* 案件相关时间样式 */
