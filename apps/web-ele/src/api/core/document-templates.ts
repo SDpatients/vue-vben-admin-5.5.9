@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8085, fileDownloadRequestClient8085 } from '#/api/request';
 
 // 字段类型枚举
 export type FieldType = 'TEXT' | 'NUMBER' | 'DATE' | 'LIST' | 'IMAGE' | 'TABLE';
@@ -221,7 +221,7 @@ export const documentTemplatesApi = {
    * POST /api/v1/document-templates/{id}/export/word
    */
   exportWord: (templateId: number, data: WordExportRequest) => {
-    return requestClient8085.post<Blob>(
+    return fileDownloadRequestClient8085.post<Blob>(
       `/document-templates/${templateId}/export/word`,
       data,
       {
@@ -235,7 +235,7 @@ export const documentTemplatesApi = {
    * POST /api/v1/document-templates/{id}/export/excel
    */
   exportExcel: (templateId: number, data: ExcelExportRequest) => {
-    return requestClient8085.post<Blob>(
+    return fileDownloadRequestClient8085.post<Blob>(
       `/document-templates/${templateId}/export/excel`,
       data,
       {
@@ -261,6 +261,19 @@ export const documentTemplatesApi = {
   getTemplateExportHistory: (id: number) => {
     return requestClient8085.get<ListResponse<ExportHistory>>(
       `/document-templates/${id}/export-history`,
+    );
+  },
+
+  /**
+   * 4.1 预览Word文档模板
+   * GET /api/v1/document-templates/{id}/preview
+   */
+  previewTemplate: (id: number) => {
+    return requestClient8085.get<any>(
+      `/document-templates/${id}/preview`,
+      {
+        responseType: 'blob',
+      }
     );
   },
 };

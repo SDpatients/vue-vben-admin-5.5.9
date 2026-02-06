@@ -47,6 +47,7 @@ export const getConfirmationStatusTag = (status: string) => {
     PENDING: { type: 'warning', text: '待确认' },
     IN_PROGRESS: { type: 'primary', text: '确认中' },
     CONFIRMED: { type: 'success', text: '已确认' },
+    COMPLETED: { type: 'success', text: '已完成' },
     OBJECTION: { type: 'danger', text: '有异议' },
     COURT: { type: 'primary', text: '法院裁定' },
     LAWSUIT: { type: 'info', text: '诉讼中' },

@@ -101,6 +101,12 @@
                 <ElButton size="small" type="primary" @click="showDesignDialog(scope.row)">设计</ElButton>
                 <ElButton
                   size="small"
+                  type="info"
+                  @click="showPreviewDialog(scope.row)"
+                  v-if="scope.row.templateType === 'WORD'"
+                >预览</ElButton>
+                <ElButton
+                  size="small"
                   type="success"
                   @click="showExportDialog(scope.row)"
                 >导出</ElButton>
@@ -167,6 +173,121 @@
                 </ul>
               </div>
             </ElAlert>
+          </div>
+        </ElCard>
+      </ElTabPane>
+
+      <!-- 模板制作标签页 -->
+      <ElTabPane label="模板制作" name="template-maker">
+        <!-- 模板制作卡片 -->
+        <ElCard class="template-maker-card">
+          <template #header>
+            <div class="card-header">
+              <span>前端模板制作</span>
+              <div class="header-actions">
+                <ElSelect
+                  v-model="selectedTemplateForMaker"
+                  placeholder="选择要编辑的模板"
+                  style="width: 250px; margin-right: 10px"
+                  @change="loadTemplateForMaker"
+                >
+                  <ElOption
+                    v-for="template in templates"
+                    :key="template.id"
+                    :label="template.templateName"
+                    :value="template"
+                  />
+                </ElSelect>
+                <ElButton type="primary" :icon="Plus" @click="createNewTemplate">
+                  新建模板
+                </ElButton>
+              </div>
+            </div>
+          </template>
+          
+          <div class="template-maker-content">
+            <div v-if="!currentTemplateForMaker" class="empty-state">
+              <ElIcon class="empty-icon"><Document /></ElIcon>
+              <h3>请选择或新建模板</h3>
+              <p>选择一个现有模板进行编辑，或创建一个新的模板</p>
+            </div>
+            <div v-else class="template-editor">
+              <!-- 模板基本信息 -->
+              <ElForm :model="templateMakerForm" label-width="120px" class="template-info-form">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="模板名称">
+                      <ElInput v-model="templateMakerForm.templateName" placeholder="请输入模板名称" />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="模板编码">
+                      <ElInput v-model="templateMakerForm.templateCode" placeholder="请输入模板编码" :disabled="!!currentTemplateForMaker.id" />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="24">
+                    <ElFormItem label="模板描述">
+                      <ElInput v-model="templateMakerForm.description" type="textarea" :rows="2" placeholder="请输入模板描述" />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElForm>
+              
+              <!-- 模板内容编辑 -->
+              <div class="template-content-editor">
+                <h4>模板内容编辑</h4>
+                <div class="editor-toolbar">
+                  <ElButton size="small" @click="insertPlaceholder">
+                    <ElIcon><Plus /></ElIcon>插入占位符
+                  </ElButton>
+                  <ElButton size="small" @click="previewTemplateContent">
+                    <ElIcon><View /></ElIcon>预览
+                  </ElButton>
+                </div>
+                <div class="editor-container">
+                  <div class="rich-editor">
+                    <Toolbar
+                      :editor="editor"
+                      :default-config="toolbarConfig"
+                      style="border-bottom: 1px solid #ccc"
+                    />
+                    <Editor
+                      v-model="templateMakerForm.content"
+                      :default-config="editorConfig"
+                      style="height: 400px; overflow-y: auto"
+                      @onCreated="onEditorCreated"
+                      @onChange="onEditorChange"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 字段管理 -->
+              <div class="template-fields">
+                <h4>字段管理</h4>
+                <ElButton type="primary" size="small" @click="addField">
+                  <ElIcon><Plus /></ElIcon>添加字段
+                </ElButton>
+                <ElTable :data="templateMakerForm.fields" style="margin-top: 15px">
+                  <ElTableColumn prop="fieldName" label="字段名称" width="180" />
+                  <ElTableColumn prop="fieldLabel" label="字段标签" width="180" />
+                  <ElTableColumn prop="fieldType" label="字段类型" width="120" />
+                  <ElTableColumn prop="formatPattern" label="格式模式" />
+                  <ElTableColumn label="操作" width="120">
+                    <template #default="scope">
+                      <ElButton size="small" @click="editField(scope.row)">编辑</ElButton>
+                      <ElButton size="small" type="danger" @click="removeField(scope.$index)">删除</ElButton>
+                    </template>
+                  </ElTableColumn>
+                </ElTable>
+              </div>
+              
+              <!-- 保存按钮 -->
+              <div class="template-actions" style="margin-top: 20px">
+                <ElButton type="primary" @click="saveTemplateMaker">保存模板</ElButton>
+                <ElButton @click="resetTemplateMaker">重置</ElButton>
+              </div>
+            </div>
           </div>
         </ElCard>
       </ElTabPane>
@@ -578,14 +699,27 @@
         <ElFormItem label="文件名称">
           <ElInput v-model="exportForm.fileName" placeholder="请输入导出文件名" />
         </ElFormItem>
+        
+        <!-- 动态字段输入区域 -->
         <ElFormItem label="导出数据">
-          <ElInput
-            v-model="exportForm.dataJson"
-            type="textarea"
-            :rows="8"
-            placeholder='{"caseName": "某某公司破产清算案", "creditorName": "张三"}'
-          />
-          <div class="form-tip">JSON格式，对应模板字段的数据</div>
+          <div v-if="templateFields.length > 0" class="dynamic-fields">
+            <div v-for="field in templateFields" :key="field.key" class="field-item">
+              <div class="field-label">
+                {{ field.label }}
+                <span v-if="field.required" class="required-mark">*</span>
+              </div>
+              <ElInput 
+                v-model="fieldValues[field.key]" 
+                :placeholder="`请输入${field.label}`"
+                :required="field.required"
+              />
+            </div>
+          </div>
+          <div v-else class="no-fields">
+            <ElAlert type="info" :closable="false">
+              该模板暂无字段配置，请先在表单设计中添加字段
+            </ElAlert>
+          </div>
         </ElFormItem>
       </ElForm>
       <template #footer>
@@ -730,6 +864,109 @@
         <ElButton type="primary" @click="saveField">保存</ElButton>
       </template>
     </ElDialog>
+
+    <!-- 预览对话框 -->
+    <ElDialog
+      v-model="previewVisible"
+      title="Word文档模板预览"
+      width="80vw"
+      top="50px"
+      :close-on-click-modal="false"
+      :fullscreen="false"
+    >
+      <div class="preview-content" v-if="currentTemplate">
+        <div class="preview-header">
+          <h3>{{ currentTemplate.templateName }}</h3>
+          <p class="template-info">
+            模板编码: {{ currentTemplate.templateCode }} | 
+            类型: {{ currentTemplate.templateType === 'WORD' ? 'Word文档' : 'Excel表格' }} | 
+            更新时间: {{ formatDate(currentTemplate.updateTime) }}
+          </p>
+        </div>
+        
+        <div class="preview-body">
+          <div v-if="previewLoading" class="preview-loading">
+            <ElIcon class="loading-icon"><Loading /></ElIcon>
+            <span>正在加载预览...</span>
+          </div>
+          <div v-else-if="previewError" class="preview-error">
+            <ElIcon class="error-icon"><CircleClose /></ElIcon>
+            <span>{{ previewError }}</span>
+          </div>
+          <div v-else-if="previewUrl" class="preview-container">
+            <iframe :src="previewUrl" class="preview-iframe" frameborder="0"></iframe>
+          </div>
+          <div v-else class="preview-empty">
+            <ElIcon class="empty-icon"><Document /></ElIcon>
+            <span>暂无预览内容</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="previewVisible = false">关闭</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 字段编辑对话框 -->
+    <ElDialog
+      v-model="templateFieldDialogVisible"
+      title="编辑字段"
+      width="600px"
+    >
+      <ElForm :model="templateFieldForm" label-width="120px">
+        <ElFormItem label="字段名称">
+          <ElInput v-model="templateFieldForm.fieldName" placeholder="请输入字段名称" />
+        </ElFormItem>
+        <ElFormItem label="字段标签">
+          <ElInput v-model="templateFieldForm.fieldLabel" placeholder="请输入字段标签" />
+        </ElFormItem>
+        <ElFormItem label="字段类型">
+          <ElSelect v-model="templateFieldForm.fieldType" placeholder="请选择字段类型">
+            <ElOption label="文本" value="TEXT" />
+            <ElOption label="数字" value="NUMBER" />
+            <ElOption label="日期" value="DATE" />
+            <ElOption label="列表" value="LIST" />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="格式模式">
+          <ElInput v-model="templateFieldForm.formatPattern" placeholder="例如：#,##0.00" />
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="templateFieldDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="saveTemplateField">保存</ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 占位符插入对话框 -->
+    <ElDialog
+      v-model="placeholderDialogVisible"
+      title="插入占位符"
+      width="500px"
+    >
+      <div class="placeholder-dialog">
+        <p>请选择要插入的字段：</p>
+        <ElSelect v-model="selectedPlaceholderField" placeholder="选择字段" style="width: 100%; margin: 20px 0;">
+          <ElOption
+              v-for="field in templateMakerForm.fields"
+              :key="field.fieldName"
+              :label="`${field.fieldLabel} (${field.fieldName})`"
+              :value="field.fieldName"
+            />
+        </ElSelect>
+        <div class="placeholder-preview">
+          <p>插入后将显示为：</p>
+          <ElTag type="info" v-if="selectedPlaceholderField">
+            <span v-html="'{{' + selectedPlaceholderField + '}}'"></span>
+          </ElTag>
+          <p v-else class="placeholder-hint">请先选择字段</p>
+        </div>
+      </div>
+      <template #footer>
+        <ElButton @click="placeholderDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="confirmInsertPlaceholder">插入</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -766,6 +1003,8 @@ import {
   ElDivider,
   ElResult,
 } from 'element-plus';
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
+import '@wangeditor/editor/dist/css/style.css';
 import {
   Plus,
   Document,
@@ -777,6 +1016,8 @@ import {
   UploadFilled,
   Search,
   Delete,
+  Loading,
+  CircleClose,
 } from '@element-plus/icons-vue';
 import type { FormInstance, UploadFile, UploadInstance } from 'element-plus';
 import DocumentFormDesigner from '#/components/DocumentFormDesigner.vue';
@@ -787,6 +1028,7 @@ import {
   type ExportHistory,
 } from '#/api/core/document-templates';
 import { excelTemplatesApi } from '#/api/core/excel-templates';
+import * as mammoth from 'mammoth';
 
 // 激活的标签页
 const activeTab = ref('template-management');
@@ -860,6 +1102,68 @@ const exportForm = ref({
   fileName: '',
   dataJson: '',
 });
+
+// 模板字段列表（从后端获取）
+const templateFields = ref<Array<{key: string; label: string; required: boolean}>>([]);
+
+// 字段值映射（用户填写的值）
+const fieldValues = ref<Record<string, string>>({});
+
+// 预览相关状态
+const previewVisible = ref(false);
+const previewLoading = ref(false);
+const previewError = ref('');
+const previewUrl = ref('');
+
+// 模板制作相关状态
+const selectedTemplateForMaker = ref<DocumentTemplate | null>(null);
+const currentTemplateForMaker = ref<DocumentTemplate | null>(null);
+const templateMakerForm = ref({
+  templateName: '',
+  templateCode: '',
+  description: '',
+  content: '',
+  fields: [],
+});
+
+// 富文本编辑器相关
+const editor = ref(null);
+const toolbarConfig = ref({
+  excludeKeys: [
+    'fullScreen',
+    'insertVideo',
+  ],
+});
+const editorConfig = ref({
+  placeholder: '请输入模板内容，可插入 {{fieldName}} 格式的占位符',
+});
+
+const onEditorCreated = (editorInstance) => {
+  editor.value = editorInstance;
+};
+
+const onEditorChange = (editorInstance) => {
+  templateMakerForm.value.content = editorInstance.getHtml();
+};
+
+// 模板制作字段编辑对话框
+const templateFieldDialogVisible = ref(false);
+const currentTemplateField = ref<{
+  fieldName: string;
+  fieldLabel: string;
+  fieldType: string;
+  formatPattern?: string;
+} | null>(null);
+const templateFieldForm = ref({
+  fieldName: '',
+  fieldLabel: '',
+  fieldType: 'TEXT',
+  formatPattern: '',
+});
+
+// 占位符插入对话框
+const placeholderDialogVisible = ref(false);
+const selectedPlaceholderField = ref('');
 
 // 上传文件
 const selectedFile = ref<File | null>(null);
@@ -1248,13 +1552,386 @@ const saveDesignerConfig = async () => {
 };
 
 // 显示导出对话框
-const showExportDialog = (template: DocumentTemplate) => {
+const showExportDialog = async (template: DocumentTemplate) => {
   currentTemplate.value = template;
   exportForm.value = {
     fileName: template.templateName,
     dataJson: '',
   };
+  
+  // 加载模板字段
+  try {
+    const response = await documentTemplatesApi.getTemplateFields(template.id);
+    if (response.code === 200) {
+      const fields = response.data;
+      if (fields) {
+        // 处理字段数据，转换为需要的格式
+        templateFields.value = fields.map((field: any) => ({
+          key: field.fieldName,
+          label: field.fieldLabel || field.fieldName,
+          required: field.isRequired || false
+        }));
+        
+        // 初始化字段值映射
+        fieldValues.value = {};
+        fields.forEach((field: any) => {
+          fieldValues.value[field.fieldName] = field.defaultValue || '';
+        });
+      } else {
+        templateFields.value = [];
+        fieldValues.value = {};
+      }
+    }
+  } catch (error) {
+    console.error('加载模板字段失败:', error);
+    templateFields.value = [];
+    fieldValues.value = {};
+  }
+  
   exportVisible.value = true;
+};
+
+// 显示预览对话框
+const showPreviewDialog = async (template: DocumentTemplate) => {
+  currentTemplate.value = template;
+  previewVisible.value = true;
+  previewLoading.value = true;
+  previewError.value = '';
+  previewUrl.value = '';
+  
+  try {
+    // 调用后端预览接口获取Word文档预览
+    console.log('开始预览模板，模板ID:', template.id);
+    const blob = await documentTemplatesApi.previewTemplate(template.id);
+    
+    // 打印Blob数据信息
+    console.log('预览接口返回Blob数据:', blob);
+    console.log('Blob类型:', blob.type);
+    console.log('Blob大小:', blob.size);
+    
+    // 直接使用返回的Blob创建URL
+    if (blob && blob.size > 0) {
+      console.log('创建Blob URL...');
+      
+      // 创建一个简单的HTML页面，显示Word文档的基本信息
+      const wordBlobUrl = URL.createObjectURL(blob);
+      
+      // 使用非常简单的HTML结构
+      const simpleHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Word文档预览</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { color: #333; }
+.info { background: #f5f5f5; padding: 15px; margin: 20px 0; }
+.options { text-align: center; margin: 20px 0; }
+.link { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; margin: 0 10px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<h1>Word文档预览</h1>
+<div class="info">
+<h2>${currentTemplate.value ? currentTemplate.value.templateName : '未知模板'}</h2>
+<p>模板编码: ${currentTemplate.value ? currentTemplate.value.templateCode : '未知编码'}</p>
+<p>文档类型: Word文档</p>
+<p>文件大小: ${blob.size} bytes</p>
+</div>
+<div class="options">
+<h3>预览选项</h3>
+<p>请选择以下方式查看文档：</p>
+<a href="${wordBlobUrl}" class="link" target="_blank">下载Word文档</a>
+<a href="${wordBlobUrl}" class="link" target="_blank">在新标签页中打开</a>
+</div>
+</body>
+</html>
+      `;
+      
+      // 创建包含HTML内容的Blob
+      const htmlBlob = new Blob([simpleHtml], {
+        type: 'text/html'
+      });
+      previewUrl.value = URL.createObjectURL(htmlBlob);
+      console.log('创建HTML预览页面成功:', previewUrl.value);
+    } else {
+      console.log('预览Blob数据为空或无效');
+      previewError.value = '预览数据为空';
+    }
+  } catch (error: any) {
+    console.error('预览模板失败:', error);
+    console.error('错误详情:', error.message);
+    console.error('错误堆栈:', error.stack);
+    previewError.value = '预览失败: ' + (error.message || '未知错误');
+  } finally {
+    console.log('预览处理完成，结果:', previewUrl.value ? '成功' : '失败');
+    previewLoading.value = false;
+  }
+};
+
+// 监听模板选择变化
+const loadTemplateForMaker = async () => {
+  if (!selectedTemplateForMaker.value) {
+    currentTemplateForMaker.value = null;
+    resetTemplateMaker();
+    return;
+  }
+  
+  currentTemplateForMaker.value = selectedTemplateForMaker.value;
+  
+  // 加载模板详情
+  try {
+    const response = await documentTemplatesApi.getTemplateFields(selectedTemplateForMaker.value.id);
+    if (response.code === 200) {
+      const fields = response.data || [];
+      templateMakerForm.value = {
+        templateName: selectedTemplateForMaker.value.templateName,
+        templateCode: selectedTemplateForMaker.value.templateCode,
+        description: selectedTemplateForMaker.value.description || '',
+        content: selectedTemplateForMaker.value.configJson ? JSON.parse(selectedTemplateForMaker.value.configJson).content || '' : '',
+        fields: fields.map((field: any) => ({
+          fieldName: field.fieldName,
+          fieldLabel: field.fieldLabel,
+          fieldType: field.fieldType,
+          formatPattern: field.formatPattern
+        })),
+      };
+    }
+  } catch (error) {
+    console.error('加载模板失败:', error);
+    ElMessage.error('加载模板失败');
+  }
+};
+
+// 创建新模板
+const createNewTemplate = () => {
+  selectedTemplateForMaker.value = null;
+  currentTemplateForMaker.value = {
+    id: 0,
+    templateName: '',
+    templateCode: 'TEMPLATE_' + Date.now(),
+    templateType: 'WORD',
+    description: '',
+    isDefault: false,
+    status: 'ACTIVE',
+    createTime: new Date().toISOString(),
+    updateTime: new Date().toISOString(),
+  };
+  templateMakerForm.value = {
+    templateName: '',
+    templateCode: 'TEMPLATE_' + Date.now(),
+    description: '',
+    content: '',
+    fields: [],
+  };
+  console.log('新建模板按钮被点击，currentTemplateForMaker:', currentTemplateForMaker.value);
+  console.log('模板编辑器显示条件:', !!currentTemplateForMaker.value);
+};
+
+// 添加字段
+const addField = () => {
+  templateFieldForm.value = {
+    fieldName: 'field_' + Date.now(),
+    fieldLabel: '新字段',
+    fieldType: 'TEXT',
+    formatPattern: '',
+  };
+  currentTemplateField.value = null;
+  templateFieldDialogVisible.value = true;
+};
+
+// 编辑字段
+const editField = (field: any) => {
+  templateFieldForm.value = {
+    fieldName: field.fieldName,
+    fieldLabel: field.fieldLabel,
+    fieldType: field.fieldType,
+    formatPattern: field.formatPattern || '',
+  };
+  currentTemplateField.value = field;
+  templateFieldDialogVisible.value = true;
+};
+
+// 删除字段
+const removeField = (index: number) => {
+  templateMakerForm.value.fields.splice(index, 1);
+  ElMessage.success('字段删除成功');
+};
+
+// 保存字段
+const saveTemplateField = () => {
+  if (!templateFieldForm.value.fieldName || !templateFieldForm.value.fieldLabel) {
+    ElMessage.warning('请填写字段名称和标签');
+    return;
+  }
+  
+  if (currentTemplateField.value) {
+    // 编辑现有字段
+    const index = templateMakerForm.value.fields.findIndex(f => f.fieldName === currentTemplateField.value.fieldName);
+    if (index !== -1) {
+      templateMakerForm.value.fields[index] = {
+        fieldName: templateFieldForm.value.fieldName,
+        fieldLabel: templateFieldForm.value.fieldLabel,
+        fieldType: templateFieldForm.value.fieldType,
+        formatPattern: templateFieldForm.value.formatPattern,
+      };
+    }
+  } else {
+    // 添加新字段
+    templateMakerForm.value.fields.push({
+      fieldName: templateFieldForm.value.fieldName,
+      fieldLabel: templateFieldForm.value.fieldLabel,
+      fieldType: templateFieldForm.value.fieldType,
+      formatPattern: templateFieldForm.value.formatPattern,
+    });
+  }
+  
+  templateFieldDialogVisible.value = false;
+  ElMessage.success('字段保存成功');
+};
+
+// 插入占位符
+const insertPlaceholder = () => {
+  if (templateMakerForm.value.fields.length === 0) {
+    ElMessage.warning('请先添加字段');
+    return;
+  }
+  placeholderDialogVisible.value = true;
+};
+
+// 确认插入占位符
+const confirmInsertPlaceholder = () => {
+  if (!selectedPlaceholderField.value) {
+    ElMessage.warning('请选择字段');
+    return;
+  }
+  
+  const placeholder = `{{${selectedPlaceholderField.value}}}`;
+  templateMakerForm.value.content += placeholder;
+  placeholderDialogVisible.value = false;
+  ElMessage.success('占位符插入成功');
+};
+
+// 预览模板内容
+const previewTemplateContent = () => {
+  if (!templateMakerForm.value.content) {
+    ElMessage.warning('模板内容为空');
+    return;
+  }
+  
+  // 简单的预览实现
+  let previewContent = templateMakerForm.value.content;
+  
+  // 替换占位符为示例值
+  templateMakerForm.value.fields.forEach(field => {
+    let exampleValue = '';
+    switch (field.fieldType) {
+      case 'TEXT':
+        exampleValue = '示例文本';
+        break;
+      case 'NUMBER':
+        exampleValue = '1,234.56';
+        break;
+      case 'DATE':
+        exampleValue = new Date().toLocaleDateString();
+        break;
+      default:
+        exampleValue = '示例值';
+    }
+    previewContent = previewContent.replace(new RegExp(`{{${field.fieldName}}}`, 'g'), exampleValue);
+  });
+  
+  // 显示预览
+  const previewWindow = window.open('', '_blank');
+  if (previewWindow) {
+    previewWindow.document.write(`
+      <html>
+        <head>
+          <title>模板预览</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { color: #333; }
+            p { line-height: 1.6; }
+          </style>
+        </head>
+        <body>
+          <h1>模板预览</h1>
+          <div>${previewContent}</div>
+        </body>
+      </html>
+    `);
+    previewWindow.document.close();
+  }
+};
+
+// 保存模板
+const saveTemplateMaker = async () => {
+  if (!templateMakerForm.value.templateName || !templateMakerForm.value.templateCode) {
+    ElMessage.warning('请填写模板名称和编码');
+    return;
+  }
+  
+  const templateConfig = {
+    templateName: templateMakerForm.value.templateName,
+    templateCode: templateMakerForm.value.templateCode,
+    templateType: 'WORD',
+    description: templateMakerForm.value.description,
+    content: templateMakerForm.value.content,
+    fields: templateMakerForm.value.fields,
+  };
+  
+  try {
+    const data = {
+      templateName: templateConfig.templateName,
+      templateCode: templateConfig.templateCode,
+      templateType: 'WORD' as TemplateType,
+      description: templateConfig.description,
+      configJson: JSON.stringify(templateConfig),
+      fields: templateConfig.fields.map(field => ({
+        fieldName: field.fieldName,
+        fieldLabel: field.fieldLabel,
+        fieldType: field.fieldType as any,
+        sourceField: field.fieldName,
+        sortOrder: templateConfig.fields.indexOf(field) + 1,
+        isRequired: false,
+        formatPattern: field.formatPattern,
+      })),
+    };
+    
+    let response;
+    if (currentTemplateForMaker.value) {
+      // 更新现有模板
+      response = await documentTemplatesApi.updateTemplate(currentTemplateForMaker.value.id, {
+        id: currentTemplateForMaker.value.id,
+        ...data,
+      });
+    } else {
+      // 创建新模板
+      response = await documentTemplatesApi.createTemplate(data);
+    }
+    
+    if (response.code === 200) {
+      ElMessage.success(currentTemplateForMaker.value ? '模板更新成功' : '模板创建成功');
+      await loadTemplates();
+    } else {
+      ElMessage.error(response.message || '保存失败');
+    }
+  } catch (error) {
+    console.error('保存模板失败:', error);
+    ElMessage.error('保存模板失败');
+  }
+};
+
+// 重置模板
+const resetTemplateMaker = () => {
+  templateMakerForm.value = {
+    templateName: '',
+    templateCode: 'TEMPLATE_' + Date.now(),
+    description: '',
+    content: '',
+    fields: [],
+  };
 };
 
 // 处理模板导出
@@ -1263,13 +1940,8 @@ const handleTemplateExport = async () => {
 
   exporting.value = true;
   try {
-    let data;
-    try {
-      data = JSON.parse(exportForm.value.dataJson || '{}');
-    } catch {
-      ElMessage.error('导出数据JSON格式错误');
-      return;
-    }
+    // 使用用户在动态字段中填写的值
+    const data = fieldValues.value;
 
     const requestData = {
       templateId: currentTemplate.value.id,
@@ -1285,11 +1957,35 @@ const handleTemplateExport = async () => {
     }
 
     // 下载文件
-    const blob = new Blob([response.data], {
-      type: currentTemplate.value.templateType === 'WORD'
-        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
+    let blob;
+    
+    // 打印响应数据，以便调试
+    console.log('导出响应数据:', response);
+    console.log('响应类型:', typeof response);
+    console.log('响应是否为Blob:', response instanceof Blob);
+    console.log('响应是否包含data字段:', response && 'data' in response);
+    console.log('data字段是否为Blob:', response && response.data instanceof Blob);
+    
+    // 从响应对象中提取Blob数据
+    // 因为响应是一个包含data字段的对象，而data字段才是真正的Blob对象
+    if (response && response.data instanceof Blob) {
+      blob = response.data;
+      console.log('使用response.data作为Blob对象');
+      console.log('Blob对象大小:', blob.size);
+      console.log('Blob对象类型:', blob.type);
+    } else if (response instanceof Blob) {
+      // 后备情况：如果响应本身就是Blob对象
+      blob = response;
+      console.log('使用响应本身作为Blob对象');
+      console.log('Blob对象大小:', blob.size);
+      console.log('Blob对象类型:', blob.type);
+    } else {
+      // 错误情况：无法获取有效的Blob对象
+      console.error('无法获取有效的Blob对象');
+      console.error('响应数据:', response);
+      ElMessage.error('导出失败：无法获取有效的文件数据');
+      return;
+    }
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${exportForm.value.fileName}.${currentTemplate.value.templateType === 'WORD' ? 'docx' : 'xlsx'}`;
@@ -1854,3 +2550,390 @@ onMounted(async () => {
   await loadSystemFieldsList();
 });
 </script>
+
+<style scoped>
+/* 动态字段样式 */
+.dynamic-fields {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background-color: #f9fafc;
+}
+
+.field-item {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.field-label {
+  width: 120px;
+  font-weight: 500;
+  color: #303133;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+
+.required-mark {
+  color: #f56c6c;
+  margin-left: 4px;
+}
+
+.no-fields {
+  margin-top: 10px;
+}
+
+/* 表单提示样式 */
+.form-tip {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* 字段映射样式 */
+.mapping-section {
+  margin-top: 15px;
+}
+
+.mapping-header {
+  display: flex;
+  margin-bottom: 10px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.header-label {
+  width: 220px;
+  margin-right: 80px;
+}
+
+.header-label:last-child {
+  width: auto;
+  margin-right: 0;
+}
+
+.mapping-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.add-mapping-btn {
+  margin-top: 10px;
+}
+
+/* 配置输入包装器 */
+.config-input-wrapper {
+  display: flex;
+  align-items: flex-start;
+}
+
+.config-input-wrapper .el-input {
+  flex: 1;
+  margin-right: 10px;
+}
+
+/* 统计卡片样式 */
+.stats-cards {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  color: #909399;
+  font-size: 14px;
+}
+
+/* 卡片头部样式 */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 导入导出操作区域样式 */
+.operation-section {
+  margin-bottom: 20px;
+}
+
+.section-desc {
+  color: #909399;
+  margin-bottom: 15px;
+}
+
+.import-options,
+.export-options {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tip-text {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+/* 上传组件样式 */
+.upload-inline {
+  display: inline-block;
+}
+
+/* 配置模板卡片样式 */
+.config-template-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.config-template-card {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.config-template-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.template-config {
+  margin-top: 10px;
+  background-color: #f9fafc;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.template-config pre {
+  margin: 0;
+  font-size: 12px;
+  color: #606266;
+}
+
+/* 分页容器样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 预览相关样式 */
+.preview-content {
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.preview-header {
+  padding: 15px 20px;
+  background-color: #f9fafc;
+  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.preview-header h3 {
+  margin: 0 0 8px 0;
+  color: #303133;
+  font-size: 18px;
+}
+
+.template-info {
+  margin: 0;
+  color: #909399;
+  font-size: 14px;
+}
+
+.preview-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-loading,
+.preview-error,
+.preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #909399;
+}
+
+.loading-icon,
+.error-icon,
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.loading-icon {
+  color: #409eff;
+  animation: rotate 1s linear infinite;
+}
+
+.error-icon {
+  color: #f56c6c;
+}
+
+.empty-icon {
+  color: #909399;
+}
+
+.preview-container {
+  height: 100%;
+  overflow: hidden;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  overflow: hidden;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 模板制作相关样式 */
+.template-maker-content {
+  min-height: 600px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: #909399;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  color: #c0c4cc;
+}
+
+.empty-state h3 {
+  margin: 0 0 10px 0;
+  color: #606266;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #909399;
+}
+
+.template-info-form {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f9fafc;
+  border-radius: 4px;
+}
+
+.template-content-editor {
+  margin-bottom: 30px;
+}
+
+.template-content-editor h4,
+.template-fields h4 {
+  margin: 0 0 15px 0;
+  color: #303133;
+  font-size: 16px;
+}
+
+.editor-toolbar {
+  margin-bottom: 10px;
+}
+
+.editor-container {
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.editor-container .el-textarea {
+  border: none;
+}
+
+.editor-container .el-textarea__inner {
+  border: none;
+  resize: vertical;
+  min-height: 300px;
+  font-family: 'Courier New', Courier, monospace;
+  line-height: 1.6;
+}
+
+.template-fields {
+  margin-bottom: 30px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* 字段编辑对话框样式 */
+.placeholder-dialog {
+  padding: 20px 0;
+}
+
+.placeholder-preview {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9fafc;
+  border-radius: 4px;
+}
+
+.placeholder-hint {
+  color: #909399;
+  font-style: italic;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .template-info-form {
+    padding: 15px;
+  }
+  
+  .editor-container .el-textarea__inner {
+    min-height: 200px;
+  }
+}
+</style>

@@ -388,26 +388,6 @@ onMounted(() => {
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="审查结论" width="120">
-            <template #default="scope">
-              <ElTag
-                v-if="scope.row.reviewInfo"
-                :type="
-                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
-                    .type
-                "
-                size="small"
-              >
-                {{
-                  getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion)
-                    .text
-                }}
-              </ElTag>
-              <ElTag v-else type="info" size="small">
-                待审查
-              </ElTag>
-            </template>
-          </ElTableColumn>
           <ElTableColumn label="确认金额" width="120">
             <template #default="scope">
               {{ scope.row.confirmationInfo?.finalConfirmedAmount || scope.row.reviewInfo?.confirmedTotalAmount || 0 }}

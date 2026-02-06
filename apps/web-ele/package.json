@@ -59,6 +59,7 @@
     "default-passive-events": "^4.0.0",
     "echarts": "catalog:",
     "element-plus": "catalog:",
+    "mammoth": "^1.11.0",
     "markdown-it": "^14.1.0",
     "pinia": "catalog:",
     "qrcode.vue": "^3.6.0",

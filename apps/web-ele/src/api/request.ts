@@ -166,6 +166,26 @@ export const requestClient8085 = createRequestClient(
   },
 );
 
+// 文件下载专用API客户端，不使用响应拦截器，直接返回完整响应体
+export const fileDownloadRequestClient8085 = new RequestClient({
+  baseURL: import.meta.env.VITE_API_URL_8085 || '/api/v1',
+  responseReturn: 'body',
+});
+
+// 为文件下载客户端添加请求头处理
+fileDownloadRequestClient8085.addRequestInterceptor({
+  fulfilled: async (config) => {
+    config.headers['Accept-Language'] = preferences.app.locale;
+    const token = localStorage.getItem('token');
+    if (token) {
+      // 确保不会重复添加Bearer前缀
+      const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      config.headers.Authorization = formattedToken;
+    }
+    return config;
+  },
+});
+
 // 文件上传API客户端，使用环境变量中的API URL，通过Vite代理
 export const fileUploadRequestClient = createRequestClient(apiURL, {
   responseReturn: 'body',

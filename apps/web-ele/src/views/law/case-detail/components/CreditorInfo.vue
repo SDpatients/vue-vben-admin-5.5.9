@@ -32,6 +32,8 @@ import {
   updateCreditorApi,
 } from '#/api/core/creditor';
 
+import { getConfirmationStatusTag } from './utils/claimStatusMapper';
+
 const props = defineProps<{
   caseId: string;
 }>();
@@ -1153,8 +1155,8 @@ onUnmounted(() => {
                 >
                   <div class="claim-card-header">
                     <span class="claim-index">确认 {{ index + 1 }}</span>
-                    <ElTag :type="confirmation.confirmationStatus === 'CONFIRMED' ? 'success' : 'warning'" size="small">
-                      {{ confirmation.confirmationStatus === 'CONFIRMED' ? '已确认' : '待确认' }}
+                    <ElTag :type="getConfirmationStatusTag(confirmation.confirmationStatus).type" size="small">
+                      {{ getConfirmationStatusTag(confirmation.confirmationStatus).text }}
                     </ElTag>
                   </div>
                   <ElDescriptions :column="2" border class="mt-3">
