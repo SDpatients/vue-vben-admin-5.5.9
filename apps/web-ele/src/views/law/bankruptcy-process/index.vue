@@ -17,6 +17,8 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
+  ElSelect,
   ElTabPane,
   ElTabs,
   ElTag,
@@ -79,6 +81,284 @@ const showQrCodeDialog = ref(false);
 const qrCodeUrl = ref('');
 const qrCodeExpireTime = ref(0);
 const qrCodePolling = ref<NodeJS.Timeout | null>(null);
+
+const showMeetingDialog = ref(false);
+const meetingActiveTab = ref('vote');
+const meetingFilter = ref('');
+const statusFilter = ref('');
+
+// 视频标签数据
+const videoTags = ref([]);
+
+// 投票项数据
+const voteItems = ref([]);
+const isLoadingVoteItems = ref(false);
+const isLoadingVideoTags = ref(false);
+
+// 添加投票项弹窗
+const showAddVoteDialog = ref(false);
+const newVoteItem = ref({
+  name: '',
+  agree: 0,
+  oppose: 0,
+  abstain: 0,
+  remark: ''
+});
+
+const addVoteItem = () => {
+  showAddVoteDialog.value = true;
+};
+
+const saveNewVoteItem = async () => {
+  if (!newVoteItem.value.name) {
+    ElMessage.warning('请输入投票项名称');
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法添加投票项');
+      return;
+    }
+    
+    const response = await fetch('/api/v1/api/vote-items', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        meetingId: 1,
+        itemName: newVoteItem.value.name,
+        agreeCount: newVoteItem.value.agree || 0,
+        opposeCount: newVoteItem.value.oppose || 0,
+        abstainCount: newVoteItem.value.abstain || 0,
+        remark: newVoteItem.value.remark || '待表决',
+        createUserId: 10 // 假设当前用户ID为10
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('添加投票项失败');
+    }
+    
+    const data = await response.json();
+    
+    // 关闭弹窗并重置表单
+    showAddVoteDialog.value = false;
+    resetNewVoteItem();
+    
+    // 重新获取投票项数据，确保显示最新数据
+    await fetchVoteItems();
+    
+    ElMessage.success('投票项添加成功');
+  } catch (error) {
+    console.error('添加投票项失败:', error);
+    ElMessage.error('添加投票项失败');
+    
+    // 如果API调用失败，使用本地添加方式作为备用
+    const newItem = {
+      id: voteItems.value.length + 1,
+      name: newVoteItem.value.name,
+      agree: newVoteItem.value.agree || 0,
+      oppose: newVoteItem.value.oppose || 0,
+      abstain: newVoteItem.value.abstain || 0,
+      remark: newVoteItem.value.remark || ''
+    };
+    
+    voteItems.value.push(newItem);
+    showAddVoteDialog.value = false;
+    resetNewVoteItem();
+    ElMessage.success('投票项添加成功（本地）');
+  }
+};
+
+const resetNewVoteItem = () => {
+  newVoteItem.value = {
+    name: '',
+    agree: 0,
+    oppose: 0,
+    abstain: 0,
+    remark: ''
+  };
+};
+
+// API调用函数
+const fetchVoteItems = async (meetingId = 1) => {
+  isLoadingVoteItems.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法获取投票项数据');
+      return;
+    }
+    
+    const response = await fetch(`/api/v1/api/vote-items/meeting/${meetingId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('获取投票项数据失败');
+    }
+    
+    const data = await response.json();
+    // 转换数据格式以匹配前端使用的格式
+    voteItems.value = data.map((item) => ({
+      id: item.id,
+      name: item.itemName,
+      agree: item.agreeCount,
+      oppose: item.opposeCount,
+      abstain: item.abstainCount,
+      remark: item.remark
+    }));
+  } catch (error) {
+    console.error('获取投票项数据失败:', error);
+    ElMessage.error('获取投票项数据失败');
+    // 如果API调用失败，使用默认数据
+    voteItems.value = [
+      {
+        id: 1,
+        name: '通过财产变价方案',
+        agree: 45,
+        oppose: 8,
+        abstain: 3,
+        remark: '已通过'
+      },
+      {
+        id: 2,
+        name: '通过财产分配方案',
+        agree: 42,
+        oppose: 10,
+        abstain: 4,
+        remark: '已通过'
+      },
+      {
+        id: 3,
+        name: '选举债权人委员会成员',
+        agree: 38,
+        oppose: 12,
+        abstain: 6,
+        remark: '待表决'
+      },
+      {
+        id: 4,
+        name: '确认管理人工作报告',
+        agree: 50,
+        oppose: 5,
+        abstain: 1,
+        remark: '已通过'
+      },
+      {
+        id: 5,
+        name: '审议破产财产管理方案',
+        agree: 44,
+        oppose: 9,
+        abstain: 3,
+        remark: '已通过'
+      }
+    ];
+  } finally {
+    isLoadingVoteItems.value = false;
+  }
+};
+
+const fetchVideoTags = async (meetingId = 1) => {
+  isLoadingVideoTags.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法获取视频标签数据');
+      return;
+    }
+    
+    const response = await fetch(`/api/v1/api/video-tags/meeting/${meetingId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('获取视频标签数据失败');
+    }
+    
+    const data = await response.json();
+    // 转换数据格式以匹配前端使用的格式
+    videoTags.value = data.map((tag) => ({
+      id: tag.id,
+      title: tag.videoTitle,
+      meeting: '第一次债权人会议',
+      status: tag.status,
+      statusText: tag.status === 'generated' ? '已生成' : '待生成'
+    }));
+  } catch (error) {
+    console.error('获取视频标签数据失败:', error);
+    ElMessage.error('获取视频标签数据失败');
+    // 如果API调用失败，使用默认数据
+    videoTags.value = [
+      {
+        id: 1,
+        title: '会议开场致辞',
+        meeting: '第一次债权人会议',
+        status: 'generated',
+        statusText: '已生成'
+      },
+      {
+        id: 2,
+        title: '管理人工作报告',
+        meeting: '第一次债权人会议',
+        status: 'generated',
+        statusText: '已生成'
+      },
+      {
+        id: 3,
+        title: '财产变价方案说明',
+        meeting: '第一次债权人会议',
+        status: 'pending',
+        statusText: '待生成'
+      },
+      {
+        id: 4,
+        title: '债权人提问环节',
+        meeting: '第一次债权人会议',
+        status: 'generated',
+        statusText: '已生成'
+      },
+      {
+        id: 5,
+        title: '投票表决过程',
+        meeting: '第一次债权人会议',
+        status: 'pending',
+        statusText: '待生成'
+      },
+      {
+        id: 6,
+        title: '会议总结发言',
+        meeting: '第一次债权人会议',
+        status: 'generated',
+        statusText: '已生成'
+      }
+    ];
+  } finally {
+    isLoadingVideoTags.value = false;
+  }
+};
+
+// 打开会议数据弹窗时加载数据
+const openMeetingDialog = () => {
+  showMeetingDialog.value = true;
+  // 延迟加载数据，确保弹窗已渲染
+  setTimeout(() => {
+    fetchVoteItems();
+    fetchVideoTags();
+  }, 100);
+};
 
 // 移动端上传配置
 const mobileUploadConfig = ref({
@@ -1014,27 +1294,6 @@ const stages = [
         data: [],
       },
       {
-        id: '1-2',
-        title: '法院立案形式审查',
-        description: '法院立案庭对破产申请进行形式审查',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '1-3',
-        title: '破产原因实质审查',
-        description: '法院破产审判庭对破产原因进行实质审查',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
-        id: '1-4',
-        title: '同步选任管理人',
-        description: '法院在受理破产申请的同时指定管理人',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
-      {
         id: '1-5',
         title: '裁定受理并公告',
         description: '法院裁定受理破产申请并发布公告',
@@ -1659,6 +1918,39 @@ const goBack = () => {
   router.back();
 };
 
+const addMeetingModule = () => {
+  // 确保在债权人会议阶段
+  if (activeStage.value !== 3) return;
+  
+  const meetingStage = stages[3];
+  if (!meetingStage) return;
+  
+  // 计算现有会议模块数量
+  const existingMeetingModules = meetingStage.modules.filter(module => 
+    module.title.includes('债权人会议')
+  );
+  
+  // 计算新会议编号
+  const meetingNumber = existingMeetingModules.length + 1;
+  
+  // 创建新模块，复制"筹备第一次债权人会议"的结构
+  const newModule = {
+    id: `4-${meetingStage.modules.length + 1}`, // 自动计算新id，避免冲突
+    title: `筹备第${meetingNumber}次债权人会议`,
+    description: `管理人筹备第${meetingNumber}次债权人会议`,
+    fields: ['标题', '类型', '内容', '创建人', '日期'],
+    data: [],
+  };
+  
+  // 将新模块添加到数组中
+  meetingStage.modules.push(newModule);
+  
+  // 如果没有选中的模块，自动选中新添加的模块
+  if (!selectedModule.value) {
+    selectedModule.value = newModule;
+  }
+};
+
 // 打开手机上传二维码弹窗
 const openMobileUploadDialog = async () => {
   if (!currentItem.value) {
@@ -2009,6 +2301,17 @@ const closeQrCodeDialog = () => {
                 </div>
               </div>
             </div>
+            <div v-if="activeStage === 3" class="add-meeting-button">
+              <ElButton
+                type="primary"
+                size="small"
+                plain
+                @click="addMeetingModule"
+              >
+                <Icon icon="lucide:plus" class="mr-1" />
+                添加债权人会议
+              </ElButton>
+            </div>
           </div>
         </div>
 
@@ -2023,6 +2326,234 @@ const closeQrCodeDialog = () => {
                 :taskStatus="selectedModule.task?.status"
                 @updateTaskStatus="handleUpdateTaskStatus"
               />
+            </div>
+            <!-- 第四阶段的筹备债权人会议模块 -->
+            <div v-else-if="activeStage === 3 && selectedModule.title.includes('筹备') && selectedModule.title.includes('债权人会议')">
+              <ElCard class="module-detail-card" shadow="hover">
+                <template #header>
+                  <div class="module-detail-header">
+                    <div class="module-info-section">
+                      <div class="module-title-row">
+                        <div class="module-title">{{ selectedModule.title }}</div>
+                        <ElTag
+                          v-if="selectedModule.task"
+                          :type="
+                            selectedModule.task.status === 'COMPLETED'
+                              ? 'success'
+                              : selectedModule.task.status === 'IN_PROGRESS'
+                                ? 'primary'
+                                : 'info'
+                          "
+                          size="small"
+                          style="margin-left: 8px"
+                        >
+                          {{
+                            taskStatusMap[selectedModule.task.status] ||
+                            selectedModule.task.status
+                          }}
+                        </ElTag>
+                      </div>
+                      <div class="module-description-inline">
+                        {{ selectedModule.description }}
+                      </div>
+                    </div>
+                    <div class="module-status-actions">
+                      <div
+                        v-if="completedModules[selectedModule.id]"
+                        class="module-completed"
+                      >
+                        <Icon icon="lucide:check" class="completed-icon" />
+                        <span class="completed-text">已完成</span>
+                        <ElButton
+                          type="danger"
+                          size="small"
+                          text
+                          @click="toggleModuleComplete(selectedModule.id)"
+                        >
+                          撤回
+                        </ElButton>
+                      </div>
+                      <div v-else class="module-actions">
+                        <ElButton
+                          type="primary"
+                          size="small"
+                          @click="toggleModuleComplete(selectedModule.id)"
+                        >
+                          <Icon icon="lucide:check" class="mr-1" />
+                          标记完成
+                        </ElButton>
+                        <ElButton
+                          type="success"
+                          size="small"
+                          @click="openAddDialog(selectedModule, activeStage)"
+                        >
+                          <Icon icon="lucide:plus" class="mr-1" />
+                          新增
+                        </ElButton>
+                        <ElButton
+                          type="info"
+                          size="small"
+                          @click="openMeetingDialog"
+                        >
+                          <Icon icon="lucide:bar-chart-2" class="mr-1" />
+                          会议数据
+                        </ElButton>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+
+                <div class="module-data-container">
+                  <div
+                    v-if="selectedModule.data.length > 0"
+                    class="data-tabs-container"
+                  >
+                    <div class="data-tabs">
+                      <div
+                        v-for="(item, index) in selectedModule.data"
+                        :key="item.id"
+                        class="data-tab-item"
+                        :class="{ active: selectedDataItem?.id === item.id }"
+                        @click="selectDataItem(item)"
+                      >
+                        <div class="data-tab-title">{{ item.title }}</div>
+                      </div>
+                      <div class="data-tabs-actions">
+                        <ElButton
+                          v-if="selectedDataItem"
+                          type="danger"
+                          size="small"
+                          @click="handleDelete(selectedModule, selectedDataItem)"
+                        >
+                          <Icon icon="lucide:trash-2" class="mr-1" />
+                          删除
+                        </ElButton>
+                        <ElButton
+                          v-if="selectedDataItem"
+                          type="primary"
+                          size="small"
+                          @click="
+                            handleDataItemClick(
+                              selectedDataItem,
+                              selectedModule,
+                              true,
+                            )
+                          "
+                        >
+                          <Icon icon="lucide:save" class="mr-1" />
+                          编辑
+                        </ElButton>
+                      </div>
+                    </div>
+
+                    <transition name="fade" mode="out-in">
+                      <div
+                        v-if="selectedDataItem"
+                        class="data-tab-content"
+                        :key="selectedDataItem.id"
+                      >
+                        <div class="data-content-detail">
+                          <div class="data-row">
+                            <span class="data-label">日期:</span>
+                            <span class="data-value">{{
+                              selectedDataItem.date
+                            }}</span>
+                          </div>
+                          <div
+                            v-if="
+                              selectedDataItem.files &&
+                              selectedDataItem.files.length > 0
+                            "
+                            class="attachments-preview-section"
+                          >
+                            <div
+                              class="attachments-preview-grid"
+                              ref="attachmentsGridRef"
+                            >
+                              <div
+                                v-for="(file, index) in selectedDataItem.files"
+                                :key="file.id"
+                                class="attachment-preview-item"
+                                @click.stop="handleFilePreview(file)"
+                              >
+                                <div
+                                  v-if="
+                                    file.fileName &&
+                                    (file.fileName
+                                      .toLowerCase()
+                                      .endsWith('.jpg') ||
+                                      file.fileName
+                                        .toLowerCase()
+                                        .endsWith('.jpeg') ||
+                                      file.fileName
+                                        .toLowerCase()
+                                        .endsWith('.png') ||
+                                      file.fileName
+                                        .toLowerCase()
+                                        .endsWith('.gif') ||
+                                      file.fileName
+                                        .toLowerCase()
+                                        .endsWith('.webp'))
+                                  "
+                                  class="image-preview"
+                                >
+                                  <img
+                                    v-if="file.localPreviewUrl"
+                                    :src="file.localPreviewUrl"
+                                    :alt="file.fileName || file.name"
+                                    class="preview-image"
+                                  />
+                                  <div v-else class="no-preview">
+                                    <Icon icon="lucide:image" />
+                                  </div>
+                                </div>
+                                <div v-else class="file-icon-preview">
+                                  <Icon icon="lucide:file" class="file-icon" />
+                                  <span class="file-name">{{
+                                    file.fileName || file.name
+                                  }}</span>
+                                </div>
+                                <div class="attachment-actions-overlay">
+                                  <span
+                                    style="
+                                      color: white;
+                                      cursor: pointer;
+                                      display: inline-flex;
+                                      align-items: center;
+                                      gap: 4px;
+                                    "
+                                    @click.stop="handleFilePreview(file)"
+                                  >
+                                    <Icon icon="lucide:eye" />
+                                    预览
+                                  </span>
+                                  <span
+                                    style="
+                                      color: white;
+                                      cursor: pointer;
+                                      display: inline-flex;
+                                      align-items: center;
+                                      gap: 4px;
+                                    "
+                                    @click.stop="handleFileDownload(file)"
+                                  >
+                                    <Icon icon="lucide:download" />
+                                    下载
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </transition>
+                  </div>
+
+                  <div v-else class="module-empty">
+                    <ElEmpty description="暂无数据" :image-size="80" />
+                  </div>
+                </div>
+              </ElCard>
             </div>
             <!-- 其他模块 -->
             <ElCard v-else class="module-detail-card" shadow="hover">
@@ -2492,6 +3023,203 @@ const closeQrCodeDialog = () => {
         </div>
       </div>
     </ElDialog>
+
+    <!-- 会议数据弹窗 -->
+    <ElDialog
+      v-model="showMeetingDialog"
+      title="第一次债权人会议"
+      width="1200px"
+      destroy-on-close
+    >
+      <ElTabs v-model="meetingActiveTab">
+        <ElTabPane label="会议投票数据统计" name="vote">
+          <div class="meeting-vote-container">
+            <div class="meeting-basic-info">
+              <div class="info-row">
+                <span class="info-label">会议名称:</span>
+                <span class="info-value">第一次债权人会议</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">会议日期:</span>
+                <span class="info-value">2026-01-15</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">记录人:</span>
+                <span class="info-value">张三</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">统计时间:</span>
+                <span class="info-value">2026-01-15 14:30:00</span>
+              </div>
+            </div>
+
+            <div class="vote-table-container">
+              <div class="vote-table-header">
+                <h3>投票项统计</h3>
+                <div class="vote-table-actions">
+                  <ElButton type="primary" size="small" @click="addVoteItem">
+                    <Icon icon="lucide:plus" class="mr-1" />
+                    添加投票项
+                  </ElButton>
+                  <ElButton type="success" size="small">
+                    <Icon icon="lucide:save" class="mr-1" />
+                    保存统计结果
+                  </ElButton>
+                  <ElButton type="info" size="small">
+                    <Icon icon="lucide:download" class="mr-1" />
+                    导出表格
+                  </ElButton>
+                </div>
+              </div>
+
+              <div class="vote-table">
+                <div class="vote-table-row vote-table-header-row">
+                  <div class="vote-table-cell">投票项名称</div>
+                  <div class="vote-table-cell">同意票数</div>
+                  <div class="vote-table-cell">反对票数</div>
+                  <div class="vote-table-cell">弃权票数</div>
+                  <div class="vote-table-cell">备注</div>
+                </div>
+                <div v-if="isLoadingVoteItems" class="vote-table-loading">
+                  <div class="loading-spinner">
+                    <Icon icon="lucide:loader-2" class="spin" />
+                    <span>加载中...</span>
+                  </div>
+                </div>
+                <div v-else-if="voteItems.length === 0" class="vote-table-empty">
+                  <ElEmpty description="暂无投票项数据" :image-size="80" />
+                </div>
+                <div 
+                  v-else
+                  v-for="item in voteItems" 
+                  :key="item.id" 
+                  class="vote-table-row"
+                >
+                  <div class="vote-table-cell">{{ item.name }}</div>
+                  <div class="vote-table-cell">{{ item.agree }}</div>
+                  <div class="vote-table-cell">{{ item.oppose }}</div>
+                  <div class="vote-table-cell">{{ item.abstain }}</div>
+                  <div class="vote-table-cell">{{ item.remark }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ElTabPane>
+        <ElTabPane label="视频生成标签" name="video">
+          <div class="video-tags-container">
+            <div class="video-filter-section">
+              <div class="filter-item">
+                <span class="filter-label">会议名称:</span>
+                <ElSelect v-model="meetingFilter" placeholder="请选择会议" style="width: 200px">
+                  <ElOption label="全部会议" value="" />
+                  <ElOption label="第一次债权人会议" value="1" />
+                  <ElOption label="第二次债权人会议" value="2" />
+                </ElSelect>
+              </div>
+              <div class="filter-item">
+                <span class="filter-label">生成状态:</span>
+                <ElSelect v-model="statusFilter" placeholder="请选择状态" style="width: 150px">
+                  <ElOption label="全部状态" value="" />
+                  <ElOption label="已生成" value="generated" />
+                  <ElOption label="待生成" value="pending" />
+                </ElSelect>
+              </div>
+            </div>
+
+            <div class="video-tags-grid">
+              <div v-if="isLoadingVideoTags" class="video-tags-loading">
+                <div class="loading-spinner">
+                  <Icon icon="lucide:loader-2" class="spin" />
+                  <span>加载中...</span>
+                </div>
+              </div>
+              <div v-else-if="videoTags.length === 0" class="video-tags-empty">
+                <ElEmpty description="暂无视频标签数据" :image-size="80" />
+              </div>
+              <div v-else>
+                <div class="video-tag-card" v-for="tag in videoTags" :key="tag.id">
+                  <div class="video-tag-cover">
+                    <div class="cover-placeholder">
+                      <Icon icon="lucide:video" class="cover-icon" />
+                    </div>
+                    <div class="video-tag-status" :class="tag.status">
+                      {{ tag.statusText }}
+                    </div>
+                  </div>
+                  <div class="video-tag-info">
+                    <div class="video-tag-title">{{ tag.title }}</div>
+                    <div class="video-tag-meeting">{{ tag.meeting }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ElTabPane>
+      </ElTabs>
+    </ElDialog>
+
+    <!-- 添加投票项弹窗 -->
+    <ElDialog
+      v-model="showAddVoteDialog"
+      title="添加投票项"
+      width="600px"
+      destroy-on-close
+    >
+      <ElForm
+        :model="newVoteItem"
+        label-width="100px"
+      >
+        <ElFormItem label="投票项名称" required>
+          <ElInput
+            v-model="newVoteItem.name"
+            placeholder="请输入投票项名称"
+            style="width: 100%"
+          />
+        </ElFormItem>
+        <ElFormItem label="同意票数">
+          <ElInput
+            v-model.number="newVoteItem.agree"
+            type="number"
+            min="0"
+            placeholder="请输入同意票数"
+            style="width: 100%"
+          />
+        </ElFormItem>
+        <ElFormItem label="反对票数">
+          <ElInput
+            v-model.number="newVoteItem.oppose"
+            type="number"
+            min="0"
+            placeholder="请输入反对票数"
+            style="width: 100%"
+          />
+        </ElFormItem>
+        <ElFormItem label="弃权票数">
+          <ElInput
+            v-model.number="newVoteItem.abstain"
+            type="number"
+            min="0"
+            placeholder="请输入弃权票数"
+            style="width: 100%"
+          />
+        </ElFormItem>
+        <ElFormItem label="备注">
+          <ElInput
+            v-model="newVoteItem.remark"
+            placeholder="请输入备注"
+            style="width: 100%"
+          />
+        </ElFormItem>
+      </ElForm>
+
+      <template #footer>
+        <ElButton @click="showAddVoteDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="saveNewVoteItem">
+          <Icon icon="lucide:check" class="mr-1" />
+          保存
+        </ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -2795,6 +3523,13 @@ const closeQrCodeDialog = () => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+}
+
+.add-meeting-button {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
 }
 
 .sidebar-module-item {
@@ -4094,5 +4829,250 @@ const closeQrCodeDialog = () => {
   display: inline-block;
   vertical-align: middle;
   font-size: 16px;
+}
+
+/* 会议数据弹窗样式 */
+.meeting-vote-container {
+  padding: 20px;
+}
+
+.meeting-basic-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 80px;
+}
+
+.info-value {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.vote-table-container {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+}
+
+.vote-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.vote-table-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.vote-table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vote-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.vote-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.vote-table-row:hover {
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.vote-table-header-row {
+  background: white;
+  color: #374151;
+  font-weight: 600;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 2px solid #667eea;
+}
+
+.vote-table-cell {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #374151;
+}
+
+.vote-table-header-row .vote-table-cell {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* 加载状态样式 */
+.vote-table-loading,
+.video-tags-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+  min-height: 200px;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #667eea;
+}
+
+.loading-spinner .spin {
+  font-size: 32px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vote-table-empty,
+.video-tags-empty {
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* 视频标签样式 */
+.video-tags-container {
+  padding: 20px;
+}
+
+.video-filter-section {
+  display: flex;
+  gap: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.video-tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.video-tag-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.video-tag-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  border-color: #667eea;
+}
+
+.video-tag-cover {
+  position: relative;
+  height: 160px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-icon {
+  font-size: 64px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.video-tag-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.video-tag-status.generated {
+  background: #16a34a;
+}
+
+.video-tag-status.pending {
+  background: #f59e0b;
+}
+
+.video-tag-info {
+  padding: 16px;
+}
+
+.video-tag-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.video-tag-meeting {
+  font-size: 13px;
+  color: #6b7280;
 }
 </style>

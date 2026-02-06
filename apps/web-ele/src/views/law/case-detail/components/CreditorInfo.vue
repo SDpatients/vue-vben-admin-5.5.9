@@ -89,11 +89,12 @@ const tabOffsetTop = ref(0);
 const handleScroll = () => {
   if (!tabRef.value || !dialogRef.value) return;
   
-  // 确保 dialogRef.value 有 scrollTop 属性
-  if (typeof dialogRef.value.scrollTop === 'undefined') return;
+  // 获取对话框内容容器的滚动元素
+  const contentContainer = dialogRef.value.querySelector('.creditor-detail-container');
+  if (!contentContainer || typeof contentContainer.scrollTop === 'undefined') return;
   
-  const scrollTop = dialogRef.value.scrollTop;
-  if (scrollTop > tabOffsetTop.value) {
+  const scrollTop = contentContainer.scrollTop;
+  if (scrollTop > 10) {
     isTabFixed.value = true;
   } else {
     isTabFixed.value = false;
@@ -238,6 +239,17 @@ const showAllCreditors = () => {
 // 显示确认债权人
 const showConfirmedCreditors = () => {
   searchStatus.value = 'CONFIRMED';
+  currentPage.value = 1;
+  fetchCreditors();
+};
+
+// 处理标签切换
+const handleTabClick = (tab) => {
+  if (tab.props.name === 'all') {
+    searchStatus.value = '';
+  } else if (tab.props.name === 'confirmed') {
+    searchStatus.value = 'CONFIRMED';
+  }
   currentPage.value = 1;
   fetchCreditors();
 };
@@ -592,11 +604,13 @@ const openCreditorDetailDialog = async (row: any) => {
     if (response.code === 200 && response.data) {
       creditorDetailData.value = response.data;
       showCreditorDetailDialog.value = true;
-      // 对话框显示后计算标签位置并添加滚动监听器
+      // 对话框显示后添加滚动监听器到内容容器
       setTimeout(() => {
-        calculateTabPosition();
-        if (dialogRef.value && typeof dialogRef.value.addEventListener === 'function') {
-          dialogRef.value.addEventListener('scroll', handleScroll);
+        if (dialogRef.value) {
+          const contentContainer = dialogRef.value.querySelector('.creditor-detail-container');
+          if (contentContainer && typeof contentContainer.addEventListener === 'function') {
+            contentContainer.addEventListener('scroll', handleScroll);
+          }
         }
       }, 100);
     } else {
@@ -615,8 +629,11 @@ const closeCreditorDetailDialog = () => {
   showCreditorDetailDialog.value = false;
   isTabFixed.value = false;
   // 移除滚动监听器
-  if (dialogRef.value && typeof dialogRef.value.removeEventListener === 'function') {
-    dialogRef.value.removeEventListener('scroll', handleScroll);
+  if (dialogRef.value) {
+    const contentContainer = dialogRef.value.querySelector('.creditor-detail-container');
+    if (contentContainer && typeof contentContainer.removeEventListener === 'function') {
+      contentContainer.removeEventListener('scroll', handleScroll);
+    }
   }
 };
 
@@ -665,26 +682,32 @@ onUnmounted(() => {
   <div class="creditor-info-container">
     <ElCard shadow="hover">
       <template #header>
-        <div class="card-header flex items-center justify-between">
-          <div class="flex items-center">
-            <Icon icon="lucide:users" class="text-primary mr-2" />
-            <span class="text-lg font-semibold">债权人信息</span>
-          </div>
-          <div class="flex space-x-2">
-            <ElButton type="primary" @click="openSingleAddDialog">
-              <Icon icon="lucide:plus" class="mr-1" />
-              单个新增
-            </ElButton>
+        <div class="flex flex-col items-start space-y-4 w-full">
+          <div class="flex items-center justify-between w-full">
+            <div class="flex items-center">
+              <Icon icon="lucide:users" class="text-primary mr-2" />
+              <span class="text-lg font-semibold">债权人信息</span>
+            </div>
+            <div class="flex space-x-2">
+              <ElButton type="primary" @click="openSingleAddDialog">
+                <Icon icon="lucide:plus" class="mr-1" />
+                单个新增
+              </ElButton>
 
-            <ElButton type="warning" @click="handleExport">
-              <Icon icon="lucide:download" class="mr-1" />
-              导出
-            </ElButton>
-            <ElButton type="info" @click="handleOpenImportDialog">
-              <Icon icon="lucide:upload" class="mr-1" />
-              导入
-            </ElButton>
+              <ElButton type="warning" @click="handleExport">
+                <Icon icon="lucide:download" class="mr-1" />
+                导出
+              </ElButton>
+              <ElButton type="info" @click="handleOpenImportDialog">
+                <Icon icon="lucide:upload" class="mr-1" />
+                导入
+              </ElButton>
+            </div>
           </div>
+          <ElTabs @tab-click="handleTabClick" class="w-full">
+            <ElTabPane label="已知债权人（全部）" name="all"></ElTabPane>
+            <ElTabPane label="确认债权人" name="confirmed"></ElTabPane>
+          </ElTabs>
         </div>
       </template>
 
@@ -705,14 +728,6 @@ onUnmounted(() => {
           <ElButton @click="handleResetSearch">
             <Icon icon="lucide:refresh-cw" class="mr-1" />
             重置
-          </ElButton>
-          <ElButton type="info" @click="showAllCreditors">
-            <Icon icon="lucide:users" class="mr-1" />
-            已知债权人（全部）
-          </ElButton>
-          <ElButton type="success" @click="showConfirmedCreditors">
-            <Icon icon="lucide:check-circle" class="mr-1" />
-            确认债权人
           </ElButton>
         </div>
       </div>
@@ -988,7 +1003,7 @@ onUnmounted(() => {
     <!-- 债权人债权详情对话框 -->
     <ElDialog
       v-model="showCreditorDetailDialog"
-      title="债权人债权详情"
+      :title="`债权人债权详情 - ${creditorDetailData?.creditorName || ''}`"
       width="95%"
       destroy-on-close
       ref="dialogRef"
@@ -996,15 +1011,6 @@ onUnmounted(() => {
     >
       <div v-loading="creditorDetailLoading" class="creditor-detail-container" style="max-height: 70vh; overflow-y: auto;">
         <div v-if="creditorDetailData" class="creditor-detail-content">
-          <div class="creditor-header mb-6">
-            <div class="creditor-info-card">
-              <div class="creditor-name">
-                {{ creditorDetailData.creditorName }}
-              </div>
-
-            </div>
-          </div>
-
           <ElTabs 
             ref="tabRef"
             v-model="activeTab" 

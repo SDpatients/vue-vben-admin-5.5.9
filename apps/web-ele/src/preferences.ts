@@ -9,7 +9,7 @@ export const overridesPreferences = defineOverridesPreferences({
   // overrides
   app: {
     name: import.meta.env.VITE_APP_TITLE,
-    defaultHomePath: '/analytics',
+    defaultHomePath: '/workspace',
   },
   // 禁用logo，避免请求外部资源
   logo: {
