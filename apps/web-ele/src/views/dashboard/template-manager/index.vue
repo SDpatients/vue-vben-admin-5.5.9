@@ -1,5 +1,36 @@
 <template>
   <div class="template-manager">
+    <!-- 拖拉拽表单设计器卡片 -->
+    <ElCard class="form-designer-card">
+      <template #header>
+        <div class="card-header">
+          <span>Excel模板表单设计器</span>
+          <div class="header-actions">
+            <ElButton type="primary" :icon="View" @click="showFormDesignerDialog">
+              打开表单设计器
+            </ElButton>
+          </div>
+        </div>
+      </template>
+      <div class="designer-intro">
+        <ElAlert type="info" :closable="false">
+          <template #title>
+            <strong>表单设计器功能说明</strong>
+          </template>
+          <div class="intro-content">
+            <p>通过拖拉拽方式设计Excel导入模板对应的表单结构，支持以下功能：</p>
+            <ul>
+              <li>从左侧组件库拖拽组件到设计区</li>
+              <li>支持字段排序、复制、删除</li>
+              <li>配置字段属性（标题、必填、选项等）</li>
+              <li>实时预览表单效果</li>
+              <li>保存表单配置并与Excel模板关联</li>
+            </ul>
+          </div>
+        </ElAlert>
+      </div>
+    </ElCard>
+
     <!-- 功能操作区域 -->
     <ElCard class="operation-card">
       <template #header>
@@ -432,15 +463,35 @@
         <ElButton type="primary" @click="saveField">保存</ElButton>
       </template>
     </ElDialog>
+
+    <!-- 表单设计器对话框 -->
+    <ElDialog
+      v-model="formDesignerVisible"
+      title="Excel模板表单设计器"
+      width="1200px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <FormDesigner
+        ref="formDesignerRef"
+        v-model="formDesignerConfig"
+        @change="onFormDesignerChange"
+      />
+      <template #footer>
+        <ElButton @click="formDesignerVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="saveFormDesignerConfig">保存配置</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElCard, ElButton, ElTable, ElTableColumn, ElTag, ElSwitch, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElOptionGroup, ElAlert, ElUpload, ElDivider, ElResult } from 'element-plus';
-import { Plus, Delete, Download, Upload, UploadFilled, Document, Search } from '@element-plus/icons-vue';
+import { Plus, Delete, Download, Upload, UploadFilled, Document, Search, View } from '@element-plus/icons-vue';
 import { excelTemplatesApi } from '#/api/core/excel-templates';
 import type { UploadFile, UploadInstance } from 'element-plus';
+import FormDesigner, { type FormItem } from '#/components/FormDesigner.vue';
 
 const message = ElMessage;
 const templates = ref<any[]>([]);
@@ -487,6 +538,45 @@ const formRules = {
   templateCode: [
     { required: true, message: '请输入模板编码', trigger: 'blur' }
   ]
+};
+
+// 表单设计器相关状态
+const formDesignerVisible = ref(false);
+const formDesignerRef = ref<InstanceType<typeof FormDesigner> | null>(null);
+const formDesignerConfig = ref<FormItem[]>([]);
+
+// 显示表单设计器对话框
+const showFormDesignerDialog = () => {
+  formDesignerVisible.value = true;
+  // 如果有已保存的配置，可以在这里加载
+  // 例如：从当前选中的模板加载表单配置
+};
+
+// 表单设计器配置变化
+const onFormDesignerChange = (config: FormItem[]) => {
+  console.log('表单配置变化:', config);
+};
+
+// 保存表单设计器配置
+const saveFormDesignerConfig = () => {
+  const config = formDesignerRef.value?.getFormConfig();
+  if (!config || config.length === 0) {
+    message.warning('请至少添加一个表单组件');
+    return;
+  }
+
+  // 这里可以将表单配置保存到后端或与模板关联
+  console.log('保存表单配置:', config);
+
+  // 将表单配置转换为字段映射
+  const mappings: Record<string, string> = {};
+  config.forEach((item) => {
+    mappings[item.label] = item.field;
+  });
+
+  console.log('生成的字段映射:', mappings);
+  message.success('表单配置保存成功');
+  formDesignerVisible.value = false;
 };
 
 // 系统字段分组（从后端获取）
@@ -834,17 +924,8 @@ const showCreateDialog = () => {
   };
   
   // 初始化搜索相关状态
-  if (fieldSearchLoading && typeof fieldSearchLoading === 'object' && 'value' in fieldSearchLoading) {
-    fieldSearchLoading.value = [];
-  } else {
-    fieldSearchLoading = ref<boolean[]>([]);
-  }
-  
-  if (fieldSelectorFieldGroups && typeof fieldSelectorFieldGroups === 'object' && 'value' in fieldSelectorFieldGroups) {
-    fieldSelectorFieldGroups.value = [];
-  } else {
-    fieldSelectorFieldGroups = ref<Array<Array<{ group: string; fields: Array<{ label: string; value: string; sortOrder: number; description?: string; }>; }>>([]);
-  }
+  fieldSearchLoading.value = [];
+  fieldSelectorFieldGroups.value = [];
   
   dialogVisible.value = true;
 };
@@ -1430,5 +1511,34 @@ onMounted(() => {
 
 :deep(.el-form-item__label) {
   font-weight: 500;
+}
+
+/* 表单设计器卡片样式 */
+.form-designer-card {
+  margin-bottom: 20px;
+}
+
+.designer-intro {
+  padding: 10px 0;
+}
+
+.intro-content {
+  margin-top: 10px;
+}
+
+.intro-content p {
+  margin: 0 0 10px 0;
+  color: #606266;
+}
+
+.intro-content ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #606266;
+}
+
+.intro-content li {
+  margin: 5px 0;
+  line-height: 1.6;
 }
 </style>

@@ -377,16 +377,7 @@ onMounted(() => {
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
-          <ElTableColumn label="申报状态" width="100">
-            <template #default="scope">
-              <ElTag
-                :type="getRegistrationStatusTag(scope.row.registration_status).type"
-                size="small"
-              >
-                {{ getRegistrationStatusTag(scope.row.registration_status).text }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
+
           <ElTableColumn prop="confirmationStatus" label="确认状态" width="120">
             <template #default="scope">
               <ElTag

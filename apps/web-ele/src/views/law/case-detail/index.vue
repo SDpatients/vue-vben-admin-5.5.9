@@ -181,21 +181,6 @@ const stages = [
         description: '申请人向法院提交破产申请书及相关证据材料。需上传：1.破产申请书（详细说明申请人基本情况、申请目的、事实与理由）；2.申请人主体资格证明文件（营业执照、身份证等）；3.债务人主体资格证明文件；4.债权债务关系证明材料（合同、借条、判决书等）；5.债务人不能清偿到期债务的证据（财务报表、银行流水、执行记录等）；6.其他相关证据材料。需确认：所有材料真实完整，符合法院要求的格式和份数。'
       },
       {
-        code: 'TASK_002',
-        name: '法院立案形式审查',
-        description: '法院对破产申请材料进行形式审查。需确认：1.申请材料是否齐全；2.申请人是否具备主体资格；3.是否属于本院管辖；4.申请书格式是否规范。如材料不全，需在规定期限内补充提交。'
-      },
-      {
-        code: 'TASK_003',
-        name: '破产原因实质审查',
-        description: '法院对债务人是否具备破产原因进行实质审查。需上传：1.债务人资产状况说明；2.债务清偿情况说明；3.不能清偿到期债务的详细证明。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形。'
-      },
-      {
-        code: 'TASK_004',
-        name: '同步选任管理人',
-        description: '法院在审查破产申请的同时，同步选任管理人。需确认：1.管理人名单是否符合规定；2.管理人资质是否符合要求；3.选任程序是否合法合规。'
-      },
-      {
         code: 'TASK_005',
         name: '裁定受理并公告',
         description: '法院裁定受理破产申请并发布公告。需上传：1.法院受理裁定书；2.法院公告文件。需确认：公告内容是否完整，包括受理时间、管理人名称、债权申报期限等重要信息。'
@@ -1326,20 +1311,41 @@ const submitDirectUploadForm = async () => {
     // 上传文件
     let documentAttachment = '';
     if (directUploadForm.files.length > 0) {
-      const files = directUploadForm.files.map(item => item.file);
+      // 分离手机上传的文件和电脑上传的文件
+      const mobileFiles = directUploadForm.files.filter(item => typeof item.id === 'string' && item.id.startsWith('mobile-'));
+      const computerFiles = directUploadForm.files.filter(item => !(typeof item.id === 'string' && item.id.startsWith('mobile-')));
+      
+      // 处理电脑上传的文件
+      const computerFileObjects = computerFiles.map(item => item.file);
       const uploadResponse = await batchUploadFilesApi(
-        files,
+        computerFileObjects,
         'document',
         Number(directUploadForm.caseId),
       );
 
+      // 构建文件路径列表
+      const filePaths: string[] = [];
+      
+      // 添加电脑上传文件的路径
       if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
-        // 将所有文件路径拼接成一个字符串，使用分号分隔
-        documentAttachment = uploadResponse.data
+        const computerFilePaths = uploadResponse.data
           .map((fileData: any) => fileData.filePath || fileData.storedFileName)
-          .filter((path: string) => path)
-          .join(';');
+          .filter((path: string) => path);
+        filePaths.push(...computerFilePaths);
       }
+      
+      // 添加手机上传文件的路径（使用临时文件ID）
+      // 注意：这里需要确保后端能够处理临时文件ID
+      const mobileFilePaths = mobileFiles.map(item => {
+        // 对于手机上传的文件，使用文件ID作为标识符
+        const fileId = item.id.replace('mobile-', '');
+        // 这里假设后端有一个临时文件预览接口
+        return `temp:${fileId}`;
+      });
+      filePaths.push(...mobileFilePaths);
+      
+      // 将所有文件路径拼接成一个字符串，使用分号分隔
+      documentAttachment = filePaths.join(';');
     }
 
     // 调用直接上传接口

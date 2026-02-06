@@ -17,6 +17,7 @@ import {
   updateClaimRegistrationApi,
   updateClaimRegistrationStatusApi,
 } from '#/api/core/claim-registration';
+import { deleteCreditorApi } from '#/api/core/creditor';
 import {
   createClaimReviewApi,
   getClaimReviewDetailApi,

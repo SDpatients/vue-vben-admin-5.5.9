@@ -42,6 +42,8 @@ import {
   validateFileSize,
 } from '#/api/core/archive';
 
+import { renameFileApi } from '#/api/core/file';
+
 const route = useRoute();
 const router = useRouter();
 
@@ -56,7 +58,11 @@ const selectedRowKeys = ref<number[]>([]);
 const uploadDialogVisible = ref(false);
 const editDialogVisible = ref(false);
 const previewDialogVisible = ref(false);
+const renameDialogVisible = ref(false);
 const currentRecord = ref<ArchiveApi.ArchiveRecord | undefined>(undefined);
+const currentRenameRecord = ref<ArchiveApi.ArchiveRecord | undefined>(undefined);
+const newFileName = ref('');
+const renameLoading = ref(false);
 const previewUrl = ref('');
 
 const pagination = ref({
@@ -349,6 +355,48 @@ function handleSelectionChange(selection: ArchiveApi.ArchiveRecord[]) {
   selectedRowKeys.value = selection.map((item) => item.id);
 }
 
+// 打开重命名对话框
+function handleRename(record: ArchiveApi.ArchiveRecord) {
+  currentRenameRecord.value = record;
+  newFileName.value = record.file.originalFileName;
+  renameDialogVisible.value = true;
+}
+
+// 执行重命名操作
+async function confirmRename() {
+  if (!currentRenameRecord.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    const response = await renameFileApi(currentRenameRecord.value.fileId, newFileName.value.trim());
+    if (response.code === 200 && response.data) {
+      ElMessage.success('文件重命名成功');
+      // 刷新文件列表
+      loadArchiveList();
+      renameDialogVisible.value = false;
+      currentRenameRecord.value = undefined;
+      newFileName.value = '';
+    } else {
+      ElMessage.error(response.message || '文件重命名失败');
+    }
+  } catch (error) {
+    console.error('文件重命名失败:', error);
+    ElMessage.error('文件重命名失败');
+  } finally {
+    renameLoading.value = false;
+  }
+}
+
+// 取消重命名
+function cancelRename() {
+  renameDialogVisible.value = false;
+  currentRenameRecord.value = undefined;
+  newFileName.value = '';
+}
+
 onMounted(() => {
   loadCategoryTree();
   loadArchiveList();
@@ -473,6 +521,14 @@ onMounted(() => {
                 @click="handleEdit(row)"
               >
                 编辑
+              </ElButton>
+              <ElButton
+                type="primary"
+                link
+                size="small"
+                @click="handleRename(row)"
+              >
+                重命名
               </ElButton>
               <ElPopconfirm
                 title="确定要删除这个文件吗？"
@@ -647,6 +703,40 @@ onMounted(() => {
         <ElButton type="primary" :loading="loading" @click="handleEditSubmit">
           保存
         </ElButton>
+    </template>
+    </ElDialog>
+
+    <!-- 重命名对话框 -->
+    <ElDialog
+      v-model="renameDialogVisible"
+      title="重命名文件"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="rename-dialog-content">
+        <div class="form-item mb-4">
+          <label class="form-label block mb-2">当前文件名：</label>
+          <div class="current-file-name text-gray-600">{{ currentRenameRecord?.file.originalFileName }}</div>
+        </div>
+        <div class="form-item">
+          <label class="form-label block mb-2">新文件名：</label>
+          <ElInput
+            v-model="newFileName"
+            placeholder="请输入新文件名（包含扩展名）"
+            :disabled="renameLoading"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="cancelRename" :loading="renameLoading">
+            取消
+          </ElButton>
+          <ElButton type="primary" @click="confirmRename" :loading="renameLoading">
+            确认重命名
+          </ElButton>
+        </span>
       </template>
     </ElDialog>
 
@@ -654,6 +744,7 @@ onMounted(() => {
       v-model="previewDialogVisible"
       title="文件预览"
       width="80%"
+      height="80vh"
       :close-on-click-modal="false"
     >
       <div class="h-[600px] w-full">

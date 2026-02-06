@@ -30,7 +30,6 @@ import {
   getCreditorClaimStagesApi,
   getCreditorListApi,
   updateCreditorApi,
-  batchAddCreditorsApi,
 } from '#/api/core/creditor';
 
 const props = defineProps<{
@@ -43,10 +42,7 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 
-// 批量新增对话框
-const showBatchAddDialog = ref(false);
-const addLoading = ref(false);
-const addTemplate = ref('');
+
 
 // 单个新增对话框
 const showSingleAddDialog = ref(false);
@@ -351,20 +347,6 @@ const handlePageSizeChange = (size: number) => {
   fetchCreditors();
 };
 
-// 批量新增相关函数
-const openBatchAddDialog = () => {
-  showBatchAddDialog.value = true;
-};
-
-const closeBatchAddDialog = () => {
-  showBatchAddDialog.value = false;
-  resetBatchForm();
-};
-
-const resetBatchForm = () => {
-  addTemplate.value = '';
-};
-
 // 单个新增相关函数
 const openSingleAddDialog = () => {
   showSingleAddDialog.value = true;
@@ -385,59 +367,6 @@ const resetSingleForm = () => {
   singleForm.legalRepresentative = '';
   singleForm.registeredCapital = '';
   singleForm.status = '';
-};
-
-const handleBatchAdd = async () => {
-  if (!addTemplate.value) {
-    ElMessage.warning('请输入批量新增模板');
-    return;
-  }
-
-  const lines = addTemplate.value.split('\n').filter((line) => line.trim());
-  if (lines.length === 0) {
-    ElMessage.warning('请至少输入一条债权人信息');
-    return;
-  }
-
-  const creditorsList = lines.map((line) => {
-    const parts = line.split(/,|，/).map((p) => p.trim());
-    return {
-      creditor_name: parts[0] || '',
-      creditor_type: parts[1] || '',
-      contact_phone: parts[2] || '',
-      contact_email: parts[3] || '',
-      address: parts[4] || '',
-      id_number: parts[5] || '',
-      legal_representative: parts[6] || '',
-      registered_capital: parts[7] || '',
-      status: '1',
-      created_by: '',
-    };
-  });
-
-  addLoading.value = true;
-  try {
-    const response = await batchAddCreditorsApi({
-      caseId: props.caseId,
-      creditorsList,
-    });
-    if (response.code === 0 || response.status === '1') {
-      ElMessage.success(
-        `成功添加${response.data?.successCount || creditorsList.length}个债权人`,
-      );
-      await fetchCreditors();
-      closeBatchAddDialog();
-    } else {
-      ElMessage.error(
-        `批量添加失败：${response.message || response.error || '未知错误'}`,
-      );
-    }
-  } catch (error) {
-    console.error('批量添加债权人失败:', error);
-    ElMessage.error('批量添加债权人失败');
-  } finally {
-    addLoading.value = false;
-  }
 };
 
 // 单个新增债权人处理函数
@@ -746,10 +675,7 @@ onUnmounted(() => {
               <Icon icon="lucide:plus" class="mr-1" />
               单个新增
             </ElButton>
-            <ElButton type="success" @click="openBatchAddDialog">
-              <Icon icon="lucide:file-plus-2" class="mr-1" />
-              批量新增
-            </ElButton>
+
             <ElButton type="warning" @click="handleExport">
               <Icon icon="lucide:download" class="mr-1" />
               导出
@@ -792,14 +718,17 @@ onUnmounted(() => {
       </div>
 
       <div v-loading="loading" class="creditor-list-container">
-        <ElTable
-          :data="creditors"
-          border
-          stripe
-          style="width: 100%"
-          class="mb-4"
-          @row-click="openCreditorDetailDialog"
-        >
+        <ElTable :data="creditors" border stripe style="width: 100%" class="mb-4" @row-click="openCreditorDetailDialog">
+          <ElTableColumn prop="creditorStatus" label="债权人状态" width="120" align="center">
+            <template #default="scope">
+              <ElTag
+                :type="scope.row.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'"
+                size="small"
+              >
+                {{ statusMap[scope.row.creditorStatus] || scope.row.creditorStatus }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
           <ElTableColumn
             prop="creditorName"
             label="债权人名称"
@@ -830,16 +759,6 @@ onUnmounted(() => {
             label="注册资本"
             width="120"
           />
-          <ElTableColumn prop="creditorStatus" label="债权人状态" width="120" align="center">
-            <template #default="scope">
-              <ElTag
-                :type="scope.row.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'"
-                size="small"
-              >
-                {{ statusMap[scope.row.creditorStatus] || scope.row.creditorStatus }}
-              </ElTag>
-            </template>
-          </ElTableColumn>
           <ElTableColumn label="操作" width="150" align="center" fixed="right">
             <template #default="scope">
               <div class="flex items-center justify-center gap-2">
@@ -884,57 +803,7 @@ onUnmounted(() => {
       </div>
     </ElCard>
 
-    <!-- 批量新增对话框 -->
-    <ElDialog
-      v-model="showBatchAddDialog"
-      title="批量新增债权人"
-      width="800px"
-      destroy-on-close
-    >
-      <div class="add-dialog-container">
-        <div class="template-description mb-4">
-          <p class="mb-2 text-sm text-gray-600">
-            请按以下格式输入债权人信息，每行一条：
-          </p>
-          <div class="template-example rounded bg-gray-50 p-3 text-sm">
-            <p class="mb-1 font-semibold">格式说明（逗号分隔）：</p>
-            <p class="text-gray-700">
-              债权人名称,债权人类型,联系电话,联系邮箱,地址,证件号码,法定代表人,注册资本
-            </p>
-            <p class="mt-2 font-semibold">示例：</p>
-            <p class="text-gray-700">
-              某某银行股份有限公司,金融机构,13800138000,bank@example.com,北京市朝阳区,91110000123456789X,张三,1000万
-            </p>
-            <p class="text-gray-700">
-              某某科技有限公司,企业,13900139000,tech@example.com,上海市浦东新区,91310000987654321Y,李四,500万
-            </p>
-          </div>
-        </div>
 
-        <ElForm label-width="80px">
-          <ElFormItem label="批量模板">
-            <ElInput
-              v-model="addTemplate"
-              type="textarea"
-              :rows="10"
-              placeholder="请输入债权人信息，每行一条，用逗号分隔"
-            />
-          </ElFormItem>
-        </ElForm>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <ElButton @click="closeBatchAddDialog">取消</ElButton>
-          <ElButton
-            type="primary"
-            @click="handleBatchAdd"
-            :loading="addLoading"
-          >
-            确定
-          </ElButton>
-        </span>
-      </template>
-    </ElDialog>
 
     <!-- 单个新增对话框 -->
     <ElDialog

@@ -27,7 +27,15 @@ import {
   getAllFilesByBizApi,
   uploadFileApi,
   previewFileApi,
+  renameFileApi,
 } from '#/api/core/file';
+import {
+  createTempUploadToken,
+  getTempUploadFiles,
+  cancelTempUploadToken,
+  transferTempFiles,
+  type TempUploadFile,
+} from '#/api/core/temp-upload';
 
 interface FileItem {
   id: number;
@@ -66,6 +74,7 @@ const emit = defineEmits<{
   (e: 'upload-error', error: any): void;
   (e: 'delete', fileId: number): void;
   (e: 'local-files-change', files: LocalFileItem[]): void;
+  (e: 'mobile-files-uploaded', files: TempUploadFile[]): void;
 }>();
 
 const uploading = ref(false);
@@ -80,16 +89,27 @@ const showPreviewDialog = ref(false);
 const previewUrl = ref('');
 const previewLoading = ref(false);
 
+// 重命名相关
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<FileItem | null>(null);
+const newFileName = ref('');
+const renameLoading = ref(false);
+
 // 手机上传相关
 const showQrCodeDialog = ref(false);
 const qrCodeUrl = ref('');
 const qrCodeExpireTime = ref(0);
 const qrCodePolling = ref<NodeJS.Timeout | null>(null);
 
+// 临时上传Token相关
+const currentTempToken = ref('');
+const tempFilePolling = ref<NodeJS.Timeout | null>(null);
+const mobileUploadedFiles = ref<TempUploadFile[]>([]);
+
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 16640,
+  port: 5779,
   autoDetect: true,
 });
 
@@ -108,7 +128,7 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-const getFileIcon = (file: FileItem | LocalFileItem): string => {
+const getFileIcon = (file: FileItem | LocalFileItem | TempUploadFile): string => {
   const ext = file.fileExtension.toLowerCase();
   const iconMap: Record<string, string> = {
     pdf: 'lucide:file-text',
@@ -127,7 +147,7 @@ const getFileIcon = (file: FileItem | LocalFileItem): string => {
   return iconMap[ext] || 'lucide:file';
 };
 
-const canPreview = (file: FileItem | LocalFileItem): boolean => {
+const canPreview = (file: FileItem | LocalFileItem | TempUploadFile): boolean => {
   const mimeType = file.mimeType;
   return (
     mimeType?.startsWith('image/') ||
@@ -229,14 +249,14 @@ const detectLocalIP = async (): Promise<string> => {
         }
       };
 
-      // 超时处理
+      // 超时处理 - 改为1秒
       setTimeout(() => {
         if (!foundIP) {
           console.log('[IP检测] WebRTC超时，使用后备方法');
           rtc.close();
           resolve(useFallbackIP());
         }
-      }, 2000);
+      }, 1000);
     });
   } catch (error) {
     console.error('[IP检测] 检测IP过程出错:', error);
@@ -264,82 +284,185 @@ const useFallbackIP = (): string => {
 
 // 打开手机上传二维码弹窗
 const openMobileUploadDialog = async () => {
-  // 自动检测本地IP地址
-  if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
-    await detectLocalIP();
+  try {
+    // 创建临时上传Token
+    const tokenResponse = await createTempUploadToken({
+      bizType: props.bizType,
+      description: `${props.title || '文件'}上传`,
+      expireMinutes: 30,
+    });
+
+    if (tokenResponse.code !== 200 || !tokenResponse.data) {
+      ElMessage.error('创建上传Token失败');
+      return;
+    }
+
+    currentTempToken.value = tokenResponse.data.token;
+    console.log('创建临时Token成功:', currentTempToken.value);
+
+    // 自动检测本地IP地址
+    if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
+      await detectLocalIP();
+    }
+
+    // 生成二维码URL，使用后端返回的qrCodeContent
+    // qrCodeContent格式: http://localhost:8080/api/v1/temp-upload/mobile?token=xxx
+    // 需要将其转换为前端页面URL
+    let baseUrl = window.location.origin;
+
+    // 强制使用配置的端口
+    const currentUrl = new URL(window.location.href);
+    if (mobileUploadConfig.value.ip) {
+      // 使用配置的IP和端口
+      baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+      console.log(`使用配置的IP和端口: ${baseUrl}`);
+    } else {
+      // 使用当前主机名和配置的端口
+      baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+      console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
+    }
+
+    // 生成手机上传页面URL，包含token
+    const mobileUploadUrl = `${baseUrl}/mobile-upload?token=${encodeURIComponent(currentTempToken.value)}`;
+    console.log(`生成的二维码URL: ${mobileUploadUrl}`);
+
+    qrCodeUrl.value = mobileUploadUrl;
+    qrCodeExpireTime.value = 1800; // 30分钟过期
+    showQrCodeDialog.value = true;
+
+    // 开始轮询获取手机上传的文件列表
+    startTempFilePolling();
+  } catch (error) {
+    console.error('打开手机上传弹窗失败:', error);
+    ElMessage.error('打开手机上传功能失败');
   }
-
-  // 生成随机的上传会话ID
-  const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-  // 生成二维码URL，包含当前页面的信息、上传会话ID和业务信息
-  // 使用网络可访问的地址，确保手机能够访问
-  let baseUrl = window.location.origin;
-
-  // 强制使用配置的端口
-  const currentUrl = new URL(window.location.href);
-  if (mobileUploadConfig.value.ip) {
-    // 使用配置的IP和端口
-    baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
-    console.log(`使用配置的IP和端口: ${baseUrl}`);
-  } else {
-    // 使用当前主机名和配置的端口
-    baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
-    console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
-  }
-
-  // 获取localStorage中的token
-  const token = localStorage.getItem('token');
-  let tokenParam = '';
-  if (token) {
-    // 提取token值（去掉Bearer前缀）
-    const tokenValue = token.startsWith('Bearer ') ? token.substring(7) : token;
-    tokenParam = `&token=${encodeURIComponent(tokenValue)}`;
-  }
-
-  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=${props.bizType}&bizId=${props.bizId}&sessionId=${uploadSessionId}${tokenParam}`;
-  console.log(`生成的二维码URL: ${mobileUploadUrl}`);
-
-  qrCodeUrl.value = mobileUploadUrl;
-  qrCodeExpireTime.value = 300; // 5分钟过期
-  showQrCodeDialog.value = true;
-
-  // 开始轮询检查上传状态
-  startQrCodePolling(uploadSessionId);
 };
 
-// 开始轮询检查手机上传状态
-const startQrCodePolling = (_sessionId: string) => {
+// 开始轮询获取手机上传的文件列表
+const startTempFilePolling = () => {
   // 清除之前的轮询
-  if (qrCodePolling.value) {
-    clearInterval(qrCodePolling.value);
-    qrCodePolling.value = null;
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
   }
 
-  qrCodePolling.value = setInterval(async () => {
-    try {
-      // 检查二维码是否过期
-      if (qrCodeExpireTime.value <= 0) {
-        clearInterval(qrCodePolling.value!);
-        qrCodePolling.value = null;
-        ElMessage.warning('二维码已过期，请重新生成');
-        showQrCodeDialog.value = false;
-        return;
-      }
+  // 立即执行一次
+  pollTempFiles();
 
-      qrCodeExpireTime.value--;
-    } catch (error) {
-      console.error('轮询检查失败:', error);
+  // 每3秒轮询一次
+  tempFilePolling.value = setInterval(async () => {
+    await pollTempFiles();
+  }, 3000);
+};
+
+// 轮询获取临时文件列表
+const pollTempFiles = async () => {
+  if (!currentTempToken.value) return;
+
+  try {
+    const response = await getTempUploadFiles(currentTempToken.value);
+    if (response.code === 200 && response.data) {
+      const newFiles = response.data;
+      
+      // 检查是否有新文件上传
+      if (newFiles.length > mobileUploadedFiles.value.length) {
+        const diffCount = newFiles.length - mobileUploadedFiles.value.length;
+        ElMessage.success(`手机上传了 ${diffCount} 个新文件`);
+        
+        // 如果是本地模式，添加到本地文件列表
+        if (isLocalMode.value) {
+          // 将TempUploadFile转换为LocalFileItem
+          const newLocalFiles = newFiles.slice(mobileUploadedFiles.value.length).map((tempFile) => ({
+            file: new File([], tempFile.originalFileName, { type: tempFile.mimeType }),
+            id: `mobile-${tempFile.id}`,
+            originalFileName: tempFile.originalFileName,
+            fileSize: tempFile.fileSize,
+            fileExtension: tempFile.fileExtension,
+            mimeType: tempFile.mimeType,
+            uploadTime: tempFile.uploadTime,
+          }));
+          
+          localFiles.value.push(...newLocalFiles);
+          emit('local-files-change', localFiles.value);
+        }
+        
+        // 触发事件通知父组件
+        emit('mobile-files-uploaded', newFiles);
+      }
+      
+      mobileUploadedFiles.value = newFiles;
     }
-  }, 1000);
+  } catch (error) {
+    console.error('获取临时文件列表失败:', error);
+  }
+};
+
+// 转移临时文件到业务
+const transferMobileFiles = async (bizId: number): Promise<number[]> => {
+  if (!currentTempToken.value || mobileUploadedFiles.value.length === 0) {
+    return [];
+  }
+
+  try {
+    const response = await transferTempFiles({
+      token: currentTempToken.value,
+      bizType: props.bizType,
+      bizId: bizId.toString(),
+    });
+
+    if (response.code === 200 && response.data) {
+      const transferredFiles = response.data;
+      ElMessage.success(`成功转移 ${transferredFiles.length} 个文件到业务`);
+      
+      // 刷新文件列表
+      await loadFiles();
+      
+      // 返回转移后的文件ID列表
+      return transferredFiles.map(f => f.id);
+    }
+  } catch (error) {
+    console.error('转移临时文件失败:', error);
+    ElMessage.error('转移临时文件失败');
+  }
+  
+  return [];
 };
 
 // 关闭二维码弹窗
-const closeQrCodeDialog = () => {
+const closeQrCodeDialog = async () => {
   showQrCodeDialog.value = false;
-  if (qrCodePolling.value) {
-    clearInterval(qrCodePolling.value);
-    qrCodePolling.value = null;
+  
+  // 停止轮询
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
+  }
+  
+  let shouldCancelToken = true;
+  
+  // 如果有上传的文件，询问是否保留
+  if (mobileUploadedFiles.value.length > 0) {
+    // 自动转移到业务（如果有bizId）
+    if (props.bizId) {
+      await transferMobileFiles(props.bizId);
+    } else {
+      // 如果没有bizId，不取消Token，以便稍后可以转移文件
+      shouldCancelToken = false;
+      ElMessage.info('文件已保存到临时存储，创建业务实体后可转移文件');
+      console.log('文件已保存到临时存储，Token:', currentTempToken.value);
+    }
+  }
+  
+  // 取消Token（只有当没有上传文件或已转移文件时）
+  if (shouldCancelToken && currentTempToken.value) {
+    try {
+      await cancelTempUploadToken(currentTempToken.value);
+      console.log('Token已取消:', currentTempToken.value);
+    } catch (error) {
+      console.error('取消Token失败:', error);
+    }
+    currentTempToken.value = '';
+    mobileUploadedFiles.value = [];
   }
 };
 
@@ -436,18 +559,24 @@ const handleServerFileUpload = async (rawFile: File) => {
   }
 };
 
-const handlePreview = async (file: FileItem | LocalFileItem) => {
-  previewFile.value = file;
+const handlePreview = async (file: FileItem | LocalFileItem | TempUploadFile) => {
+  previewFile.value = file as FileItem | LocalFileItem;
   previewLoading.value = true;
   
   try {
     let blob: Blob;
     
-    if ('file' in file) {
+    // 检查是否为从手机上传转换而来的文件
+    const isMobileFile = typeof file.id === 'string' && file.id.startsWith('mobile-');
+    
+    // 对于从手机上传转换而来的文件，或者本地文件大小为0的文件，应该从服务器获取文件数据
+    if ('file' in file && !isMobileFile && file.file.size > 0) {
       blob = file.file;
     } else {
+      // 从服务器获取文件数据
+      const fileId = typeof file.id === 'string' ? file.id.replace('mobile-', '') : file.id;
       blob = await fileUploadRequestClient.get<Blob>(
-        `/api/v1/file/preview/${file.id}`,
+        `/api/v1/file/preview/${fileId}`,
         {
           responseType: 'blob',
         },
@@ -468,10 +597,16 @@ const handleDownload = async (file: FileItem | LocalFileItem) => {
   try {
     let blob: Blob;
     
-    if ('file' in file) {
+    // 检查是否为从手机上传转换而来的文件
+    const isMobileFile = typeof file.id === 'string' && file.id.startsWith('mobile-');
+    
+    // 对于从手机上传转换而来的文件，或者本地文件大小为0的文件，应该从服务器获取文件数据
+    if ('file' in file && !isMobileFile && file.file.size > 0) {
       blob = file.file;
     } else {
-      blob = await downloadFileApi(file.id);
+      // 从服务器获取文件数据
+      const fileId = typeof file.id === 'string' ? file.id.replace('mobile-', '') : file.id;
+      blob = await downloadFileApi(fileId);
     }
     
     const url = window.URL.createObjectURL(blob);
@@ -526,6 +661,61 @@ const handleServerFileDelete = async (file: FileItem) => {
   }
 };
 
+// 打开重命名对话框
+const handleRenameFile = (file: FileItem | LocalFileItem) => {
+  // 检查是否为本地文件（临时ID）
+  if (typeof file.id === 'string') {
+    ElMessage.warning('请先上传文件到服务器，然后再进行重命名操作');
+    return;
+  }
+  
+  currentRenameFile.value = file as FileItem;
+  newFileName.value = file.originalFileName;
+  showRenameDialog.value = true;
+};
+
+// 执行重命名操作
+const confirmRenameFile = async () => {
+  if (!currentRenameFile.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    // 确保使用数字类型的fileId
+    const fileId = currentRenameFile.value.id;
+    if (typeof fileId !== 'number') {
+      ElMessage.error('文件ID格式错误');
+      return;
+    }
+    
+    const response = await renameFileApi(fileId, newFileName.value.trim());
+    if (response.code === 200 && response.data) {
+      ElMessage.success('文件重命名成功');
+      // 刷新文件列表
+      await loadFiles();
+      showRenameDialog.value = false;
+      currentRenameFile.value = null;
+      newFileName.value = '';
+    } else {
+      ElMessage.error(response.message || '文件重命名失败');
+    }
+  } catch (error) {
+    console.error('文件重命名失败:', error);
+    ElMessage.error('文件重命名失败');
+  } finally {
+    renameLoading.value = false;
+  }
+};
+
+// 取消重命名
+const cancelRenameFile = () => {
+  showRenameDialog.value = false;
+  currentRenameFile.value = null;
+  newFileName.value = '';
+};
+
 const handlePreviewClose = () => {
   if (previewUrl.value) {
     window.URL.revokeObjectURL(previewUrl.value);
@@ -553,6 +743,12 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
   try {
     for (const localFile of localFiles.value) {
       try {
+        // 跳过从手机上传转换而来的本地文件，因为它们是空的
+        if (localFile.id.startsWith('mobile-')) {
+          console.log(`跳过手机上传的文件 ${localFile.originalFileName}，请使用transferMobileFiles方法转移`);
+          continue;
+        }
+        
         const response = await uploadFileApi(localFile.file, props.bizType, bizId);
         if (response.code === 200 && response.data) {
           uploadedFileIds.push(response.data.id);
@@ -564,8 +760,10 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
     
     if (uploadedFileIds.length === localFiles.value.length) {
       ElMessage.success(`成功上传 ${uploadedFileIds.length} 个文件`);
-    } else {
+    } else if (uploadedFileIds.length > 0) {
       ElMessage.warning(`成功上传 ${uploadedFileIds.length}/${localFiles.value.length} 个文件`);
+    } else {
+      ElMessage.info('没有需要上传的文件');
     }
     
     return uploadedFileIds;
@@ -573,6 +771,24 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
     uploading.value = false;
   }
 };
+
+// 检查是否有未转移的临时文件
+const hasUntransferredFiles = computed(() => {
+  return !!currentTempToken.value && mobileUploadedFiles.value.length > 0;
+});
+
+// 暴露方法给父组件
+defineExpose({
+  getLocalFiles,
+  clearLocalFiles,
+  uploadLocalFiles,
+  handleRefresh,
+  openMobileUploadDialog,
+  transferMobileFiles,
+  getMobileUploadedFiles: () => mobileUploadedFiles.value,
+  hasUntransferredFiles,
+  getCurrentTempToken: () => currentTempToken.value,
+});
 
 const displayFiles = computed(() => {
   return isLocalMode.value ? localFiles.value : fileList.value;
@@ -591,6 +807,10 @@ watch(() => props.modelValue, (newVal) => {
 // 组件卸载时清理
 onUnmounted(() => {
   // 清理轮询
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
+  }
   if (qrCodePolling.value) {
     clearInterval(qrCodePolling.value);
     qrCodePolling.value = null;
@@ -600,14 +820,10 @@ onUnmounted(() => {
     window.URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = '';
   }
-});
-
-defineExpose({
-  getLocalFiles,
-  clearLocalFiles,
-  uploadLocalFiles,
-  handleRefresh,
-  openMobileUploadDialog,
+  // 取消Token
+  if (currentTempToken.value) {
+    cancelTempUploadToken(currentTempToken.value).catch(() => {});
+  }
 });
 </script>
 
@@ -716,6 +932,15 @@ defineExpose({
             <ElButton
               v-if="!disabled"
               link
+              type="primary"
+              size="small"
+              @click="handleRenameFile(scope.row)"
+            >
+              重命名
+            </ElButton>
+            <ElButton
+              v-if="!disabled"
+              link
               type="danger"
               size="small"
               @click="handleDelete(scope.row)"
@@ -794,6 +1019,21 @@ defineExpose({
             <p>3. 等待上传完成后，文件将自动显示在文件列表中</p>
           </div>
 
+          <!-- 手机上传状态 -->
+          <div v-if="mobileUploadedFiles.length > 0" class="mobile-upload-status">
+            <div class="status-header">
+              <Icon icon="lucide:check-circle" class="status-icon success" />
+              <span>已上传 {{ mobileUploadedFiles.length }} 个文件</span>
+            </div>
+            <div class="file-list-preview">
+              <div v-for="file in mobileUploadedFiles" :key="file.id" class="file-item">
+                <Icon :icon="getFileIcon(file)" class="file-icon-small" />
+                <span class="file-name">{{ file.originalFileName }}</span>
+                <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 微信浏览器提示 -->
           <div v-if="isWeChatBrowser" class="wechat-tip">
             <div class="wechat-tip-header">
@@ -818,6 +1058,39 @@ defineExpose({
           </div>
         </div>
       </div>
+    </ElDialog>
+
+    <!-- 重命名对话框 -->
+    <ElDialog
+      v-model="showRenameDialog"
+      title="重命名文件"
+      width="400px"
+    >
+      <div class="rename-dialog-content">
+        <div class="form-item mb-4">
+          <label class="form-label block mb-2">当前文件名：</label>
+          <div class="current-file-name text-gray-600">{{ currentRenameFile?.originalFileName }}</div>
+        </div>
+        <div class="form-item">
+          <label class="form-label block mb-2">新文件名：</label>
+          <ElInput
+            v-model="newFileName"
+            placeholder="请输入新文件名（包含扩展名）"
+            :disabled="renameLoading"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="cancelRenameFile" :loading="renameLoading">
+            取消
+          </ElButton>
+          <ElButton type="primary" @click="confirmRenameFile" :loading="renameLoading">
+            确认重命名
+          </ElButton>
+        </span>
+      </template>
     </ElDialog>
 </template>
 
@@ -1038,5 +1311,68 @@ defineExpose({
   display: inline-block;
   vertical-align: middle;
   margin: 0 4px;
+}
+
+/* 手机上传状态样式 */
+.mobile-upload-status {
+  width: 100%;
+  background: #f0f9ff;
+  border: 1px solid #91d5ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  color: #52c41a;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.status-icon.success {
+  color: #52c41a;
+}
+
+.file-list-preview {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.file-icon-small {
+  font-size: 16px;
+  color: #409eff;
+  margin-right: 8px;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 13px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 </style>

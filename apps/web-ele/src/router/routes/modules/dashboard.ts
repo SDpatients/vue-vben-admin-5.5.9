@@ -32,6 +32,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+      {
+        name: 'TemplateManagement',
+        path: '/template-management',
+        component: () => import('#/views/dashboard/template-management/index.vue'),
+        meta: {
+          icon: 'lucide:file-text',
+          title: '模板管理',
+        },
+      },
     ],
   },
   {
@@ -46,6 +55,17 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    name: 'MobileUpload',
+    path: '/mobile-upload',
+    component: () => import('#/views/dashboard/mobile-upload/index.vue'),
+    meta: {
+      icon: 'lucide:smartphone',
+      title: '手机上传',
+      ignoreAccess: true, // 允许未登录访问，用于手机扫码上传
+      roles: undefined, // 明确覆盖父路由的roles要求
+    },
+  },
+  {
     name: 'EasyExcelTest',
     path: '/easy-excel-test',
     component: () => import('#/views/dashboard/easy-excel-test/index.vue'),
@@ -54,15 +74,7 @@ const routes: RouteRecordRaw[] = [
       title: 'EasyExcel测试',
     },
   },
-  {
-    name: 'TemplateManager',
-    path: '/template-manager',
-    component: () => import('#/views/dashboard/template-manager/index.vue'),
-    meta: {
-      icon: 'lucide:settings',
-      title: 'Excel模板管理',
-    },
-  },
+
 ];
 
 

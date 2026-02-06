@@ -91,7 +91,12 @@ export async function uploadFileApi(
 
   return fileUploadRequestClient.post<FileApi.UploadResponse>(
     '/api/v1/file/upload',
-    formData
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
   );
 }
 
@@ -106,7 +111,18 @@ export async function batchUploadFilesApi(
   bizType: string,
   bizId: number,
 ): Promise<FileApi.BatchUploadResponse> {
-  const uploadPromises = files.map(file => uploadFileApi(file, bizType, bizId));
+  // 过滤掉空的File对象（大小为0的文件）
+  const validFiles = files.filter(file => file.size > 0);
+  
+  if (validFiles.length === 0) {
+    return {
+      code: 200,
+      message: 'success',
+      data: []
+    };
+  }
+  
+  const uploadPromises = validFiles.map(file => uploadFileApi(file, bizType, bizId));
   const results = await Promise.all(uploadPromises);
   
   const successResults = results.filter(r => r.code === 200).map(r => r.data);

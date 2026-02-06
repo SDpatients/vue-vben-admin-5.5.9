@@ -163,15 +163,9 @@ export function createApiTrackingInterceptor() {
     // 响应拦截器
     responseInterceptor: {
       fulfilled: (response: any) => {
-        // 检查 response 是否为 undefined 或 null
-        if (!response) {
-          return response;
-        }
-
         const { config } = response;
 
-        // 检查 config 是否存在且有 metadata
-        if (config?.metadata) {
+        if (config && config.metadata) {
           const { url, method, startTime } = config.metadata;
           const endTime = Date.now();
           const duration = endTime - startTime;
@@ -196,11 +190,6 @@ export function createApiTrackingInterceptor() {
         return response;
       },
       rejected: (error: any) => {
-        // 检查 error 是否为 undefined 或 null
-        if (!error) {
-          return Promise.reject(error);
-        }
-
         const { config } = error;
 
         if (config?.metadata) {
