@@ -109,9 +109,7 @@ onMounted(() => {
           <ElOption label="费用申请" value="FEE_APPLY" />
           <ElOption label="证据上传" value="EVIDENCE_UPLOAD" />
           <ElOption label="提交破产申请材料" value="TASK_001" />
-          <ElOption label="法院立案形式审查" value="TASK_002" />
-          <ElOption label="破产原因实质审查" value="TASK_003" />
-          <ElOption label="同步选任管理人" value="TASK_004" />
+
           <ElOption label="裁定受理并公告" value="TASK_005" />
           <ElOption label="全面接管债务人" value="TASK_006" />
           <ElOption label="调查财产及经营状况" value="TASK_007" />

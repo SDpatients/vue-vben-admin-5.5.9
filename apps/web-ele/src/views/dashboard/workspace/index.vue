@@ -1542,9 +1542,8 @@ onMounted(async () => {
 
                     <div
                       class="announcement-content mb-2 line-clamp-2 text-xs text-gray-600"
-                    >
-                      {{ item.content }}
-                    </div>
+                      v-html="item.content"
+                    ></div>
 
                     <div
                       class="announcement-meta flex items-center justify-between text-xs text-gray-500"

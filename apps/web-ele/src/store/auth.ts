@@ -78,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
             
             const targetPath = 
               redirectPath ? decodeURIComponent(redirectPath) : 
-              userInfo.homePath || preferences.app.defaultHomePath;
+              '/workspace';
             
             console.log('Final target path:', targetPath);
             await router.push(targetPath);

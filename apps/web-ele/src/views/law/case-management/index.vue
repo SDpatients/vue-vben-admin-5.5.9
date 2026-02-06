@@ -102,61 +102,7 @@ const activeTab = ref(getDefaultTab());
 // 判断是否显示全部案件标签页
 const showAllCasesTab = computed(() => isAdmin.value);
 
-// 列显示控制
-const columnVisible = ref<string[]>([]);
 
-// 所有可用的列
-const availableColumns = [
-  '案号',
-  '案由',
-  '案件名称',
-  '案件来源',
-  '案件进度',
-  '受理法院',
-  '主要负责人',
-  '承办人员',
-  '创建者',
-  '创建时间',
-  '修改者',
-  '修改时间',
-  '管理人',
-  '是否简化审',
-  '立案日期',
-  '受理日期',
-  '文件上传',
-  '备注',
-  '案件状态',
-  '审核状态',
-  '审核时间',
-  '审核意见',
-  '审核次数',
-];
-
-// 默认显示的列（核心信息）
-const defaultColumns = new Set([
-  '案号',
-  '案件名称',
-  '案件状态',
-  '案件进度',
-  '承办人员',
-  '主要负责人',
-  '受理法院',
-  '创建者',
-  '创建时间',
-  '受理日期',
-]);
-
-// 检查列是否可见（用于表格列的 v-if）
-const isColumnVisible = (columnName: string) => {
-  return columnVisible.value.includes(columnName);
-};
-
-// 初始化列显示状态
-const initColumnVisibility = () => {
-  columnVisible.value = availableColumns.filter((column) =>
-    defaultColumns.has(column),
-  );
-};
 
 // 格式化时间戳
 const formatTimestamp = (timestamp: number | string | undefined) => {
@@ -348,29 +294,8 @@ const handleRefresh = async () => {
 
 // 页面加载时获取数据
 onMounted(() => {
-  initColumnVisibility();
   fetchCaseList();
 });
-
-// 重置列显示状态
-const resetColumns = () => {
-  initColumnVisibility();
-  ElMessage.success('已重置为默认列显示');
-};
-
-// 显示所有列
-const showAllColumns = () => {
-  columnVisible.value = [...availableColumns];
-  ElMessage.success('已显示所有列');
-};
-
-// 隐藏所有非核心列
-const hideNonCoreColumns = () => {
-  columnVisible.value = availableColumns.filter((column) =>
-    defaultColumns.has(column),
-  );
-  ElMessage.success('已隐藏非核心列');
-};
 
 // 获取案件进度标签类型
 const getCaseProgressType = (progress: string) => {
@@ -537,132 +462,7 @@ const cancelDelete = () => {
               <i class="i-lucide-plus mr-1"></i>
               新增案件
             </ElButton>
-            <ElDropdown trigger="click">
-              <ElButton type="info" size="small">
-                <i class="i-lucide-settings mr-1"></i>
-                列设置
-              </ElButton>
-              <template #dropdown>
-                <ElDropdownMenu>
-                  <ElDropdownItem @click="showAllColumns">
-                    显示所有列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="hideNonCoreColumns">
-                    仅显示核心列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="resetColumns">
-                    重置为默认
-                  </ElDropdownItem>
-                  <ElDropdownItem divided>
-                    <ElPopover
-                      placement="right"
-                      width="300"
-                      trigger="click"
-                      title="自定义列显示"
-                    >
-                      <template #reference>
-                        <span>自定义列显示</span>
-                      </template>
-                      <div class="space-y-3">
-                        <div class="mb-2 flex items-center justify-between">
-                          <div class="text-sm font-medium text-gray-700">
-                            选择要显示的列：
-                          </div>
-                          <div class="flex space-x-2">
-                            <ElButton
-                              size="small"
-                              link
-                              @click="columnVisible = [...availableColumns]"
-                            >
-                              全选
-                            </ElButton>
-                            <ElButton
-                              size="small"
-                              link
-                              @click="columnVisible = []"
-                            >
-                              取消全选
-                            </ElButton>
-                          </div>
-                        </div>
-                        <ElCheckboxGroup v-model="columnVisible">
-                          <div
-                            class="grid max-h-60 grid-cols-2 gap-3 overflow-y-auto"
-                          >
-                            <ElCheckbox value="案号" name="案号">
-                              案号
-                            </ElCheckbox>
-                            <ElCheckbox value="案由" name="案由">
-                              案由
-                            </ElCheckbox>
-                            <ElCheckbox value="案件名称" name="案件名称">
-                              案件名称
-                            </ElCheckbox>
-                            <ElCheckbox value="案件状态" name="案件状态">
-                              案件状态
-                            </ElCheckbox>
-                            <ElCheckbox value="案件进度" name="案件进度">
-                              案件进度
-                            </ElCheckbox>
-                            <ElCheckbox value="案件来源" name="案件来源">
-                              案件来源
-                            </ElCheckbox>
-                            <ElCheckbox value="受理法院" name="受理法院">
-                              受理法院
-                            </ElCheckbox>
-                            <ElCheckbox value="主要负责人" name="主要负责人">
-                              主要负责人
-                            </ElCheckbox>
-                            <ElCheckbox value="承办人员" name="承办人员">
-                              承办人员
-                            </ElCheckbox>
-                            <ElCheckbox value="创建者" name="创建者">
-                              创建者
-                            </ElCheckbox>
-                            <ElCheckbox value="创建时间" name="创建时间">
-                              创建时间
-                            </ElCheckbox>
-                            <ElCheckbox value="修改时间" name="修改时间">
-                              修改时间
-                            </ElCheckbox>
-                            <ElCheckbox value="受理日期" name="受理日期">
-                              受理日期
-                            </ElCheckbox>
-                            <ElCheckbox value="立案日期" name="立案日期">
-                              立案日期
-                            </ElCheckbox>
-                            <ElCheckbox value="管理人" name="管理人">
-                              管理人
-                            </ElCheckbox>
-                            <ElCheckbox value="是否简化审" name="是否简化审">
-                              是否简化审
-                            </ElCheckbox>
-                            <ElCheckbox value="审核状态" name="审核状态">
-                              审核状态
-                            </ElCheckbox>
-                            <ElCheckbox value="审核时间" name="审核时间">
-                              审核时间
-                            </ElCheckbox>
-                            <ElCheckbox value="审核意见" name="审核意见">
-                              审核意见
-                            </ElCheckbox>
-                            <ElCheckbox value="审核次数" name="审核次数">
-                              审核次数
-                            </ElCheckbox>
-                            <ElCheckbox value="备注" name="备注">
-                              备注
-                            </ElCheckbox>
-                          </div>
-                        </ElCheckboxGroup>
-                        <div class="pt-2 text-center text-xs text-gray-500">
-                          提示：勾选的列将在表格中显示
-                        </div>
-                      </div>
-                    </ElPopover>
-                  </ElDropdownItem>
-                </ElDropdownMenu>
-              </template>
-            </ElDropdown>
+
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
@@ -705,7 +505,7 @@ const cancelDelete = () => {
 
             <!-- 案号 -->
             <ElTableColumn
-              v-if="isColumnVisible('案号')"
+              
               prop="案号"
               label="案号"
               min-width="180"
@@ -716,7 +516,7 @@ const cancelDelete = () => {
 
             <!-- 案件名称 -->
             <ElTableColumn
-              v-if="isColumnVisible('案件名称')"
+              
               prop="案件名称"
               label="案件名称"
               min-width="180"
@@ -725,7 +525,7 @@ const cancelDelete = () => {
 
             <!-- 案件状态 -->
             <ElTableColumn
-              v-if="isColumnVisible('案件状态')"
+              
               prop="案件状态"
               label="案件状态"
               min-width="120"
@@ -740,7 +540,7 @@ const cancelDelete = () => {
 
             <!-- 案件进度 -->
             <ElTableColumn
-              v-if="isColumnVisible('案件进度')"
+              
               prop="案件进度"
               label="案件进度"
               min-width="120"
@@ -758,7 +558,7 @@ const cancelDelete = () => {
 
             <!-- 案由 -->
             <ElTableColumn
-              v-if="isColumnVisible('案由')"
+              
               prop="案由"
               label="案由"
               min-width="200"
@@ -767,7 +567,7 @@ const cancelDelete = () => {
 
             <!-- 受理法院 -->
             <ElTableColumn
-              v-if="isColumnVisible('受理法院')"
+              
               prop="受理法院"
               label="受理法院"
               min-width="180"
@@ -776,7 +576,7 @@ const cancelDelete = () => {
 
             <!-- 主要负责人 -->
             <ElTableColumn
-              v-if="isColumnVisible('主要负责人')"
+              
               prop="主要负责人"
               label="主要负责人"
               min-width="150"
@@ -785,7 +585,7 @@ const cancelDelete = () => {
 
             <!-- 承办人员 -->
             <ElTableColumn
-              v-if="isColumnVisible('承办人员')"
+              
               prop="承办人员"
               label="承办人员"
               min-width="150"
@@ -794,7 +594,7 @@ const cancelDelete = () => {
 
             <!-- 创建者 -->
             <ElTableColumn
-              v-if="isColumnVisible('创建者')"
+              
               prop="创建者"
               label="创建者"
               min-width="120"
@@ -803,7 +603,7 @@ const cancelDelete = () => {
 
             <!-- 受理日期 -->
             <ElTableColumn
-              v-if="isColumnVisible('受理日期')"
+              
               prop="受理日期"
               label="受理日期"
               min-width="120"
@@ -816,7 +616,7 @@ const cancelDelete = () => {
 
             <!-- 创建时间 -->
             <ElTableColumn
-              v-if="isColumnVisible('创建时间')"
+              
               prop="创建时间"
               label="创建时间"
               min-width="180"
@@ -829,7 +629,7 @@ const cancelDelete = () => {
 
             <!-- 案件来源 -->
             <ElTableColumn
-              v-if="isColumnVisible('案件来源')"
+              
               prop="案件来源"
               label="案件来源"
               min-width="150"
@@ -838,7 +638,7 @@ const cancelDelete = () => {
 
             <!-- 修改者 -->
             <ElTableColumn
-              v-if="isColumnVisible('修改者')"
+              
               prop="修改者"
               label="修改者"
               min-width="120"
@@ -847,7 +647,7 @@ const cancelDelete = () => {
 
             <!-- 修改时间 -->
             <ElTableColumn
-              v-if="isColumnVisible('修改时间')"
+              
               prop="修改时间"
               label="修改时间"
               min-width="180"
@@ -860,7 +660,7 @@ const cancelDelete = () => {
 
             <!-- 管理人 -->
             <ElTableColumn
-              v-if="isColumnVisible('管理人')"
+              
               prop="管理人"
               label="管理人"
               min-width="120"
@@ -869,7 +669,7 @@ const cancelDelete = () => {
 
             <!-- 是否简化审 -->
             <ElTableColumn
-              v-if="isColumnVisible('是否简化审')"
+              
               prop="是否简化审"
               label="是否简化审"
               min-width="120"
@@ -878,7 +678,7 @@ const cancelDelete = () => {
 
             <!-- 立案日期 -->
             <ElTableColumn
-              v-if="isColumnVisible('立案日期')"
+              
               prop="立案日期"
               label="立案日期"
               min-width="180"
@@ -891,7 +691,7 @@ const cancelDelete = () => {
 
             <!-- 文件上传 -->
             <ElTableColumn
-              v-if="isColumnVisible('文件上传')"
+              
               prop="文件上传"
               label="文件上传"
               min-width="100"
@@ -900,7 +700,7 @@ const cancelDelete = () => {
 
             <!-- 备注 -->
             <ElTableColumn
-              v-if="isColumnVisible('备注')"
+              
               prop="备注"
               label="备注"
               min-width="200"
@@ -911,7 +711,7 @@ const cancelDelete = () => {
 
             <!-- 审核状态 -->
             <ElTableColumn
-              v-if="isColumnVisible('审核状态')"
+              
               prop="审核状态"
               label="审核状态"
               min-width="120"
@@ -929,7 +729,7 @@ const cancelDelete = () => {
 
             <!-- 审核时间 -->
             <ElTableColumn
-              v-if="isColumnVisible('审核时间')"
+              
               prop="审核时间"
               label="审核时间"
               min-width="180"
@@ -942,7 +742,7 @@ const cancelDelete = () => {
 
             <!-- 审核意见 -->
             <ElTableColumn
-              v-if="isColumnVisible('审核意见')"
+              
               prop="审核意见"
               label="审核意见"
               min-width="200"
@@ -951,7 +751,7 @@ const cancelDelete = () => {
 
             <!-- 审核次数 -->
             <ElTableColumn
-              v-if="isColumnVisible('审核次数')"
+              
               prop="审核次数"
               label="审核次数"
               min-width="100"

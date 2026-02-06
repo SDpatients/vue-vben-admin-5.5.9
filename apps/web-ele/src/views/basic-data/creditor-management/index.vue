@@ -236,6 +236,17 @@ const showConfirmedCreditors = () => {
   fetchCreditorList();
 };
 
+// 处理标签切换
+const handleTabClick = (tab) => {
+  if (tab.props.name === 'all') {
+    searchStatus.value = '';
+  } else if (tab.props.name === 'confirmed') {
+    searchStatus.value = 'CONFIRMED';
+  }
+  pagination.value.page = 1;
+  fetchCreditorList();
+};
+
 // 格式化货币显示
 const formatCurrency = (amount: number) => {
   if (!amount) return '-';
@@ -673,26 +684,32 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
   <div class="p-6">
     <ElCard header="债权人管理" size="small">
       <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">债权人管理</span>
-          <div class="flex items-center space-x-2">
-            <ElButton type="primary" @click="handleAddCreditor">
-              <i class="i-lucide-plus mr-1"></i>
-              新增债权人
-            </ElButton>
-            <ElButton type="success" @click="exportCreditorData">
-              <i class="i-lucide-download mr-1"></i>
-              导出数据
-            </ElButton>
-            <ElButton type="warning" @click="handleOpenImportDialog">
-              <i class="i-lucide-upload mr-1"></i>
-              导入数据
-            </ElButton>
-            <ElButton type="primary" @click="handleRefresh" :loading="loading">
-              <i class="i-lucide-refresh-cw mr-1"></i>
-              刷新
-            </ElButton>
+        <div class="flex flex-col items-start space-y-4">
+          <div class="flex items-center justify-between w-full">
+            <span class="text-lg font-semibold">债权人管理</span>
+            <div class="flex items-center space-x-2">
+              <ElButton type="primary" @click="handleAddCreditor">
+                <i class="i-lucide-plus mr-1"></i>
+                新增债权人
+              </ElButton>
+              <ElButton type="success" @click="exportCreditorData">
+                <i class="i-lucide-download mr-1"></i>
+                导出数据
+              </ElButton>
+              <ElButton type="warning" @click="handleOpenImportDialog">
+                <i class="i-lucide-upload mr-1"></i>
+                导入数据
+              </ElButton>
+              <ElButton type="primary" @click="handleRefresh" :loading="loading">
+                <i class="i-lucide-refresh-cw mr-1"></i>
+                刷新
+              </ElButton>
+            </div>
           </div>
+          <ElTabs @tab-click="handleTabClick" class="w-full">
+            <ElTabPane label="已知债权人（全部）" name="all"></ElTabPane>
+            <ElTabPane label="确认债权人" name="confirmed"></ElTabPane>
+          </ElTabs>
         </div>
       </template>
 
@@ -741,14 +758,6 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
           <ElButton @click="resetSearch">
             <i class="i-lucide-refresh-cw mr-1"></i>
             重置
-          </ElButton>
-          <ElButton type="info" @click="showAllCreditors">
-            <i class="i-lucide-users mr-1"></i>
-            已知债权人（全部）
-          </ElButton>
-          <ElButton type="success" @click="showConfirmedCreditors">
-            <i class="i-lucide-check-circle mr-1"></i>
-            确认债权人
           </ElButton>
         </div>
       </div>
