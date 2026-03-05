@@ -268,7 +268,7 @@ const detectLocalIP = async () => {
           resolve(hostname);
         } else {
           // 默认使用固定IP地址
-          const defaultIP = '192.168.0.120';
+          const defaultIP = '192.168.0.151';
           console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
           mobileUploadConfig.value.ip = defaultIP;
           resolve(defaultIP);
@@ -289,7 +289,7 @@ const detectLocalIP = async () => {
     }
 
     // 默认使用固定IP地址
-    const defaultIP = '192.168.0.120';
+    const defaultIP = '192.168.0.151';
     console.log('[IP检测] 异常处理 - 使用默认IP:', defaultIP);
     mobileUploadConfig.value.ip = defaultIP;
     return defaultIP;

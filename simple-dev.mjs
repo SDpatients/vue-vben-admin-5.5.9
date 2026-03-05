@@ -21,7 +21,7 @@ async function main() {
     console.log('✅ Vite server started successfully!');
     console.log(
       '🌐 Server URL:',
-      `http://192.168.0.120:${server.config.server.port}`,
+      `http://192.168.0.151:${server.config.server.port}`,
     );
 
     // Keep the process running

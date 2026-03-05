@@ -275,7 +275,7 @@ const useFallbackIP = (): string => {
   }
 
   // 最后使用默认IP地址
-  const defaultIP = '192.168.0.120';
+  const defaultIP = '192.168.0.151';
   console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
   console.log('[IP检测] 提示: 可以通过设置环境变量 VITE_MOBILE_UPLOAD_IP 来指定IP地址');
   mobileUploadConfig.value.ip = defaultIP;

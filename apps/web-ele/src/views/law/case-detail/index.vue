@@ -12,6 +12,7 @@ import {
   ElEmpty,
   ElFormItem,
   ElInput,
+  ElLink,
   ElMessage,
   ElOption,
   ElPagination,
@@ -5310,6 +5311,15 @@ const endDrag = () => {
                   <span class="text-lg font-semibold">公告管理</span>
                 </div>
                 <div class="flex space-x-2">
+                  <ElLink
+                    href="https://pcgl.zjsfgkw.gov.cn:10020/#/login"
+                    target="_blank"
+                    type="primary"
+                    class="mr-2"
+                  >
+                    <Icon icon="lucide:external-link" class="mr-1" />
+                    管理人工作台
+                  </ElLink>
                   <ElButton type="primary" @click="openNewAnnouncementDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     发布新公告
