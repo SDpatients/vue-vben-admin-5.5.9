@@ -12,6 +12,7 @@ import {
   ElEmpty,
   ElFormItem,
   ElInput,
+  ElLink,
   ElMessage,
   ElOption,
   ElPagination,
@@ -721,7 +722,6 @@ const reviewForm = reactive({
 const reviewTypeOptions = [
   { label: '案件审批', value: 'CASE_REVIEW' },
   { label: '流程审批', value: 'PROCESS_REVIEW' },
-  { label: '文书审批', value: 'DOCUMENT_REVIEW' },
 ];
 
 // 阶段选项
@@ -902,16 +902,7 @@ const submitReview = async () => {
     
     break;
     }
-    case 'DOCUMENT_REVIEW': {
-      // 文书审批，引导用户前往文书送达页面
-      ElMessage.info('请前往"文书送达"页面上传文书');
-      // 关闭审批弹窗
-      showReviewDialog.value = false;
-      // 切换到文书送达标签页
-      activeTab.value = 'documentService';
-    
-    break;
-    }
+
     case 'PROCESS_REVIEW': {
       // 流程审批，调用新增案件审批API
       // 验证阶段和任务是否已选择
@@ -5388,6 +5379,15 @@ const endDrag = () => {
                   <span class="text-lg font-semibold">公告管理</span>
                 </div>
                 <div class="flex space-x-2">
+                  <ElLink
+                    href="https://pcgl.zjsfgkw.gov.cn:10020/#/login"
+                    target="_blank"
+                    type="primary"
+                    class="mr-2"
+                  >
+                    <Icon icon="lucide:external-link" class="mr-1" />
+                    管理人工作台
+                  </ElLink>
                   <ElButton type="primary" @click="openNewAnnouncementDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     发布新公告

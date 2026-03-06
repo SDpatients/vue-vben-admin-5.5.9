@@ -1903,10 +1903,13 @@ onMounted(() => {
                   placeholder="请选择债权种类"
                   style="width: 100%"
                 >
-                  <ElOption label="普通债权" value="普通债权" />
                   <ElOption label="担保债权" value="担保债权" />
+                  <ElOption label="职工债权" value="职工债权" />
                   <ElOption label="优先债权" value="优先债权" />
-                  <ElOption label="其他债权" value="其他债权" />
+                  <ElOption label="税款债权" value="税款债权" />
+                  <ElOption label="普通债权" value="普通债权" />
+                  <ElOption label="劣后债权" value="劣后债权" />
+                  <ElOption label="未确认债权" value="未确认债权" />
                 </ElSelect>
               </ElFormItem>
             </ElCol>
@@ -2271,10 +2274,13 @@ onMounted(() => {
                   placeholder="请选择债权种类"
                   style="width: 100%"
                 >
-                  <ElOption label="普通债权" value="普通债权" />
                   <ElOption label="担保债权" value="担保债权" />
+                  <ElOption label="职工债权" value="职工债权" />
                   <ElOption label="优先债权" value="优先债权" />
-                  <ElOption label="其他债权" value="其他债权" />
+                  <ElOption label="税款债权" value="税款债权" />
+                  <ElOption label="普通债权" value="普通债权" />
+                  <ElOption label="劣后债权" value="劣后债权" />
+                  <ElOption label="未确认债权" value="未确认债权" />
                 </ElSelect>
               </ElFormItem>
             </ElCol>
