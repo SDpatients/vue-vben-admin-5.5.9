@@ -35,12 +35,13 @@ const props = defineProps<{
   taskId?: number;
   taskStatus?: string;
 }>();
-const { moduleType, taskId } = props;
 const emit = defineEmits<{
   (e: 'updateTaskStatus', status: string): void;
 }>();
 
-// 使用computed属性获取最新的taskStatus
+// 使用computed属性获取最新的props值，确保响应性
+const currentModuleType = computed(() => props.moduleType);
+const currentTaskId = computed(() => props.taskId);
 const currentTaskStatus = computed(() => props.taskStatus);
 const loading = ref(false);
 const claims = ref<any[]>([]);
@@ -342,8 +343,8 @@ const handleRejectReview = async (row: any) => {
 };
 
 // 标记模块完成
-const handleMarkModuleComplete = async (moduleType: 'registration' | 'review') => {
-  if (!taskId) {
+const handleMarkModuleComplete = async (type: 'registration' | 'review') => {
+  if (!currentTaskId.value) {
     ElMessage.warning('任务ID不存在，无法标记完成状态');
     return;
   }
@@ -353,7 +354,6 @@ const handleMarkModuleComplete = async (moduleType: 'registration' | 'review') =
   const actionText = completed ? '撤回' : '标记完成';
   
   try {
-    // 添加确认对话框
     await ElMessageBox.confirm(
       `确定要${actionText}吗？`,
       actionText,
@@ -364,7 +364,7 @@ const handleMarkModuleComplete = async (moduleType: 'registration' | 'review') =
       }
     );
     
-    const response = await CaseTaskApi.updateCaseTask(taskId, {
+    const response = await CaseTaskApi.updateCaseTask(currentTaskId.value, {
       status: newStatus,
     });
     
@@ -582,7 +582,7 @@ watch(() => props.moduleType, () => {
                 刷新数据
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'registration' && currentTaskStatus === 'COMPLETED'"
+                v-if="currentModuleType === 'registration' && currentTaskStatus === 'COMPLETED'"
                 type="danger" 
                 @click="handleMarkModuleComplete('registration')"
                 :loading="loading"
@@ -591,7 +591,7 @@ watch(() => props.moduleType, () => {
                 撤回
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'registration' && currentTaskStatus !== 'COMPLETED'"
+                v-if="currentModuleType === 'registration' && currentTaskStatus !== 'COMPLETED'"
                 type="success" 
                 @click="handleMarkModuleComplete('registration')"
                 :loading="loading"
@@ -701,7 +701,7 @@ watch(() => props.moduleType, () => {
                 刷新数据
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'review' && currentTaskStatus === 'COMPLETED'"
+                v-if="currentModuleType === 'review' && currentTaskStatus === 'COMPLETED'"
                 type="danger" 
                 @click="handleMarkModuleComplete('review')"
                 :loading="loading"
@@ -710,7 +710,7 @@ watch(() => props.moduleType, () => {
                 撤回
               </ElButton>
               <ElButton 
-                v-if="moduleType === 'review' && currentTaskStatus !== 'COMPLETED'"
+                v-if="currentModuleType === 'review' && currentTaskStatus !== 'COMPLETED'"
                 type="success" 
                 @click="handleMarkModuleComplete('review')"
                 :loading="loading"
@@ -1140,10 +1140,13 @@ watch(() => props.moduleType, () => {
                   placeholder="请选择债权种类"
                   style="width: 100%"
                 >
-                  <ElOption label="普通债权" value="普通债权" />
                   <ElOption label="担保债权" value="担保债权" />
+                  <ElOption label="职工债权" value="职工债权" />
                   <ElOption label="优先债权" value="优先债权" />
-                  <ElOption label="其他债权" value="其他债权" />
+                  <ElOption label="税款债权" value="税款债权" />
+                  <ElOption label="普通债权" value="普通债权" />
+                  <ElOption label="劣后债权" value="劣后债权" />
+                  <ElOption label="未确认债权" value="未确认债权" />
                 </ElSelect>
               </ElFormItem>
             </ElCol>

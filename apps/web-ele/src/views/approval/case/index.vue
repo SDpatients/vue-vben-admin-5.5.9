@@ -495,21 +495,20 @@ const handleConfirmApproval = async () => {
 
   loading.value = true;
   try {
-    // 执行审批操作
     await approvalApi.approve(currentCase.value.id, {
       approvalResult:
         approvalForm.value.status === 'approved' ? 'PASS' : 'FAIL',
       approvalOpinion: approvalForm.value.remark,
-      approverId: 1, // 实际应该从登录信息获取
+      approverId: 1,
     });
 
-    // 刷新列表
-    await loadCases();
+    dialogVisible.value = false;
 
     ElMessage.success(
       approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
     );
-    dialogVisible.value = false;
+
+    await loadCases();
   } catch (error) {
     console.error('审批失败:', error);
     ElMessage.error('审批失败');
