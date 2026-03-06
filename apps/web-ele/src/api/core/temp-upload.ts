@@ -22,6 +22,10 @@ export interface TempUploadFile {
   description: string;
   uploadTime: string;
   token: string;
+  filePath?: string;
+  storedFileName?: string;
+  bizType?: string;
+  bizId?: string;
 }
 
 export interface CreateTokenParams {

@@ -452,6 +452,28 @@ const saveWorkLog = async () => {
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
+        
+        // 检查是否有未转移的临时文件（手机上传的文件）
+        if (fileUploadRef.value) {
+          console.log('检查工作日志是否有未转移的临时文件...');
+          console.log('hasUntransferredFiles:', fileUploadRef.value.getHasUntransferredFiles());
+          console.log('currentTempToken:', fileUploadRef.value.getCurrentTempToken());
+          console.log('mobileUploadedFiles:', fileUploadRef.value.getMobileUploadedFiles());
+          
+          if (fileUploadRef.value.getHasUntransferredFiles()) {
+            console.log('发现未转移的临时文件，开始转移...');
+            const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
+            
+            if (transferredFiles.length > 0) {
+              console.log('临时文件转移成功，文件信息:', transferredFiles);
+            } else {
+              console.log('临时文件转移失败，没有文件被转移');
+            }
+          } else {
+            console.log('没有未转移的临时文件');
+          }
+        }
+        
         ElMessage.success('工作日志更新成功');
         await fetchWorkLogs();
       }
@@ -473,6 +495,28 @@ const saveWorkLog = async () => {
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(workLogId);
         }
+        
+        // 检查是否有未转移的临时文件（手机上传的文件）
+        if (fileUploadRef.value) {
+          console.log('检查工作日志是否有未转移的临时文件...');
+          console.log('hasUntransferredFiles:', fileUploadRef.value.getHasUntransferredFiles());
+          console.log('currentTempToken:', fileUploadRef.value.getCurrentTempToken());
+          console.log('mobileUploadedFiles:', fileUploadRef.value.getMobileUploadedFiles());
+          
+          if (fileUploadRef.value.getHasUntransferredFiles()) {
+            console.log('发现未转移的临时文件，开始转移...');
+            const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
+            
+            if (transferredFiles.length > 0) {
+              console.log('临时文件转移成功，文件信息:', transferredFiles);
+            } else {
+              console.log('临时文件转移失败，没有文件被转移');
+            }
+          } else {
+            console.log('没有未转移的临时文件');
+          }
+        }
+        
         ElMessage.success('工作日志创建成功');
         await fetchWorkLogs();
       }
@@ -959,6 +1003,7 @@ const showApprovalSubmitDialog = ref(false);
 // 编辑状态
 const isEditingDocument = ref(false);
 const currentDocumentId = ref<null | number>(null);
+const editExistingFiles = ref<any[]>([]);
 
 // 文书表单数据
 const documentForm = reactive({
@@ -1201,6 +1246,9 @@ const editDocument = (row: any) => {
     // 清空现有文件列表
     uploadedFiles.value = [];
     
+    // 清空已有文件列表
+    editExistingFiles.value = [];
+    
     // 添加原有附件
     attachmentPaths.forEach((filePath: string, index: number) => {
       // 从文件路径中提取文件名
@@ -1224,10 +1272,21 @@ const editDocument = (row: any) => {
         name: fileName,
         url: '' // 原有文件没有本地 URL
       });
+      
+      // 添加到已有文件列表，用于传递给FileUpload组件
+      editExistingFiles.value.push({
+        id: `existing_${index}`,
+        originalFileName: fileName,
+        fileSize: 0,
+        fileExtension: fileName.split('.').pop() || '',
+        mimeType: '',
+        filePath: filePath,
+      });
     });
   } else {
     // 没有附件，清空文件列表
     uploadedFiles.value = [];
+    editExistingFiles.value = [];
   }
 
   // 打开弹窗
@@ -1264,6 +1323,7 @@ const resetDocumentForm = () => {
   // 重置编辑状态
   isEditingDocument.value = false;
   currentDocumentId.value = null;
+  editExistingFiles.value = [];
 };
 
 // 重置文书上传表单
@@ -1309,22 +1369,37 @@ const submitDirectUploadForm = async () => {
 
   fileUploadLoading.value = true;
   try {
+    // 用于存储所有文件的路径
+    const filePaths: string[] = [];
+    
     // 1. 首先检查是否有未转移的临时文件（手机上传的文件）
     console.log('检查是否有未转移的临时文件...');
     console.log('documentUploadRef.value:', documentUploadRef.value);
     
     if (documentUploadRef.value) {
-      console.log('hasUntransferredFiles.value:', documentUploadRef.value.hasUntransferredFiles.value);
-      console.log('currentTempToken.value:', documentUploadRef.value.getCurrentTempToken());
+      console.log('hasUntransferredFiles:', documentUploadRef.value.getHasUntransferredFiles());
+      console.log('currentTempToken:', documentUploadRef.value.getCurrentTempToken());
+      console.log('mobileUploadedFiles:', documentUploadRef.value.getMobileUploadedFiles());
       
-      if (documentUploadRef.value.hasUntransferredFiles.value) {
+      if (documentUploadRef.value.getHasUntransferredFiles()) {
         console.log('发现未转移的临时文件，开始转移...');
-        const transferredFileIds = await documentUploadRef.value.transferMobileFiles(Number(directUploadForm.caseId));
+        const transferredFiles = await documentUploadRef.value.transferMobileFiles(Number(directUploadForm.caseId));
         
-        if (transferredFileIds.length > 0) {
-          console.log('临时文件转移成功，文件ID:', transferredFileIds);
-          // 这里可以根据需要处理转移后的文件
-          // 例如，将转移后的文件ID添加到documentAttachment中
+        if (transferredFiles.length > 0) {
+          console.log('临时文件转移成功，文件信息:', transferredFiles);
+          
+          // 转移后的文件需要通过文件ID查询文件详情来获取文件路径
+          // 或者，我们可以直接使用文件ID来构建documentAttachment
+          // 这里假设后端转移接口返回的文件信息中包含filePath或storedFileName
+          // 如果不包含，我们需要额外调用文件查询接口
+          
+          // 暂时使用文件ID作为标识，后续可以优化
+          const transferredFilePaths = transferredFiles
+            .map((file: any) => file.filePath || file.storedFileName || `file:${file.id}`)
+            .filter((path: string) => path);
+          filePaths.push(...transferredFilePaths);
+          
+          console.log('转移文件的路径:', transferredFilePaths);
         } else {
           console.log('临时文件转移失败，没有文件被转移');
         }
@@ -1336,7 +1411,6 @@ const submitDirectUploadForm = async () => {
     }
 
     // 2. 处理电脑上传的文件
-    let documentAttachment = '';
     if (directUploadForm.files.length > 0) {
       const files = directUploadForm.files.map(item => item.file);
       const uploadResponse = await batchUploadFilesApi(
@@ -1346,13 +1420,17 @@ const submitDirectUploadForm = async () => {
       );
 
       if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
-        // 将所有文件路径拼接成一个字符串，使用分号分隔
-        documentAttachment = uploadResponse.data
+        // 将电脑上传文件的路径添加到路径列表
+        const computerFilePaths = uploadResponse.data
           .map((fileData: any) => fileData.filePath || fileData.storedFileName)
-          .filter((path: string) => path)
-          .join(';');
+          .filter((path: string) => path);
+        filePaths.push(...computerFilePaths);
       }
     }
+    
+    // 将所有文件路径拼接成一个字符串，使用分号分隔
+    const documentAttachment = filePaths.join(';');
+    console.log('最终的documentAttachment:', documentAttachment);
 
     // 调用直接上传接口
     const requestData = {
@@ -7038,6 +7116,7 @@ const endDrag = () => {
                     title="文书附件"
                     :disabled="false"
                     :local-mode="true"
+                    :existing-files="isEditingDocument ? editExistingFiles : []"
                     @local-files-change="(files) => { console.log('documentForm files changed:', files); documentForm.files = files }"
                   />
                 </ElFormItem>
@@ -7987,7 +8066,8 @@ const endDrag = () => {
         @progress-updated="handleProgressUpdated"
       />
       
-      <!-- AI聊天悬浮窗 -->
+      <!-- AI聊天悬浮窗 - 暂时隐藏 -->
+      <!--
       <div 
         class="ai-chat-container"
         :style="{
@@ -7995,7 +8075,6 @@ const endDrag = () => {
           top: aiChatPosition.y + 'px'
         }"
       >
-        <!-- 悬浮按钮 -->
         <div 
           v-if="!aiChatVisible" 
           class="ai-chat-toggle-button"
@@ -8009,13 +8088,11 @@ const endDrag = () => {
         </div>
       </div>
       
-      <!-- 聊天侧边栏 -->
       <div 
         v-if="aiChatVisible" 
         class="ai-chat-sidebar"
         :class="{ expanded: aiChatExpanded }"
       >
-        <!-- 聊天窗口头部 -->
         <div class="ai-chat-header">
           <div class="flex items-center">
             <Icon icon="lucide:robot" class="text-primary mr-2" />
@@ -8031,7 +8108,6 @@ const endDrag = () => {
           </div>
         </div>
         
-        <!-- 聊天消息区域 -->
         <div class="ai-chat-messages">
           <div 
             v-for="message in aiChatMessages" 
@@ -8057,7 +8133,6 @@ const endDrag = () => {
           </div>
         </div>
         
-        <!-- 聊天输入区域 -->
         <div class="ai-chat-input-area">
           <ElInput
             v-model="aiChatInput"
@@ -8075,6 +8150,7 @@ const endDrag = () => {
           </ElButton>
         </div>
       </div>
+      -->
     </div>
   </div>
 </template>

@@ -15,9 +15,11 @@ import {
   ElDropdown,
   ElDropdownItem,
   ElDropdownMenu,
+  ElEmpty,
   ElForm,
   ElFormItem,
   ElInput,
+  ElInputNumber,
   ElMessage,
   ElOption,
   ElPagination,
@@ -26,6 +28,7 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
+  ElTag,
 } from 'element-plus';
 
 import { getCaseSimpleListApi } from '#/api/core/case';
@@ -35,6 +38,7 @@ import {
   getDebtorListApi,
   updateDebtorApi,
 } from '#/api/core/debtor';
+import { documentTemplatesApi, type DocumentTemplate } from '#/api/core/document-templates';
 import { exportToExcel } from '#/utils/export-excel';
 
 // 响应式数据
@@ -107,6 +111,37 @@ const initColumnVisibility = () => {
   columnVisible.value = availableColumns.filter((column) =>
     defaultColumns.has(column),
   );
+};
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const templateExportLoading = ref(false);
+const availableTemplates = ref<DocumentTemplate[]>([]);
+const selectedTemplate = ref<DocumentTemplate | null>(null);
+const selectedDebtorIds = ref<number[]>([]);
+const templateFields = ref<Array<{key: string; label: string; value: string}>>([]);
+
+// 导出选项配置
+const exportOptions = ref({
+  sheetName: '债务人列表',
+  startRow: 2,
+  mergeCells: false,
+  addIndex: true,
+  fileName: '',
+});
+
+// 债务人字段与模板字段的映射
+const debtorFieldMapping: Record<string, string> = {
+  enterpriseName: '债务人名称',
+  legalRepresentative: '法定代表人',
+  unifiedSocialCreditCode: '统一社会信用代码',
+  registeredAddress: '注册地址',
+  contactPerson: '联系人',
+  contactPhone: '联系电话',
+  caseNumber: '案号',
+  caseName: '案件名称',
+  businessScope: '经营范围',
+  industry: '行业',
 };
 
 // 获取债务人列表
@@ -692,6 +727,205 @@ const exportDebtorData = () => {
   }
 };
 
+// 模板导出相关函数
+const showTemplateExportDialog = async () => {
+  // 不清空已选择的债务人 ID，保留用户的选择
+  // selectedDebtorIds.value = [];
+  
+  if (selectedDebtorIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的债务人');
+    return;
+  }
+  
+  console.log('打开导出对话框，已选择的债务人 ID:', selectedDebtorIds.value);
+  console.log('当前债务人列表:', debtorList.value);
+  
+  selectedTemplate.value = null;
+  templateFields.value = [];
+  exportOptions.value = {
+    sheetName: '债务人列表',
+    startRow: 2,
+    mergeCells: false,
+    addIndex: true,
+    fileName: `债务人批量数据_${formatDate(new Date())}`,
+  };
+  templateExportVisible.value = true;
+  
+  await loadAvailableTemplates();
+};
+
+// 批量导出到 Excel
+const batchExportToExcel = async () => {
+  if (debtorList.value.length === 0) {
+    ElMessage.warning('没有数据可导出');
+    return;
+  }
+  
+  if (!selectedTemplate.value) {
+    ElMessage.warning('请先选择模板');
+    return;
+  }
+  
+  templateExportLoading.value = true;
+  
+  try {
+    // 准备批量数据
+    const dataList = debtorList.value.map((debtor, index) => ({
+      index: exportOptions.value.addIndex ? index + 1 : undefined,
+      '债务人名称': debtor.enterpriseName,
+      '法定代表人': debtor.legalRepresentative,
+      '统一社会信用代码': debtor.unifiedSocialCreditCode,
+      '注册地址': debtor.registeredAddress,
+      '联系电话': debtor.contactPhone,
+      '联系人': debtor.contactPerson,
+      '案号': debtor.caseNumber,
+      '案件名称': debtor.caseName,
+      businessScope: debtor.businessScope,
+      industry: debtor.industry,
+    })).filter(row => {
+      // 过滤掉 undefined 字段
+      const filteredRow: any = {};
+      Object.entries(row).forEach(([key, value]) => {
+        if (value !== undefined) filteredRow[key] = value;
+      });
+      return filteredRow;
+    });
+    
+    // 调用批量导出 API
+    const response = await documentTemplatesApi.batchExportExcel({
+      templateId: selectedTemplate.value.id,
+      fileName: exportOptions.value.fileName,
+      dataList: dataList,
+      options: {
+        sheetName: exportOptions.value.sheetName,
+        startRow: exportOptions.value.startRow,
+        mergeCells: exportOptions.value.mergeCells,
+        addIndex: exportOptions.value.addIndex,
+      }
+    });
+    
+    // 下载文件
+    const blob = response.data;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${exportOptions.value.fileName}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    ElMessage.success(`成功导出 ${dataList.length} 条数据`);
+    templateExportVisible.value = false;
+  } catch (error) {
+    console.error('批量导出失败:', error);
+    ElMessage.error('批量导出失败');
+  } finally {
+    templateExportLoading.value = false;
+  }
+};
+
+const loadAvailableTemplates = async () => {
+  try {
+    const response = await documentTemplatesApi.getTemplatesByType('WORD');
+    if (response.code === 200) {
+      // 过滤出债务人相关的模板（可根据实际需求调整过滤条件）
+      availableTemplates.value = response.data.filter(t => 
+        t.templateCode.includes('DEBTOR') || 
+        t.templateCode.includes('CREDITOR') ||
+        t.templateName.includes('债务人') ||
+        t.templateName.includes('债权人') ||
+        t.templateName.includes('通知书') ||
+        t.templateName.includes('文书')
+      );
+    }
+  } catch (error) {
+    console.error('加载模板失败:', error);
+  }
+};
+
+const handleTemplateSelect = async (template: DocumentTemplate) => {
+  selectedTemplate.value = template;
+  
+  try {
+    const response = await documentTemplatesApi.getTemplateDetail(template.id);
+    if (response.code === 200 && response.data.fields) {
+      const fields = response.data.fields || [];
+      templateFields.value = fields.map((field: any) => ({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        value: getMappedValue(field.fieldName, field.fieldType),
+      }));
+    }
+  } catch (error) {
+    console.error('加载模板字段失败:', error);
+  }
+};
+
+const getMappedValue = (fieldName: string, fieldType: string) => {
+  // 根据字段名查找对应的债务人字段
+  const debtorField = Object.entries(debtorFieldMapping).find(
+    ([_, templateName]) => templateName === fieldName
+  );
+  
+  if (debtorField && debtorField[0]) {
+    const sampleDebtor = debtorList.value[0];
+    if (sampleDebtor) {
+      return (sampleDebtor as any)[debtorField[0]] || '';
+    }
+  }
+  
+  // 默认值根据类型返回
+  if (fieldType === 'DATE') {
+    return new Date().toISOString().split('T')[0];
+  }
+  return '';
+};
+
+const handleTemplateExport = async () => {
+  if (!selectedTemplate.value) {
+    ElMessage.warning('请选择模板');
+    return;
+  }
+  
+  if (selectedDebtorIds.value.length === 0) {
+    ElMessage.warning('请至少选择一个债务人');
+    return;
+  }
+  
+  templateExportLoading.value = true;
+  
+  try {
+    let successCount = 0;
+    
+    for (const debtorId of selectedDebtorIds.value) {
+      const debtor = debtorList.value.find(d => d.id === debtorId);
+      if (!debtor) continue;
+      
+      // 构建模板数据
+      const templateData: Record<string, any> = {};
+      
+      // 根据字段映射填充数据
+      Object.entries(debtorFieldMapping).forEach(([debtorField, templateField]) => {
+        templateData[templateField] = (debtor as any)[debtorField] || '';
+      });
+      
+      // 调用导出 API
+      await documentTemplatesApi.exportWord(selectedTemplate.value.id, {
+        fileName: `${debtor.enterpriseName}_${selectedTemplate.value.templateName}`,
+        data: templateData,
+      });
+      
+      successCount++;
+    }
+    
+    ElMessage.success(`成功导出 ${successCount} 个文档`);
+    templateExportVisible.value = false;
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('导出失败');
+  } finally {
+    templateExportLoading.value = false;
+  }
+};
+
 // 删除债务人相关
 const deleteDialogVisible = ref(false);
 const currentDeleteItem = ref<DebtorApi.DebtorInfo | null>(null);
@@ -881,9 +1115,19 @@ const handleDeleteSubmit = async () => {
     }
   } catch (error) {
     console.error('删除债务人失败:', error);
-    ElMessage.error('删除债务人失败，请检查网络连接或API服务');
+    ElMessage.error('删除债务人失败，请检查网络连接或 API 服务');
   }
 };
+
+// 处理表格行选择
+const handleSelectionChange = (selection: any[]) => {
+  selectedDebtorIds.value = selection.map(item => item.id);
+  console.log('选中的债务人 ID:', selectedDebtorIds.value);
+  console.log('选中的债务人数据:', selection);
+};
+
+// 获取行唯一标识
+const getRowKey = (row: any) => row.id;
 </script>
 
 <template>
@@ -987,6 +1231,10 @@ const handleDeleteSubmit = async () => {
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
+            <ElButton type="primary" @click="showTemplateExportDialog">
+              <i class="i-lucide-file-text mr-1"></i>
+              模板导出
+            </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
@@ -1032,12 +1280,16 @@ const handleDeleteSubmit = async () => {
 
       <!-- 数据表格 -->
       <ElTable
+        ref="tableRef"
         v-loading="loading"
         :data="debtorList"
+        :row-key="getRowKey"
         :border="true"
         :stripe="true"
         :style="{ width: '100%' }"
+        @selection-change="handleSelectionChange"
       >
+        <ElTableColumn type="selection" width="55" align="center" :reserve-selection="true" />
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
           prop="caseNumber"
@@ -1529,6 +1781,136 @@ const handleDeleteSubmit = async () => {
           </div>
         </template>
       </ElDialog>
+
+      <!-- 模板导出对话框 -->
+      <ElDialog
+        v-model="templateExportVisible"
+        title="批量导出 Excel"
+        width="900px"
+        :close-on-click-modal="false"
+      >
+        <ElForm label-width="140px">
+          <!-- 选择数据 -->
+          <ElFormItem label="选择数据">
+            <div v-if="selectedDebtorIds.length > 0" class="selected-debtors">
+              <ElTag
+                v-for="id in selectedDebtorIds"
+                :key="id"
+                type="info"
+                closable
+                style="margin-right: 8px; margin-bottom: 8px"
+                @close="selectedDebtorIds = selectedDebtorIds.filter(i => i !== id)"
+              >
+                {{ debtorList.find(d => d.id === id)?.enterpriseName || '未知企业' }}
+              </ElTag>
+              <ElTag type="success" style="margin-left: 8px">
+                共 {{ selectedDebtorIds.length }} 条数据
+              </ElTag>
+            </div>
+            <ElEmpty v-else description="请在表格中选择要导出的债务人" />
+          </ElFormItem>
+
+          <!-- 选择模板 -->
+          <ElFormItem label="选择模板">
+            <ElSelect
+              v-model="selectedTemplate"
+              placeholder="请选择 Excel 模板"
+              style="width: 100%"
+              @change="handleTemplateSelect"
+            >
+              <ElOption
+                v-for="template in availableTemplates"
+                :key="template.id"
+                :label="template.templateName"
+                :value="template"
+              >
+                <div class="template-option">
+                  <span>{{ template.templateName }}</span>
+                  <ElTag size="small" type="info">{{ template.templateCode }}</ElTag>
+                </div>
+              </ElOption>
+            </ElSelect>
+          </ElFormItem>
+
+          <!-- 导出配置 -->
+          <ElFormItem label="导出配置">
+            <ElCard shadow="never" class="export-config-card">
+              <ElForm label-width="120px" size="small">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="文件名">
+                      <ElInput
+                        v-model="exportOptions.fileName"
+                        placeholder="请输入文件名"
+                        size="default"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="Sheet 名称">
+                      <ElInput
+                        v-model="exportOptions.sheetName"
+                        placeholder="默认：债务人列表"
+                        size="default"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="起始行">
+                      <ElInputNumber
+                        v-model="exportOptions.startRow"
+                        :min="2"
+                        :max="10"
+                        controls-position="right"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label=" ">
+                      <div class="checkbox-group">
+                        <ElCheckbox v-model="exportOptions.addIndex">
+                          自动添加序号
+                        </ElCheckbox>
+                        <ElCheckbox v-model="exportOptions.mergeCells">
+                          合并相同单元格
+                        </ElCheckbox>
+                      </div>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElForm>
+            </ElCard>
+          </ElFormItem>
+
+          <!-- 字段映射预览 -->
+          <ElFormItem label="字段映射预览" v-if="templateFields.length > 0">
+            <div class="field-mapping-preview">
+              <div v-for="field in templateFields" :key="field.key" class="mapping-item">
+                <span class="mapping-label">{{ field.label }}:</span>
+                <span class="mapping-value">{{ field.value || '暂无数据' }}</span>
+              </div>
+            </div>
+          </ElFormItem>
+        </ElForm>
+
+        <template #footer>
+          <div class="dialog-footer">
+            <ElButton @click="templateExportVisible = false">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="batchExportToExcel"
+              :loading="templateExportLoading"
+              :disabled="selectedDebtorIds.length === 0 || !selectedTemplate"
+            >
+              <i class="i-lucide-download mr-1"></i>
+              批量导出 Excel
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>
@@ -1658,10 +2040,75 @@ const handleDeleteSubmit = async () => {
     background-color: #409eff;
     border-color: #409eff;
   }
+}
 
-  .el-button--primary:hover {
-    background-color: #66b1ff;
-    border-color: #66b1ff;
-  }
+/* 模板导出对话框样式 */
+.template-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selected-debtors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field-mapping-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  background-color: #f5f7fa;
+}
+
+.mapping-item {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e4e7ed;
+}
+
+.mapping-item:last-child {
+  border-bottom: none;
+}
+
+.mapping-label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 120px;
+}
+
+.mapping-value {
+  color: #909399;
+  word-break: break-all;
+}
+
+.export-config-card {
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+}
+
+.export-config-card :deep(.el-card__body) {
+  padding: 16px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.el-button--primary:hover {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
 }
 </style>

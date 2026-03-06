@@ -56,6 +56,16 @@ interface LocalFileItem {
   uploadTime: string;
 }
 
+interface ExistingFileItem {
+  id: number | string;
+  originalFileName: string;
+  fileSize: number;
+  fileExtension: string;
+  mimeType: string;
+  uploadTime?: string;
+  filePath?: string;
+}
+
 const props = defineProps<{
   bizType: string;
   bizId: number;
@@ -66,6 +76,7 @@ const props = defineProps<{
   multiple?: boolean;
   title?: string;
   localMode?: boolean;
+  existingFiles?: ExistingFileItem[];
 }>();
 
 const emit = defineEmits<{
@@ -182,32 +193,32 @@ const getConfiguredIP = (): string | null => {
   return null;
 };
 
-// 检测本机局域网IP地址
+// 检测本机局域网 IP 地址
 const detectLocalIP = async (): Promise<string> => {
   try {
-    console.log('[IP检测] 开始检测本机IP地址...');
-    console.log('[IP检测] 当前主机名:', window.location.hostname);
-    console.log('[IP检测] 当前页面URL:', window.location.href);
+    console.log('[IP 检测] 开始检测本机 IP 地址...');
+    console.log('[IP 检测] 当前主机名:', window.location.hostname);
+    console.log('[IP 检测] 当前页面 URL:', window.location.href);
 
-    // 方法0: 优先使用环境变量配置的IP
+    // 方法 0: 优先使用环境变量配置的 IP
     const configuredIP = getConfiguredIP();
     if (configuredIP) {
-      console.log('[IP检测] ✓ 使用环境变量配置的IP:', configuredIP);
+      console.log('[IP 检测] ✓ 使用环境变量配置的 IP:', configuredIP);
       mobileUploadConfig.value.ip = configuredIP;
       return configuredIP;
     }
 
-    // 方法1: 检查当前主机名是否已经是有效IP
+    // 方法 1: 检查当前主机名是否已经是有效 IP
     const hostname = window.location.hostname;
     const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
     if (ipRegex.test(hostname) && !hostname.startsWith('127.')) {
-      console.log('[IP检测] ✓ 当前主机名是有效IP地址:', hostname);
+      console.log('[IP 检测] ✓ 当前主机名是有效 IP 地址:', hostname);
       mobileUploadConfig.value.ip = hostname;
       return hostname;
     }
 
-    // 方法2: 通过WebRTC获取本地IP
-    console.log('[IP检测] 尝试通过WebRTC获取IP...');
+    // 方法 2: 通过 WebRTC 获取本地 IP（带超时）
+    console.log('[IP 检测] 尝试通过 WebRTC 获取 IP...');
     const rtc = new RTCPeerConnection({ iceServers: [] });
     rtc.createDataChannel('');
     const offer = await rtc.createOffer();
@@ -215,51 +226,62 @@ const detectLocalIP = async (): Promise<string> => {
 
     let foundIP = false;
 
-    return new Promise<string>((resolve) => {
+    return new Promise<string>((resolve, reject) => {
+      // 设置超时：2 秒
+      const timeoutId = setTimeout(() => {
+        if (!foundIP) {
+          console.log('[IP 检测] ⏰ WebRTC 检测超时（2 秒）');
+          rtc.close();
+          // 不 reject，使用后备方法
+          resolve(useFallbackIP());
+        }
+      }, 2000);
+
       rtc.onicecandidate = (event) => {
         if (event.candidate) {
           const candidate = event.candidate.candidate;
-          console.log('[IP检测] 收到ICE候选:', candidate);
+          console.log('[IP 检测] 收到 ICE 候选:', candidate);
 
-          // 尝试匹配IPv4地址（排除mDNS地址如xxx.local）
+          // 尝试匹配 IPv4 地址（排除 mDNS 地址如 xxx.local）
           const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
 
           if (ipMatch && ipMatch[1]) {
             const ip = ipMatch[1];
-            console.log('[IP检测] 提取到IP:', ip);
+            console.log('[IP 检测] 提取到 IP:', ip);
 
             // 排除回环地址和私有地址范围检查
             if (!ip.startsWith('127.') && !ip.startsWith('0.')) {
-              console.log('[IP检测] ✓ 通过WebRTC获取到有效IP地址:', ip);
+              console.log('[IP 检测] ✓ 通过 WebRTC 获取到有效 IP 地址:', ip);
               mobileUploadConfig.value.ip = ip;
               foundIP = true;
-              resolve(ip);
+              clearTimeout(timeoutId);
               rtc.close();
+              resolve(ip);
               return;
             }
           }
         } else {
-          console.log('[IP检测] ICE候选收集完成');
+          console.log('[IP 检测] ICE 候选收集完成');
           
-          // 如果收集完成但未找到IP，使用后备方法
+          // 如果收集完成但未找到 IP，使用后备方法
           if (!foundIP) {
+            clearTimeout(timeoutId);
+            console.log('[IP 检测] ⚠️ 未找到有效 IP，使用后备方法');
             resolve(useFallbackIP());
-            rtc.close();
           }
         }
       };
 
-      // 超时处理 - 改为1秒
-      setTimeout(() => {
-        if (!foundIP) {
-          console.log('[IP检测] WebRTC超时，使用后备方法');
-          rtc.close();
-          resolve(useFallbackIP());
-        }
-      }, 1000);
+      rtc.onicecandidateerror = (error) => {
+        console.error('[IP 检测] ❌ WebRTC 错误:', error);
+        clearTimeout(timeoutId);
+        // 不 reject，使用后备方法
+        resolve(useFallbackIP());
+      };
     });
   } catch (error) {
-    console.error('[IP检测] 检测IP过程出错:', error);
+    console.error('[IP 检测] ❌ 检测 IP 过程出错:', error);
+    ElMessage.warning('IP 检测失败，将使用默认配置，手机上传可能无法使用');
     return useFallbackIP();
   }
 };
@@ -275,7 +297,7 @@ const useFallbackIP = (): string => {
   }
 
   // 最后使用默认IP地址
-  const defaultIP = '192.168.0.120';
+  const defaultIP = '192.168.0.151';
   console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
   console.log('[IP检测] 提示: 可以通过设置环境变量 VITE_MOBILE_UPLOAD_IP 来指定IP地址');
   mobileUploadConfig.value.ip = defaultIP;
@@ -361,17 +383,29 @@ const pollTempFiles = async () => {
 
   try {
     const response = await getTempUploadFiles(currentTempToken.value);
+    console.log('轮询获取临时文件列表:', response);
+    
     if (response.code === 200 && response.data) {
       const newFiles = response.data;
+      console.log('当前已上传文件数:', mobileUploadedFiles.value.length);
+      console.log('新获取的文件数:', newFiles.length);
       
       // 检查是否有新文件上传
       if (newFiles.length > mobileUploadedFiles.value.length) {
         const diffCount = newFiles.length - mobileUploadedFiles.value.length;
+        console.log('📱 [FileUpload 调试] 手机上传了新文件:', {
+          diffCount,
+          newFiles: newFiles.map(f => ({
+            id: f.id,
+            name: f.originalFileName,
+            size: f.fileSize,
+          })),
+        });
         ElMessage.success(`手机上传了 ${diffCount} 个新文件`);
         
         // 如果是本地模式，添加到本地文件列表
         if (isLocalMode.value) {
-          // 将TempUploadFile转换为LocalFileItem
+          // 将 TempUploadFile 转换为 LocalFileItem
           const newLocalFiles = newFiles.slice(mobileUploadedFiles.value.length).map((tempFile) => ({
             file: new File([], tempFile.originalFileName, { type: tempFile.mimeType }),
             id: `mobile-${tempFile.id}`,
@@ -382,15 +416,30 @@ const pollTempFiles = async () => {
             uploadTime: tempFile.uploadTime,
           }));
           
+          console.log('📂 [FileUpload 调试] 添加手机文件到本地列表:', {
+            filesCount: newLocalFiles.length,
+            files: newLocalFiles.map(f => ({
+              id: f.id,
+              name: f.originalFileName,
+              hasFileObject: !!f.file,
+              fileSize: f.fileSize,
+            })),
+          });
+          
           localFiles.value.push(...newLocalFiles);
+          console.log('📤 [FileUpload 调试] 触发 local-files-change 事件');
           emit('local-files-change', localFiles.value);
+          console.log('✅ [FileUpload 调试] local-files-change 事件已触发');
         }
         
         // 触发事件通知父组件
+        console.log('📤 [FileUpload 调试] 触发 mobile-files-uploaded 事件');
         emit('mobile-files-uploaded', newFiles);
+        console.log('✅ [FileUpload 调试] mobile-files-uploaded 事件已触发');
       }
       
       mobileUploadedFiles.value = newFiles;
+      console.log('更新后的文件列表:', mobileUploadedFiles.value);
     }
   } catch (error) {
     console.error('获取临时文件列表失败:', error);
@@ -398,8 +447,9 @@ const pollTempFiles = async () => {
 };
 
 // 转移临时文件到业务
-const transferMobileFiles = async (bizId: number): Promise<number[]> => {
-  if (!currentTempToken.value || mobileUploadedFiles.value.length === 0) {
+const transferMobileFiles = async (bizId: number): Promise<TempUploadFile[]> => {
+  if (!currentTempToken.value || mobileUploadedFiles.value.length === 0 || !bizId) {
+    console.error('转移临时文件失败：缺少必要参数', { currentTempToken: currentTempToken.value, mobileUploadedFiles: mobileUploadedFiles.value, bizId });
     return [];
   }
 
@@ -417,8 +467,8 @@ const transferMobileFiles = async (bizId: number): Promise<number[]> => {
       // 刷新文件列表
       await loadFiles();
       
-      // 返回转移后的文件ID列表
-      return transferredFiles.map(f => f.id);
+      // 返回转移后的完整文件信息
+      return transferredFiles;
     }
   } catch (error) {
     console.error('转移临时文件失败:', error);
@@ -438,23 +488,34 @@ const closeQrCodeDialog = async () => {
     tempFilePolling.value = null;
   }
   
+  console.log('关闭二维码弹窗，当前状态:', {
+    hasFiles: mobileUploadedFiles.value.length > 0,
+    filesCount: mobileUploadedFiles.value.length,
+    files: mobileUploadedFiles.value,
+    bizId: props.bizId,
+    token: currentTempToken.value,
+  });
+  
   let shouldCancelToken = true;
   
   // 如果有上传的文件，询问是否保留
   if (mobileUploadedFiles.value.length > 0) {
-    // 自动转移到业务（如果有bizId）
-    if (props.bizId) {
+    // 自动转移到业务（如果有有效的bizId）
+    if (props.bizId && props.bizId > 0) {
+      console.log('有有效的bizId，自动转移文件到业务:', props.bizId);
       await transferMobileFiles(props.bizId);
     } else {
-      // 如果没有bizId，不取消Token，以便稍后可以转移文件
+      // 如果没有有效的bizId，不取消Token，以便稍后可以转移文件
       shouldCancelToken = false;
       ElMessage.info('文件已保存到临时存储，创建业务实体后可转移文件');
       console.log('文件已保存到临时存储，Token:', currentTempToken.value);
+      console.log('保留的文件列表:', mobileUploadedFiles.value);
     }
   }
   
   // 取消Token（只有当没有上传文件或已转移文件时）
   if (shouldCancelToken && currentTempToken.value) {
+    console.log('取消Token并清空文件列表');
     try {
       await cancelTempUploadToken(currentTempToken.value);
       console.log('Token已取消:', currentTempToken.value);
@@ -463,6 +524,8 @@ const closeQrCodeDialog = async () => {
     }
     currentTempToken.value = '';
     mobileUploadedFiles.value = [];
+  } else {
+    console.log('保留Token和文件列表，等待后续转移');
   }
 };
 
@@ -480,14 +543,29 @@ const autoPreviewFirstFile = () => {
 };
 
 const handleFileChange = async (file: any) => {
+  console.log('📥 [FileUpload 调试] handleFileChange 被调用', {
+    fileName: file.name,
+    rawFile: file.raw?.name,
+    fileSize: file.raw?.size,
+    fileType: file.raw?.type,
+  });
+  
   const rawFile = file.raw;
   
-  if (!rawFile) return;
+  if (!rawFile) {
+    console.log('⚠️ [FileUpload 调试] rawFile 不存在');
+    return;
+  }
+  
+  console.log('✅ [FileUpload 调试] rawFile 存在，开始验证');
 
   if (rawFile.size > maxSize.value) {
+    console.log('❌ [FileUpload 调试] 文件超出大小限制:', rawFile.size, maxSize.value);
     ElMessage.error(`文件大小不能超过 ${formatFileSize(maxSize.value)}`);
     return;
   }
+  
+  console.log('✅ [FileUpload 调试] 文件大小验证通过');
 
   if (props.accept) {
     const acceptTypes = props.accept.split(',').map(type => type.trim());
@@ -499,20 +577,39 @@ const handleFileChange = async (file: any) => {
       return rawFile.type.includes(type);
     });
     
+    console.log('🔍 [FileUpload 调试] 文件类型验证:', {
+      fileExt,
+      acceptTypes,
+      isValid,
+      mimeType: rawFile.type,
+    });
+    
     if (!isValid) {
+      console.log('❌ [FileUpload 调试] 文件类型不被支持');
       ElMessage.error('不支持的文件类型');
       return;
     }
   }
+  
+  console.log('✅ [FileUpload 调试] 文件类型验证通过');
+  console.log('📋 [FileUpload 调试] 当前模式:', { isLocalMode: isLocalMode.value });
 
   if (isLocalMode.value) {
+    console.log('💻 [FileUpload 调试] 进入本地模式，调用 handleLocalFileAdd');
     handleLocalFileAdd(rawFile);
   } else {
+    console.log('☁️ [FileUpload 调试] 进入服务器模式，调用 handleServerFileUpload');
     await handleServerFileUpload(rawFile);
   }
 };
 
 const handleLocalFileAdd = (rawFile: File) => {
+  console.log('📝 [FileUpload 调试] handleLocalFileAdd 被调用', {
+    fileName: rawFile.name,
+    fileSize: rawFile.size,
+    fileType: rawFile.type,
+  });
+  
   const fileExt = rawFile.name.substring(rawFile.name.lastIndexOf('.') + 1).toLowerCase();
   const localFile: LocalFileItem = {
     file: rawFile,
@@ -524,9 +621,28 @@ const handleLocalFileAdd = (rawFile: File) => {
     uploadTime: new Date().toISOString(),
   };
   
+  console.log('📂 [FileUpload 调试] 创建的本地文件对象:', {
+    id: localFile.id,
+    name: localFile.originalFileName,
+    size: localFile.fileSize,
+    hasFileObject: !!localFile.file,
+  });
+  
   localFiles.value.push(localFile);
+  console.log('📂 [FileUpload 调试] localFiles 数组当前内容:', 
+    localFiles.value.map(f => ({
+      id: f.id,
+      name: f.originalFileName,
+      hasFileObject: !!f.file,
+    }))
+  );
+  
+  console.log('📤 [FileUpload 调试] 准备触发 local-files-change 事件');
   emit('local-files-change', localFiles.value);
+  console.log('✅ [FileUpload 调试] local-files-change 事件已触发');
+  
   ElMessage.success('文件添加成功');
+  console.log('🏁 [FileUpload 调试] handleLocalFileAdd 执行完毕');
 };
 
 const handleServerFileUpload = async (rawFile: File) => {
@@ -735,28 +851,60 @@ const clearLocalFiles = () => {
 };
 
 const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
-  if (localFiles.value.length === 0) return [];
+  console.log('📤 [FileUpload 调试] uploadLocalFiles 被调用:', { bizId, localFilesCount: localFiles.value.length });
+  
+  if (localFiles.value.length === 0) {
+    console.log('⚠️ [FileUpload 调试] 没有本地文件需要上传');
+    return [];
+  }
   
   uploading.value = true;
   const uploadedFileIds: number[] = [];
   
   try {
+    console.log('📂 [FileUpload 调试] 准备上传的文件列表:', 
+      localFiles.value.map(f => ({
+        id: f.id,
+        name: f.originalFileName,
+        size: f.fileSize,
+        isMobileFile: f.id.startsWith('mobile-'),
+        hasFileObject: !!f.file,
+      }))
+    );
+    
     for (const localFile of localFiles.value) {
       try {
         // 跳过从手机上传转换而来的本地文件，因为它们是空的
         if (localFile.id.startsWith('mobile-')) {
-          console.log(`跳过手机上传的文件 ${localFile.originalFileName}，请使用transferMobileFiles方法转移`);
+          console.log(`⏭️ [FileUpload 调试] 跳过手机上传的文件 ${localFile.originalFileName}，请使用 transferMobileFiles 方法转移`);
           continue;
         }
         
+        console.log(`⏳ [FileUpload 调试] 开始上传文件: ${localFile.originalFileName}`, {
+          fileSize: localFile.fileSize,
+          fileType: localFile.mimeType,
+          hasFileObject: !!localFile.file,
+        });
+        
         const response = await uploadFileApi(localFile.file, props.bizType, bizId);
+        console.log(`📥 [FileUpload 调试] 文件上传响应: ${localFile.originalFileName}`, response);
+        
         if (response.code === 200 && response.data) {
           uploadedFileIds.push(response.data.id);
+          console.log(`✅ [FileUpload 调试] 文件上传成功: ${localFile.originalFileName}, fileId: ${response.data.id}`);
+        } else {
+          console.error(`❌ [FileUpload 调试] 文件上传失败: ${localFile.originalFileName}`, response);
         }
       } catch (error) {
-        console.error(`文件 ${localFile.originalFileName} 上传失败:`, error);
+        console.error(`❌ [FileUpload 调试] 文件 ${localFile.originalFileName} 上传异常:`, error);
       }
     }
+    
+    console.log('📊 [FileUpload 调试] 上传结果统计:', {
+      total: localFiles.value.length,
+      success: uploadedFileIds.length,
+      failed: localFiles.value.length - uploadedFileIds.length,
+    });
     
     if (uploadedFileIds.length === localFiles.value.length) {
       ElMessage.success(`成功上传 ${uploadedFileIds.length} 个文件`);
@@ -769,11 +917,18 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
     return uploadedFileIds;
   } finally {
     uploading.value = false;
+    console.log('🏁 [FileUpload 调试] uploadLocalFiles 执行完毕');
   }
 };
 
 // 检查是否有未转移的临时文件
 const hasUntransferredFiles = computed(() => {
+  console.log('计算 hasUntransferredFiles:', {
+    hasToken: !!currentTempToken.value,
+    token: currentTempToken.value,
+    filesCount: mobileUploadedFiles.value.length,
+    files: mobileUploadedFiles.value,
+  });
   return !!currentTempToken.value && mobileUploadedFiles.value.length > 0;
 });
 
@@ -786,13 +941,63 @@ defineExpose({
   openMobileUploadDialog,
   transferMobileFiles,
   getMobileUploadedFiles: () => mobileUploadedFiles.value,
-  hasUntransferredFiles,
+  getHasUntransferredFiles: () => hasUntransferredFiles.value,
   getCurrentTempToken: () => currentTempToken.value,
 });
 
 const displayFiles = computed(() => {
-  return isLocalMode.value ? localFiles.value : fileList.value;
+  if (isLocalMode.value) {
+    // 在本地模式下，合并已有文件和本地文件
+    const existing = props.existingFiles || [];
+    const local = localFiles.value;
+    
+    // 创建一个Map来去重，以id为key
+    const fileMap = new Map<string | number, any>();
+    
+    // 先添加已有文件
+    existing.forEach(file => {
+      fileMap.set(file.id, {
+        ...file,
+        file: new File([], file.originalFileName, { type: file.mimeType }),
+        isExisting: true,
+      });
+    });
+    
+    // 再添加本地文件（会覆盖同id的已有文件）
+    local.forEach(file => {
+      fileMap.set(file.id, file);
+    });
+    
+    return Array.from(fileMap.values());
+  }
+  return fileList.value;
 });
+
+// 监听existingFiles变化，初始化本地文件列表
+watch(() => props.existingFiles, (newFiles) => {
+  if (isLocalMode.value && newFiles && newFiles.length > 0) {
+    // 将已有文件转换为LocalFileItem格式
+    const existingLocalFiles = newFiles.map(file => ({
+      file: new File([], file.originalFileName, { type: file.mimeType }),
+      id: typeof file.id === 'number' ? `existing-${file.id}` : file.id,
+      originalFileName: file.originalFileName,
+      fileSize: file.fileSize,
+      fileExtension: file.fileExtension,
+      mimeType: file.mimeType,
+      uploadTime: file.uploadTime || new Date().toISOString(),
+      isExisting: true,
+      filePath: file.filePath,
+    })) as any[];
+    
+    // 合并到localFiles中（去重）
+    const existingIds = new Set(existingLocalFiles.map(f => f.id));
+    const newLocalFiles = localFiles.value.filter(f => !existingIds.has(f.id));
+    localFiles.value = [...existingLocalFiles, ...newLocalFiles];
+    
+    // 通知父组件
+    emit('local-files-change', localFiles.value);
+  }
+}, { immediate: true });
 
 watch(() => [props.bizId, props.bizType], () => {
   loadFiles();

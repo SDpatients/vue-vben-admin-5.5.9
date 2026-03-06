@@ -230,6 +230,25 @@ export async function createAnnouncementApi(
 }
 
 /**
+ * 创建案件公告并上传文件
+ * POST /case-announcement/with-files
+ * @param formData FormData 对象，包含公告信息和文件
+ */
+export async function createAnnouncementWithFilesApi(
+  formData: FormData,
+) {
+  return announcementRequestClient.post<CaseAnnouncementApi.CreateAnnouncementResponse>(
+    '/case-announcement/with-files',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+}
+
+/**
  * 获取案件公告列表
  * GET /case-announcement/list
  */

@@ -33,10 +33,8 @@ export const useWebSocket = () => {
       // 创建STOMP客户端
       stompClient.value = Stomp.over(socket.value);
       
-      // 配置调试
-      stompClient.value.debug = (str: string) => {
-        console.log('STOMP调试:', str);
-      };
+      // 禁用STOMP调试输出
+      stompClient.value.debug = () => {};
       
       // 连接回调
       const onConnect = (frame: any) => {

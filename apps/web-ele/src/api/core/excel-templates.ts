@@ -56,6 +56,8 @@ interface SystemField {
 interface SystemFieldGroup {
   group: string;
   fields: Array<{
+    id: number;
+    groupName: string;
     label: string;
     value: string;
     sortOrder: number;

@@ -1,18 +1,13 @@
 import { requestClient8085, fileDownloadRequestClient8085 } from '#/api/request';
 
-// 字段类型枚举
 export type FieldType = 'TEXT' | 'NUMBER' | 'DATE' | 'LIST' | 'IMAGE' | 'TABLE';
 
-// 模板类型枚举
 export type TemplateType = 'WORD' | 'EXCEL';
 
-// 模板状态枚举
 export type TemplateStatus = 'ACTIVE' | 'INACTIVE';
 
-// 导出状态枚举
 export type ExportStatus = 'SUCCESS' | 'FAILED' | 'PROCESSING';
 
-// 模板字段定义
 export interface TemplateField {
   id?: number;
   fieldName: string;
@@ -25,7 +20,6 @@ export interface TemplateField {
   formatPattern?: string;
 }
 
-// 模板请求数据
 export interface DocumentTemplateRequest {
   id?: number;
   templateName: string;
@@ -38,7 +32,6 @@ export interface DocumentTemplateRequest {
   fields?: TemplateField[];
 }
 
-// 模板响应数据
 export interface DocumentTemplate {
   id: number;
   templateName: string;
@@ -56,7 +49,6 @@ export interface DocumentTemplate {
   fields?: TemplateField[];
 }
 
-// 导出历史记录
 export interface ExportHistory {
   id: number;
   templateId: number;
@@ -72,42 +64,43 @@ export interface ExportHistory {
   createTime: string;
 }
 
-// Word导出请求
-export interface WordExportRequest {
-  templateId: number;
+export interface ExportRequest {
   fileName: string;
   data: Record<string, any>;
+  dataList?: Array<Record<string, any>>;  // 支持列表数据
 }
 
-// Excel导出请求
-export interface ExcelExportRequest {
+export interface BatchExportRequest {
   templateId: number;
   fileName: string;
-  data: Record<string, any>;
+  dataList: Array<Record<string, any>>;
+  options?: {
+    mergeCells?: boolean;      // 是否合并单元格
+    addIndex?: boolean;        // 是否添加序号
+    sheetName?: string;        // Sheet 名称
+    startRow?: number;         // 起始行（从 1 开始）
+  };
 }
 
-// 通用响应
+export interface ImageUploadResponse {
+  filePath: string;
+  fileName: string;
+  imageType: string;
+}
+
 interface CommonResponse<T = null> {
   code: number;
   message: string;
   data: T;
 }
 
-// 列表响应
 interface ListResponse<T> {
   code: number;
   message: string;
   data: T[];
 }
 
-/**
- * 文档模板管理API
- */
 export const documentTemplatesApi = {
-  /**
-   * 1.1 创建模板
-   * POST /api/v1/document-templates
-   */
   createTemplate: (data: DocumentTemplateRequest) => {
     return requestClient8085.post<CommonResponse<DocumentTemplate>>(
       '/document-templates',
@@ -115,10 +108,6 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 1.2 更新模板
-   * PUT /api/v1/document-templates/{id}
-   */
   updateTemplate: (id: number, data: Partial<DocumentTemplateRequest>) => {
     return requestClient8085.put<CommonResponse<DocumentTemplate>>(
       `/document-templates/${id}`,
@@ -126,68 +115,46 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 1.3 删除模板（软删除）
-   * DELETE /api/v1/document-templates/{id}
-   */
   deleteTemplate: (id: number) => {
     return requestClient8085.delete<CommonResponse>(`/document-templates/${id}`);
   },
 
-  /**
-   * 1.4 获取模板列表
-   * GET /api/v1/document-templates
-   */
   getTemplates: () => {
     return requestClient8085.get<ListResponse<DocumentTemplate>>(
       '/document-templates',
     );
   },
 
-  /**
-   * 1.5 按类型获取模板
-   * GET /api/v1/document-templates/type/{templateType}
-   */
   getTemplatesByType: (templateType: TemplateType) => {
     return requestClient8085.get<ListResponse<DocumentTemplate>>(
       `/document-templates/type/${templateType}`,
     );
   },
 
-  /**
-   * 1.6 获取模板详情
-   * GET /api/v1/document-templates/{id}
-   */
   getTemplateById: (id: number) => {
     return requestClient8085.get<CommonResponse<DocumentTemplate>>(
       `/document-templates/${id}`,
     );
   },
 
-  /**
-   * 1.7 根据编码获取模板
-   * GET /api/v1/document-templates/code/{templateCode}
-   */
   getTemplateByCode: (templateCode: string) => {
     return requestClient8085.get<CommonResponse<DocumentTemplate>>(
       `/document-templates/code/${templateCode}`,
     );
   },
 
-  /**
-   * 1.8 获取模板字段配置
-   * GET /api/v1/document-templates/{id}/fields
-   */
+  getTemplateDetail: (id: number) => {
+    return requestClient8085.get<CommonResponse<DocumentTemplate>>(
+      `/document-templates/${id}/detail`,
+    );
+  },
+
   getTemplateFields: (id: number) => {
     return requestClient8085.get<CommonResponse<TemplateField[]>>(
       `/document-templates/${id}/fields`,
     );
   },
 
-  /**
-   * 1.9 设置默认模板
-   * POST /api/v1/document-templates/{id}/set-default
-   */
   setDefaultTemplate: (id: number, templateType: TemplateType) => {
     return requestClient8085.post<CommonResponse>(
       `/document-templates/${id}/set-default`,
@@ -198,10 +165,6 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 1.10 上传模板文件
-   * POST /api/v1/document-templates/{id}/upload
-   */
   uploadTemplateFile: (id: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -216,13 +179,26 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 2.1 导出Word文档
-   * POST /api/v1/document-templates/{id}/export/word
-   */
-  exportWord: (templateId: number, data: WordExportRequest) => {
+  uploadTemplateImage: (id: number, file: File, imageType?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (imageType) {
+      formData.append('imageType', imageType);
+    }
+    return requestClient8085.post<CommonResponse<ImageUploadResponse>>(
+      `/document-templates/${id}/upload-image`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+  },
+
+  exportWord: (id: number, data: ExportRequest) => {
     return fileDownloadRequestClient8085.post<Blob>(
-      `/document-templates/${templateId}/export/word`,
+      `/document-templates/${id}/export/word`,
       data,
       {
         responseType: 'blob',
@@ -230,13 +206,9 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 2.2 导出Excel表格
-   * POST /api/v1/document-templates/{id}/export/excel
-   */
-  exportExcel: (templateId: number, data: ExcelExportRequest) => {
+  exportExcel: (id: number, data: ExportRequest) => {
     return fileDownloadRequestClient8085.post<Blob>(
-      `/document-templates/${templateId}/export/excel`,
+      `/document-templates/${id}/export/excel`,
       data,
       {
         responseType: 'blob',
@@ -244,36 +216,53 @@ export const documentTemplatesApi = {
     );
   },
 
-  /**
-   * 3.1 获取导出历史
-   * GET /api/v1/document-templates/export-history
-   */
+  batchExportExcel: (data: BatchExportRequest) => {
+    return fileDownloadRequestClient8085.post<Blob>(
+      '/document-templates/batch-export/excel',
+      data,
+      {
+        responseType: 'blob',
+      },
+    );
+  },
+
+  exportPdf: (id: number, data: ExportRequest) => {
+    return fileDownloadRequestClient8085.post<Blob>(
+      `/document-templates/${id}/export/pdf`,
+      data,
+      {
+        responseType: 'blob',
+      },
+    );
+  },
+
+  previewTemplate: (id: number) => {
+    return requestClient8085.get<Blob>(
+      `/document-templates/${id}/preview`,
+      {
+        responseType: 'blob',
+      },
+    );
+  },
+
+  previewPdf: (id: number) => {
+    return requestClient8085.get<Blob>(
+      `/document-templates/${id}/preview/pdf`,
+      {
+        responseType: 'blob',
+      },
+    );
+  },
+
   getExportHistory: () => {
     return requestClient8085.get<ListResponse<ExportHistory>>(
       '/document-templates/export-history',
     );
   },
 
-  /**
-   * 3.2 获取指定模板的导出历史
-   * GET /api/v1/document-templates/{id}/export-history
-   */
   getTemplateExportHistory: (id: number) => {
     return requestClient8085.get<ListResponse<ExportHistory>>(
       `/document-templates/${id}/export-history`,
-    );
-  },
-
-  /**
-   * 4.1 预览Word文档模板
-   * GET /api/v1/document-templates/{id}/preview
-   */
-  previewTemplate: (id: number) => {
-    return requestClient8085.get<any>(
-      `/document-templates/${id}/preview`,
-      {
-        responseType: 'blob',
-      }
     );
   },
 };

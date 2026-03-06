@@ -796,6 +796,7 @@ onMounted(() => {
           <h4 class="section-title">附件信息</h4>
         </div>
         <FileUpload
+          v-model="reviewForm.reviewAttachments"
           :biz-type="'claim-review'"
           :biz-id="currentClaim.id"
           :disabled="true"

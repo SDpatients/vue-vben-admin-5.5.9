@@ -80,6 +80,14 @@
                 <span v-else>-</span>
               </template>
             </ElTableColumn>
+            <ElTableColumn prop="filePath" label="模板文件" width="120">
+              <template #default="scope">
+                <ElTag v-if="scope.row.filePath" type="success">
+                  <ElIcon><Document /></ElIcon> 已上传
+                </ElTag>
+                <ElTag v-else type="info">未上传</ElTag>
+              </template>
+            </ElTableColumn>
             <ElTableColumn prop="status" label="状态" width="100">
               <template #default="scope">
                 <ElSwitch
@@ -616,19 +624,19 @@
                   filterable
                   :remote="true"
                   :remote-method="(query) => handleFieldSelectorSearch(index, query)"
-                  :loading="fieldSearchLoading.value[index]"
+                  :loading="fieldSearchLoading.value?.[index] || false"
                   @change="(value: string) => onFieldSelect(index, value)"
                 >
                   <ElOptionGroup
-                    v-for="group in (fieldSelectorFieldGroups.value[index] || systemFieldGroups.value)"
-                    :key="group.group"
-                    :label="group.group"
+                    v-for="group in ((fieldSelectorFieldGroups.value?.[index] || systemFieldGroups.value) || [])"
+                    :key="group?.group || 'default'"
+                    :label="group?.group || '默认分组'"
                   >
                     <ElOption
-                      v-for="field in group.fields"
-                      :key="field.value"
-                      :label="field.label"
-                      :value="field.value"
+                      v-for="field in (group?.fields || [])"
+                      :key="field?.value || Math.random()"
+                      :label="field?.label || ''"
+                      :value="field?.value || ''"
                     />
                   </ElOptionGroup>
                 </ElSelect>
@@ -700,6 +708,13 @@
           <ElInput v-model="exportForm.fileName" placeholder="请输入导出文件名" />
         </ElFormItem>
         
+        <ElFormItem label="导出格式" v-if="currentTemplate?.templateType === 'WORD'">
+          <ElRadioGroup v-model="exportFormat">
+            <ElRadioButton value="word">Word文档</ElRadioButton>
+            <ElRadioButton value="pdf">PDF文档</ElRadioButton>
+          </ElRadioGroup>
+        </ElFormItem>
+        
         <!-- 动态字段输入区域 -->
         <ElFormItem label="导出数据">
           <div v-if="templateFields.length > 0" class="dynamic-fields">
@@ -707,11 +722,89 @@
               <div class="field-label">
                 {{ field.label }}
                 <span v-if="field.required" class="required-mark">*</span>
+                <ElTag size="small" type="info" style="margin-left: 8px">{{ getFieldTypeLabel(field.fieldType) }}</ElTag>
               </div>
+              
+              <!-- 文本类型 -->
               <ElInput 
+                v-if="field.fieldType === 'TEXT'"
                 v-model="fieldValues[field.key]" 
                 :placeholder="`请输入${field.label}`"
                 :required="field.required"
+                style="flex: 1"
+              />
+              
+              <!-- 数字类型 -->
+              <ElInputNumber
+                v-else-if="field.fieldType === 'NUMBER'"
+                v-model="fieldValues[field.key]"
+                :placeholder="`请输入${field.label}`"
+                style="flex: 1"
+                controls-position="right"
+              />
+              
+              <!-- 日期类型 -->
+              <ElDatePicker
+                v-else-if="field.fieldType === 'DATE'"
+                v-model="fieldValues[field.key]"
+                type="date"
+                :placeholder="`请选择${field.label}`"
+                style="flex: 1"
+                value-format="YYYY-MM-DD"
+              />
+              
+              <!-- 列表/下拉类型 -->
+              <ElSelect
+                v-else-if="field.fieldType === 'LIST'"
+                v-model="fieldValues[field.key]"
+                :placeholder="`请选择${field.label}`"
+                style="flex: 1"
+                allow-create
+                filterable
+              >
+                <ElOption
+                  v-for="option in getListOptions(field.formatPattern)"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </ElSelect>
+              
+              <!-- 图片类型 -->
+              <div v-else-if="field.fieldType === 'IMAGE'" class="image-upload-field">
+                <ElInput 
+                  v-model="fieldValues[field.key]" 
+                  placeholder="请输入图片URL或上传图片"
+                  style="flex: 1"
+                />
+                <ElUpload
+                  :show-file-list="false"
+                  :before-upload="(file: File) => handleFieldImageUpload(field.key, file, field.imageType)"
+                  accept="image/*"
+                >
+                  <ElButton type="primary" :icon="Upload" style="margin-left: 8px">上传图片</ElButton>
+                </ElUpload>
+                <div v-if="fieldValues[field.key]" class="image-preview-small">
+                  <img :src="fieldValues[field.key]" alt="预览" />
+                </div>
+              </div>
+              
+              <!-- 表格类型 -->
+              <ElInput
+                v-else-if="field.fieldType === 'TABLE'"
+                v-model="fieldValues[field.key]"
+                type="textarea"
+                :rows="3"
+                :placeholder="`请输入${field.label}（JSON格式）`"
+                style="flex: 1"
+              />
+              
+              <!-- 默认文本 -->
+              <ElInput 
+                v-else
+                v-model="fieldValues[field.key]" 
+                :placeholder="`请输入${field.label}`"
+                style="flex: 1"
               />
             </div>
           </div>
@@ -736,6 +829,34 @@
       title="上传模板文件"
       width="500px"
     >
+      <div v-if="currentTemplate" class="upload-info">
+        <ElAlert type="info" :closable="false">
+          <template #title>
+            模板: {{ currentTemplate.templateName }}
+          </template>
+          <div>编码: {{ currentTemplate.templateCode }}</div>
+        </ElAlert>
+        
+        <div v-if="currentTemplate.filePath" class="current-file-info">
+          <h4>当前已关联文件</h4>
+          <div class="file-detail">
+            <ElIcon class="file-icon"><Document /></ElIcon>
+            <div class="file-meta">
+              <div class="file-name">{{ getFileNameFromPath(currentTemplate.filePath) }}</div>
+              <div class="file-path">{{ currentTemplate.filePath }}</div>
+            </div>
+          </div>
+          <ElAlert type="warning" :closable="false" style="margin-top: 10px">
+            上传新文件将替换当前文件
+          </ElAlert>
+        </div>
+        <div v-else class="no-file-info">
+          <ElAlert type="info" :closable="false">
+            该模板暂未关联文件，请上传模板文件
+          </ElAlert>
+        </div>
+      </div>
+      
       <ElUpload
         ref="uploadRef"
         drag
@@ -745,6 +866,7 @@
         :on-change="handleFileChange"
         :on-remove="handleFileRemove"
         accept=".docx,.xlsx"
+        style="margin-top: 15px"
       >
         <ElIcon class="el-icon--upload"><Upload /></ElIcon>
         <div class="el-upload__text">
@@ -868,7 +990,7 @@
     <!-- 预览对话框 -->
     <ElDialog
       v-model="previewVisible"
-      title="Word文档模板预览"
+      title="文档模板预览"
       width="80vw"
       top="50px"
       :close-on-click-modal="false"
@@ -882,6 +1004,13 @@
             类型: {{ currentTemplate.templateType === 'WORD' ? 'Word文档' : 'Excel表格' }} | 
             更新时间: {{ formatDate(currentTemplate.updateTime) }}
           </p>
+        </div>
+        
+        <div class="preview-mode-switch" v-if="currentTemplate.templateType === 'WORD'">
+          <ElRadioGroup v-model="previewMode" size="small" @change="handlePreviewModeChange">
+            <ElRadioButton value="word">Word预览</ElRadioButton>
+            <ElRadioButton value="pdf">PDF预览</ElRadioButton>
+          </ElRadioGroup>
         </div>
         
         <div class="preview-body">
@@ -904,6 +1033,7 @@
       </div>
       <template #footer>
         <ElButton @click="previewVisible = false">关闭</ElButton>
+        <ElButton type="primary" @click="downloadPreviewFile" v-if="previewUrl">下载文件</ElButton>
       </template>
     </ElDialog>
 
@@ -1103,17 +1233,29 @@ const exportForm = ref({
   dataJson: '',
 });
 
+// 导出格式（Word或PDF）
+const exportFormat = ref<'word' | 'pdf'>('word');
+
 // 模板字段列表（从后端获取）
-const templateFields = ref<Array<{key: string; label: string; required: boolean}>>([]);
+const templateFields = ref<Array<{
+  key: string;
+  label: string;
+  required: boolean;
+  fieldType: 'TEXT' | 'NUMBER' | 'DATE' | 'LIST' | 'IMAGE' | 'TABLE';
+  formatPattern?: string;
+  imageType?: string;
+}>>([]);
 
 // 字段值映射（用户填写的值）
-const fieldValues = ref<Record<string, string>>({});
+const fieldValues = ref<Record<string, any>>({});
 
 // 预览相关状态
 const previewVisible = ref(false);
 const previewLoading = ref(false);
 const previewError = ref('');
 const previewUrl = ref('');
+const previewMode = ref<'word' | 'pdf'>('word');
+const previewBlob = ref<Blob | null>(null);
 
 // 模板制作相关状态
 const selectedTemplateForMaker = ref<DocumentTemplate | null>(null);
@@ -1502,18 +1644,74 @@ const showDesignDialog = async (template: DocumentTemplate) => {
   currentTemplate.value = template;
   designerVisible.value = true;
 
-  // 加载模板详情获取字段配置
   try {
-    const response = await documentTemplatesApi.getTemplateFields(template.id);
+    const response = await documentTemplatesApi.getTemplateDetail(template.id);
     if (response.code === 200 && designerRef.value) {
-      const fields = response.data;
-      if (fields) {
-        designerRef.value.setTemplateFields(fields, template.templateType);
+      const templateDetail = response.data;
+      currentTemplate.value = templateDetail;
+      if (templateDetail.fields) {
+        designerRef.value.setTemplateFields(templateDetail.fields, templateDetail.templateType);
       }
     }
   } catch (error) {
-    console.error('加载模板字段失败:', error);
+    console.error('加载模板详情失败:', error);
   }
+};
+
+// 获取字段类型标签
+const getFieldTypeLabel = (fieldType: string) => {
+  const typeMap: Record<string, string> = {
+    TEXT: '文本',
+    NUMBER: '数字',
+    DATE: '日期',
+    LIST: '列表',
+    IMAGE: '图片',
+    TABLE: '表格',
+  };
+  return typeMap[fieldType] || '文本';
+};
+
+// 获取列表选项
+const getListOptions = (formatPattern?: string) => {
+  if (!formatPattern) return [];
+  try {
+    const options = formatPattern.split(',').map(item => item.trim()).filter(Boolean);
+    return options.map(opt => ({ label: opt, value: opt }));
+  } catch {
+    return [];
+  }
+};
+
+// 处理字段图片上传
+const handleFieldImageUpload = async (fieldKey: string, file: File, imageType?: string) => {
+  if (!currentTemplate.value) {
+    ElMessage.error('请先选择模板');
+    return false;
+  }
+
+  try {
+    const finalImageType = imageType || 
+                           fieldKey.includes('签名') ? 'signature' : 
+                           fieldKey.includes('印章') ? 'seal' : 
+                           fieldKey.includes('盖章') ? 'seal' : 'image';
+    
+    const response = await documentTemplatesApi.uploadTemplateImage(
+      currentTemplate.value.id,
+      file,
+      finalImageType
+    );
+    
+    if (response.code === 200 && response.data) {
+      fieldValues.value[fieldKey] = response.data.filePath;
+      ElMessage.success('图片上传成功');
+    } else {
+      ElMessage.error(response.message || '图片上传失败');
+    }
+  } catch (error) {
+    console.error('图片上传失败:', error);
+    ElMessage.error('图片上传失败');
+  }
+  return false;
 };
 
 // 显示表单设计器对话框
@@ -1559,31 +1757,31 @@ const showExportDialog = async (template: DocumentTemplate) => {
     dataJson: '',
   };
   
-  // 加载模板字段
   try {
-    const response = await documentTemplatesApi.getTemplateFields(template.id);
+    const response = await documentTemplatesApi.getTemplateDetail(template.id);
     if (response.code === 200) {
-      const fields = response.data;
-      if (fields) {
-        // 处理字段数据，转换为需要的格式
-        templateFields.value = fields.map((field: any) => ({
-          key: field.fieldName,
-          label: field.fieldLabel || field.fieldName,
-          required: field.isRequired || false
-        }));
-        
-        // 初始化字段值映射
-        fieldValues.value = {};
-        fields.forEach((field: any) => {
-          fieldValues.value[field.fieldName] = field.defaultValue || '';
-        });
-      } else {
-        templateFields.value = [];
-        fieldValues.value = {};
-      }
+      const templateDetail = response.data;
+      currentTemplate.value = templateDetail;
+      const fields = templateDetail.fields || [];
+      
+      templateFields.value = fields.map((field: any) => ({
+        key: field.fieldName,
+        label: field.fieldLabel || field.fieldName,
+        required: field.isRequired || false,
+        fieldType: field.fieldType || 'TEXT',
+        formatPattern: field.formatPattern,
+        imageType: field.fieldName.includes('签名') ? 'signature' : 
+                   field.fieldName.includes('印章') ? 'seal' : 
+                   field.fieldName.includes('盖章') ? 'seal' : 'image'
+      }));
+      
+      fieldValues.value = {};
+      fields.forEach((field: any) => {
+        fieldValues.value[field.fieldName] = field.defaultValue || '';
+      });
     }
   } catch (error) {
-    console.error('加载模板字段失败:', error);
+    console.error('加载模板详情失败:', error);
     templateFields.value = [];
     fieldValues.value = {};
   }
@@ -1598,26 +1796,41 @@ const showPreviewDialog = async (template: DocumentTemplate) => {
   previewLoading.value = true;
   previewError.value = '';
   previewUrl.value = '';
+  previewBlob.value = null;
+  previewMode.value = 'word';
+  
+  await loadPreviewContent();
+};
+
+const loadPreviewContent = async () => {
+  if (!currentTemplate.value) return;
+  
+  previewLoading.value = true;
+  previewError.value = '';
   
   try {
-    // 调用后端预览接口获取Word文档预览
-    console.log('开始预览模板，模板ID:', template.id);
-    const blob = await documentTemplatesApi.previewTemplate(template.id);
+    let blob: Blob;
     
-    // 打印Blob数据信息
+    if (previewMode.value === 'pdf') {
+      console.log('开始PDF预览，模板ID:', currentTemplate.value.id);
+      blob = await documentTemplatesApi.previewPdf(currentTemplate.value.id);
+    } else {
+      console.log('开始Word预览，模板ID:', currentTemplate.value.id);
+      blob = await documentTemplatesApi.previewTemplate(currentTemplate.value.id);
+    }
+    
     console.log('预览接口返回Blob数据:', blob);
     console.log('Blob类型:', blob.type);
     console.log('Blob大小:', blob.size);
     
-    // 直接使用返回的Blob创建URL
     if (blob && blob.size > 0) {
-      console.log('创建Blob URL...');
+      previewBlob.value = blob;
       
-      // 创建一个简单的HTML页面，显示Word文档的基本信息
-      const wordBlobUrl = URL.createObjectURL(blob);
-      
-      // 使用非常简单的HTML结构
-      const simpleHtml = `
+      if (previewMode.value === 'pdf') {
+        previewUrl.value = URL.createObjectURL(blob);
+      } else {
+        const wordBlobUrl = URL.createObjectURL(blob);
+        const simpleHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -1634,8 +1847,8 @@ h1 { color: #333; }
 <body>
 <h1>Word文档预览</h1>
 <div class="info">
-<h2>${currentTemplate.value ? currentTemplate.value.templateName : '未知模板'}</h2>
-<p>模板编码: ${currentTemplate.value ? currentTemplate.value.templateCode : '未知编码'}</p>
+<h2>${currentTemplate.value.templateName}</h2>
+<p>模板编码: ${currentTemplate.value.templateCode}</p>
 <p>文档类型: Word文档</p>
 <p>文件大小: ${blob.size} bytes</p>
 </div>
@@ -1647,27 +1860,34 @@ h1 { color: #333; }
 </div>
 </body>
 </html>
-      `;
-      
-      // 创建包含HTML内容的Blob
-      const htmlBlob = new Blob([simpleHtml], {
-        type: 'text/html'
-      });
-      previewUrl.value = URL.createObjectURL(htmlBlob);
-      console.log('创建HTML预览页面成功:', previewUrl.value);
+        `;
+        const htmlBlob = new Blob([simpleHtml], { type: 'text/html' });
+        previewUrl.value = URL.createObjectURL(htmlBlob);
+      }
     } else {
-      console.log('预览Blob数据为空或无效');
       previewError.value = '预览数据为空';
     }
   } catch (error: any) {
     console.error('预览模板失败:', error);
-    console.error('错误详情:', error.message);
-    console.error('错误堆栈:', error.stack);
     previewError.value = '预览失败: ' + (error.message || '未知错误');
   } finally {
-    console.log('预览处理完成，结果:', previewUrl.value ? '成功' : '失败');
     previewLoading.value = false;
   }
+};
+
+const handlePreviewModeChange = async () => {
+  await loadPreviewContent();
+};
+
+const downloadPreviewFile = () => {
+  if (!previewBlob.value || !currentTemplate.value) return;
+  
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(previewBlob.value);
+  const ext = previewMode.value === 'pdf' ? 'pdf' : 'docx';
+  link.download = `${currentTemplate.value.templateName}.${ext}`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 };
 
 // 监听模板选择变化
@@ -1678,18 +1898,18 @@ const loadTemplateForMaker = async () => {
     return;
   }
   
-  currentTemplateForMaker.value = selectedTemplateForMaker.value;
-  
-  // 加载模板详情
   try {
-    const response = await documentTemplatesApi.getTemplateFields(selectedTemplateForMaker.value.id);
+    const response = await documentTemplatesApi.getTemplateDetail(selectedTemplateForMaker.value.id);
     if (response.code === 200) {
-      const fields = response.data || [];
+      const templateDetail = response.data;
+      currentTemplateForMaker.value = templateDetail;
+      const fields = templateDetail.fields || [];
+      
       templateMakerForm.value = {
-        templateName: selectedTemplateForMaker.value.templateName,
-        templateCode: selectedTemplateForMaker.value.templateCode,
-        description: selectedTemplateForMaker.value.description || '',
-        content: selectedTemplateForMaker.value.configJson ? JSON.parse(selectedTemplateForMaker.value.configJson).content || '' : '',
+        templateName: templateDetail.templateName,
+        templateCode: templateDetail.templateCode,
+        description: templateDetail.description || '',
+        content: templateDetail.configJson ? JSON.parse(templateDetail.configJson).content || '' : '',
         fields: fields.map((field: any) => ({
           fieldName: field.fieldName,
           fieldLabel: field.fieldLabel,
@@ -1699,8 +1919,8 @@ const loadTemplateForMaker = async () => {
       };
     }
   } catch (error) {
-    console.error('加载模板失败:', error);
-    ElMessage.error('加载模板失败');
+    console.error('加载模板详情失败:', error);
+    ElMessage.error('加载模板详情失败');
   }
 };
 
@@ -1940,65 +2160,72 @@ const handleTemplateExport = async () => {
 
   exporting.value = true;
   try {
-    // 使用用户在动态字段中填写的值
-    const data = fieldValues.value;
-
     const requestData = {
-      templateId: currentTemplate.value.id,
       fileName: exportForm.value.fileName,
-      data,
+      data: fieldValues.value,
     };
 
     let response;
+    let fileExt = 'docx';
+    
     if (currentTemplate.value.templateType === 'WORD') {
-      response = await documentTemplatesApi.exportWord(currentTemplate.value.id, requestData);
+      if (exportFormat.value === 'pdf') {
+        response = await documentTemplatesApi.exportPdf(currentTemplate.value.id, requestData);
+        fileExt = 'pdf';
+      } else {
+        response = await documentTemplatesApi.exportWord(currentTemplate.value.id, requestData);
+        fileExt = 'docx';
+      }
     } else {
       response = await documentTemplatesApi.exportExcel(currentTemplate.value.id, requestData);
+      fileExt = 'xlsx';
     }
 
-    // 下载文件
     let blob;
     
-    // 打印响应数据，以便调试
     console.log('导出响应数据:', response);
     console.log('响应类型:', typeof response);
     console.log('响应是否为Blob:', response instanceof Blob);
     console.log('响应是否包含data字段:', response && 'data' in response);
     console.log('data字段是否为Blob:', response && response.data instanceof Blob);
     
-    // 从响应对象中提取Blob数据
-    // 因为响应是一个包含data字段的对象，而data字段才是真正的Blob对象
     if (response && response.data instanceof Blob) {
       blob = response.data;
       console.log('使用response.data作为Blob对象');
       console.log('Blob对象大小:', blob.size);
       console.log('Blob对象类型:', blob.type);
     } else if (response instanceof Blob) {
-      // 后备情况：如果响应本身就是Blob对象
       blob = response;
       console.log('使用响应本身作为Blob对象');
       console.log('Blob对象大小:', blob.size);
       console.log('Blob对象类型:', blob.type);
     } else {
-      // 错误情况：无法获取有效的Blob对象
       console.error('无法获取有效的Blob对象');
       console.error('响应数据:', response);
       ElMessage.error('导出失败：无法获取有效的文件数据');
       return;
     }
+    
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${exportForm.value.fileName}.${currentTemplate.value.templateType === 'WORD' ? 'docx' : 'xlsx'}`;
+    link.download = `${exportForm.value.fileName}.${fileExt}`;
     link.click();
     URL.revokeObjectURL(link.href);
 
     ElMessage.success('导出成功');
     exportVisible.value = false;
   } catch (error) {
+    console.error('导出失败:', error);
     ElMessage.error('导出失败');
   } finally {
     exporting.value = false;
   }
+};
+
+const getFileNameFromPath = (filePath: string | undefined) => {
+  if (!filePath) return '';
+  const parts = filePath.replace(/\\/g, '/').split('/');
+  return parts[parts.length - 1] || filePath;
 };
 
 // 处理更多命令
@@ -2007,6 +2234,14 @@ const handleCommand = async (command: string, template: DocumentTemplate) => {
 
   switch (command) {
     case 'upload':
+      try {
+        const response = await documentTemplatesApi.getTemplateDetail(template.id);
+        if (response.code === 200) {
+          currentTemplate.value = response.data;
+        }
+      } catch (error) {
+        console.error('加载模板详情失败:', error);
+      }
       selectedFile.value = null;
       uploadVisible.value = true;
       break;
@@ -2275,8 +2510,6 @@ const loadSystemFields = async () => {
 // 加载系统字段列表（用于字段管理）
 const loadSystemFieldsList = async () => {
   try {
-    // 由于 API 中没有直接获取所有字段的接口，我们需要从分组中提取
-    // 首先调用 getSystemFields 获取所有分组
     const response = await excelTemplatesApi.getSystemFields();
     
     if (response.code === 200) {
@@ -2289,12 +2522,11 @@ const loadSystemFieldsList = async () => {
         description?: string;
       }> = [];
       
-      // 遍历所有分组，提取字段信息
       response.data.forEach((group) => {
-        group.fields.forEach((field, index) => {
+        group.fields.forEach((field) => {
           fields.push({
-            id: index + 1, // 临时ID，实际应该从后端获取
-            groupName: group.group,
+            id: field.id,
+            groupName: field.groupName || group.group,
             label: field.label,
             value: field.value,
             sortOrder: field.sortOrder,
@@ -2305,9 +2537,7 @@ const loadSystemFieldsList = async () => {
       
       systemFieldsList.value = fields;
       filteredSystemFields.value = fields;
-      // 提取可用的分组列表
       extractAvailableGroups();
-      // 计算分页数据
       calculatePagedFields();
     } else {
       ElMessage.error('加载系统字段列表失败: ' + response.message);
@@ -2398,8 +2628,27 @@ const addMapping = () => {
   });
   // 初始化搜索相关状态
   const newIndex = templateForm.value.mappings.length - 1;
+  
+  // 确保 fieldSearchLoading 被正确初始化
+  if (!fieldSearchLoading.value) {
+    fieldSearchLoading.value = [];
+  }
+  
+  // 确保 fieldSearchLoading 数组足够长
+  while (fieldSearchLoading.value.length <= newIndex) {
+    fieldSearchLoading.value.push(false);
+  }
   fieldSearchLoading.value[newIndex] = false;
-  // 确保即使 systemFieldGroups.value 是 falsy 值，也能正确初始化
+  
+  // 确保 fieldSelectorFieldGroups 被正确初始化
+  if (!fieldSelectorFieldGroups.value) {
+    fieldSelectorFieldGroups.value = [];
+  }
+  
+  // 确保 fieldSelectorFieldGroups 数组足够长，并正确初始化
+  while (fieldSelectorFieldGroups.value.length <= newIndex) {
+    fieldSelectorFieldGroups.value.push([]);
+  }
   fieldSelectorFieldGroups.value[newIndex] = systemFieldGroups.value || [];
 };
 
@@ -2407,8 +2656,12 @@ const addMapping = () => {
 const removeMapping = (index: number) => {
   templateForm.value.mappings.splice(index, 1);
   // 清理搜索相关状态
-  fieldSearchLoading.value.splice(index, 1);
-  fieldSelectorFieldGroups.value.splice(index, 1);
+  if (fieldSearchLoading.value && fieldSearchLoading.value.length > index) {
+    fieldSearchLoading.value.splice(index, 1);
+  }
+  if (fieldSelectorFieldGroups.value && fieldSelectorFieldGroups.value.length > index) {
+    fieldSelectorFieldGroups.value.splice(index, 1);
+  }
 };
 
 // 字段选择器搜索处理函数
@@ -2416,13 +2669,31 @@ const handleFieldSelectorSearch = (index: number, query: string) => {
   // 确保 systemFieldGroups.value 是数组
   const fieldGroups = systemFieldGroups.value || [];
   
+  // 确保 fieldSearchLoading 被正确初始化
+  if (!fieldSearchLoading.value) {
+    fieldSearchLoading.value = [];
+  }
+  
+  // 确保 fieldSelectorFieldGroups 被正确初始化
+  if (!fieldSelectorFieldGroups.value) {
+    fieldSelectorFieldGroups.value = [];
+  }
+  
   if (!query.trim()) {
     // 清空搜索时显示所有字段
+    // 确保数组足够长
+    while (fieldSelectorFieldGroups.value.length <= index) {
+      fieldSelectorFieldGroups.value.push([]);
+    }
     fieldSelectorFieldGroups.value[index] = fieldGroups;
     return;
   }
 
   // 设置搜索加载状态
+  // 确保数组足够长
+  while (fieldSearchLoading.value.length <= index) {
+    fieldSearchLoading.value.push(false);
+  }
   fieldSearchLoading.value[index] = true;
 
   // 模拟异步搜索（实际项目中可以调用后端搜索接口）
@@ -2443,6 +2714,10 @@ const handleFieldSelectorSearch = (index: number, query: string) => {
       };
     }).filter(group => group.fields.length > 0);
     
+    // 确保数组足够长
+    while (fieldSelectorFieldGroups.value.length <= index) {
+      fieldSelectorFieldGroups.value.push([]);
+    }
     fieldSelectorFieldGroups.value[index] = filteredGroups;
     fieldSearchLoading.value[index] = false;
   }, 300);
@@ -2770,6 +3045,93 @@ onMounted(async () => {
   margin: 0;
   color: #909399;
   font-size: 14px;
+}
+
+.preview-mode-switch {
+  padding: 10px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
+}
+
+.upload-info {
+  margin-bottom: 15px;
+}
+
+.current-file-info {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.current-file-info h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.file-detail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.file-icon {
+  font-size: 32px;
+  color: #409eff;
+}
+
+.file-meta {
+  flex: 1;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  word-break: break-all;
+}
+
+.file-path {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.no-file-info {
+  margin-top: 15px;
+}
+
+.image-upload-field {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-preview-small {
+  width: 60px;
+  height: 60px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f7fa;
+}
+
+.image-preview-small img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .preview-body {
