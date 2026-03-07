@@ -324,4 +324,12 @@ export async function getConfirmationStatisticsApi(caseId: number) {
   return requestClient8085.get<ClaimConfirmationApi.ConfirmationStatisticsResponse>(`/claim-confirmation/statistics/${caseId}`);
 }
 
+/**
+ * 同步审查数据到债权确认记录
+ * POST /api/v1/claim-confirmation/{confirmationId}/sync-review-data
+ */
+export async function syncReviewDataApi(confirmationId: number) {
+  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/sync-review-data`);
+}
+
 export type { ClaimConfirmationApi };

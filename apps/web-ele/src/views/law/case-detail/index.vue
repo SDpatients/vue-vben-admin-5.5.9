@@ -455,7 +455,14 @@ const saveWorkLog = async () => {
       };
       const response = await updateWorkLogApi(currentWorkLogId.value, logData);
       if (response.code === 200) {
-        // 上传本地文件
+        // 1. 首先转移手机上传的临时文件（如果有）
+        if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
+          console.log('发现手机上传的临时文件，开始转移...');
+          const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
+          console.log('转移成功的文件:', transferredFiles);
+        }
+        
+        // 2. 上传本地文件（电脑选择的文件）
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
@@ -476,7 +483,15 @@ const saveWorkLog = async () => {
       const response = await createWorkLogApi(logData);
       if (response.code === 200 && response.data) {
         const workLogId = response.data.id;
-        // 上传本地文件
+        
+        // 1. 首先转移手机上传的临时文件（如果有）
+        if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
+          console.log('发现手机上传的临时文件，开始转移...');
+          const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
+          console.log('转移成功的文件:', transferredFiles);
+        }
+        
+        // 2. 上传本地文件（电脑选择的文件）
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(workLogId);
         }

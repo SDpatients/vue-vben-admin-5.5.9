@@ -109,9 +109,16 @@ const openDetailDialog = async (row: any) => {
 };
 
 const openConfirmDialog = async (row: any) => {
+  console.log('🚀 [调试] openConfirmDialog 被调用');
+  console.log('📋 [调试] 传入的 row 数据:', row);
+  console.log('📋 [调试] row.confirmationInfo:', row.confirmationInfo);
+  console.log('📋 [调试] row.registration_status:', row.registration_status);
+  console.log('📋 [调试] row 是否有确认记录字段 (finalConfirmedAmount):', row.finalConfirmedAmount !== undefined);
+  
   try {
     // 首先确保状态为 CONFIRMING
     if (row.registration_status !== 'CONFIRMING') {
+      console.log('⚙️ [调试] 状态不是 CONFIRMING，开始启动确认流程');
       const startConfirmResult = await ClaimService.startConfirmation(row.id);
       if (startConfirmResult.success) {
         // 重新获取数据以更新状态
@@ -120,81 +127,188 @@ const openConfirmDialog = async (row: any) => {
         const updatedRow = claims.value.find(item => item.id === row.id);
         if (updatedRow) {
           row = updatedRow;
+          console.log('✅ [调试] 状态已更新，使用新的 row:', updatedRow);
         }
       } else {
         ElMessage.error('开始确认失败');
         return;
       }
+    } else {
+      console.log('✅ [调试] 状态已经是 CONFIRMING');
     }
 
-    // 直接使用确认信息或创建新的确认记录
-    if (row.confirmationInfo) {
-      // 如果有确认信息，获取确认详情
-      const result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
+    // 判断是否存在确认记录
+    // 后端返回的数据中，确认记录字段在根对象上（如 finalConfirmedAmount, confirmationStatus 等）
+    const hasConfirmationRecord = row.finalConfirmedAmount !== undefined || row.confirmationStatus !== undefined;
+    
+    if (hasConfirmationRecord) {
+      console.log('💡 [调试] 存在确认记录，准备获取详情');
+      // 使用 claimRegistrationId 获取确认详情
+      const claimRegistrationId = row.claimRegistrationId || row.id;
+      const result = await ClaimService.getConfirmationDetailByClaimId(claimRegistrationId);
+      
       if (result.success) {
-        // 保持currentClaim的结构与row一致，包含confirmationInfo字段
-        currentClaim.value = {
-          ...row,
-          confirmationInfo: result.data
-        };
+        console.log('📋 [调试] 获取确认详情成功:', result.data);
         
-        // 完整填充确认表单数据
-        Object.assign(confirmationForm, {
-          meetingType: result.data.meetingType || '',
-          meetingDate: result.data.meetingDate || '',
-          meetingLocation: result.data.meetingLocation || '',
-          voteResult:
-            result.data.voteResult === 'AGREE'
-              ? '通过'
-              : result.data.voteResult === 'DISAGREE'
-                ? '不通过'
-                : '待定',
-          voteNotes: result.data.voteNotes || '',
-          hasObjection: result.data.hasObjection || '0',
-          objector: result.data.objector || '',
-          objectionReason: result.data.objectionReason || '',
-          objectionAmount: result.data.objectionAmount || 0,
-          objectionDate: result.data.objectionDate || '',
-          negotiationResult: result.data.negotiationResult || '',
-          negotiationDate: result.data.negotiationDate || '',
-          negotiationParticipants: result.data.negotiationParticipants || '',
-          courtRulingDate: result.data.courtRulingDate || '',
-          courtRulingNo: result.data.courtRulingNo || '',
-          courtRulingResult: result.data.courtRulingResult || '',
-          courtRulingAmount: result.data.courtRulingAmount || 0,
-          courtRulingNotes: result.data.courtRulingNotes || '',
-          hasLawsuit: result.data.hasLawsuit || '0',
-          lawsuitCaseNo: result.data.lawsuitCaseNo || '',
-          lawsuitStatus: result.data.lawsuitStatus || '',
-          lawsuitResult: result.data.lawsuitResult || '',
-          lawsuitAmount: result.data.lawsuitAmount || 0,
-          lawsuitNotes: result.data.lawsuitNotes || '',
-          finalConfirmedAmount:
-            result.data.finalConfirmedAmount ||
+        // 调用同步接口，自动填充审查数据
+        const confirmationId = result.data.id || row.id;
+        const syncResult = await ClaimService.syncReviewData(confirmationId);
+        if (syncResult.success) {
+          console.log('✅ [调试] 同步审查数据成功');
+          // 同步成功后重新获取确认详情，以获取最新的审查数据
+          const refreshedResult = await ClaimService.getConfirmationDetailByClaimId(claimRegistrationId);
+          if (refreshedResult.success) {
+            console.log('📋 [调试] 重新获取确认详情成功:', refreshedResult.data);
+            console.log('💰 [调试] 同步后的金额字段:', {
+              finalConfirmedAmount: refreshedResult.data.finalConfirmedAmount,
+              confirmedTotalAmount: refreshedResult.data.confirmedTotalAmount,
+              courtRulingAmount: refreshedResult.data.courtRulingAmount,
+              lawsuitAmount: refreshedResult.data.lawsuitAmount,
+              objectionAmount: refreshedResult.data.objectionAmount,
+            });
+            
+            // 使用刷新后的数据
+            currentClaim.value = {
+              ...row,
+              confirmationInfo: refreshedResult.data
+            };
+            
+            // 完整填充确认表单数据（使用刷新后的数据）
+            const targetAmount = refreshedResult.data.finalConfirmedAmount ||
+              refreshedResult.data.confirmedTotalAmount ||
+              row.confirmedTotalAmount ||
+              0;
+            
+            console.log('💰 [调试] 最终确认金额:', targetAmount);
+            
+            // 使用 nextTick 确保响应式更新
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            Object.assign(confirmationForm, {
+              meetingType: refreshedResult.data.meetingType || '',
+              meetingDate: refreshedResult.data.meetingDate || '',
+              meetingLocation: refreshedResult.data.meetingLocation || '',
+              voteResult:
+                refreshedResult.data.voteResult === 'AGREE'
+                  ? '通过'
+                  : refreshedResult.data.voteResult === 'DISAGREE'
+                    ? '不通过'
+                    : '待定',
+              voteNotes: refreshedResult.data.voteNotes || '',
+              hasObjection: refreshedResult.data.hasObjection || false,
+              objector: refreshedResult.data.objector || '',
+              objectionReason: refreshedResult.data.objectionReason || '',
+              objectionAmount: refreshedResult.data.objectionAmount || 0,
+              objectionDate: refreshedResult.data.objectionDate || '',
+              negotiationResult: refreshedResult.data.negotiationResult || '',
+              negotiationDate: refreshedResult.data.negotiationDate || '',
+              negotiationParticipants: refreshedResult.data.negotiationParticipants || '',
+              courtRulingDate: refreshedResult.data.courtRulingDate || '',
+              courtRulingNo: refreshedResult.data.courtRulingNo || '',
+              courtRulingResult: refreshedResult.data.courtRulingResult || '',
+              courtRulingAmount: refreshedResult.data.courtRulingAmount || 0,
+              courtRulingNotes: refreshedResult.data.courtRulingNotes || '',
+              hasLawsuit: refreshedResult.data.hasLawsuit || false,
+              lawsuitCaseNo: refreshedResult.data.lawsuitCaseNo || '',
+              lawsuitStatus: refreshedResult.data.lawsuitStatus || '',
+              lawsuitResult: refreshedResult.data.lawsuitResult || '',
+              lawsuitAmount: refreshedResult.data.lawsuitAmount || 0,
+              lawsuitNotes: refreshedResult.data.lawsuitNotes || '',
+              finalConfirmedAmount: targetAmount,
+              finalConfirmationDate: refreshedResult.data.finalConfirmationDate || '',
+              finalConfirmationBasis: refreshedResult.data.finalConfirmationBasis || '',
+              confirmationAttachments: refreshedResult.data.confirmationAttachments || [],
+              remarks: refreshedResult.data.remarks || '',
+            });
+            
+            console.log('📝 [调试] 确认表单填充后的值:', {
+              finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+              voteResult: confirmationForm.voteResult,
+              hasObjection: confirmationForm.hasObjection,
+              hasLawsuit: confirmationForm.hasLawsuit,
+            });
+            
+            // 再次验证赋值后的值
+            setTimeout(() => {
+              console.log('⏱️ [调试] 100ms 后的表单值:', {
+                finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+              });
+            }, 100);
+          }
+        } else {
+          console.warn('⚠️ [调试] 同步审查数据失败，但继续使用现有数据');
+          // 保持 currentClaim 的结构与 row 一致，包含 confirmationInfo 字段
+          currentClaim.value = {
+            ...row,
+            confirmationInfo: result.data
+          };
+          
+          // 完整填充确认表单数据
+          const targetAmount = result.data.finalConfirmedAmount ||
             result.data.confirmedTotalAmount ||
-            row.reviewInfo?.confirmedTotalAmount ||
-            0,
-          finalConfirmationDate: result.data.finalConfirmationDate || '',
-          finalConfirmationBasis: result.data.finalConfirmationBasis || '',
-          confirmationAttachments: result.data.confirmationAttachments || [],
-          remarks: result.data.remarks || '',
-        });
+            row.confirmedTotalAmount ||
+            0;
+          
+          Object.assign(confirmationForm, {
+            meetingType: result.data.meetingType || '',
+            meetingDate: result.data.meetingDate || '',
+            meetingLocation: result.data.meetingLocation || '',
+            voteResult:
+              result.data.voteResult === 'AGREE'
+                ? '通过'
+                : result.data.voteResult === 'DISAGREE'
+                  ? '不通过'
+                  : '待定',
+            voteNotes: result.data.voteNotes || '',
+            hasObjection: result.data.hasObjection || false,
+            objector: result.data.objector || '',
+            objectionReason: result.data.objectionReason || '',
+            objectionAmount: result.data.objectionAmount || 0,
+            objectionDate: result.data.objectionDate || '',
+            negotiationResult: result.data.negotiationResult || '',
+            negotiationDate: result.data.negotiationDate || '',
+            negotiationParticipants: result.data.negotiationParticipants || '',
+            courtRulingDate: result.data.courtRulingDate || '',
+            courtRulingNo: result.data.courtRulingNo || '',
+            courtRulingResult: result.data.courtRulingResult || '',
+            courtRulingAmount: result.data.courtRulingAmount || 0,
+            courtRulingNotes: result.data.courtRulingNotes || '',
+            hasLawsuit: result.data.hasLawsuit || false,
+            lawsuitCaseNo: result.data.lawsuitCaseNo || '',
+            lawsuitStatus: result.data.lawsuitStatus || '',
+            lawsuitResult: result.data.lawsuitResult || '',
+            lawsuitAmount: result.data.lawsuitAmount || 0,
+            lawsuitNotes: result.data.lawsuitNotes || '',
+            finalConfirmedAmount: targetAmount,
+            finalConfirmationDate: result.data.finalConfirmationDate || '',
+            finalConfirmationBasis: result.data.finalConfirmationBasis || '',
+            confirmationAttachments: result.data.confirmationAttachments || [],
+            remarks: result.data.remarks || '',
+          });
+        }
       } else {
         ElMessage.error('获取确认详情失败');
         return;
       }
     } else {
-      // 没有确认信息，使用基本信息初始化
+      console.log('❌ [调试] 不存在确认记录，使用默认初始化');
+      // 没有确认记录，使用基本信息初始化
       currentClaim.value = row;
       
       // 初始化表单数据
+      const targetAmount = row.confirmedTotalAmount || row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0;
+      console.log('💰 [调试] 目标金额:', targetAmount);
+      
+      // 使用 nextTick 确保响应式更新
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       Object.assign(confirmationForm, {
         meetingType: '',
         meetingDate: '',
         meetingLocation: '',
         voteResult: '待定',
         voteNotes: '',
-        hasObjection: '0',
+        hasObjection: false,
         objector: '',
         objectionReason: '',
         objectionAmount: 0,
@@ -207,24 +321,45 @@ const openConfirmDialog = async (row: any) => {
         courtRulingResult: '',
         courtRulingAmount: 0,
         courtRulingNotes: '',
-        hasLawsuit: '0',
+        hasLawsuit: false,
         lawsuitCaseNo: '',
         lawsuitStatus: '',
         lawsuitResult: '',
         lawsuitAmount: 0,
         lawsuitNotes: '',
-        finalConfirmedAmount:
-          row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0,
+        finalConfirmedAmount: targetAmount,
         finalConfirmationDate: '',
         finalConfirmationBasis: '',
         confirmationAttachments: [],
         remarks: '',
       });
+      
+      console.log('📝 [调试] 默认初始化的表单值:', {
+        finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+        reviewInfo: row.reviewInfo,
+      });
+      
+      // 再次验证赋值后的值
+      setTimeout(() => {
+        console.log('⏱️ [调试] 100ms 后的表单值:', {
+          finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+        });
+      }, 100);
     }
     
-    showConfirmDialog.value = true;
+    console.log('✅ [调试] 准备打开对话框，currentClaim:', currentClaim.value);
+      showConfirmDialog.value = true;
+      
+      // 对话框打开后，强制刷新表单
+      setTimeout(() => {
+        console.log('🔧 [调试] 对话框打开后强制刷新表单');
+        console.log('💰 [调试] 刷新时的表单值:', {
+          finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
+          voteResult: confirmationForm.voteResult,
+        });
+      }, 200);
   } catch (error) {
-    console.error('打开确认对话框失败:', error);
+    console.error('❌ [调试] 打开确认对话框失败:', error);
     ElMessage.error('打开确认对话框失败');
   }
 };
@@ -246,6 +381,10 @@ const handleSaveConfirmation = async () => {
 
   confirmLoading.value = true;
   try {
+    console.log('💾 [调试] 开始保存确认记录');
+    console.log('📋 [调试] currentClaim:', currentClaim.value);
+    console.log('📋 [调试] confirmationForm:', confirmationForm);
+    
     const claimId = currentClaim.value.claimRegistrationId || currentClaim.value.id;
     const requestData: any = {
       claimRegistrationId: claimId,
@@ -288,21 +427,33 @@ const handleSaveConfirmation = async () => {
     };
 
     let result;
-    // 检查是否有确认信息 ID，如果有则更新，否则创建
-    if (currentClaim.value.confirmationInfo?.id) {
+    // 检查是否有确认记录 ID
+    // 如果有 confirmationInfo，使用它的 ID
+    // 否则检查 currentClaim 本身是否有 id（后端直接返回的确认记录）
+    const confirmationId = currentClaim.value.confirmationInfo?.id || currentClaim.value.id;
+    console.log('🔍 [调试] 确认记录 ID:', confirmationId);
+    console.log('🔍 [调试] 是否有 confirmationInfo:', !!currentClaim.value.confirmationInfo);
+    
+    if (confirmationId) {
+      console.log('✏️ [调试] 使用 PUT 接口更新确认记录，ID:', confirmationId);
       result = await ClaimService.updateConfirmation(
-        currentClaim.value.confirmationInfo.id,
+        confirmationId,
         requestData,
       );
     } else {
-      // 如果没有确认信息 ID，创建新的确认记录
+      console.log('➕ [调试] 使用 POST 接口创建新的确认记录');
+      // 如果没有确认记录 ID，创建新的确认记录
       result = await ClaimService.createConfirmation(requestData);
     }
 
     if (result.success) {
+      ElMessage.success('保存成功');
       await fetchClaims();
       closeConfirmDialog();
     }
+  } catch (error) {
+    console.error('❌ [调试] 保存确认记录失败:', error);
+    ElMessage.error('保存失败');
   } finally {
     confirmLoading.value = false;
   }
@@ -633,7 +784,7 @@ onMounted(() => {
               {{ currentClaim.creditorName }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="申报总金额">
-              {{ currentClaim.totalAmount }}
+              {{ currentClaim.totalAmount || currentClaim.declaredTotalAmount || 0 }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="审查结论">
               <ElTag
@@ -651,9 +802,58 @@ onMounted(() => {
               </ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem label="确认金额">
-              {{ currentClaim.reviewInfo?.confirmedTotalAmount || 0 }}
+              {{ currentClaim.reviewInfo?.confirmedTotalAmount || currentClaim.confirmedTotalAmount || 0 }}
             </ElDescriptionsItem>
           </ElDescriptions>
+        </div>
+
+        <!-- 新增：详细的金额信息展示 -->
+        <div class="amount-detail-section mb-4">
+          <h4 class="section-title mb-2">金额明细</h4>
+          <ElTable :data="[{}]" border style="width: 100%" :show-header="true" size="small">
+            <ElTableColumn label="项目" width="120" fixed>
+              <template #default>
+                <div style="font-weight: 600">申报金额</div>
+                <div style="font-weight: 600; color: #409EFF">确认金额</div>
+                <div style="font-weight: 600; color: #F56C6C">未确认金额</div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="本金" width="120" align="right">
+              <template #default>
+                <div>{{ (currentClaim.declaredPrincipal || 0).toFixed(2) }}</div>
+                <div style="color: #409EFF">{{ (currentClaim.confirmedPrincipal || 0).toFixed(2) }}</div>
+                <div style="color: #F56C6C">{{ (currentClaim.unconfirmedPrincipal || 0).toFixed(2) }}</div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="利息" width="120" align="right">
+              <template #default>
+                <div>{{ (currentClaim.declaredInterest || 0).toFixed(2) }}</div>
+                <div style="color: #409EFF">{{ (currentClaim.confirmedInterest || 0).toFixed(2) }}</div>
+                <div style="color: #F56C6C">{{ (currentClaim.unconfirmedInterest || 0).toFixed(2) }}</div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="违约金" width="120" align="right">
+              <template #default>
+                <div>{{ (currentClaim.declaredPenalty || 0).toFixed(2) }}</div>
+                <div style="color: #409EFF">{{ (currentClaim.confirmedPenalty || 0).toFixed(2) }}</div>
+                <div style="color: #F56C6C">{{ (currentClaim.unconfirmedPenalty || 0).toFixed(2) }}</div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="其他损失" width="120" align="right">
+              <template #default>
+                <div>{{ (currentClaim.declaredOtherLosses || 0).toFixed(2) }}</div>
+                <div style="color: #409EFF">{{ (currentClaim.confirmedOtherLosses || 0).toFixed(2) }}</div>
+                <div style="color: #F56C6C">{{ (currentClaim.unconfirmedOtherLosses || 0).toFixed(2) }}</div>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="合计" width="120" align="right" fixed="right">
+              <template #default>
+                <div style="font-weight: 600">{{ (currentClaim.declaredTotalAmount || 0).toFixed(2) }}</div>
+                <div style="font-weight: 600; color: #409EFF">{{ (currentClaim.confirmedTotalAmount || 0).toFixed(2) }}</div>
+                <div style="font-weight: 600; color: #F56C6C">{{ (currentClaim.unconfirmedTotalAmount || 0).toFixed(2) }}</div>
+              </template>
+            </ElTableColumn>
+          </ElTable>
         </div>
 
         <div class="confirm-form-section">
@@ -662,7 +862,7 @@ onMounted(() => {
             <ElFormItem label="确认金额" required>
               <ElInput
                 v-model="confirmationForm.finalConfirmedAmount"
-                type="number"
+                type="text"
                 placeholder="请输入确认金额"
                 style="width: 100%"
               />
@@ -1046,5 +1246,20 @@ onMounted(() => {
   border-top: 1px solid #ebeef5;
   padding-top: 16px;
   margin-top: 16px;
+}
+
+/* 金额明细表格样式 */
+.amount-detail-section {
+  background: #f5f7fa;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+.amount-detail-section .el-table {
+  font-size: 13px;
+}
+
+.amount-detail-section .el-table .cell {
+  padding: 8px 0;
 }
 </style>

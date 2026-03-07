@@ -2264,6 +2264,12 @@ const pollTempFiles = async () => {
         const newFileCount = newFiles.length - mobileUploadedFiles.value.length;
         const filesToAdd = newFiles.slice(mobileUploadedFiles.value.length);
         
+        console.log('=== 准备添加新文件到显示列表 ===');
+        console.log('新文件数量:', newFileCount);
+        console.log('要添加的文件列表:', filesToAdd);
+        console.log('当前 uploadFiles 长度:', uploadFiles.value.length);
+        console.log('当前 uploadFiles:', JSON.stringify(uploadFiles.value, null, 2));
+        
         filesToAdd.forEach((file, index) => {
           // 创建一个虚拟的 File 对象用于显示
           const virtualFile = {
@@ -2273,23 +2279,31 @@ const pollTempFiles = async () => {
             lastModified: new Date(file.uploadTime).getTime(),
           } as any;
           
-          // 添加到 uploadFiles 数组
-          uploadFiles.value.push({
+          const newUploadFile = {
             file: virtualFile,
             fileId: file.id,
             name: file.originalFileName,
             url: '',
             id: `mobile-${file.id}`, // 使用 mobile- 前缀标识这是手机上传的文件
-          });
+          };
           
+          console.log(`添加第 ${index + 1} 个手机上传文件:`, JSON.stringify(newUploadFile, null, 2));
+          
+          // 添加到 uploadFiles 数组
+          uploadFiles.value.push(newUploadFile);
+          
+          console.log(`添加后 uploadFiles 长度:`, uploadFiles.value.length);
           console.log(`添加手机上传文件到显示列表：${file.originalFileName}`);
         });
         
-        // 刷新当前任务提交的文件列表（从后端获取）
-        if (currentItem.value) {
-          await refreshSubmissionFiles(currentItem.value.id);
-          console.log('文件列表刷新完成');
-        }
+        console.log('=== 所有新文件添加完成 ===');
+        console.log('最终 uploadFiles 长度:', uploadFiles.value.length);
+        console.log('最终 uploadFiles:', JSON.stringify(uploadFiles.value, null, 2));
+        
+        // 注意：不调用 refreshSubmissionFiles，因为它会覆盖 uploadFiles 数组
+        // 手机上传的文件还在临时存储中，还没有被后端存储
+        // 只有在提交保存时，转移临时文件后才会调用 refreshSubmissionFiles
+        console.log('不调用 refreshSubmissionFiles，避免覆盖刚添加的手机上传文件');
       }
       
       // 更新文件列表

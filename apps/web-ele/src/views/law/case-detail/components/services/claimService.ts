@@ -33,6 +33,7 @@ import {
   getClaimConfirmationDetailApi,
   getClaimConfirmationsByCaseIdApi,
   submitVoteApi,
+  syncReviewDataApi,
   updateClaimConfirmationApi,
 } from '#/api/core/claim-confirmation';
 
@@ -704,6 +705,19 @@ export class ClaimService {
       return { success: false };
     } catch (error) {
       this.handleApiError(error, '驳回失败');
+      return { success: false };
+    }
+  }
+
+  static async syncReviewData(confirmationId: number) {
+    try {
+      const response = await syncReviewDataApi(confirmationId);
+      if (this.handleApiResponse(response, '同步审查数据成功', '同步失败')) {
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      this.handleApiError(error, '同步审查数据失败');
       return { success: false };
     }
   }

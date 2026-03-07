@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
@@ -324,12 +324,18 @@ const handleToggleSelectAll = (selection: any[]) => {
   selectedTemplates.value = selection.map(item => item.id);
 };
 
-onMounted(() => {
-  initDefaultTemplates();
-  if (dialogVisible.value) {
-    fetchTemplates();
-  }
-});
+// 监听对话框打开状态，每次打开时重新加载数据
+watch(
+  () => dialogVisible.value,
+  (newVal) => {
+    if (newVal) {
+      // 对话框打开时加载数据
+      initDefaultTemplates();
+      fetchTemplates();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

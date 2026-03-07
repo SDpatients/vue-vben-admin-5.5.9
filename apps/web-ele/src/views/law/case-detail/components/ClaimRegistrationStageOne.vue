@@ -603,6 +603,14 @@ const handleAddClaim = async () => {
   if (result.success) {
     const claimId = result.data?.claimId || result.data?.id;
     if (claimId && fileUploadRef.value) {
+      // 1. 首先转移手机上传的临时文件（如果有）
+      if (fileUploadRef.value.getHasUntransferredFiles()) {
+        console.log('发现手机上传的临时文件，开始转移...');
+        const transferredFiles = await fileUploadRef.value.transferMobileFiles(claimId);
+        console.log('转移成功的文件:', transferredFiles);
+      }
+      
+      // 2. 上传本地文件（电脑选择的文件）
       const uploadedIds = await fileUploadRef.value.uploadLocalFiles(claimId);
       if (uploadedIds.length > 0) {
         localFileIds.value = uploadedIds;

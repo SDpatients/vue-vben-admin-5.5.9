@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
@@ -413,35 +413,78 @@ const exportReport = async () => {
     // 获取模板配置（表头位置等）
     const templateConfig = getTemplateConfig(template.name);
     
-    // 调用导出 API
-    const blob = await documentTemplatesApi.batchExportExcel({
+    console.log('导出参数:', {
       templateId: template.id,
       fileName: `${template.name}_${new Date().getTime()}`,
-      dataList: reportData.value.map(item => ({
-        creditorName: item.creditorName,
-        creditorType: item.creditorType,
-        claimType: item.claimType,
-        declaredPrincipal: item.declaredPrincipal,
-        declaredInterest: item.declaredInterest,
-        declaredPenalty: item.declaredPenalty,
-        declaredOtherLosses: item.declaredOtherLosses,
-        declaredTotalAmount: item.declaredTotalAmount,
-        confirmedPrincipal: item.confirmedPrincipal,
-        confirmedInterest: item.confirmedInterest,
-        confirmedPenalty: item.confirmedPenalty,
-        confirmedOtherLosses: item.confirmedOtherLosses,
-        confirmedTotalAmount: item.confirmedTotalAmount,
-        unconfirmedAmount: item.unconfirmedAmount,
-        confirmationRate: item.confirmationRate,
-      })),
+      dataList: reportData.value,
       options: {
         mergeCells: false,
         addIndex: true,
         sheetName: '债权报表',
-        startRow: templateConfig.startRow,      // 数据开始行
-        headerRow: templateConfig.headerRow,    // 表头所在行
+        startRow: templateConfig.startRow,
+        headerRow: templateConfig.headerRow,
       },
     });
+    
+    // 使用 fetch API 直接调用后端接口
+    const token = localStorage.getItem('token');
+    const formattedToken = token && !token.startsWith('Bearer ') ? `Bearer ${token}` : token;
+    
+    const fetchUrl = `${import.meta.env.VITE_API_URL_8085 || '/api/v1'}/document-templates/batch-export/excel`;
+    
+    const fetchResponse = await fetch(fetchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': formattedToken || '',
+      },
+      body: JSON.stringify({
+        templateId: template.id,
+        fileName: `${template.name}_${new Date().getTime()}`,
+        dataList: reportData.value.map(item => ({
+          creditorName: item.creditorName,
+          creditorType: item.creditorType,
+          claimType: item.claimType,
+          declaredPrincipal: item.declaredPrincipal,
+          declaredInterest: item.declaredInterest,
+          declaredPenalty: item.declaredPenalty,
+          declaredOtherLosses: item.declaredOtherLosses,
+          declaredTotalAmount: item.declaredTotalAmount,
+          confirmedPrincipal: item.confirmedPrincipal,
+          confirmedInterest: item.confirmedInterest,
+          confirmedPenalty: item.confirmedPenalty,
+          confirmedOtherLosses: item.confirmedOtherLosses,
+          confirmedTotalAmount: item.confirmedTotalAmount,
+          unconfirmedAmount: item.unconfirmedAmount,
+          confirmationRate: item.confirmationRate,
+        })),
+        options: {
+          mergeCells: false,
+          addIndex: true,
+          sheetName: '债权报表',
+          startRow: templateConfig.startRow,
+          headerRow: templateConfig.headerRow,
+        },
+      }),
+    });
+
+    console.log('Fetch 响应状态:', fetchResponse.status);
+    console.log('Fetch 响应头:', fetchResponse.headers);
+
+    if (!fetchResponse.ok) {
+      const errorText = await fetchResponse.text();
+      console.error('服务器错误响应:', errorText);
+      throw new Error(`导出失败：HTTP ${fetchResponse.status} - ${errorText}`);
+    }
+
+    const blob = await fetchResponse.blob();
+    console.log('获取到 Blob:', blob);
+    console.log('Blob 类型:', blob.type);
+    console.log('Blob 大小:', blob.size, 'bytes');
+
+    if (!blob || blob.size === 0) {
+      throw new Error('导出的文件为空');
+    }
 
     // 创建下载链接
     const url = window.URL.createObjectURL(blob);
@@ -454,9 +497,13 @@ const exportReport = async () => {
     window.URL.revokeObjectURL(url);
 
     ElMessage.success('导出成功');
-  } catch (error) {
+  } catch (error: any) {
     console.error('导出失败:', error);
-    ElMessage.error('导出失败，请重试');
+    let errorMessage = '导出失败，请重试';
+    if (error.message) {
+      errorMessage = `导出失败：${error.message}`;
+    }
+    ElMessage.error(errorMessage);
   }
 };
 
@@ -529,13 +576,19 @@ const formatPercent = (percent: number) => {
   return `${percent.toFixed(2)}%`;
 };
 
-onMounted(() => {
-  initDefaultData();
-  if (dialogVisible.value) {
-    fetchCreditors();
-    fetchTemplates();
-  }
-});
+// 监听对话框打开状态，每次打开时重新加载数据
+watch(
+  () => dialogVisible.value,
+  (newVal) => {
+    if (newVal) {
+      // 对话框打开时加载数据
+      initDefaultData();
+      fetchCreditors();
+      fetchTemplates();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
