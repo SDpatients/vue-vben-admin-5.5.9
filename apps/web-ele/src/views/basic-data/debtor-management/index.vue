@@ -1055,6 +1055,9 @@ const submitEditFormData = async () => {
       registrationAuthority: editFormData.value.DJJG,
       enterpriseType: editFormData.value.QYLX,
       status: editFormData.value.ZT,
+      registeredCapital: editFormData.value.ZCZB
+        ? Number(editFormData.value.ZCZB)
+        : undefined,
     };
 
     // 调用编辑接口
@@ -1652,6 +1655,7 @@ const getRowKey = (row: any) => row.id;
                 <ElInput
                   v-model="editFormData.ZCZB"
                   placeholder="请输入注册资本"
+                  disabled
                 />
               </ElFormItem>
             </ElCol>

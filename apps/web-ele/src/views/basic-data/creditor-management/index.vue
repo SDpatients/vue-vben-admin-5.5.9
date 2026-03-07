@@ -1113,7 +1113,7 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
             <ElButton
               size="small"
               text
-              @click="handleEditCreditor(row)"
+              @click.stop="handleEditCreditor(row)"
               class="text-primary"
             >
               <i class="i-lucide-edit mr-1"></i>
@@ -1122,7 +1122,7 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
             <ElButton
               size="small"
               text
-              @click="handleDeleteCreditor(row)"
+              @click.stop="handleDeleteCreditor(row)"
               :loading="deleteFormLoading"
               class="text-danger ml-2"
             >

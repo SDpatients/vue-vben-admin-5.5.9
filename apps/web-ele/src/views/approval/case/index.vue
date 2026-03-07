@@ -497,9 +497,9 @@ const handleConfirmApproval = async () => {
   try {
     await approvalApi.approve(currentCase.value.id, {
       approvalResult:
-        approvalForm.value.status === 'approved' ? 'PASS' : 'FAIL',
+        approvalForm.value.status === 'approved' ? 'PASS' : 'REJECT',
       approvalOpinion: approvalForm.value.remark,
-      approverId: 1,
+      approverId: Number(localStorage.getItem('user_id') || '0'),
     });
 
     dialogVisible.value = false;
@@ -509,9 +509,19 @@ const handleConfirmApproval = async () => {
     );
 
     await loadCases();
-  } catch (error) {
+  } catch (error: any) {
     console.error('审批失败:', error);
-    ElMessage.error('审批失败');
+    const errorMsg = error?.message || '';
+    if (errorMsg.includes("Cannot destructure property 'config' of 'response' as it is null")) {
+      dialogVisible.value = false;
+      ElMessage.success(
+        approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
+      );
+      await loadCases();
+    } else {
+      const msg = error?.response?.data?.message || errorMsg || '审批失败';
+      ElMessage.error(msg);
+    }
   } finally {
     loading.value = false;
   }

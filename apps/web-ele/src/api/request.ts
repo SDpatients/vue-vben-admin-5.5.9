@@ -94,6 +94,22 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   });
 
   // 处理返回的响应数据格式
+  client.addResponseInterceptor({
+    fulfilled: (response) => {
+      if (response === null || response === undefined) {
+        return {
+          config: { responseReturn: 'data' },
+          data: { code: 200, data: null },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        } as any;
+      }
+      return response;
+    },
+    rejected: (error) => Promise.reject(error),
+  });
+
   client.addResponseInterceptor(
     defaultResponseInterceptor({
       codeField: 'code',

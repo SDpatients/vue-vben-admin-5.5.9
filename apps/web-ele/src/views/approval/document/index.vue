@@ -361,7 +361,7 @@ const loadDocuments = async () => {
       caseNumber: searchForm.value.caseNumber || undefined,
     });
 
-    if (response.data) {
+    if (response && response.data) {
       documentList.value = response.data.list.map(
         (item: DocumentServiceApi.Document) => ({
           ...item,
@@ -401,7 +401,7 @@ const handleViewDetail = async (row: DocumentApproval) => {
   // 获取附件列表
   try {
     const response = await getDocumentAttachmentsApi(row.id);
-    if (response.data) {
+    if (response && response.data) {
       const token = localStorage.getItem('token');
       const attachments: DocumentAttachment[] = [];
       
@@ -525,7 +525,7 @@ const handleConfirmApproval = async () => {
     );
     if (index !== -1) {
       documentList.value[index].status = approvalForm.value.status;
-      documentList.value[index].updateTime = new Date().toISOString();
+      documentList.value[index].updateTime = formatDateTime(new Date().toISOString());
       if (approvalForm.value.remark) {
         documentList.value[index].remark = approvalForm.value.remark;
       }

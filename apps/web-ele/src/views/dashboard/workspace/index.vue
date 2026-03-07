@@ -84,7 +84,6 @@ const loading = ref(false);
 
 // 统计数据
 const todoCount = ref(0);
-const todoTotal = ref(0);
 const caseCount = ref(0);
 const teamCount = ref(0);
 
@@ -168,13 +167,20 @@ const calendarOptions = ref({
   initialView: 'dayGridMonth',
   weekends: true,
   headerToolbar: {
-    left: 'prev,next today',
+    left: '',
     center: 'title',
     right: ''
   },
   events: [],
   eventClick: (info) => {
     console.log('Event clicked:', info.event);
+    // 点击事件时显示详情窗口
+    showTodoDetail(info.event);
+  },
+  eventMouseEnter: (info) => {
+    console.log('Event mouse enter:', info.event);
+    // 鼠标进入事件时显示详情窗口
+    showTodoDetail(info.event);
   },
   eventDoubleClick: (info) => {
     console.log('Event double clicked:', info.event);
@@ -314,7 +320,8 @@ const loadCalendarEvents = async () => {
           type: 'todo',
           extendedProps: {
             priority: item.priority,
-            status: item.status
+            status: item.status,
+            description: item.description
           }
         };
         
@@ -782,9 +789,37 @@ const downloadAttachment = async (attachment: any) => {
 
 const loadTodoItems = async () => {
   try {
-    // 新API页码从0开始，所以传递0而不是1
+    // 从本地存储获取用户 ID
+    const chatUserId = localStorage.getItem('chat_user_id');
+    const userId = Number(chatUserId) || 0;
+    
+    if (userId === 0) {
+      console.error('无法获取用户 ID');
+      return;
+    }
+    
+    // 获取 JWT token
+    const token = localStorage.getItem('token');
+    
+    // 调用待办数量接口
+    const countResponse = await fetch(`/api/v1/todo/count/pending?userId=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
+    
+    if (countResponse.ok) {
+      const countData = await countResponse.json();
+      todoCount.value = countData.data || 0;
+    } else {
+      console.error('获取待办数量失败');
+    }
+    
+    // 加载待办事项列表
     const res = await todoApi.getTodoList(undefined, 0, 5);
-    // 新API响应格式中，待办事项在content字段中
+    // 新 API 响应格式中，待办事项在 content 字段中
     const todos: Todo[] = res.data?.content || [];
     todoItems.value = todos.map((item: Todo) => ({
       title: item.title,
@@ -794,10 +829,6 @@ const loadTodoItems = async () => {
         : new Date().toLocaleDateString('zh-CN'),
       completed: item.status === 'COMPLETED',
     }));
-
-    // 更新待办统计
-    todoCount.value = res.data?.content?.length || 0;
-    todoTotal.value = res.data?.totalElements || 0;
   } catch (error) {
     console.error('加载待办事项失败:', error);
   }
@@ -1147,7 +1178,6 @@ onMounted(async () => {
       <WorkbenchHeader
         :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
         :todo-count="todoCount"
-        :todo-total="todoTotal"
         :case-count="caseCount"
         :team-count="teamCount"
         :real-name="currentUserInfo?.realName"
@@ -1168,38 +1198,9 @@ onMounted(async () => {
       </WorkbenchHeader>
 
       <div class="mt-0 flex flex-col lg:flex-row gap-[5px]">
-        <!-- 左侧主要内容区 - 占页面总宽度的3/4 -->
-        <div class="w-full lg:w-3/4">
-          <!-- 日历板块 -->
-          <AnalysisChartCard v-if="isLawyer" title="日历" class="mb-[5px] bg-white">
-            <div class="calendar-container w-full">
-              <!-- 自定义工具组 -->
-              <div class="flex flex-wrap gap-2 mb-4">
-                <button @click="switchToView('dayGridMonth')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">月视图</button>
-                <!-- <button @click="switchToView('timeGridWeek')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">周视图</button> -->
-                <!-- <button @click="switchToView('listDay')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">日视图</button> -->
-                <button @click="pageTurning('prev')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"><</button>
-                <button @click="toToday()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">今天</button>
-                <button @click="pageTurning('next')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">></button>
-              </div>
-              <hr class="my-4">
-              <!-- 其他按钮操作 -->
-              <div class="flex flex-wrap gap-2 mt-4">
-                <!-- <button @click="getViewsData()" class="px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded text-sm">获取当前日历视图数据</button> -->
-                <!-- <button @click="clearAllList()" class="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-sm">重置清空日历</button> -->
-              </div>
-              <div class="fullcalendar-header flex justify-between mb-4">
-                <button @click="getMatter()" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-sm">刷新</button>
-                <button @click="addMatter()" class="px-3 py-1 bg-green-100 hover:bg-green-200 rounded text-sm">[新增]待办事项</button>
-              </div>
-              <!-- 日历组件 -->
-              <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" />
-              <!-- 动态插入数据 -->
-          
-            </div>
-          </AnalysisChartCard>
-
-          <!-- 我的案件板块 -->
+        <!-- 左侧主要内容区 - 占页面总宽度的2/3 -->
+        <div class="w-full lg:w-2/3">
+          <!-- 我的案件板块 - 放在上方 -->
           <AnalysisChartCard title="我的案件" class="mb-[5px] bg-white">
             <div class="case-header mb-4">
               <div class="case-tabs flex">
@@ -1355,154 +1356,9 @@ onMounted(async () => {
             </div>
           </AnalysisChartCard>
 
-
-
-          <!-- 最新动态板块 -->
-          <div class="w-full" v-if="!isLawyer">
-            <AnalysisChartCard title="最新动态" class="bg-white">
-              <div class="module-container">
-  
-                <div class="module-content">
-                  <ActivityTimeline @update:count="(count) => { todoCount = count; todoTotal = count; }" />
-                </div>
-              </div>
-            </AnalysisChartCard>
-          </div>
-        </div>
-
-        <!-- 右侧辅助内容区 - 占页面总宽度的1/4 -->
-        <div class="w-full lg:w-1/4">
-          <!-- 功能导航板块 -->
-          <AnalysisChartCard title="功能导航" :class="['bg-white']">
-            <div class="module-container">
-              <div class="module-content">
-                <div class="grid grid-cols-3 gap-4">
-                  <!-- 案件管理相关 -->
-                  <router-link to="/law/case-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-blue-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">案件列表</span>
-                  </router-link>
-                  
-                  <router-link to="/law/case-add" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-green-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">新增案件</span>
-                  </router-link>
-                  
-                  <!-- 文书审批 -->
-                  <router-link to="/approval/document" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-teal-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">文书审批</span>
-                  </router-link>
-                  
-                  <!-- 案件审批 -->
-                  <router-link to="/approval/case" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-yellow-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">案件审批</span>
-                  </router-link>
-                  
-                  <!-- 费用报销 -->
-                  <router-link to="/expense-reimbursement" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-purple-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">费用报销</span>
-                  </router-link>
-                  
-                  <!-- 用户管理 -->
-                  <router-link to="/management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-gray-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">用户</span>
-                  </router-link>
-                  
-                  <!-- 债权人管理 -->
-                  <router-link to="/basic-data/creditor-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-indigo-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">债权人</span>
-                  </router-link>
-                  
-                  <!-- 债务人管理 -->
-                  <router-link to="/basic-data/debtor-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-orange-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">债务人</span>
-                  </router-link>
-                  
-                  <!-- 法院管理 -->
-                  <router-link to="/basic-data/court-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-red-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">法院</span>
-                  </router-link>
-                  
-                  <!-- 银行账户管理 -->
-                  <router-link to="/basic-data/bank-account-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-green-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">银行账户</span>
-                  </router-link>
-                  
-                  <!-- 工作计划管理 -->
-                  <router-link to="/basic-data/work-plan-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-blue-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">工作计划</span>
-                  </router-link>
-                  
-                  <!-- 管理人信息 -->
-                  <router-link to="/basic-data/manager-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-2 flex items-center justify-center text-purple-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">管理人</span>
-                  </router-link>
-                </div>
-              </div>
-            </div>
-          </AnalysisChartCard>
-
-          <!-- 公告列表板块 -->
+          <!-- 公告列表板块 - 放在我的案件下方 -->
           <AnalysisChartCard title="公告列表" :class="['bg-white']">
-            <div class="module-container">
+            <div class="module-container" style="min-height: 480px;">
               <div class="module-content" v-loading="announcementLoading">
                 <div v-if="announcements.length > 0">
                   <div
@@ -1652,6 +1508,167 @@ onMounted(async () => {
               </div>
             </div>
           </AnalysisChartCard>
+
+        </div>
+
+        <!-- 右侧辅助内容区 - 占页面总宽度的1/3 -->
+        <div class="w-full lg:w-1/3">
+          <!-- 日历板块 - 缩小后放在功能导航上方 -->
+          <AnalysisChartCard v-if="isLawyer" title="日历" class="mb-[5px] bg-white">
+            <div class="calendar-container w-full" style="height: 480px; overflow: hidden;">
+              <!-- 简化的自定义工具组 -->
+              <div class="flex flex-wrap gap-1 mb-2">
+                <button @click="pageTurning('prev')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs"><</button>
+                <button @click="toToday()" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">今天</button>
+                <button @click="pageTurning('next')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">></button>
+                <button @click="addMatter()" class="px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-xs ml-auto">+待办</button>
+              </div>
+              <!-- 日历组件 -->
+              <div style="transform: scale(0.95); transform-origin: top left; width: 105.3%;">
+                <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" style="height: 420px;" />
+              </div>
+            </div>
+          </AnalysisChartCard>
+
+          <!-- 功能导航板块 -->
+          <AnalysisChartCard title="功能导航" :class="['bg-white']">
+            <div class="module-container">
+              <div class="module-content">
+                <div class="grid grid-cols-3 gap-4">
+                  <!-- 案件管理相关 -->
+                  <router-link to="/law/case-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-blue-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">案件列表</span>
+                  </router-link>
+                  
+                  <router-link to="/law/case-add" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-green-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">新增案件</span>
+                  </router-link>
+                  
+                  <!-- 文书审批 -->
+                  <router-link to="/approval/document" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-teal-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">文书审批</span>
+                  </router-link>
+                  
+                  <!-- 案件审批 -->
+                  <router-link to="/approval/case" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-yellow-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">案件审批</span>
+                  </router-link>
+                  
+                  <!-- 费用报销 -->
+                  <router-link to="/expense-reimbursement" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-purple-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">费用报销</span>
+                  </router-link>
+                  
+                  <!-- 用户管理 -->
+                  <router-link to="/management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">用户</span>
+                  </router-link>
+                  
+                  <!-- 债权人管理 -->
+                  <router-link to="/basic-data/creditor-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-indigo-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">债权人</span>
+                  </router-link>
+                  
+                  <!-- 债务人管理 -->
+                  <router-link to="/basic-data/debtor-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-orange-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">债务人</span>
+                  </router-link>
+                  
+                  <!-- 法院管理 -->
+                  <router-link to="/basic-data/court-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-red-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">法院</span>
+                  </router-link>
+                  
+                  <!-- 银行账户管理 -->
+                  <router-link to="/basic-data/bank-account-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-green-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">银行账户</span>
+                  </router-link>
+                  
+                  <!-- 工作计划管理 -->
+                  <router-link to="/basic-data/work-plan-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-blue-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">工作计划</span>
+                  </router-link>
+                  
+                  <!-- 管理人信息 -->
+                  <router-link to="/basic-data/manager-management" class="function-nav-item flex flex-col items-center p-4 rounded-lg bg-white shadow hover:shadow-md transition-all">
+                    <div class="function-nav-icon mb-2 flex items-center justify-center text-purple-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <span class="function-nav-text text-sm font-medium">管理人</span>
+                  </router-link>
+                </div>
+              </div>
+            </div>
+          </AnalysisChartCard>
+
+          <!-- 最新动态板块 - 放在功能导航下方 -->
+          <div class="w-full" v-if="!isLawyer">
+            <AnalysisChartCard title="最新动态" class="bg-white">
+              <div class="module-container">
+  
+                <div class="module-content">
+                  <ActivityTimeline @update:count="(count) => { todoCount = count; }" />
+                </div>
+              </div>
+            </AnalysisChartCard>
+          </div>
         </div>
       </div>
     </div>

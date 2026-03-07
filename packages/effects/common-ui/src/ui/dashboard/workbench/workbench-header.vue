@@ -4,7 +4,6 @@ import { VbenAvatar } from '@vben-core/shadcn-ui';
 interface Props {
   avatar?: string;
   todoCount?: number;
-  todoTotal?: number;
   caseCount?: number;
   teamCount?: number;
   realName?: string;
@@ -17,7 +16,6 @@ defineOptions({
 withDefaults(defineProps<Props>(), {
   avatar: '',
   todoCount: 0,
-  todoTotal: 0,
   caseCount: 0,
   teamCount: 0,
   realName: '',
@@ -73,10 +71,10 @@ const handleChangePassword = () => {
       </span>
     </div>
     <div class="mt-4 flex flex-1 justify-end md:mt-0">
-      <div class="flex flex-col justify-center text-right">
-        <span class="text-foreground/80"> 待办 </span>
-        <span class="text-2xl">{{ todoCount }}/{{ todoTotal }}</span>
-      </div>
+        <div class="flex flex-col justify-center text-right">
+          <span class="text-foreground/80"> 待办 </span>
+          <span class="text-2xl">{{ todoCount }}</span>
+        </div>
 
       <div class="mx-12 flex flex-col justify-center text-right md:mx-16">
         <span class="text-foreground/80"> 案件 </span>
