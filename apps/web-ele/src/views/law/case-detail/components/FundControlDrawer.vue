@@ -750,6 +750,7 @@ onMounted(() => {
             :precision="2"
             placeholder="请输入初始余额"
             style="width: 100%"
+            :disabled="accountEditMode"
           />
         </ElFormItem>
         <ElFormItem label="当前余额" v-if="accountEditMode">

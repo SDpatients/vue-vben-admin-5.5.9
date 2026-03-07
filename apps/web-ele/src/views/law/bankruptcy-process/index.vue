@@ -2850,15 +2850,7 @@ const openMobileUploadDialog = async () => {
                         <Icon icon="lucide:plus" class="mr-1" />
                         新增
                       </ElButton>
-                      <ElButton
-                        v-if="activeStage === 1 && selectedModule.id === '2-4'"
-                        type="warning"
-                        size="small"
-                        @click="openSealManagementDialog"
-                      >
-                        <Icon icon="lucide:stamp" class="mr-1" />
-                        管理人印章
-                      </ElButton>
+
                     </div>
                   </div>
                 </div>
@@ -3567,9 +3559,7 @@ const openMobileUploadDialog = async () => {
 .stage-tab-item.initial-stage .stage-tab-icon {
   transform: translate(-50%, -50%) scale(1.2);
   border: 2px solid #ffffff;
-  box-shadow:
-    0 0 0 3px currentColor,
-    0 0 15px rgba(64, 158, 255, 0.5);
+  box-shadow: 0 0 15px rgba(64, 158, 255, 0.5);
   animation: pulse 2s ease-in-out infinite;
   z-index: 3;
 }
@@ -3579,15 +3569,11 @@ const openMobileUploadDialog = async () => {
   0%,
   100% {
     transform: translate(-50%, -50%) scale(1.2);
-    box-shadow:
-      0 0 0 3px currentColor,
-      0 0 15px rgba(64, 158, 255, 0.5);
+    box-shadow: 0 0 15px rgba(64, 158, 255, 0.5);
   }
   50% {
     transform: translate(-50%, -50%) scale(1.3);
-    box-shadow:
-      0 0 0 3px currentColor,
-      0 0 20px rgba(64, 158, 255, 0.8);
+    box-shadow: 0 0 20px rgba(64, 158, 255, 0.8);
   }
 }
 

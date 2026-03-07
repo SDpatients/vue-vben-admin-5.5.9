@@ -279,6 +279,11 @@ const stages = [
         name: '裁定宣告债务人破产',
         description: '法院裁定宣告债务人破产。需上传：1.法院宣告破产裁定书；2.破产宣告公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
       },
+      {
+        code: 'TASK_025',
+        name: '宣告重整与和解',
+        description: '审查并裁定债务人重整或和解。需上传：1.重整或和解申请；2.重整计划或和解协议草案；3.债权人会议决议；4.法院裁定书。需确认：1.重整或和解申请是否符合法律规定；2.重整计划或和解协议草案是否合法可行；3.程序是否合法合规。'
+      },
     ],
   },
   { 
@@ -4731,13 +4736,10 @@ const endDrag = () => {
                       <div class="key-info-label mb-1 text-sm text-gray-500">
                         案件进度
                       </div>
-                      <div class="key-info-value">
-                        <div
-                          :style="getCaseStatusStyle(caseDetail.案件进度)"
-                          class="inline-block rounded-full px-4 py-1 text-base font-semibold"
-                        >
-                          {{ caseDetail.案件进度 }}
-                        </div>
+                      <div
+                        class="key-info-value text-lg font-semibold text-purple-600"
+                      >
+                        {{ caseDetail.案件进度 }}
                       </div>
                     </div>
                   </ElCol>
@@ -5189,7 +5191,7 @@ const endDrag = () => {
         </div>
 
         <!-- 流程处理 -->
-        <div v-if="activeTab === 'process'" class="process-content">
+        <div v-if="activeTab === 'process'">
           <BankruptcyProcess
             :case-id="caseId"
             :initial-stage="getInitialStageIndex()"
@@ -5197,18 +5199,12 @@ const endDrag = () => {
         </div>
 
         <!-- 债权登记表 -->
-        <div
-          v-if="activeTab === 'claimRegistration'"
-          class="claim-registration-content"
-        >
+        <div v-if="activeTab === 'claimRegistration'">
           <ClaimRegistrationTabs :case-id="caseId" />
         </div>
 
         <!-- 文书送达 -->
-        <div
-          v-if="activeTab === 'documentService'"
-          class="document-service-content"
-        >
+        <div v-if="activeTab === 'documentService'">
           <ElCard shadow="hover">
             <template #header>
               <div class="card-header flex items-center justify-between">
@@ -5411,7 +5407,7 @@ const endDrag = () => {
         </div>
 
         <!-- 公告管理 -->
-        <div v-if="activeTab === 'announcement'" class="announcement-content">
+        <div v-if="activeTab === 'announcement'">
           <ElCard shadow="hover">
             <template #header>
               <div class="card-header flex items-center justify-between">
@@ -5562,7 +5558,7 @@ const endDrag = () => {
         </div>
 
         <!-- 工作团队卡片 -->
-        <div v-if="activeTab === 'workTeam'" style="margin: 20px 0">
+        <div v-if="activeTab === 'workTeam'">
           <ElCard shadow="hover" :body-style="{ padding: 0 }">
             <!-- 标题和操作按钮 -->
             <div
