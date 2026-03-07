@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ClaimRegistrationApi } from '#/api/core/claim-registration';
 
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
@@ -9,6 +9,8 @@ import {
   ElButton,
   ElCard,
   ElCheckbox,
+  ElCollapse,
+  ElCollapseItem,
   ElCol,
   ElDescriptions,
   ElDescriptionsItem,
@@ -65,6 +67,17 @@ const showDetailDialog = ref(false);
 const showMaterialDialog = ref(false);
 const showImportDialog = ref(false);
 const showEditDialog = ref(false);
+const addCollapseActive = ref<string[]>([]);
+const editCollapseActive = ref<string[]>([]);
+
+// 监听折叠状态变化，用于调试
+watch(addCollapseActive, (newVal) => {
+  console.log('新增对话框折叠状态变化:', newVal);
+}, { deep: true });
+
+watch(editCollapseActive, (newVal) => {
+  console.log('编辑对话框折叠状态变化:', newVal);
+}, { deep: true });
 const editLoading = ref(false);
 const currentEditClaim = ref<any>(null);
 const statusFilter = ref<string>('');
@@ -382,6 +395,7 @@ const handleEditClaim = async (row: any) => {
       claimForm.judgmentAmount = result.data.judgmentAmount?.toString() || '';
       claimForm.claimFacts = result.data.claimFacts || '';
       claimForm.claimIdentifier = result.data.claimIdentifier || '';
+      claimForm.evidenceAttachments = result.data.evidenceAttachments || [];
       claimForm.remarks = result.data.remarks || '';
       
       // 打开修改对话框
@@ -473,6 +487,7 @@ const closeEditDialog = () => {
   showEditDialog.value = false;
   currentEditClaim.value = null;
   resetClaimForm();
+  editCollapseActive.value = [];
 };
 
 const handleCreditorChange = (value: string) => {
@@ -495,6 +510,7 @@ const handleCreditorSearchChange = (value: string) => {
 };
 
 const openAddDialog = async () => {
+  console.log('打开新增对话框，初始折叠状态:', addCollapseActive.value);
   showAddDialog.value = true;
   await fetchDebtorList();
   await fetchCreditorList();
@@ -514,6 +530,16 @@ const closeAddDialog = () => {
   resetClaimForm();
   fileList.value = [];
   selectedFile.value = null;
+  addCollapseActive.value = [];
+  console.log('关闭新增对话框，重置折叠状态');
+};
+
+const handleAddCollapseChange = (activeNames: string | string[]) => {
+  console.log('新增对话框折叠面板变化:', activeNames);
+};
+
+const handleEditCollapseChange = (activeNames: string | string[]) => {
+  console.log('编辑对话框折叠面板变化:', activeNames);
 };
 
 const handleAddClaim = async () => {
@@ -633,6 +659,11 @@ const formatDate = (dateStr: string | undefined | null) => {
   } catch (error) {
     return '-';
   }
+};
+
+// 判断值是否为空（用于详情显示）
+const isEmptyValue = (value: any): boolean => {
+  return value === null || value === undefined || value === '' || value === '-';
 };
 
 // Excel导入相关变量
@@ -1386,7 +1417,7 @@ onMounted(() => {
           <ElDescriptionsItem label="债权人类型">
             {{ currentClaim.creditorType }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="统一社会信用代码">
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.creditCode)" label="统一社会信用代码">
             {{ currentClaim.creditCode }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报本金">
@@ -1407,14 +1438,14 @@ onMounted(() => {
           <ElDescriptionsItem label="债权类型">
             {{ currentClaim.claimType }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权性质">
-            {{ currentClaim.claimNature || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.claimNature)" label="债权性质">
+            {{ currentClaim.claimNature }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权标识">
-            {{ currentClaim.claimIdentifier || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.claimIdentifier)" label="债权标识">
+            {{ currentClaim.claimIdentifier }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="债权事实" :span="2">
-            {{ currentClaim.claimFacts || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.claimFacts)" label="债权事实" :span="2">
+            {{ currentClaim.claimFacts }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="是否有法院判决">
             <ElTag :type="currentClaim.hasCourtJudgment ? 'success' : 'info'">
@@ -1435,13 +1466,13 @@ onMounted(() => {
           <ElDescriptionsItem label="登记日期">
             {{ currentClaim.registrationDate }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="登记截止日期">
-            {{ currentClaim.registrationDeadline || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.registrationDeadline)" label="登记截止日期">
+            {{ currentClaim.registrationDeadline }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="材料接收人">
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.materialReceiver)" label="材料接收人">
             {{ currentClaim.materialReceiver }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="材料接收日期">
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.materialReceiveDate)" label="材料接收日期">
             {{ currentClaim.materialReceiveDate }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="材料完整性">
@@ -1467,17 +1498,17 @@ onMounted(() => {
           <h4 class="section-title">代理人信息</h4>
         </div>
         <ElDescriptions :column="2" border>
-          <ElDescriptionsItem label="代理人姓名">
-            {{ currentClaim.agentName || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentName)" label="代理人姓名">
+            {{ currentClaim.agentName }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="代理人电话">
-            {{ currentClaim.agentPhone || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentPhone)" label="代理人电话">
+            {{ currentClaim.agentPhone }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="代理人身份证">
-            {{ currentClaim.agentIdCard || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentIdCard)" label="代理人身份证">
+            {{ currentClaim.agentIdCard }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="代理人地址">
-            {{ currentClaim.agentAddress || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentAddress)" label="代理人地址">
+            {{ currentClaim.agentAddress }}
           </ElDescriptionsItem>
         </ElDescriptions>
 
@@ -1485,14 +1516,14 @@ onMounted(() => {
           <h4 class="section-title">银行账户信息</h4>
         </div>
         <ElDescriptions :column="2" border>
-          <ElDescriptionsItem label="账户名称">
-            {{ currentClaim.accountName || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.accountName)" label="账户名称">
+            {{ currentClaim.accountName }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="银行账户">
-            {{ currentClaim.creditorBankAccount || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.creditorBankAccount)" label="银行账户">
+            {{ currentClaim.creditorBankAccount }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="开户银行">
-            {{ currentClaim.bankName || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.bankName)" label="开户银行">
+            {{ currentClaim.bankName }}
           </ElDescriptionsItem>
         </ElDescriptions>
 
@@ -1506,8 +1537,8 @@ onMounted(() => {
           <ElDescriptionsItem label="更新时间">
             {{ currentClaim.updateTime }}
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="备注">
-            {{ currentClaim.remarks || '-' }}
+          <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.remarks)" label="备注">
+            {{ currentClaim.remarks }}
           </ElDescriptionsItem>
         </ElDescriptions>
 
@@ -1752,81 +1783,81 @@ onMounted(() => {
             </ElCol>
           </ElRow>
 
-          <div class="section-divider mb-4">
-            <h4 class="section-title">代理人信息</h4>
-          </div>
+          <ElCollapse v-model="editCollapseActive" class="mb-4" @change="handleEditCollapseChange">
+            <ElCollapseItem title="代理人信息" name="agent">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="代理人姓名">
+                    <ElInput
+                      v-model="claimForm.agentName"
+                      placeholder="请输入代理人姓名"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="代理人电话">
+                    <ElInput
+                      v-model="claimForm.agentPhone"
+                      placeholder="请输入代理人电话"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人姓名">
-                <ElInput
-                  v-model="claimForm.agentName"
-                  placeholder="请输入代理人姓名"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人电话">
-                <ElInput
-                  v-model="claimForm.agentPhone"
-                  placeholder="请输入代理人电话"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="代理人身份证号">
+                    <ElInput
+                      v-model="claimForm.agentIdCard"
+                      placeholder="请输入代理人身份证号"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="代理人地址">
+                    <ElInput
+                      v-model="claimForm.agentAddress"
+                      placeholder="请输入代理人地址"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人身份证号">
-                <ElInput
-                  v-model="claimForm.agentIdCard"
-                  placeholder="请输入代理人身份证号"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人地址">
-                <ElInput
-                  v-model="claimForm.agentAddress"
-                  placeholder="请输入代理人地址"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+          <ElCollapse v-model="editCollapseActive" class="mb-4" @change="handleEditCollapseChange">
+            <ElCollapseItem title="银行账户信息" name="bank">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="账户名称">
+                    <ElInput
+                      v-model="claimForm.accountName"
+                      placeholder="请输入账户名称"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="银行账号">
+                    <ElInput
+                      v-model="claimForm.bankAccount"
+                      placeholder="请输入银行账号"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <div class="section-divider mb-4">
-            <h4 class="section-title">银行账户信息</h4>
-          </div>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="账户名称">
-                <ElInput
-                  v-model="claimForm.accountName"
-                  placeholder="请输入账户名称"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="银行账号">
-                <ElInput
-                  v-model="claimForm.bankAccount"
-                  placeholder="请输入银行账号"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="开户银行">
-                <ElInput
-                  v-model="claimForm.bankName"
-                  placeholder="请输入开户银行"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="开户银行">
+                    <ElInput
+                      v-model="claimForm.bankName"
+                      placeholder="请输入开户银行"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
           <div class="section-divider mb-4">
             <h4 class="section-title">债权金额</h4>
@@ -1889,14 +1920,6 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权性质">
-                <ElInput
-                  v-model="claimForm.claimNature"
-                  placeholder="请输入债权性质"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
               <ElFormItem label="债权种类" required>
                 <ElSelect
                   v-model="claimForm.claimType"
@@ -1915,42 +1938,54 @@ onMounted(() => {
             </ElCol>
           </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="债权事实">
-                <ElInput
-                  v-model="claimForm.claimFacts"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="请输入债权事实"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+          <ElCollapse v-model="editCollapseActive" class="mb-4" @change="handleEditCollapseChange">
+            <ElCollapseItem title="更多债权信息" name="claimInfo">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="债权性质">
+                    <ElInput
+                      v-model="claimForm.claimNature"
+                      placeholder="请输入债权性质"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="债权标识">
+                    <ElInput
+                      v-model="claimForm.claimIdentifier"
+                      placeholder="请输入债权标识"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="债权标识">
-                <ElInput
-                  v-model="claimForm.claimIdentifier"
-                  placeholder="请输入债权标识"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="债权事实">
+                    <ElInput
+                      v-model="claimForm.claimFacts"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="请输入债权事实"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="备注">
-                <ElInput
-                  v-model="claimForm.remarks"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="请输入备注"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="备注">
+                    <ElInput
+                      v-model="claimForm.remarks"
+                      type="textarea"
+                      :rows="2"
+                      placeholder="请输入备注"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
           <div class="section-divider mb-4">
             <h4 class="section-title">附件上传</h4>
@@ -2123,81 +2158,82 @@ onMounted(() => {
             </ElCol>
           </ElRow>
 
-          <div class="section-divider mb-4">
-            <h4 class="section-title">代理人信息</h4>
-          </div>
+          <!-- 调试：代理人信息折叠区域 -->
+          <ElCollapse v-model="addCollapseActive" class="mb-4" @change="handleAddCollapseChange">
+            <ElCollapseItem title="代理人信息" name="agent">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="代理人姓名">
+                    <ElInput
+                      v-model="claimForm.agentName"
+                      placeholder="请输入代理人姓名"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="代理人电话">
+                    <ElInput
+                      v-model="claimForm.agentPhone"
+                      placeholder="请输入代理人电话"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人姓名">
-                <ElInput
-                  v-model="claimForm.agentName"
-                  placeholder="请输入代理人姓名"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人电话">
-                <ElInput
-                  v-model="claimForm.agentPhone"
-                  placeholder="请输入代理人电话"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="代理人身份证号">
+                    <ElInput
+                      v-model="claimForm.agentIdCard"
+                      placeholder="请输入代理人身份证号"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="代理人地址">
+                    <ElInput
+                      v-model="claimForm.agentAddress"
+                      placeholder="请输入代理人地址"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="代理人身份证号">
-                <ElInput
-                  v-model="claimForm.agentIdCard"
-                  placeholder="请输入代理人身份证号"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="代理人地址">
-                <ElInput
-                  v-model="claimForm.agentAddress"
-                  placeholder="请输入代理人地址"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+          <ElCollapse v-model="addCollapseActive" class="mb-4" @change="handleAddCollapseChange">
+            <ElCollapseItem title="银行账户信息" name="bank">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="账户名称">
+                    <ElInput
+                      v-model="claimForm.accountName"
+                      placeholder="请输入账户名称"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="银行账号">
+                    <ElInput
+                      v-model="claimForm.bankAccount"
+                      placeholder="请输入银行账号"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <div class="section-divider mb-4">
-            <h4 class="section-title">银行账户信息</h4>
-          </div>
-
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="账户名称">
-                <ElInput
-                  v-model="claimForm.accountName"
-                  placeholder="请输入账户名称"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
-              <ElFormItem label="银行账号">
-                <ElInput
-                  v-model="claimForm.bankAccount"
-                  placeholder="请输入银行账号"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="开户银行">
-                <ElInput
-                  v-model="claimForm.bankName"
-                  placeholder="请输入开户银行"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="开户银行">
+                    <ElInput
+                      v-model="claimForm.bankName"
+                      placeholder="请输入开户银行"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
           <div class="section-divider mb-4">
             <h4 class="section-title">债权金额</h4>
@@ -2260,14 +2296,6 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权性质">
-                <ElInput
-                  v-model="claimForm.claimNature"
-                  placeholder="请输入债权性质"
-                />
-              </ElFormItem>
-            </ElCol>
-            <ElCol :span="12">
               <ElFormItem label="债权种类" required>
                 <ElSelect
                   v-model="claimForm.claimType"
@@ -2286,42 +2314,54 @@ onMounted(() => {
             </ElCol>
           </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="债权事实">
-                <ElInput
-                  v-model="claimForm.claimFacts"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="请输入债权事实"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+          <ElCollapse v-model="addCollapseActive" class="mb-4" @change="handleAddCollapseChange">
+            <ElCollapseItem title="更多债权信息" name="claimInfo">
+              <ElRow :gutter="20">
+                <ElCol :span="12">
+                  <ElFormItem label="债权性质">
+                    <ElInput
+                      v-model="claimForm.claimNature"
+                      placeholder="请输入债权性质"
+                    />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="12">
+                  <ElFormItem label="债权标识">
+                    <ElInput
+                      v-model="claimForm.claimIdentifier"
+                      placeholder="请输入债权标识"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="12">
-              <ElFormItem label="债权标识">
-                <ElInput
-                  v-model="claimForm.claimIdentifier"
-                  placeholder="请输入债权标识"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="债权事实">
+                    <ElInput
+                      v-model="claimForm.claimFacts"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="请输入债权事实"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="备注">
-                <ElInput
-                  v-model="claimForm.remarks"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="请输入备注"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
+              <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElFormItem label="备注">
+                    <ElInput
+                      v-model="claimForm.remarks"
+                      type="textarea"
+                      :rows="2"
+                      placeholder="请输入备注"
+                    />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElCollapseItem>
+          </ElCollapse>
 
           <div class="section-divider mb-4">
             <h4 class="section-title">附件上传</h4>
@@ -2435,6 +2475,40 @@ onMounted(() => {
 
 .upload-demo {
   margin: 20px 0;
+}
+
+:deep(.el-collapse) {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(.el-collapse-item__header) {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+  font-weight: 600;
+  color: #303133;
+  padding: 0 16px;
+  height: 48px;
+  line-height: 48px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+:deep(.el-collapse-item__header:hover) {
+  background: linear-gradient(135deg, #e4e7ed 0%, #dcdfe6 100%);
+}
+
+:deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 20px 16px;
+  background: #fafbfc;
+}
+
+:deep(.el-collapse-item__arrow) {
+  color: #667eea;
+  font-weight: bold;
 }
 
 

@@ -61,6 +61,7 @@ export namespace CaseTaskSubmissionApi {
     submissionTitle: string;
     submissionContent?: string;
     submissionType?: string;
+    createTime?: string;
   }) {
     return requestClient8085.post<{ submissionId: number; submissionNumber: number }>('/api/case-task-submissions', data);
   }

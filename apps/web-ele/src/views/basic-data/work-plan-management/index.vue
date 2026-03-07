@@ -33,6 +33,7 @@ import {
 } from '#/api/core/work-plan';
 import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { exportToExcel } from '#/utils/export-excel';
+import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
 // 定义新的工作计划类型
 interface WorkPlanInfo {
@@ -65,6 +66,42 @@ const pagination = ref({
   itemCount: 0,
   pages: 0,
 });
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const selectedWorkPlanIds = ref<number[]>([]);
+
+// 工作计划字段与模板字段的映射
+const workPlanFieldMapping: Record<string, string> = {
+  caseNumber: '案号',
+  caseName: '案件名称',
+  planType: '计划类型',
+  planContent: '计划内容',
+  startDate: '开始日期',
+  endDate: '结束日期',
+  responsibleUserName: '负责人',
+  executionStatus: '执行状态',
+  status: '状态',
+};
+
+// 处理表格多选变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedWorkPlanIds.value = selection.map(item => item.id);
+};
+
+// 显示模板导出对话框
+const showTemplateExportDialog = () => {
+  if (selectedWorkPlanIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的工作计划');
+    return;
+  }
+  templateExportVisible.value = true;
+};
+
+// 获取选中的工作计划数据
+const getSelectedWorkPlanData = () => {
+  return workPlanList.value.filter(w => selectedWorkPlanIds.value.includes(w.id));
+};
 
 const accessStore = useAccessStore();
 
@@ -463,6 +500,10 @@ const exportWorkPlanData = () => {
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
+            <ElButton type="primary" @click="showTemplateExportDialog">
+              <i class="i-lucide-file-text mr-1"></i>
+              模板导出
+            </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
@@ -479,8 +520,10 @@ const exportWorkPlanData = () => {
         :stripe="true"
         :style="{ width: '100%' }"
         @row-click="handleViewDetail"
+        @selection-change="handleSelectionChange"
         style="cursor: pointer"
       >
+        <ElTableColumn type="selection" width="55" />
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
           prop="caseNumber"
@@ -794,5 +837,14 @@ const exportWorkPlanData = () => {
         </ElButton>
       </template>
     </ElDialog>
+
+    <!-- 模板导出对话框 -->
+    <TemplateExportDialog
+      v-model:visible="templateExportVisible"
+      :selected-data="getSelectedWorkPlanData()"
+      :field-mapping="workPlanFieldMapping"
+      default-file-name="工作计划批量数据"
+      default-sheet-name="工作计划列表"
+    />
   </div>
 </template>

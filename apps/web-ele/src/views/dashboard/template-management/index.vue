@@ -624,11 +624,11 @@
                   filterable
                   :remote="true"
                   :remote-method="(query) => handleFieldSelectorSearch(index, query)"
-                  :loading="fieldSearchLoading.value?.[index] || false"
+                  :loading="fieldSearchLoadingValue[index] || false"
                   @change="(value: string) => onFieldSelect(index, value)"
                 >
                   <ElOptionGroup
-                    v-for="group in ((fieldSelectorFieldGroups.value?.[index] || systemFieldGroups.value) || [])"
+                    v-for="group in ((fieldSelectorFieldGroupsValue[index] || systemFieldGroups.value) || [])"
                     :key="group?.group || 'default'"
                     :label="group?.group || '默认分组'"
                   >
@@ -1007,10 +1007,7 @@
         </div>
         
         <div class="preview-mode-switch" v-if="currentTemplate.templateType === 'WORD'">
-          <ElRadioGroup v-model="previewMode" size="small" @change="handlePreviewModeChange">
-            <ElRadioButton value="word">Word预览</ElRadioButton>
-            <ElRadioButton value="pdf">PDF预览</ElRadioButton>
-          </ElRadioGroup>
+          <ElTag type="info" size="small">PDF预览</ElTag>
         </div>
         
         <div class="preview-body">
@@ -1101,7 +1098,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, shallowRef, computed, onMounted } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -1254,7 +1251,7 @@ const previewVisible = ref(false);
 const previewLoading = ref(false);
 const previewError = ref('');
 const previewUrl = ref('');
-const previewMode = ref<'word' | 'pdf'>('word');
+const previewMode = ref<'word' | 'pdf'>('pdf');
 const previewBlob = ref<Blob | null>(null);
 
 // 模板制作相关状态
@@ -1451,19 +1448,27 @@ const systemFieldGroups = ref<Array<{
 // 字段名称映射表：系统字段值 -> 中文显示名称（动态生成）
 const fieldNameMapping = ref<Record<string, string>>({});
 
-// 搜索加载状态
-const fieldSearchLoading = ref<boolean[]>([]);
+// 搜索加载状态 - 使用普通对象避免 Vue 响应式问题
+const fieldSearchLoadingState = {
+  value: [] as boolean[]
+};
 
 // 过滤后的字段分组（用于字段选择器）
-const fieldSelectorFieldGroups = ref<Array<Array<{
-  group: string;
-  fields: Array<{
-    label: string;
-    value: string;
-    sortOrder: number;
-    description?: string;
-  }>;
-}>>([]);
+const fieldSelectorFieldGroupsState = {
+  value: [] as Array<Array<{
+    group: string;
+    fields: Array<{
+      label: string;
+      value: string;
+      sortOrder: number;
+      description?: string;
+    }>;
+  }>>
+};
+
+// 计算属性用于模板访问
+const fieldSearchLoadingValue = computed(() => Array.isArray(fieldSearchLoadingState.value) ? fieldSearchLoadingState.value : []);
+const fieldSelectorFieldGroupsValue = computed(() => Array.isArray(fieldSelectorFieldGroupsState.value) ? fieldSelectorFieldGroupsState.value : []);
 
 // 系统字段管理相关状态
 const systemFieldsList = ref<Array<{
@@ -1570,7 +1575,7 @@ const showCreateDialog = () => {
 };
 
 // 显示编辑对话框
-const showEditDialog = (template: DocumentTemplate) => {
+const showEditDialog = async (template: DocumentTemplate) => {
   dialogTitle.value = '编辑模板';
   templateForm.value = {
     id: template.id,
@@ -1582,6 +1587,23 @@ const showEditDialog = (template: DocumentTemplate) => {
     isDefault: template.isDefault,
     mappings: [],
   };
+
+  // 如果是 Excel 模板，调用详情接口获取已有的映射字段
+  if (template.templateType === 'EXCEL') {
+    try {
+      const response = await documentTemplatesApi.getTemplateDetail(template.id);
+      if (response.code === 200 && response.data) {
+        const templateDetail = response.data;
+        // 填充映射字段
+        if (templateDetail.mappings && Array.isArray(templateDetail.mappings)) {
+          templateForm.value.mappings = templateDetail.mappings;
+        }
+      }
+    } catch (error) {
+      console.error('获取模板详情失败:', error);
+    }
+  }
+
   dialogVisible.value = true;
 };
 
@@ -1613,6 +1635,7 @@ const saveTemplate = async () => {
         description: templateForm.value.description,
         configJson: templateForm.value.configJson,
         isDefault: templateForm.value.isDefault,
+        mappings: templateForm.value.mappings || [],
       };
 
       if (templateForm.value.id) {
@@ -1797,7 +1820,7 @@ const showPreviewDialog = async (template: DocumentTemplate) => {
   previewError.value = '';
   previewUrl.value = '';
   previewBlob.value = null;
-  previewMode.value = 'word';
+  previewMode.value = 'pdf';
   
   await loadPreviewContent();
 };
@@ -1873,10 +1896,6 @@ h1 { color: #333; }
   } finally {
     previewLoading.value = false;
   }
-};
-
-const handlePreviewModeChange = async () => {
-  await loadPreviewContent();
 };
 
 const downloadPreviewFile = () => {
@@ -2487,11 +2506,13 @@ const loadSystemFields = async () => {
   try {
     const response = await excelTemplatesApi.getSystemFields();
     if (response.code === 200) {
-      systemFieldGroups.value = response.data || [];
+      // 确保 response.data 是数组
+      const data = Array.isArray(response.data) ? response.data : [];
+      systemFieldGroups.value = data;
 
       // 动态生成字段名称映射表
       const mapping: Record<string, string> = {};
-      response.data.forEach((group) => {
+      data.forEach((group) => {
         group.fields.forEach((field) => {
           // 从 label 中提取中文名称（去掉括号内的英文）
           const chineseName = field.label.replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -2613,10 +2634,8 @@ const applyFilters = () => {
 const onFieldSelect = (index: number, fieldValue: string) => {
   const mapping = templateForm.value.mappings[index];
   if (mapping && fieldValue) {
-    // 只有当Excel表头为空时，才自动填充
-    if (!mapping.excelHeader) {
-      mapping.excelHeader = fieldNameMapping.value[fieldValue] || fieldValue;
-    }
+    // 总是自动填充 Excel 表头（无论之前是否有值）
+    mapping.excelHeader = fieldNameMapping.value[fieldValue] || fieldValue;
   }
 };
 
@@ -2629,72 +2648,93 @@ const addMapping = () => {
   // 初始化搜索相关状态
   const newIndex = templateForm.value.mappings.length - 1;
   
-  // 确保 fieldSearchLoading 被正确初始化
-  if (!fieldSearchLoading.value) {
-    fieldSearchLoading.value = [];
+  // 使用安全的方式初始化和访问数组
+  const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
+    if (!Array.isArray(arr)) {
+      return defaultValue;
+    }
+    return arr;
+  };
+  
+  // 确保 fieldSearchLoading 是数组并足够长
+  let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
+  while (safeSearchLoading.length <= newIndex) {
+    safeSearchLoading.push(false);
+  }
+  safeSearchLoading[newIndex] = false;
+  fieldSearchLoadingState.value = safeSearchLoading;
+  
+  // 确保 fieldSelectorFieldGroups 是数组并足够长
+  let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
+  while (safeFieldGroups.length <= newIndex) {
+    safeFieldGroups.push([]);
   }
   
-  // 确保 fieldSearchLoading 数组足够长
-  while (fieldSearchLoading.value.length <= newIndex) {
-    fieldSearchLoading.value.push(false);
-  }
-  fieldSearchLoading.value[newIndex] = false;
-  
-  // 确保 fieldSelectorFieldGroups 被正确初始化
-  if (!fieldSelectorFieldGroups.value) {
-    fieldSelectorFieldGroups.value = [];
-  }
-  
-  // 确保 fieldSelectorFieldGroups 数组足够长，并正确初始化
-  while (fieldSelectorFieldGroups.value.length <= newIndex) {
-    fieldSelectorFieldGroups.value.push([]);
-  }
-  fieldSelectorFieldGroups.value[newIndex] = systemFieldGroups.value || [];
+  // 确保 systemFieldGroups.value 是数组
+  const systemGroups = getSafeArray(systemFieldGroups.value, []);
+  safeFieldGroups[newIndex] = systemGroups;
+  fieldSelectorFieldGroupsState.value = safeFieldGroups;
 };
 
 // 移除字段映射
 const removeMapping = (index: number) => {
   templateForm.value.mappings.splice(index, 1);
+  
+  // 使用安全的方式初始化和访问数组
+  const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
+    if (!Array.isArray(arr)) {
+      return defaultValue;
+    }
+    return arr;
+  };
+  
   // 清理搜索相关状态
-  if (fieldSearchLoading.value && fieldSearchLoading.value.length > index) {
-    fieldSearchLoading.value.splice(index, 1);
+  let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
+  if (safeSearchLoading.length > index) {
+    safeSearchLoading.splice(index, 1);
+    fieldSearchLoadingState.value = safeSearchLoading;
   }
-  if (fieldSelectorFieldGroups.value && fieldSelectorFieldGroups.value.length > index) {
-    fieldSelectorFieldGroups.value.splice(index, 1);
+  
+  let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
+  if (safeFieldGroups.length > index) {
+    safeFieldGroups.splice(index, 1);
+    fieldSelectorFieldGroupsState.value = safeFieldGroups;
   }
 };
 
 // 字段选择器搜索处理函数
 const handleFieldSelectorSearch = (index: number, query: string) => {
+  // 使用安全的方式初始化和访问数组
+  const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
+    if (!Array.isArray(arr)) {
+      return defaultValue;
+    }
+    return arr;
+  };
+  
   // 确保 systemFieldGroups.value 是数组
-  const fieldGroups = systemFieldGroups.value || [];
-  
-  // 确保 fieldSearchLoading 被正确初始化
-  if (!fieldSearchLoading.value) {
-    fieldSearchLoading.value = [];
-  }
-  
-  // 确保 fieldSelectorFieldGroups 被正确初始化
-  if (!fieldSelectorFieldGroups.value) {
-    fieldSelectorFieldGroups.value = [];
-  }
+  const fieldGroups = getSafeArray(systemFieldGroups.value, []);
   
   if (!query.trim()) {
     // 清空搜索时显示所有字段
     // 确保数组足够长
-    while (fieldSelectorFieldGroups.value.length <= index) {
-      fieldSelectorFieldGroups.value.push([]);
+    let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
+    while (safeFieldGroups.length <= index) {
+      safeFieldGroups.push([]);
     }
-    fieldSelectorFieldGroups.value[index] = fieldGroups;
+    safeFieldGroups[index] = fieldGroups;
+    fieldSelectorFieldGroupsState.value = safeFieldGroups;
     return;
   }
 
   // 设置搜索加载状态
   // 确保数组足够长
-  while (fieldSearchLoading.value.length <= index) {
-    fieldSearchLoading.value.push(false);
+  let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
+  while (safeSearchLoading.length <= index) {
+    safeSearchLoading.push(false);
   }
-  fieldSearchLoading.value[index] = true;
+  safeSearchLoading[index] = true;
+  fieldSearchLoadingState.value = safeSearchLoading;
 
   // 模拟异步搜索（实际项目中可以调用后端搜索接口）
   setTimeout(() => {
@@ -2715,11 +2755,20 @@ const handleFieldSelectorSearch = (index: number, query: string) => {
     }).filter(group => group.fields.length > 0);
     
     // 确保数组足够长
-    while (fieldSelectorFieldGroups.value.length <= index) {
-      fieldSelectorFieldGroups.value.push([]);
+    let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
+    while (safeFieldGroups.length <= index) {
+      safeFieldGroups.push([]);
     }
-    fieldSelectorFieldGroups.value[index] = filteredGroups;
-    fieldSearchLoading.value[index] = false;
+    safeFieldGroups[index] = filteredGroups;
+    fieldSelectorFieldGroupsState.value = safeFieldGroups;
+    
+    // 更新搜索加载状态
+    let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
+    while (safeSearchLoading.length <= index) {
+      safeSearchLoading.push(false);
+    }
+    safeSearchLoading[index] = false;
+    fieldSearchLoadingState.value = safeSearchLoading;
   }, 300);
 };
 

@@ -354,12 +354,9 @@ const copyAttachmentData = () => {
 };
 
 // 打开发布公告对话框
-// 打开发布公告对话框
 const openPublishDialog = () => {
   isEditing.value = false;
   currentEditId.value = null;
-  showPublishDialog.value = true;
-  // 重置表单
   publishForm.value = {
     caseId: 0,
     caseNumber: '',
@@ -369,6 +366,7 @@ const openPublishDialog = () => {
     announcementType: 'ANNOUNCEMENT',
     attachments: [],
   };
+  showPublishDialog.value = true;
 };
 
 // 打开编辑公告对话框
@@ -459,68 +457,36 @@ const handleMobileFilesUploaded = (files: any[]) => {
   ElMessage.success(`手机上传了 ${files.length} 个文件`);
 };
 
-// 提交发布公告表单
+// 提交发布公告表单 - 统一流程
 const submitPublishForm = async () => {
-  console.log('🚀 [调试] 开始提交公告表单');
-  console.log('📋 [调试] 当前表单数据:', {
-    caseId: publishForm.value.caseId,
-    caseNumber: publishForm.value.caseNumber,
-    principalOfficer: publishForm.value.principalOfficer,
-    title: publishForm.value.title,
-    isEditing: isEditing.value,
-    currentEditId: currentEditId.value,
-  });
+  console.log('=== submitPublishForm 被调用 ===');
   
   if (!publishFormRef.value) {
-    console.error('❌ [调试] 表单引用不存在');
+    console.error('表单引用不存在');
     return;
   }
 
-  console.log('✅ [调试] 表单引用存在，开始验证');
-  await publishFormRef.value.validate();
-  console.log('✅ [调试] 表单验证通过');
+  try {
+    await publishFormRef.value.validate();
+    console.log('表单验证通过');
+  } catch (error) {
+    console.error('表单验证失败:', error);
+    ElMessage.error('请填写必填项');
+    return;
+  }
 
   publishLoading.value = true;
+  
   try {
-    // 分离手机上传文件和本地文件
-    console.log('📂 [调试] 当前附件总数:', publishForm.value.attachments.length);
-    console.log('📂 [调试] 附件详情:', publishForm.value.attachments.map((f: LocalFileItem) => ({
-      id: f.id,
-      name: f.originalFileName,
-      size: f.fileSize,
-      idType: typeof f.id,
-      isMobile: f.id.startsWith('mobile-'),
-      hasFile: !!f.file,
-    })));
+    console.log('=== 开始提交公告 ===');
+    console.log('attachments:', publishForm.value.attachments);
+    console.log('attachments.length:', publishForm.value.attachments.length);
     
-    const mobileFiles = publishForm.value.attachments.filter((f: LocalFileItem) => {
-      const isMobile = f.id.startsWith('mobile-');
-      console.log(`🔍 [调试] 检查文件 ${f.originalFileName}: id=${f.id}, isMobile=${isMobile}`);
-      return isMobile;
-    });
+    let announcementId: number | null = null;
     
-    const localFiles = publishForm.value.attachments.filter((f: LocalFileItem) => {
-      const isLocal = !f.id.startsWith('mobile-');
-      console.log(`🔍 [调试] 检查文件 ${f.originalFileName}: id=${f.id}, isLocal=${isLocal}`);
-      return isLocal;
-    });
-    
-    const existingFiles = publishForm.value.attachments.filter((f: LocalFileItem) => {
-      const isExisting = !f.id.startsWith('mobile-') && typeof f.id === 'number';
-      return isExisting;
-    });
-
-    console.log('📊 [调试] 文件分类结果:', {
-      mobileFilesCount: mobileFiles.length,
-      localFilesCount: localFiles.length,
-      existingFilesCount: existingFiles.length,
-      mobileFiles: mobileFiles.map(f => f.originalFileName),
-      localFiles: localFiles.map(f => f.originalFileName),
-    });
-
     if (isEditing.value && currentEditId.value) {
-      console.log('✏️ [调试] 进入编辑模式，currentEditId:', currentEditId.value);
-      // 编辑模式
+      announcementId = currentEditId.value;
+      
       const requestData: any = {
         caseId: publishForm.value.caseId,
         title: publishForm.value.title,
@@ -528,225 +494,78 @@ const submitPublishForm = async () => {
         announcementType: publishForm.value.announcementType,
       };
 
-      // 处理文件上传
-      if (mobileFiles.length > 0 || localFiles.length > 0) {
-        // 上传新文件
-        const filesToUpload = localFiles.map(item => item.file);
-        
-        console.log('📤 [调试] 准备上传本地文件:', {
-          filesCount: filesToUpload.length,
-          files: filesToUpload.map(f => ({
-            name: f?.name,
-            size: f?.size,
-            type: f?.type,
-          })),
-        });
-        
-        if (filesToUpload.length > 0) {
-          console.log('⏳ [调试] 开始调用 uploadAnnouncementAttachmentsApi');
-          const uploadResponse = await uploadAnnouncementAttachmentsApi(
-            currentEditId.value,
-            filesToUpload,
-          );
-          console.log('📥 [调试] uploadAnnouncementAttachmentsApi 响应:', uploadResponse);
-          
-          if (uploadResponse.code === 200) {
-            console.log('✅ [调试] 本地文件上传成功');
-          } else {
-            console.error('❌ [调试] 本地文件上传失败:', uploadResponse);
-          }
-        }
-        
-        // 转移手机上传的文件
-        if (mobileFiles.length > 0 && fileUploadRef.value) {
-          console.log('📱 [调试] 准备转移手机上传文件，数量:', mobileFiles.length);
-          console.log('⏳ [调试] 开始调用 transferMobileFiles, announcementId:', currentEditId.value);
-          await fileUploadRef.value.transferMobileFiles(currentEditId.value);
-          console.log('✅ [调试] 手机文件转移完成');
-        }
-      }
-
-      // 更新公告
-      console.log('⏳ [调试] 开始调用 updateAnnouncementApi');
       const response = await updateAnnouncementApi(currentEditId.value, requestData);
-      console.log('📥 [调试] updateAnnouncementApi 响应:', response);
       
-      if (response.code === 200) {
-        ElMessage.success('公告更新成功');
-        closePublishDialog();
-        fetchAnnouncements();
-      } else {
+      if (response.code !== 200) {
         ElMessage.error(response.message || '公告更新失败');
+        return;
       }
     } else {
-      console.log('➕ [调试] 进入新增模式');
-      
-      // 检查是否有文件需要上传
-      const hasFiles = mobileFiles.length > 0 || localFiles.length > 0;
-      console.log('📊 [调试] 文件检查:', {
-        hasFiles,
-        mobileFilesCount: mobileFiles.length,
-        localFilesCount: localFiles.length,
-        localFilesDetails: localFiles.map(f => ({
-          id: f.id,
-          name: f.originalFileName,
-          hasFile: !!f.file,
-          fileSize: f.fileSize,
-        })),
+      const announcementResponse = await createAnnouncementApi({
+        caseId: publishForm.value.caseId,
+        caseNumber: publishForm.value.caseNumber,
+        principalOfficer: publishForm.value.principalOfficer,
+        title: publishForm.value.title,
+        content: publishForm.value.content,
+        announcementType: publishForm.value.announcementType,
       });
+
+      if (announcementResponse.code !== 200 || !announcementResponse.data) {
+        ElMessage.error(`公告创建失败：${announcementResponse.message || '未知错误'}`);
+        return;
+      }
+
+      announcementId = announcementResponse.data.announcementId || announcementResponse.data.id;
+      console.log('公告创建成功，announcementId:', announcementId);
+    }
+
+    console.log('准备处理附件，announcementId:', announcementId, 'attachments.length:', publishForm.value.attachments.length);
+    
+    if (announcementId && publishForm.value.attachments.length > 0) {
+      const localFiles = publishForm.value.attachments.filter(
+        (f: LocalFileItem) => !f.id.toString().startsWith('mobile-') && !f.id.toString().startsWith('existing-') && f.file && f.file.size > 0
+      );
       
-      if (hasFiles) {
-        // 使用 with-files 接口一次性创建公告并上传文件
-        console.log('📦 [调试] 使用 with-files 接口创建公告并上传文件');
-        
-        const formData = new FormData();
-        formData.append('caseId', String(publishForm.value.caseId));
-        formData.append('caseNumber', publishForm.value.caseNumber);
-        formData.append('principalOfficer', publishForm.value.principalOfficer);
-        formData.append('title', publishForm.value.title);
-        formData.append('content', publishForm.value.content);
-        formData.append('announcementType', publishForm.value.announcementType);
-        
-        console.log('📝 [调试] FormData 基本信息:', {
-          caseId: publishForm.value.caseId,
-          caseNumber: publishForm.value.caseNumber,
-          title: publishForm.value.title,
-          announcementType: publishForm.value.announcementType,
-        });
-        
-        // 添加本地文件
-        if (localFiles.length > 0) {
-          console.log('💻 [调试] 添加本地文件到 FormData, 文件数量:', localFiles.length);
-          localFiles.forEach((file, index) => {
-            console.log(`🔍 [调试] 检查文件 ${index + 1}/${localFiles.length}:`, {
-              id: file.id,
-              name: file.originalFileName,
-              hasFile: !!file.file,
-              fileSize: file.fileSize,
-            });
-            
-            if (file.file) {
-              formData.append('files', file.file);
-              console.log('  ✅ [调试] 成功添加文件到 FormData:', file.originalFileName, '大小:', file.fileSize);
-            } else {
-              console.error('  ❌ [调试] 文件对象为空，无法添加:', file.originalFileName);
-            }
-          });
-          
-          // 验证 FormData 中的文件
-          console.log('📋 [调试] FormData 中的文件数量:', formData.getAll('files').length);
-          formData.getAll('files').forEach((f: any, i) => {
-            console.log(`  📎 [调试] FormData 文件 ${i + 1}:`, {
-              name: f.name,
-              size: f.size,
-              type: f.type,
-            });
-          });
-        } else {
-          console.log('⚠️ [调试] localFiles.length 为 0，没有本地文件需要上传');
-        }
-        
-        // 处理手机上传的文件
-        if (mobileFiles.length > 0) {
-          console.log('📱 [调试] 检测到手机上传文件，需要先转移临时文件');
-          // 手机上传的文件需要先转移到临时业务，然后一起提交
-          // 但 with-files 接口要求文件必须是 File 对象
-          // 所以我们需要先从服务器下载手机上传的文件，然后再上传
-          // 这是一个限制，建议手机上传的文件也使用两步走方案
-          
-          console.log('⚠️ [调试] 手机上传文件需要使用两步走方案');
-          console.log('   第一步：先创建公告（不含文件）');
-          
-          const announcementResponse = await createAnnouncementApi({
-            caseId: publishForm.value.caseId,
-            caseNumber: publishForm.value.caseNumber,
-            principalOfficer: publishForm.value.principalOfficer,
-            title: publishForm.value.title,
-            content: publishForm.value.content,
-            announcementType: publishForm.value.announcementType,
-          });
-          
-          console.log('📥 [调试] createAnnouncementApi 响应:', announcementResponse);
-          
-          if (announcementResponse.code !== 200 || !announcementResponse.data) {
-            console.error('❌ [调试] 公告创建失败:', announcementResponse);
-            ElMessage.error(`公告创建失败：${announcementResponse.message || '未知错误'}`);
-            publishLoading.value = false;
-            return;
-          }
-          
-          const announcementId = announcementResponse.data.announcementId || announcementResponse.data.id;
-          console.log('✅ [调试] 公告创建成功，announcementId:', announcementId);
-          
-          // 转移手机上传的文件
-          if (fileUploadRef.value) {
-            console.log('⏳ [调试] 开始调用 transferMobileFiles, announcementId:', announcementId);
-            const transferResult = await fileUploadRef.value.transferMobileFiles(announcementId);
-            console.log('📥 [调试] transferMobileFiles 完成，结果:', transferResult);
-          }
-          
-          ElMessage.success('公告发布成功');
-          closePublishDialog();
-          fetchAnnouncements();
-          publishLoading.value = false;
-          return;
-        }
-        
-        // 只有本地文件时，使用 with-files 接口
-        console.log('⏳ [调试] 开始调用 createAnnouncementWithFilesApi');
-        console.log('📋 [调试] FormData 最终状态:', {
-          caseId: formData.get('caseId'),
-          caseNumber: formData.get('caseNumber'),
-          title: formData.get('title'),
-          content: formData.get('content'),
-          announcementType: formData.get('announcementType'),
-          filesCount: formData.getAll('files').length,
-        });
-        
-        const response = await createAnnouncementWithFilesApi(formData);
-        console.log('📥 [调试] createAnnouncementWithFilesApi 响应:', response);
-        
-        if (response.code === 200 && response.data) {
-          console.log('✅ [调试] 公告创建并文件上传成功');
-          ElMessage.success('公告发布成功');
-          closePublishDialog();
-          fetchAnnouncements();
-        } else {
-          console.error('❌ [调试] 公告创建失败:', response);
-          ElMessage.error(`公告创建失败：${response.message || '未知错误'}`);
-        }
-      } else {
-        // 没有文件，使用普通接口创建
-        console.log('📝 [调试] 没有文件，使用普通接口创建公告');
-        const announcementResponse = await createAnnouncementApi({
-          caseId: publishForm.value.caseId,
-          caseNumber: publishForm.value.caseNumber,
-          principalOfficer: publishForm.value.principalOfficer,
-          title: publishForm.value.title,
-          content: publishForm.value.content,
-          announcementType: publishForm.value.announcementType,
-        });
-        console.log('📥 [调试] createAnnouncementApi 响应:', announcementResponse);
+      const mobileFiles = publishForm.value.attachments.filter(
+        (f: LocalFileItem) => f.id.toString().startsWith('mobile-')
+      );
+      
+      console.log('localFiles:', localFiles.length, localFiles.map(f => ({ id: f.id, name: f.originalFileName, hasFile: !!f.file, fileSize: f.fileSize })));
+      console.log('mobileFiles:', mobileFiles.length);
 
-        if (announcementResponse.code !== 200 || !announcementResponse.data) {
-          console.error('❌ [调试] 公告创建失败:', announcementResponse);
-          ElMessage.error(`公告创建失败：${announcementResponse.message || '未知错误'}`);
-          publishLoading.value = false;
-          return;
+      if (localFiles.length > 0) {
+        const filesToUpload = localFiles.map((item: LocalFileItem) => item.file).filter(Boolean);
+        
+        console.log('准备上传文件:', filesToUpload.length);
+        
+        if (filesToUpload.length > 0) {
+          const uploadResponse = await uploadAnnouncementAttachmentsApi(
+            announcementId,
+            filesToUpload as File[],
+          );
+          
+          console.log('文件上传响应:', uploadResponse);
+          
+          if (uploadResponse.code !== 200) {
+            ElMessage.warning(`部分文件上传失败：${uploadResponse.message || '未知错误'}`);
+          }
         }
+      }
 
-        console.log('✅ [调试] 公告创建成功');
-        ElMessage.success('公告发布成功');
-        closePublishDialog();
-        fetchAnnouncements();
+      if (mobileFiles.length > 0 && fileUploadRef.value) {
+        await fileUploadRef.value.transferMobileFiles(announcementId);
       }
     }
+
+    ElMessage.success(isEditing.value ? '公告更新成功' : '公告发布成功');
+    closePublishDialog();
+    fetchAnnouncements();
+    
   } catch (error) {
-    console.error('❌ [调试] 发布公告失败，错误详情:', error);
+    console.error('发布公告失败:', error);
     ElMessage.error('发布公告失败，请稍后重试');
   } finally {
     publishLoading.value = false;
-    console.log('🏁 [调试] 提交流程结束');
   }
 };
 
@@ -1240,7 +1059,6 @@ onMounted(() => {
           <ElFormItem label="附件">
             <FileUpload
               ref="fileUploadRef"
-              v-model="publishForm.attachments"
               :biz-type="'announcement'"
               :biz-id="0"
               accept=".doc,.docx,.pdf,.txt,.jpg,.jpeg,.png,.gif"

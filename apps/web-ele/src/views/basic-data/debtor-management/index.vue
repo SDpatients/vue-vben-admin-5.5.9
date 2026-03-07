@@ -132,7 +132,7 @@ const exportOptions = ref({
 
 // 债务人字段与模板字段的映射
 const debtorFieldMapping: Record<string, string> = {
-  enterpriseName: '债务人名称',
+  enterpriseName: '企业名称',
   legalRepresentative: '法定代表人',
   unifiedSocialCreditCode: '统一社会信用代码',
   registeredAddress: '注册地址',
@@ -756,8 +756,8 @@ const showTemplateExportDialog = async () => {
 
 // 批量导出到 Excel
 const batchExportToExcel = async () => {
-  if (debtorList.value.length === 0) {
-    ElMessage.warning('没有数据可导出');
+  if (selectedDebtorIds.value.length === 0) {
+    ElMessage.warning('请先选择要导出的债务人');
     return;
   }
   
@@ -769,29 +769,24 @@ const batchExportToExcel = async () => {
   templateExportLoading.value = true;
   
   try {
-    // 准备批量数据
-    const dataList = debtorList.value.map((debtor, index) => ({
-      index: exportOptions.value.addIndex ? index + 1 : undefined,
-      '债务人名称': debtor.enterpriseName,
-      '法定代表人': debtor.legalRepresentative,
-      '统一社会信用代码': debtor.unifiedSocialCreditCode,
-      '注册地址': debtor.registeredAddress,
-      '联系电话': debtor.contactPhone,
-      '联系人': debtor.contactPerson,
-      '案号': debtor.caseNumber,
-      '案件名称': debtor.caseName,
-      businessScope: debtor.businessScope,
-      industry: debtor.industry,
-    })).filter(row => {
-      // 过滤掉 undefined 字段
-      const filteredRow: any = {};
-      Object.entries(row).forEach(([key, value]) => {
-        if (value !== undefined) filteredRow[key] = value;
+    const selectedDebtors = debtorList.value.filter(d => 
+      selectedDebtorIds.value.includes(d.id)
+    );
+    
+    const dataList = selectedDebtors.map((debtor, index) => {
+      const rowData: Record<string, any> = {};
+      
+      if (exportOptions.value.addIndex) {
+        rowData['序号'] = index + 1;
+      }
+      
+      Object.entries(debtorFieldMapping).forEach(([debtorField, templateField]) => {
+        rowData[templateField] = (debtor as any)[debtorField] || '';
       });
-      return filteredRow;
+      
+      return rowData;
     });
     
-    // 调用批量导出 API
     const response = await documentTemplatesApi.batchExportExcel({
       templateId: selectedTemplate.value.id,
       fileName: exportOptions.value.fileName,
@@ -804,7 +799,6 @@ const batchExportToExcel = async () => {
       }
     });
     
-    // 下载文件
     const blob = response.data;
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -824,18 +818,20 @@ const batchExportToExcel = async () => {
 
 const loadAvailableTemplates = async () => {
   try {
-    const response = await documentTemplatesApi.getTemplatesByType('WORD');
-    if (response.code === 200) {
-      // 过滤出债务人相关的模板（可根据实际需求调整过滤条件）
-      availableTemplates.value = response.data.filter(t => 
-        t.templateCode.includes('DEBTOR') || 
-        t.templateCode.includes('CREDITOR') ||
-        t.templateName.includes('债务人') ||
-        t.templateName.includes('债权人') ||
-        t.templateName.includes('通知书') ||
-        t.templateName.includes('文书')
-      );
+    const [wordResponse, excelResponse] = await Promise.all([
+      documentTemplatesApi.getTemplatesByType('WORD'),
+      documentTemplatesApi.getTemplatesByType('EXCEL'),
+    ]);
+    
+    const templates: DocumentTemplate[] = [];
+    if (wordResponse.code === 200) {
+      templates.push(...wordResponse.data);
     }
+    if (excelResponse.code === 200) {
+      templates.push(...excelResponse.data);
+    }
+    
+    availableTemplates.value = templates;
   } catch (error) {
     console.error('加载模板失败:', error);
   }
@@ -890,6 +886,11 @@ const handleTemplateExport = async () => {
     return;
   }
   
+  if (selectedTemplate.value.templateType === 'EXCEL') {
+    await batchExportToExcel();
+    return;
+  }
+  
   templateExportLoading.value = true;
   
   try {
@@ -899,15 +900,12 @@ const handleTemplateExport = async () => {
       const debtor = debtorList.value.find(d => d.id === debtorId);
       if (!debtor) continue;
       
-      // 构建模板数据
       const templateData: Record<string, any> = {};
       
-      // 根据字段映射填充数据
       Object.entries(debtorFieldMapping).forEach(([debtorField, templateField]) => {
         templateData[templateField] = (debtor as any)[debtorField] || '';
       });
       
-      // 调用导出 API
       await documentTemplatesApi.exportWord(selectedTemplate.value.id, {
         fileName: `${debtor.enterpriseName}_${selectedTemplate.value.templateName}`,
         data: templateData,

@@ -12,7 +12,6 @@ import {
   ElEmpty,
   ElFormItem,
   ElInput,
-  ElLink,
   ElMessage,
   ElOption,
   ElPagination,
@@ -91,6 +90,7 @@ import AssetManagement from './components/AssetManagement.vue';
 import AttachmentList from './components/AttachmentList.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
+import ExportCenterDialog from './components/ExportCenterDialog.vue';
 import FileUpload from './components/FileUpload.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
@@ -339,6 +339,7 @@ const currentWorkLogId = ref<null | number>(null);
 const workLogFormRef = ref();
 const fileUploadRef = ref<any>();
 const documentUploadRef = ref<any>();
+const approvalUploadRef = ref<any>();
 const workLogForm = reactive({
   workDate: '',
   workType: 'CASE_INVESTIGATION',
@@ -453,28 +454,6 @@ const saveWorkLog = async () => {
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
-        
-        // 检查是否有未转移的临时文件（手机上传的文件）
-        if (fileUploadRef.value) {
-          console.log('检查工作日志是否有未转移的临时文件...');
-          console.log('hasUntransferredFiles:', fileUploadRef.value.getHasUntransferredFiles());
-          console.log('currentTempToken:', fileUploadRef.value.getCurrentTempToken());
-          console.log('mobileUploadedFiles:', fileUploadRef.value.getMobileUploadedFiles());
-          
-          if (fileUploadRef.value.getHasUntransferredFiles()) {
-            console.log('发现未转移的临时文件，开始转移...');
-            const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
-            
-            if (transferredFiles.length > 0) {
-              console.log('临时文件转移成功，文件信息:', transferredFiles);
-            } else {
-              console.log('临时文件转移失败，没有文件被转移');
-            }
-          } else {
-            console.log('没有未转移的临时文件');
-          }
-        }
-        
         ElMessage.success('工作日志更新成功');
         await fetchWorkLogs();
       }
@@ -496,28 +475,6 @@ const saveWorkLog = async () => {
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(workLogId);
         }
-        
-        // 检查是否有未转移的临时文件（手机上传的文件）
-        if (fileUploadRef.value) {
-          console.log('检查工作日志是否有未转移的临时文件...');
-          console.log('hasUntransferredFiles:', fileUploadRef.value.getHasUntransferredFiles());
-          console.log('currentTempToken:', fileUploadRef.value.getCurrentTempToken());
-          console.log('mobileUploadedFiles:', fileUploadRef.value.getMobileUploadedFiles());
-          
-          if (fileUploadRef.value.getHasUntransferredFiles()) {
-            console.log('发现未转移的临时文件，开始转移...');
-            const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
-            
-            if (transferredFiles.length > 0) {
-              console.log('临时文件转移成功，文件信息:', transferredFiles);
-            } else {
-              console.log('临时文件转移失败，没有文件被转移');
-            }
-          } else {
-            console.log('没有未转移的临时文件');
-          }
-        }
-        
         ElMessage.success('工作日志创建成功');
         await fetchWorkLogs();
       }
@@ -707,6 +664,9 @@ const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
+// 导出中心相关
+const showExportCenterDialog = ref(false);
+
 // 批审相关
 const showReviewDialog = ref(false);
 const reviewForm = reactive({
@@ -722,6 +682,7 @@ const reviewForm = reactive({
 const reviewTypeOptions = [
   { label: '案件审批', value: 'CASE_REVIEW' },
   { label: '流程审批', value: 'PROCESS_REVIEW' },
+  { label: '文书审批', value: 'DOCUMENT_REVIEW' },
 ];
 
 // 阶段选项
@@ -902,7 +863,16 @@ const submitReview = async () => {
     
     break;
     }
-
+    case 'DOCUMENT_REVIEW': {
+      // 文书审批，引导用户前往文书送达页面
+      ElMessage.info('请前往"文书送达"页面上传文书');
+      // 关闭审批弹窗
+      showReviewDialog.value = false;
+      // 切换到文书送达标签页
+      activeTab.value = 'documentService';
+    
+    break;
+    }
     case 'PROCESS_REVIEW': {
       // 流程审批，调用新增案件审批API
       // 验证阶段和任务是否已选择
@@ -1482,8 +1452,42 @@ const submitApprovalForm = async () => {
 
   fileUploadLoading.value = true;
   try {
-    // 上传文件
-    let documentAttachment = '';
+    // 用于存储所有文件的路径
+    const filePaths: string[] = [];
+    
+    // 1. 首先检查是否有未转移的临时文件（手机上传的文件）
+    console.log('检查是否有未转移的临时文件...');
+    console.log('approvalUploadRef.value:', approvalUploadRef.value);
+    
+    if (approvalUploadRef.value) {
+      console.log('hasUntransferredFiles:', approvalUploadRef.value.getHasUntransferredFiles());
+      console.log('currentTempToken:', approvalUploadRef.value.getCurrentTempToken());
+      console.log('mobileUploadedFiles:', approvalUploadRef.value.getMobileUploadedFiles());
+      
+      if (approvalUploadRef.value.getHasUntransferredFiles()) {
+        console.log('发现未转移的临时文件，开始转移...');
+        const transferredFiles = await approvalUploadRef.value.transferMobileFiles(Number(approvalSubmitForm.caseId));
+        
+        if (transferredFiles.length > 0) {
+          console.log('临时文件转移成功，文件信息:', transferredFiles);
+          
+          const transferredFilePaths = transferredFiles
+            .map((file: any) => file.filePath || file.storedFileName || `file:${file.id}`)
+            .filter((path: string) => path);
+          filePaths.push(...transferredFilePaths);
+          
+          console.log('转移文件的路径:', transferredFilePaths);
+        } else {
+          console.log('临时文件转移失败，没有文件被转移');
+        }
+      } else {
+        console.log('没有未转移的临时文件');
+      }
+    } else {
+      console.log('approvalUploadRef.value 是 undefined');
+    }
+
+    // 2. 处理电脑上传的文件
     if (approvalSubmitForm.files.length > 0) {
       const files = approvalSubmitForm.files.map(item => item.file);
       const uploadResponse = await batchUploadFilesApi(
@@ -1493,13 +1497,16 @@ const submitApprovalForm = async () => {
       );
 
       if (uploadResponse.code === 200 && uploadResponse.data && uploadResponse.data.length > 0) {
-        // 将所有文件路径拼接成一个字符串，使用分号分隔
-        documentAttachment = uploadResponse.data
+        const computerFilePaths = uploadResponse.data
           .map((fileData: any) => fileData.filePath || fileData.storedFileName)
-          .filter((path: string) => path)
-          .join(';');
+          .filter((path: string) => path);
+        filePaths.push(...computerFilePaths);
       }
     }
+    
+    // 将所有文件路径拼接成一个字符串，使用分号分隔
+    const documentAttachment = filePaths.join(';');
+    console.log('最终的documentAttachment:', documentAttachment);
 
     // 调用文书审批接口
     const requestData = {
@@ -3148,6 +3155,10 @@ const openWorkPlanDrawer = () => {
   workPlanDrawerRef.value?.openDrawer();
 };
 
+const openExportCenterDialog = () => {
+  showExportCenterDialog.value = true;
+};
+
 const openAssetManagementDialog = () => {
   showAssetManagementDialog.value = true;
 };
@@ -4532,6 +4543,10 @@ const endDrag = () => {
             </ElButton>
             <h1 class="page-title">{{ caseDetail?.案号 || '' }}</h1>
             <div class="header-actions">
+              <ElButton type="primary" @click="openExportCenterDialog">
+                <Icon icon="lucide:download" class="mr-2" />
+                导出中心
+              </ElButton>
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
                 资金管控
@@ -5229,7 +5244,6 @@ const endDrag = () => {
                     </template>
                   </ElTableColumn>
                   <ElTableColumn prop="documentNumber" label="文书编号" width="180" />
-                  <ElTableColumn prop="abbreviation" label="缩写" width="120" />
                   <ElTableColumn prop="documentName" label="文书名称" />
                   <ElTableColumn prop="recipientName" label="受送达人" />
                   <ElTableColumn prop="recipientType" label="受送达人类型">
@@ -5379,15 +5393,6 @@ const endDrag = () => {
                   <span class="text-lg font-semibold">公告管理</span>
                 </div>
                 <div class="flex space-x-2">
-                  <ElLink
-                    href="https://pcgl.zjsfgkw.gov.cn:10020/#/login"
-                    target="_blank"
-                    type="primary"
-                    class="mr-2"
-                  >
-                    <Icon icon="lucide:external-link" class="mr-1" />
-                    管理人工作台
-                  </ElLink>
                   <ElButton type="primary" @click="openNewAnnouncementDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     发布新公告
@@ -7521,6 +7526,7 @@ const endDrag = () => {
 
                 <ElFormItem label="上传文书">
                   <FileUpload
+                    ref="approvalUploadRef"
                     :model-value="[]"
                     :biz-type="'document'"
                     :biz-id="0"
@@ -7591,12 +7597,6 @@ const endDrag = () => {
                   <span class="detail-label">文书编号：</span>
                   <span class="detail-value">{{
                     documentDetail.documentNumber || '-' 
-                  }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">缩写：</span>
-                  <span class="detail-value">{{
-                    documentDetail.abbreviation || '-' 
                   }}</span>
                 </div>
                 <div class="detail-item">
@@ -7802,12 +7802,6 @@ const endDrag = () => {
                   <span class="detail-label">创建时间：</span>
                   <span class="detail-value">{{
                     formatDateTime(documentDetail.createTime)
-                  }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">送达时间：</span>
-                  <span class="detail-value">{{
-                    formatDateTime(documentDetail.deliveryTime)
                   }}</span>
                 </div>
                 <div class="detail-item">
@@ -8064,6 +8058,13 @@ const endDrag = () => {
         v-model:visible="showProgressManagement"
         :case-id="caseId"
         @progress-updated="handleProgressUpdated"
+      />
+      
+      <!-- 导出中心对话框 -->
+      <ExportCenterDialog
+        v-model="showExportCenterDialog"
+        :case-id="caseId"
+        :case-name="caseDetail?.案件名称 || ''"
       />
       
       <!-- AI聊天悬浮窗 - 暂时隐藏 -->

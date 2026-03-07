@@ -29,6 +29,7 @@ import {
   updateCourtApi,
 } from '#/api/core';
 import { exportToExcel } from '#/utils/export-excel';
+import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
 const userStore = useUserStore();
 
@@ -68,6 +69,39 @@ const pagination = reactive({
   itemCount: 0,
   pages: 0,
 });
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const selectedCourtIds = ref<number[]>([]);
+
+// 法院字段与模板字段的映射
+const courtFieldMapping: Record<string, string> = {
+  courtFullName: '法院全称',
+  courtShortName: '法院简称',
+  courtLevel: '法院级别',
+  address: '地址',
+  contactPhone: '联系电话',
+  judgeInCharge: '承办法官',
+};
+
+// 处理表格多选变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedCourtIds.value = selection.map(item => item.id);
+};
+
+// 显示模板导出对话框
+const showTemplateExportDialog = () => {
+  if (selectedCourtIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的法院');
+    return;
+  }
+  templateExportVisible.value = true;
+};
+
+// 获取选中的法院数据
+const getSelectedCourtData = () => {
+  return safeCourtList.value.filter(c => selectedCourtIds.value.includes(c.id));
+};
 
 // 获取法院列表
 const fetchCourtList = async () => {
@@ -448,6 +482,10 @@ onUnmounted(() => {
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
+            <ElButton type="primary" @click="showTemplateExportDialog">
+              <i class="i-lucide-file-text mr-1"></i>
+              模板导出
+            </ElButton>
             <ElButton type="primary" @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
@@ -498,7 +536,9 @@ onUnmounted(() => {
         :border="true"
         :stripe="true"
         :style="{ width: '100%' }"
+        @selection-change="handleSelectionChange"
       >
+        <ElTableColumn type="selection" width="55" />
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
           prop="fyqc"
@@ -668,6 +708,15 @@ onUnmounted(() => {
         </template>
       </ElDialog>
     </ElCard>
+
+    <!-- 模板导出对话框 -->
+    <TemplateExportDialog
+      v-model:visible="templateExportVisible"
+      :selected-data="getSelectedCourtData()"
+      :field-mapping="courtFieldMapping"
+      default-file-name="法院批量数据"
+      default-sheet-name="法院列表"
+    />
   </div>
 </template>
 

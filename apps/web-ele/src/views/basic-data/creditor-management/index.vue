@@ -38,6 +38,8 @@ import {
   getCreditorListApi,
   updateCreditorApi,
 } from '#/api/core/creditor';
+import { documentTemplatesApi } from '#/api/core/document-templates';
+import type { DocumentTemplate } from '#/api/core/document-templates';
 import { exportToExcel } from '#/utils/export-excel';
 import { UploadFilled } from '@element-plus/icons-vue';
 import type { UploadFile, UploadInstance } from 'element-plus';
@@ -108,6 +110,37 @@ const loadTemplates = async () => {
   } catch (error) {
     console.error('加载模板失败:', error);
   }
+};
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const templateExportLoading = ref(false);
+const availableTemplates = ref<DocumentTemplate[]>([]);
+const selectedTemplate = ref<DocumentTemplate | null>(null);
+const selectedCreditorIds = ref<number[]>([]);
+const templateFields = ref<Array<{key: string; label: string; value: string}>>([]);
+
+// 导出选项配置
+const exportOptions = ref({
+  sheetName: '债权人列表',
+  startRow: 2,
+  mergeCells: false,
+  addIndex: true,
+  fileName: '',
+});
+
+// 债权人字段与模板字段的映射
+const creditorFieldMapping: Record<string, string> = {
+  creditorName: '债权人名称',
+  creditorType: '债权人分类',
+  idNumber: '证件号码',
+  contactPhone: '联系电话',
+  contactEmail: '邮箱',
+  address: '注册地址',
+  legalRepresentative: '法定代表人',
+  registeredCapital: '注册资本',
+  caseNumber: '案号',
+  caseName: '案件名称',
 };
 
 // 确保表格数据始终为数组
@@ -658,6 +691,204 @@ const handleDeleteSubmit = async (id: number) => {
   }
 };
 
+// 处理表格多选变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedCreditorIds.value = selection.map(item => item.id);
+};
+
+// 显示模板导出对话框
+const showTemplateExportDialog = async () => {
+  if (selectedCreditorIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的债权人');
+    return;
+  }
+  
+  selectedTemplate.value = null;
+  templateFields.value = [];
+  exportOptions.value = {
+    sheetName: '债权人列表',
+    startRow: 2,
+    mergeCells: false,
+    addIndex: true,
+    fileName: `债权人批量数据_${formatDate(new Date())}`,
+  };
+  templateExportVisible.value = true;
+  
+  await loadAvailableTemplates();
+};
+
+// 加载可用模板
+const loadAvailableTemplates = async () => {
+  try {
+    const [wordResponse, excelResponse] = await Promise.all([
+      documentTemplatesApi.getTemplatesByType('WORD'),
+      documentTemplatesApi.getTemplatesByType('EXCEL'),
+    ]);
+    
+    const templates: DocumentTemplate[] = [];
+    if (wordResponse.code === 200) {
+      templates.push(...wordResponse.data);
+    }
+    if (excelResponse.code === 200) {
+      templates.push(...excelResponse.data);
+    }
+    
+    availableTemplates.value = templates;
+  } catch (error) {
+    console.error('加载模板失败:', error);
+  }
+};
+
+// 处理模板选择
+const handleTemplateSelect = async (template: DocumentTemplate) => {
+  selectedTemplate.value = template;
+  
+  try {
+    const response = await documentTemplatesApi.getTemplateDetail(template.id);
+    if (response.code === 200 && response.data.fields) {
+      const fields = response.data.fields || [];
+      templateFields.value = fields.map((field: any) => ({
+        key: field.fieldName,
+        label: field.fieldLabel,
+        value: getMappedValue(field.fieldName, field.fieldType),
+      }));
+    }
+  } catch (error) {
+    console.error('加载模板字段失败:', error);
+  }
+};
+
+// 获取映射值
+const getMappedValue = (fieldName: string, fieldType: string) => {
+  const creditorField = Object.entries(creditorFieldMapping).find(
+    ([_, templateName]) => templateName === fieldName
+  );
+  
+  if (creditorField && creditorField[0]) {
+    const sampleCreditor = safeCreditorList.value[0];
+    if (sampleCreditor) {
+      return (sampleCreditor as any)[creditorField[0]] || '';
+    }
+  }
+  
+  if (fieldType === 'DATE') {
+    return new Date().toISOString().split('T')[0];
+  }
+  return '';
+};
+
+// 批量导出到 Excel
+const batchExportToExcel = async () => {
+  if (selectedCreditorIds.value.length === 0) {
+    ElMessage.warning('请先选择要导出的债权人');
+    return;
+  }
+  
+  if (!selectedTemplate.value) {
+    ElMessage.warning('请先选择模板');
+    return;
+  }
+  
+  templateExportLoading.value = true;
+  
+  try {
+    const selectedCreditors = safeCreditorList.value.filter(c => 
+      selectedCreditorIds.value.includes(c.id)
+    );
+    
+    const dataList = selectedCreditors.map((creditor, index) => {
+      const rowData: Record<string, any> = {};
+      
+      if (exportOptions.value.addIndex) {
+        rowData['序号'] = index + 1;
+      }
+      
+      Object.entries(creditorFieldMapping).forEach(([creditorField, templateField]) => {
+        rowData[templateField] = (creditor as any)[creditorField] || '';
+      });
+      
+      return rowData;
+    });
+    
+    const response = await documentTemplatesApi.batchExportExcel({
+      templateId: selectedTemplate.value.id,
+      fileName: exportOptions.value.fileName,
+      dataList: dataList,
+      options: {
+        sheetName: exportOptions.value.sheetName,
+        startRow: exportOptions.value.startRow,
+        mergeCells: exportOptions.value.mergeCells,
+        addIndex: exportOptions.value.addIndex,
+      }
+    });
+    
+    const blob = response.data;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${exportOptions.value.fileName}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    ElMessage.success(`成功导出 ${dataList.length} 条数据`);
+    templateExportVisible.value = false;
+  } catch (error) {
+    console.error('批量导出失败:', error);
+    ElMessage.error('批量导出失败');
+  } finally {
+    templateExportLoading.value = false;
+  }
+};
+
+// 处理模板导出
+const handleTemplateExport = async () => {
+  if (!selectedTemplate.value) {
+    ElMessage.warning('请选择模板');
+    return;
+  }
+  
+  if (selectedCreditorIds.value.length === 0) {
+    ElMessage.warning('请至少选择一个债权人');
+    return;
+  }
+  
+  if (selectedTemplate.value.templateType === 'EXCEL') {
+    await batchExportToExcel();
+    return;
+  }
+  
+  templateExportLoading.value = true;
+  
+  try {
+    let successCount = 0;
+    
+    for (const creditorId of selectedCreditorIds.value) {
+      const creditor = safeCreditorList.value.find(c => c.id === creditorId);
+      if (!creditor) continue;
+      
+      const templateData: Record<string, any> = {};
+      
+      Object.entries(creditorFieldMapping).forEach(([creditorField, templateField]) => {
+        templateData[templateField] = (creditor as any)[creditorField] || '';
+      });
+      
+      await documentTemplatesApi.exportWord(selectedTemplate.value.id, {
+        fileName: `${creditor.creditorName}_${selectedTemplate.value.templateName}`,
+        data: templateData,
+      });
+      
+      successCount++;
+    }
+    
+    ElMessage.success(`成功导出 ${successCount} 个文档`);
+    templateExportVisible.value = false;
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('导出失败');
+  } finally {
+    templateExportLoading.value = false;
+  }
+};
+
 // 打开债权人债权详情对话框
 const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
   try {
@@ -695,6 +926,10 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
               <ElButton type="success" @click="exportCreditorData">
                 <i class="i-lucide-download mr-1"></i>
                 导出数据
+              </ElButton>
+              <ElButton type="primary" @click="showTemplateExportDialog">
+                <i class="i-lucide-file-text mr-1"></i>
+                模板导出
               </ElButton>
               <ElButton type="warning" @click="handleOpenImportDialog">
                 <i class="i-lucide-upload mr-1"></i>
@@ -770,8 +1005,10 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         :stripe="true"
         :style="{ width: '100%' }"
         @row-click="openCreditorDetailDialog"
+        @selection-change="handleSelectionChange"
         style="cursor: pointer"
       >
+        <ElTableColumn type="selection" width="55" />
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn prop="status" label="状态" width="120" align="center">
           <template #default="scope">
@@ -1449,6 +1686,77 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         
         <template #footer>
           <ElButton @click="handleCloseImportResultDialog">确定</ElButton>
+        </template>
+      </ElDialog>
+
+      <!-- 模板导出对话框 -->
+      <ElDialog
+        v-model="templateExportVisible"
+        title="模板导出"
+        width="800px"
+        :before-close="() => templateExportVisible = false"
+      >
+        <div class="template-export-container">
+          <ElForm label-width="120px">
+            <ElFormItem label="选择模板">
+              <ElSelect
+                v-model="selectedTemplate"
+                placeholder="请选择导出模板"
+                style="width: 100%"
+                @change="handleTemplateSelect"
+              >
+                <ElOption
+                  v-for="template in availableTemplates"
+                  :key="template.id"
+                  :label="`${template.templateName} (${template.templateType})`"
+                  :value="template"
+                >
+                  <span>{{ template.templateName }}</span>
+                  <ElTag size="small" :type="template.templateType === 'WORD' ? 'primary' : 'success'" style="margin-left: 8px">
+                    {{ template.templateType }}
+                  </ElTag>
+                </ElOption>
+              </ElSelect>
+            </ElFormItem>
+            
+            <ElFormItem label="导出配置" v-if="selectedTemplate && selectedTemplate.templateType === 'EXCEL'">
+              <ElCheckbox v-model="exportOptions.addIndex">添加序号</ElCheckbox>
+              <ElInput
+                v-model="exportOptions.fileName"
+                placeholder="文件名"
+                style="margin-top: 8px"
+              >
+                <template #prepend>文件名</template>
+              </ElInput>
+              <ElInput
+                v-model="exportOptions.sheetName"
+                placeholder="Sheet 名称"
+                style="margin-top: 8px"
+              >
+                <template #prepend>Sheet 名称</template>
+              </ElInput>
+            </ElFormItem>
+            
+            <ElFormItem label="字段预览" v-if="templateFields.length > 0">
+              <ElTable :data="templateFields" border size="small">
+                <ElTableColumn prop="label" label="字段名" width="150" />
+                <ElTableColumn prop="key" label="字段标识" />
+                <ElTableColumn prop="value" label="示例值" />
+              </ElTable>
+            </ElFormItem>
+          </ElForm>
+        </div>
+        
+        <template #footer>
+          <ElButton @click="templateExportVisible = false">取消</ElButton>
+          <ElButton
+            type="primary"
+            @click="handleTemplateExport"
+            :loading="templateExportLoading"
+            :disabled="!selectedTemplate"
+          >
+            开始导出
+          </ElButton>
         </template>
       </ElDialog>
 

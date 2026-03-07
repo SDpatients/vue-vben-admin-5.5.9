@@ -44,6 +44,7 @@ import {
 } from '#/api/core/bank-account-transaction';
 import { getCaseSimpleListApi } from '#/api/core/case';
 import { exportToExcel } from '#/utils/export-excel';
+import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
 // 响应式数据
 const bankAccountList = ref<BankAccountApi.BankAccountInfo[]>([]);
@@ -61,6 +62,42 @@ const pagination = ref<Pagination>({
   itemCount: 0,
   pages: 0,
 });
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const selectedBankAccountIds = ref<number[]>([]);
+
+// 银行账户字段与模板字段的映射
+const bankAccountFieldMapping: Record<string, string> = {
+  caseNumber: '案号',
+  accountName: '账户名称',
+  accountNumber: '账户号码',
+  bankName: '银行名称',
+  accountType: '账户类型',
+  currentBalance: '当前余额',
+  totalInflow: '总流入',
+  totalOutflow: '总流出',
+  status: '状态',
+};
+
+// 处理表格多选变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedBankAccountIds.value = selection.map(item => item.id);
+};
+
+// 显示模板导出对话框
+const showTemplateExportDialog = () => {
+  if (selectedBankAccountIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的银行账户');
+    return;
+  }
+  templateExportVisible.value = true;
+};
+
+// 获取选中的银行账户数据
+const getSelectedBankAccountData = () => {
+  return bankAccountList.value.filter(b => selectedBankAccountIds.value.includes(b.id));
+};
 
 // 列显示控制
 const columnVisible = ref<string[]>([]);
@@ -1156,6 +1193,14 @@ const handleSubmit = async () => {
             </ElButton>
             <ElButton
               type="primary"
+              @click="showTemplateExportDialog"
+              v-if="viewMode === 'account'"
+            >
+              <i class="i-lucide-file-text mr-1"></i>
+              模板导出
+            </ElButton>
+            <ElButton
+              type="primary"
               @click="handleRefresh"
               :loading="loading"
               v-if="viewMode === 'account'"
@@ -1184,7 +1229,10 @@ const handleSubmit = async () => {
         :border="true"
         :stripe="true"
         :style="{ width: '100%' }"
+        @selection-change="handleSelectionChange"
       >
+        <!-- 选择列 -->
+        <ElTableColumn type="selection" width="55" />
         <!-- 行号列 -->
         <ElTableColumn type="index" label="序号" width="60" align="center" />
 
@@ -2395,6 +2443,15 @@ const handleSubmit = async () => {
           </span>
         </template>
       </ElDialog>
+
+      <!-- 模板导出对话框 -->
+      <TemplateExportDialog
+        v-model:visible="templateExportVisible"
+        :selected-data="getSelectedBankAccountData()"
+        :field-mapping="bankAccountFieldMapping"
+        default-file-name="银行账户批量数据"
+        default-sheet-name="银行账户列表"
+      />
     </ElCard>
   </div>
 </template>

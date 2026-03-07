@@ -29,6 +29,7 @@ import {
   updateManagerApi,
 } from '#/api/core/manager';
 import { exportToExcel } from '#/utils/export-excel';
+import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
 const userStore = useUserStore();
 
@@ -52,6 +53,39 @@ const pagination = reactive({
   itemCount: 0,
   pages: 0,
 });
+
+// 模板导出相关
+const templateExportVisible = ref(false);
+const selectedManagerIds = ref<number[]>([]);
+
+// 管理人字段与模板字段的映射
+const managerFieldMapping: Record<string, string> = {
+  administratorType: '管理人类型',
+  administratorName: '管理人名称',
+  responsiblePerson: '负责人',
+  contactPhone: '联系电话',
+  contactEmail: '联系邮箱',
+  officeAddress: '办公地址',
+};
+
+// 处理表格多选变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedManagerIds.value = selection.map(item => item.id);
+};
+
+// 显示模板导出对话框
+const showTemplateExportDialog = () => {
+  if (selectedManagerIds.value.length === 0) {
+    ElMessage.warning('请先在表格中选择要导出的管理人');
+    return;
+  }
+  templateExportVisible.value = true;
+};
+
+// 获取选中的管理人数据
+const getSelectedManagerData = () => {
+  return managerList.value.filter(m => selectedManagerIds.value.includes(m.id));
+};
 
 // 获取管理人列表
 const fetchManagerList = async () => {
@@ -367,6 +401,10 @@ onMounted(() => {
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
+            <ElButton type="primary" @click="showTemplateExportDialog">
+              <i class="i-lucide-file-text mr-1"></i>
+              模板导出
+            </ElButton>
             <ElButton @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新
@@ -424,7 +462,9 @@ onMounted(() => {
         :border="true"
         :stripe="true"
         :style="{ width: '100%' }"
+        @selection-change="handleSelectionChange"
       >
+        <ElTableColumn type="selection" width="55" />
         <ElTableColumn type="index" label="序号" width="60" align="center" />
         <ElTableColumn
           prop="administratorType"
@@ -636,6 +676,15 @@ onMounted(() => {
         </div>
       </template>
     </ElDialog>
+
+    <!-- 模板导出对话框 -->
+    <TemplateExportDialog
+      v-model:visible="templateExportVisible"
+      :selected-data="getSelectedManagerData()"
+      :field-mapping="managerFieldMapping"
+      default-file-name="管理人批量数据"
+      default-sheet-name="管理人列表"
+    />
   </div>
 </template>
 

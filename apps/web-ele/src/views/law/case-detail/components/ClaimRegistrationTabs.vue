@@ -22,13 +22,6 @@ const handleTabChange = (tabName: string) => {
   console.log('切换标签页:', tabName);
 };
 
-const handleImport = () => {
-  activeTab.value = 'stage1';
-  setTimeout(() => {
-    stageOneRef.value?.openImportDialog();
-  }, 0);
-};
-
 const handleAdd = () => {
   activeTab.value = 'stage1';
   setTimeout(() => {
@@ -47,10 +40,6 @@ const handleAdd = () => {
             <span class="text-lg font-semibold">债权登记表</span>
           </div>
           <div class="flex space-x-2">
-            <ElButton type="success" @click="handleImport">
-              <Icon icon="lucide:file-spreadsheet" class="mr-1" />
-              Excel导入
-            </ElButton>
             <ElButton type="primary" @click="handleAdd">
               <Icon icon="lucide:plus" class="mr-1" />
               新增债权

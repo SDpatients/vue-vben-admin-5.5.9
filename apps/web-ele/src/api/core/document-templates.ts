@@ -47,6 +47,7 @@ export interface DocumentTemplate {
   createUserId?: number;
   updateUserId?: number;
   fields?: TemplateField[];
+  mappings?: Array<{ excelHeader: string; targetField: string }>;
 }
 
 export interface ExportHistory {
@@ -79,6 +80,7 @@ export interface BatchExportRequest {
     addIndex?: boolean;        // 是否添加序号
     sheetName?: string;        // Sheet 名称
     startRow?: number;         // 起始行（从 1 开始）
+    headerRow?: number;        // 表头所在行（从 1 开始）
   };
 }
 
@@ -128,6 +130,13 @@ export const documentTemplatesApi = {
   getTemplatesByType: (templateType: TemplateType) => {
     return requestClient8085.get<ListResponse<DocumentTemplate>>(
       `/document-templates/type/${templateType}`,
+    );
+  },
+
+  getTemplatesByDescription: (description: string) => {
+    return requestClient8085.get<ListResponse<DocumentTemplate>>(
+      '/document-templates',
+      { params: { description } },
     );
   },
 

@@ -2,7 +2,7 @@
 import type { ClaimRegistrationApi } from '#/api/core/claim-registration';
 import type { ClaimReviewApi } from '#/api/core/claim-review';
 
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
@@ -10,6 +10,8 @@ import {
   ElCard,
   ElCheckbox,
   ElCol,
+  ElCollapse,
+  ElCollapseItem,
   ElDatePicker,
   ElDescriptions,
   ElDescriptionsItem,
@@ -62,6 +64,12 @@ const reviewLoading = ref(false);
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null);
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
 const reviewStatusFilter = ref<string>(''); // 空字符串表示全部
+const reviewCollapseActive = ref<string[]>([]);
+
+// 监听折叠状态变化，用于调试
+watch(reviewCollapseActive, (newVal) => {
+  console.log('审查对话框折叠状态变化:', newVal);
+}, { deep: true });
 
 const { reviewForm, declaredTotalAmount, confirmedTotalAmount, unconfirmedTotalAmount, resetReviewForm } = useReviewForm();
 const { currentPage, pageSize, total } = useClaimPagination();
@@ -201,6 +209,12 @@ const closeReviewDialog = () => {
   showReviewDialog.value = false;
   resetReviewForm();
   currentClaim.value = null;
+  reviewCollapseActive.value = [];
+  console.log('关闭审查对话框，重置折叠状态');
+};
+
+const handleReviewCollapseChange = (activeNames: string | string[]) => {
+  console.log('审查对话框折叠面板变化:', activeNames);
 };
 
 const handleSaveReview = async () => {
@@ -535,17 +549,7 @@ onMounted(() => {
               >
                 进入确认阶段
               </ElButton>
-              <ElButton
-                v-else-if="
-                  scope.row.reviewInfo.review_status === 'COMPLETED' &&
-                  (scope.row.registration_status === 'CONFIRMING' || scope.row.registration_status === 'CONFIRMED')
-                "
-                link
-                size="small"
-                @click="handleViewConfirmation(scope.row)"
-              >
-                查看确认详情
-              </ElButton>
+
               <ElTag
                 v-else-if="
                   scope.row.reviewInfo.review_status === 'COMPLETED' &&
@@ -1046,187 +1050,187 @@ onMounted(() => {
               </ElCol>
             </ElRow>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">调整原因</h4>
-            </div>
-
-            <ElFormItem label="调整原因">
-              <ElInput
-                v-model="reviewForm.adjustmentReason"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入调整原因"
-              />
-            </ElFormItem>
-            <ElFormItem label="未确认原因">
-              <ElInput
-                v-model="reviewForm.unconfirmedReason"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入未确认原因"
-              />
-            </ElFormItem>
-            <ElFormItem label="证据不足原因">
-              <ElInput
-                v-model="reviewForm.insufficientEvidenceReason"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入证据不足原因"
-              />
-            </ElFormItem>
-            <ElFormItem label="过期原因">
-              <ElInput
-                v-model="reviewForm.expiredReason"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入过期原因"
-              />
-            </ElFormItem>
-
-            <div class="section-divider mb-4">
-              <h4 class="section-title">证据评估</h4>
-            </div>
-
-            <ElRow :gutter="20">
-              <ElCol :span="8">
-                <ElFormItem label="证据真实性">
-                  <ElSelect
-                    v-model="reviewForm.evidenceAuthenticity"
-                    placeholder="请选择"
-                    style="width: 100%"
-                  >
-                    <ElOption label="真实" value="AUTHENTIC" />
-                    <ElOption label="存疑" value="SUSPICIOUS" />
-                    <ElOption label="不真实" value="FAKE" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="8">
-                <ElFormItem label="证据相关性">
-                  <ElSelect
-                    v-model="reviewForm.evidenceRelevance"
-                    placeholder="请选择"
-                    style="width: 100%"
-                  >
-                    <ElOption label="相关" value="RELEVANT" />
-                    <ElOption label="不相关" value="IRRELEVANT" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="8">
-                <ElFormItem label="证据合法性">
-                  <ElSelect
-                    v-model="reviewForm.evidenceLegality"
-                    placeholder="请选择"
-                    style="width: 100%"
-                  >
-                    <ElOption label="合法" value="LEGAL" />
-                    <ElOption label="不合法" value="ILLEGAL" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-
-            <ElFormItem label="证据审查备注">
-              <ElInput
-                v-model="reviewForm.evidenceReviewNotes"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入证据审查备注"
-              />
-            </ElFormItem>
-
-            <div class="section-divider mb-4">
-              <h4 class="section-title">债权性质确认</h4>
-            </div>
-
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="确认债权性质">
+            <ElCollapse v-model="reviewCollapseActive" class="mb-4" @change="handleReviewCollapseChange">
+              <ElCollapseItem title="调整原因" name="adjustment">
+                <ElFormItem label="调整原因">
                   <ElInput
-                    v-model="reviewForm.confirmedClaimNature"
-                    placeholder="请输入确认债权性质"
+                    v-model="reviewForm.adjustmentReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入调整原因"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-
-            <ElRow :gutter="20">
-              <ElCol :span="8">
-                <ElFormItem label="是否连带责任">
-                  <ElCheckbox v-model="reviewForm.isJointLiability">是</ElCheckbox>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="8">
-                <ElFormItem label="是否附条件">
-                  <ElCheckbox v-model="reviewForm.isConditional">是</ElCheckbox>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="8">
-                <ElFormItem label="是否附期限">
-                  <ElCheckbox v-model="reviewForm.isTerm">是</ElCheckbox>
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-
-            <div class="section-divider mb-4">
-              <h4 class="section-title">担保信息</h4>
-            </div>
-
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="担保类型">
+                <ElFormItem label="未确认原因">
                   <ElInput
-                    v-model="reviewForm.collateralType"
-                    placeholder="请输入担保类型"
+                    v-model="reviewForm.unconfirmedReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入未确认原因"
                   />
                 </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="担保财产">
+                <ElFormItem label="证据不足原因">
                   <ElInput
-                    v-model="reviewForm.collateralProperty"
-                    placeholder="请输入担保财产"
+                    v-model="reviewForm.insufficientEvidenceReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入证据不足原因"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
+                <ElFormItem label="过期原因">
+                  <ElInput
+                    v-model="reviewForm.expiredReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入过期原因"
+                  />
+                </ElFormItem>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="担保金额">
-                  <ElInput
-                    v-model="reviewForm.collateralAmount"
-                    type="number"
-                    placeholder="请输入担保金额"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="担保期限">
-                  <ElInput
-                    v-model="reviewForm.collateralTerm"
-                    placeholder="请输入担保期限"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
+            <ElCollapse v-model="reviewCollapseActive" class="mb-4" @change="handleReviewCollapseChange">
+              <ElCollapseItem title="证据评估" name="evidence">
+                <ElRow :gutter="20">
+                  <ElCol :span="8">
+                    <ElFormItem label="证据真实性">
+                      <ElSelect
+                        v-model="reviewForm.evidenceAuthenticity"
+                        placeholder="请选择"
+                        style="width: 100%"
+                      >
+                        <ElOption label="真实" value="AUTHENTIC" />
+                        <ElOption label="存疑" value="SUSPICIOUS" />
+                        <ElOption label="不真实" value="FAKE" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="8">
+                    <ElFormItem label="证据相关性">
+                      <ElSelect
+                        v-model="reviewForm.evidenceRelevance"
+                        placeholder="请选择"
+                        style="width: 100%"
+                      >
+                        <ElOption label="相关" value="RELEVANT" />
+                        <ElOption label="不相关" value="IRRELEVANT" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="8">
+                    <ElFormItem label="证据合法性">
+                      <ElSelect
+                        v-model="reviewForm.evidenceLegality"
+                        placeholder="请选择"
+                        style="width: 100%"
+                      >
+                        <ElOption label="合法" value="LEGAL" />
+                        <ElOption label="不合法" value="ILLEGAL" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
 
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="担保有效性">
-                  <ElSelect
-                    v-model="reviewForm.collateralValidity"
-                    placeholder="请选择"
-                    style="width: 100%"
-                  >
-                    <ElOption label="有效" value="VALID" />
-                    <ElOption label="无效" value="INVALID" />
-                    <ElOption label="部分有效" value="PARTIAL" />
-                  </ElSelect>
+                <ElFormItem label="证据审查备注">
+                  <ElInput
+                    v-model="reviewForm.evidenceReviewNotes"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入证据审查备注"
+                  />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
+              </ElCollapseItem>
+            </ElCollapse>
+
+            <ElCollapse v-model="reviewCollapseActive" class="mb-4" @change="handleReviewCollapseChange">
+              <ElCollapseItem title="债权性质确认" name="nature">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="确认债权性质">
+                      <ElInput
+                        v-model="reviewForm.confirmedClaimNature"
+                        placeholder="请输入确认债权性质"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="8">
+                    <ElFormItem label="是否连带责任">
+                      <ElCheckbox v-model="reviewForm.isJointLiability">是</ElCheckbox>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="8">
+                    <ElFormItem label="是否附条件">
+                      <ElCheckbox v-model="reviewForm.isConditional">是</ElCheckbox>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="8">
+                    <ElFormItem label="是否附期限">
+                      <ElCheckbox v-model="reviewForm.isTerm">是</ElCheckbox>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElCollapseItem>
+            </ElCollapse>
+
+            <ElCollapse v-model="reviewCollapseActive" class="mb-4" @change="handleReviewCollapseChange">
+              <ElCollapseItem title="担保信息" name="collateral">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="担保类型">
+                      <ElInput
+                        v-model="reviewForm.collateralType"
+                        placeholder="请输入担保类型"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="担保财产">
+                      <ElInput
+                        v-model="reviewForm.collateralProperty"
+                        placeholder="请输入担保财产"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="担保金额">
+                      <ElInput
+                        v-model="reviewForm.collateralAmount"
+                        type="number"
+                        placeholder="请输入担保金额"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="担保期限">
+                      <ElInput
+                        v-model="reviewForm.collateralTerm"
+                        placeholder="请输入担保期限"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="担保有效性">
+                      <ElSelect
+                        v-model="reviewForm.collateralValidity"
+                        placeholder="请选择"
+                        style="width: 100%"
+                      >
+                        <ElOption label="有效" value="VALID" />
+                        <ElOption label="无效" value="INVALID" />
+                        <ElOption label="部分有效" value="PARTIAL" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElCollapseItem>
+            </ElCollapse>
 
             <div class="section-divider mb-4">
               <h4 class="section-title">审查结论</h4>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
   ElCard,
   ElCol,
+  ElCollapse,
+  ElCollapseItem,
   ElDescriptions,
   ElDescriptionsItem,
   ElDialog,
@@ -65,6 +67,12 @@ const showDetailDialog = ref(false);
 const showConfirmDialog = ref(false);
 const confirmLoading = ref(false);
 const currentClaim = ref<any>(null);
+const confirmationCollapseActive = ref<string[]>([]);
+
+// 监听折叠状态变化，用于调试
+watch(confirmationCollapseActive, (newVal) => {
+  console.log('确认对话框折叠状态变化:', newVal);
+}, { deep: true });
 
 const fetchClaims = async () => {
   loading.value = true;
@@ -225,6 +233,12 @@ const closeConfirmDialog = () => {
   showConfirmDialog.value = false;
   currentClaim.value = null;
   resetConfirmationForm();
+  confirmationCollapseActive.value = [];
+  console.log('关闭确认对话框，重置折叠状态');
+};
+
+const handleConfirmationCollapseChange = (activeNames: string | string[]) => {
+  console.log('确认对话框折叠面板变化:', activeNames);
 };
 
 const handleSaveConfirmation = async () => {
@@ -273,19 +287,19 @@ const handleSaveConfirmation = async () => {
       remarks: confirmationForm.remarks || null,
     };
 
-    // 检查是否有确认信息ID，如果有则更新，否则跳过
+    let result;
+    // 检查是否有确认信息 ID，如果有则更新，否则创建
     if (currentClaim.value.confirmationInfo?.id) {
-      const result = await ClaimService.updateConfirmation(
+      result = await ClaimService.updateConfirmation(
         currentClaim.value.confirmationInfo.id,
         requestData,
       );
-
-      if (result.success) {
-        await fetchClaims();
-        closeConfirmDialog();
-      }
     } else {
-      // 如果没有确认信息ID，直接关闭对话框
+      // 如果没有确认信息 ID，创建新的确认记录
+      result = await ClaimService.createConfirmation(requestData);
+    }
+
+    if (result.success) {
       await fetchClaims();
       closeConfirmDialog();
     }
@@ -420,16 +434,7 @@ onMounted(() => {
               >
                 确认
               </ElButton>
-              <ElButton
-                v-if="
-                  scope.row.registration_status === 'CONFIRMING'
-                "
-                type="danger"
-                size="small"
-                @click="handleRejectClaim(scope.row)"
-              >
-                驳回
-              </ElButton>
+
               <ElButton
                 v-if="
                   scope.row.registration_status === 'CONFIRMING'
@@ -683,277 +688,283 @@ onMounted(() => {
               />
             </ElFormItem>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">会议信息</h4>
-            </div>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="会议类型">
-                  <ElSelect
-                    v-model="confirmationForm.meetingType"
-                    placeholder="请选择会议类型"
-                    style="width: 100%"
-                  >
-                    <ElOption label="第一次会议" value="FIRST" />
-                    <ElOption label="第二次会议" value="SECOND" />
-                    <ElOption label="临时会议" value="TEMPORARY" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="会议日期">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="会议信息" name="meeting">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="会议类型">
+                      <ElSelect
+                        v-model="confirmationForm.meetingType"
+                        placeholder="请选择会议类型"
+                        style="width: 100%"
+                      >
+                        <ElOption label="第一次会议" value="FIRST" />
+                        <ElOption label="第二次会议" value="SECOND" />
+                        <ElOption label="临时会议" value="TEMPORARY" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="会议日期">
+                      <ElInput
+                        v-model="confirmationForm.meetingDate"
+                        type="datetime-local"
+                        placeholder="请选择会议日期"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="会议地点">
                   <ElInput
-                    v-model="confirmationForm.meetingDate"
-                    type="datetime-local"
-                    placeholder="请选择会议日期"
+                    v-model="confirmationForm.meetingLocation"
+                    placeholder="请输入会议地点"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="会议地点">
-              <ElInput
-                v-model="confirmationForm.meetingLocation"
-                placeholder="请输入会议地点"
-                style="width: 100%"
-              />
-            </ElFormItem>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">异议信息</h4>
-            </div>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="是否有异议">
-                  <ElSelect
-                    v-model="confirmationForm.hasObjection"
-                    placeholder="请选择是否有异议"
-                    style="width: 100%"
-                  >
-                    <ElOption label="否" value="0" />
-                    <ElOption label="是" value="1" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="异议人">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="异议信息" name="objection">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="是否有异议">
+                      <ElSelect
+                        v-model="confirmationForm.hasObjection"
+                        placeholder="请选择是否有异议"
+                        style="width: 100%"
+                      >
+                        <ElOption label="否" :value="false" />
+                        <ElOption label="是" :value="true" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="异议人">
+                      <ElInput
+                        v-model="confirmationForm.objector"
+                        placeholder="请输入异议人"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="异议原因">
                   <ElInput
-                    v-model="confirmationForm.objector"
-                    placeholder="请输入异议人"
+                    v-model="confirmationForm.objectionReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入异议原因"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="异议原因">
-              <ElInput
-                v-model="confirmationForm.objectionReason"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入异议原因"
-                style="width: 100%"
-              />
-            </ElFormItem>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="异议金额">
-                  <ElInput
-                    v-model="confirmationForm.objectionAmount"
-                    type="number"
-                    placeholder="请输入异议金额"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="异议日期">
-                  <ElInput
-                    v-model="confirmationForm.objectionDate"
-                    type="datetime-local"
-                    placeholder="请选择异议日期"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="异议金额">
+                      <ElInput
+                        v-model="confirmationForm.objectionAmount"
+                        type="number"
+                        placeholder="请输入异议金额"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="异议日期">
+                      <ElInput
+                        v-model="confirmationForm.objectionDate"
+                        type="datetime-local"
+                        placeholder="请选择异议日期"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">协商信息</h4>
-            </div>
-            <ElFormItem label="协商结果">
-              <ElInput
-                v-model="confirmationForm.negotiationResult"
-                placeholder="请输入协商结果"
-                style="width: 100%"
-              />
-            </ElFormItem>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="协商日期">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="协商信息" name="negotiation">
+                <ElFormItem label="协商结果">
                   <ElInput
-                    v-model="confirmationForm.negotiationDate"
-                    type="datetime-local"
-                    placeholder="请选择协商日期"
+                    v-model="confirmationForm.negotiationResult"
+                    placeholder="请输入协商结果"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="协商参与人">
-                  <ElInput
-                    v-model="confirmationForm.negotiationParticipants"
-                    placeholder="请输入协商参与人"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="协商日期">
+                      <ElInput
+                        v-model="confirmationForm.negotiationDate"
+                        type="datetime-local"
+                        placeholder="请选择协商日期"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="协商参与人">
+                      <ElInput
+                        v-model="confirmationForm.negotiationParticipants"
+                        placeholder="请输入协商参与人"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">法院裁定信息</h4>
-            </div>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="裁定日期">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="法院裁定信息" name="court">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="裁定日期">
+                      <ElInput
+                        v-model="confirmationForm.courtRulingDate"
+                        type="datetime-local"
+                        placeholder="请选择裁定日期"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="裁定编号">
+                      <ElInput
+                        v-model="confirmationForm.courtRulingNo"
+                        placeholder="请输入裁定编号"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="裁定结果">
                   <ElInput
-                    v-model="confirmationForm.courtRulingDate"
-                    type="datetime-local"
-                    placeholder="请选择裁定日期"
+                    v-model="confirmationForm.courtRulingResult"
+                    placeholder="请输入裁定结果"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="裁定编号">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="裁定金额">
+                      <ElInput
+                        v-model="confirmationForm.courtRulingAmount"
+                        type="number"
+                        placeholder="请输入裁定金额"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="裁定备注">
                   <ElInput
-                    v-model="confirmationForm.courtRulingNo"
-                    placeholder="请输入裁定编号"
+                    v-model="confirmationForm.courtRulingNotes"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入裁定备注"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="裁定结果">
-              <ElInput
-                v-model="confirmationForm.courtRulingResult"
-                placeholder="请输入裁定结果"
-                style="width: 100%"
-              />
-            </ElFormItem>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="裁定金额">
-                  <ElInput
-                    v-model="confirmationForm.courtRulingAmount"
-                    type="number"
-                    placeholder="请输入裁定金额"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="裁定备注">
-              <ElInput
-                v-model="confirmationForm.courtRulingNotes"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入裁定备注"
-                style="width: 100%"
-              />
-            </ElFormItem>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">诉讼信息</h4>
-            </div>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="是否有诉讼">
-                  <ElSelect
-                    v-model="confirmationForm.hasLawsuit"
-                    placeholder="请选择是否有诉讼"
-                    style="width: 100%"
-                  >
-                    <ElOption label="否" value="0" />
-                    <ElOption label="是" value="1" />
-                  </ElSelect>
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="案号">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="诉讼信息" name="lawsuit">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="是否有诉讼">
+                      <ElSelect
+                        v-model="confirmationForm.hasLawsuit"
+                        placeholder="请选择是否有诉讼"
+                        style="width: 100%"
+                      >
+                        <ElOption label="否" :value="false" />
+                        <ElOption label="是" :value="true" />
+                      </ElSelect>
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="案号">
+                      <ElInput
+                        v-model="confirmationForm.lawsuitCaseNo"
+                        placeholder="请输入案号"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="诉讼状态">
+                      <ElInput
+                        v-model="confirmationForm.lawsuitStatus"
+                        placeholder="请输入诉讼状态"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="12">
+                    <ElFormItem label="诉讼结果">
+                      <ElInput
+                        v-model="confirmationForm.lawsuitResult"
+                        placeholder="请输入诉讼结果"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="诉讼金额">
+                      <ElInput
+                        v-model="confirmationForm.lawsuitAmount"
+                        type="number"
+                        placeholder="请输入诉讼金额"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="诉讼备注">
                   <ElInput
-                    v-model="confirmationForm.lawsuitCaseNo"
-                    placeholder="请输入案号"
+                    v-model="confirmationForm.lawsuitNotes"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入诉讼备注"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="诉讼状态">
-                  <ElInput
-                    v-model="confirmationForm.lawsuitStatus"
-                    placeholder="请输入诉讼状态"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-              <ElCol :span="12">
-                <ElFormItem label="诉讼结果">
-                  <ElInput
-                    v-model="confirmationForm.lawsuitResult"
-                    placeholder="请输入诉讼结果"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="诉讼金额">
-                  <ElInput
-                    v-model="confirmationForm.lawsuitAmount"
-                    type="number"
-                    placeholder="请输入诉讼金额"
-                    style="width: 100%"
-                  />
-                </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="诉讼备注">
-              <ElInput
-                v-model="confirmationForm.lawsuitNotes"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入诉讼备注"
-                style="width: 100%"
-              />
-            </ElFormItem>
+              </ElCollapseItem>
+            </ElCollapse>
 
-            <div class="section-divider mb-4">
-              <h4 class="section-title">最终确认信息</h4>
-            </div>
-            <ElRow :gutter="20">
-              <ElCol :span="12">
-                <ElFormItem label="最终确认日期">
+            <ElCollapse v-model="confirmationCollapseActive" class="mb-4" @change="handleConfirmationCollapseChange">
+              <ElCollapseItem title="最终确认信息" name="final">
+                <ElRow :gutter="20">
+                  <ElCol :span="12">
+                    <ElFormItem label="最终确认日期">
+                      <ElInput
+                        v-model="confirmationForm.finalConfirmationDate"
+                        type="datetime-local"
+                        placeholder="请选择最终确认日期"
+                        style="width: 100%"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+                <ElFormItem label="最终确认依据">
                   <ElInput
-                    v-model="confirmationForm.finalConfirmationDate"
-                    type="datetime-local"
-                    placeholder="请选择最终确认日期"
+                    v-model="confirmationForm.finalConfirmationBasis"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请输入最终确认依据"
                     style="width: 100%"
                   />
                 </ElFormItem>
-              </ElCol>
-            </ElRow>
-            <ElFormItem label="最终确认依据">
-              <ElInput
-                v-model="confirmationForm.finalConfirmationBasis"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入最终确认依据"
-                style="width: 100%"
-              />
-            </ElFormItem>
+              </ElCollapseItem>
+            </ElCollapse>
 
           <div class="section-divider mb-4">
             <h4 class="section-title">附件上传</h4>
@@ -971,19 +982,6 @@ onMounted(() => {
                 title="债权确认附件"
                 :disabled="false"
               />
-            </ElCol>
-          </ElRow>
-
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="备注">
-                <ElInput
-                  v-model="confirmationForm.remarks"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="请输入备注"
-                />
-              </ElFormItem>
             </ElCol>
           </ElRow>
         </ElForm>

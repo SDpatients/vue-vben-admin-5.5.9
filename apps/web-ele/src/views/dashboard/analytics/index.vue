@@ -62,9 +62,8 @@ const translateProgress = (progress: string): string => {
     SECOND: '第二阶段',
     THIRD: '第三阶段',
     FOURTH: '第四阶段',
-    第一阶段: '第一阶段',
-    第二阶段: '第二阶段',
-    第五阶段: '第五阶段',
+    FIFTH: '第五阶段',
+    SIXTH: '第六阶段',
   };
   return progressMap[progress] || progress;
 };
