@@ -298,7 +298,7 @@ const stages = [
       },
       {
         code: 'TASK_024',
-        name: '破产费用与共同利益债务',
+        name: '破产费用与共益债务',
         description: '管理人审核确认破产费用和共益债务。需上传：1.破产费用清单；2.共益债务清单；3.费用支出凭证；4.审核意见。需确认：1.费用是否真实发生；2.是否符合法律规定的范围；3.支出是否合理必要。'
       },
       {
@@ -460,14 +460,7 @@ const saveWorkLog = async () => {
       };
       const response = await updateWorkLogApi(currentWorkLogId.value, logData);
       if (response.code === 200) {
-        // 1. 首先转移手机上传的临时文件（如果有）
-        if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
-          console.log('发现手机上传的临时文件，开始转移...');
-          const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
-          console.log('转移成功的文件:', transferredFiles);
-        }
-        
-        // 2. 上传本地文件（电脑选择的文件）
+        // 上传本地文件
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
@@ -488,15 +481,7 @@ const saveWorkLog = async () => {
       const response = await createWorkLogApi(logData);
       if (response.code === 200 && response.data) {
         const workLogId = response.data.id;
-        
-        // 1. 首先转移手机上传的临时文件（如果有）
-        if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
-          console.log('发现手机上传的临时文件，开始转移...');
-          const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
-          console.log('转移成功的文件:', transferredFiles);
-        }
-        
-        // 2. 上传本地文件（电脑选择的文件）
+        // 上传本地文件
         if (fileUploadRef.value && workLogForm.files.length > 0) {
           await fileUploadRef.value.uploadLocalFiles(workLogId);
         }
