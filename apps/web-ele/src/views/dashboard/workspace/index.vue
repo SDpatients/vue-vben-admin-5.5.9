@@ -159,6 +159,18 @@ const showAnnouncementDetailDialog = ref(false);
 const announcementDetail = ref<Announcement | null>(null);
 const detailLoading = ref(false);
 
+const priorityMap: Record<string, string> = {
+  'HIGH': '高',
+  'MEDIUM': '中',
+  'LOW': '低'
+};
+
+const statusMap: Record<string, string> = {
+  'PENDING': '待处理',
+  'COMPLETED': '已完成',
+  'CANCELLED': '已取消'
+};
+
 // FullCalendar 日历相关
 const FullCalendar_ref = ref();
 const calendarOptions = ref({
@@ -172,20 +184,76 @@ const calendarOptions = ref({
     right: ''
   },
   events: [],
-  eventClick: (info) => {
-    console.log('Event clicked:', info.event);
-    // 点击事件时显示详情窗口
-    showTodoDetail(info.event);
-  },
-  eventMouseEnter: (info) => {
-    console.log('Event mouse enter:', info.event);
-    // 鼠标进入事件时显示详情窗口
-    showTodoDetail(info.event);
-  },
-  eventDoubleClick: (info) => {
-    console.log('Event double clicked:', info.event);
-    // 双击事件时显示详情窗口
-    showTodoDetail(info.event);
+  eventDidMount: (info: any) => {
+    const event = info.event;
+    const extendedProps = event.extendedProps;
+    
+    let tooltipContent = `<div style="padding: 8px;"><strong>${event.title}</strong>`;
+    
+    if (extendedProps.priority) {
+      tooltipContent += `<br/>优先级：${priorityMap[extendedProps.priority] || extendedProps.priority}`;
+    }
+    
+    if (extendedProps.status) {
+      tooltipContent += `<br/>状态：${statusMap[extendedProps.status] || extendedProps.status}`;
+    }
+    
+    if (event.start) {
+      tooltipContent += `<br/>截止时间：${new Date(event.start).toLocaleString('zh-CN')}`;
+    }
+    
+    if (extendedProps.description) {
+      tooltipContent += `<br/>描述：${extendedProps.description}`;
+    }
+    
+    tooltipContent += '</div>';
+    
+    info.el.setAttribute('title', '');
+    
+    let tooltipEl: HTMLElement | null = null;
+    
+    info.el.addEventListener('mouseenter', () => {
+      if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.className = 'fc-tooltip';
+        tooltipEl.innerHTML = tooltipContent;
+        tooltipEl.style.cssText = `
+          position: absolute;
+          background: #303133;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 13px;
+          max-width: 300px;
+          word-wrap: break-word;
+          z-index: 9999;
+          pointer-events: none;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(tooltipEl);
+      }
+      
+      const rect = info.el.getBoundingClientRect();
+      if (tooltipEl) {
+        tooltipEl.style.left = `${rect.left}px`;
+        tooltipEl.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+      }
+    });
+    
+    info.el.addEventListener('mousemove', () => {
+      const rect = info.el.getBoundingClientRect();
+      if (tooltipEl) {
+        tooltipEl.style.left = `${rect.left}px`;
+        tooltipEl.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+      }
+    });
+    
+    info.el.addEventListener('mouseleave', () => {
+      if (tooltipEl) {
+        tooltipEl.remove();
+        tooltipEl = null;
+      }
+    });
   },
   dateClick: (info) => {
     console.log('Date clicked:', info.dateStr);
@@ -1995,22 +2063,24 @@ onMounted(async () => {
     <ElDialog
       v-model="showTodoDetailDialog"
       title="待办事项详情"
-      width="500px"
+      width="400px"
       destroy-on-close
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
     >
       <div v-if="selectedTodo" class="todo-detail-container">
         <div class="detail-item">
-          <div class="label">标题：</div>
+          <div class="label">标题</div>
           <div class="value">{{ selectedTodo.title }}</div>
         </div>
         <div class="detail-item">
-          <div class="label">优先级：</div>
+          <div class="label">优先级</div>
           <div class="value">
             <ElTag :type="{
               'HIGH': 'danger',
               'MEDIUM': 'warning',
               'LOW': 'success'
-            }[selectedTodo.priority] || 'info'">
+            }[selectedTodo.priority] || 'info'" size="small">
               {{ {
                 'HIGH': '高',
                 'MEDIUM': '中',
@@ -2020,13 +2090,13 @@ onMounted(async () => {
           </div>
         </div>
         <div class="detail-item">
-          <div class="label">状态：</div>
+          <div class="label">状态</div>
           <div class="value">
             <ElTag :type="{
               'PENDING': 'warning',
               'COMPLETED': 'success',
               'CANCELLED': 'info'
-            }[selectedTodo.status] || 'info'">
+            }[selectedTodo.status] || 'info'" size="small">
               {{ {
                 'PENDING': '待处理',
                 'COMPLETED': '已完成',
@@ -2036,20 +2106,15 @@ onMounted(async () => {
           </div>
         </div>
         <div class="detail-item">
-          <div class="label">截止时间：</div>
-          <div class="value">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '无' }}</div>
+          <div class="label">截止时间</div>
+          <div class="value text-sm">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '无' }}</div>
         </div>
-        <div class="detail-item">
-          <div class="label">描述：</div>
-          <div class="value">{{ selectedTodo.description || '无' }}</div>
+        <div v-if="selectedTodo.description" class="detail-item">
+          <div class="label">描述</div>
+          <div class="value text-sm">{{ selectedTodo.description }}</div>
         </div>
       </div>
-      <ElEmpty v-else description="暂无详情" />
-      <template #footer>
-        <div class="dialog-footer">
-          <ElButton @click="showTodoDetailDialog = false">关闭</ElButton>
-        </div>
-      </template>
+      <ElEmpty v-else description="暂无详情" :image-size="80" />
     </ElDialog>
 
     <!-- 日期数据详情对话框 -->
@@ -2601,28 +2666,30 @@ onMounted(async () => {
 
 /* 待办事项详情对话框样式 */
 .todo-detail-container {
-  padding: 20px 0;
+  padding: 10px 0;
 }
 
 .detail-item {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   align-items: flex-start;
 }
 
 .detail-item .label {
-  width: 80px;
+  width: 70px;
   font-weight: 500;
-  color: #606266;
+  color: #909399;
   flex-shrink: 0;
-  padding-top: 4px;
+  padding-top: 2px;
+  font-size: 14px;
 }
 
 .detail-item .value {
   flex: 1;
   color: #303133;
   word-break: break-word;
-  padding-top: 4px;
+  padding-top: 2px;
+  font-size: 14px;
 }
 
 .detail-item .value :deep(.el-tag) {
