@@ -26,8 +26,6 @@ import {
   getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
-  updateAnnouncementApi,
-  uploadAnnouncementAttachmentsApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
 import { fileUploadRequestClient, workTeamRequestClient } from '#/api/request';
@@ -111,8 +109,6 @@ const previewUrl = ref('');
 // 发布公告相关
 const showPublishDialog = ref(false);
 const publishLoading = ref(false);
-const isEditing = ref(false);
-const currentEditId = ref<number | null>(null);
 const publishForm = ref({
   caseId: 0,
   caseNumber: '',
@@ -354,10 +350,7 @@ const copyAttachmentData = () => {
 };
 
 // 打开发布公告对话框
-// 打开发布公告对话框
 const openPublishDialog = () => {
-  isEditing.value = false;
-  currentEditId.value = null;
   showPublishDialog.value = true;
   // 重置表单
   publishForm.value = {
@@ -371,46 +364,11 @@ const openPublishDialog = () => {
   };
 };
 
-// 打开编辑公告对话框
-const openEditDialog = async (announcement: Announcement) => {
-  isEditing.value = true;
-  currentEditId.value = announcement.id;
-  showPublishDialog.value = true;
-  
-  // 填充表单数据
-  publishForm.value = {
-    caseId: announcement.caseId,
-    caseNumber: announcement.caseNumber || '',
-    principalOfficer: announcement.principalOfficer || '',
-    title: announcement.title,
-    content: announcement.content,
-    announcementType: announcement.announcementType as 'ANNOUNCEMENT' | 'NOTICE' | 'WARNING',
-    attachments: [],
-  };
-  
-  // 获取现有附件
-  try {
-    const attachmentsResponse = await getAnnouncementAttachmentsApi(announcement.id);
-    if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
-      publishForm.value.attachments = attachmentsResponse.data.map((attach: any) => ({
-        id: attach.id,
-        originalFileName: attach.originalFileName,
-        fileSize: attach.fileSize,
-        fileExtension: attach.fileExtension,
-        mimeType: attach.mimeType,
-        uploadTime: attach.uploadTime,
-      }));
-    }
-  } catch (error) {
-    console.error('获取附件列表失败:', error);
-  }
-};
+
 
 // 关闭发布公告对话框
 const closePublishDialog = () => {
   showPublishDialog.value = false;
-  isEditing.value = false;
-  currentEditId.value = null;
 };
 
 // 处理本地文件变化
@@ -467,8 +425,6 @@ const submitPublishForm = async () => {
     caseNumber: publishForm.value.caseNumber,
     principalOfficer: publishForm.value.principalOfficer,
     title: publishForm.value.title,
-    isEditing: isEditing.value,
-    currentEditId: currentEditId.value,
   });
   
   if (!publishFormRef.value) {
@@ -518,67 +474,6 @@ const submitPublishForm = async () => {
       localFiles: localFiles.map(f => f.originalFileName),
     });
 
-    if (isEditing.value && currentEditId.value) {
-      console.log('✏️ [调试] 进入编辑模式，currentEditId:', currentEditId.value);
-      // 编辑模式
-      const requestData: any = {
-        caseId: publishForm.value.caseId,
-        title: publishForm.value.title,
-        content: publishForm.value.content,
-        announcementType: publishForm.value.announcementType,
-      };
-
-      // 处理文件上传
-      if (mobileFiles.length > 0 || localFiles.length > 0) {
-        // 上传新文件
-        const filesToUpload = localFiles.map(item => item.file);
-        
-        console.log('📤 [调试] 准备上传本地文件:', {
-          filesCount: filesToUpload.length,
-          files: filesToUpload.map(f => ({
-            name: f?.name,
-            size: f?.size,
-            type: f?.type,
-          })),
-        });
-        
-        if (filesToUpload.length > 0) {
-          console.log('⏳ [调试] 开始调用 uploadAnnouncementAttachmentsApi');
-          const uploadResponse = await uploadAnnouncementAttachmentsApi(
-            currentEditId.value,
-            filesToUpload,
-          );
-          console.log('📥 [调试] uploadAnnouncementAttachmentsApi 响应:', uploadResponse);
-          
-          if (uploadResponse.code === 200) {
-            console.log('✅ [调试] 本地文件上传成功');
-          } else {
-            console.error('❌ [调试] 本地文件上传失败:', uploadResponse);
-          }
-        }
-        
-        // 转移手机上传的文件
-        if (mobileFiles.length > 0 && fileUploadRef.value) {
-          console.log('📱 [调试] 准备转移手机上传文件，数量:', mobileFiles.length);
-          console.log('⏳ [调试] 开始调用 transferMobileFiles, announcementId:', currentEditId.value);
-          await fileUploadRef.value.transferMobileFiles(currentEditId.value);
-          console.log('✅ [调试] 手机文件转移完成');
-        }
-      }
-
-      // 更新公告
-      console.log('⏳ [调试] 开始调用 updateAnnouncementApi');
-      const response = await updateAnnouncementApi(currentEditId.value, requestData);
-      console.log('📥 [调试] updateAnnouncementApi 响应:', response);
-      
-      if (response.code === 200) {
-        ElMessage.success('公告更新成功');
-        closePublishDialog();
-        fetchAnnouncements();
-      } else {
-        ElMessage.error(response.message || '公告更新失败');
-      }
-    } else {
       console.log('➕ [调试] 进入新增模式');
       
       // 检查是否有文件需要上传
@@ -740,7 +635,6 @@ const submitPublishForm = async () => {
         closePublishDialog();
         fetchAnnouncements();
       }
-    }
   } catch (error) {
     console.error('❌ [调试] 发布公告失败，错误详情:', error);
     ElMessage.error('发布公告失败，请稍后重试');
@@ -874,13 +768,6 @@ onMounted(() => {
                     @click="viewAnnouncementDetail(item)"
                   >
                     查看详情
-                  </ElButton>
-                  <ElButton
-                    type="success"
-                    size="small"
-                    @click="openEditDialog(item)"
-                  >
-                    编辑
                   </ElButton>
                 </div>
               </div>

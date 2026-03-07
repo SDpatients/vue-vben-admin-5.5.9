@@ -91,9 +91,9 @@ const handleConfirmApproval = async () => {
 
   try {
     await approvalApi.approve(approval.value.id, {
-      approvalResult: approvalAction.value === 'approve' ? 'PASS' : 'FAIL',
+      approvalResult: approvalAction.value === 'approve' ? 'PASS' : 'REJECT',
       approvalOpinion: approvalOpinion.value,
-      approverId: 1,
+      approverId: Number(localStorage.getItem('user_id') || '0'),
     });
     ElMessage.success(
       approvalAction.value === 'approve' ? '审批通过' : '已驳回',
@@ -101,9 +101,10 @@ const handleConfirmApproval = async () => {
     approvalDialogVisible.value = false;
     await loadApprovalDetail();
     await loadApprovalHistory();
-  } catch (error) {
+  } catch (error: any) {
     console.error('审批操作失败:', error);
-    ElMessage.error('审批操作失败');
+    const errorMsg = error?.response?.data?.message || error?.message || '审批操作失败';
+    ElMessage.error(errorMsg);
   }
 };
 

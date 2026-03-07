@@ -95,6 +95,17 @@ const voteItems = ref([]);
 const isLoadingVoteItems = ref(false);
 const isLoadingVideoTags = ref(false);
 
+// 当前会议数据
+const currentMeetingData = ref({
+  title: '',
+  meetingName: '',
+  date: '',
+  creator: ''
+});
+
+// 当前会议ID
+const currentMeetingId = ref(0);
+
 // 添加投票项弹窗
 const showAddVoteDialog = ref(false);
 const newVoteItem = ref({
@@ -129,13 +140,13 @@ const saveNewVoteItem = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        meetingId: 1,
+        meetingId: currentMeetingId.value,
         itemName: newVoteItem.value.name,
         agreeCount: newVoteItem.value.agree || 0,
         opposeCount: newVoteItem.value.oppose || 0,
         abstainCount: newVoteItem.value.abstain || 0,
         remark: newVoteItem.value.remark || '待表决',
-        createUserId: 10 // 假设当前用户ID为10
+        createUserId: Number(localStorage.getItem('user_id') || '0')
       })
     });
     
@@ -150,7 +161,7 @@ const saveNewVoteItem = async () => {
     resetNewVoteItem();
     
     // 重新获取投票项数据，确保显示最新数据
-    await fetchVoteItems();
+    await fetchVoteItems(currentMeetingId.value);
     
     ElMessage.success('投票项添加成功');
   } catch (error) {
@@ -351,12 +362,31 @@ const fetchVideoTags = async (meetingId = 1) => {
 };
 
 // 打开会议数据弹窗时加载数据
-const openMeetingDialog = () => {
+const openMeetingDialog = (meetingId: number, meetingData: any = null) => {
+  currentMeetingId.value = meetingId;
+  
+  // 从任务数据中获取会议信息
+  if (meetingData) {
+    currentMeetingData.value = {
+      title: meetingData.title || '会议数据',
+      meetingName: meetingData.title || '债权人会议',
+      date: meetingData.date || '',
+      creator: meetingData.creator || ''
+    };
+  } else {
+    currentMeetingData.value = {
+      title: '会议数据',
+      meetingName: '债权人会议',
+      date: '',
+      creator: ''
+    };
+  }
+  
   showMeetingDialog.value = true;
   // 延迟加载数据，确保弹窗已渲染
   setTimeout(() => {
-    fetchVoteItems();
-    fetchVideoTags();
+    fetchVoteItems(meetingId);
+    fetchVideoTags(meetingId);
   }, 100);
 };
 
@@ -378,6 +408,16 @@ const formData = ref({
   content: '',
   date: '',
 });
+
+// 会议标题下拉选项
+const meetingTitleOptions = [
+  { label: '第一次债权人会议', value: '第一次债权人会议' },
+  { label: '第二次债权人会议', value: '第二次债权人会议' },
+  { label: '第三次债权人会议', value: '第三次债权人会议' },
+  { label: '第四次债权人会议', value: '第四次债权人会议' },
+  { label: '第五次债权人会议', value: '第五次债权人会议' },
+  { label: '普通会议', value: '普通会议' }
+];
 
 const formRules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -1084,11 +1124,18 @@ const loadAllStageData = async () => {
         // 4. 分配数据到对应的模块
         response.data.content.forEach((task) => {
           for (const stage of stages) {
-            const module = stage.modules.find(
-              (m) =>
-                m.title.includes(task.taskName) ||
-                task.taskName.includes(m.title),
+            // 优先匹配完全匹配的模块
+            let module = stage.modules.find(
+              (m) => m.title === task.taskName || task.taskName === m.title
             );
+            
+            // 如果没有完全匹配，再匹配包含关系
+            if (!module) {
+              module = stage.modules.find(
+                (m) =>
+                  m.title.includes(task.taskName) || task.taskName.includes(m.title),
+              );
+            }
 
             if (module) {
               module.task = task;
@@ -1315,6 +1362,13 @@ const stages = [
         data: [],
       },
       {
+        id: '2-1-1',
+        title: '管理人印章',
+        description: '管理人刻制、使用和管理印章',
+        fields: ['标题', '类型', '内容', '创建人', '日期'],
+        data: [],
+      },
+      {
         id: '2-2',
         title: '调查财产及经营状况',
         description: '管理人调查债务人的财产状况和经营状况',
@@ -1372,7 +1426,7 @@ const stages = [
     modules: [
       {
         id: '4-1',
-        title: '筹备第一次债权人会议',
+        title: '会议',
         description: '管理人筹备第一次债权人会议',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
@@ -1524,7 +1578,10 @@ const loadStageData = async (stageIndex: number) => {
       const stageTasks = response.data.content.filter((task) => {
         return stages[stageIndex].modules.some(
           (m) =>
-            m.title.includes(task.taskName) || task.taskName.includes(m.title),
+            m.title === task.taskName || 
+            task.taskName === m.title ||
+            m.title.includes(task.taskName) || 
+            task.taskName.includes(m.title),
         );
       });
 
@@ -1551,10 +1608,18 @@ const loadStageData = async (stageIndex: number) => {
 
         // 分配数据到对应的模块
         stageTasks.forEach((task) => {
-          const module = stages[stageIndex].modules.find(
-            (m) =>
-              m.title.includes(task.taskName) || task.taskName.includes(m.title),
+          // 优先匹配完全匹配的模块
+          let module = stages[stageIndex].modules.find(
+            (m) => m.title === task.taskName || task.taskName === m.title
           );
+          
+          // 如果没有完全匹配，再匹配包含关系
+          if (!module) {
+            module = stages[stageIndex].modules.find(
+              (m) =>
+                m.title.includes(task.taskName) || task.taskName.includes(m.title),
+            );
+          }
 
           if (module) {
             module.task = task;
@@ -1918,39 +1983,6 @@ const goBack = () => {
   router.back();
 };
 
-const addMeetingModule = () => {
-  // 确保在债权人会议阶段
-  if (activeStage.value !== 3) return;
-  
-  const meetingStage = stages[3];
-  if (!meetingStage) return;
-  
-  // 计算现有会议模块数量
-  const existingMeetingModules = meetingStage.modules.filter(module => 
-    module.title.includes('债权人会议')
-  );
-  
-  // 计算新会议编号
-  const meetingNumber = existingMeetingModules.length + 1;
-  
-  // 创建新模块，复制"筹备第一次债权人会议"的结构
-  const newModule = {
-    id: `4-${meetingStage.modules.length + 1}`, // 自动计算新id，避免冲突
-    title: `筹备第${meetingNumber}次债权人会议`,
-    description: `管理人筹备第${meetingNumber}次债权人会议`,
-    fields: ['标题', '类型', '内容', '创建人', '日期'],
-    data: [],
-  };
-  
-  // 将新模块添加到数组中
-  meetingStage.modules.push(newModule);
-  
-  // 如果没有选中的模块，自动选中新添加的模块
-  if (!selectedModule.value) {
-    selectedModule.value = newModule;
-  }
-};
-
 // 打开手机上传二维码弹窗
 const openMobileUploadDialog = async () => {
   if (!currentItem.value) {
@@ -2301,17 +2333,6 @@ const closeQrCodeDialog = () => {
                 </div>
               </div>
             </div>
-            <div v-if="activeStage === 3" class="add-meeting-button">
-              <ElButton
-                type="primary"
-                size="small"
-                plain
-                @click="addMeetingModule"
-              >
-                <Icon icon="lucide:plus" class="mr-1" />
-                添加债权人会议
-              </ElButton>
-            </div>
           </div>
         </div>
 
@@ -2327,8 +2348,8 @@ const closeQrCodeDialog = () => {
                 @updateTaskStatus="handleUpdateTaskStatus"
               />
             </div>
-            <!-- 第四阶段的筹备债权人会议模块 -->
-            <div v-else-if="activeStage === 3 && selectedModule.title.includes('筹备') && selectedModule.title.includes('债权人会议')">
+            <!-- 第四阶段的会议模块 -->
+            <div v-else-if="activeStage === 3 && selectedModule.id === '4-1'">
               <ElCard class="module-detail-card" shadow="hover">
                 <template #header>
                   <div class="module-detail-header">
@@ -2390,14 +2411,6 @@ const closeQrCodeDialog = () => {
                           <Icon icon="lucide:plus" class="mr-1" />
                           新增
                         </ElButton>
-                        <ElButton
-                          type="info"
-                          size="small"
-                          @click="openMeetingDialog"
-                        >
-                          <Icon icon="lucide:bar-chart-2" class="mr-1" />
-                          会议数据
-                        </ElButton>
                       </div>
                     </div>
                   </div>
@@ -2427,6 +2440,15 @@ const closeQrCodeDialog = () => {
                         >
                           <Icon icon="lucide:trash-2" class="mr-1" />
                           删除
+                        </ElButton>
+                        <ElButton
+                          v-if="selectedDataItem"
+                          type="info"
+                          size="small"
+                          @click="openMeetingDialog(selectedDataItem.id, selectedDataItem)"
+                        >
+                          <Icon icon="lucide:bar-chart-2" class="mr-1" />
+                          会议数据
                         </ElButton>
                         <ElButton
                           v-if="selectedDataItem"
@@ -2617,6 +2639,15 @@ const closeQrCodeDialog = () => {
                         <Icon icon="lucide:plus" class="mr-1" />
                         新增
                       </ElButton>
+                      <ElButton
+                        v-if="activeStage === 1 && selectedModule.id === '2-4'"
+                        type="warning"
+                        size="small"
+                        @click="openSealManagementDialog"
+                      >
+                        <Icon icon="lucide:stamp" class="mr-1" />
+                        管理人印章
+                      </ElButton>
                     </div>
                   </div>
                 </div>
@@ -2802,7 +2833,26 @@ const closeQrCodeDialog = () => {
             label-width="100px"
           >
             <ElFormItem label="标题" prop="title">
+              <!-- 只有主会议模块使用下拉选择框 -->
+              <ElSelect
+                v-if="currentModule && currentModule.id === '4-1'"
+                v-model="formData.title"
+                placeholder="请选择或输入标题"
+                filterable
+                allow-create
+                style="width: 100%"
+                :disabled="isEditMode"
+              >
+                <ElOption
+                  v-for="option in meetingTitleOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </ElSelect>
+              <!-- 其他模块使用输入框 -->
               <ElInput
+                v-else
                 v-model="formData.title"
                 placeholder="请输入标题"
                 :autosize="false"
@@ -3027,7 +3077,7 @@ const closeQrCodeDialog = () => {
     <!-- 会议数据弹窗 -->
     <ElDialog
       v-model="showMeetingDialog"
-      title="第一次债权人会议"
+      :title="currentMeetingData.title"
       width="1200px"
       destroy-on-close
     >
@@ -3037,19 +3087,15 @@ const closeQrCodeDialog = () => {
             <div class="meeting-basic-info">
               <div class="info-row">
                 <span class="info-label">会议名称:</span>
-                <span class="info-value">第一次债权人会议</span>
+                <span class="info-value">{{ currentMeetingData.meetingName }}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">会议日期:</span>
-                <span class="info-value">2026-01-15</span>
+                <span class="info-value">{{ currentMeetingData.date }}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">记录人:</span>
-                <span class="info-value">张三</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">统计时间:</span>
-                <span class="info-value">2026-01-15 14:30:00</span>
+                <span class="info-value">{{ currentMeetingData.creator }}</span>
               </div>
             </div>
 

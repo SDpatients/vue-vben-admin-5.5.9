@@ -199,6 +199,11 @@ const stages = [
         description: '管理人全面接管债务人的财产、印章、账簿、文书等资料。需上传：1.接管清单（详细列明接管的财产、资料等）；2.接管笔录；3.债务人法定代表人或负责人的配合情况说明。需确认：1.接管是否全面彻底；2.所有资料是否真实完整；3.接管程序是否合法合规。'
       },
       {
+        code: 'TASK_006_1',
+        name: '管理人印章',
+        description: '管理人刻制、使用和管理印章。需上传：1.印章刻制申请；2.印章样式；3.印章使用管理制度；4.印章使用记录。需确认：1.印章刻制是否符合规定；2.印章使用是否规范；3.管理制度是否健全。'
+      },
+      {
         code: 'TASK_007',
         name: '调查财产及经营状况',
         description: '管理人调查债务人的财产状况、经营状况等。需上传：1.财产状况调查报告；2.经营状况调查报告；3.债权债务清册；4.资产负债表；5.审计报告（如有）。需确认：1.调查是否全面深入；2.报告内容是否真实准确；3.是否发现财产线索或债务问题。'
@@ -861,6 +866,20 @@ const mapApprovalStatus = (status: string) => {
   return statusMap[status] || status;
 };
 
+// 映射审批类型
+const mapApprovalType = (type: string) => {
+  if (type === 'DOCUMENT_DELIVERY') {
+    return '文书审批';
+  }
+  if (type?.startsWith('TASK_')) {
+    return '流程审批';
+  }
+  if (type === 'CASE_SUBMIT') {
+    return '案件审批';
+  }
+  return type || '';
+};
+
 const submitReview = async () => {
   submittingReview.value = true;
   try {
@@ -1059,16 +1078,9 @@ const approvalSubmitForm = reactive({
 
 // 文书类型选项
 const documentTypeOptions = [
-  { label: '起诉状', value: '起诉状' },
-  { label: '答辩状', value: '答辩状' },
-  { label: '上诉状', value: '上诉状' },
-  { label: '申请书', value: '申请书' },
-  { label: '通知书', value: '通知书' },
-  { label: '判决书', value: '判决书' },
-  { label: '裁定书', value: '裁定书' },
-  { label: '调解书', value: '调解书' },
-  { label: '决定书', value: '决定书' },
-  { label: '其他', value: '其他' },
+  { label: '管理人文书', value: '管理人文书' },
+  { label: '法院文书', value: '法院文书' },
+  { label: '其他文书', value: '其他文书' },
 ];
 
 // 受送达人类型选项
@@ -7980,7 +7992,7 @@ const endDrag = () => {
             >
               <ElTableColumn prop="approvalType" label="审批类型" width="120">
                 <template #default="scope">
-                  {{ scope.row.approvalType || '' }}
+                  {{ mapApprovalType(scope.row.approvalType) }}
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="approvalTitle" label="审批标题" width="200" />
