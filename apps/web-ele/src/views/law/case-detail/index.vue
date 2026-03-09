@@ -6233,7 +6233,13 @@ const endDrag = () => {
                       <div
                         style="font-size: 14px; font-weight: 600; color: #666"
                       >
-                        {{ formatDate(log.workDate) }}
+                        {{ formatDateOnly(log.workDate) }}
+                      </div>
+                      <div
+                        v-if="log.workResult"
+                        style="font-size: 14px; color: #666"
+                      >
+                        {{ log.workResult }}
                       </div>
                     </div>
                     <div style="display: flex; gap: 8px">
@@ -6272,37 +6278,7 @@ const endDrag = () => {
                       white-space: pre-wrap;
                     "
                   >
-                    <div
-                      style="
-                        font-weight: 600;
-                        margin-bottom: 8px;
-                        color: #2c3e50;
-                      "
-                    >
-                      工作内容：
-                    </div>
                     {{ log.workContent }}
-                  </div>
-                  <div
-                    v-if="log.workResult"
-                    style="
-                      margin-bottom: 12px;
-                      font-size: 14px;
-                      line-height: 1.6;
-                      color: #666;
-                      white-space: pre-wrap;
-                    "
-                  >
-                    <div
-                      style="
-                        font-weight: 600;
-                        margin-bottom: 8px;
-                        color: #2c3e50;
-                      "
-                    >
-                      工作结果：
-                    </div>
-                    {{ log.workResult }}
                   </div>
                   <div
                     v-if="log.remark"
@@ -6427,7 +6403,7 @@ const endDrag = () => {
                       color: #999;
                     "
                   >
-                    <span>创建时间：{{ formatDateTime(log.createTime) }}</span>
+                    <span>发布时间：{{ formatDateTime(log.createTime) }}</span>
                     <span v-if="log.updateTime !== log.createTime">
                       更新时间：{{ formatDateTime(log.updateTime) }}
                     </span>

@@ -234,10 +234,38 @@ const editRules = {
 const formRef = ref();
 
 // 搜索相关数据
+const searchAh = ref(''); // 案号
 const searchZqr = ref(''); // 债权人名称
-const searchZjhm = ref(''); // 证件号码
-const searchFddbr = ref(''); // 法定代表人
 const searchStatus = ref(''); // 状态
+
+// 搜索用案件列表
+const searchCaseList = ref<any[]>([]);
+const searchCaseLoading = ref(false);
+
+// 获取搜索用案件列表
+const getSearchCaseList = async () => {
+  searchCaseLoading.value = true;
+  try {
+    const response = await getCaseSimpleListApi({
+      page: 1,
+      size: 10000,
+      caseNumber: '',
+    });
+
+    searchCaseList.value =
+      response.code === 200 && response.data?.list ? response.data.list : [];
+  } catch (error) {
+    console.error('获取案件列表失败:', error);
+    searchCaseList.value = [];
+  } finally {
+    searchCaseLoading.value = false;
+  }
+};
+
+// 处理搜索案号选择
+const handleSearchCaseSelect = (value: string) => {
+  searchAh.value = value;
+};
 
 // 搜索功能
 const handleSearch = () => {
@@ -247,9 +275,8 @@ const handleSearch = () => {
 
 // 重置搜索
 const resetSearch = () => {
+  searchAh.value = '';
   searchZqr.value = '';
-  searchZjhm.value = '';
-  searchFddbr.value = '';
   searchStatus.value = '';
   pagination.value.page = 1;
   fetchCreditorList();
@@ -363,9 +390,8 @@ const fetchCreditorList = async () => {
     const params: CreditorApi.CreditorQueryParams = {
       pageNum: pagination.value.page,
       pageSize: pagination.value.pageSize,
+      caseNumber: searchAh.value,
       creditorName: searchZqr.value,
-      idNumber: searchZjhm.value,
-      legalRepresentative: searchFddbr.value,
       status: searchStatus.value,
     };
 
@@ -415,6 +441,7 @@ const handleRefresh = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  getSearchCaseList(); // 加载案件列表
   fetchCreditorList();
 });
 
@@ -951,23 +978,24 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
       <!-- 搜索区域 -->
       <div class="mb-4 rounded-lg bg-gray-50 p-4">
         <div class="flex flex-wrap gap-4">
+          <ElSelect
+            v-model="searchAh"
+            placeholder="请选择案号"
+            clearable
+            filterable
+            style="width: 250px"
+            @change="handleSearchCaseSelect"
+          >
+            <ElOption
+              v-for="item in searchCaseList"
+              :key="item.id"
+              :label="item.caseNumber"
+              :value="item.caseNumber"
+            />
+          </ElSelect>
           <ElInput
             v-model="searchZqr"
             placeholder="债权人名称"
-            clearable
-            style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
-          <ElInput
-            v-model="searchZjhm"
-            placeholder="证件号码"
-            clearable
-            style="width: 200px"
-            @keyup.enter="handleSearch"
-          />
-          <ElInput
-            v-model="searchFddbr"
-            placeholder="法定代表人"
             clearable
             style="width: 200px"
             @keyup.enter="handleSearch"
