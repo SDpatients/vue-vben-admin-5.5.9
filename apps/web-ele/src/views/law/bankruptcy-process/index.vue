@@ -127,6 +127,13 @@ const currentMeetingData = ref({
 // 当前会议ID
 const currentMeetingId = ref(0);
 
+// 添加视频标签弹窗
+const showAddVideoDialog = ref(false);
+const newVideoTag = ref({
+  videoTitle: '',
+  videoFile: null as File | null,
+});
+
 // 添加投票项弹窗
 const showAddVoteDialog = ref(false);
 const newVoteItem = ref({
@@ -214,6 +221,73 @@ const resetNewVoteItem = () => {
     abstain: 0,
     remark: ''
   };
+};
+
+// 添加上传视频标签
+const addVideoTag = () => {
+  showAddVideoDialog.value = true;
+};
+
+const saveNewVideoTag = async () => {
+  if (!newVideoTag.value.videoTitle) {
+    ElMessage.warning('请输入视频标题');
+    return;
+  }
+  
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法添加视频标签');
+      return;
+    }
+    
+    const now = new Date().toISOString();
+    const response = await fetch('/api/v1/api/video-tags', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: 0,
+        meetingId: currentMeetingId.value,
+        videoTitle: newVideoTag.value.videoTitle,
+        status: 'pending',
+        createTime: now,
+        updateTime: now,
+        createUserId: Number(localStorage.getItem('user_id') || '0'),
+        updateUserId: Number(localStorage.getItem('user_id') || '0'),
+        isDeleted: false
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('添加视频标签失败');
+    }
+    
+    // 关闭弹窗并重置表单
+    showAddVideoDialog.value = false;
+    resetNewVideoTag();
+    
+    // 重新获取视频标签数据，确保显示最新数据
+    await fetchVideoTags(currentMeetingId.value);
+    
+    ElMessage.success('视频标签添加成功');
+  } catch (error) {
+    console.error('添加视频标签失败:', error);
+    ElMessage.error('添加视频标签失败');
+  }
+};
+
+const resetNewVideoTag = () => {
+  newVideoTag.value = {
+    videoTitle: '',
+    videoFile: null
+  };
+};
+
+const handleVideoFileChange = (file: any) => {
+  newVideoTag.value.videoFile = file.raw;
 };
 
 // API调用函数
@@ -3289,7 +3363,7 @@ const openMobileUploadDialog = async () => {
     <ElDialog
       v-model="showMeetingDialog"
       :title="currentMeetingData.title"
-      width="1200px"
+      width="1400px"
       destroy-on-close
     >
       <ElTabs v-model="meetingActiveTab">
@@ -3381,6 +3455,12 @@ const openMobileUploadDialog = async () => {
                   <ElOption label="待生成" value="pending" />
                 </ElSelect>
               </div>
+              <div class="filter-item">
+                <ElButton type="primary" @click="addVideoTag">
+                  <Icon icon="lucide:upload" class="mr-1" />
+                  上传视频
+                </ElButton>
+              </div>
             </div>
 
             <div class="video-tags-grid">
@@ -3393,7 +3473,7 @@ const openMobileUploadDialog = async () => {
               <div v-else-if="videoTags.length === 0" class="video-tags-empty">
                 <ElEmpty description="暂无视频标签数据" :image-size="80" />
               </div>
-              <div v-else>
+              <template v-else>
                 <div class="video-tag-card" v-for="tag in videoTags" :key="tag.id">
                   <div class="video-tag-cover">
                     <div class="cover-placeholder">
@@ -3408,7 +3488,7 @@ const openMobileUploadDialog = async () => {
                     <div class="video-tag-meeting">{{ tag.meeting }}</div>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </ElTabPane>
@@ -3472,6 +3552,58 @@ const openMobileUploadDialog = async () => {
       <template #footer>
         <ElButton @click="showAddVoteDialog = false">取消</ElButton>
         <ElButton type="primary" @click="saveNewVoteItem">
+          <Icon icon="lucide:check" class="mr-1" />
+          保存
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 添加上传视频标签弹窗 -->
+    <ElDialog
+      v-model="showAddVideoDialog"
+      title="上传视频标签"
+      width="600px"
+      destroy-on-close
+    >
+      <ElForm
+        :model="newVideoTag"
+        label-width="100px"
+      >
+        <ElFormItem label="视频标题" required>
+          <ElInput
+            v-model="newVideoTag.videoTitle"
+            placeholder="请输入视频标题"
+            style="width: 100%"
+          />
+        </ElFormItem>
+        <ElFormItem label="选择视频">
+          <ElUpload
+            ref="videoUpload"
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="handleVideoFileChange"
+            accept="video/*"
+          >
+            <ElButton type="primary">
+              <Icon icon="lucide:folder-open" class="mr-1" />
+              选择视频文件
+            </ElButton>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 mp4、avi、mov 等视频格式
+              </div>
+            </template>
+          </ElUpload>
+          <div v-if="newVideoTag.videoFile" class="selected-file-info">
+            <Icon icon="lucide:video" class="mr-1" />
+            {{ newVideoTag.videoFile.name }}
+          </div>
+        </ElFormItem>
+      </ElForm>
+
+      <template #footer>
+        <ElButton @click="showAddVideoDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="saveNewVideoTag">
           <Icon icon="lucide:check" class="mr-1" />
           保存
         </ElButton>
@@ -5223,6 +5355,7 @@ const openMobileUploadDialog = async () => {
 /* 视频标签样式 */
 .video-tags-container {
   padding: 20px;
+  width: 100%;
 }
 
 .video-filter-section {
@@ -5234,6 +5367,7 @@ const openMobileUploadDialog = async () => {
   border: 1px solid #e5e7eb;
   margin-bottom: 24px;
   align-items: center;
+  width: 100%;
 }
 
 .filter-item {
@@ -5249,12 +5383,15 @@ const openMobileUploadDialog = async () => {
 }
 
 .video-tags-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
   gap: 20px;
+  width: 100%;
 }
 
 .video-tag-card {
+  width: 100%;
+  min-width: 0;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -5325,5 +5462,18 @@ const openMobileUploadDialog = async () => {
 .video-tag-meeting {
   font-size: 13px;
   color: #6b7280;
+}
+
+.selected-file-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1a1a2e;
 }
 </style>

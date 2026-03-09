@@ -6,10 +6,9 @@ export namespace CreditorApi {
     pageNum?: number;
     pageSize?: number;
     caseId?: number;
+    caseNumber?: string;
     creditorType?: string;
     creditorName?: string;
-    idNumber?: string;
-    legalRepresentative?: string;
     status?: string;
   }
 

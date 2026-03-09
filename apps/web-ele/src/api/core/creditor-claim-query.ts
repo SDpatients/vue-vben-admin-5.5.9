@@ -7,18 +7,40 @@ export namespace CreditorClaimQueryApi {
     creditorName?: string;
     creditorType?: string;
     claimType?: string;
+    creditorStatus?: string;
+    pageNum?: number;
+    pageSize?: number;
   }
 
   /** 债权申报信息 */
   export interface ClaimInfo {
     creditorName: string;
     creditorType: string;
+    creditorStatus: string;
     claimType: string;
-    declaredAmount: number;
-    confirmedAmount: number;
-    unconfirmedAmount: number;
-    registrationStatus: string;
-    registrationStatusDesc: string;
+    accountName: string;
+    creditorBankAccount: string;
+    bankName: string;
+    declaredPrincipal: number;
+    declaredInterest: number;
+    declaredPenalty: number;
+    declaredOtherLosses: number;
+    declaredTotalAmount: number;
+    remarks: string;
+    confirmedPrincipal: number;
+    confirmedInterest: number;
+    confirmedPenalty: number;
+    confirmedOtherLosses: number;
+    confirmedTotalAmount: number;
+    reductionAmount: number;
+  }
+
+  /** 分页响应数据类型 */
+  export interface PagedResponse {
+    total: number;
+    list: ClaimInfo[];
+    pageNum: number;
+    pageSize: number;
   }
 
   /** 统一响应类型 */
@@ -36,7 +58,7 @@ export namespace CreditorClaimQueryApi {
 export async function queryCreditorClaimsApi(
   params: CreditorClaimQueryApi.ClaimQueryParams = {},
 ) {
-  return requestClient8085.post<CreditorClaimQueryApi.ApiResponse<CreditorClaimQueryApi.ClaimInfo[]>>(
+  return requestClient8085.post<CreditorClaimQueryApi.ApiResponse<CreditorClaimQueryApi.PagedResponse>>(
     '/creditor-claim-query/query',
     params,
   );
