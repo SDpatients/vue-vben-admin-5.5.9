@@ -47,9 +47,7 @@ const props = defineProps<{
   caseId: string;
   initialStage?: number;
 }>();
-const emit = defineEmits<{
-  (e: 'navigateToClaimRegistration'): void;
-}>();
+
 const router = useRouter();
 const loading = ref(false);
 const isLoadingStage = ref(false);
@@ -1497,13 +1495,6 @@ const stages = [
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
-      {
-        id: '5-3',
-        title: '宣告重整与和解',
-        description: '审查并裁定债务人重整或和解',
-        fields: ['标题', '类型', '内容', '创建人', '日期'],
-        data: [],
-      },
     ],
   },
   {
@@ -1520,8 +1511,8 @@ const stages = [
       },
       {
         id: '6-2',
-        title: '破产费用与共益债务',
-        description: '管理人审核确认破产费用和共益债务',
+        title: '破产费用与共同利益债务',
+        description: '管理人管理破产费用与共同利益债务',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -2566,7 +2557,6 @@ const openMobileUploadDialog = async () => {
                 :taskId="selectedModule.task?.id"
                 :taskStatus="selectedModule.task?.status"
                 @updateTaskStatus="handleUpdateTaskStatus"
-                @navigateToClaimRegistration="() => emit('navigateToClaimRegistration')"
               />
             </div>
             <!-- 第四阶段的会议模块 -->

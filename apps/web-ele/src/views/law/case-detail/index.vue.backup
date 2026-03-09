@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -61,9 +61,7 @@ import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import {
   createWorkLogApi,
   createWorkLogWithFilesApi,
-  deleteWorkLogWithFilesApi,
   getWorkLogListApi,
-  getWorkLogWithFilesApi,
   updateWorkLogApi,
   updateWorkLogWithFilesApi,
 } from '#/api/core/work-log';
@@ -117,18 +115,9 @@ const teamMemberInfo = ref<any>(null);
 
 // 案件卷宗归档相关
 const archiveDrawerRef = ref<InstanceType<typeof ArchiveDrawer> | null>(null);
-const claimRegistrationTabsRef = ref<InstanceType<typeof ClaimRegistrationTabs> | null>(null);
 
 // 进度管理弹窗相关
 const showProgressManagement = ref(false);
-
-// 处理导航到债权登记表模块
-const handleNavigateToClaimRegistration = () => {
-  activeTab.value = 'claimRegistration';
-  nextTick(() => {
-    claimRegistrationTabsRef.value?.handleAdd();
-  });
-};
 
 // 工作团队相关
 const workTeams = ref<any[]>([]);
@@ -355,14 +344,12 @@ const activeTab = ref('caseInfo');
 const workLogs = ref<any[]>([]);
 const showWorkLogDialog = ref(false);
 const isEditingWorkLog = ref(false);
-const isViewingWorkLog = ref(false);
 const savingWorkLog = ref(false);
 const currentWorkLogId = ref<null | number>(null);
 const workLogFormRef = ref();
 const fileUploadRef = ref<any>();
 const documentUploadRef = ref<any>();
 const approvalUploadRef = ref<any>();
-const announcementUploadRef = ref<any>();
 const workLogForm = reactive({
   workDate: '',
   workType: 'CASE_INVESTIGATION',
@@ -422,7 +409,6 @@ const fetchWorkLogs = async () => {
 };
 
 const openAddWorkLogDialog = () => {
-  isViewingWorkLog.value = false;
   isEditingWorkLog.value = false;
   currentWorkLogId.value = null;
   workLogForm.workDate = new Date().toISOString().split('T')[0];
@@ -432,64 +418,6 @@ const openAddWorkLogDialog = () => {
   workLogForm.attachmentIds = '';
   workLogForm.remark = '';
   workLogForm.files = [];
-  showWorkLogDialog.value = true;
-};
-
-const viewWorkLog = async (log: any) => {
-  isViewingWorkLog.value = true;
-  currentWorkLogId.value = log.id;
-  workLogForm.workDate = log.workDate;
-  workLogForm.workType = log.workType;
-  workLogForm.workContent = log.workContent;
-  workLogForm.workResult = log.workResult || '';
-  workLogForm.attachmentIds = log.attachmentIds || '';
-  workLogForm.remark = log.remark || '';
-  workLogForm.files = [];
-  
-  console.log('=== 查看工作日志 ===');
-  console.log('工作日志 ID:', log.id);
-  console.log('工作日志 attachmentIds:', log.attachmentIds);
-  
-  // 加载工作日志的文件列表
-  try {
-    console.log('调用 getWorkLogWithFilesApi, logId:', log.id);
-    const response = await getWorkLogWithFilesApi(log.id);
-    console.log('API 响应:', response);
-    
-    if (response.code === 200 && response.data) {
-      console.log('response.data:', response.data);
-      const attachments = response.data.attachments || [];
-      console.log('attachments:', attachments);
-      console.log('attachments length:', attachments.length);
-      
-      // 将附件转换为 FileUpload 组件可以显示的格式
-      workLogForm.files = attachments.map((file: any) => {
-        // 从文件名中提取扩展名（如果 fileExtension 为空）
-        const fileName = file.fileName || file.originalFileName || '';
-        const fileExt = file.fileExtension || fileName.split('.').pop() || '';
-        
-        const fileData = {
-          id: file.id,
-          originalFileName: fileName,
-          fileSize: file.fileSize,
-          fileExtension: fileExt,
-          mimeType: file.mimeType || file.fileType,
-          filePath: file.filePath,
-          uploadTime: file.uploadTime,
-        };
-        console.log('转换后的文件:', fileData);
-        return fileData;
-      });
-      
-      console.log('workLogForm.files:', workLogForm.files);
-    } else {
-      console.error('API 响应不成功或没有 data:', response);
-    }
-  } catch (error: any) {
-    console.error('加载工作日志附件失败:', error);
-    console.error('错误堆栈:', error.stack);
-  }
-  
   showWorkLogDialog.value = true;
 };
 
@@ -533,62 +461,16 @@ const saveWorkLog = async () => {
       const response = await updateWorkLogApi(currentWorkLogId.value, logData);
       if (response.code === 200) {
         // 1. 首先转移手机上传的临时文件（如果有）
-        let allUploadedFileIds: number[] = [];
-        
         if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
           console.log('发现手机上传的临时文件，开始转移...');
           const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
           console.log('转移成功的文件:', transferredFiles);
-          
-          // 收集转移的文件 ID
-          if (transferredFiles && transferredFiles.length > 0) {
-            allUploadedFileIds = transferredFiles.map(f => f.id);
-          }
         }
         
         // 2. 上传本地文件（电脑选择的文件）
-        console.log('=== 准备工作日志文件上传（修改模式） ===');
-        console.log('workLogForm.files:', workLogForm.files);
-        console.log('fileUploadRef.value:', fileUploadRef.value);
-        console.log('fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
-        
         if (fileUploadRef.value && workLogForm.files.length > 0) {
-          console.log('开始上传本地文件...');
-          const uploadedIds = await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
-          console.log('上传成功的文件 ID:', uploadedIds);
-          
-          // 收集上传的文件 ID
-          if (uploadedIds && uploadedIds.length > 0) {
-            allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
-          }
+          await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
         }
-        
-        // 3. 如果有新上传的文件，更新 attachmentIds 字段
-        if (allUploadedFileIds.length > 0) {
-          // 合并原有的 attachmentIds 和新上传的文件 ID
-          const existingAttachmentIds = workLogForm.attachmentIds 
-            ? workLogForm.attachmentIds.split(',').filter(id => id.trim()) 
-            : [];
-          const allIds = [...existingAttachmentIds.map(id => Number(id)), ...allUploadedFileIds];
-          
-          console.log('更新工作日志的 attachmentIds:', allIds.join(','));
-          const updateResponse = await updateWorkLogApi(currentWorkLogId.value, {
-            caseId: Number(caseId.value),
-            workDate: workLogForm.workDate,
-            workType: workLogForm.workType,
-            workContent: workLogForm.workContent,
-            workResult: workLogForm.workResult || undefined,
-            attachmentIds: allIds.join(','),
-            remark: workLogForm.remark || undefined,
-          });
-          
-          if (updateResponse.code === 200) {
-            console.log('工作日志 attachmentIds 更新成功');
-          } else {
-            console.error('工作日志 attachmentIds 更新失败:', updateResponse);
-          }
-        }
-        
         ElMessage.success('工作日志更新成功');
         await fetchWorkLogs();
       }
@@ -605,67 +487,19 @@ const saveWorkLog = async () => {
       };
       const response = await createWorkLogApi(logData);
       if (response.code === 200 && response.data) {
-        const workLogId = response.data.logId || response.data.id;
-        console.log('创建工作日志成功，workLogId:', workLogId);
-        
-        if (!workLogId) {
-          console.error('工作日志 ID 为空，无法上传文件');
-          ElMessage.error('创建工作日志成功，但返回的 ID 为空');
-          return;
-        }
+        const workLogId = response.data.id;
         
         // 1. 首先转移手机上传的临时文件（如果有）
-        let allUploadedFileIds: number[] = [];
-        
         if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
           console.log('发现手机上传的临时文件，开始转移...');
           const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
           console.log('转移成功的文件:', transferredFiles);
-          
-          // 收集转移的文件 ID
-          if (transferredFiles && transferredFiles.length > 0) {
-            allUploadedFileIds = transferredFiles.map(f => f.id);
-          }
         }
         
         // 2. 上传本地文件（电脑选择的文件）
-        console.log('=== 准备工作日志文件上传 ===');
-        console.log('workLogForm.files:', workLogForm.files);
-        console.log('fileUploadRef.value:', fileUploadRef.value);
-        console.log('fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
-        console.log('workLogId:', workLogId);
-        
         if (fileUploadRef.value && workLogForm.files.length > 0) {
-          console.log('开始上传本地文件...');
-          const uploadedIds = await fileUploadRef.value.uploadLocalFiles(workLogId);
-          console.log('上传成功的文件 ID:', uploadedIds);
-          
-          // 收集上传的文件 ID
-          if (uploadedIds && uploadedIds.length > 0) {
-            allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
-          }
+          await fileUploadRef.value.uploadLocalFiles(workLogId);
         }
-        
-        // 3. 更新工作日志的 attachmentIds 字段
-        if (allUploadedFileIds.length > 0) {
-          console.log('更新工作日志的 attachmentIds:', allUploadedFileIds.join(','));
-          const updateResponse = await updateWorkLogApi(workLogId, {
-            caseId: Number(caseId.value),
-            workDate: workLogForm.workDate,
-            workType: workLogForm.workType,
-            workContent: workLogForm.workContent,
-            workResult: workLogForm.workResult || undefined,
-            attachmentIds: allUploadedFileIds.join(','),
-            remark: workLogForm.remark || undefined,
-          });
-          
-          if (updateResponse.code === 200) {
-            console.log('工作日志 attachmentIds 更新成功');
-          } else {
-            console.error('工作日志 attachmentIds 更新失败:', updateResponse);
-          }
-        }
-        
         ElMessage.success('工作日志创建成功');
         await fetchWorkLogs();
       }
@@ -2629,10 +2463,6 @@ const saveAnnouncement = async () => {
       announcementType: announcementData.announcement_type,
     };
 
-    console.log('=== 保存公告 ===');
-    console.log('isEditingAnnouncement:', isEditingAnnouncement.value);
-    console.log('requestData:', requestData);
-
     if (isEditingAnnouncement.value && currentAnnouncementId.value) {
       // 更新现有公告
       response = await updateAnnouncementApi(
@@ -2641,7 +2471,6 @@ const saveAnnouncement = async () => {
       );
       if (response.code === 200) {
         announcementId = currentAnnouncementId.value;
-        console.log('公告更新成功，ID:', announcementId);
         ElMessage.success('公告更新成功');
       } else {
         ElMessage.error(`公告更新失败：${response.message || '未知错误'}`);
@@ -2651,8 +2480,7 @@ const saveAnnouncement = async () => {
       // 发布新公告
       response = await createAnnouncementApi(requestData);
       if (response.code === 200) {
-        announcementId = response.data.announcementId || response.data.id;
-        console.log('公告创建成功，ID:', announcementId);
+        announcementId = response.data.announcementId;
         ElMessage.success('公告发布成功');
       } else {
         ElMessage.error(`公告发布失败：${response.message || '未知错误'}`);
@@ -2660,62 +2488,21 @@ const saveAnnouncement = async () => {
       }
     }
 
-    if (!announcementId) {
-      console.error('公告 ID 为空，无法上传文件');
-      ElMessage.error('公告保存成功，但返回的 ID 为空');
-      return;
-    }
-
-    // 1. 首先转移手机上传的临时文件（如果有）
-    let allUploadedFileIds: number[] = [];
-    
-    if (announcementUploadRef.value && announcementUploadRef.value.getHasUntransferredFiles()) {
-      console.log('发现手机上传的临时文件，开始转移...');
-      const transferredFiles = await announcementUploadRef.value.transferMobileFiles(announcementId);
-      console.log('转移成功的文件:', transferredFiles);
-      
-      // 收集转移的文件 ID
-      if (transferredFiles && transferredFiles.length > 0) {
-        allUploadedFileIds = transferredFiles.map(f => f.id);
-      }
-    }
-
-    // 2. 上传本地文件（电脑选择的文件）
-    console.log('=== 准备公告文件上传 ===');
-    console.log('announcementData.attachments:', announcementData.attachments);
-    console.log('announcementUploadRef.value:', announcementUploadRef.value);
-    console.log('announcementUploadRef.value.getLocalFiles():', announcementUploadRef.value?.getLocalFiles());
-    console.log('announcementId:', announcementId);
-    
+    // 上传附件（如果有）
     if (announcementData.attachments && announcementData.attachments.length > 0) {
-      // 筛选出需要上传的新文件（没有file_id的文件，且不是手机上传的文件）
+      // 筛选出需要上传的新文件（没有file_id的文件）
       const filesToUpload = announcementData.attachments
-        .filter((attach: any) => {
-          // 过滤掉已有文件和手机上传的文件
-          const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
-          const isMobile = attach.id?.toString().startsWith('mobile-');
-          return !isExisting && !isMobile && attach.raw;
-        })
+        .filter((attach: any) => !attach.file_id && attach.raw)
         .map((attach: any) => attach.raw);
-
-      console.log('需要上传的文件数量:', filesToUpload.length);
 
       if (filesToUpload.length > 0) {
         try {
-          console.log('开始上传本地文件...');
           const uploadResponse = await uploadAnnouncementAttachmentsApi(
             announcementId,
             filesToUpload,
           );
           if (uploadResponse.code === 200) {
-            console.log('附件上传成功:', uploadResponse.data);
             ElMessage.success('附件上传成功');
-            
-            // 收集上传的文件 ID
-            if (uploadResponse.data && Array.isArray(uploadResponse.data)) {
-              const uploadedIds = uploadResponse.data.map((f: any) => f.id).filter((id: number) => id);
-              allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
-            }
           } else {
             ElMessage.warning(`公告保存成功，但附件上传失败：${uploadResponse.message || '未知错误'}`);
           }
@@ -2723,12 +2510,8 @@ const saveAnnouncement = async () => {
           console.error('附件上传失败:', error);
           ElMessage.warning(`公告保存成功，但附件上传失败：${error.message || '未知错误'}`);
         }
-      } else {
-        console.log('没有需要上传的新文件');
       }
     }
-
-    console.log('所有上传的文件 ID:', allUploadedFileIds);
 
     await fetchAnnouncements();
     closeAnnouncementDialog();
@@ -5412,13 +5195,12 @@ const endDrag = () => {
           <BankruptcyProcess
             :case-id="caseId"
             :initial-stage="getInitialStageIndex()"
-            @navigate-to-claim-registration="handleNavigateToClaimRegistration"
           />
         </div>
 
         <!-- 债权登记表 -->
         <div v-if="activeTab === 'claimRegistration'">
-          <ClaimRegistrationTabs ref="claimRegistrationTabsRef" :case-id="caseId" />
+          <ClaimRegistrationTabs :case-id="caseId" />
         </div>
 
         <!-- 文书送达 -->
@@ -6238,13 +6020,13 @@ const endDrag = () => {
                     </div>
                     <div style="display: flex; gap: 8px">
                       <ElButton
-                        type="info"
+                        type="primary"
                         size="small"
-                        @click="viewWorkLog(log)"
+                        @click="editWorkLog(log)"
                         style="padding: 4px 12px; font-size: 12px"
                       >
-                        <Icon icon="lucide:eye" class="mr-1" />
-                        查看
+                        <Icon icon="lucide:pencil" class="mr-1" />
+                        编辑
                       </ElButton>
                       <ElPopconfirm
                         title="确定要删除这条日志吗？"
@@ -6470,11 +6252,11 @@ const endDrag = () => {
           </div>
         </div>
 
-        <!-- 添加/编辑/查看日志对话框 -->
+        <!-- 添加/编辑日志对话框 -->
         <ElDialog
           v-model="showWorkLogDialog"
-          :title="isViewingWorkLog ? '查看工作日志' : (isEditingWorkLog ? '编辑工作日志' : '添加工作日志')"
-          width="800px"
+          :title="isEditingWorkLog ? '编辑工作日志' : '添加工作日志'"
+          width="600px"
           destroy-on-close
         >
           <ElForm
@@ -6491,7 +6273,6 @@ const endDrag = () => {
                 format="YYYY-MM-DD"
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
-                :disabled="isViewingWorkLog"
               />
             </ElFormItem>
             <ElFormItem label="工作类型" prop="workType">
@@ -6499,7 +6280,6 @@ const endDrag = () => {
                 v-model="workLogForm.workType"
                 placeholder="请选择工作类型"
                 style="width: 100%"
-                :disabled="isViewingWorkLog"
               >
                 <ElOption
                   v-for="item in workTypeOptions"
@@ -6516,7 +6296,6 @@ const endDrag = () => {
                 :rows="4"
                 placeholder="请输入工作内容"
                 resize="vertical"
-                :disabled="isViewingWorkLog"
               />
             </ElFormItem>
             <ElFormItem label="工作结果">
@@ -6526,7 +6305,6 @@ const endDrag = () => {
                 :rows="3"
                 placeholder="请输入工作结果（可选）"
                 resize="vertical"
-                :disabled="isViewingWorkLog"
               />
             </ElFormItem>
             <ElFormItem label="附件上传">
@@ -6540,10 +6318,8 @@ const endDrag = () => {
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="工作日志附件"
-                :disabled="isViewingWorkLog"
-                :local-mode="!isViewingWorkLog"
-                :existing-files="isViewingWorkLog ? workLogForm.files : []"
-                @local-files-change="(files) => { console.log('工作日志文件变化:', files); workLogForm.files = files; }"
+                :disabled="false"
+                :local-mode="true"
               />
             </ElFormItem>
             <ElFormItem label="备注">
@@ -6553,17 +6329,13 @@ const endDrag = () => {
                 :rows="2"
                 placeholder="请输入备注信息（可选）"
                 resize="vertical"
-                :disabled="isViewingWorkLog"
               />
             </ElFormItem>
           </ElForm>
 
           <template #footer>
-            <ElButton @click="showWorkLogDialog = false">
-              {{ isViewingWorkLog ? '关闭' : '取消' }}
-            </ElButton>
+            <ElButton @click="showWorkLogDialog = false">取消</ElButton>
             <ElButton
-              v-if="!isViewingWorkLog"
               type="primary"
               @click="saveWorkLog"
               :loading="savingWorkLog"
@@ -6669,7 +6441,6 @@ const endDrag = () => {
             </ElFormItem>
             <ElFormItem label="附件">
               <FileUpload
-                ref="announcementUploadRef"
                 v-model="announcementData.attachments"
                 :model-value="[]"
                 :biz-type="'announcement'"
@@ -6680,7 +6451,6 @@ const endDrag = () => {
                 title="公告附件"
                 :disabled="false"
                 :local-mode="true"
-                @local-files-change="(files) => { console.log('公告附件变化:', files); announcementData.attachments = files; }"
               />
             </ElFormItem>
           </div>

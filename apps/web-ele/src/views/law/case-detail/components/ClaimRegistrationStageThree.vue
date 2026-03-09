@@ -756,11 +756,12 @@ onMounted(() => {
         </div>
         <FileUpload
           v-if="currentClaim.confirmationInfo"
-          :biz-type="'claim-confirmation'"
-          :biz-id="currentClaim.confirmationInfo.id"
+          :biz-type="'claim'"
+          :biz-id="currentClaim.claimRegistrationId || currentClaim.id"
           :model-value="[]"
           :disabled="true"
           title="债权确认附件"
+          use-claim-registration-api
         />
       </div>
       <template #footer>

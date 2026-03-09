@@ -325,7 +325,7 @@ export async function getFileStatisticsApi(
 /**
  * 获取业务的所有文件（不分页）
  * @param bizType 业务类型
- * @param bizId 业务ID
+ * @param bizId 业务 ID
  */
 export async function getAllFilesByBizApi(
   bizType: string,
@@ -337,6 +337,23 @@ export async function getAllFilesByBizApi(
       params: {
         bizType,
         bizId,
+      },
+    },
+  );
+}
+
+/**
+ * 根据债权申报 ID 获取三个阶段的所有文件（不分页）
+ * @param claimRegistrationId 债权申报 ID
+ */
+export async function getAllFilesByClaimRegistrationApi(
+  claimRegistrationId: number,
+): Promise<{ code: number; message: string; data: FileApi.FileRecord[] }> {
+  return fileUploadRequestClient.get<{ code: number; message: string; data: FileApi.FileRecord[] }>(
+    '/api/v1/file/all-by-claim-registration',
+    {
+      params: {
+        claimRegistrationId,
       },
     },
   );

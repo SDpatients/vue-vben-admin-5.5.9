@@ -40,6 +40,7 @@ import { getCurrentUserApi } from '#/api/core/auth';
 import { getCaseReviewStatusApi } from '#/api/core/case';
 import { getCreditorClaimStagesApi, getCreditorListApi, searchCreditorApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
+import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
 
 import { useClaimForm } from './composables/useClaimForm';
 import { useClaimPagination } from './composables/useClaimPagination';
@@ -1556,9 +1557,10 @@ onMounted(() => {
         <FileUpload
           v-if="currentClaim"
           :biz-type="'claim'"
-          :biz-id="currentClaim.id"
+          :biz-id="currentClaim.claimRegistrationId || currentClaim.id"
           :disabled="true"
           title="债权申报附件"
+          use-claim-registration-api
         />
       </div>
       <template #footer>

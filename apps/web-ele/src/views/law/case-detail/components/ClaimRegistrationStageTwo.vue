@@ -801,10 +801,11 @@ onMounted(() => {
         </div>
         <FileUpload
           v-model="reviewForm.reviewAttachments"
-          :biz-type="'claim-review'"
-          :biz-id="currentClaim.id"
+          :biz-type="'claim'"
+          :biz-id="currentClaim.claimRegistrationId || currentClaim.id"
           :disabled="true"
           title="债权审查附件"
+          use-claim-registration-api
         />
       </div>
       <template #footer>

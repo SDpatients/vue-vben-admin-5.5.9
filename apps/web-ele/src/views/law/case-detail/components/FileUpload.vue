@@ -36,6 +36,7 @@ import {
   transferTempFiles,
   type TempUploadFile,
 } from '#/api/core/temp-upload';
+import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
 
 interface FileItem {
   id: number;
@@ -79,6 +80,7 @@ const props = defineProps<{
   title?: string;
   localMode?: boolean;
   existingFiles?: ExistingFileItem[];
+  useClaimRegistrationApi?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -142,7 +144,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const getFileIcon = (file: FileItem | LocalFileItem | TempUploadFile): string => {
-  const ext = file.fileExtension.toLowerCase();
+  const ext = (file.fileExtension || '').toLowerCase();
   const iconMap: Record<string, string> = {
     pdf: 'lucide:file-text',
     doc: 'lucide:file-text',
@@ -174,7 +176,15 @@ const loadFiles = async () => {
   if (!props.bizId || !props.bizType) return;
 
   try {
-    const response = await getAllFilesByBizApi(props.bizType, props.bizId);
+    let response;
+    // 如果使用了债权申报 API，则调用新接口
+    if (props.useClaimRegistrationApi) {
+      response = await getAllFilesByClaimRegistrationApi(props.bizId);
+      console.log('[FileUpload] 使用债权申报接口加载文件:', response);
+    } else {
+      response = await getAllFilesByBizApi(props.bizType, props.bizId);
+    }
+    
     if (response.code === 200 && response.data) {
       fileList.value = response.data;
     }
@@ -740,7 +750,16 @@ const clearLocalFiles = () => {
 };
 
 const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
-  if (localFiles.value.length === 0) return [];
+  if (localFiles.value.length === 0) {
+    console.log('没有需要上传的文件');
+    return [];
+  }
+  
+  if (!bizId) {
+    console.error('bizId 为空，无法上传文件');
+    ElMessage.error('业务 ID 为空，无法上传文件');
+    return [];
+  }
   
   uploading.value = true;
   const uploadedFileIds: number[] = [];
@@ -750,16 +769,25 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
       try {
         // 跳过从手机上传转换而来的本地文件，因为它们是空的
         if (localFile.id.startsWith('mobile-')) {
-          console.log(`跳过手机上传的文件 ${localFile.originalFileName}，请使用transferMobileFiles方法转移`);
+          console.log(`跳过手机上传的文件 ${localFile.originalFileName}，请使用 transferMobileFiles 方法转移`);
           continue;
         }
         
+        // 检查文件对象是否有效
+        if (!localFile.file) {
+          console.warn(`文件 ${localFile.originalFileName} 的 file 对象为空，跳过`);
+          continue;
+        }
+        
+        console.log(`开始上传文件：${localFile.originalFileName}, bizType: ${props.bizType}, bizId: ${bizId}`);
         const response = await uploadFileApi(localFile.file, props.bizType, bizId);
         if (response.code === 200 && response.data) {
           uploadedFileIds.push(response.data.id);
+          console.log(`文件 ${localFile.originalFileName} 上传成功，ID: ${response.data.id}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`文件 ${localFile.originalFileName} 上传失败:`, error);
+        console.error('错误详情:', error.message);
       }
     }
     
@@ -829,31 +857,51 @@ const displayFiles = computed(() => {
   return fileList.value;
 });
 
-// 监听existingFiles变化，初始化本地文件列表
+// 监听 existingFiles 变化，初始化本地文件列表
 watch(() => props.existingFiles, (newFiles) => {
   console.log('=== watch existingFiles ===');
   console.log('isLocalMode:', isLocalMode.value);
   console.log('newFiles:', newFiles);
   
-  if (isLocalMode.value && newFiles && newFiles.length > 0) {
-    const existingLocalFiles = newFiles.map(file => ({
-      file: new File([], file.originalFileName, { type: file.mimeType }),
-      id: typeof file.id === 'number' ? `existing-${file.id}` : file.id,
-      originalFileName: file.originalFileName,
-      fileSize: file.fileSize,
-      fileExtension: file.fileExtension,
-      mimeType: file.mimeType,
-      uploadTime: file.uploadTime || new Date().toISOString(),
-      isExisting: true,
-      filePath: file.filePath,
-    })) as any[];
-    
-    const existingIds = new Set(existingLocalFiles.map(f => f.id));
-    const newLocalFiles = localFiles.value.filter(f => !existingIds.has(f.id));
-    localFiles.value = [...existingLocalFiles, ...newLocalFiles];
-    
-    emit('local-files-change', localFiles.value);
-    console.log('触发 local-files-change，文件数:', localFiles.value.length);
+  if (newFiles && newFiles.length > 0) {
+    if (isLocalMode.value) {
+      // 本地模式：转换为本地文件对象
+      const existingLocalFiles = newFiles.map(file => ({
+        file: new File([], file.originalFileName, { type: file.mimeType }),
+        id: typeof file.id === 'number' ? `existing-${file.id}` : file.id,
+        originalFileName: file.originalFileName,
+        fileSize: file.fileSize,
+        fileExtension: file.fileExtension,
+        mimeType: file.mimeType,
+        uploadTime: file.uploadTime || new Date().toISOString(),
+        isExisting: true,
+        filePath: file.filePath,
+      })) as any[];
+      
+      const existingIds = new Set(existingLocalFiles.map(f => f.id));
+      const newLocalFiles = localFiles.value.filter(f => !existingIds.has(f.id));
+      localFiles.value = [...existingLocalFiles, ...newLocalFiles];
+      
+      emit('local-files-change', localFiles.value);
+      console.log('触发 local-files-change，文件数:', localFiles.value.length);
+    } else {
+      // 非本地模式（查看模式）：直接设置 fileList
+      console.log('非本地模式，直接设置 fileList');
+      const files = newFiles.map(file => ({
+        id: file.id,
+        originalFileName: file.originalFileName,
+        fileSize: file.fileSize,
+        fileExtension: file.fileExtension,
+        mimeType: file.mimeType,
+        uploadTime: file.uploadTime,
+        filePath: file.filePath,
+        name: file.originalFileName,  // 添加 name 字段
+        size: file.fileSize,          // 添加 size 字段
+        status: 'success' as const,
+      }));
+      fileList.value = files;
+      console.log('设置 fileList:', fileList.value);
+    }
   }
 }, { immediate: true });
 

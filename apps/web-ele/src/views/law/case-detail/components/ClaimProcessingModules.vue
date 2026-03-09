@@ -37,6 +37,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   (e: 'updateTaskStatus', status: string): void;
+  (e: 'navigateToClaimRegistration'): void;
 }>();
 
 // 使用computed属性获取最新的props值，确保响应性
@@ -152,42 +153,9 @@ const closeImportDialog = () => {
   importResult.value = null;
 };
 
-// 打开新增债权对话框
+// 打开新增债权对话框 - 现在改为跳转到债权登记表模块
 const openAddDialog = () => {
-  // 重置表单
-  Object.assign(claimForm, {
-    caseId: Number(props.caseId),
-    caseNumber: '',
-    debtor: '',
-    creditorName: '',
-    creditorType: '',
-    creditCode: '',
-    legalRepresentative: '',
-    serviceAddress: '',
-    agentName: '',
-    agentPhone: '',
-    agentIdCard: '',
-    agentAddress: '',
-    accountName: '',
-    bankAccount: '',
-    bankName: '',
-    principal: 0,
-    interest: 0,
-    penalty: 0,
-    otherLosses: 0,
-    claimNature: '',
-    claimType: '',
-    claimFacts: '',
-    claimIdentifier: '',
-    hasCourtJudgment: false,
-    courtJudgmentNo: '',
-    judgmentDate: '',
-    judgmentAmount: 0,
-    remarks: '',
-    evidenceAttachments: [] as any[],
-  });
-  selectedFile.value = null;
-  showAddDialog.value = true;
+  emit('navigateToClaimRegistration');
 };
 
 // 关闭新增债权对话框
@@ -566,14 +534,6 @@ watch(() => props.moduleType, () => {
                 新增债权
               </ElButton>
               <ElButton 
-                type="success" 
-                @click="openImportDialog"
-                :loading="importLoading"
-              >
-                <Icon icon="lucide:file-spreadsheet" class="mr-1" />
-                导入
-              </ElButton>
-              <ElButton 
                 type="primary" 
                 @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
                 :loading="loading"
@@ -646,6 +606,7 @@ watch(() => props.moduleType, () => {
           <ElTableColumn label="操作" width="150" fixed="right">
             <template #default="scope">
               <ElButton 
+                v-if="scope.row.registration_status === 'PENDING'"
                 type="primary" 
                 size="small" 
                 @click="handleReceiveMaterial(scope.row)"
@@ -773,27 +734,7 @@ watch(() => props.moduleType, () => {
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="操作" width="150" fixed="right">
-            <template #default="scope">
-              <ElButton 
-                type="link" 
-                size="small" 
-                @click="handleCompleteReview(scope.row)"
-                :loading="loading"
-                class="text-primary"
-              >
-                完成审查
-              </ElButton>
-              <ElButton 
-                type="link" 
-                size="small" 
-                @click="handleRejectReview(scope.row)"
-                :loading="loading"
-                class="text-danger"
-              >
-                驳回
-              </ElButton>
-            </template>
+          <ElTableColumn label="操作" width="50" fixed="right">
           </ElTableColumn>
         </ElTable>
 
