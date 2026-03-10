@@ -368,9 +368,22 @@ const handleEditClaim = async (row: any) => {
       await searchCreditor('');
       await fetchDebtorList();
       await fetchCreditorList();
+      // 获取案件编号
+      try {
+        const caseResponse = await getCaseReviewStatusApi(Number(props.caseId));
+        if (caseResponse.code === 200 && caseResponse.data?.caseNumber) {
+          claimForm.caseNumber = caseResponse.data.caseNumber;
+        }
+      } catch (error) {
+        console.error('获取案件详情失败:', error);
+      }
       // 填充表单数据
-      claimForm.caseNumber = result.data.caseNumber || '';
-      claimForm.debtor = result.data.debtor || '';
+      claimForm.debtor = result.data.debtor || row.debtor || '';
+      // 根据 debtor ID 查找债务人名称
+      const debtorInfo = debtorList.value.find(
+        (d) => d.value.toString() === result.data.debtor?.toString()
+      );
+      claimForm.debtorName = debtorInfo?.label || result.data.debtor || row.debtor || '';
       claimForm.creditorName = result.data.creditorName || '';
       claimForm.creditorType = result.data.creditorType || '';
       claimForm.creditCode = result.data.creditCode || '';
@@ -1702,23 +1715,17 @@ onMounted(() => {
                 <ElInput
                   v-model="claimForm.caseNumber"
                   placeholder="请输入案件编号"
+                  disabled
                 />
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
               <ElFormItem label="债务人">
-                <ElSelect
-                  v-model="claimForm.debtor"
+                <ElInput
+                  v-model="claimForm.debtorName"
                   placeholder="请选择债务人"
-                  style="width: 100%"
-                >
-                  <ElOption
-                    v-for="debtor in debtorList"
-                    :key="debtor.value"
-                    :label="debtor.label"
-                    :value="debtor.value"
-                  />
-                </ElSelect>
+                  disabled
+                />
               </ElFormItem>
             </ElCol>
           </ElRow>

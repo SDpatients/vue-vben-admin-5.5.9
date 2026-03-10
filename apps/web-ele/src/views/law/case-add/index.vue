@@ -77,8 +77,8 @@ const debounce = (func: Function, delay: number) => {
   };
 };
 
-const sanitizeInput = (input: string): string => {
-  if (!input) return '';
+const sanitizeInput = (input: any): string => {
+  if (!input || typeof input !== 'string') return '';
   return input.replaceAll(/[<>]/g, '').trim().slice(0, 50);
 };
 
@@ -199,11 +199,6 @@ const rules = reactive({
   caseNumber: [
     { required: true, message: '请输入案号', trigger: 'blur' },
     { min: 1, max: 50, message: '案号长度在 1 到 50 个字符', trigger: 'blur' },
-    {
-      pattern: /^[\w\u4E00-\u9FA5（）()[\]【】\-]+$/,
-      message: '案号格式不正确',
-      trigger: 'blur',
-    },
   ],
   caseName: [
     { required: true, message: '请输入案件名称', trigger: 'blur' },
@@ -488,7 +483,7 @@ const submitForm = async () => {
                     allow-create
                     style="width: 100%"
                     @visible-change="(visible) => { if (visible && userList.length === 0) fetchUserList() }"
-                    @input="(value) => { if (value) debouncedFetchUserList(value) }"
+                    @search="(value) => { if (value) debouncedFetchUserList(value) }"
                   >
                     <el-option
                       v-for="user in userList"
@@ -509,7 +504,7 @@ const submitForm = async () => {
                     allow-create
                     style="width: 100%"
                     @visible-change="(visible) => { if (visible && userList.length === 0) fetchUserList() }"
-                    @input="(value) => { if (value) debouncedFetchUserList(value) }"
+                    @search="(value) => { if (value) debouncedFetchUserList(value) }"
                   >
                     <el-option
                       v-for="user in userList"

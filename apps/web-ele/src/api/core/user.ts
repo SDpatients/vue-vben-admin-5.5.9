@@ -86,10 +86,12 @@ export async function getUserByDeptIdApi(administratorId: number) {
 /**
  * 根据关键词获取用户列表
  * @param keyword 搜索关键词
+ * @param page 页码，默认 1
+ * @param size 每页数量，默认 10000
  */
-export async function getUsersApi(keyword: string) {
+export async function getUsersApi(keyword: string, page: number = 1, size: number = 10000) {
   return requestClient8085.get<UserApi.StaffListResponse>('/users', {
-    params: { keyword },
+    params: { keyword, page, size },
   });
 }
 

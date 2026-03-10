@@ -268,6 +268,12 @@ const formatCurrency = (amount: number) => {
 // 获取账户状态标签类型
 const getStatusType = (status: string) => {
   switch (status) {
+    case 'ACTIVE': {
+      return 'success';
+    }
+    case 'INACTIVE': {
+      return 'info';
+    }
     case '冻结': {
       return 'danger';
     }
@@ -279,6 +285,21 @@ const getStatusType = (status: string) => {
     }
     default: {
       return 'warning';
+    }
+  }
+};
+
+// 状态翻译
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'ACTIVE': {
+      return '正常';
+    }
+    case 'INACTIVE': {
+      return '停用';
+    }
+    default: {
+      return status;
     }
   }
 };
@@ -1310,7 +1331,7 @@ const handleSubmit = async () => {
         <ElTableColumn prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <ElTag :type="getStatusType(row.status)" size="small">
-              {{ row.status }}
+              {{ getStatusText(row.status) }}
             </ElTag>
           </template>
         </ElTableColumn>

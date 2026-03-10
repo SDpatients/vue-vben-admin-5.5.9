@@ -6,7 +6,9 @@ import { computed, reactive, watch } from 'vue';
 export function useClaimForm() {
   const claimForm = reactive({
     caseName: '',
+    caseNumber: '',
     debtor: '',
+    debtorName: '',
     account: '',
     creditorName: '',
     creditorType: '',
@@ -58,7 +60,9 @@ export function useClaimForm() {
 
   const resetClaimForm = () => {
     claimForm.caseName = '';
+    claimForm.caseNumber = '';
     claimForm.debtor = '';
+    claimForm.debtorName = '';
     claimForm.account = '';
     claimForm.creditorName = '';
     claimForm.creditorType = '';

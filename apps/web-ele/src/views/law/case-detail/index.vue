@@ -40,6 +40,7 @@ import {
   publishAnnouncementApi,
   topAnnouncementApi,
   unTopAnnouncementApi,
+  updateAnnouncementApi,
   uploadAnnouncementAttachmentsApi,
 } from '#/api/core/case-announcement';
 import {
@@ -1636,6 +1637,7 @@ const submitDocumentForm = async () => {
           documentForm.sendStatus === '已发送'
             ? new Date().toISOString()
             : null,
+        abbreviation: documentForm.abbreviation,
       };
 
       if (documentForm.files.length > 0) {
@@ -2814,6 +2816,18 @@ const openNewAnnouncementDialog = async () => {
   announcementData.caseNumber = caseDetail.value?.案号 || '';
 
   showAnnouncementDialog.value = true;
+};
+
+// 打开管理人工作台
+const openWorkbench = () => {
+  // 创建一个临时链接元素来打开外部链接
+  const link = document.createElement('a');
+  link.href = 'https://pcgl.zjsfgkw.gov.cn:10020/#/login';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer'; // 安全性考虑
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 // 关闭公告对话框
@@ -5405,6 +5419,10 @@ const endDrag = () => {
                     <Icon icon="lucide:plus" class="mr-1" />
                     发布新公告
                   </ElButton>
+                  <ElButton type="success" @click="openWorkbench">
+                    <Icon icon="lucide:briefcase" class="mr-1" />
+                    管理人工作台
+                  </ElButton>
                 </div>
               </div>
             </template>
@@ -5434,7 +5452,27 @@ const endDrag = () => {
                     prop="announcement_type"
                     label="公告类型"
                     width="150"
-                  />
+                  >
+                    <template #default="scope">
+                      <ElTag
+                        :type="
+                          scope.row.announcement_type === 'URGENT'
+                            ? 'danger'
+                            : scope.row.announcement_type === 'IMPORTANT'
+                              ? 'warning'
+                              : 'info'
+                        "
+                      >
+                        {{
+                          scope.row.announcement_type === 'URGENT'
+                            ? '紧急公告'
+                            : scope.row.announcement_type === 'IMPORTANT'
+                              ? '重要公告'
+                              : '普通公告'
+                        }}
+                      </ElTag>
+                    </template>
+                  </ElTableColumn>
                   <ElTableColumn
                     prop="publisher_name"
                     label="发布人"
@@ -6785,6 +6823,19 @@ const endDrag = () => {
                 </ElSelect>
               </ElFormItem>
 
+              <ElFormItem label="团队角色" required>
+                <ElSelect
+                  v-model="memberForm.teamRole"
+                  placeholder="选择角色"
+                  style="width: 100%"
+                  clearable
+                >
+                  <ElOption label="负责人" value="LEADER" />
+                  <ElOption label="成员" value="MEMBER" />
+                  <ElOption label="访客" value="GUEST" />
+                </ElSelect>
+              </ElFormItem>
+
               <ElFormItem v-if="!memberForm.id" label="成员" required>
                 <ElSelect
                   v-model="selectedUser"
@@ -6821,19 +6872,6 @@ const endDrag = () => {
                   placeholder="成员"
                   disabled
                 />
-              </ElFormItem>
-
-              <ElFormItem label="团队角色" required>
-                <ElSelect
-                  v-model="memberForm.teamRole"
-                  placeholder="选择角色"
-                  style="width: 100%"
-                  clearable
-                >
-                  <ElOption label="负责人" value="LEADER" />
-                  <ElOption label="成员" value="MEMBER" />
-                  <ElOption label="访客" value="GUEST" />
-                </ElSelect>
               </ElFormItem>
               <ElFormItem label="权限级别">
                 <ElSelect
@@ -6909,7 +6947,7 @@ const endDrag = () => {
         <!-- 新增文书送达弹窗 -->
         <ElDialog
           v-model="showAddDocumentDialog"
-          title="新增文书送达"
+          :title="isEditingDocument ? '编辑文书送达' : '新增文书送达'"
           width="80%"
           destroy-on-close
           :close-on-click-modal="false"

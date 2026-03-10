@@ -13,7 +13,7 @@ const props = defineProps<{
   caseId: string;
 }>();
 
-const activeTab = ref('stage1');
+const activeTab = ref('creditorInfo');
 const stageOneRef = ref<InstanceType<typeof ClaimRegistrationStageOne> | null>(
   null,
 );
