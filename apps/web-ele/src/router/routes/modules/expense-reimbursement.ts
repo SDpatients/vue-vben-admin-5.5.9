@@ -34,18 +34,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'ExpenseReimbursementEdit',
-        path: 'edit/:id',
-        component: () => import('#/views/expense-reimbursement/form.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:edit',
-          title: '编辑报销单',
-          hideInMenu: true,
-          hideInTab: true,
-        },
-      },
-      {
         name: 'ExpenseReimbursementDetail',
         path: 'detail/:id',
         component: () => import('#/views/expense-reimbursement/detail.vue'),

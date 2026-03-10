@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -108,6 +108,32 @@ const isInfoCollapsed = ref(false);
 const isEditing = ref(false);
 const editedData = reactive<any>({});
 const saveLoading = ref(false);
+
+// 时间项展开/收起
+const isTimeItemsExpanded = ref(false);
+const allTimeItems = ['受理日期', '债权申报截止时间', '立案日期', '结案日期', '破产时间', '终结时间', '注销时间', '归档时间'];
+const defaultTimeItems = ['受理日期', '立案日期', '结案日期'];
+
+// 计算当前显示的时间项数量
+const currentDisplayCount = computed(() => {
+  if (isTimeItemsExpanded.value) {
+    return allTimeItems.length;
+  }
+  return defaultTimeItems.length;
+});
+
+// 切换时间项展开/收起
+const toggleTimeItems = () => {
+  isTimeItemsExpanded.value = !isTimeItemsExpanded.value;
+};
+
+// 判断时间项是否应该显示
+const shouldShowTimeItem = (itemName: string) => {
+  if (isTimeItemsExpanded.value) {
+    return true;
+  }
+  return defaultTimeItems.includes(itemName);
+};
 
 // 权限控制相关
 const canEdit = ref(false);
@@ -2694,11 +2720,18 @@ const saveAnnouncement = async () => {
           // 过滤掉已有文件和手机上传的文件
           const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
           const isMobile = attach.id?.toString().startsWith('mobile-');
-          return !isExisting && !isMobile && attach.raw;
+          console.log('检查文件:', attach.originalFileName || attach.name, {
+            isExisting,
+            isMobile,
+            hasFile: !!attach.file,
+            id: attach.id
+          });
+          return !isExisting && !isMobile && attach.file;
         })
-        .map((attach: any) => attach.raw);
+        .map((attach: any) => attach.file);
 
       console.log('需要上传的文件数量:', filesToUpload.length);
+      console.log('需要上传的文件:', filesToUpload);
 
       if (filesToUpload.length > 0) {
         try {
@@ -5221,8 +5254,23 @@ const endDrag = () => {
             </div>
 
             <div v-else-if="caseDetail" class="case-time-content">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-sm text-gray-500">
+                  显示 {{ currentDisplayCount }}/{{ allTimeItems.length }} 个时间项
+                </div>
+                <ElButton 
+                  type="primary" 
+                  size="small" 
+                  link
+                  @click="toggleTimeItems"
+                >
+                  <Icon :icon="isTimeItemsExpanded ? 'lucide:chevrons-up' : 'lucide:chevrons-down'" class="mr-1" />
+                  {{ isTimeItemsExpanded ? '收起' : '展开' }}
+                </ElButton>
+              </div>
+              
               <ElRow :gutter="20">
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('受理日期')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       受理日期
@@ -5244,7 +5292,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('债权申报截止时间')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       债权申报截止时间
@@ -5266,7 +5314,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('立案日期')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       立案日期
@@ -5288,7 +5336,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('结案日期')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       结案日期
@@ -5310,7 +5358,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('破产时间')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       破产时间
@@ -5332,7 +5380,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('终结时间')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       终结时间
@@ -5354,7 +5402,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('注销时间')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       注销时间
@@ -5376,7 +5424,7 @@ const endDrag = () => {
                     </div>
                   </div>
                 </ElCol>
-                <ElCol :xs="24" :sm="12" :md="8">
+                <ElCol :xs="24" :sm="12" :md="8" v-if="shouldShowTimeItem('归档时间')">
                   <div class="time-item" :class="{ editing: isEditing }">
                     <div class="time-label" :class="{ editing: isEditing }">
                       归档时间

@@ -55,5 +55,79 @@
   "permission": {
     "title": "权限管理",
     "index": "权限管理"
+  },
+  "documentLibrary": {
+    "title": "文档库",
+    "dashboard": "仪表盘",
+    "management": "文档管理",
+    "favorites": "我的收藏",
+    "search": "文档搜索",
+    "folder": {
+      "create": "新建文件夹",
+      "edit": "编辑文件夹",
+      "delete": "删除文件夹",
+      "move": "移动文件夹",
+      "name": "文件夹名称",
+      "description": "描述",
+      "icon": "图标",
+      "color": "颜色",
+      "isPublic": "是否公开",
+      "sortOrder": "排序"
+    },
+    "document": {
+      "upload": "上传文档",
+      "edit": "编辑文档",
+      "delete": "删除文档",
+      "download": "下载文档",
+      "preview": "预览文档",
+      "move": "移动文档",
+      "copy": "复制文档",
+      "lock": "锁定文档",
+      "unlock": "解锁文档",
+      "share": "分享文档",
+      "name": "文档名称",
+      "type": "文档类型",
+      "size": "文件大小",
+      "version": "版本",
+      "tags": "标签",
+      "description": "描述",
+      "createTime": "创建时间",
+      "updateTime": "更新时间"
+    },
+    "version": {
+      "title": "版本管理",
+      "upload": "上传新版本",
+      "restore": "恢复版本",
+      "current": "当前版本",
+      "history": "历史版本",
+      "changeSummary": "变更说明",
+      "isMajor": "主版本"
+    },
+    "share": {
+      "title": "分享管理",
+      "create": "创建分享",
+      "link": "分享链接",
+      "password": "分享密码",
+      "permission": "权限类型",
+      "expireTime": "过期时间",
+      "maxAccessCount": "最大访问次数",
+      "enable": "启用分享",
+      "disable": "禁用分享"
+    },
+    "permission": {
+      "title": "权限管理",
+      "grant": "授予权限",
+      "read": "查看权限",
+      "write": "编辑权限",
+      "delete": "删除权限",
+      "download": "下载权限",
+      "admin": "管理权限",
+      "share": "分享权限"
+    },
+    "log": {
+      "title": "操作日志",
+      "document": "文档操作日志",
+      "my": "我的操作日志"
+    }
   }
 }

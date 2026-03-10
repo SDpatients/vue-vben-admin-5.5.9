@@ -381,9 +381,6 @@ onMounted(() => {
 
       <div class="action-buttons" v-if="detail">
         <el-button @click="handleBack">返回</el-button>
-        <el-button v-if="canEdit" type="primary" @click="handleEdit">
-          编辑
-        </el-button>
         <el-button
           v-if="canApprove && canEdit"
           type="warning"

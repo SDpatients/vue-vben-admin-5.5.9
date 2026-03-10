@@ -184,6 +184,21 @@ export const approvalApi = {
       },
     });
   },
+
+  // 获取待审批的CASE_SUBMIT类型数量
+  getPendingCaseSubmitCount: () => {
+    return requestClient.get('/api/v1/approval/pending/case-submit/count');
+  },
+
+  // 获取待审批的TASK_类型数量
+  getPendingTaskCount: () => {
+    return requestClient.get('/api/v1/approval/pending/task/count');
+  },
+
+  // 获取待审批的总数量
+  getPendingTotalCount: () => {
+    return requestClient.get('/api/v1/approval/pending/total/count');
+  },
 };
 
 export const approvalUtils = {

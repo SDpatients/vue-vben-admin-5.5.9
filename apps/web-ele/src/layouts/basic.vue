@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
@@ -16,6 +16,7 @@ import { openWindow } from '@vben/utils';
 
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
+import { approvalApi } from '#/api/core/approval';
 import LoginForm from '#/views/_core/authentication/login.vue';
 import NotificationBadge from '#/components/NotificationBadge.vue';
 
@@ -79,6 +80,44 @@ watch(
     immediate: true,
   },
 );
+
+// 检查用户是否有管理员权限
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('ADMIN');
+});
+
+// 获取待审批总数量并更新菜单徽章
+const loadPendingTotalCount = async () => {
+  if (!isAdmin.value) return;
+  
+  try {
+    const res = await approvalApi.getPendingTotalCount();
+    const count = res?.count || 0;
+    if (count > 0) {
+      accessStore.updateMenuBadge('/approval/case', count > 99 ? '99+' : String(count), 'destructive');
+    } else {
+      accessStore.updateMenuBadge('/approval/case', '', '');
+    }
+  } catch (error) {
+    console.error('获取待审批总数量失败:', error);
+  }
+};
+
+// 定时刷新
+let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  loadPendingTotalCount();
+  // 每5分钟刷新一次
+  refreshInterval = setInterval(loadPendingTotalCount, 5 * 60 * 1000);
+});
+
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
+});
 </script>
 
 <template>

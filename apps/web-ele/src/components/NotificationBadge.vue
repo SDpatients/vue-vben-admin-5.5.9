@@ -121,7 +121,16 @@ const markAllAsRead = async () => {
     ElMessage.error('无法获取用户信息');
     return;
   }
-  await notificationApi.markAllAsRead();
+  try {
+    await notificationApi.markAllAsRead();
+  } catch (error: any) {
+    const errorMsg = error?.message || '';
+    if (!errorMsg.includes("Cannot destructure property 'config' of 'response' as it is null")) {
+      console.error('标记全部为已读失败:', error);
+      ElMessage.error('标记全部为已读失败');
+      return;
+    }
+  }
   loadDynamicCount();
   // 刷新最新动态数据
   if (

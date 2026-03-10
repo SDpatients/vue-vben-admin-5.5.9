@@ -186,7 +186,12 @@ const loadFiles = async () => {
     }
     
     if (response.code === 200 && response.data) {
+      // 强制刷新文件列表，先清空再赋值
+      const oldLength = fileList.value.length;
+      fileList.value = [];
+      await nextTick();
       fileList.value = response.data;
+      console.log(`[FileUpload] 文件列表已刷新，旧数量：${oldLength}, 新数量：${fileList.value.length}`);
     }
   } catch (error) {
     console.error('加载文件列表失败:', error);
@@ -546,6 +551,12 @@ const handleServerFileUpload = async (rawFile: File) => {
     const response = await uploadFileApi(rawFile, props.bizType, props.bizId);
     if (response.code === 200 && response.data) {
       ElMessage.success('文件上传成功');
+      // 先清理可能存在的旧预览 URL
+      if (previewUrl.value) {
+        window.URL.revokeObjectURL(previewUrl.value);
+        previewUrl.value = '';
+      }
+      // 立即刷新文件列表
       await loadFiles();
       if (props.modelValue && Array.isArray(props.modelValue)) {
         const newFileIds = [...props.modelValue, response.data.id];
@@ -835,7 +846,7 @@ const displayFiles = computed(() => {
     const existing = props.existingFiles || [];
     const local = localFiles.value;
     
-    // 创建一个Map来去重，以id为key
+    // 创建一个 Map 来去重，以 id 为 key
     const fileMap = new Map<string | number, any>();
     
     // 先添加已有文件
@@ -847,14 +858,39 @@ const displayFiles = computed(() => {
       });
     });
     
-    // 再添加本地文件（会覆盖同id的已有文件）
+    // 再添加本地文件（会覆盖同 id 的已有文件）
     local.forEach(file => {
       fileMap.set(file.id, file);
     });
     
-    return Array.from(fileMap.values());
+    const result = Array.from(fileMap.values());
+    console.log('[displayFiles] 本地模式，文件数:', result.length);
+    return result;
   }
-  return fileList.value;
+  // 非本地模式：优先使用 fileList，如果没有则使用 existingFiles
+  if (fileList.value && fileList.value.length > 0) {
+    console.log('[displayFiles] 非本地模式，使用 fileList，文件数:', fileList.value.length);
+    return fileList.value;
+  }
+  // 如果 fileList 为空，但有 existingFiles，则使用 existingFiles
+  if (props.existingFiles && props.existingFiles.length > 0) {
+    const files = props.existingFiles.map(file => ({
+      id: file.id,
+      originalFileName: file.originalFileName,
+      fileSize: file.fileSize,
+      fileExtension: file.fileExtension,
+      mimeType: file.mimeType,
+      uploadTime: file.uploadTime,
+      filePath: file.filePath,
+      name: file.originalFileName,
+      size: file.fileSize,
+      status: 'success' as const,
+    }));
+    console.log('[displayFiles] 非本地模式，使用 existingFiles，文件数:', files.length);
+    return files;
+  }
+  console.log('[displayFiles] 非本地模式，没有文件');
+  return [];
 });
 
 // 监听 existingFiles 变化，初始化本地文件列表
@@ -899,8 +935,12 @@ watch(() => props.existingFiles, (newFiles) => {
         size: file.fileSize,          // 添加 size 字段
         status: 'success' as const,
       }));
-      fileList.value = files;
-      console.log('设置 fileList:', fileList.value);
+      // 强制刷新 fileList，先清空再赋值
+      fileList.value = [];
+      nextTick(() => {
+        fileList.value = files;
+        console.log('设置 fileList:', fileList.value);
+      });
     }
   }
 }, { immediate: true });

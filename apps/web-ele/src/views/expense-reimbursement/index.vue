@@ -99,10 +99,6 @@ const handleAdd = () => {
   router.push('/expense-reimbursement/add');
 };
 
-const handleEdit = (row: any) => {
-  router.push(`/expense-reimbursement/edit/${row.id}`);
-};
-
 const handleView = (row: any) => {
   router.push(`/expense-reimbursement/detail/${row.id}`);
 };
@@ -318,18 +314,10 @@ onMounted(() => {
               }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="scope">
               <el-button type="primary" size="small" @click="handleView(scope.row)">
                 查看
-              </el-button>
-              <el-button
-                v-if="scope.row.approvalStatus === 'PENDING'"
-                type="success"
-                size="small"
-                @click="handleEdit(scope.row)"
-              >
-                编辑
               </el-button>
               <el-button
                 v-if="canApprove && scope.row.approvalStatus === 'PENDING'"

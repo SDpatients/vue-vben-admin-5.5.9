@@ -646,14 +646,6 @@ watch(() => props.moduleType, () => {
             </div>
             <div class="flex space-x-2">
               <ElButton 
-                type="success" 
-                @click="openImportDialog"
-                :loading="importLoading"
-              >
-                <Icon icon="lucide:file-spreadsheet" class="mr-1" />
-                导入
-              </ElButton>
-              <ElButton 
                 type="primary" 
                 @click="props.moduleType === 'review' ? fetchReviewClaims() : fetchClaims()"
                 :loading="loading"

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Loading } from '@element-plus/icons-vue';
 import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus';
 
+import FileUpload from '#/views/law/case-detail/components/FileUpload.vue';
 import { getBankAccountListApi } from '#/api/core/bank-account';
 import { getCaseSimpleListApi } from '#/api/core/case';
 import {
@@ -17,6 +18,7 @@ import {
   previewReimbursementAttachment,
   updateReimbursement,
   uploadReimbursementAttachment,
+  linkReimbursementAttachment,
 } from '#/api/core/expense-reimbursement';
 
 const router = useRouter();
@@ -27,6 +29,7 @@ const saving = ref(false);
 const isEdit = computed(() => !!route.params.id);
 
 const formRef = ref();
+const fileUploadRef = ref<any>();
 const reimbursementForm = reactive({
   id: 0,
   caseId: undefined as number | undefined,
@@ -305,6 +308,14 @@ const handleSave = async () => {
             reimbursementDate: reimbursementForm.reimbursementDate,
             description: reimbursementForm.description,
           });
+          
+          // 转移手机上传的临时文件（如果有）
+          if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
+            console.log('发现手机上传的临时文件，开始转移...');
+            const transferredFiles = await fileUploadRef.value.transferMobileFiles(reimbursementForm.id);
+            console.log('转移成功的文件:', transferredFiles);
+          }
+          
           ElMessage.success('更新成功');
         } else {
           const response = await createReimbursement({
@@ -319,15 +330,68 @@ const handleSave = async () => {
             })),
           });
 
-          if (attachments.value.length > 0) {
-            for (const attachment of attachments.value) {
-              if (attachment.file) {
-                await uploadReimbursementAttachment(
-                  response.data.reimbursementId,
-                  attachment.file,
-                );
+          const reimbursementId = response.data.reimbursementId;
+          console.log('创建报销单成功，ID:', reimbursementId);
+          
+          // 1. 转移手机上传的临时文件（如果有）
+          let transferredFileIds: number[] = [];
+          if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
+            console.log('发现手机上传的临时文件，开始转移...');
+            const transferredFiles = await fileUploadRef.value.transferMobileFiles(reimbursementId);
+            console.log('转移成功的文件:', transferredFiles);
+            
+            // 收集转移成功的文件 ID 并关联到报销单
+            if (transferredFiles && transferredFiles.length > 0) {
+              for (const file of transferredFiles) {
+                try {
+                  await linkReimbursementAttachment(reimbursementId, file.id);
+                  transferredFileIds.push(file.id);
+                  console.log('关联文件成功:', file.id, file.originalFileName);
+                } catch (error) {
+                  console.error('关联文件失败:', file.id, error);
+                }
               }
             }
+          }
+
+          // 2. 上传本地文件（电脑选择的文件）
+          if (attachments.value.length > 0) {
+            console.log('=== 准备报销附件上传 ===');
+            console.log('attachments:', attachments.value);
+            
+            // 过滤出需要上传的本地文件（不是手机上传的文件）
+            const filesToUpload = attachments.value
+              .filter((attach: any) => {
+                const isMobile = attach.id?.toString().startsWith('mobile-');
+                const hasFile = !!attach.file;
+                console.log('检查文件:', attach.originalFileName || attach.fileName, {
+                  isMobile,
+                  hasFile,
+                  id: attach.id
+                });
+                return !isMobile && hasFile;
+              })
+              .map((attach: any) => attach.file);
+
+            console.log('需要上传的文件数量:', filesToUpload.length);
+
+            if (filesToUpload.length > 0) {
+              for (const file of filesToUpload) {
+                try {
+                  console.log('上传文件:', file.name);
+                  await uploadReimbursementAttachment(reimbursementId, file);
+                } catch (error) {
+                  console.error('上传附件失败:', error);
+                }
+              }
+              ElMessage.success('附件上传成功');
+            }
+          }
+          
+          // 3. 如果有转移的手机文件，提示用户
+          if (transferredFileIds.length > 0) {
+            console.log('手机上传的文件已关联，文件 ID:', transferredFileIds);
+            ElMessage.success(`成功关联 ${transferredFileIds.length} 个手机上传的文件`);
           }
 
           ElMessage.success('创建成功');
@@ -477,64 +541,31 @@ onMounted(() => {
         <template #header>
           <div class="card-header">
             <span>附件</span>
-            <el-upload
-              ref="uploadRef"
-              :auto-upload="false"
-              :show-file-list="false"
-              :on-change="handleFileChange"
-              accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx"
-            >
-              <el-button type="primary" size="small">
-                <i class="el-icon-upload"></i> 上传附件
-              </el-button>
-            </el-upload>
           </div>
         </template>
-        <el-table :data="attachments" style="width: 100%">
-          <el-table-column type="index" label="序号" width="80" />
-          <el-table-column prop="fileName" label="文件名" />
-          <el-table-column prop="fileSize" label="文件大小" width="150">
-            <template #default="scope">
-              {{ (scope.row.fileSize / 1024).toFixed(2) }} KB
-            </template>
-          </el-table-column>
-          <el-table-column prop="uploadTime" label="上传时间" width="180">
-            <template #default="scope">
-              {{
-                scope.row.uploadTime
-                  ? new Date(scope.row.uploadTime).toLocaleString('zh-CN')
-                  : '-'
-              }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
-            <template #default="scope">
-              <el-button
-                v-if="scope.row.id"
-                type="primary"
-                size="small"
-                @click="previewFile(scope.row)"
-              >
-                预览
-              </el-button>
-              <el-button
-                v-if="scope.row.id"
-                type="success"
-                size="small"
-                @click="downloadFile(scope.row)"
-              >
-                下载
-              </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                @click="handleDeleteAttachment(scope.$index)"
-              >
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <FileUpload
+          ref="fileUploadRef"
+          v-model="attachments"
+          :model-value="[]"
+          :biz-type="'expense_reimbursement'"
+          :biz-id="reimbursementForm.id || 0"
+          accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx"
+          :max-size="50 * 1024 * 1024"
+          :multiple="true"
+          title="报销附件"
+          :disabled="false"
+          :local-mode="!isEdit"
+          :existing-files="isEdit ? attachments.filter(a => a.id).map(a => ({
+            id: a.id,
+            originalFileName: a.fileName,
+            fileSize: a.fileSize,
+            fileExtension: a.fileType?.split('/')?.pop() || '',
+            mimeType: a.fileType,
+            filePath: a.filePath,
+            uploadTime: a.uploadTime,
+          })) : []"
+          @local-files-change="(files) => { console.log('报销附件变化:', files); attachments = files; }"
+        />
       </el-card>
 
       <div class="form-actions">

@@ -517,6 +517,21 @@ const formRules = {
 // 上传文件列表
 const uploadFiles = ref<UploadFile[]>([]);
 
+// 重命名相关
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<UploadFile | null>(null);
+const newFileName = ref('');
+const renameLoading = ref(false);
+
+// 格式化文件大小
+const formatFileSize = (size?: number): string => {
+  if (!size || size === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(size) / Math.log(k));
+  return Math.round((size / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+};
+
 // 处理文件上传前的验证
 const handleFileBeforeUpload = (file: UploadFile) => {
   // 验证文件大小，限制为50MB
@@ -537,7 +552,7 @@ const handleFileRemove = (file: UploadFile) => {
     type: 'warning',
   })
     .then(async () => {
-      // 检查是否有文件ID，有则调用删除接口
+      // 检查是否有文件 ID，有则调用删除接口
       const fileId = file.id || file.response?.id;
       if (fileId) {
         try {
@@ -576,6 +591,74 @@ const handleFileRemove = (file: UploadFile) => {
     });
 
   return false; // 阻止默认删除行为，由我们自己处理
+};
+
+// 打开重命名对话框
+const openRenameDialog = (file: UploadFile) => {
+  currentRenameFile.value = file;
+  newFileName.value = file.name || '';
+  showRenameDialog.value = true;
+};
+
+// 执行重命名
+const handleRenameFile = async () => {
+  if (!currentRenameFile.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    const fileId = currentRenameFile.value.id || currentRenameFile.value.response?.id;
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      ElMessage.warning('未登录，无法重命名文件');
+      return;
+    }
+
+    if (!fileId) {
+      ElMessage.warning('文件 ID 不存在');
+      return;
+    }
+
+    // 调用重命名接口
+    await requestClient8085.put(
+      `/file/${fileId}/rename`,
+      { newFileName: newFileName.value.trim() },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    // 更新文件列表中的文件名
+    const index = uploadFiles.value.findIndex(
+      (item) => item.uid === currentRenameFile.value?.uid,
+    );
+    if (index !== -1) {
+      uploadFiles.value[index].name = newFileName.value.trim();
+    }
+
+    ElMessage.success('文件重命名成功');
+    showRenameDialog.value = false;
+    currentRenameFile.value = null;
+    newFileName.value = '';
+  } catch (error: any) {
+    console.error('重命名文件失败:', error);
+    ElMessage.error(error.message || '重命名文件失败');
+  } finally {
+    renameLoading.value = false;
+  }
+};
+
+// 取消重命名
+const cancelRename = () => {
+  showRenameDialog.value = false;
+  currentRenameFile.value = null;
+  newFileName.value = '';
 };
 
 // 处理文件变化
@@ -3172,6 +3255,7 @@ const openMobileUploadDialog = async () => {
         <ElTabPane label="附件" name="attachments">
           <div class="attachments-container">
             <div class="upload-actions" style="display: flex; gap: 12px">
+            
               <ElUpload
                 ref="upload"
                 v-model:file-list="uploadFiles"
@@ -3194,7 +3278,18 @@ const openMobileUploadDialog = async () => {
                 手机上传
               </ElButton>
             </div>
-
+  <ElAlert
+                type="info"
+                :closable="false"
+                show-icon
+                style="flex: 1;"
+              >
+                <template #title>
+                  <span class="text-sm">
+                    如果需要手机上传，请先保存此任务，然后在编辑窗口进行上传。新增暂不支持手机上传。
+                  </span>
+                </template>
+              </ElAlert>
             <div v-if="uploadFiles.length > 0" class="upload-tip">
               <Icon icon="lucide:info" class="mr-1" />
               支持拖拽调整文件顺序，点击图片可预览，点击文件可在线预览
@@ -3233,9 +3328,9 @@ const openMobileUploadDialog = async () => {
                     {{ file.name }}
                   </div>
                   <div class="file-meta">
-                    <span class="file-size"
-                      >{{ (file.size / 1024).toFixed(2) }} KB</span
-                    >
+                    <span class="file-size">
+                      {{ formatFileSize(file.size) }}
+                    </span>
                     <span
                       v-if="file.status === 'success'"
                       class="file-status success"
@@ -3264,6 +3359,14 @@ const openMobileUploadDialog = async () => {
                     <Icon icon="lucide:eye" />
                   </ElButton>
                   <ElButton
+                    type="primary"
+                    size="small"
+                    text
+                    @click.stop="openRenameDialog(file)"
+                  >
+                    <Icon icon="lucide:edit-2" />
+                  </ElButton>
+                  <ElButton
                     type="danger"
                     size="small"
                     text
@@ -3288,6 +3391,34 @@ const openMobileUploadDialog = async () => {
         <ElButton type="primary" @click="handleAddSubmit">
           <Icon icon="lucide:check" class="mr-1" />
           保存
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 重命名对话框 -->
+    <ElDialog
+      v-model="showRenameDialog"
+      title="重命名文件"
+      width="400px"
+    >
+      <ElForm>
+        <ElFormItem label="当前文件名">
+          <div class="text-gray-600">{{ currentRenameFile?.name }}</div>
+        </ElFormItem>
+        <ElFormItem label="新文件名">
+          <ElInput
+            v-model="newFileName"
+            placeholder="请输入新文件名（包含扩展名）"
+            :disabled="renameLoading"
+          />
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="cancelRename" :loading="renameLoading">
+          取消
+        </ElButton>
+        <ElButton type="primary" @click="handleRenameFile" :loading="renameLoading">
+          确认重命名
         </ElButton>
       </template>
     </ElDialog>
@@ -4919,6 +5050,44 @@ const openMobileUploadDialog = async () => {
   background: #f9fafb;
   border-top: 1px solid #e5e7eb;
   justify-content: flex-end;
+}
+
+/* 修复文件操作按钮的样式冲突 */
+.file-actions .el-button.is-text {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.file-actions .el-button.is-text:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.file-actions .el-button--primary.is-text {
+  color: #3b82f6 !important;
+}
+
+.file-actions .el-button--primary.is-text:hover {
+  color: #2563eb !important;
+  background-color: #f3f4f6 !important;
+}
+
+.file-actions .el-button--danger.is-text {
+  color: #ef4444 !important;
+}
+
+.file-actions .el-button--danger.is-text:hover {
+  color: #dc2626 !important;
+  background-color: #f3f4f6 !important;
+}
+
+/* 确保按钮内的图标颜色正确 */
+.file-actions .el-button--primary.is-text .iconify {
+  color: #3b82f6 !important;
+}
+
+.file-actions .el-button--danger.is-text .iconify {
+  color: #ef4444 !important;
 }
 
 .empty-state {

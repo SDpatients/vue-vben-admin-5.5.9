@@ -97,6 +97,24 @@ const pagination = ref({
 // 激活的标签页
 const activeTab = ref('caseApproval');
 
+// 待审批数量
+const caseSubmitPendingCount = ref(0);
+const taskPendingCount = ref(0);
+
+// 获取待审批数量
+const loadPendingCounts = async () => {
+  try {
+    const [caseSubmitRes, taskRes] = await Promise.all([
+      approvalApi.getPendingCaseSubmitCount(),
+      approvalApi.getPendingTaskCount(),
+    ]);
+    caseSubmitPendingCount.value = caseSubmitRes?.count || 0;
+    taskPendingCount.value = taskRes?.count || 0;
+  } catch (error) {
+    console.error('获取待审批数量失败:', error);
+  }
+};
+
 // 跳转到案件详情
 const goToCaseDetail = (caseId: number) => {
   router.push(`/law/case-detail/${caseId}`);
@@ -258,13 +276,18 @@ const handleReset = () => {
 };
 
 const handleViewDetail = async (row: CaseApproval) => {
+  // 案件审批标签页：跳转到案件详情页面
+  if (activeTab.value === 'caseApproval') {
+    router.push(`/law/case-detail/${row.caseId}`);
+    return;
+  }
+  
+  // 流程文件审批标签页：打开弹窗显示附件列表
   loading.value = true;
   isLoading.value = true;
   try {
-    // 调用API获取审批详情
     const approvalDetail = await approvalApi.getApprovalDetail(row.id);
     
-    // 更新当前案件数据
     currentCase.value = {
       id: approvalDetail.id,
       caseId: approvalDetail.caseId,
@@ -283,38 +306,28 @@ const handleViewDetail = async (row: CaseApproval) => {
     
     dialogType.value = 'view';
     
-    // 重置解析数据
     contentData.value = null;
     attachmentData.value = null;
     previewUrls.value = {};
     selectedTaskId.value = null;
     
-    // 尝试解析 approvalContent 字段
     if (approvalDetail.approvalContent) {
       contentData.value = approvalUtils.parseApprovalContent(approvalDetail.approvalContent);
     }
     
-    // 尝试解析 approvalAttachment 字段
     if (approvalDetail.approvalAttachment) {
-      console.log('原始附件数据:', approvalDetail.approvalAttachment);
       attachmentData.value = approvalUtils.parseApprovalAttachment(approvalDetail.approvalAttachment);
-      console.log('解析后的附件数据:', attachmentData.value);
       
-      // 自动选择第一个任务
       if (attachmentData.value && 'files' in attachmentData.value) {
         const taskIds = Object.keys(attachmentData.value.files);
         if (taskIds.length > 0) {
           selectedTaskId.value = taskIds[0];
         }
       }
-    } else {
-      console.log('无附件数据');
     }
     
-    // 先显示弹窗
     dialogVisible.value = true;
     
-    // 异步预加载图片
     if (approvalDetail.approvalAttachment) {
       setTimeout(async () => {
         await preloadImages(approvalDetail.id);
@@ -509,8 +522,8 @@ const handleConfirmApproval = async () => {
     );
 
     await loadCases();
+    await loadPendingCounts();
   } catch (error: any) {
-    console.error('审批失败:', error);
     const errorMsg = error?.message || '';
     if (errorMsg.includes("Cannot destructure property 'config' of 'response' as it is null")) {
       dialogVisible.value = false;
@@ -518,7 +531,9 @@ const handleConfirmApproval = async () => {
         approvalForm.value.status === 'approved' ? '审批通过' : '已驳回',
       );
       await loadCases();
+      await loadPendingCounts();
     } else {
+      console.error('审批失败:', error);
       const msg = error?.response?.data?.message || errorMsg || '审批失败';
       ElMessage.error(msg);
     }
@@ -765,6 +780,7 @@ const loadSingleImage = async (approvalId: number, fileId: number | null, filePa
 
 onMounted(() => {
   loadCases();
+  loadPendingCounts();
 });
 
 // 添加CSS动画样式
@@ -784,8 +800,22 @@ document.head.appendChild(style);
       <template #header>
         <div class="flex items-center justify-between">
           <ElTabs v-model="activeTab" @tab-change="handleSearch">
-            <ElTabPane label="案件审批" name="caseApproval" />
-            <ElTabPane label="文件审核" name="fileApproval" />
+            <ElTabPane name="caseApproval">
+              <template #label>
+                <span class="tab-label-with-badge">
+                  案件审批
+                  <span v-if="caseSubmitPendingCount > 0" class="pending-badge">{{ caseSubmitPendingCount > 99 ? '99+' : caseSubmitPendingCount }}</span>
+                </span>
+              </template>
+            </ElTabPane>
+            <ElTabPane name="fileApproval">
+              <template #label>
+                <span class="tab-label-with-badge">
+                  流程文件审批
+                  <span v-if="taskPendingCount > 0" class="pending-badge">{{ taskPendingCount > 99 ? '99+' : taskPendingCount }}</span>
+                </span>
+              </template>
+            </ElTabPane>
           </ElTabs>
           <ElButton type="primary" @click="loadCases">
             <i class="i-lucide-refresh-cw mr-1"></i>
@@ -967,8 +997,47 @@ document.head.appendChild(style);
       :fullscreen="false"
     >
       <div v-if="currentCase" class="case-detail">
-        <!-- 附件列表 -->
-        <div class="attachments-section">
+        <!-- 案件审批标签页的审批弹窗：只显示备注和审批操作 -->
+        <template v-if="activeTab === 'caseApproval' && dialogType === 'approve'">
+          <div class="case-approval-simple">
+            <div class="info-row">
+              <span class="label">案号：</span>
+              <span class="value">{{ currentCase.caseNumber }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">审核标题：</span>
+              <span class="value">{{ currentCase.caseTitle }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">提交人：</span>
+              <span class="value">{{ currentCase.submitter }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">提交时间：</span>
+              <span class="value">{{ currentCase.submitTime }}</span>
+            </div>
+            <div v-if="currentCase.remark" class="info-row">
+              <span class="label">备注：</span>
+              <span class="value">{{ currentCase.remark }}</span>
+            </div>
+            <div class="approval-section">
+              <div class="section-title">审批操作</div>
+              <ElFormItem label="审批意见" class="approval-form-item">
+                <ElInput
+                  v-model="approvalForm.remark"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="请输入审批意见（可选）"
+                />
+              </ElFormItem>
+            </div>
+          </div>
+        </template>
+        
+        <!-- 流程文件审批标签页或查看详情：显示完整内容 -->
+        <template v-else>
+          <!-- 附件列表 -->
+          <div class="attachments-section">
           <div class="section-title">附件列表</div>
           <div class="attachment-content">
             <!-- 任务切换标签栏 -->
@@ -1130,6 +1199,7 @@ document.head.appendChild(style);
             </ElFormItem>
           </div>
         </div>
+        </template>
       </div>
 
       <!-- 查看详情时只显示取消按钮 -->
@@ -1193,6 +1263,65 @@ document.head.appendChild(style);
 </template>
 
 <style scoped>
+.tab-label-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background-color: #f56c6c;
+  border-radius: 9px;
+  line-height: 1;
+}
+
+.case-approval-simple {
+  padding: 16px;
+  
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    
+    .label {
+      flex-shrink: 0;
+      width: 80px;
+      font-weight: 600;
+      color: #606266;
+    }
+    
+    .value {
+      flex: 1;
+      color: #303133;
+      word-break: break-word;
+    }
+  }
+  
+  .approval-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #ebeef5;
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #212529;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #667eea;
+    }
+  }
+}
+
 .case-approval-page {
     .truncate-text {
       display: inline-block;

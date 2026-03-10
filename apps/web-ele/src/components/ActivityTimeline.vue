@@ -78,20 +78,30 @@ const getActivityColor = (type: string) => {
 const markAsKnown = async (id: number) => {
   // 先从列表中移除该通知，立即更新UI
   activities.value = activities.value.filter(item => item.id !== id);
-  // 再调用后端接口，不等待返回
-  notificationApi.markAsRead(id).catch(error => {
-    console.error('标记为已读失败:', error);
-  });
+  // 再调用后端接口
+  try {
+    await notificationApi.markAsRead(id);
+  } catch (error: any) {
+    const errorMsg = error?.message || '';
+    if (!errorMsg.includes("Cannot destructure property 'config' of 'response' as it is null")) {
+      console.error('标记为已读失败:', error);
+    }
+  }
 };
 
 // 全部知晓，标记所有为已读
 const markAllAsKnown = async () => {
   // 先清空活动列表，立即更新UI
   activities.value = [];
-  // 再调用后端接口，不等待返回
-  notificationApi.markAllAsRead().catch(error => {
-    console.error('标记全部为已读失败:', error);
-  });
+  // 再调用后端接口
+  try {
+    await notificationApi.markAllAsRead();
+  } catch (error: any) {
+    const errorMsg = error?.message || '';
+    if (!errorMsg.includes("Cannot destructure property 'config' of 'response' as it is null")) {
+      console.error('标记全部为已读失败:', error);
+    }
+  }
 };
 
 // 监听活动数量变化，传递给父组件

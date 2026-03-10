@@ -87,6 +87,41 @@ const todoCount = ref(0);
 const caseCount = ref(0);
 const teamCount = ref(0);
 
+// 加载用户案件数量
+const loadUserCaseCount = async () => {
+  try {
+    const chatUserId = localStorage.getItem('chat_user_id');
+    const userId = Number(chatUserId) || 0;
+    
+    if (userId === 0) {
+      console.error('无法获取用户 ID');
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    
+    const response = await fetch(`/api/v1/case/user/${userId}/count`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      caseCount.value = data.data || 0;
+      console.log('[loadUserCaseCount] 案件数量:', caseCount.value);
+    } else {
+      console.error('获取案件数量失败');
+      caseCount.value = 0;
+    }
+  } catch (error) {
+    console.error('加载案件数量失败:', error);
+    caseCount.value = 0;
+  }
+};
+
 // 案件列表相关数据
 const caseList = ref<any[]>([]);
 const currentPage = ref(1);
@@ -977,9 +1012,7 @@ const loadCaseList = async () => {
     console.log('[loadCaseList] 案件列表数据:', caseList.value);
     console.log('[loadCaseList] 案件总数:', totalCases.value);
 
-    // 使用当前筛选条件下的案件数作为案件总数
-    caseCount.value = totalCases.value;
-    console.log('[loadCaseList] 案件计数更新为:', caseCount.value);
+    // 不再在此处设置 caseCount，由专门的接口提供
     
     // 初始化日历数据 - 暂时注释掉，因为initCalendarData函数未定义
     // initCalendarData();
@@ -1235,7 +1268,7 @@ const handleMonthChange = async (value: any) => {
 };
 
 onMounted(async () => {
-  loadTodoItems();
+  loadUserCaseCount(); // 加载案件数量
   loadCaseList();
   loadAnnouncements();
   loadTeamCount();
@@ -1252,7 +1285,6 @@ onMounted(async () => {
     <div class="p-0">
       <WorkbenchHeader
         :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
-        :todo-count="todoCount"
         :case-count="caseCount"
         :team-count="teamCount"
         :real-name="currentUserInfo?.realName"
@@ -1352,7 +1384,7 @@ onMounted(async () => {
                     <span>{{ formatDate(item.filingDate) }}</span>
                   </div>
 
-                  <!-- 案件状态和办理天数 -->
+                  <!-- 案件状态和结案时间 -->
                   <div class="case-info mb-3 flex justify-between text-sm">
                     <div>
                       <span class="text-gray-500">案件状态：</span>
@@ -1360,9 +1392,9 @@ onMounted(async () => {
                         caseStatusMap[item.caseStatus]
                       }}</span>
                     </div>
-                    <div>
-                      <span class="text-gray-500">办理天数：</span>
-                      <span>已审理 {{ calculateDays(item.filingDate) }}</span>
+                    <div v-if="item.closingDate">
+                      <span class="text-gray-500">结案时间：</span>
+                      <span>{{ formatDate(item.closingDate) }}</span>
                     </div>
                   </div>
 

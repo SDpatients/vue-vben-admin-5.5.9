@@ -666,10 +666,6 @@ onMounted(() => {
                 <Icon icon="lucide:bell" class="mr-2" />
                 <span class="text-lg font-semibold">公告列表</span>
               </div>
-              <ElButton type="primary" @click="openPublishDialog">
-                <Icon icon="lucide:plus" class="mr-1" />
-                发布公告
-              </ElButton>
             </div>
             <div class="w-full">
               <ElSelect

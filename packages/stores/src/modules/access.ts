@@ -98,6 +98,32 @@ export const useAccessStore = defineStore('core-access', {
       this.isLockScreen = false;
       this.lockScreenPassword = undefined;
     },
+    updateMenuBadge(path: string, badge: string, badgeVariants?: string) {
+      function updateBadge(
+        menus: MenuRecordRaw[],
+        path: string,
+        badge: string,
+        badgeVariants?: string,
+      ): boolean {
+        for (const menu of menus) {
+          if (menu.path === path) {
+            menu.badge = badge;
+            if (badgeVariants) {
+              menu.badgeVariants = badgeVariants;
+            }
+            return true;
+          }
+          if (menu.children) {
+            const updated = updateBadge(menu.children, path, badge, badgeVariants);
+            if (updated) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+      updateBadge(this.accessMenus, path, badge, badgeVariants);
+    },
   },
   persist: {
     // 持久化

@@ -10,6 +10,7 @@ export const overridesPreferences = defineOverridesPreferences({
   app: {
     name: import.meta.env.VITE_APP_TITLE,
     defaultHomePath: '/workspace',
+    enableCheckUpdates: false,  // 禁用版本更新检测
   },
   // 禁用logo，避免请求外部资源
   logo: {

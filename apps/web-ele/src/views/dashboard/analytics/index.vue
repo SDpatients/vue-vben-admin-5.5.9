@@ -40,6 +40,33 @@ const caseCrossAnalysis = ref<null | StatisticsApi.CrossAnalysisData>(null);
 const caseRanking = ref<null | StatisticsApi.RankingResponse>(null);
 const creditorClaimRanking = ref<null | StatisticsApi.RankingResponse>(null);
 
+// 仅查看我的
+const viewOnlyMyCases = ref(false);
+
+// 获取当前用户 ID
+const getCurrentUserId = (): number | undefined => {
+  if (!viewOnlyMyCases.value) {
+    return undefined;
+  }
+  const chatUserId = localStorage.getItem('chat_user_id');
+  const userId = Number(chatUserId) || 0;
+  return userId > 0 ? userId : undefined;
+};
+
+// 判断用户是否为管理员
+const isAdmin = computed(() => {
+  const roles = localStorage.getItem('user_roles');
+  if (roles) {
+    try {
+      const rolesArray = JSON.parse(roles);
+      return Array.isArray(rolesArray) && rolesArray.includes('ADMIN');
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
+});
+
 // 权限状态标志
 const hasCaseTrendPermission = ref(true);
 const hasCaseStatisticsPermission = ref(true);
@@ -386,36 +413,38 @@ const loadStatisticsData = async () => {
     hasCaseRankingPermission.value = true;
     hasCreditorClaimRankingPermission.value = true;
 
+    const userId = getCurrentUserId();
+
     const [trendRes, statsRes, crossRes, rankingRes, creditorRes] =
       await Promise.all([
-        getCaseTrend({ period: 'month' }).catch((error) => {
-          console.error('案件趋势API调用失败:', error);
+        getCaseTrend({ period: 'month', userId }).catch((error) => {
+          console.error('案件趋势 API 调用失败:', error);
           if (error?.code === 403) {
             hasCaseTrendPermission.value = false;
           }
           return null;
         }),
-        getCaseStatistics().catch((error) => {
-          console.error('案件统计API调用失败:', error);
+        getCaseStatistics({ userId }).catch((error) => {
+          console.error('案件统计 API 调用失败:', error);
           if (error?.code === 403) {
             hasCaseStatisticsPermission.value = false;
           }
           return null;
         }),
-        getCaseCrossAnalysis().catch((error) => {
-          console.error('案件交叉分析API调用失败:', error);
-          // 交叉分析API失败不影响其他图表显示
+        getCaseCrossAnalysis({ userId }).catch((error) => {
+          console.error('案件交叉分析 API 调用失败:', error);
+          // 交叉分析 API 失败不影响其他图表显示
           return null;
         }),
         getCaseAmountRanking({ topN: 10 }).catch((error) => {
-          console.error('案件金额排名API调用失败:', error);
+          console.error('案件金额排名 API 调用失败:', error);
           if (error?.code === 403) {
             hasCaseRankingPermission.value = false;
           }
           return null;
         }),
         getCreditorClaimAmountRanking({ topN: 10 }).catch((error) => {
-          console.error('债权申报金额排名API调用失败:', error);
+          console.error('债权申报金额排名 API 调用失败:', error);
           if (error?.code === 403) {
             hasCreditorClaimRankingPermission.value = false;
           }
@@ -444,6 +473,9 @@ watch(caseStatistics, () => {
 watch(chartType1, () => renderCaseTrendChart());
 watch(chartType2, () => renderCaseTypeChart());
 watch(chartType3, () => renderCaseProgressChart());
+watch(viewOnlyMyCases, () => {
+  loadStatisticsData();
+});
 
 onMounted(() => {
   loadStatisticsData();
@@ -454,7 +486,16 @@ onMounted(() => {
   <div class="p-5">
     <!-- 案件管理图表 -->
     <div class="mt-5">
-      <h3 class="mb-4 text-lg font-semibold">案件管理分析</h3>
+      <div class="flex items-center gap-3 mb-4">
+        <h3 class="text-lg font-semibold">案件管理分析</h3>
+        <ElSwitch
+          v-model="viewOnlyMyCases"
+          inline-prompt
+          active-text="仅查看我的"
+          inactive-text="查看全部"
+          size="default"
+        />
+      </div>
 
       <!-- 第一行：案件数量趋势 -->
       <ElRow :gutter="20" class="mb-5" v-if="hasCaseTrendPermission">
@@ -519,6 +560,12 @@ onMounted(() => {
         <!-- 债权申报金额排名图表 -->
         <ElCol :span="12" v-if="hasCreditorClaimRankingPermission">
           <ElCard header="债权申报金额排名" size="small">
+            <template #header>
+              <div class="flex items-center justify-between">
+                <span>债权申报金额排名</span>
+                <span v-if="!isAdmin" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
+              </div>
+            </template>
             <div class="h-[300px]">
               <EchartsUI ref="chartRef4" />
             </div>
@@ -527,6 +574,12 @@ onMounted(() => {
         <!-- 案件金额排名图表 -->
         <ElCol :span="12" v-if="hasCaseRankingPermission">
           <ElCard header="案件金额排名" size="small">
+            <template #header>
+              <div class="flex items-center justify-between">
+                <span>案件金额排名</span>
+                <span v-if="!isAdmin" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
+              </div>
+            </template>
             <div class="h-[300px]">
               <EchartsUI ref="chartRef5" />
             </div>

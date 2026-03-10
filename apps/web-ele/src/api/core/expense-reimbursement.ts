@@ -213,3 +213,12 @@ export async function downloadReimbursementAttachment(
     },
   );
 }
+
+export async function linkReimbursementAttachment(
+  id: number,
+  fileId: number,
+): Promise<ExpenseReimbursementApi.ApiResponse<{ attachmentId: number }>> {
+  return fundRequestClient.post(
+    `/v1/expense-reimbursement/${id}/attachments/${fileId}`,
+  );
+}
