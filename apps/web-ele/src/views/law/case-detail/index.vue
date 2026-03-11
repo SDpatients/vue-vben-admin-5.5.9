@@ -5135,60 +5135,6 @@ const endDrag = () => {
                         class="detail-info-label"
                         :class="{ editing: isEditing }"
                       >
-                        案件来源
-                      </div>
-                      <div
-                        class="detail-info-value"
-                        :class="{ editing: isEditing }"
-                      >
-                        <template v-if="isEditing">
-                          <ElInput
-                            v-model="editedData.案件来源"
-                            size="small"
-                            placeholder="请输入案件来源"
-                            style="width: 100%"
-                          />
-                        </template>
-                        <template v-else>
-                          {{ caseDetail.案件来源 }}
-                        </template>
-                      </div>
-                    </div>
-                    <div
-                      class="detail-info-item"
-                      :class="{ editing: isEditing }"
-                    >
-                      <div
-                        class="detail-info-label"
-                        :class="{ editing: isEditing }"
-                      >
-                        主要负责人
-                      </div>
-                      <div
-                        class="detail-info-value"
-                        :class="{ editing: isEditing }"
-                      >
-                        <template v-if="isEditing">
-                          <ElInput
-                            v-model="editedData.管理人负责人"
-                            size="small"
-                            placeholder="请输入主要负责人"
-                            style="width: 100%"
-                          />
-                        </template>
-                        <template v-else>
-                          {{ caseDetail.管理人负责人 || '-' }}
-                        </template>
-                      </div>
-                    </div>
-                    <div
-                      class="detail-info-item"
-                      :class="{ editing: isEditing }"
-                    >
-                      <div
-                        class="detail-info-label"
-                        :class="{ editing: isEditing }"
-                      >
                         指定法官
                       </div>
                       <div
@@ -5205,6 +5151,35 @@ const endDrag = () => {
                         </template>
                         <template v-else>
                           {{ caseDetail.指定法官 }}
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="detail-info-row">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        案件来源
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.案件来源"
+                            size="small"
+                            placeholder="请输入案件来源"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.案件来源 }}
                         </template>
                       </div>
                     </div>

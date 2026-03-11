@@ -331,12 +331,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .profile-container {
   width: 100%;
   max-width: 100%;
-  padding: 20px 40px;
 }
 
 .box-card {
@@ -352,9 +353,39 @@ onMounted(() => {
   width: 100%;
 }
 
+/* 每行的样式 */
+.profile-container :deep(.el-descriptions__body) {
+  border-top: none;
+}
+
 .profile-container :deep(.el-descriptions__label) {
-  width: 200px;
-  font-weight: 600;
+  width: 240px !important;
+  font-weight: 500;
+  padding: 16px 24px 16px 39px !important;
+  background-color: transparent;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.profile-container :deep(.el-descriptions__content) {
+  padding: 16px 24px;
+  background-color: transparent;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+/* 修改按钮的容器样式 */
+.profile-container :deep(.flex.items-center.justify-between) {
+  padding-right: 35px;
+}
+
+/* 鼠标悬停时显示非常淡的背景色 */
+.profile-container :deep(.el-descriptions__row:hover) {
+  background-color: #fafafa;
+}
+
+/* 最后一行去掉底部边框 */
+.profile-container :deep(.el-descriptions__body > tr:last-child .el-descriptions__label),
+.profile-container :deep(.el-descriptions__body > tr:last-child .el-descriptions__content) {
+  border-bottom: none;
 }
 
 .no-data {

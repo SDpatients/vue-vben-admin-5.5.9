@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         name: 'UserProfile',
-        path: '/profile',
+        path: 'profile',
         component: () => import('#/views/user/profile/index.vue'),
         meta: {
           affixTab: false,

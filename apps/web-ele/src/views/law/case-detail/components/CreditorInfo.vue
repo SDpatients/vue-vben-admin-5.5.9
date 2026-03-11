@@ -555,7 +555,6 @@ onMounted(() => {
   >
     <div v-loading="detailLoading" style="min-height: 400px;">
       <ElDescriptions :column="2" border v-if="detailData">
-        <ElDescriptionsItem label="债权人名称">{{ detailData.creditorName }}</ElDescriptionsItem>
         <ElDescriptionsItem label="债权人类型">{{ detailData.creditorType }}</ElDescriptionsItem>
         <ElDescriptionsItem label="债权人状态">
           <ElTag :type="detailData.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'" size="small">
