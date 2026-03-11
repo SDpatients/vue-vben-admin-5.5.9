@@ -174,11 +174,13 @@ export async function logoutApi() {
     '/api/v1/auth/logout',
     {},
     {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: token 
+        ? { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` }
+        : {},
     },
   );
 
-  // 清除本地存储中的聊天相关信息和token
+  // 清除本地存储中的聊天相关信息和 token
   localStorage.removeItem('chat_user_info');
   localStorage.removeItem('chat_user_id');
   localStorage.removeItem('chat_username');
@@ -251,13 +253,8 @@ export async function changePasswordApi(data: ChangePasswordParams) {
  * 获取当前用户信息
  */
 export async function getCurrentUserApi() {
-  const token = localStorage.getItem('token');
-
   const result = await fileUploadRequestClient.get<AuthApi.CurrentUserResult>(
     '/api/v1/auth/current-user',
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    },
   );
 
   return result;
@@ -279,4 +276,93 @@ export async function selectLoginRecordApi(
       },
     },
   );
+}
+
+/**
+ * 修改当前用户手机号参数
+ */
+export interface UpdateMobileParams {
+  mobile: string;
+  smsCode?: string;
+}
+
+/**
+ * 修改当前用户手机号
+ */
+export async function updateMobileApi(data: UpdateMobileParams) {
+  const result = await fileUploadRequestClient.put<{
+    code: number;
+    data: AuthApi.CurrentUser;
+    message: string;
+  }>(
+    '/api/v1/auth/profile/mobile',
+    data,
+  );
+  return result;
+}
+
+/**
+ * 修改当前用户邮箱参数
+ */
+export interface UpdateEmailParams {
+  email: string;
+}
+
+/**
+ * 修改当前用户邮箱
+ */
+export async function updateEmailApi(data: UpdateEmailParams) {
+  const result = await fileUploadRequestClient.put<{
+    code: number;
+    data: AuthApi.CurrentUser;
+    message: string;
+  }>(
+    '/api/v1/auth/profile/email',
+    data,
+  );
+  return result;
+}
+
+/**
+ * 修改当前用户真实姓名参数
+ */
+export interface UpdateRealNameParams {
+  realName: string;
+}
+
+/**
+ * 修改当前用户真实姓名
+ */
+export async function updateRealNameApi(data: UpdateRealNameParams) {
+  const result = await fileUploadRequestClient.put<{
+    code: number;
+    data: AuthApi.CurrentUser;
+    message: string;
+  }>(
+    '/api/v1/auth/profile/real-name',
+    data,
+  );
+  return result;
+}
+
+/**
+ * 修改当前用户密码参数
+ */
+export interface UpdatePasswordParams {
+  newPassword: string;
+}
+
+/**
+ * 修改当前用户密码（无需原密码）
+ */
+export async function updatePasswordApi(data: UpdatePasswordParams) {
+  const result = await fileUploadRequestClient.put<{
+    code: number;
+    data: null;
+    message: string;
+  }>(
+    '/api/v1/auth/profile/password',
+    data,
+  );
+  return result;
 }

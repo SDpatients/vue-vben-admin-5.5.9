@@ -3,16 +3,23 @@ import { requestClient } from '#/api/request';
 export interface Notification {
   id: number;
   userId: number;
-  type: string;
+  userAccount?: string;
+  userName?: string;
   title: string;
   content: string;
-  relatedType?: string;
-  relatedId?: number;
+  type: string;
   isRead: boolean;
+  readTime?: string;
+  relatedId?: number;
+  relatedType?: string;
   priority: string;
   status: string;
+  expireTime?: string;
+  createUserId?: number;
+  createUserName?: string;
   createTime: string;
-  readTime?: string;
+  updateTime?: string;
+  remark?: string;
 }
 
 export interface NotificationListResponse {

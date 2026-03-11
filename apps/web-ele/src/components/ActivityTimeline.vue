@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, defineProps } from 'vue';
 import { Icon } from '@iconify/vue';
 import { ElSelect, ElOption, ElButton, ElScrollbar, ElEmpty } from 'element-plus';
 import { notificationApi, type Notification } from '#/api/core/notification';
+
+// 定义 props
+const props = defineProps<{
+  initialActivities?: Notification[];
+}>();
 
 // 定义事件
 const emit = defineEmits<{
   (e: 'update:count', count: number): void;
 }>();
 
-const loading = ref(false);
-const activities = ref<Notification[]>([]);
+const loading = ref(false); // 初始不显示 loading，因为有初始数据
+const activities = ref<Notification[]>(props.initialActivities || []);
 const selectedType = ref('');
 const hasMore = ref(false);
 
@@ -30,20 +35,22 @@ const formatTime = (time: string) => {
 };
 
 const loadActivities = async () => {
-  loading.value = true;
+  // 如果有数据，不显示 loading，避免闪烁
+  if (activities.value.length === 0) {
+    loading.value = true;
+  }
   try {
-    // 从本地存储获取userId，如果没有则使用默认值16
+    // 从本地存储获取 userId，如果没有则使用默认值 16
     const userId = Number(localStorage.getItem('chat_user_id') || '16');
     
     const res = await notificationApi.getUnreadNotifications(userId);
     console.log('加载动态结果:', res);
-    // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
+    // requestClient 配置了 responseReturn: 'data'，所以 res 直接是 API 响应的 data 字段
     activities.value = res || [];
     hasMore.value = false; // 新接口一次性返回所有未读通知，不需要分页
   } catch (error) {
     console.error('加载动态失败:', error);
-    // 移除模拟数据，改为返回空数组
-    activities.value = [];
+    // 保持原有数据，不清空
     hasMore.value = false;
   } finally {
     loading.value = false;
@@ -99,8 +106,11 @@ watch(activities, (newVal) => {
   emit('update:count', newVal.length);
 }, { immediate: true });
 
-onMounted(async () => {
-  await loadActivities();
+onMounted(() => {
+  // 只有在没有初始数据时才加载
+  if (!props.initialActivities || props.initialActivities.length === 0) {
+    loadActivities();
+  }
   // 确保数据加载完成后，再次触发数量更新
   emit('update:count', activities.value.length);
 });
@@ -199,7 +209,7 @@ defineExpose({
 .activity-list-wrapper {
   flex: 1;
   min-height: 150px;
-  max-height: 350px;
+  max-height: 400px;
   overflow: hidden;
   margin-top: 0;
 }
@@ -209,6 +219,7 @@ defineExpose({
   position: relative;
   margin-top: 0;
   overflow: visible;
+  padding-bottom: 60px;
 }
 
 .activity-item {
@@ -287,6 +298,7 @@ defineExpose({
 /* 滚动条样式 */
 :deep(.el-scrollbar__wrap) {
   overflow-x: hidden;
+  padding-bottom: 20px !important;
 }
 
 :deep(.el-scrollbar__bar.is-vertical) {

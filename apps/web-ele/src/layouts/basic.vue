@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
 import { useWatermark } from '@vben/hooks';
-import { BookOpenText, CircleHelp, MdiGithub } from '@vben/icons';
+import { BookOpenText, CircleHelp, MdiGithub, UserRoundPen } from '@vben/icons';
 import {
   BasicLayout,
   LockScreen,
@@ -19,15 +20,20 @@ import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 import NotificationBadge from '#/components/NotificationBadge.vue';
 
+const router = useRouter();
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const { destroyWatermark, updateWatermark } = useWatermark();
 
-console.log('[basic.vue] userStore.userInfo:', userStore.userInfo);
-console.log('[basic.vue] userStore.userInfo?.realName:', userStore.userInfo?.realName);
-
 const menus = computed(() => [
+  {
+    handler: () => {
+      router.push('/user/profile');
+    },
+    icon: UserRoundPen,
+    text: $t('page.user.profile'),
+  },
   {
     handler: () => {
       openWindow(VBEN_DOC_URL, {

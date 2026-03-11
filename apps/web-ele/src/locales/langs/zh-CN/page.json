@@ -20,7 +20,8 @@
   },
   "user": {
     "title": "用户管理",
-    "management": "用户列表"
+    "management": "用户列表",
+    "profile": "个人中心"
   },
   "basicData": {
     "title": "基础资料",

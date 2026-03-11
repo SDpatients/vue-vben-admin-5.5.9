@@ -150,10 +150,15 @@ const handleApprove = async (row: any) => {
     });
 
     loading.value = true;
-    await approveReimbursement(row.id, {
+    const response = await approveReimbursement(row.id, {
       approvalStatus: 'APPROVED',
       approvalOpinion: value,
     });
+    
+    if (response.code !== 200) {
+      throw new Error(response.message || '审批失败');
+    }
+    
     ElMessage.success('审批通过');
     fetchReimbursements();
   } catch (error: any) {
@@ -165,20 +170,27 @@ const handleApprove = async (row: any) => {
         });
 
         loading.value = true;
-        await approveReimbursement(row.id, {
+        const response = await approveReimbursement(row.id, {
           approvalStatus: 'REJECTED',
           approvalOpinion: value,
         });
+        
+        if (response.code !== 200) {
+          throw new Error(response.message || '拒绝失败');
+        }
+        
         ElMessage.success('已拒绝该报销单');
         fetchReimbursements();
       } catch (error2: any) {
         if (error2 !== 'cancel') {
-          ElMessage.error('操作失败');
+          const errorMsg = error2?.response?.data?.message || error2?.message || '操作失败';
+          ElMessage.error(errorMsg);
           console.error('拒绝报销单失败:', error2);
         }
       }
     } else {
-      ElMessage.error('操作失败');
+      const errorMsg = error?.response?.data?.message || error?.message || '操作失败';
+      ElMessage.error(errorMsg);
       console.error('审批报销单失败:', error);
     }
   } finally {
@@ -322,14 +334,6 @@ onMounted(() => {
             <template #default="scope">
               <el-button type="primary" size="small" @click="handleView(scope.row)">
                 查看
-              </el-button>
-              <el-button
-                v-if="scope.row.approvalStatus === 'PENDING'"
-                type="success"
-                size="small"
-                @click="handleEdit(scope.row)"
-              >
-                编辑
               </el-button>
               <el-button
                 v-if="canApprove && scope.row.approvalStatus === 'PENDING'"
