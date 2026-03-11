@@ -15,10 +15,10 @@ import {
 } from 'element-plus';
 
 import {
+  changePasswordApi,
   getCurrentUserApi,
   updateMobileApi,
   updateEmailApi,
-  updatePasswordApi,
   updateRealNameApi,
 } from '#/api/core/auth';
 
@@ -38,6 +38,7 @@ interface EditForm {
   realName?: string;
   mobile?: string;
   email?: string;
+  oldPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
 }
@@ -53,6 +54,7 @@ const editForm = reactive<EditForm>({
   realName: '',
   mobile: '',
   email: '',
+  oldPassword: '',
   newPassword: '',
   confirmPassword: '',
 });
@@ -82,6 +84,7 @@ const openEditDialog = (type: 'realName' | 'mobile' | 'email' | 'password') => {
   editForm.realName = currentUser.value?.realName || '';
   editForm.mobile = currentUser.value?.mobile || '';
   editForm.email = currentUser.value?.email || '';
+  editForm.oldPassword = '';
   editForm.newPassword = '';
   editForm.confirmPassword = '';
   
@@ -123,12 +126,24 @@ const saveEdit = async () => {
     return;
   }
   if (editType.value === 'password') {
+    if (!editForm.oldPassword) {
+      ElMessage.warning('请输入原密码');
+      return;
+    }
     if (!editForm.newPassword) {
       ElMessage.warning('请输入新密码');
       return;
     }
     if (editForm.newPassword.length < 6 || editForm.newPassword.length > 20) {
       ElMessage.warning('密码长度应为 6-20 位');
+      return;
+    }
+    if (!/^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{6,20}$/.test(editForm.newPassword)) {
+      ElMessage.warning('新密码必须包含字母和数字');
+      return;
+    }
+    if (editForm.oldPassword === editForm.newPassword) {
+      ElMessage.warning('新密码不能与原密码相同');
       return;
     }
     if (editForm.newPassword !== editForm.confirmPassword) {
@@ -151,7 +166,10 @@ const saveEdit = async () => {
         result = await updateEmailApi({ email: editForm.email! });
         break;
       case 'password':
-        result = await updatePasswordApi({ newPassword: editForm.newPassword! });
+        result = await changePasswordApi({ 
+          oldPassword: editForm.oldPassword!, 
+          newPassword: editForm.newPassword! 
+        });
         break;
     }
     
@@ -285,6 +303,18 @@ onMounted(() => {
           <ElInput
             v-model="editForm.email"
             placeholder="请输入邮箱"
+          />
+        </ElFormItem>
+        <ElFormItem
+          v-if="editType === 'password'"
+          label="原密码"
+          required
+        >
+          <ElInput
+            v-model="editForm.oldPassword"
+            type="password"
+            placeholder="请输入原密码"
+            show-password
           />
         </ElFormItem>
         <ElFormItem

@@ -43,6 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
+  forgetPasswordClick: [];
   submit: [Recordable<any>];
 }>();
 
@@ -127,7 +128,7 @@ defineExpose({
       <span
         v-if="showForgetPassword"
         class="vben-link text-sm font-normal"
-        @click="handleGo(forgetPasswordPath)"
+        @click="emit('forgetPasswordClick')"
       >
         {{ $t('authentication.forgetPassword') }}
       </span>

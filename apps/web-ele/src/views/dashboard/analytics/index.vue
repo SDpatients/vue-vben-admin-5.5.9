@@ -15,6 +15,7 @@ import {
   getCaseStatistics,
   getCaseTrend,
   getCreditorClaimAmountRanking,
+  getCurrentUserApi,
 } from '#/api';
 
 const chartType1 = ref('line');
@@ -43,6 +44,9 @@ const creditorClaimRanking = ref<null | StatisticsApi.RankingResponse>(null);
 // 仅查看我的
 const viewOnlyMyCases = ref(false);
 
+// 当前用户是否为管理员
+const isAdminUser = ref(false);
+
 // 获取当前用户 ID
 const getCurrentUserId = (): number | undefined => {
   if (!viewOnlyMyCases.value) {
@@ -53,19 +57,59 @@ const getCurrentUserId = (): number | undefined => {
   return userId > 0 ? userId : undefined;
 };
 
-// 判断用户是否为管理员
+// 判断用户是否为管理员（从 localStorage 读取）
 const isAdmin = computed(() => {
   const roles = localStorage.getItem('user_roles');
   if (roles) {
     try {
       const rolesArray = JSON.parse(roles);
-      return Array.isArray(rolesArray) && rolesArray.includes('ADMIN');
+      // 检查是否包含英文 'ADMIN' 或中文 '管理员'
+      return Array.isArray(rolesArray) && rolesArray.some(role => role === 'ADMIN' || role === '管理员');
     } catch (e) {
       return false;
     }
   }
   return false;
 });
+
+// 用于调试显示的 localStorage roles
+const localStorageRoles = computed(() => {
+  return localStorage.getItem('user_roles') || 'null';
+});
+
+// 从 API 获取当前用户信息并更新管理员状态
+const loadCurrentUser = async () => {
+  try {
+    console.log('🔍 [DEBUG] 开始获取当前用户信息...');
+    const userInfo = await getCurrentUserApi();
+    console.log('📋 [DEBUG] 获取到的用户信息:', userInfo);
+    console.log('📋 [DEBUG] 用户信息 data 字段:', userInfo?.data);
+    console.log('📋 [DEBUG] 用户角色数组:', userInfo?.data?.roles);
+    
+    if (userInfo?.data?.roles) {
+      // 检查是否包含英文 'ADMIN' 或中文 '管理员'
+      const hasAdminRole = userInfo.data.roles.some(role => {
+        console.log(`🔍 [DEBUG] 检查角色："${role}"`);
+        return role === 'ADMIN' || role === '管理员';
+      });
+      
+      isAdminUser.value = hasAdminRole;
+      console.log('✅ [DEBUG] 是否管理员:', hasAdminRole);
+      console.log('✅ [DEBUG] isAdminUser 的值:', isAdminUser.value);
+      
+      // 同步更新 localStorage
+      localStorage.setItem('user_roles', JSON.stringify(userInfo.data.roles));
+      console.log('💾 [DEBUG] 已更新 localStorage user_roles:', userInfo.data.roles);
+    } else {
+      console.warn('⚠️ [DEBUG] 用户信息中没有 roles 字段');
+      isAdminUser.value = false;
+    }
+  } catch (error) {
+    console.error('❌ [DEBUG] 获取当前用户信息失败:', error);
+    isAdminUser.value = false;
+  }
+  console.log('🏁 [DEBUG] loadCurrentUser 执行完毕，isAdminUser =', isAdminUser.value);
+};
 
 // 权限状态标志
 const hasCaseTrendPermission = ref(true);
@@ -312,6 +356,9 @@ const renderCreditorAmountChart = () => {
       type: 'category',
       axisLabel: {
         rotate: 45,
+        formatter: (value: string) => {
+          return value.length > 5 ? value.slice(0, 5) + '...' : value;
+        },
       },
     },
     yAxis: [
@@ -359,19 +406,22 @@ const renderAssetRatioChart = () => {
       type: 'category',
       axisLabel: {
         rotate: 45,
+        formatter: (value: string) => {
+          return value.length > 5 ? value.slice(0, 5) + '...' : value;
+        },
       },
     },
     yAxis: [
       {
         type: 'value',
-        name: '案件金额(万元)',
+        name: '案件金额 (万元)',
         axisLabel: {
           formatter: '{value}',
         },
       },
       {
         type: 'value',
-        name: '占比(%)',
+        name: '占比 (%)',
         axisLabel: {
           formatter: '{value}%',
         },
@@ -436,15 +486,15 @@ const loadStatisticsData = async () => {
           // 交叉分析 API 失败不影响其他图表显示
           return null;
         }),
-        getCaseAmountRanking({ topN: 10 }).catch((error) => {
+        getCaseAmountRanking({ topN: 10, userId }).catch((error) => {
           console.error('案件金额排名 API 调用失败:', error);
           if (error?.code === 403) {
             hasCaseRankingPermission.value = false;
           }
           return null;
         }),
-        getCreditorClaimAmountRanking({ topN: 10 }).catch((error) => {
-          console.error('债权申报金额排名 API 调用失败:', error);
+        getCreditorClaimAmountRanking({ topN: 10, userId }).catch((error) => {
+          console.error('债权确认金额排名 API 调用失败:', error);
           if (error?.code === 403) {
             hasCreditorClaimRankingPermission.value = false;
           }
@@ -478,12 +528,22 @@ watch(viewOnlyMyCases, () => {
 });
 
 onMounted(() => {
+  loadCurrentUser();
   loadStatisticsData();
 });
 </script>
 
 <template>
   <div class="p-5">
+    <!-- 调试信息 -->
+    <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+      <div class="font-semibold text-yellow-800">🔍 调试信息：</div>
+      <div class="text-yellow-700">
+        <div>isAdminUser: <span class="font-mono">{{ isAdminUser }}</span></div>
+        <div>localStorage user_roles: <span class="font-mono">{{ localStorageRoles }}</span></div>
+      </div>
+    </div>
+    
     <!-- 案件管理图表 -->
     <div class="mt-5">
       <div class="flex items-center gap-3 mb-4">
@@ -555,15 +615,15 @@ onMounted(() => {
         </ElCol>
       </ElRow>
 
-      <!-- 第三行：债权申报金额排名、案件金额排名 -->
+      <!-- 第三行：债权确认金额排名、案件金额排名 -->
       <ElRow :gutter="20" class="mb-5">
-        <!-- 债权申报金额排名图表 -->
+        <!-- 债权确认金额排名图表 -->
         <ElCol :span="12" v-if="hasCreditorClaimRankingPermission">
-          <ElCard header="债权申报金额排名" size="small">
+          <ElCard header="债权确认金额排名" size="small">
             <template #header>
               <div class="flex items-center justify-between">
-                <span>债权申报金额排名</span>
-                <span v-if="!isAdmin" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
+                <span>债权确认金额排名</span>
+                <span v-if="!isAdminUser" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
               </div>
             </template>
             <div class="h-[300px]">
@@ -577,7 +637,7 @@ onMounted(() => {
             <template #header>
               <div class="flex items-center justify-between">
                 <span>案件金额排名</span>
-                <span v-if="!isAdmin" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
+                <span v-if="!isAdminUser" class="text-xs text-gray-500">仅能查看到自己的案件相关金额</span>
               </div>
             </template>
             <div class="h-[300px]">

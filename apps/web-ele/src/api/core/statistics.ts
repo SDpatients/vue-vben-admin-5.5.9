@@ -96,7 +96,7 @@ export const getCaseCrossAnalysis = () => {
   );
 };
 
-export const getCaseAmountRanking = (params: { topN?: number }) => {
+export const getCaseAmountRanking = (params: { topN?: number; userId?: number }) => {
   return requestClient.get<StatisticsApi.RankingResponse>(
     '/api/v1/statistics/case/amount-ranking',
     { params },
@@ -132,7 +132,7 @@ export const getCreditorClaimStatistics = (params?: {
   );
 };
 
-export const getCreditorClaimAmountRanking = (params: { topN?: number }) => {
+export const getCreditorClaimAmountRanking = (params: { topN?: number; userId?: number }) => {
   return requestClient.get<StatisticsApi.RankingResponse>(
     '/api/v1/statistics/creditor-claim/amount-ranking',
     { params },

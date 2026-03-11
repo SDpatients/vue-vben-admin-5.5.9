@@ -35,24 +35,23 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'TemplateManagement',
         path: '/template-management',
-        component: () => import('#/views/dashboard/template-management/index.vue'),
+        component: () => import('#/views/_core/fallback/building.vue'),
         meta: {
           icon: 'lucide:file-text',
           title: '模板管理',
         },
       },
+      {
+        name: 'UserProfile',
+        path: 'profile',
+        component: () => import('#/views/user/profile/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:user-round-pen',
+          title: '个人中心',
+        },
+      },
     ],
-  },
-  {
-    name: 'WebSocketTest',
-    path: '/websocket-test',
-    component: () => import('#/views/dashboard/websocket-test/index.vue'),
-    meta: {
-      icon: 'lucide:radio',
-      title: 'WebSocket测试',
-      ignoreAccess: true, // 允许未登录访问，用于手机扫码上传
-      roles: undefined, // 明确覆盖父路由的roles要求
-    },
   },
   {
     name: 'MobileUpload',
@@ -61,17 +60,9 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:smartphone',
       title: '手机上传',
-      ignoreAccess: true, // 允许未登录访问，用于手机扫码上传
-      roles: undefined, // 明确覆盖父路由的roles要求
-    },
-  },
-  {
-    name: 'EasyExcelTest',
-    path: '/easy-excel-test',
-    component: () => import('#/views/dashboard/easy-excel-test/index.vue'),
-    meta: {
-      icon: 'lucide:file-spreadsheet',
-      title: 'EasyExcel测试',
+      hideInMenu: true,
+      ignoreAccess: true,
+      roles: undefined,
     },
   },
 
