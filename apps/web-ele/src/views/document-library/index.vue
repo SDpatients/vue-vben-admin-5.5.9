@@ -143,15 +143,6 @@ const fetchFolderTree = async () => {
     if (response) {
       folderTree.value = response;
       console.log('📁 folderTree.value:', folderTree.value);
-      // 递归打印所有子节点的 isPublic 字段
-      const printNodeInfo = (node: any, level: number = 0) => {
-        const indent = '  '.repeat(level);
-        console.log(`${indent}📁 节点：${node.name}, isPublic:`, node.isPublic);
-        if (node.children && node.children.length > 0) {
-          node.children.forEach((child: any) => printNodeInfo(child, level + 1));
-        }
-      };
-      printNodeInfo(folderTree.value);
     }
   } catch (error) {
     console.error('获取文件夹树失败:', error);
@@ -626,8 +617,6 @@ onMounted(() => {
                   <span v-if="data.documentCount" class="text-xs text-gray-400">
                     ({{ data.documentCount }})
                   </span>
-                  <!-- 调试代码 -->
-                  <span class="text-xs text-gray-300">[isPublic: {{ data.isPublic }}]</span>
                   <ElTag v-if="data.isPublic === false" type="info" size="small" class="ml-1">
                     <Icon icon="lucide:lock" class="mr-1" />
                     私有
