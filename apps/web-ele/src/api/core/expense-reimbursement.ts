@@ -71,6 +71,7 @@ export namespace ExpenseReimbursementApi {
   }
 
   export interface AddItemRequest {
+    reimbursementId: number;
     itemName: string;
     itemAmount: number;
     itemDescription?: string;
@@ -147,9 +148,12 @@ export async function approveReimbursement(
 
 export async function addReimbursementItem(
   id: number,
-  data: ExpenseReimbursementApi.AddItemRequest,
+  data: Omit<ExpenseReimbursementApi.AddItemRequest, 'reimbursementId'>,
 ): Promise<ExpenseReimbursementApi.ApiResponse<{ itemId: number }>> {
-  return fundRequestClient.post(`/v1/expense-reimbursement/${id}/items`, data);
+  return fundRequestClient.post(`/v1/expense-reimbursement/${id}/items`, {
+    ...data,
+    reimbursementId: id,
+  });
 }
 
 export async function deleteReimbursementItem(

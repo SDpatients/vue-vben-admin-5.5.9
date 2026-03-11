@@ -66,12 +66,12 @@ const createShare = async () => {
       maxAccessCount: createForm.value.maxAccessCount || undefined,
     });
 
-    if (response.code === 200 && response.data) {
-      currentShareLink.value = `${window.location.origin}${response.data.shareUrl}`;
+    if (response) {
+      currentShareLink.value = `${window.location.origin}${response.shareUrl}`;
       ElMessage.success('创建分享成功');
       await fetchShares();
     } else {
-      ElMessage.error(response.message || '创建分享失败');
+      ElMessage.error('创建分享失败');
     }
   } catch (error) {
     console.error('创建分享失败:', error);
@@ -83,19 +83,13 @@ const createShare = async () => {
 
 const toggleShare = async (share: DocumentLibraryApi.ShareInfo) => {
   try {
-    let response;
     if (share.isEnabled) {
-      response = await disableShareApi(share.id);
+      await disableShareApi(share.id);
     } else {
-      response = await enableShareApi(share.id);
+      await enableShareApi(share.id);
     }
-
-    if (response.code === 200) {
-      ElMessage.success(share.isEnabled ? '已禁用分享' : '已启用分享');
-      await fetchShares();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    ElMessage.success(share.isEnabled ? '已禁用分享' : '已启用分享');
+    await fetchShares();
   } catch (error) {
     console.error('操作失败:', error);
     ElMessage.error('操作失败');

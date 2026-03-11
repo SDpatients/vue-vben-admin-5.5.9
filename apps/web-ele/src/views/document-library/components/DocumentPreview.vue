@@ -72,11 +72,11 @@ const fetchDocumentDetail = async () => {
   loading.value = true;
   try {
     const response = await getDocumentDetailApi(props.documentId);
-    if (response.code === 200 && response.data) {
-      document.value = response.data;
+    if (response) {
+      document.value = response;
       determinePreviewType();
     } else {
-      ElMessage.error(response.message || '获取文档详情失败');
+      ElMessage.error('获取文档详情失败');
     }
   } catch (error) {
     console.error('获取文档详情失败:', error);
@@ -91,17 +91,22 @@ const fetchOfficeConfig = async () => {
 
   officeLoading.value = true;
   try {
+    console.log('[DocumentPreview] 开始获取Office配置, documentId:', props.documentId);
     const response = await getOfficePreviewConfigApi(props.documentId);
-    if (response.code === 200 && response.data) {
-      officeConfig.value = response.data;
+    console.log('[DocumentPreview] Office配置响应:', response);
+    
+    if (response) {
+      officeConfig.value = response;
+      console.log('[DocumentPreview] Office配置已设置:', officeConfig.value);
       await nextTick();
       initOfficeEditor();
     } else {
+      console.warn('[DocumentPreview] Office配置响应为空');
       ElMessage.warning('Office预览服务暂不可用，请下载查看');
       officePreviewMode.value = 'download';
     }
   } catch (error) {
-    console.error('获取Office配置失败:', error);
+    console.error('[DocumentPreview] 获取Office配置失败:', error);
     ElMessage.warning('Office预览服务暂不可用，请下载查看');
     officePreviewMode.value = 'download';
   } finally {
@@ -169,8 +174,9 @@ const determinePreviewType = () => {
     previewType.value = 'iframe';
     previewUrl.value = `/api/lib/documents/${document.value.id}/download`;
   } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext || '')) {
-    previewType.value = 'office';
-    previewUrl.value = `/api/lib/documents/${document.value.id}/download`;
+    previewType.value = 'iframe';
+    const fileUrl = encodeURIComponent(`${window.location.origin}/api/lib/documents/${document.value.id}/download`);
+    previewUrl.value = `https://view.officeapps.live.com/op/embed.aspx?src=${fileUrl}`;
   } else {
     previewType.value = 'unsupported';
   }
@@ -182,12 +188,12 @@ const handleDownload = async () => {
   try {
     const blob = await downloadDocumentApi(document.value.id);
     const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = url;
     link.download = document.value.fileName;
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     ElMessage.success('下载成功');
   } catch (error) {
@@ -230,6 +236,12 @@ watch(
   },
   { immediate: true }
 );
+
+watch(previewType, async (newVal) => {
+  if (newVal === 'office' && officePreviewMode.value === 'office' && !officeConfig.value) {
+    await fetchOfficeConfig();
+  }
+});
 
 watch(officePreviewMode, async (newVal) => {
   if (newVal === 'office' && previewType.value === 'office' && !officeConfig.value) {
@@ -289,57 +301,40 @@ onUnmounted(() => {
               </template>
 
               <template v-else-if="previewType === 'iframe'">
-                <iframe
-                  :src="previewUrl"
-                  class="pdf-viewer"
-                  frameborder="0"
-                ></iframe>
+                <div class="iframe-preview-container">
+                  <iframe
+                    v-if="previewUrl"
+                    :src="previewUrl"
+                    class="office-iframe"
+                    frameborder="0"
+                    allowfullscreen
+                  ></iframe>
+                  <div v-else class="preview-placeholder">
+                    <Icon icon="lucide:file-text" class="text-6xl text-gray-400 mb-4" />
+                    <p class="text-gray-500">预览地址生成中...</p>
+                  </div>
+                </div>
               </template>
 
               <template v-else-if="previewType === 'office'">
-                <div class="office-preview-wrapper">
-                  <div class="office-mode-switch mb-4">
-                    <ElRadioGroup v-model="officePreviewMode" size="small">
-                      <ElRadio value="office">在线预览</ElRadio>
-                      <ElRadio value="download">下载查看</ElRadio>
-                    </ElRadioGroup>
+                <div class="download-preview">
+                  <div class="preview-notice">
+                    <Icon icon="lucide:file-text" class="text-6xl text-gray-400 mb-4" />
+                    <p class="text-lg text-gray-600 mb-2">Office 文档</p>
+                    <p class="text-sm text-gray-400 mb-4">
+                      文件类型: {{ document.fileExtension?.toUpperCase() }}
+                    </p>
+                    <div class="flex gap-2">
+                      <ElButton type="primary" @click="handleDownload">
+                        <Icon icon="lucide:download" class="mr-1" />
+                        下载文件
+                      </ElButton>
+                      <ElButton @click="openInNewTab">
+                        <Icon icon="lucide:external-link" class="mr-1" />
+                        新标签页打开
+                      </ElButton>
+                    </div>
                   </div>
-
-                  <template v-if="officePreviewMode === 'office'">
-                    <div v-loading="officeLoading" class="office-editor-container">
-                      <div
-                        v-if="officeConfig"
-                        ref="officeEditorRef"
-                        class="office-editor"
-                      ></div>
-                      <div v-else class="office-loading">
-                        <Icon icon="lucide:loader-2" class="text-4xl text-primary animate-spin mb-4" />
-                        <p class="text-gray-500">正在加载预览服务...</p>
-                      </div>
-                    </div>
-                  </template>
-
-                  <template v-else>
-                    <div class="download-preview">
-                      <div class="preview-notice">
-                        <Icon icon="lucide:file-text" class="text-6xl text-gray-400 mb-4" />
-                        <p class="text-lg text-gray-600 mb-2">Office 文档</p>
-                        <p class="text-sm text-gray-400 mb-4">
-                          文件类型: {{ document.fileExtension?.toUpperCase() }}
-                        </p>
-                        <div class="flex gap-2">
-                          <ElButton type="primary" @click="handleDownload">
-                            <Icon icon="lucide:download" class="mr-1" />
-                            下载文件
-                          </ElButton>
-                          <ElButton @click="openInNewTab">
-                            <Icon icon="lucide:external-link" class="mr-1" />
-                            新标签页打开
-                          </ElButton>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
                 </div>
               </template>
 
@@ -493,16 +488,40 @@ onUnmounted(() => {
   min-height: 70vh;
 }
 
-.office-preview-wrapper {
+.iframe-preview-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 70vh;
+  background: #f5f5f5;
 }
 
-.office-mode-switch {
+.office-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 75vh;
+  border: none;
+}
+
+.preview-placeholder {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  height: 100%;
+  min-height: 50vh;
+}
+
+.download-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  min-height: 50vh;
+}
+
+.preview-notice {
+  text-align: center;
 }
 
 .office-editor-container {

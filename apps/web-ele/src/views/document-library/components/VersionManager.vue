@@ -46,8 +46,8 @@ const fetchVersions = async () => {
   loading.value = true;
   try {
     const response = await getVersionListApi(props.documentId);
-    if (response.code === 200 && response.data) {
-      versions.value = response.data.versions || [];
+    if (response) {
+      versions.value = response.versions || [];
     } else {
       versions.value = [];
     }
@@ -72,25 +72,21 @@ const uploadVersion = async () => {
 
   uploadLoading.value = true;
   try {
-    const response = await uploadVersionApi({
+    await uploadVersionApi({
       documentId: props.documentId,
       file: uploadForm.value.file,
       changeSummary: uploadForm.value.changeSummary || undefined,
       isMajor: uploadForm.value.isMajor,
     });
 
-    if (response.code === 200) {
-      ElMessage.success('上传新版本成功');
-      uploadDialogVisible.value = false;
-      uploadForm.value = {
-        file: null,
-        changeSummary: '',
-        isMajor: false,
-      };
-      await fetchVersions();
-    } else {
-      ElMessage.error(response.message || '上传失败');
-    }
+    ElMessage.success('上传新版本成功');
+    uploadDialogVisible.value = false;
+    uploadForm.value = {
+      file: null,
+      changeSummary: '',
+      isMajor: false,
+    };
+    await fetchVersions();
   } catch (error) {
     console.error('上传版本失败:', error);
     ElMessage.error('上传失败');
@@ -111,13 +107,9 @@ const restoreVersion = async (versionNumber: number) => {
       }
     );
 
-    const response = await restoreVersionApi(props.documentId, versionNumber);
-    if (response.code === 200) {
-      ElMessage.success('恢复成功');
-      await fetchVersions();
-    } else {
-      ElMessage.error(response.message || '恢复失败');
-    }
+    await restoreVersionApi(props.documentId, versionNumber);
+    ElMessage.success('恢复成功');
+    await fetchVersions();
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('恢复版本失败:', error);

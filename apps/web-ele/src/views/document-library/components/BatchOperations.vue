@@ -2,7 +2,7 @@
 import type { DocumentLibraryApi } from '#/api/core/document-library';
 import type { UploadFile } from 'element-plus';
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 
 import {
   ElButton,
@@ -14,11 +14,7 @@ import {
   ElUpload,
   ElProgress,
   ElTree,
-  ElCheckbox,
   ElMessageBox,
-  ElInput,
-  ElFormItem,
-  ElForm,
 } from 'element-plus';
 import { Icon } from '@iconify/vue';
 
@@ -76,8 +72,8 @@ const folderTreeData = computed(() => {
 const fetchFolderTree = async () => {
   try {
     const response = await getFolderTreeApi();
-    if (response.code === 200 && response.data) {
-      folderTree.value = response.data;
+    if (response) {
+      folderTree.value = response;
     }
   } catch (error) {
     console.error('获取文件夹树失败:', error);
@@ -114,16 +110,12 @@ const executeBatchUpload = async () => {
     }
 
     try {
-      const response = await uploadDocumentApi({
+      await uploadDocumentApi({
         file: uploadFile.raw,
         folderId: props.currentFolderId,
+        isPublic: true, // 默认公开
       });
-
-      if (response.code === 200) {
-        uploadResults.value.success++;
-      } else {
-        uploadResults.value.failed++;
-      }
+      uploadResults.value.success++;
     } catch (error) {
       console.error('上传失败:', error);
       uploadResults.value.failed++;
@@ -167,12 +159,8 @@ const executeBatchMove = async () => {
 
   for (const doc of props.selectedDocuments) {
     try {
-      const response = await moveDocumentApi(doc.id, targetFolderId.value!);
-      if (response.code === 200) {
-        moveResults.value.success++;
-      } else {
-        moveResults.value.failed++;
-      }
+      await moveDocumentApi(doc.id, targetFolderId.value!);
+      moveResults.value.success++;
     } catch (error) {
       console.error('移动失败:', error);
       moveResults.value.failed++;
@@ -210,12 +198,8 @@ const executeBatchCopy = async () => {
 
   for (const doc of props.selectedDocuments) {
     try {
-      const response = await copyDocumentApi(doc.id, targetFolderId.value!);
-      if (response.code === 200) {
-        moveResults.value.success++;
-      } else {
-        moveResults.value.failed++;
-      }
+      await copyDocumentApi(doc.id, targetFolderId.value!);
+      moveResults.value.success++;
     } catch (error) {
       console.error('复制失败:', error);
       moveResults.value.failed++;
@@ -258,12 +242,8 @@ const executeBatchDelete = async () => {
 
     for (const doc of props.selectedDocuments) {
       try {
-        const response = await deleteDocumentApi(doc.id);
-        if (response.code === 200) {
-          deleteResults.value.success++;
-        } else {
-          deleteResults.value.failed++;
-        }
+        await deleteDocumentApi(doc.id);
+        deleteResults.value.success++;
       } catch (error) {
         console.error('删除失败:', error);
         deleteResults.value.failed++;

@@ -1428,6 +1428,7 @@ const handleDataItemClick = async (
             name: file.fileName || file.originalFileName,
             status: 'success',
             id: file.id, // 保存文件ID用于预览
+            size: file.fileSize || 0, // 确保文件大小被正确设置
             response: file,
           };
 
@@ -3355,24 +3356,30 @@ const openMobileUploadDialog = async () => {
                         ? handleImagePreview(file)
                         : handleFilePreview(file)
                     "
+                    style="color: #ffffff !important;"
                   >
-                    <Icon icon="lucide:eye" />
+                    <Icon icon="lucide:eye" class="mr-1" style="color: #3b82f6 !important;" />
+                    <span style="color: #ffffff !important;">预览</span>
                   </ElButton>
                   <ElButton
                     type="primary"
                     size="small"
                     text
                     @click.stop="openRenameDialog(file)"
+                    style="color: #ffffff !important;"
                   >
-                    <Icon icon="lucide:edit-2" />
+                    <Icon icon="lucide:edit-2" class="mr-1" style="color: #3b82f6 !important;" />
+                    <span style="color: #ffffff !important;">重命名</span>
                   </ElButton>
                   <ElButton
                     type="danger"
                     size="small"
                     text
                     @click.stop="handleFileRemove(file)"
+                    style="color: #ef4444 !important;"
                   >
-                    <Icon icon="lucide:trash-2" />
+                    <Icon icon="lucide:trash-2" class="mr-1" style="color: #ef4444 !important;" />
+                    <span style="color: #ef4444 !important;">删除</span>
                   </ElButton>
                 </div>
               </div>
@@ -5088,6 +5095,17 @@ const openMobileUploadDialog = async () => {
 
 .file-actions .el-button--danger.is-text .iconify {
   color: #ef4444 !important;
+}
+
+/* 确保按钮内的文字颜色清晰可见 */
+.file-actions .el-button--primary.is-text span,
+.file-actions .el-button--primary.is-text .el-button__text {
+  color: #ffffff !important; /* 白色文字 */
+}
+
+.file-actions .el-button--danger.is-text span,
+.file-actions .el-button--danger.is-text .el-button__text {
+  color: #ef4444 !important; /* 红色文字 */
 }
 
 .empty-state {

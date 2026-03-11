@@ -24,9 +24,24 @@ export namespace DocumentLibraryApi {
     id: number;
     name: string;
     type: 'folder' | 'root';
+    parentId: number | null;
     path: string;
+    folderLevel: number;
+    sortOrder: number;
     documentCount?: number;
-    children?: FolderTreeNode[];
+    children?: FolderTreeNode[] | null;
+    icon?: string;
+    color?: string;
+    isPublic?: boolean;
+    createTime?: string;
+  }
+
+  export interface FolderBreadcrumb {
+    id: number;
+    name: string;
+    type: 'folder' | 'root';
+    path: string;
+    folderLevel: number;
   }
 
   export interface CreateFolderRequest {
@@ -102,12 +117,11 @@ export namespace DocumentLibraryApi {
   }
 
   export interface DocumentListResponse {
-    code: number;
-    message: string;
-    data: {
-      list: Document[];
-      total: number;
-    };
+    documents: Document[];
+    total: number;
+    page: number;
+    size: number;
+    totalPages: number;
   }
 
   export interface DocumentVersion {
@@ -126,12 +140,8 @@ export namespace DocumentLibraryApi {
   }
 
   export interface VersionListResponse {
-    code: number;
-    message: string;
-    data: {
-      total: number;
-      versions: DocumentVersion[];
-    };
+    total: number;
+    versions: DocumentVersion[];
   }
 
   export interface UploadVersionRequest {
@@ -257,39 +267,53 @@ export namespace DocumentLibraryApi {
 
 const BASE_URL = '/api/v1/api/lib';
 
-export async function getFolderTreeApi(): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.FolderTreeNode>> {
+export async function getFolderTreeApi(): Promise<DocumentLibraryApi.FolderTreeNode> {
   return requestClient.get(`${BASE_URL}/folders/tree`);
 }
 
-export async function getFolderRootApi(): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.Folder>> {
+export async function getFolderRootApi(): Promise<DocumentLibraryApi.Folder> {
   return requestClient.get(`${BASE_URL}/folders/root`);
 }
 
-export async function getFolderDetailApi(id: number): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.Folder>> {
+export async function getFolderDetailApi(id: number): Promise<DocumentLibraryApi.Folder> {
   return requestClient.get(`${BASE_URL}/folders/${id}`);
 }
 
-export async function getFolderChildrenApi(id: number): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.Folder[]>> {
+export async function getFolderChildrenApi(id: number): Promise<DocumentLibraryApi.Folder[]> {
   return requestClient.get(`${BASE_URL}/folders/${id}/children`);
 }
 
-export async function getFolderPathApi(id: number): Promise<DocumentLibraryApi.ApiResponse<any>> {
+export async function getFolderPathApi(id: number): Promise<DocumentLibraryApi.FolderBreadcrumb[]> {
   return requestClient.get(`${BASE_URL}/folders/${id}/path`);
 }
 
-export async function createFolderApi(data: DocumentLibraryApi.CreateFolderRequest): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.Folder>> {
+export async function getFolderDescendantsApi(id: number): Promise<number[]> {
+  return requestClient.get(`${BASE_URL}/folders/${id}/descendants`);
+}
+
+export async function getFoldersByLevelApi(level: number): Promise<DocumentLibraryApi.Folder[]> {
+  return requestClient.get(`${BASE_URL}/folders/level/${level}`);
+}
+
+export async function updateFolderSortApi(id: number, sortOrder: number): Promise<null> {
+  return requestClient.put(`${BASE_URL}/folders/${id}/sort`, null, {
+    params: { sortOrder },
+  });
+}
+
+export async function createFolderApi(data: DocumentLibraryApi.CreateFolderRequest): Promise<DocumentLibraryApi.Folder> {
   return requestClient.post(`${BASE_URL}/folders`, data);
 }
 
-export async function updateFolderApi(id: number, data: DocumentLibraryApi.UpdateFolderRequest): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.Folder>> {
+export async function updateFolderApi(id: number, data: DocumentLibraryApi.UpdateFolderRequest): Promise<DocumentLibraryApi.Folder> {
   return requestClient.put(`${BASE_URL}/folders/${id}`, data);
 }
 
-export async function deleteFolderApi(id: number): Promise<DocumentLibraryApi.ApiResponse<null>> {
+export async function deleteFolderApi(id: number): Promise<null> {
   return requestClient.delete(`${BASE_URL}/folders/${id}`);
 }
 
-export async function moveFolderApi(id: number, targetFolderId: number): Promise<DocumentLibraryApi.ApiResponse<null>> {
+export async function moveFolderApi(id: number, targetFolderId: number): Promise<null> {
   return requestClient.post(`${BASE_URL}/folders/${id}/move`, null, {
     params: { targetFolderId },
   });
@@ -364,7 +388,7 @@ export async function searchDocumentsApi(keyword: string, page: number = 1, size
 }
 
 export async function downloadDocumentApi(id: number): Promise<Blob> {
-  return requestClient.get(`${BASE_URL}/documents/${id}/download`, {
+  return fileUploadRequestClient.get(`${BASE_URL}/documents/${id}/download`, {
     responseType: 'blob',
   });
 }
@@ -491,7 +515,7 @@ export async function removeFavoriteApi(documentId: number): Promise<DocumentLib
   return requestClient.delete(`${BASE_URL}/favorites/${documentId}`);
 }
 
-export async function getFavoritesApi(page: number = 1, size: number = 10): Promise<DocumentLibraryApi.ApiResponse<{ list: DocumentLibraryApi.FavoriteItem[]; total: number }>> {
+export async function getFavoritesApi(page: number = 1, size: number = 10): Promise<DocumentLibraryApi.ApiResponse<{ favorites: DocumentLibraryApi.FavoriteItem[]; total: number; page: number; size: number; totalPages: number }>> {
   return requestClient.get(`${BASE_URL}/favorites`, {
     params: { page, size },
   });

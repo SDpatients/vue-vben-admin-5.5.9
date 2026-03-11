@@ -56,9 +56,9 @@ const handleSearch = async () => {
       pagination.value.page,
       pagination.value.size
     );
-    if (response.code === 200 && response.data) {
-      documentList.value = response.data.list || [];
-      pagination.value.total = response.data.total || 0;
+    if (response) {
+      documentList.value = response.documents || [];
+      pagination.value.total = response.total || 0;
     } else {
       documentList.value = [];
       pagination.value.total = 0;
@@ -104,19 +104,13 @@ const downloadDocument = async (doc: DocumentLibraryApi.Document) => {
 
 const toggleFavorite = async (doc: DocumentLibraryApi.Document) => {
   try {
-    let response;
     if (doc.isFavorited) {
-      response = await removeFavoriteApi(doc.id);
+      await removeFavoriteApi(doc.id);
     } else {
-      response = await addFavoriteApi(doc.id);
+      await addFavoriteApi(doc.id);
     }
-
-    if (response.code === 200) {
-      ElMessage.success(doc.isFavorited ? '已取消收藏' : '已添加收藏');
-      await handleSearch();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    ElMessage.success(doc.isFavorited ? '已取消收藏' : '已添加收藏');
+    await handleSearch();
   } catch (error) {
     console.error('收藏操作失败:', error);
     ElMessage.error('操作失败');

@@ -14,6 +14,11 @@
     <!-- 由 vite 注入 VITE_APP_TITLE 变量，在 .env 文件内配置 -->
     <title><%= VITE_APP_TITLE %></title>
     <link rel="icon" href="/favicon.ico" />
+    
+    <!-- OnlyOffice 文档预览服务 - 请修改为实际的 DocumentServer 地址 -->
+    <!-- 例如：https://your-documentserver.com 或使用本地部署的地址 -->
+    <script src="https://documentserver/web-apps/apps/api/documents/api.js" defer></script>
+    
     <script>
       // 生产环境下注入百度统计
       if (window._VBEN_ADMIN_PRO_APP_CONF_) {

@@ -43,6 +43,9 @@ const searchName = ref('');
 const searchStatus = ref('');
 const searchClaimType = ref('');
 
+// 标签页激活状态
+const activeTab = ref('all');
+
 // 债权类型选项
 const claimTypeOptions = [
   { label: '担保债权', value: '担保债权' },
@@ -132,8 +135,10 @@ const handleTabClick = (tab: any) => {
   // 根据点击的标签页设置 searchStatus
   if (tab.props.name === 'confirmed') {
     searchStatus.value = 'CONFIRMED';
+    activeTab.value = 'confirmed';
   } else {
     searchStatus.value = '';
+    activeTab.value = 'all';
   }
   currentPage.value = 1;
   fetchCreditors();
@@ -312,7 +317,7 @@ onMounted(() => {
               </ElButton>
             </div>
           </div>
-          <ElTabs @tab-click="handleTabClick" class="w-full">
+          <ElTabs v-model="activeTab" @tab-click="handleTabClick" class="w-full">
             <ElTabPane label="已知债权人（全部）" name="all"></ElTabPane>
             <ElTabPane label="确认债权人" name="confirmed"></ElTabPane>
           </ElTabs>
@@ -599,6 +604,7 @@ onMounted(() => {
   font-weight: 500;
   color: #4b5563;
   background-color: #f9fafb;
+  white-space: nowrap;
 }
 
 :deep(.el-descriptions__content) {

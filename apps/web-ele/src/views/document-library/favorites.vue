@@ -40,9 +40,9 @@ const fetchFavorites = async () => {
   loading.value = true;
   try {
     const response = await getFavoritesApi(pagination.value.page, pagination.value.size);
-    if (response.code === 200 && response.data) {
-      favorites.value = response.data.list || [];
-      pagination.value.total = response.data.total || 0;
+    if (response) {
+      favorites.value = response.favorites || [];
+      pagination.value.total = response.total || 0;
     } else {
       favorites.value = [];
       pagination.value.total = 0;
@@ -70,13 +70,9 @@ const handleSizeChange = (size: number) => {
 
 const removeFavorite = async (item: DocumentLibraryApi.FavoriteItem) => {
   try {
-    const response = await removeFavoriteApi(item.documentId);
-    if (response.code === 200) {
-      ElMessage.success('已取消收藏');
-      await fetchFavorites();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    await removeFavoriteApi(item.documentId);
+    ElMessage.success('已取消收藏');
+    await fetchFavorites();
   } catch (error) {
     console.error('取消收藏失败:', error);
     ElMessage.error('操作失败');

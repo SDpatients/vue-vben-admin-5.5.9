@@ -163,6 +163,9 @@ export function createApiTrackingInterceptor() {
     // 响应拦截器
     responseInterceptor: {
       fulfilled: (response: any) => {
+        if (!response) {
+          return response;
+        }
         const { config } = response;
 
         if (config && config.metadata) {
@@ -190,6 +193,9 @@ export function createApiTrackingInterceptor() {
         return response;
       },
       rejected: (error: any) => {
+        if (!error) {
+          return Promise.reject(error);
+        }
         const { config } = error;
 
         if (config?.metadata) {

@@ -36,7 +36,10 @@ import { Icon } from '@iconify/vue';
 
 import {
   getFolderTreeApi,
-  getDocumentListApi,
+  getFolderDetailApi,
+  getFolderChildrenApi,
+  getFolderDocumentsApi,
+  getFolderPathApi,
   createFolderApi,
   updateFolderApi,
   deleteFolderApi,
@@ -58,6 +61,8 @@ const folderTree = ref<DocumentLibraryApi.FolderTreeNode | null>(null);
 const documentList = ref<DocumentLibraryApi.Document[]>([]);
 const currentFolderId = ref<number | null>(null);
 const currentFolder = ref<DocumentLibraryApi.Folder | null>(null);
+const subFolders = ref<DocumentLibraryApi.Folder[]>([]);
+const breadcrumb = ref<DocumentLibraryApi.FolderBreadcrumb[]>([]);
 const searchKeyword = ref('');
 
 const pagination = ref({
@@ -122,9 +127,9 @@ const treeProps = {
   label: 'name',
 };
 
-const safeDocumentList = computed(() =>
-  Array.isArray(documentList.value) ? documentList.value : [],
-);
+const safeDocumentList = computed(() => {
+  return Array.isArray(documentList.value) ? documentList.value : [];
+});
 
 const folderTreeData = computed(() => {
   if (!folderTree.value) return [];
@@ -134,8 +139,19 @@ const folderTreeData = computed(() => {
 const fetchFolderTree = async () => {
   try {
     const response = await getFolderTreeApi();
-    if (response.code === 200 && response.data) {
-      folderTree.value = response.data;
+    console.log('📁 文件夹树 API 响应:', response);
+    if (response) {
+      folderTree.value = response;
+      console.log('📁 folderTree.value:', folderTree.value);
+      // 递归打印所有子节点的 isPublic 字段
+      const printNodeInfo = (node: any, level: number = 0) => {
+        const indent = '  '.repeat(level);
+        console.log(`${indent}📁 节点：${node.name}, isPublic:`, node.isPublic);
+        if (node.children && node.children.length > 0) {
+          node.children.forEach((child: any) => printNodeInfo(child, level + 1));
+        }
+      };
+      printNodeInfo(folderTree.value);
     }
   } catch (error) {
     console.error('获取文件夹树失败:', error);
@@ -143,42 +159,52 @@ const fetchFolderTree = async () => {
 };
 
 const fetchDocumentList = async () => {
+  if (!currentFolderId.value) {
+    documentList.value = [];
+    subFolders.value = [];
+    breadcrumb.value = [];
+    return;
+  }
+
   loading.value = true;
   try {
-    const params: DocumentLibraryApi.DocumentListQueryParams = {
-      page: pagination.value.page,
-      size: pagination.value.size,
-    };
+    const [folderRes, childrenRes, documentsRes, pathRes] = await Promise.all([
+      getFolderDetailApi(currentFolderId.value!),
+      getFolderChildrenApi(currentFolderId.value!),
+      getFolderDocumentsApi(currentFolderId.value!, pagination.value.page, pagination.value.size),
+      getFolderPathApi(currentFolderId.value!),
+    ]);
 
-    if (currentFolderId.value) {
-      params.folderId = currentFolderId.value;
-    }
-    if (searchKeyword.value) {
-      params.keyword = searchKeyword.value;
-    }
-    if (documentTypeFilter.value) {
-      params.documentType = documentTypeFilter.value;
-    }
-    if (statusFilter.value) {
-      params.status = statusFilter.value;
+    if (folderRes) {
+      currentFolder.value = folderRes;
     }
 
-    const response = await getDocumentListApi(params);
-    if (response.code === 200 && response.data) {
-      // 后端返回的数据结构是 { total, page, size, totalPages, documents }
-      const data = response.data as any;
-      documentList.value = data.documents || [];
-      pagination.value.total = data.total || 0;
-      pagination.value.page = data.page || 1;
-      pagination.value.size = data.size || 10;
+    if (childrenRes) {
+      subFolders.value = Array.isArray(childrenRes) ? childrenRes : [];
+    } else {
+      subFolders.value = [];
+    }
+
+    if (documentsRes) {
+      documentList.value = documentsRes.documents || [];
+      pagination.value.total = documentsRes.total || 0;
+      pagination.value.page = documentsRes.page || 1;
+      pagination.value.size = documentsRes.size || 10;
     } else {
       documentList.value = [];
       pagination.value.total = 0;
     }
+
+    if (pathRes) {
+      breadcrumb.value = Array.isArray(pathRes) ? pathRes : [];
+    } else {
+      breadcrumb.value = [];
+    }
   } catch (error) {
-    console.error('获取文档列表失败:', error);
-    ElMessage.error('获取文档列表失败');
+    console.error('获取文件夹内容失败:', error);
+    ElMessage.error('获取文件夹内容失败');
     documentList.value = [];
+    subFolders.value = [];
     pagination.value.total = 0;
   } finally {
     loading.value = false;
@@ -256,12 +282,12 @@ const saveFolder = async () => {
         isPublic: folderForm.value.isPublic,
         sortOrder: folderForm.value.sortOrder,
       });
-      if (response.code === 200) {
+      if (response) {
         ElMessage.success('更新成功');
         folderDialogVisible.value = false;
         await fetchFolderTree();
       } else {
-        ElMessage.error(response.message || '更新失败');
+        ElMessage.error('更新失败');
       }
     } else {
       const response = await createFolderApi({
@@ -273,12 +299,12 @@ const saveFolder = async () => {
         isPublic: folderForm.value.isPublic,
         sortOrder: folderForm.value.sortOrder,
       });
-      if (response.code === 200) {
+      if (response) {
         ElMessage.success('创建成功');
         folderDialogVisible.value = false;
         await fetchFolderTree();
       } else {
-        ElMessage.error(response.message || '创建失败');
+        ElMessage.error('创建失败');
       }
     }
   } catch (error) {
@@ -297,15 +323,11 @@ const deleteFolder = async () => {
       type: 'warning',
     });
 
-    const response = await deleteFolderApi(currentFolderId.value);
-    if (response.code === 200) {
-      ElMessage.success('删除成功');
-      currentFolderId.value = null;
-      await fetchFolderTree();
-      await fetchDocumentList();
-    } else {
-      ElMessage.error(response.message || '删除失败');
-    }
+    await deleteFolderApi(currentFolderId.value!);
+    ElMessage.success('删除成功');
+    currentFolderId.value = null;
+    await fetchFolderTree();
+    await fetchDocumentList();
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('删除文件夹失败:', error);
@@ -339,6 +361,11 @@ const uploadDocument = async () => {
     return;
   }
 
+  if (!uploadForm.value.folderId) {
+    ElMessage.warning('请选择要上传到的文件夹');
+    return;
+  }
+
   uploadLoading.value = true;
   try {
     const response = await uploadDocumentApi({
@@ -350,16 +377,16 @@ const uploadDocument = async () => {
       isPublic: uploadForm.value.isPublic,
     });
 
-    if (response.code === 200) {
+    if (response && response.code === 200) {
       ElMessage.success('上传成功');
       uploadDialogVisible.value = false;
       await fetchDocumentList();
     } else {
-      ElMessage.error(response.message || '上传失败');
+      ElMessage.error(response?.message || '上传失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('上传文档失败:', error);
-    ElMessage.error('上传失败');
+    ElMessage.error(error?.response?.data?.message || error?.message || '上传失败');
   } finally {
     uploadLoading.value = false;
   }
@@ -391,12 +418,12 @@ const saveDocument = async () => {
       isPublic: editForm.value.isPublic,
     });
 
-    if (response.code === 200) {
+    if (response) {
       ElMessage.success('更新成功');
       editDialogVisible.value = false;
       await fetchDocumentList();
     } else {
-      ElMessage.error(response.message || '更新失败');
+      ElMessage.error('更新失败');
     }
   } catch (error) {
     console.error('更新文档失败:', error);
@@ -412,13 +439,9 @@ const deleteDocument = async (doc: DocumentLibraryApi.Document) => {
       type: 'warning',
     });
 
-    const response = await deleteDocumentApi(doc.id);
-    if (response.code === 200) {
-      ElMessage.success('删除成功');
-      await fetchDocumentList();
-    } else {
-      ElMessage.error(response.message || '删除失败');
-    }
+    await deleteDocumentApi(doc.id);
+    ElMessage.success('删除成功');
+    await fetchDocumentList();
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('删除文档失败:', error);
@@ -447,19 +470,13 @@ const downloadDocument = async (doc: DocumentLibraryApi.Document) => {
 
 const toggleLock = async (doc: DocumentLibraryApi.Document) => {
   try {
-    let response;
     if (doc.isLocked) {
-      response = await unlockDocumentApi(doc.id);
+      await unlockDocumentApi(doc.id);
     } else {
-      response = await lockDocumentApi(doc.id);
+      await lockDocumentApi(doc.id);
     }
-
-    if (response.code === 200) {
-      ElMessage.success(doc.isLocked ? '解锁成功' : '锁定成功');
-      await fetchDocumentList();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    ElMessage.success(doc.isLocked ? '解锁成功' : '锁定成功');
+    await fetchDocumentList();
   } catch (error) {
     console.error('锁定/解锁失败:', error);
     ElMessage.error('操作失败');
@@ -468,19 +485,13 @@ const toggleLock = async (doc: DocumentLibraryApi.Document) => {
 
 const toggleFavorite = async (doc: DocumentLibraryApi.Document) => {
   try {
-    let response;
     if (doc.isFavorited) {
-      response = await removeFavoriteApi(doc.id);
+      await removeFavoriteApi(doc.id);
     } else {
-      response = await addFavoriteApi(doc.id);
+      await addFavoriteApi(doc.id);
     }
-
-    if (response.code === 200) {
-      ElMessage.success(doc.isFavorited ? '已取消收藏' : '已添加收藏');
-      await fetchDocumentList();
-    } else {
-      ElMessage.error(response.message || '操作失败');
-    }
+    ElMessage.success(doc.isFavorited ? '已取消收藏' : '已添加收藏');
+    await fetchDocumentList();
   } catch (error) {
     console.error('收藏操作失败:', error);
     ElMessage.error('操作失败');
@@ -604,16 +615,24 @@ onMounted(() => {
             class="folder-tree"
           >
             <template #default="{ node, data }">
-              <div class="flex items-center gap-2">
-                <Icon
-                  :icon="data.type === 'root' ? 'lucide:database' : 'lucide:folder'"
-                  class="text-lg"
-                  :class="data.type === 'root' ? 'text-primary' : 'text-yellow-500'"
-                />
-                <span>{{ data.name }}</span>
-                <span v-if="data.documentCount" class="text-xs text-gray-400">
-                  ({{ data.documentCount }})
-                </span>
+              <div class="folder-node" :style="{ borderLeftColor: data.color || '#d9d9d9' }">
+                <div class="flex items-center gap-2">
+                  <Icon
+                    :icon="data.icon || (data.type === 'root' ? 'lucide:database' : 'lucide:folder')"
+                    class="text-lg folder-icon"
+                    :style="{ color: data.color || (data.type === 'root' ? '#1890ff' : '#f5c542') }"
+                  />
+                  <span>{{ data.name }}</span>
+                  <span v-if="data.documentCount" class="text-xs text-gray-400">
+                    ({{ data.documentCount }})
+                  </span>
+                  <!-- 调试代码 -->
+                  <span class="text-xs text-gray-300">[isPublic: {{ data.isPublic }}]</span>
+                  <ElTag v-if="data.isPublic === false" type="info" size="small" class="ml-1">
+                    <Icon icon="lucide:lock" class="mr-1" />
+                    私有
+                  </ElTag>
+                </div>
               </div>
             </template>
           </ElTree>
@@ -681,6 +700,10 @@ onMounted(() => {
                   <ElTag v-if="row.isLocked" type="warning" size="small">
                     <Icon icon="lucide:lock" class="mr-1" />
                     已锁定
+                  </ElTag>
+                  <ElTag v-if="row.isPublic === false" type="info" size="small">
+                    <Icon icon="lucide:lock" class="mr-1" />
+                    私有
                   </ElTag>
                 </div>
               </template>
@@ -949,6 +972,7 @@ onMounted(() => {
   height: 36px;
   border-radius: 4px;
   margin: 2px 0;
+  padding-left: 8px;
 }
 
 .folder-tree :deep(.el-tree-node__content:hover) {
@@ -958,6 +982,24 @@ onMounted(() => {
 .folder-tree :deep(.is-current > .el-tree-node__content) {
   background-color: #ecf5ff;
   color: #409eff;
+}
+
+.folder-node {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding-left: 8px;
+  border-left: 3px solid;
+  transition: all 0.2s;
+}
+
+.folder-node:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.folder-node:deep(.el-tag--info) {
+  opacity: 0.8;
+  font-size: 11px;
 }
 
 @media (max-width: 768px) {

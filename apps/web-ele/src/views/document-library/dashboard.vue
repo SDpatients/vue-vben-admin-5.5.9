@@ -50,6 +50,10 @@ const { renderEcharts: renderSizeChart } = useEcharts(chartRef3);
 const chartType1 = ref('pie');
 const chartType2 = ref('line');
 
+const totalSizeMB = computed(() => {
+  return Math.round(totalSize.value / 1024 / 1024 * 100) / 100;
+});
+
 const typeChartData = computed(() => {
   if (statistics.value?.typeDistribution) {
     const typeNames: Record<string, string> = {
@@ -160,12 +164,12 @@ const fetchStatistics = async () => {
   statisticsLoading.value = true;
   try {
     const response = await getDashboardStatisticsApi();
-    if (response.code === 200 && response.data) {
-      statistics.value = response.data;
-      totalDocuments.value = response.data.totalDocuments || 0;
-      totalSize.value = response.data.totalSize || 0;
-      weeklyUploads.value = response.data.weeklyUploads || 0;
-      totalViews.value = response.data.totalViews || 0;
+    if (response) {
+      statistics.value = response;
+      totalDocuments.value = response.totalDocuments || 0;
+      totalSize.value = response.totalSize || 0;
+      weeklyUploads.value = response.weeklyUploads || 0;
+      totalViews.value = response.totalViews || 0;
     }
   } catch (error) {
     console.error('获取统计数据失败:', error);
@@ -182,10 +186,10 @@ const fetchDocuments = async () => {
       size: 100,
     });
 
-    if (response.code === 200 && response.data) {
-      documents.value = response.data.list || [];
+    if (response) {
+      documents.value = response.documents || [];
       if (!statistics.value) {
-        totalDocuments.value = response.data.total || 0;
+        totalDocuments.value = response.total || 0;
         totalSize.value = documents.value.reduce((sum, doc) => sum + (doc.fileSize || 0), 0);
         weeklyUploads.value = documents.value.filter(d => {
           const weekAgo = new Date();
@@ -383,7 +387,9 @@ watch([documents, statistics], () => {
 }, { deep: true });
 
 onMounted(async () => {
-  await Promise.all([fetchStatistics(), fetchDocuments()]);
+  // 先获取统计数据，再获取文档列表
+  await fetchStatistics();
+  await fetchDocuments();
   renderCharts();
 });
 </script>
@@ -393,6 +399,7 @@ onMounted(async () => {
     <div class="mb-6">
       <h2 class="text-2xl font-bold text-gray-800">文档库仪表盘</h2>
       <p class="text-gray-500 mt-1">文档统计与分析概览</p>
+      <p class="text-gray-400 text-sm mt-1">仅展示公开的文档统计数据</p>
     </div>
 
     <ElRow :gutter="20" class="mb-6">
@@ -418,13 +425,12 @@ onMounted(async () => {
         <ElCard shadow="hover" class="stat-card">
           <div class="flex items-center justify-between">
             <div>
-              <div class="text-gray-500 text-sm mb-1">存储空间</div>
-              <ElStatistic :value="Math.round(totalSize / 1024 / 1024 * 100) / 100" suffix="MB">
-                <template #prefix>
-                  <Icon icon="lucide:hard-drive" class="text-green-500 text-xl" />
-                </template>
-              </ElStatistic>
-            </div>
+                <div class="text-gray-500 text-sm mb-1">存储空间</div>
+                <div class="flex items-baseline gap-1">
+                  <span class="text-3xl font-semibold font-mono">{{ totalSizeMB }}</span>
+                  <span class="text-gray-500">MB</span>
+                </div>
+              </div>
             <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
               <Icon icon="lucide:database" class="text-2xl text-green-500" />
             </div>
