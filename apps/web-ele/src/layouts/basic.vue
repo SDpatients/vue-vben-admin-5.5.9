@@ -1,10 +1,6 @@
 <script lang="ts" setup>
-<<<<<<< HEAD
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-=======
-import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
->>>>>>> e541ddd73cfff8e893415ee6bdf7eab0d1d69b37
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
