@@ -132,7 +132,7 @@ const caseStatus = ref('在办');
 
 // 计算办理天数
 const calculateDays = (filingDate?: string) => {
-  if (!filingDate) return '0天';
+  if (!filingDate) return '0 天';
   const now = new Date();
   const createDate = new Date(filingDate);
   const diffTime = Math.abs(now.getTime() - createDate.getTime());
@@ -144,6 +144,40 @@ const calculateDays = (filingDate?: string) => {
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('zh-CN');
+};
+
+// 计算受理天数（北京时间）
+const calculateAcceptDays = (filingDate?: string, closingDate?: string, caseStatus?: string) => {
+  if (!filingDate) return '0 天';
+  
+  // 北京时间使用 Asia/Shanghai 时区
+  const beijingTimeOffset = 8 * 60 * 60 * 1000; // 北京时间偏移量（毫秒）
+  
+  // 获取立案日期的北京时间
+  const filingDateObj = new Date(filingDate);
+  const beijingFilingTime = filingDateObj.getTime() + beijingTimeOffset;
+  
+  // 判断案件是否已结
+  const isCompleted = caseStatus === 'COMPLETED' || caseStatus === '已结';
+  
+  let endDateObj: Date;
+  
+  if (isCompleted && closingDate) {
+    // 已结案件，使用结案日期
+    endDateObj = new Date(closingDate);
+  } else {
+    // 未结案件，使用当前北京时间
+    const now = new Date();
+    endDateObj = now;
+  }
+  
+  const beijingEndTime = endDateObj.getTime() + beijingTimeOffset;
+  
+  // 计算天数差
+  const diffTime = Math.abs(beijingEndTime - beijingFilingTime);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return `${diffDays}天`;
 };
 
 // 案件进度映射
@@ -223,17 +257,37 @@ const calendarOptions = ref({
     const event = info.event;
     const extendedProps = event.extendedProps;
     
-    let tooltipContent = `<div style="padding: 8px;"><strong>${event.title}</strong>`;
+    const eventType = event.extendedProps?.type || '';
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    let eventDate: Date;
+    if (eventType === 'workplan') {
+      eventDate = event.end ? new Date(event.end) : new Date(event.start);
+    } else {
+      eventDate = event.start ? new Date(event.start) : new Date();
+    }
+    eventDate.setHours(0, 0, 0, 0);
+    
+    const isCompleted = eventDate < now;
+    
+    let titlePrefix = '';
+    if (eventType === 'workplan') {
+      titlePrefix = '工作计划';
+    } else if (eventType === 'todo') {
+      titlePrefix = '待办事项';
+    }
+    
+    let tooltipContent = `<div style="padding: 8px;"><strong>${titlePrefix}${isCompleted ? ' - 已完成' : ''}</strong><br/>${event.title}`;
     
     if (extendedProps.priority) {
       tooltipContent += `<br/>优先级：${priorityMap[extendedProps.priority] || extendedProps.priority}`;
     }
     
-    if (extendedProps.status) {
+    if (extendedProps.status && !isCompleted) {
       tooltipContent += `<br/>状态：${statusMap[extendedProps.status] || extendedProps.status}`;
     }
     
-    const eventType = event.extendedProps?.type || '';
     if (eventType === 'workplan') {
       if (event.end) {
         tooltipContent += `<br/>截止时间：${new Date(event.end).toLocaleString('zh-CN')}`;
@@ -1384,10 +1438,13 @@ onMounted(async () => {
                     <span>{{ item.designatedJudge }}</span>
                   </div>
 
-                  <!-- 立案日期 -->
-                  <div class="case-info mb-1 text-sm">
+                  <!-- 立案日期和受理天数 -->
+                  <div class="case-info mb-1 text-sm flex items-center">
                     <span class="text-gray-500">立案日期：</span>
                     <span>{{ formatDate(item.filingDate) }}</span>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <span class="text-gray-500">受理天数：</span>
+                    <span class="text-primary font-medium">{{ calculateAcceptDays(item.filingDate, item.closingDate, item.caseStatus) }}</span>
                   </div>
 
                   <!-- 案件状态和结案时间 -->
@@ -1477,18 +1534,32 @@ onMounted(async () => {
                   <div
                     v-for="item in announcements"
                     :key="item.id"
-                    class="announcement-card cursor-pointer mb-4"
+                    class="announcement-card cursor-pointer"
                     @click="viewAnnouncementDetail(item)"
                   >
+                    <!-- 第一行：公告类型标签 + 标题 + 状态 -->
                     <div
-                      class="announcement-header mb-2 flex items-start justify-between"
+                      class="announcement-header mb-2 flex items-center justify-between"
                     >
-                      <h4
-                        class="announcement-title truncate text-sm font-semibold"
-                      >
-                        {{ item.title }}
-                      </h4>
-                      <div class="flex items-center space-x-1">
+                      <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <ElTag
+                          :type="
+                            announcementTypeMap[item.announcementType]
+                              ?.type || 'warning'
+                          "
+                          size="small"
+                          effect="plain"
+                        >
+                          {{ announcementTypeMap[item.announcementType]
+                              ?.label || '公告' }}
+                        </ElTag>
+                        <h4
+                          class="announcement-title truncate text-sm font-semibold flex-1"
+                        >
+                          {{ item.title }}
+                        </h4>
+                      </div>
+                      <div class="flex items-center space-x-1 flex-shrink-0">
                         <ElTag
                           v-if="item.isTop"
                           size="small"
@@ -1509,53 +1580,43 @@ onMounted(async () => {
                       </div>
                     </div>
 
+                    <!-- 第二行：公告内容摘要 -->
                     <div
                       class="announcement-content mb-2 line-clamp-2 text-xs text-gray-600"
                       v-html="item.content"
                     ></div>
 
+                    <!-- 第三行：发布人 + 时间 + 浏览次数 -->
                     <div
                       class="announcement-meta flex items-center justify-between text-xs text-gray-500"
                     >
                       <div class="flex items-center">
-                        <ElTag
-                          :type="
-                            announcementTypeMap[item.announcementType]
-                              ?.type || 'info'
-                          "
-                          size="small"
-                          effect="plain"
-                        >
-                          {{ announcementTypeMap[item.announcementType]
-                              ?.label || '普通' }}
-                        </ElTag>
-                        <span class="ml-2">{{ item.publisherName || '系统' }}</span>
+                        <span>{{ item.publisherName || '系统' }}</span>
+                        <span class="mx-2 text-gray-300">|</span>
+                        <span>{{ formatDateTime(item.publishTime || item.createTime) }}</span>
                       </div>
                       <div class="flex items-center">
-                        <span class="mr-2">{{ formatDateTime(item.publishTime || item.createTime) }}</span>
-                        <span class="flex items-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="mr-1 h-3 w-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                          {{ item.viewCount }}
-                        </span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="mr-1 h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
+                        </svg>
+                        {{ item.viewCount }}
                       </div>
                     </div>
                   </div>
@@ -1667,26 +1728,6 @@ onMounted(async () => {
                     <span class="function-nav-text text-sm font-medium">新增案件</span>
                   </router-link>
                   
-                  <!-- 文书审批 -->
-                  <router-link to="/approval/document" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-1 flex items-center justify-center text-teal-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">文书审批</span>
-                  </router-link>
-                  
-                  <!-- 案件审批 -->
-                  <router-link to="/approval/case" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-1 flex items-center justify-center text-yellow-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">案件审批</span>
-                  </router-link>
-                  
                   <!-- 费用报销 -->
                   <router-link to="/expense-reimbursement" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-purple-500">
@@ -1695,16 +1736,6 @@ onMounted(async () => {
                       </svg>
                     </div>
                     <span class="function-nav-text text-sm font-medium">费用报销</span>
-                  </router-link>
-                  
-                  <!-- 用户管理 -->
-                  <router-link to="/management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
-                    <div class="function-nav-icon mb-1 flex items-center justify-center text-gray-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <span class="function-nav-text text-sm font-medium">用户</span>
                   </router-link>
                   
                   <!-- 债权人管理 -->
@@ -1797,45 +1828,12 @@ onMounted(async () => {
         <div v-loading="detailLoading" class="detail-content-wrapper">
           <!-- 加载完成且有数据 -->
           <div v-if="announcementDetail" class="detail-content">
+            <!-- 公告标题 -->
+            <div class="detail-title">
+              <h3 class="title-text">{{ announcementDetail.title }}</h3>
+            </div>
+            
             <div class="detail-meta">
-              <div class="meta-row">
-                <span class="label">公告类型：</span>
-                <ElTag
-                  :type="
-                    announcementDetail.announcement_type === 'URGENT'
-                      ? 'danger'
-                      : announcementDetail.announcement_type === 'IMPORTANT'
-                        ? 'warning'
-                        : 'info'
-                  "
-                  size="small"
-                >
-                  {{
-                    announcementDetail.announcement_type === 'URGENT'
-                      ? '紧急'
-                      : announcementDetail.announcement_type === 'IMPORTANT'
-                        ? '重要'
-                        : '普通'
-                  }}
-                </ElTag>
-              </div>
-              <div class="meta-row">
-                <span class="label">状态：</span>
-                <ElTag
-                  :type="
-                    announcementDetail.status === 'PUBLISHED'
-                      ? 'success'
-                      : 'warning'
-                  "
-                  size="small"
-                >
-                  {{
-                    announcementDetail.status === 'PUBLISHED'
-                      ? '已发布'
-                      : '草稿'
-                  }}
-                </ElTag>
-              </div>
               <div class="meta-row">
                 <span class="label">发布人：</span>
                 <span>{{ announcementDetail.publisher_name || '系统' }}</span>
@@ -1869,27 +1867,6 @@ onMounted(async () => {
                 >
                   查看浏览记录
                 </ElButton>
-              </div>
-              <div class="meta-row">
-                <span class="label">是否置顶：</span>
-                <ElTag
-                  :type="announcementDetail.is_top === 1 ? 'danger' : 'info'"
-                  size="small"
-                >
-                  {{ announcementDetail.is_top === 1 ? '已置顶' : '未置顶' }}
-                </ElTag>
-              </div>
-              <div
-                v-if="
-                  announcementDetail.is_top === 1 &&
-                  announcementDetail.top_expire_time
-                "
-                class="meta-row"
-              >
-                <span class="label">置顶过期时间：</span>
-                <span>{{
-                  formatDateTime(announcementDetail.top_expire_time)
-                }}</span>
               </div>
             </div>
 
@@ -2423,27 +2400,30 @@ onMounted(async () => {
   transform: translateX(4px);
 }
 
-/* 功能导航样式 */
+/* 功能导航样式 - 移除外边框和悬停效果 */
 .function-nav-item {
-  transition: all 0.3s ease;
-  border: 1px solid #f0f0f0;
+  transition: none;
+  border: none !important;
   min-height: 60px;
+  box-shadow: none !important;
+  background-color: transparent !important;
 }
 
 .function-nav-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-  border-color: #1890ff;
+  box-shadow: none !important;
+  transform: none !important;
+  border-color: transparent !important;
+  background-color: transparent !important;
 }
 
 .function-nav-icon {
-  transition: all 0.3s ease;
+  transition: none;
   font-size: 16px;
 }
 
 .function-nav-item:hover .function-nav-icon {
-  transform: scale(1.05);
-  color: #1890ff;
+  transform: none !important;
+  color: inherit;
 }
 
 .function-nav-text {
@@ -2459,19 +2439,27 @@ onMounted(async () => {
   color: #1890ff;
 }
 
-/* 公告卡片样式 */
+/* 公告卡片样式 - 完全移除外边框，只保留底部分隔线 */
 .announcement-card {
   transition: all 0.3s ease;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
+  padding: 10px 12px;
+  margin: 0;
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid #e9ecef !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
 }
 
 .announcement-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
-  border-color: #1890ff;
-  background-color: #fafafa;
+  box-shadow: none !important;
+  transform: none;
+  border-color: #d1d5db !important;
+  background-color: rgba(243, 244, 246, 0.3) !important;
+}
+
+.announcement-card:last-child {
+  border-bottom: none !important;
 }
 
 /* 模块容器样式 */
@@ -2546,6 +2534,21 @@ onMounted(async () => {
   background: #fff;
   border-radius: 4px;
   padding: 20px;
+}
+
+/* 公告标题样式 */
+.detail-title {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.title-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .detail-meta {
@@ -2803,10 +2806,10 @@ onMounted(async () => {
   height: 100%;
   overflow-y: auto;
   padding: 0;
-  padding-bottom: 16px;
   background-color: #ffffff;
-  border-radius: 6px;
+  border-radius: 0;
 }
+
 
 .module-content::-webkit-scrollbar {
   width: 6px;

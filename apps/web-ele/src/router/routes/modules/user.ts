@@ -24,6 +24,17 @@ const routes: RouteRecordRaw[] = [
           authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
         },
       },
+      {
+        name: 'UserProfile',
+        path: 'profile',
+        component: () => import('#/views/user/profile/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:user',
+          title: $t('page.user.profile'),
+          authority: [],
+        },
+      },
     ],
   },
 ];

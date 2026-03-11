@@ -834,20 +834,29 @@ onMounted(() => {
             <div class="detail-meta">
               <div class="meta-grid">
                 <div class="meta-item">
-                  <span class="meta-label">公告ID</span>
-                  <span class="meta-value">{{ currentAnnouncement.id }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">案件ID</span>
-                  <span class="meta-value">{{
-                    currentAnnouncement.caseId
-                  }}</span>
-                </div>
-                <div class="meta-item">
                   <span class="meta-label">公告类型</span>
-                  <span class="meta-value">{{
-                    currentAnnouncement.announcementType || '普通'
-                  }}</span>
+                  <ElTag
+                    :type="
+                      currentAnnouncement.announcementType === 'ANNOUNCEMENT'
+                        ? 'warning'
+                        : currentAnnouncement.announcementType === 'NOTICE'
+                          ? 'info'
+                          : currentAnnouncement.announcementType === 'WARNING'
+                            ? 'danger'
+                            : 'info'
+                    "
+                    size="small"
+                  >
+                    {{
+                      currentAnnouncement.announcementType === 'ANNOUNCEMENT'
+                        ? '公告'
+                        : currentAnnouncement.announcementType === 'NOTICE'
+                          ? '通知'
+                          : currentAnnouncement.announcementType === 'WARNING'
+                            ? '警告'
+                            : '普通'
+                    }}
+                  </ElTag>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">状态</span>
@@ -889,48 +898,6 @@ onMounted(() => {
                   <span class="meta-value">{{
                     currentAnnouncement.viewCount || 0
                   }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">是否置顶</span>
-                  <ElTag
-                    :type="currentAnnouncement.isTop ? 'danger' : 'info'"
-                    size="small"
-                  >
-                    {{ currentAnnouncement.isTop ? '已置顶' : '未置顶' }}
-                  </ElTag>
-                </div>
-                <div
-                  v-if="
-                    currentAnnouncement.isTop &&
-                    currentAnnouncement.topExpireTime
-                  "
-                  class="meta-item"
-                >
-                  <span class="meta-label">置顶过期时间</span>
-                  <span class="meta-value">{{
-                    formatDate(currentAnnouncement.topExpireTime)
-                  }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">创建时间</span>
-                  <span class="meta-value">{{
-                    formatDate(currentAnnouncement.createTime)
-                  }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">更新时间</span>
-                  <span class="meta-value">{{
-                    formatDate(currentAnnouncement.updateTime)
-                  }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">是否删除</span>
-                  <ElTag
-                    :type="currentAnnouncement.isDeleted ? 'danger' : 'success'"
-                    size="small"
-                  >
-                    {{ currentAnnouncement.isDeleted ? '已删除' : '正常' }}
-                  </ElTag>
                 </div>
               </div>
             </div>
