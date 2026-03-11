@@ -1230,12 +1230,17 @@ const submitChangePassword = async () => {
 // 退出登录处理
 const handleLogout = async () => {
   try {
-    // 调用authStore中的logout方法，确保在请求头中添加JWT令牌
+    // 调用 authStore 中的 logout 方法，确保在请求头中添加 JWT 令牌
     await authStore.logout();
   } catch (error) {
     console.error('退出登录失败:', error);
     ElMessage.error('退出登录失败');
   }
+};
+
+// 跳转到个人中心
+const handleGoProfile = () => {
+  router.push('/profile');
 };
 
 // 月份变化处理
@@ -1290,6 +1295,7 @@ onMounted(async () => {
         :real-name="currentUserInfo?.realName"
         @logout="handleLogout"
         @change-password="openChangePasswordDialog"
+        @go-profile="handleGoProfile"
       >
         <template #title>
           <span
@@ -2790,12 +2796,14 @@ onMounted(async () => {
   padding: 16px;
   height: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .module-content {
   height: 100%;
   overflow-y: auto;
   padding: 0;
+  padding-bottom: 16px;
   background-color: #ffffff;
   border-radius: 6px;
 }

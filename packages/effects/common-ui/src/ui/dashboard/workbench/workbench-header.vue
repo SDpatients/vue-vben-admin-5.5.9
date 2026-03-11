@@ -19,7 +19,7 @@ withDefaults(defineProps<Props>(), {
   realName: '',
 });
 
-const emit = defineEmits(['logout', 'change-password']);
+const emit = defineEmits(['logout', 'change-password', 'go-profile']);
 
 const handleLogout = () => {
   emit('logout');
@@ -28,10 +28,14 @@ const handleLogout = () => {
 const handleChangePassword = () => {
   emit('change-password');
 };
+
+const handleGoProfile = () => {
+  emit('go-profile');
+};
 </script>
 <template>
   <div class="card-box p-4 py-6 lg:flex">
-    <div class="size-10 relative flex flex-shrink-0 items-center">
+    <div class="size-10 relative flex flex-shrink-0 items-center cursor-pointer" @click="handleGoProfile">
       <span class="inline-flex items-center justify-center font-normal text-foreground select-none shrink-0 bg-secondary overflow-hidden rounded-full text-xs size-full">
         <template v-if="realName && realName.length > 0">
           <span class="text-sm font-medium">{{ realName.charAt(0) }}</span>

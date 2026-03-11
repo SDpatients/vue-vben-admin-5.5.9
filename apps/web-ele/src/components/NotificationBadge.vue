@@ -44,14 +44,16 @@ const showSettings = ref(false);
 
 // 动态数据计数
 const dynamicCount = ref(0);
+// 动态数据列表
+const activities = ref<any[]>([]);
 
-// ActivityTimeline组件引用
+// ActivityTimeline 组件引用
 const activityTimelineRef = ref<any>(null);
 
 // 加载最新动态数量
 const loadDynamicCount = async () => {
   try {
-    // 从本地存储获取userId
+    // 从本地存储获取 userId
     const userId = localStorage.getItem('chat_user_id');
     if (!userId) {
       dynamicCount.value = 0;
@@ -59,11 +61,14 @@ const loadDynamicCount = async () => {
     }
     // 调用新的未读通知接口
     const res = await notificationApi.getUnreadNotifications(Number(userId));
-    // requestClient配置了responseReturn: 'data'，所以res直接是API响应的data字段
-    dynamicCount.value = res?.length || 0;
+    // requestClient 配置了 responseReturn: 'data'，所以 res 直接是 API 响应的 data 字段
+    const list = res || [];
+    dynamicCount.value = list.length;
+    activities.value = list; // 保存列表数据
   } catch (error) {
     console.error('加载最新动态数量失败:', error);
     dynamicCount.value = 0;
+    activities.value = [];
   }
 };
 
@@ -153,8 +158,18 @@ const toggleSettings = () => {
 
 // 监听下拉菜单显示状态，加载数据
 watch(dropdownVisible, (newVal) => {
-  if (newVal && isAdmin.value) {
-    loadPendingApprovals();
+  if (newVal) {
+    // 下拉菜单打开时，同时加载最新动态和待审核数据
+    if (isAdmin.value) {
+      loadPendingApprovals();
+    }
+    // 刷新最新动态数据
+    if (
+      activityTimelineRef.value &&
+      typeof activityTimelineRef.value.loadActivities === 'function'
+    ) {
+      activityTimelineRef.value.loadActivities();
+    }
   }
 });
 
@@ -248,18 +263,19 @@ onUnmounted(() => {});
           <div class="notification-content-wrapper">
             <!-- 最新动态 -->
             <div
-              v-if="activeTab === 'dynamic'"
+              v-show="activeTab === 'dynamic'"
               class="notification-content-section"
             >
               <ActivityTimeline
                 ref="activityTimelineRef"
+                :initial-activities="activities"
                 @update:count="dynamicCount = $event"
               />
             </div>
 
             <!-- 待审核 -->
             <div
-              v-else-if="activeTab === 'approval'"
+              v-show="activeTab === 'approval'"
               class="notification-content-section"
             >
               <div v-if="pendingApprovals.length > 0" class="pending-approvals">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { notificationApi, type Notification } from '#/api/core/notification';
 import { Icon } from '@iconify/vue';
@@ -9,9 +9,6 @@ const router = useRouter();
 const loading = ref(false);
 const notifications = ref<Notification[]>([]);
 const selectedType = ref('');
-const currentPage = ref(1);
-const pageSize = ref(20);
-const hasMore = ref(false);
 
 const formatTime = (time: string) => {
   const date = new Date(time);
@@ -30,126 +27,38 @@ const formatTime = (time: string) => {
 
 const loadNotifications = async () => {
   loading.value = true;
-  currentPage.value = 1;
   try {
-    // 从本地存储获取userId
-    const userIdStr = localStorage.getItem('chat_user_id');
-    const userId = userIdStr ? Number(userIdStr) : 16; // 默认值16
+    const userId = 1;
     
-    const res = await notificationApi.getNotificationList(userId, 0, pageSize.value);
+    const res = await notificationApi.getUnreadNotifications(userId);
     console.log('加载通知中心结果:', res);
-    notifications.value = res.data || [];
-    hasMore.value = res.data.length >= pageSize.value;
-    
-    // 如果没有数据，添加一些模拟数据用于测试
-    if (notifications.value.length === 0) {
-      notifications.value = [
-        {
-          id: 1,
-          userId: userId,
-          type: 'SYSTEM',
-          title: '系统通知',
-          content: '您有新的系统消息',
-          isRead: false,
-          createTime: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          userId: userId,
-          type: 'CASE',
-          title: '案件更新',
-          content: '您的案件已经更新',
-          isRead: true,
-          createTime: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 3,
-          userId: userId,
-          type: 'APPROVAL',
-          title: '审批通知',
-          content: '您有新的审批请求',
-          isRead: false,
-          createTime: new Date(Date.now() - 7200000).toISOString(),
-        },
-        {
-          id: 4,
-          userId: userId,
-          type: 'TODO',
-          title: '待办提醒',
-          content: '您有新的待办事项',
-          isRead: false,
-          createTime: new Date(Date.now() - 10800000).toISOString(),
-        },
-        {
-          id: 5,
-          userId: userId,
-          type: 'ACTIVITY',
-          title: '动态通知',
-          content: '您有新的活动动态',
-          isRead: true,
-          createTime: new Date(Date.now() - 14400000).toISOString(),
-        },
-      ];
-      hasMore.value = false;
-    }
+    // requestClient 配置了 responseReturn: 'data'，所以 res 已经是 data 数组
+    notifications.value = Array.isArray(res) ? res : (res.data || []);
   } catch (error) {
     console.error('加载通知中心失败:', error);
-    // 从本地存储获取userId用于模拟数据
-    const userIdStr = localStorage.getItem('chat_user_id');
-    const userId = userIdStr ? Number(userIdStr) : 16;
-    
-    // 发生错误时，添加一些模拟数据用于测试
-    notifications.value = [
-      {
-        id: 1,
-        userId: userId,
-        type: 'SYSTEM',
-        title: '系统通知',
-        content: '您有新的系统消息',
-        isRead: false,
-        createTime: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        userId: userId,
-        type: 'CASE',
-        title: '案件更新',
-        content: '您的案件已经更新',
-        isRead: true,
-        createTime: new Date(Date.now() - 3600000).toISOString(),
-      },
-    ];
-    hasMore.value = false;
+    notifications.value = [];
   } finally {
     loading.value = false;
   }
 };
 
-const loadMore = async () => {
-  loading.value = true;
-  currentPage.value++;
-  try {
-    // 从本地存储获取userId
-    const userIdStr = localStorage.getItem('chat_user_id');
-    const userId = userIdStr ? Number(userIdStr) : 16; // 默认值16
-    
-    const res = await notificationApi.getNotificationList(userId, currentPage.value - 1, pageSize.value);
-    notifications.value = [...notifications.value, ...(res.data || [])];
-    hasMore.value = res.data.length >= pageSize.value;
-  } catch (error) {
-    console.error('加载更多失败:', error);
-  } finally {
-    loading.value = false;
+const filteredNotifications = computed(() => {
+  if (!selectedType.value) {
+    return notifications.value;
   }
+  return notifications.value.filter((item) => item.type === selectedType.value);
+});
+
+const loadMore = async () => {
+  // 未读通知接口不支持分页，此方法不再使用
+  loading.value = false;
 };
 
 const handleNotificationClick = async (item: Notification) => {
+  // 点击通知时只标记为已读，不跳转页面
   if (!item.isRead) {
     await notificationApi.markAsRead(item.id);
     item.isRead = true;
-  }
-  if (item.relatedType && item.relatedId) {
-    router.push(`/${item.relatedType.toLowerCase()}/${item.relatedId}`);
   }
 };
 
@@ -164,20 +73,15 @@ const markAllAsRead = async () => {
   }
 };
 
-const deleteNotification = async (id: number) => {
+const markAsRead = async (id: number) => {
   try {
-    await ElMessageBox.confirm('确认删除该通知吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-    await notificationApi.deleteNotification(id);
-    notifications.value = notifications.value.filter((item) => item.id !== id);
-    ElMessage.success('删除成功');
+    await notificationApi.markAsRead(id);
+    // 重新加载通知数据
+    await loadNotifications();
+    ElMessage.success('标记已读成功');
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败');
-    }
+    console.error('标记已读失败:', error);
+    ElMessage.error('操作失败');
   }
 };
 
@@ -187,6 +91,10 @@ const getTypeText = (type: string) => {
     APPROVAL: '审核通知',
     TODO: '待办提醒',
     ACTIVITY: '动态通知',
+    WORK_LOG: '工作日志',
+    DOCUMENT_DELIVERY: '文书送达',
+    CASE: '案件通知',
+    CASE_ANNOUNCEMENT: '案件公告',
   };
   return textMap[type] || type;
 };
@@ -197,6 +105,10 @@ const getTypeColor = (type: string) => {
     APPROVAL: '#faad14',
     TODO: '#52c41a',
     ACTIVITY: '#722ed1',
+    WORK_LOG: '#13c2c2',
+    DOCUMENT_DELIVERY: '#f5222d',
+    CASE: '#722ed1',
+    CASE_ANNOUNCEMENT: '#1890ff',
   };
   return colorMap[type] || '#999';
 };
@@ -229,6 +141,10 @@ onMounted(() => {
           <ElOption label="审核通知" value="APPROVAL" />
           <ElOption label="待办提醒" value="TODO" />
           <ElOption label="动态通知" value="ACTIVITY" />
+          <ElOption label="工作日志" value="WORK_LOG" />
+          <ElOption label="文书送达" value="DOCUMENT_DELIVERY" />
+          <ElOption label="案件通知" value="CASE" />
+          <ElOption label="案件公告" value="CASE_ANNOUNCEMENT" />
         </ElSelect>
       </div>
 
@@ -236,12 +152,11 @@ onMounted(() => {
         <ElScrollbar max-height="600px">
           <div v-loading="loading">
             <ElCard
-              v-for="item in notifications"
+              v-for="item in filteredNotifications"
               :key="item.id"
               shadow="hover"
               class="notification-item"
               :class="{ unread: !item.isRead }"
-              @click="handleNotificationClick(item)"
             >
               <div class="notification-content">
                 <div class="notification-header">
@@ -249,26 +164,23 @@ onMounted(() => {
                     <Icon icon="lucide:bell" :size="16" class="mr-1" />
                     {{ getTypeText(item.type) }}
                   </div>
-                  <div class="notification-time">{{ formatTime(item.createTime) }}</div>
                 </div>
                 <div class="notification-title">{{ item.title }}</div>
                 <div class="notification-text">{{ item.content }}</div>
-              </div>
-              <div class="notification-actions">
-                <ElButton
-                  circle
-                  size="small"
-                  type="danger"
-                  @click.stop="deleteNotification(item.id)"
-                >
-                  <Icon icon="lucide:trash-2" :size="14" />
-                </ElButton>
+                <div class="notification-footer">
+                  <span class="notification-time">{{ formatTime(item.createTime) }}</span>
+                  <ElButton
+                    size="small"
+                    type="primary"
+                    @click.stop="markAsRead(item.id)"
+                  >
+                    <Icon icon="lucide:check" :size="14" class="mr-1" />
+                    我已知晓
+                  </ElButton>
+                </div>
               </div>
             </ElCard>
-            <div v-if="hasMore" class="load-more">
-              <ElButton link @click="loadMore">加载更多</ElButton>
-            </div>
-            <ElEmpty v-if="notifications.length === 0 && !loading" description="暂无通知" />
+            <ElEmpty v-if="filteredNotifications.length === 0 && !loading" description="暂无通知" />
           </div>
         </ElScrollbar>
       </div>
@@ -310,8 +222,7 @@ onMounted(() => {
 
 .notification-item {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: stretch;
   margin-bottom: 12px;
   cursor: pointer;
   transition: all 0.3s;
@@ -322,19 +233,20 @@ onMounted(() => {
 }
 
 .notification-item.unread {
-  background-color: #f0f9ff;
   border-left: 4px solid #1890ff;
 }
 
 .notification-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .notification-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 8px;
 }
 
@@ -343,11 +255,6 @@ onMounted(() => {
   align-items: center;
   font-size: 13px;
   font-weight: 500;
-}
-
-.notification-time {
-  font-size: 12px;
-  color: #909399;
 }
 
 .notification-title {
@@ -365,12 +272,25 @@ onMounted(() => {
   font-size: 13px;
   color: #606266;
   -webkit-box-orient: vertical;
+  flex: 1;
+}
+
+.notification-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.notification-time {
+  font-size: 12px;
+  color: #909399;
 }
 
 .notification-actions {
   display: flex;
   gap: 4px;
-  margin-left: 12px;
 }
 
 .load-more {

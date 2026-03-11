@@ -20,7 +20,8 @@
   },
   "user": {
     "title": "User Management",
-    "management": "User List"
+    "management": "User List",
+    "profile": "User Profile"
   },
   "notification": {
     "title": "Notification",

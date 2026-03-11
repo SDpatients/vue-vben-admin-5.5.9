@@ -85,7 +85,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers['Accept-Language'] = preferences.app.locale;
       const token = localStorage.getItem('token');
       if (token) {
-        // 确保不会重复添加Bearer前缀
+        // 确保不会重复添加 Bearer 前缀
         const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         config.headers.Authorization = formattedToken;
       }
