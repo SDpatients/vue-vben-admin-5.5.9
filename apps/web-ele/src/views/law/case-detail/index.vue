@@ -86,6 +86,7 @@ import {
   getCaseDetailApi,
   updateCaseApi,
 } from '../../../api/core/case';
+import { CaseTaskApi, CaseTaskSubmissionApi } from '#/api/core';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
 import ArchiveDrawer from './components/ArchiveDrawer.vue';
@@ -211,8 +212,8 @@ const currentStage = ref(1);
 const stages = [
   {
     id: 1,
-    name: '一、破产申请与受理',
-    description: '包含破产申请材料提交、法院审查、管理人选任等工作',
+    name: '一、申请与受理',
+    description: '包含破产申请材料提交、法院审查等工作',
     modules: [
       {
         code: 'TASK_001',
@@ -220,7 +221,7 @@ const stages = [
         description: '申请人向法院提交破产申请书及相关证据材料。需上传：1.破产申请书（详细说明申请人基本情况、申请目的、事实与理由）；2.申请人主体资格证明文件（营业执照、身份证等）；3.债务人主体资格证明文件；4.债权债务关系证明材料（合同、借条、判决书等）；5.债务人不能清偿到期债务的证据（财务报表、银行流水、执行记录等）；6.其他相关证据材料。需确认：所有材料真实完整，符合法院要求的格式和份数。'
       },
       {
-        code: 'TASK_005',
+        code: 'TASK_002',
         name: '裁定受理并公告',
         description: '法院裁定受理破产申请并发布公告。需上传：1.法院受理裁定书；2.法院公告文件。需确认：公告内容是否完整，包括受理时间、管理人名称、债权申报期限等重要信息。'
       },
@@ -228,31 +229,31 @@ const stages = [
   },
   {
     id: 2,
-    name: '二、接管与调查',
+    name: '二、管理人接管',
     description: '管理人全面接管债务人并调查财产经营状况',
     modules: [
       {
-        code: 'TASK_006',
+        code: 'TASK_003',
         name: '全面接管债务人',
         description: '管理人全面接管债务人的财产、印章、账簿、文书等资料。需上传：1.接管清单（详细列明接管的财产、资料等）；2.接管笔录；3.债务人法定代表人或负责人的配合情况说明。需确认：1.接管是否全面彻底；2.所有资料是否真实完整；3.接管程序是否合法合规。'
       },
       {
-        code: 'TASK_006_1',
+        code: 'TASK_004',
         name: '管理人印章',
         description: '管理人刻制、使用和管理印章。需上传：1.印章刻制申请；2.印章样式；3.印章使用管理制度；4.印章使用记录。需确认：1.印章刻制是否符合规定；2.印章使用是否规范；3.管理制度是否健全。'
       },
       {
-        code: 'TASK_007',
+        code: 'TASK_005',
         name: '调查财产及经营状况',
         description: '管理人调查债务人的财产状况、经营状况等。需上传：1.财产状况调查报告；2.经营状况调查报告；3.债权债务清册；4.资产负债表；5.审计报告（如有）。需确认：1.调查是否全面深入；2.报告内容是否真实准确；3.是否发现财产线索或债务问题。'
       },
       {
-        code: 'TASK_008',
+        code: 'TASK_006',
         name: '决定合同继续履行或解除',
         description: '管理人决定债务人未履行完毕合同的继续履行或解除。需上传：1.合同清单；2.合同履行情况说明；3.继续履行或解除的决定文件；4.相关债权人意见（如有）。需确认：1.决定是否符合法律规定；2.是否充分考虑债权人利益；3.程序是否合法合规。'
       },
       {
-        code: 'TASK_009',
+        code: 'TASK_007',
         name: '追收债务人财产',
         description: '管理人追收债务人的财产，包括到期债权、出资人未缴出资、抽逃出资等。需上传：1.财产追收方案；2.追收进展情况报告；3.相关法律文书（如起诉状、执行申请书等）；4.追收结果说明。需确认：1.追收措施是否合法有效；2.是否充分行使管理人职责；3.追收结果是否及时入账。'
       },
@@ -260,21 +261,21 @@ const stages = [
   },
   {
     id: 3,
-    name: '三、债权申报与核查',
+    name: '三、债权申报与审查',
     description: '通知债权人申报、接收登记并审查债权',
     modules: [
       {
-        code: 'TASK_010',
+        code: 'TASK_008',
         name: '通知已知债权人并公告',
         description: '管理人通知已知债权人申报债权，并在指定媒体发布债权申报公告。需上传：1.已知债权人名单及联系方式；2.债权申报通知书及送达证明；3.债权申报公告文件及发布证明；4.公告内容包括申报期限、地点、方式等信息。需确认：1.通知是否送达所有已知债权人；2.公告是否在法定媒体发布；3.内容是否符合法律规定。'
       },
       {
-        code: 'TASK_011',
+        code: 'TASK_009',
         name: '接收、登记债权申报',
         description: '管理人接收债权人的债权申报材料并进行登记。需上传：1.债权申报表；2.债权人身份证明文件；3.债权证明材料（合同、借条、判决书等）；4.债权登记册。需确认：1.申报材料是否齐全；2.登记信息是否准确完整；3.是否按规定处理逾期申报的债权。'
       },
       {
-        code: 'TASK_012',
+        code: 'TASK_010',
         name: '审查申报债权并编制债权表',
         description: '管理人审查申报的债权并编制债权表。需上传：1.债权审查意见；2.债权表；3.债权审查中发现的问题及处理建议；4.债权人对债权表的异议及处理情况。需确认：1.审查是否依法进行；2.债权表是否准确反映债权情况；3.异议处理是否合法合规。'
       },
@@ -286,17 +287,17 @@ const stages = [
     description: '筹备和召开债权人会议，核查债权并议决事项',
     modules: [
       {
-        code: 'TASK_013',
+        code: 'TASK_011',
         name: '筹备第一次债权人会议',
         description: '管理人筹备第一次债权人会议。需上传：1.会议议程；2.会议材料（债权表、管理人工作报告、财产管理方案等）；3.会议通知及送达证明；4.会场布置及设备准备情况。需确认：1.会议材料是否充分完整；2.通知是否送达所有债权人；3.筹备工作是否符合法律规定。'
       },
       {
-        code: 'TASK_014',
+        code: 'TASK_012',
         name: '召开会议核查债权与议决事项',
         description: '召开债权人会议，核查债权并议决相关事项。需上传：1.会议记录；2.债权核查情况报告；3.决议事项表决结果；4.会议签到簿。需确认：1.会议程序是否合法；2.决议是否符合法律规定；3.表决结果是否准确记录。'
       },
       {
-        code: 'TASK_015',
+        code: 'TASK_013',
         name: '表决通过财产变价/分配方案',
         description: '债权人会议表决通过财产变价方案和分配方案。需上传：1.财产变价方案；2.财产分配方案；3.表决结果；4.相关债权人意见。需确认：1.方案是否符合债权人利益；2.表决程序是否合法；3.决议是否通过。'
       },
@@ -304,51 +305,58 @@ const stages = [
   },
   {
     id: 5,
-    name: '五、破产宣告',
-    description: '审查并裁定宣告债务人破产',
+    name: '五、重整与和解',
+    description: '审查并裁定债务人重整或和解',
     modules: [
       {
-        code: 'TASK_016',
-        name: '审查宣告破产条件',
-        description: '法院审查债务人是否符合宣告破产的条件。需上传：1.债务人财产状况报告；2.债权清偿情况报告；3.管理人关于宣告破产的申请；4.其他相关材料。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形，且无法达成和解或重整协议。'
-      },
-      {
-        code: 'TASK_017',
-        name: '裁定宣告债务人破产',
-        description: '法院裁定宣告债务人破产。需上传：1.法院宣告破产裁定书；2.破产宣告公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
-      },
-      {
-        code: 'TASK_025',
+        code: 'TASK_014',
         name: '宣告重整与和解',
         description: '审查并裁定债务人重整或和解。需上传：1.重整或和解申请；2.重整计划或和解协议草案；3.债权人会议决议；4.法院裁定书。需确认：1.重整或和解申请是否符合法律规定；2.重整计划或和解协议草案是否合法可行；3.程序是否合法合规。'
       },
     ],
   },
-  { 
+  {
     id: 6,
-    name: '六、财产变价与分配',
+    name: '六、破产宣告',
+    description: '审查并裁定宣告债务人破产',
+    modules: [
+      {
+        code: 'TASK_015',
+        name: '审查宣告破产条件',
+        description: '法院审查债务人是否符合宣告破产的条件。需上传：1.债务人财产状况报告；2.债权清偿情况报告；3.管理人关于宣告破产的申请；4.其他相关材料。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形，且无法达成和解或重整协议。'
+      },
+      {
+        code: 'TASK_016',
+        name: '裁定宣告债务人破产',
+        description: '法院裁定宣告债务人破产。需上传：1.法院宣告破产裁定书；2.破产宣告公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
+      },
+    ],
+  },
+  { 
+    id: 7,
+    name: '七、财产变价与分配',
     description: '拟定执行财产变价方案并分配破产财产',
     modules: [
       {
-        code: 'TASK_018',
+        code: 'TASK_017',
         name: '拟定并执行财产变价方案',
         description: '管理人拟定财产变价方案并执行。需上传：1.财产变价方案；2.财产评估报告（如有）；3.变价方式说明（拍卖、变卖等）；4.变价结果报告。需确认：1.变价方案是否符合债权人会议决议；2.变价程序是否合法透明；3.变价结果是否公平合理。'
       },
       {
-        code: 'TASK_024',
-        name: '破产费用与共同利益债务',
-        description: '管理人审核确认破产费用和共益债务。需上传：1.破产费用清单；2.共益债务清单；3.费用支出凭证；4.审核意见。需确认：1.费用是否真实发生；2.是否符合法律规定的范围；3.支出是否合理必要。'
+        code: 'TASK_018',
+        name: '执行破产财产分配',
+        description: '管理人执行破产财产分配方案。需上传：1.破产财产分配方案；2.分配明细表；3.分配通知及送达证明；4.分配结果报告。需确认：1.分配是否按照法定顺序进行；2.分配金额是否准确；3.程序是否合法合规。'
       },
       {
         code: 'TASK_019',
-        name: '执行破产财产分配',
-        description: '管理人执行破产财产分配方案。需上传：1.破产财产分配方案；2.分配明细表；3.分配通知及送达证明；4.分配结果报告。需确认：1.分配是否按照法定顺序进行；2.分配金额是否准确；3.程序是否合法合规。'
+        name: '破产费用与共益债务',
+        description: '管理人审核确认破产费用和共益债务。需上传：1.破产费用清单；2.共益债务清单；3.费用支出凭证；4.审核意见。需确认：1.费用是否真实发生；2.是否符合法律规定的范围；3.支出是否合理必要。'
       },
     ],
   },
   {
-    id: 7,
-    name: '七、程序终结与注销',
+    id: 8,
+    name: '八、程序终结',
     description: '终结破产程序、办理企业注销并归档',
     modules: [
       {
@@ -1130,14 +1138,103 @@ const submitReview = async () => {
       );
 
       // 附件由后端处理，不需要前端获取
-      const approvalAttachment = '';
+      let approvalAttachment = '';
+      let approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
+
+      console.log('===== DEBUG: 提交审批 =====');
+      console.log('reviewForm.taskId:', reviewForm.taskId);
+      console.log('caseId.value:', caseId.value);
+      console.log('reviewForm.taskId startsWith TASK_:', reviewForm.taskId?.startsWith('TASK_'));
+
+      // 如果审批类型是 TASK_ 前缀，需要获取任务提交的文件和信息
+      if (reviewForm.taskId && reviewForm.taskId.startsWith('TASK_')) {
+        try {
+          // 1. 获取案件下的所有任务，找到对应的任务
+          console.log('===== DEBUG: 开始获取任务 =====');
+          const taskResponse = await CaseTaskApi.getCaseTasks({
+            caseId: Number(caseId.value),
+            taskCode: reviewForm.taskId,
+            page: 1,
+            size: 10,
+          });
+
+          console.log('===== DEBUG: taskResponse =====', taskResponse);
+
+          if (taskResponse.code === 200 && taskResponse.data?.content?.length > 0) {
+            const task = taskResponse.data.content[0];
+            console.log('===== DEBUG: 找到任务 =====', task);
+            const caseTaskIds = [task.id];
+
+            // 2. 批量获取任务提交记录
+            console.log('===== DEBUG: 获取提交记录, caseTaskIds =====', caseTaskIds);
+            const submissionsBatchResponse = await CaseTaskSubmissionApi.getLatestSubmissionsBatch({
+              caseTaskIds,
+            });
+
+            console.log('===== DEBUG: submissionsBatchResponse =====', submissionsBatchResponse);
+            console.log('===== DEBUG: submissionsBatchResponse.data =====', submissionsBatchResponse.data);
+
+            if (submissionsBatchResponse.code === 200 && submissionsBatchResponse.data) {
+              // 3. 收集所有提交的内容，构建 approvalContent
+              const allSubmissions: any[] = Object.values(submissionsBatchResponse.data).flat();
+              console.log('===== DEBUG: allSubmissions =====', allSubmissions);
+
+              if (allSubmissions.length > 0) {
+                // 构建 approvalContent：每个任务的 submissionTitle + submissionContent
+                const contentParts = allSubmissions.map((sub: any) =>
+                  `【${sub.submissionTitle}】\n${sub.submissionContent}`
+                );
+                approvalContent = contentParts.join('\n\n---\n\n');
+                console.log('===== DEBUG: approvalContent =====', approvalContent);
+
+                // 4. 批量获取提交的文件
+                const submissionIds = allSubmissions.map((sub: any) => sub.id);
+                console.log('===== DEBUG: 获取文件, submissionIds =====', submissionIds);
+                const filesBatchResponse = await CaseTaskSubmissionApi.getSubmissionFilesBatch({
+                  submissionIds,
+                });
+
+                console.log('===== DEBUG: filesBatchResponse =====', filesBatchResponse);
+
+                // 5. 将文件信息存入 approvalAttachment
+                if (filesBatchResponse.code === 200 && filesBatchResponse.data) {
+                  const allFiles = Object.values(filesBatchResponse.data).flat();
+                  approvalAttachment = JSON.stringify({ files: allFiles });
+                  console.log('===== DEBUG: approvalAttachment =====', approvalAttachment);
+                }
+              } else {
+                console.log('===== DEBUG: 没有提交记录 =====');
+                ElMessage.warning(`任务 "${selectedTask?.label}" 暂无提交记录，请先在破产流程中填写并提交任务内容`);
+                return;
+              }
+            }
+          } else {
+            console.log('===== DEBUG: 没有找到对应任务 =====');
+          }
+        } catch (error) {
+          console.error('===== DEBUG: 获取任务提交信息失败 =====:', error);
+          // 出错时使用默认的 approvalContent
+          approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
+        }
+      } else {
+        console.log('===== DEBUG: 不是TASK_前缀，不获取任务提交 =====');
+      }
 
       // 设置审批参数
+      console.log('===== DEBUG: 最终提交的 approvalParams =====', {
+        caseId: Number(caseId.value),
+        approvalType: reviewForm.taskId,
+        approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
+        approvalContent: approvalContent,
+        approvalAttachment,
+        remark: reviewForm.remark || '',
+      });
+
       const approvalParams = {
         caseId: Number(caseId.value),
         approvalType: reviewForm.taskId, // 直接使用目标任务的task_code
         approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
-        approvalContent: `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`,
+        approvalContent: approvalContent,
         approvalAttachment,
         remark: reviewForm.remark || '',
       };
@@ -2614,7 +2711,7 @@ const fetchAnnouncements = async () => {
     });
     if (response.code === 200 && response.data) {
       // 将驼峰命名转换为下划线命名，以匹配表格组件的预期
-      const list = (response.data.list || []).map((item: any) => ({
+      let list = (response.data.list || []).map((item: any) => ({
         ...item,
         announcement_type: item.announcementType,
         is_top: item.isTop ? 1 : 0,
@@ -2623,6 +2720,14 @@ const fetchAnnouncements = async () => {
         publish_time: item.publishTime,
         view_count: item.viewCount,
       }));
+      // 排序：置顶的放最前面，然后按ID降序（ID越大越靠前）
+      list.sort((a: any, b: any) => {
+        const aIsTop = a.isTop || a.is_top;
+        const bIsTop = b.isTop || b.is_top;
+        if (aIsTop && !bIsTop) return -1;
+        if (!aIsTop && bIsTop) return 1;
+        return (b.id || 0) - (a.id || 0);
+      });
       announcements.value = list;
       totalAnnouncements.value = response.data.total || 0;
     } else {
@@ -8326,7 +8431,7 @@ const endDrag = () => {
                 </template>
               </ElTableColumn>
               <ElTableColumn prop="comment" label="审批意见" />
-          </eltable>
+          </ElTable>
 </ElCard>
         </div>
 

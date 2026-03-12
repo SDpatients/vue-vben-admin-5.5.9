@@ -387,10 +387,35 @@ export async function searchDocumentsApi(keyword: string, page: number = 1, size
   });
 }
 
-export async function downloadDocumentApi(id: number): Promise<Blob> {
-  return fileUploadRequestClient.get(`${BASE_URL}/documents/${id}/download`, {
-    responseType: 'blob',
+export interface DownloadResult {
+  blob: Blob;
+  filename: string;
+}
+
+export async function downloadDocumentApi(id: number): Promise<DownloadResult> {
+  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}${BASE_URL}/documents/${id}/download`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
+    },
   });
+  
+  if (!response.ok) {
+    throw new Error(`下载失败: ${response.status}`);
+  }
+  
+  const blob = await response.blob();
+  let filename = 'download';
+  
+  const contentDisposition = response.headers.get('Content-Disposition');
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^'";]+)['"]?;?/i);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = decodeURIComponent(filenameMatch[1]);
+    }
+  }
+  
+  return { blob, filename };
 }
 
 export async function lockDocumentApi(id: number): Promise<DocumentLibraryApi.ApiResponse<null>> {

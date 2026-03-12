@@ -207,12 +207,18 @@ export const approvalUtils = {
     try {
       const parsed = JSON.parse(content);
       // 验证解析结果是否符合预期格式
-      if (parsed && typeof parsed === 'object' && 'task' in parsed && 'submissions' in parsed) {
-        return parsed;
-      } else {
-        // 格式不符合预期，返回原始内容
-        return { originalContent: content };
+      if (parsed && typeof parsed === 'object') {
+        // 新格式：{ task: {...}, submissions: [...] }
+        if ('task' in parsed && 'submissions' in parsed) {
+          return parsed as ApprovalContentData;
+        }
+        // 旧格式：{ task: {...}, submissions: {...} }
+        if ('task' in parsed) {
+          return parsed as ApprovalContentData;
+        }
       }
+      // 格式不符合预期，返回原始内容
+      return { originalContent: content };
     } catch (e) {
       // 如果不是 JSON，返回原始内容，不打印错误信息
       return { originalContent: content };
@@ -225,28 +231,77 @@ export const approvalUtils = {
       const parsed = JSON.parse(attachment);
       // 验证解析结果是否符合预期格式
       if (parsed && typeof parsed === 'object') {
-        if ('files' in parsed) {
-          // 检查files是否是数组（API返回格式）
-          if (Array.isArray(parsed.files)) {
-            // 转换API格式为预期格式：{ "case_files": [文件数组] }
-            return {
-              files: {
-                "case_files": parsed.files.map((file: any) => ({
+        // 新格式：{ frontendAttachment: "...", files: { "85": [...], "86": [...] } }
+        if ('files' in parsed && typeof parsed.files === 'object' && !Array.isArray(parsed.files)) {
+          // 按提交ID分组的文件格式
+          const result: ApprovalAttachmentData = { files: {} };
+          
+          for (const [submissionId, files] of Object.entries(parsed.files)) {
+            if (Array.isArray(files)) {
+              result.files[submissionId] = files.map((file: any) => ({
+                id: file.id,
+                originalFileName: file.originalFileName,
+                storedFileName: file.originalFileName,
+                filePath: file.filePath || '',
+                fileSize: file.fileSize || 0,
+                fileExtension: file.originalFileName ? file.originalFileName.split('.').pop() || '' : '',
+                mimeType: file.mimeType || '',
+                sortOrder: file.sortOrder || 0,
+                uploadTime: file.uploadTime || '',
+                imageData: file.imageData
+              }));
+            }
+          }
+          
+          // 如果有 frontendAttachment，也解析它
+          if (parsed.frontendAttachment) {
+            try {
+              const frontendParsed = JSON.parse(parsed.frontendAttachment);
+              if (frontendParsed && Array.isArray(frontendParsed.files)) {
+                // 将前端文件添加到 case_files 分组
+                result.files['case_files'] = frontendParsed.files.map((file: any) => ({
                   id: file.id,
                   originalFileName: file.originalFileName,
                   storedFileName: file.originalFileName,
-                  filePath: '',
-                  fileSize: 0,
+                  filePath: file.filePath || '',
+                  fileSize: file.fileSize || 0,
                   fileExtension: file.originalFileName ? file.originalFileName.split('.').pop() || '' : '',
-                  mimeType: '',
-                  sortOrder: 0,
-                  uploadTime: '',
+                  mimeType: file.mimeType || '',
+                  sortOrder: file.sortOrder || 0,
+                  uploadTime: file.uploadTime || '',
                   imageData: file.imageData
-                }))
+                }));
               }
-            };
+            } catch (e) {
+              // frontendAttachment 解析失败，忽略
+            }
           }
-          // 原始格式：{ "files": { "任务ID": [文件数组] } }
+          
+          return result;
+        }
+        
+        // 旧格式：{ files: [...] } 数组格式
+        if ('files' in parsed && Array.isArray(parsed.files)) {
+          return {
+            files: {
+              "case_files": parsed.files.map((file: any) => ({
+                id: file.id,
+                originalFileName: file.originalFileName,
+                storedFileName: file.originalFileName,
+                filePath: file.filePath || '',
+                fileSize: file.fileSize || 0,
+                fileExtension: file.originalFileName ? file.originalFileName.split('.').pop() || '' : '',
+                mimeType: file.mimeType || '',
+                sortOrder: file.sortOrder || 0,
+                uploadTime: file.uploadTime || '',
+                imageData: file.imageData
+              }))
+            }
+          };
+        }
+        
+        // 原始格式：{ "files": { "任务ID": [文件数组] } }
+        if ('files' in parsed) {
           return parsed;
         }
       }

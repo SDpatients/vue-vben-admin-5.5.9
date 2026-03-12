@@ -72,43 +72,22 @@ const isAdmin = computed(() => {
   return false;
 });
 
-// 用于调试显示的 localStorage roles
-const localStorageRoles = computed(() => {
-  return localStorage.getItem('user_roles') || 'null';
-});
-
 // 从 API 获取当前用户信息并更新管理员状态
 const loadCurrentUser = async () => {
   try {
-    console.log('🔍 [DEBUG] 开始获取当前用户信息...');
     const userInfo = await getCurrentUserApi();
-    console.log('📋 [DEBUG] 获取到的用户信息:', userInfo);
-    console.log('📋 [DEBUG] 用户信息 data 字段:', userInfo?.data);
-    console.log('📋 [DEBUG] 用户角色数组:', userInfo?.data?.roles);
     
     if (userInfo?.data?.roles) {
-      // 检查是否包含英文 'ADMIN' 或中文 '管理员'
-      const hasAdminRole = userInfo.data.roles.some(role => {
-        console.log(`🔍 [DEBUG] 检查角色："${role}"`);
-        return role === 'ADMIN' || role === '管理员';
-      });
-      
+      const hasAdminRole = userInfo.data.roles.some(role => role === 'ADMIN' || role === '管理员');
       isAdminUser.value = hasAdminRole;
-      console.log('✅ [DEBUG] 是否管理员:', hasAdminRole);
-      console.log('✅ [DEBUG] isAdminUser 的值:', isAdminUser.value);
-      
-      // 同步更新 localStorage
       localStorage.setItem('user_roles', JSON.stringify(userInfo.data.roles));
-      console.log('💾 [DEBUG] 已更新 localStorage user_roles:', userInfo.data.roles);
     } else {
-      console.warn('⚠️ [DEBUG] 用户信息中没有 roles 字段');
       isAdminUser.value = false;
     }
   } catch (error) {
-    console.error('❌ [DEBUG] 获取当前用户信息失败:', error);
+    console.error('获取当前用户信息失败:', error);
     isAdminUser.value = false;
   }
-  console.log('🏁 [DEBUG] loadCurrentUser 执行完毕，isAdminUser =', isAdminUser.value);
 };
 
 // 权限状态标志
@@ -535,15 +514,6 @@ onMounted(() => {
 
 <template>
   <div class="p-5">
-    <!-- 调试信息 -->
-    <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-      <div class="font-semibold text-yellow-800">🔍 调试信息：</div>
-      <div class="text-yellow-700">
-        <div>isAdminUser: <span class="font-mono">{{ isAdminUser }}</span></div>
-        <div>localStorage user_roles: <span class="font-mono">{{ localStorageRoles }}</span></div>
-      </div>
-    </div>
-    
     <!-- 案件管理图表 -->
     <div class="mt-5">
       <div class="flex items-center gap-3 mb-4">

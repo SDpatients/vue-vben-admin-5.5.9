@@ -86,11 +86,11 @@ const handleSizeChange = (size: number) => {
 
 const downloadDocument = async (doc: DocumentLibraryApi.Document) => {
   try {
-    const blob = await downloadDocumentApi(doc.id);
+    const { blob, filename } = await downloadDocumentApi(doc.id);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = doc.fileName;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -186,11 +186,11 @@ const handleDownload = async () => {
   if (!document.value) return;
 
   try {
-    const blob = await downloadDocumentApi(document.value.id);
+    const { blob, filename } = await downloadDocumentApi(document.value.id);
     const url = window.URL.createObjectURL(blob);
     const link = window.document.createElement('a');
     link.href = url;
-    link.download = document.value.fileName;
+    link.download = filename;
     window.document.body.appendChild(link);
     link.click();
     window.document.body.removeChild(link);

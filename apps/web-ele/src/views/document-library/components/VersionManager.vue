@@ -120,11 +120,11 @@ const restoreVersion = async (versionNumber: number) => {
 
 const downloadVersion = async (version: DocumentLibraryApi.DocumentVersion) => {
   try {
-    const blob = await downloadDocumentApi(props.documentId);
+    const { blob, filename } = await downloadDocumentApi(props.documentId);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = version.fileName;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

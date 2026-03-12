@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import type { DocumentLibraryApi } from '#/api/core/document-library';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import VersionManager from './components/VersionManager.vue';
-import ShareManager from './components/ShareManager.vue';
 import DocumentPreview from './components/DocumentPreview.vue';
 import BatchOperations from './components/BatchOperations.vue';
 
@@ -40,6 +39,7 @@ import {
   getFolderChildrenApi,
   getFolderDocumentsApi,
   getFolderPathApi,
+  getMyDocumentsApi,
   createFolderApi,
   updateFolderApi,
   deleteFolderApi,
@@ -64,6 +64,7 @@ const currentFolder = ref<DocumentLibraryApi.Folder | null>(null);
 const subFolders = ref<DocumentLibraryApi.Folder[]>([]);
 const breadcrumb = ref<DocumentLibraryApi.FolderBreadcrumb[]>([]);
 const searchKeyword = ref('');
+const showMyOnly = ref(false);
 
 const pagination = ref({
   page: 1,
@@ -111,9 +112,6 @@ const currentEditDocument = ref<DocumentLibraryApi.Document | null>(null);
 const versionDialogVisible = ref(false);
 const currentVersionDocument = ref<DocumentLibraryApi.Document | null>(null);
 
-const shareDialogVisible = ref(false);
-const currentShareDocument = ref<DocumentLibraryApi.Document | null>(null);
-
 const moveDialogVisible = ref(false);
 const moveTargetFolderId = ref<number | null>(null);
 const currentMoveDocument = ref<DocumentLibraryApi.Document | null>(null);
@@ -150,7 +148,7 @@ const fetchFolderTree = async () => {
 };
 
 const fetchDocumentList = async () => {
-  if (!currentFolderId.value) {
+  if (!currentFolderId.value && !showMyOnly.value) {
     documentList.value = [];
     subFolders.value = [];
     breadcrumb.value = [];
@@ -159,6 +157,22 @@ const fetchDocumentList = async () => {
 
   loading.value = true;
   try {
+    if (showMyOnly.value) {
+      const myDocsRes = await getMyDocumentsApi(pagination.value.page, pagination.value.size);
+      if (myDocsRes) {
+        documentList.value = myDocsRes.documents || [];
+        pagination.value.total = myDocsRes.total || 0;
+        pagination.value.page = myDocsRes.page || 1;
+        pagination.value.size = myDocsRes.size || 10;
+      } else {
+        documentList.value = [];
+        pagination.value.total = 0;
+      }
+      subFolders.value = [];
+      breadcrumb.value = [];
+      return;
+    }
+
     const [folderRes, childrenRes, documentsRes, pathRes] = await Promise.all([
       getFolderDetailApi(currentFolderId.value!),
       getFolderChildrenApi(currentFolderId.value!),
@@ -443,11 +457,11 @@ const deleteDocument = async (doc: DocumentLibraryApi.Document) => {
 
 const downloadDocument = async (doc: DocumentLibraryApi.Document) => {
   try {
-    const blob = await downloadDocumentApi(doc.id);
+    const { blob, filename } = await downloadDocumentApi(doc.id);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = doc.fileName;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -494,11 +508,6 @@ const openVersionDialog = (doc: DocumentLibraryApi.Document) => {
   versionDialogVisible.value = true;
 };
 
-const openShareDialog = (doc: DocumentLibraryApi.Document) => {
-  currentShareDocument.value = doc;
-  shareDialogVisible.value = true;
-};
-
 const openPreview = (doc: DocumentLibraryApi.Document) => {
   previewDocumentId.value = doc.id;
   previewVisible.value = true;
@@ -527,6 +536,11 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('zh-CN');
 };
 
+watch(showMyOnly, () => {
+  pagination.value.page = 1;
+  fetchDocumentList();
+});
+
 onMounted(() => {
   fetchFolderTree();
   fetchDocumentList();
@@ -541,6 +555,12 @@ onMounted(() => {
           <div class="flex items-center gap-3">
             <Icon icon="lucide:folder-archive" class="text-2xl text-primary" />
             <span class="text-xl font-semibold">文档库</span>
+            <ElSwitch
+              v-model="showMyOnly"
+              active-text="仅看我的"
+              inactive-text=""
+              class="ml-4"
+            />
           </div>
           <div class="flex items-center gap-2">
             <BatchOperations
@@ -767,10 +787,6 @@ onMounted(() => {
                           <Icon icon="lucide:history" class="mr-2" />
                           版本管理
                         </ElDropdownItem>
-                        <ElDropdownItem @click="openShareDialog(row)">
-                          <Icon icon="lucide:share-2" class="mr-2" />
-                          分享
-                        </ElDropdownItem>
                         <ElDropdownItem divided @click="deleteDocument(row)">
                           <Icon icon="lucide:trash-2" class="mr-2 text-red-500" />
                           <span class="text-red-500">删除</span>
@@ -911,19 +927,6 @@ onMounted(() => {
         v-if="currentVersionDocument"
         :document-id="currentVersionDocument.id"
         :document-name="currentVersionDocument.documentName"
-      />
-    </ElDialog>
-
-    <ElDialog
-      v-model="shareDialogVisible"
-      title="分享管理"
-      width="600px"
-      destroy-on-close
-    >
-      <ShareManager
-        v-if="currentShareDocument"
-        :document-id="currentShareDocument.id"
-        :document-name="currentShareDocument.documentName"
       />
     </ElDialog>
 

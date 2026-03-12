@@ -81,11 +81,11 @@ const removeFavorite = async (item: DocumentLibraryApi.FavoriteItem) => {
 
 const downloadDocument = async (item: DocumentLibraryApi.FavoriteItem) => {
   try {
-    const blob = await downloadDocumentApi(item.documentId);
+    const { blob, filename } = await downloadDocumentApi(item.documentId);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = item.documentName;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
