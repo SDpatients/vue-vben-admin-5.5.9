@@ -778,15 +778,6 @@ const cancelDelete = () => {
                   >
                     审核
                   </ElButton>
-                  <ElButton
-                    v-if="canDeleteCase"
-                    type="danger"
-                    size="small"
-                    @click="showDeleteDialog(row)"
-                    :loading="deleteLoading && currentDeleteCase?.id === row.id"
-                  >
-                    删除
-                  </ElButton>
                 </div>
               </template>
             </ElTableColumn>

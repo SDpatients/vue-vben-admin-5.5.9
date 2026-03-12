@@ -233,11 +233,12 @@ const handleDownload = async (doc: DocumentLibraryApi.Document) => {
     );
 
     if (confirm) {
-      const blob = await downloadDocumentApi(doc.id);
+      const result = await downloadDocumentApi(doc.id);
+      const blob = result.blob;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = doc.fileName || `${doc.documentName}.${doc.fileExtension}`;
+      link.download = result.filename || doc.fileName || `${doc.documentName}.${doc.fileExtension}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

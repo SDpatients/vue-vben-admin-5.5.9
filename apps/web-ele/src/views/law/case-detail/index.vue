@@ -81,11 +81,14 @@ import { fileUploadRequestClient } from '#/api/request';
 
 import {
   createApprovalApi,
+  deleteCaseApi,
   getCaseApprovalHistoryApi,
   getCaseApprovalProgressApi,
   getCaseDetailApi,
+  getCaseRelatedDataApi,
   updateCaseApi,
 } from '../../../api/core/case';
+import { useUserStore } from '@vben/stores';
 import { CaseTaskApi, CaseTaskSubmissionApi } from '#/api/core';
 import RichTextEditor from '../../../components/RichTextEditor.vue';
 import BankruptcyProcess from '../bankruptcy-process/index.vue';
@@ -94,7 +97,6 @@ import AssetManagement from './components/AssetManagement.vue';
 import AttachmentList from './components/AttachmentList.vue';
 import ClaimRegistrationTabs from './components/ClaimRegistrationTabs.vue';
 import DebtorInfo from './components/DebtorInfo.vue';
-import ExportCenterDialog from './components/ExportCenterDialog.vue';
 import FileUpload from './components/FileUpload.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
@@ -142,6 +144,109 @@ const canEdit = ref(false);
 const canDelete = ref(false);
 const isCreator = ref(false);
 const teamMemberInfo = ref<any>(null);
+
+// 案件访问权限相关
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+
+// 用户信息相关
+const userStore = useUserStore();
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    const parsedId = Number.parseInt(userId, 10);
+    return parsedId;
+  }
+  const localStorageUserId = localStorage.getItem('chat_user_id');
+  if (localStorageUserId) {
+    const parsedId = Number.parseInt(localStorageUserId, 10);
+    return parsedId;
+  }
+  return 0;
+});
+
+// 判断用户是否为管理员
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
+
+// 判断当前用户是否可以删除案件
+const canDeleteCase = computed(() => {
+  if (isAdmin.value || isSuperAdmin.value) {
+    return true;
+  }
+  // 检查是否为创建者
+  if (caseDetail.value?.创建者ID && currentUserId.value === caseDetail.value.创建者ID) {
+    return true;
+  }
+  // 检查是否为承办人员
+  if (caseDetail.value?.承办人员) {
+    const undertakingPersonnel = caseDetail.value.承办人员;
+    if (typeof undertakingPersonnel === 'string') {
+      const username = userStore.userInfo?.username || '';
+      if (undertakingPersonnel.includes(username)) {
+        return true;
+      }
+    }
+  }
+  return false;
+});
+
+// 删除案件相关
+const deleteDialogVisible = ref(false);
+const deleteLoading = ref(false);
+const relatedData = ref<any>(null);
+
+// 显示删除确认弹窗
+const showDeleteDialog = async () => {
+  deleteLoading.value = true;
+  try {
+    const response = await getCaseRelatedDataApi(Number(caseId.value));
+    if (response.code === 200 && response.data) {
+      relatedData.value = response.data;
+      deleteDialogVisible.value = true;
+    } else {
+      ElMessage.error(response.message || '获取案件关联数据失败');
+    }
+  } catch {
+    ElMessage.error('获取案件关联数据失败');
+  } finally {
+    deleteLoading.value = false;
+  }
+};
+
+// 确认删除案件
+const confirmDelete = async () => {
+  deleteLoading.value = true;
+  try {
+    const response = await deleteCaseApi(Number(caseId.value));
+    if (response.code === 200) {
+      ElMessage.success('删除成功');
+      deleteDialogVisible.value = false;
+      relatedData.value = null;
+      router.push('/law/case-management');
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch {
+    ElMessage.error('删除失败');
+  } finally {
+    deleteLoading.value = false;
+  }
+};
+
+// 取消删除
+const cancelDelete = () => {
+  deleteDialogVisible.value = false;
+  relatedData.value = null;
+};
 
 // 案件卷宗归档相关
 const archiveDrawerRef = ref<InstanceType<typeof ArchiveDrawer> | null>(null);
@@ -890,8 +995,8 @@ const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
-// 导出中心相关
-const showExportCenterDialog = ref(false);
+// 友情链接相关
+const showFriendLinksDialog = ref(false);
 
 // 批审相关
 const showReviewDialog = ref(false);
@@ -3556,8 +3661,8 @@ const openWorkPlanDrawer = () => {
   workPlanDrawerRef.value?.openDrawer();
 };
 
-const openExportCenterDialog = () => {
-  showExportCenterDialog.value = true;
+const openFriendLinksDialog = () => {
+  showFriendLinksDialog.value = true;
 };
 
 const openAssetManagementDialog = () => {
@@ -3676,6 +3781,7 @@ const handleProgressUpdated = async () => {
           指定机构: caseData.designatedInstitution,
           承办人员: caseData.undertakingPersonnel,
           创建者: caseData.creatorName,
+          创建者ID: caseData.createUserId,
           审核状态: mapReviewStatus(caseData.reviewStatus),
           审核时间: caseData.reviewTime,
           审核意见: caseData.reviewOpinion,
@@ -3705,6 +3811,7 @@ const handleProgressUpdated = async () => {
 // 生命周期
 onMounted(async () => {
   loading.value = true;
+  permissionChecking.value = true;
   try {
     // 调用真实API获取案件详情
     const response = await getCaseDetailApi(Number.parseInt(caseId.value, 10));
@@ -3740,6 +3847,7 @@ onMounted(async () => {
           指定机构: caseData.designatedInstitution,
           承办人员: caseData.undertakingPersonnel,
           创建者: caseData.creatorName,
+          创建者ID: caseData.createUserId,
           审核状态: mapReviewStatus(caseData.reviewStatus),
           审核时间: caseData.reviewTime,
           审核意见: caseData.reviewOpinion,
@@ -3754,91 +3862,57 @@ onMounted(async () => {
       } else {
         throw new Error('API返回的数据结构异常');
       }
+    } else if (responseData.code === 403) {
+      // 后端返回403，表示无权限访问
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = responseData.message || '您没有权限访问此案件';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    } else if (responseData.code === 404) {
+      // 案件不存在
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '案件不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
     } else {
       const errorMsg =
         responseData.message || responseData.data?.error || '未知错误';
       ElMessage.error(`获取案件详情失败：${errorMsg}`);
-
-      // 如果API调用失败，使用虚拟数据作为备用
-      caseDetail.value = {
-        案件ID: caseId.value || 'AJ2023001',
-        案号: '(2023)破字第001号',
-        案件名称: '某某公司破产清算案',
-        受理日期: '2023-01-15',
-        案件来源: '债权人申请',
-        受理法院: '某某市中级人民法院',
-        管理人负责人: '李经理',
-        指定法官: '张法官',
-        案由: '破产清算',
-        债权申报截止时间: '2023-03-15',
-        是否简化审: '否',
-        案件进度: '审理中',
-        立案日期: '2023-01-10',
-        破产时间: '2023-01-20',
-        终结时间: '',
-        注销时间: '',
-        归档时间: '',
-        结案日期: '',
-        指定机构: '某律师事务所',
-        承办人员: '李四',
-        创建者: '管理员',
-        审核状态: '待审核',
-        审核时间: '',
-        审核意见: '',
-        审核次数: 0,
-        案件状态: '进行中',
-        创建时间: '2023-01-10 10:00:00',
-        修改时间: '2023-01-10 10:00:00',
-        备注: '备注信息',
-        文件上传路径: '/files/case/123',
-      };
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = `获取案件详情失败：${errorMsg}`;
+      return;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取案件详情失败:', error);
-    ElMessage.error('获取案件详情失败，使用虚拟数据');
-
-    // 如果API调用失败，使用虚拟数据作为备用
-    caseDetail.value = {
-      案件ID: caseId.value || 'AJ2023001',
-      案号: '(2023)破字第001号',
-      案件名称: '某某公司破产清算案',
-      受理日期: '2023-01-15',
-      案件来源: '债权人申请',
-      受理法院: '某某市中级人民法院',
-      管理人负责人: '李经理',
-      指定法官: '张法官',
-      案由: '破产清算',
-      债权申报截止时间: '2023-03-15',
-      是否简化审: '否',
-      案件进度: '审理中',
-      立案日期: '2023-01-10',
-      破产时间: '2023-01-20',
-      归档时间: '',
-      注销时间: '',
-      结案日期: '',
-      指定机构: '某律师事务所',
-      承办人员: '李四',
-      创建者: '管理员',
-      审核状态: '待审核',
-      审核时间: '',
-      审核意见: '',
-      审核次数: 0,
-      案件状态: '进行中',
-      创建时间: '2023-01-10 10:00:00',
-      修改时间: '2023-01-10 10:00:00',
-      备注: '备注信息',
-      文件上传路径: '/files/case/123',
-    };
+    
+    // 检查是否是HTTP状态码错误
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限访问此案件';
+      ElMessage.error(permissionDeniedMessage.value);
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '案件不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '获取案件详情失败，请稍后重试';
+      ElMessage.error(permissionDeniedMessage.value);
+    }
+    return;
   } finally {
     loading.value = false;
   }
 
-  // 获取审批历史和当前审批
-  await fetchReviewHistory();
-  await fetchCurrentApproval();
+  // 只有在有权限的情况下才获取审批历史和当前审批
+  if (hasAccessPermission.value) {
+    // 获取审批历史和当前审批
+    await fetchReviewHistory();
+    await fetchCurrentApproval();
 
-  // 检查权限
-  await checkPermissions();
+    // 检查权限
+    await checkPermissions();
+  }
 });
 
 // 映射案件进度
@@ -4662,15 +4736,100 @@ const handleViewPermissions = async (row: any) => {
 
 // 检查权限
 const checkPermissions = async () => {
+  permissionChecking.value = true;
   try {
+    if (!caseDetail.value) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '案件信息加载失败，无法验证访问权限';
+      canEdit.value = false;
+      canDelete.value = false;
+      isCreator.value = false;
+      return;
+    }
+
+    const caseCreatorId = caseDetail.value.创建者ID;
+    const undertakingPersonnel = caseDetail.value.承办人员;
+    const currentUsername = userStore.userInfo?.username || '';
+
+    const isCaseCreator = caseCreatorId && currentUserId.value === caseCreatorId;
+    
+    const isUndertakingPersonnel = (() => {
+      if (!undertakingPersonnel) return false;
+      if (typeof undertakingPersonnel === 'string') {
+        return undertakingPersonnel.includes(currentUsername);
+      }
+      return false;
+    })();
+
+    let isWorkTeamMember = false;
+    try {
+      const currentCaseId = Number(caseId.value);
+      
+      const response = await getWorkTeamListWithDetailsApi({
+        caseId: currentCaseId,
+        pageNum: 1,
+        pageSize: 100,
+        status: 'ACTIVE',
+      });
+
+      if (response && response.code === 200 && response.data && response.data.list) {
+        const teams = response.data.list;
+
+        for (const team of teams) {
+          try {
+            const teamDetailResponse = await getWorkTeamDetailWithMembersApi(team.id);
+            let members = [];
+            
+            if (teamDetailResponse.members) {
+              members = teamDetailResponse.members;
+            } else if (teamDetailResponse.data && teamDetailResponse.data.members) {
+              members = teamDetailResponse.data.members;
+            }
+
+            const isMember = members.some((member: any) => {
+              const memberUserId = member.userId || member.user_id || member.id;
+              return memberUserId === currentUserId.value;
+            });
+
+            if (isMember) {
+              isWorkTeamMember = true;
+              break;
+            }
+          } catch (teamError) {
+            console.error('获取团队成员详情失败:', teamError);
+          }
+        }
+      }
+    } catch (workTeamError) {
+      console.error('检查工作团队成员权限失败:', workTeamError);
+    }
+
+    const hasBasicPermission = isAdmin.value || isSuperAdmin.value || isCaseCreator || isUndertakingPersonnel || isWorkTeamMember;
+
+    if (!hasBasicPermission) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限访问此案件详情';
+      canEdit.value = false;
+      canDelete.value = false;
+      isCreator.value = false;
+      return;
+    }
+
+    hasAccessPermission.value = true;
+    permissionDeniedMessage.value = '';
     canEdit.value = true;
-    canDelete.value = true;
-    isCreator.value = true;
+    canDelete.value = isAdmin.value || isSuperAdmin.value || isCaseCreator;
+    isCreator.value = isCaseCreator;
+
   } catch (error) {
     console.error('检查权限失败:', error);
-    canEdit.value = true;
-    canDelete.value = true;
-    isCreator.value = true;
+    hasAccessPermission.value = false;
+    permissionDeniedMessage.value = '权限验证失败，请刷新页面重试';
+    canEdit.value = false;
+    canDelete.value = false;
+    isCreator.value = false;
+  } finally {
+    permissionChecking.value = false;
   }
 };
 
@@ -4928,6 +5087,27 @@ const endDrag = () => {
 
 <template>
   <div class="law-case-detail-wrapper">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限查看此案件，或案件已被删除。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="goBack">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回案件列表
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <div>
       <!-- 白色卡片容器 -->
       <ElCard
@@ -4942,11 +5122,24 @@ const endDrag = () => {
               <Icon icon="lucide:arrow-left" class="mr-2" />
               返回案件列表
             </ElButton>
-            <h1 class="page-title">{{ caseDetail?.案号 || '' }}</h1>
+            <div class="title-wrapper">
+              <h1 class="page-title">{{ caseDetail?.案号 || '' }}</h1>
+              <ElButton
+                v-if="canDeleteCase"
+                type="danger"
+                size="small"
+                @click="showDeleteDialog"
+                :loading="deleteLoading"
+                class="delete-case-btn"
+              >
+                <Icon icon="lucide:trash-2" class="mr-1" />
+                删除案件
+              </ElButton>
+            </div>
             <div class="header-actions">
-              <ElButton type="primary" @click="openExportCenterDialog">
-                <Icon icon="lucide:download" class="mr-2" />
-                导出中心
+              <ElButton type="primary" @click="openFriendLinksDialog">
+                <Icon icon="lucide:link" class="mr-2" />
+                友情链接
               </ElButton>
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
@@ -8455,12 +8648,275 @@ const endDrag = () => {
         @progress-updated="handleProgressUpdated"
       />
       
-      <!-- 导出中心对话框 -->
-      <ExportCenterDialog
-        v-model="showExportCenterDialog"
-        :case-id="caseId"
-        :case-name="caseDetail?.案件名称 || ''"
-      />
+      <!-- 友情链接对话框 -->
+      <ElDialog
+        v-model="showFriendLinksDialog"
+        title="友情链接"
+        width="600px"
+        destroy-on-close
+      >
+        <div class="friend-links-container">
+          <div class="friend-links-grid">
+            <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">全国企业破产重整案件信息网</span>
+            </a>
+            <a href="https://pcgl.zjsfgkw.gov.cn:10020/#/login" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">浙江法院破产智审管理人服务端</span>
+            </a>
+            <a href="https://www.zjaba.cn/zjaba/web/hom" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">浙江省破产管理人网</span>
+            </a>
+            <a href="https://zjsfgkw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">浙江法院网</span>
+            </a>
+            <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">国家企业信用信息公示系统</span>
+            </a>
+            <a href="https://www.cnipa.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">国家知识产权局</span>
+            </a>
+            <a href="https://www.zhongdengwang.org.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">中国人民银行征信中心（动产融资登记）</span>
+            </a>
+            <a href="https://register.ccopyright.com.cn/query.html" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">中国版权登记查询服务中心</span>
+            </a>
+            <a href="https://www.creditchina.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">信用中国</span>
+            </a>
+            <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">企查查</span>
+            </a>
+          </div>
+        </div>
+      </ElDialog>
+      
+      <!-- 删除案件确认弹窗 -->
+      <ElDialog
+        v-model="deleteDialogVisible"
+        title="确认删除案件"
+        width="800px"
+        :close-on-click-modal="false"
+      >
+        <div v-if="relatedData">
+          <div class="mb-4">
+            <p class="mb-2 text-lg font-semibold">案件基本信息</p>
+            <div class="rounded bg-gray-50 p-4">
+              <p><strong>案号：</strong>{{ relatedData.caseInfo?.caseNumber }}</p>
+              <p>
+                <strong>案件名称：</strong>{{ relatedData.caseInfo?.caseName }}
+              </p>
+              <p>
+                <strong>案件状态：</strong>{{ relatedData.caseInfo?.caseStatus }}
+              </p>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <p class="mb-2 text-lg font-semibold text-red-600">关联数据统计</p>
+            <p class="mb-4 text-sm text-gray-500">
+              删除案件将同时删除以下所有关联数据，此操作不可恢复！
+            </p>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div v-if="relatedData.approvalData" class="rounded bg-blue-50 p-3">
+                <p class="font-medium text-blue-700">审批数据</p>
+                <p class="text-sm">
+                  审批数：{{ relatedData.approvalData.approvalCount }}
+                </p>
+                <p class="text-sm">
+                  审批历史：{{ relatedData.approvalData.approvalHistoryCount }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.processData" class="rounded bg-green-50 p-3">
+                <p class="font-medium text-green-700">流程数据</p>
+                <p class="text-sm">
+                  流程阶段：{{ relatedData.processData.processStageCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.documentData"
+                class="rounded bg-yellow-50 p-3"
+              >
+                <p class="font-medium text-yellow-700">文档数据</p>
+                <p class="text-sm">
+                  文书送达：{{ relatedData.documentData.documentDeliveryCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.archiveData"
+                class="rounded bg-purple-50 p-3"
+              >
+                <p class="font-medium text-purple-700">归档数据</p>
+                <p class="text-sm">
+                  归档记录：{{ relatedData.archiveData.archiveRecordCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.announcementData"
+                class="rounded bg-orange-50 p-3"
+              >
+                <p class="font-medium text-orange-700">公告数据</p>
+                <p class="text-sm">
+                  公告数：{{ relatedData.announcementData.announcementCount }}
+                </p>
+                <p class="text-sm">
+                  公告查看：{{
+                    relatedData.announcementData.announcementViewCount
+                  }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.fundData" class="rounded bg-red-50 p-3">
+                <p class="font-medium text-red-700">资金数据</p>
+                <p class="text-sm">
+                  资金报销：{{ relatedData.fundData.fundReimbursementCount }}
+                </p>
+                <p class="text-sm">
+                  资金流水：{{ relatedData.fundData.fundFlowCount }}
+                </p>
+                <p class="text-sm">
+                  操作日志：{{ relatedData.fundData.fundOperationLogCount }}
+                </p>
+                <p class="text-sm">
+                  预算：{{ relatedData.fundData.fundBudgetCount }}
+                </p>
+                <p class="text-sm">
+                  托管管理：{{ relatedData.fundData.escrowManagementCount }}
+                </p>
+                <p class="text-sm">
+                  资金账户：{{ relatedData.fundData.fundAccountCount }}
+                </p>
+                <p class="text-sm">
+                  资金审批：{{ relatedData.fundData.fundApprovalCount }}
+                </p>
+                <p class="text-sm">
+                  破产费用：{{ relatedData.fundData.bankruptcyExpenseCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.distributionData"
+                class="rounded bg-indigo-50 p-3"
+              >
+                <p class="font-medium text-indigo-700">分配数据</p>
+                <p class="text-sm">
+                  分配明细：{{
+                    relatedData.distributionData.distributionDetailCount
+                  }}
+                </p>
+                <p class="text-sm">
+                  分配执行：{{
+                    relatedData.distributionData.distributionExecutionCount
+                  }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.debtData" class="rounded bg-teal-50 p-3">
+                <p class="font-medium text-teal-700">债务数据</p>
+                <p class="text-sm">
+                  普通债务：{{ relatedData.debtData.commonDebtCount }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.claimData" class="rounded bg-cyan-50 p-3">
+                <p class="font-medium text-cyan-700">债权数据</p>
+                <p class="text-sm">
+                  债权确认：{{ relatedData.claimData.claimConfirmationCount }}
+                </p>
+                <p class="text-sm">
+                  债权人债权：{{ relatedData.claimData.creditorClaimCount }}
+                </p>
+                <p class="text-sm">
+                  债权人信息：{{ relatedData.claimData.creditorInfoCount }}
+                </p>
+                <p class="text-sm">
+                  债权申报：{{ relatedData.claimData.claimRegistrationCount }}
+                </p>
+                <p class="text-sm">
+                  债权审查：{{ relatedData.claimData.claimReviewCount }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.workData" class="rounded bg-pink-50 p-3">
+                <p class="font-medium text-pink-700">工作数据</p>
+                <p class="text-sm">
+                  管理员：{{ relatedData.workData.administratorCount }}
+                </p>
+                <p class="text-sm">
+                  工作组：{{ relatedData.workData.workTeamCount }}
+                </p>
+                <p class="text-sm">
+                  工作计划：{{ relatedData.workData.workPlanCount }}
+                </p>
+                <p class="text-sm">
+                  工作日志：{{ relatedData.workData.workLogCount }}
+                </p>
+                <p class="text-sm">
+                  案件进度：{{ relatedData.workData.caseProgressCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.enterpriseData"
+                class="rounded bg-lime-50 p-3"
+              >
+                <p class="font-medium text-lime-700">企业数据</p>
+                <p class="text-sm">
+                  债务企业：{{ relatedData.enterpriseData.debtorEnterpriseCount }}
+                </p>
+              </div>
+
+              <div v-if="relatedData.taskData" class="rounded bg-amber-50 p-3">
+                <p class="font-medium text-amber-700">任务数据</p>
+                <p class="text-sm">
+                  案件任务：{{ relatedData.taskData.caseTaskCount }}
+                </p>
+                <p class="text-sm">
+                  任务提交：{{ relatedData.taskData.caseTaskSubmissionCount }}
+                </p>
+              </div>
+
+              <div
+                v-if="relatedData.accountData"
+                class="rounded bg-emerald-50 p-3"
+              >
+                <p class="font-medium text-emerald-700">账户数据</p>
+                <p class="text-sm">
+                  银行账户：{{ relatedData.accountData.bankAccountCount }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end space-x-3">
+            <ElButton @click="cancelDelete">取消</ElButton>
+            <ElButton
+              type="danger"
+              @click="confirmDelete"
+              :loading="deleteLoading"
+            >
+              确认删除
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
       
       <!-- AI聊天悬浮窗 - 暂时隐藏 -->
       <!--
@@ -8548,6 +9004,7 @@ const endDrag = () => {
       </div>
       -->
     </div>
+    </div>
   </div>
 </template>
 
@@ -8558,6 +9015,52 @@ const endDrag = () => {
   min-height: 100vh;
   background-color: white;
   position: relative;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
 }
 
 /* AI聊天悬浮窗样式 */
@@ -8778,6 +9281,22 @@ const endDrag = () => {
   font-weight: 700;
   margin: 0;
   color: #1f2937;
+}
+
+.title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.delete-case-btn {
+  background-color: #ef4444 !important;
+  border-color: #ef4444 !important;
+}
+
+.delete-case-btn:hover {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
 }
 
 .header-actions {
@@ -9923,5 +10442,61 @@ const endDrag = () => {
 /* 调整对话框内容区域的边距 */
 .leader-select-content {
   margin-bottom: 0;
+}
+
+/* 友情链接样式 */
+.friend-links-container {
+  padding: 16px;
+}
+
+.friend-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.friend-link-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.friend-link-item:hover {
+  background-color: #ecf5ff;
+  border-color: #409eff;
+  transform: translateX(4px);
+}
+
+.friend-link-item .link-icon {
+  color: #909399;
+  margin-right: 8px;
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.friend-link-item:hover .link-icon {
+  color: #409eff;
+}
+
+.friend-link-item .link-text {
+  font-size: 14px;
+  color: #303133;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.friend-link-item:hover .link-text {
+  color: #409eff;
+}
+
+@media (max-width: 640px) {
+  .friend-links-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -7,6 +7,8 @@ import type { ArchiveListQueryParams } from '#/api/core/archive';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { useUserStore } from '@vben/stores';
+
 import {
   ElButton,
   ElCard,
@@ -21,11 +23,14 @@ import {
   ElPagination,
   ElPopconfirm,
   ElSelect,
+  ElSkeleton,
   ElTable,
   ElTableColumn,
   ElTree,
   ElUpload,
 } from 'element-plus';
+
+import { Icon } from '@iconify/vue';
 
 import {
   AccessLevelMap,
@@ -43,11 +48,151 @@ import {
 } from '#/api/core/archive';
 
 import { renameFileApi } from '#/api/core/file';
+import { getCaseDetailApi } from '#/api/core/case';
+import {
+  getWorkTeamListWithDetailsApi,
+  getWorkTeamDetailWithMembersApi,
+} from '#/api/core/work-team';
 
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 const caseId = computed(() => Number.parseInt(route.params.id as string, 10));
+
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+const caseDetail = ref<any>(null);
+
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
+
+async function checkCasePermission() {
+  permissionChecking.value = true;
+  try {
+    const response = await getCaseDetailApi(caseId.value);
+    
+    if (response.code === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = response.message || '您没有权限访问此案件的归档文件';
+      ElMessage.error(permissionDeniedMessage.value);
+      return false;
+    }
+    
+    if (response.code === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '案件不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return false;
+    }
+    
+    caseDetail.value = response.data;
+    
+    const caseCreatorId = response.data?.createUserId;
+    const undertakingPersonnel = response.data?.undertakingPersonnel;
+    const currentUsername = userStore.userInfo?.username || '';
+    
+    const isCaseCreator = caseCreatorId && currentUserId.value === caseCreatorId;
+    
+    const isUndertakingPersonnel = (() => {
+      if (!undertakingPersonnel) return false;
+      if (typeof undertakingPersonnel === 'string') {
+        return undertakingPersonnel.includes(currentUsername);
+      }
+      return false;
+    })();
+
+    let isWorkTeamMember = false;
+    try {
+      const workTeamResponse = await getWorkTeamListWithDetailsApi({
+        caseId: caseId.value,
+        pageNum: 1,
+        pageSize: 100,
+        status: 'ACTIVE',
+      });
+
+      if (workTeamResponse && workTeamResponse.code === 200 && workTeamResponse.data && workTeamResponse.data.list) {
+        const teams = workTeamResponse.data.list;
+
+        for (const team of teams) {
+          try {
+            const teamDetailResponse = await getWorkTeamDetailWithMembersApi(team.id);
+            let members = [];
+            
+            if (teamDetailResponse.members) {
+              members = teamDetailResponse.members;
+            } else if (teamDetailResponse.data && teamDetailResponse.data.members) {
+              members = teamDetailResponse.data.members;
+            }
+
+            const isMember = members.some((member: any) => {
+              const memberUserId = member.userId || member.user_id || member.id;
+              return memberUserId === currentUserId.value;
+            });
+
+            if (isMember) {
+              isWorkTeamMember = true;
+              break;
+            }
+          } catch (teamError) {
+            console.error('获取团队成员详情失败:', teamError);
+          }
+        }
+      }
+    } catch (workTeamError) {
+      console.error('检查工作团队成员权限失败:', workTeamError);
+    }
+    
+    const hasPermission = isAdmin.value || isSuperAdmin.value || isCaseCreator || isUndertakingPersonnel || isWorkTeamMember;
+    
+    if (!hasPermission) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限访问此案件的归档文件';
+      ElMessage.error(permissionDeniedMessage.value);
+      return false;
+    }
+    
+    hasAccessPermission.value = true;
+    return true;
+  } catch (error: any) {
+    console.error('检查案件权限失败:', error);
+    
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限访问此案件的归档文件';
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '案件不存在或已被删除';
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '权限验证失败，请稍后重试';
+    }
+    ElMessage.error(permissionDeniedMessage.value);
+    return false;
+  } finally {
+    permissionChecking.value = false;
+  }
+}
 
 const loading = ref(false);
 const uploadLoading = ref(false);
@@ -397,15 +542,39 @@ function cancelRename() {
   newFileName.value = '';
 }
 
-onMounted(() => {
-  loadCategoryTree();
-  loadArchiveList();
-  loadStatistics();
+onMounted(async () => {
+  const hasPermission = await checkCasePermission();
+  if (hasPermission) {
+    await loadCategoryTree();
+    await loadArchiveList();
+    await loadStatistics();
+  }
 });
 </script>
 
 <template>
   <div class="archive-management">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限访问此案件的归档文件，或案件已被删除。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="router.push('/law/case-management')">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回案件列表
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <ElCard class="mb-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -759,11 +928,58 @@ onMounted(() => {
         <ElButton @click="previewDialogVisible = false"> 关闭 </ElButton>
       </template>
     </ElDialog>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .archive-management {
   padding: 20px;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
 }
 </style>

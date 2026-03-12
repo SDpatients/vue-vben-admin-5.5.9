@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { CaseApproval } from '#/api/core/approval';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+
+import { useUserStore } from '@vben/stores';
 
 import {
   ElButton,
@@ -13,16 +15,20 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElSkeleton,
   ElTag,
   ElTimeline,
   ElTimelineItem,
 } from 'element-plus';
+
+import { Icon } from '@iconify/vue';
 
 import { approvalApi, approvalUtils, type ApprovalContentData, type ApprovalAttachmentData, type ApprovalTask, type ApprovalSubmission, type ApprovalFile } from '#/api/core/approval';
 import { downloadFileApi, previewFileApi } from '#/api/core/file';
 
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 const loading = ref(false);
 const approval = ref<CaseApproval | null>(null);
 const approvalHistory = ref<any[]>([]);
@@ -32,6 +38,32 @@ const approvalAction = ref<'approve' | 'reject'>('approve');
 
 const contentData = ref<ApprovalContentData | { originalContent: string } | null>(null);
 const attachmentData = ref<ApprovalAttachmentData | { originalAttachment: string } | null>(null);
+
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
 
 const formatTime = (time: string) => {
   if (!time) return '';
@@ -47,20 +79,48 @@ const formatTime = (time: string) => {
 
 const loadApprovalDetail = async () => {
   loading.value = true;
+  permissionChecking.value = true;
   try {
     const id = Number(route.params.approvalId);
     const res = await approvalApi.getApprovalDetail(id);
+    
+    if (res.code === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = res.message || '您没有权限查看此审批详情';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
+    if (res.code === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '审批记录不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
     approval.value = res.data;
     
     if (approval.value) {
       contentData.value = approvalUtils.parseApprovalContent(approval.value.approvalContent);
       attachmentData.value = approvalUtils.parseApprovalAttachment(approval.value.approvalAttachment);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('加载审批详情失败:', error);
-    ElMessage.error('加载审批详情失败');
+    
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限查看此审批详情';
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '审批记录不存在或已被删除';
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '加载审批详情失败，请稍后重试';
+    }
+    ElMessage.error(permissionDeniedMessage.value);
   } finally {
     loading.value = false;
+    permissionChecking.value = false;
   }
 };
 
@@ -190,14 +250,37 @@ const canPreviewFile = (file: ApprovalFile): boolean => {
   return previewableTypes.includes(file.fileExtension.toLowerCase());
 };
 
-onMounted(() => {
-  loadApprovalDetail();
-  loadApprovalHistory();
+onMounted(async () => {
+  await loadApprovalDetail();
+  if (hasAccessPermission.value) {
+    await loadApprovalHistory();
+  }
 });
 </script>
 
 <template>
   <div class="approval-detail-page">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限查看此审批详情，或审批记录已被删除。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="goBack">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <div class="page-header">
       <ElButton icon="ArrowLeft" @click="goBack"> 返回 </ElButton>
       <h2>审批详情</h2>
@@ -487,12 +570,59 @@ onMounted(() => {
         </ElButton>
       </template>
     </ElDialog>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .approval-detail-page {
   padding: 20px;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
 }
 
 .page-header {

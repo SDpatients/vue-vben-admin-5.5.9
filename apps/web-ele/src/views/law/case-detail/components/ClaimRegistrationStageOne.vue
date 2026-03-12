@@ -486,8 +486,88 @@ const handleSaveEdit = async () => {
 
     const result = await ClaimService.updateClaim(currentEditClaim.value.id, requestData);
     if (result.success) {
+      const claimId = currentEditClaim.value.id;
+      
+      // 1. 首先转移手机上传的临时文件（如果有）
+      let allUploadedFileIds: number[] = [];
+      
+      if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
+        console.log('发现手机上传的临时文件，开始转移...');
+        const transferredFiles = await fileUploadRef.value.transferMobileFiles(claimId);
+        console.log('转移成功的文件:', transferredFiles);
+        
+        // 收集转移的文件 ID
+        if (transferredFiles && transferredFiles.length > 0) {
+          allUploadedFileIds = transferredFiles.map(f => f.id);
+        }
+      }
+      
+      // 2. 上传本地文件（电脑选择的文件）
+      if (fileUploadRef.value && claimForm.evidenceAttachments && claimForm.evidenceAttachments.length > 0) {
+        console.log('=== 准备债权申报文件上传（修改模式） ===');
+        console.log('claimForm.evidenceAttachments:', claimForm.evidenceAttachments);
+        console.log('fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
+        
+        // 筛选出需要上传的新文件（没有file_id的文件，且不是手机上传的文件）
+        const filesToUpload = claimForm.evidenceAttachments
+          .filter((attach: any) => {
+            // 过滤掉已有文件和手机上传的文件
+            const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
+            const isMobile = attach.id?.toString().startsWith('mobile-');
+            console.log('检查文件:', attach.originalFileName || attach.name, {
+              isExisting,
+              isMobile,
+              hasFile: !!attach.file,
+              id: attach.id
+            });
+            return !isExisting && !isMobile && attach.file;
+          })
+          .map((attach: any) => attach.file);
+
+        console.log('需要上传的文件数量:', filesToUpload.length);
+        console.log('需要上传的文件:', filesToUpload);
+
+        if (filesToUpload.length > 0) {
+          try {
+            console.log('开始上传本地文件...');
+            const uploadedIds = await fileUploadRef.value.uploadLocalFiles(claimId);
+            console.log('上传成功的文件 ID:', uploadedIds);
+            
+            if (uploadedIds && uploadedIds.length > 0) {
+              allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
+            }
+          } catch (error: any) {
+            console.error('文件上传失败:', error);
+            ElMessage.warning(`债权修改成功，但文件上传失败：${error.message || '未知错误'}`);
+          }
+        }
+      }
+      
+      // 3. 如果有新上传的文件，更新 evidenceAttachments 字段
+      if (allUploadedFileIds.length > 0) {
+        console.log('更新债权申报的 evidenceAttachments:', allUploadedFileIds.join(','));
+        // 合并原有的附件 ID 和新上传的文件 ID
+        const existingAttachmentIds = currentEditClaim.value.evidenceAttachments 
+          ? currentEditClaim.value.evidenceAttachments.split(',').filter(id => id.trim()) 
+          : [];
+        const allIds = [...existingAttachmentIds.map(id => Number(id)), ...allUploadedFileIds];
+        
+        // 更新债权申报的附件字段
+        const updateResult = await ClaimService.updateClaim(claimId, {
+          ...requestData,
+          evidenceAttachments: allIds.join(','),
+        });
+        
+        if (updateResult.success) {
+          console.log('债权申报 evidenceAttachments 更新成功');
+        } else {
+          console.error('债权申报 evidenceAttachments 更新失败:', updateResult);
+        }
+      }
+      
       await fetchClaims();
       closeEditDialog();
+      ElMessage.success('债权修改成功');
     }
   } catch (error) {
     console.error('修改债权失败:', error);
@@ -2014,13 +2094,14 @@ onMounted(() => {
                 ref="fileUploadRef"
                 v-model="claimForm.evidenceAttachments"
                 :biz-type="'claim'"
-                :biz-id="0"
+                :biz-id="currentEditClaim?.id || 0"
                 :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="债权申报附件"
                 :disabled="false"
                 :local-mode="true"
+                @local-files-change="(files) => { console.log('债权申报附件变化:', files); claimForm.evidenceAttachments = files; }"
               />
             </ElCol>
           </ElRow>
@@ -2397,6 +2478,7 @@ onMounted(() => {
                 title="债权申报附件"
                 :disabled="false"
                 :local-mode="true"
+                @local-files-change="(files) => { console.log('债权申报附件变化:', files); claimForm.evidenceAttachments = files; }"
               />
             </ElCol>
           </ElRow>

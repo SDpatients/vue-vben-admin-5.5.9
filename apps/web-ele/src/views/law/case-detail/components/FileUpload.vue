@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 
 import { Icon } from '@iconify/vue';
 import {

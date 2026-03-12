@@ -2,8 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { useUserStore } from '@vben/stores';
+
 import { Loading } from '@element-plus/icons-vue';
-import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus';
+import { ElButton, ElCard, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElSelect, ElTable, ElTableColumn, ElDatePicker, ElImageViewer, ElSkeleton } from 'element-plus';
+
+import { Icon } from '@iconify/vue';
 
 import FileUpload from '#/views/law/case-detail/components/FileUpload.vue';
 import { getBankAccountListApi } from '#/api/core/bank-account';
@@ -23,10 +27,37 @@ import {
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore();
 
 const loading = ref(false);
 const saving = ref(false);
 const isEdit = computed(() => !!route.params.id);
+
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
 
 const formRef = ref();
 const fileUploadRef = ref<any>();
@@ -131,9 +162,37 @@ const fetchBankAccountOptions = async () => {
 
 const fetchReimbursementDetail = async (id: number) => {
   loading.value = true;
+  permissionChecking.value = true;
   try {
     const response = await getReimbursementDetail(id);
+    
+    if (response.code === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = response.message || '您没有权限编辑此报销单';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
+    if (response.code === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '报销单不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
     const data = response.data;
+    
+    const isCreator = data.creatorId && currentUserId.value === data.creatorId;
+    const canEditThis = isAdmin.value || isSuperAdmin.value || isCreator;
+    
+    if (!canEditThis && data.approvalStatus !== 'PENDING') {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限编辑此报销单';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
+    hasAccessPermission.value = true;
 
     reimbursementForm.id = data.id;
     reimbursementForm.caseId = data.caseId;
@@ -143,11 +202,23 @@ const fetchReimbursementDetail = async (id: number) => {
 
     items.value = data.items || [];
     attachments.value = data.attachments || [];
-  } catch (error) {
-    ElMessage.error('获取报销单详情失败');
+  } catch (error: any) {
     console.error('获取报销单详情失败:', error);
+    
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限编辑此报销单';
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '报销单不存在或已被删除';
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '获取报销单详情失败，请稍后重试';
+    }
+    ElMessage.error(permissionDeniedMessage.value);
   } finally {
     loading.value = false;
+    permissionChecking.value = false;
   }
 };
 
@@ -411,17 +482,40 @@ const handleCancel = () => {
   router.push('/expense-reimbursement');
 };
 
-onMounted(() => {
-  fetchCaseOptions();
-  fetchBankAccountOptions();
+onMounted(async () => {
+  await fetchCaseOptions();
+  await fetchBankAccountOptions();
   if (isEdit.value) {
-    fetchReimbursementDetail(Number(route.params.id));
+    await fetchReimbursementDetail(Number(route.params.id));
+  } else {
+    permissionChecking.value = false;
   }
 });
 </script>
 
 <template>
   <div class="expense-reimbursement-form-page">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限编辑此报销单，或报销单不存在。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="handleCancel">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回列表
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <div class="page-header">
       <h1>{{ isEdit ? '编辑报销单' : '新增报销单' }}</h1>
     </div>
@@ -630,6 +724,7 @@ onMounted(() => {
       <Loading class="is-loading" />
       <span>文件处理中...</span>
     </div>
+    </div>
   </div>
 </template>
 
@@ -640,6 +735,52 @@ onMounted(() => {
   min-height: 100vh;
   padding: 20px;
   background-color: #f5f7fa;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
 }
 
 .page-header {

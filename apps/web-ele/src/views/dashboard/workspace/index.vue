@@ -56,7 +56,6 @@ const getUserInfoFromLocal = () => {
       return JSON.parse(chatUserInfoStr);
     }
   } catch (error) {
-    console.error('获取本地用户信息失败:', error);
   }
   return null;
 };
@@ -94,7 +93,6 @@ const loadUserCaseCount = async () => {
     const userId = Number(chatUserId) || 0;
     
     if (userId === 0) {
-      console.error('无法获取用户 ID');
       return;
     }
     
@@ -111,13 +109,10 @@ const loadUserCaseCount = async () => {
     if (response.ok) {
       const data = await response.json();
       caseCount.value = data.data || 0;
-      console.log('[loadUserCaseCount] 案件数量:', caseCount.value);
     } else {
-      console.error('获取案件数量失败');
       caseCount.value = 0;
     }
   } catch (error) {
-    console.error('加载案件数量失败:', error);
     caseCount.value = 0;
   }
 };
@@ -352,21 +347,14 @@ const calendarOptions = ref({
     });
   },
   dateClick: (info) => {
-    console.log('Date clicked:', info.dateStr);
   },
   viewDidMount: (info) => {
-    console.log('您切换了视图', info);
-    // 切换视图时重新加载数据
     loadCalendarEvents();
   },
   viewDidUpdate: (info) => {
-    console.log('您切换了月份', info);
-    // 月份变化时重新加载数据
     loadCalendarEvents();
   },
   datesSet: (info) => {
-    console.log('您切换了日期范围', info);
-    // 日期范围变化时重新加载数据
     loadCalendarEvents();
   }
 });
@@ -374,18 +362,11 @@ const calendarOptions = ref({
 // 加载日历事件数据
 const loadCalendarEvents = async () => {
   try {
-    console.log('开始加载日历事件数据...');
-    
-    // 获取当前日历视图的日期范围
     const calendarApi = FullCalendar_ref.value?.getApi();
-    console.log('FullCalendar_ref.value:', FullCalendar_ref.value);
-    console.log('calendarApi:', calendarApi);
     
     const view = calendarApi?.view;
-    console.log('view:', view);
     
     const currentDate = view?.currentStart || new Date();
-    console.log('currentDate:', currentDate);
     
     // 获取当前月份的第一天和最后一天
     const year = currentDate.getFullYear();
@@ -399,8 +380,6 @@ const loadCalendarEvents = async () => {
     
     // 计算结束日期：下一个月份的12号
     const endDateObj = new Date(year, month + 1, 12);
-    
-    console.log('日期范围:', startDateObj, '到', endDateObj);
 
     // 格式化日期为YYYY-MM-DD
     const formatDate = (date: Date) => {
@@ -409,34 +388,22 @@ const loadCalendarEvents = async () => {
 
     const startDate = formatDate(startDateObj);
     const endDate = formatDate(endDateObj);
-    console.log('格式化后的日期范围:', startDate, '到', endDate);
 
-    // 调用案件管理API获取数据
-    console.log('开始获取案件数据...');
     const casesRes = await getCaseListApi({
       pageNum: 1,
       pageSize: 100,
       startTime: startDate,
       endTime: endDate,
     });
-    console.log('案件API响应:', casesRes);
 
-    // 调用待办事项API获取数据
-    console.log('开始获取待办事项数据...');
     const todosRes = await todoApi.getTodoList(undefined, 0, 100, startDate + 'T00:00:00', endDate + 'T23:59:59');
-    console.log('待办事项API响应:', todosRes);
 
-    // 调用工作规划API获取数据
-    console.log('开始获取工作规划数据...');
     const workPlansRes = await getWorkPlanListByTimeApi(undefined, undefined, undefined, undefined, 1, 100);
-    console.log('工作规划API响应:', workPlansRes);
 
     // 处理案件数据
     const caseItems = casesRes?.content || [];
     const todoItems = todosRes?.content || [];
     const workPlanItems = workPlansRes?.data?.list || [];
-    console.log('待办事项数据:', todoItems);
-    console.log('工作规划数据:', workPlanItems);
 
     // 构建日历事件
     const events = [];
@@ -460,7 +427,6 @@ const loadCalendarEvents = async () => {
     });
 
     // 处理待办事项数据
-    console.log('开始处理待办事项数据...');
     todoItems.forEach((item: any) => {
       if (item.deadline) {
         // 格式化deadline为ISO格式
@@ -490,12 +456,9 @@ const loadCalendarEvents = async () => {
         };
         
         events.push(event);
-        console.log('添加待办事项事件:', event);
       }
     });
 
-    // 处理工作规划数据
-    console.log('开始处理工作规划数据...');
     workPlanItems.forEach((item: any) => {
       if (item.startDate || item.endDate) {
         events.push({
@@ -512,15 +475,11 @@ const loadCalendarEvents = async () => {
             responsibleUserId: item.responsibleUserId
           }
         });
-        console.log('添加工作规划事件:', item.planContent, '开始时间:', item.startDate, '结束时间:', item.endDate);
       }
     });
 
-    console.log('最终日历事件:', events);
     calendarOptions.value.events = events;
-    console.log('日历事件已更新');
   } catch (error) {
-    console.error('加载日历事件数据失败:', error);
     ElMessage.error('加载日历事件数据失败');
   }
 };
@@ -611,7 +570,6 @@ const getMatter = async () => {
     
     calendarOptions.value.events = events;
   } catch (error) {
-    console.error('获取日历列表事项失败:', error);
     ElMessage.error('获取日历列表事项失败');
   }
 };
@@ -624,13 +582,6 @@ const addMatter = () => {
 // 获取当前日历视图数据
 const getViewsData = () => {
   const calendarApi = FullCalendar_ref.value?.getApi();
-  if (calendarApi) {
-    const view = calendarApi.view;
-    console.log('当前日历标题:', view.currentData.viewTitle);
-    console.log('当前日历开始日期:', view.currentStart);
-    console.log('当前日历结束日期:', view.currentEnd);
-    console.log('当前日历事件:', view.currentData.events);
-  }
 };
 
 // 重置清空日历列表事项
@@ -669,14 +620,12 @@ const addTodoItem = async () => {
     // 重新加载日历事件
     loadCalendarEvents();
   } catch (error) {
-    console.error('添加待办事项失败:', error);
     ElMessage.error('添加待办事项失败');
   }
 };
 
 // 显示待办事项详情
 const showTodoDetail = (event: any) => {
-  console.log('显示待办事项详情:', event);
   selectedTodo.value = {
     id: event.id,
     title: event.title,
@@ -747,7 +696,6 @@ const loadAnnouncements = async () => {
       announcementTotal.value = response.data.total || 0;
     }
   } catch (error) {
-    console.error('加载公告列表失败:', error);
     ElMessage.error('加载公告列表失败');
   } finally {
     announcementLoading.value = false;
@@ -769,8 +717,6 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
         viewerId: userId,
       });
     } catch (recordError) {
-      console.error('记录公告查看失败:', recordError);
-      // 不显示错误，继续执行
     }
 
     // 调用获取公告详情API
@@ -810,7 +756,6 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
       );
     }
   } catch (error) {
-    console.error('查看公告详情失败:', error);
     ElMessage.error('查看公告详情失败');
   } finally {
     detailLoading.value = false;
@@ -841,7 +786,6 @@ const viewAnnouncementViews = async (announcement: any) => {
       viewsList.value = [];
     }
   } catch (error) {
-    console.error('获取浏览记录失败:', error);
     ElMessage.error('获取浏览记录失败');
     viewsList.value = [];
   } finally {
@@ -890,14 +834,12 @@ const viewAttachment = async (attachment: any) => {
       showPreviewDialog.value = true;
       ElMessage.success('文件加载成功');
     } catch (error) {
-      console.error('预览附件失败:', error);
       ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
       showPreviewDialog.value = true;
     } finally {
       previewLoading.value = false;
     }
   } catch (error) {
-    console.error('预览附件失败:', error);
     ElMessage.error('文件预览失败');
   } finally {
     previewLoading.value = false;
@@ -958,7 +900,6 @@ const loadTodoItems = async () => {
     const userId = Number(chatUserId) || 0;
     
     if (userId === 0) {
-      console.error('无法获取用户 ID');
       return;
     }
     
@@ -977,8 +918,6 @@ const loadTodoItems = async () => {
     if (countResponse.ok) {
       const countData = await countResponse.json();
       todoCount.value = countData.data || 0;
-    } else {
-      console.error('获取待办数量失败');
     }
     
     // 加载待办事项列表
@@ -994,7 +933,6 @@ const loadTodoItems = async () => {
       completed: item.status === 'COMPLETED',
     }));
   } catch (error) {
-    console.error('加载待办事项失败:', error);
   }
 };
 
@@ -1022,19 +960,9 @@ const loadCaseList = async () => {
     };
     const caseStatusEn = statusMap[caseStatus.value] || 'ONGOING';
 
-    console.log('[loadCaseList] 开始加载案件数据', {
-      caseStatus: caseStatus.value,
-      caseStatusEn,
-      currentPage: currentPage.value,
-      pageSize: pageSize.value,
-      isAdmin: isAdminOrSuperAdmin.value
-    });
-
     let res;
 
-    // 管理员查看所有案件，律师只查看自己的案件
     if (isAdminOrSuperAdmin.value) {
-      console.log('[loadCaseList] 管理员查看所有案件');
       res = await getCaseListApi({
         pageNum: currentPage.value,
         pageSize: pageSize.value,
@@ -1043,7 +971,6 @@ const loadCaseList = async () => {
     } else {
       const chatUserId = localStorage.getItem('chat_user_id');
       const userId = Number(chatUserId) || 0;
-      console.log('[loadCaseList] 律师查看自己的案件', { userId });
       res = await getUserCaseListApi(userId, {
         pageNum: currentPage.value,
         pageSize: pageSize.value,
@@ -1051,32 +978,13 @@ const loadCaseList = async () => {
       });
     }
 
-    console.log('[loadCaseList] API响应:', res);
-    console.log('[loadCaseList] 响应数据结构:', {
-      hasData: !!res.data,
-      hasList: !!res.data?.list,
-      listLength: res.data?.list?.length,
-      total: res.data?.total
-    });
-
-    // 直接使用接口返回的完整数据结构
     caseList.value = res.data?.list || [];
     totalCases.value = res.data?.total || 0;
-
-    console.log('[loadCaseList] 案件列表数据:', caseList.value);
-    console.log('[loadCaseList] 案件总数:', totalCases.value);
-
-    // 不再在此处设置 caseCount，由专门的接口提供
-    
-    // 初始化日历数据 - 暂时注释掉，因为initCalendarData函数未定义
-    // initCalendarData();
   } catch (error) {
-    console.error('加载案件数据失败:', error);
     caseList.value = [];
     totalCases.value = 0;
   } finally {
     loading.value = false;
-    console.log('[loadCaseList] 加载完成，loading状态:', loading.value);
   }
 };
 
@@ -1121,7 +1029,6 @@ const loadTeamCount = async () => {
 
     teamCount.value = res.data?.length || 0;
   } catch (error) {
-    console.error('[loadTeamCount] 加载工作团队数量失败:', error);
     teamCount.value = 0;
   }
 };
@@ -1181,7 +1088,6 @@ const getWeather = async () => {
       tempMax: `${Math.round(weatherData.daily.temperature_2m_max[0])}℃`,
     };
   } catch (error) {
-    console.error('获取天气数据失败:', error);
     weather.value = {
       condition: '晴',
       tempMin: '20℃',
@@ -1274,7 +1180,6 @@ const submitChangePassword = async () => {
       ElMessage.error(result.message || '密码修改失败');
     }
   } catch (error: any) {
-    console.error('修改密码失败:', error);
     ElMessage.error(error?.message || '密码修改失败');
   } finally {
     changePasswordLoading.value = false;
@@ -1287,7 +1192,6 @@ const handleLogout = async () => {
     // 调用 authStore 中的 logout 方法，确保在请求头中添加 JWT 令牌
     await authStore.logout();
   } catch (error) {
-    console.error('退出登录失败:', error);
     ElMessage.error('退出登录失败');
   }
 };
@@ -1319,10 +1223,7 @@ const handleMonthChange = async (value: any) => {
     // 暂时注释掉，因为initCalendarData函数未定义
     // await initCalendarData();
   } catch (error) {
-    console.error('处理月份变化失败:', error);
     calendarValue.value = new Date();
-    // 暂时注释掉，因为initCalendarData函数未定义
-    // await initCalendarData();
   }
 };
 
@@ -1813,6 +1714,44 @@ onMounted(async () => {
               </div>
             </AnalysisChartCard>
           </div>
+
+          <!-- 友情链接板块 -->
+          <AnalysisChartCard title="友情链接" class="bg-white mt-[5px]">
+            <div class="friend-links-container">
+              <div class="friend-links-grid">
+                <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">全国企业破产重整案件信息网</span>
+                </a>
+                <a href="https://pcgl.zjsfgkw.gov.cn:10020/#/login" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江法院破产智审管理人服务端</span>
+                </a>
+                <a href="https://www.zjaba.cn/zjaba/web/hom" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江省破产管理人网</span>
+                </a>
+                <a href="https://zjsfgkw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江法院网</span>
+                </a>
+                <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">国家企业信用信息公示系统</span>
+                </a>
+                <a href="https://www.cnipa.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">国家知识产权局</span>
+                </a>
+                <a href="https://www.zhongdengwang.org.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">中国人民银行征信中心（动产融资登记）</span>
+                </a>
+                <a href="https://register.ccopyright.com.cn/query.html" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">中国版权登记查询服务中心</span>
+                </a>
+                <a href="https://www.creditchina.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">信用中国</span>
+                </a>
+                <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">企查查</span>
+                </a>
+              </div>
+            </div>
+          </AnalysisChartCard>
         </div>
       </div>
     </div>
@@ -2955,5 +2894,50 @@ onMounted(async () => {
   font-size: 14px;
   color: #606266;
   line-height: 1.4;
+}
+
+/* 友情链接样式 */
+.friend-links-container {
+  padding: 8px 0;
+}
+
+.friend-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.friend-link-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.friend-link-item:hover {
+  background-color: #ecf5ff;
+  border-color: #409eff;
+  transform: translateX(4px);
+}
+
+.friend-link-item .link-text {
+  font-size: 13px;
+  color: #303133;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.friend-link-item:hover .link-text {
+  color: #409eff;
+}
+
+@media (max-width: 640px) {
+  .friend-links-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

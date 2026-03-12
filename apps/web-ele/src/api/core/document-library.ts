@@ -393,10 +393,11 @@ export interface DownloadResult {
 }
 
 export async function downloadDocumentApi(id: number): Promise<DownloadResult> {
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
   const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}${BASE_URL}/documents/${id}/download`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
+      'Authorization': `Bearer ${token}`,
     },
   });
   

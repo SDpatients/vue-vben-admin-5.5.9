@@ -237,6 +237,39 @@ function setupChatGuard(router: Router) {
 }
 
 /**
+ * 案件详情页面权限守卫配置
+ * 用于在进入案件详情页面前进行基本的权限检查
+ * 注意：具体的案件访问权限检查在页面组件中进行
+ * @param router
+ */
+function setupCaseDetailGuard(router: Router) {
+  router.beforeEach(async (to) => {
+    // 检查是否是案件详情页面
+    if (to.name === 'LawCaseDetail') {
+      const caseId = to.params.id;
+      
+      // 检查案件ID是否有效
+      if (!caseId || Number.isNaN(Number.parseInt(caseId as string, 10))) {
+        console.log('CaseDetailGuard: Invalid case ID:', caseId);
+        // 无效的案件ID，重定向到案件列表页
+        return {
+          path: '/law/case-management',
+          replace: true,
+        };
+      }
+      
+      console.log('CaseDetailGuard: Valid case ID, proceeding to page for permission check:', caseId);
+      // 案件ID有效，允许进入页面
+      // 具体的权限检查在页面组件的 onMounted 中进行
+      return true;
+    }
+    
+    // 不是案件详情页面，直接通过
+    return true;
+  });
+}
+
+/**
  * 项目守卫配置
  * @param router
  */
@@ -247,6 +280,8 @@ function createRouterGuard(router: Router) {
   setupAccessGuard(router);
   /** 聊天功能 */
   setupChatGuard(router);
+  /** 案件详情权限 */
+  setupCaseDetailGuard(router);
 }
 
 export { createRouterGuard };

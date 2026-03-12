@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+
+import { useUserStore } from '@vben/stores';
+
 import { approvalApi, type Approval, type Attachment } from '#/api/core/approval';
 import ApprovalCard from '#/components/ApprovalCard.vue';
 import { Icon } from '@iconify/vue';
-import { ElButton, ElTag, ElCard, ElTimeline, ElTimelineItem, ElEmpty, ElMessage, ElMessageBox, ElInput, ElUpload, ElProgress, ElImage, ElDialog } from 'element-plus';
+import { ElButton, ElTag, ElCard, ElTimeline, ElTimelineItem, ElEmpty, ElMessage, ElMessageBox, ElInput, ElUpload, ElProgress, ElImage, ElDialog, ElSkeleton } from 'element-plus';
 import 'element-plus/es/components/upload/style/css';
 import 'element-plus/es/components/progress/style/css';
 import 'element-plus/es/components/image/style/css';
@@ -12,9 +15,36 @@ import 'element-plus/es/components/dialog/style/css';
 
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 const loading = ref(false);
 const approval = ref<Approval | null>(null);
 const logs = ref<any[]>([]);
+
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
 
 // 附件相关状态
 const attachments = ref<Attachment[]>([]);
@@ -38,14 +68,43 @@ const formatTime = (time: string) => {
 
 const loadApprovalDetail = async () => {
   loading.value = true;
+  permissionChecking.value = true;
   try {
     const id = Number(route.params.id);
     const res = await approvalApi.getApprovalDetail(id);
+    
+    if (res.code === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = res.message || '您没有权限查看此审核详情';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
+    if (res.code === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '审核记录不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
     approval.value = res.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('加载审核详情失败:', error);
+    
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限查看此审核详情';
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '审核记录不存在或已被删除';
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '加载审核详情失败，请稍后重试';
+    }
+    ElMessage.error(permissionDeniedMessage.value);
   } finally {
     loading.value = false;
+    permissionChecking.value = false;
   }
 };
 
@@ -247,14 +306,37 @@ const handleRemove = (file: any, attachment?: Attachment) => {
   ElMessage.info('文件删除功能开发中');
 };
 
-onMounted(() => {
-  loadApprovalDetail();
-  loadApprovalLogs();
+onMounted(async () => {
+  await loadApprovalDetail();
+  if (hasAccessPermission.value) {
+    await loadApprovalLogs();
+  }
 });
 </script>
 
 <template>
   <div class="approval-detail-page">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限查看此审核详情，或审核记录已被删除。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="goBack">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <div class="page-header">
       <ElButton :icon="Icon({ icon: 'lucide:arrow-left' })" @click="goBack">
         返回
@@ -465,12 +547,59 @@ onMounted(() => {
         </ElDialog>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .approval-detail-page {
   padding: 20px;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
 }
 
 .page-header {

@@ -5,7 +5,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@vben/stores';
 
 import { Loading } from '@element-plus/icons-vue';
-import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus';
+import { ElButton, ElCard, ElImageViewer, ElMessage, ElMessageBox, ElSkeleton } from 'element-plus';
+
+import { Icon } from '@iconify/vue';
 
 import {
   approveReimbursement,
@@ -23,23 +25,70 @@ const loading = ref(false);
 const fileLoading = ref(false);
 const detail = ref<any>(null);
 
+const hasAccessPermission = ref(true);
+const permissionChecking = ref(true);
+const permissionDeniedMessage = ref('');
+
 const imageViewerVisible = ref(false);
 const currentImageUrl = ref('');
 const imagePreviewUrls = ref<Record<number, string>>({});
 
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
+});
+
+const isSuperAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
+
 const canApprove = computed(() => {
-  const roles = userStore.getUserRoles || [];
-  return roles.includes('SUPER_ADMIN') || roles.includes('ADMIN');
+  return isAdmin.value || isSuperAdmin.value;
 });
 
 const canEdit = computed(() => {
   return detail.value && detail.value.approvalStatus === 'PENDING';
 });
 
+const canDelete = computed(() => {
+  if (!detail.value) return false;
+  const isCreator = detail.value.creatorId && currentUserId.value === detail.value.creatorId;
+  return isAdmin.value || isSuperAdmin.value || isCreator;
+});
+
 const fetchDetail = async (id: number) => {
   loading.value = true;
+  permissionChecking.value = true;
   try {
     const response = await getReimbursementDetail(id);
+    
+    if (response.code === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = response.message || '您没有权限查看此报销单';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
+    if (response.code === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '报销单不存在或已被删除';
+      ElMessage.error(permissionDeniedMessage.value);
+      return;
+    }
+    
     detail.value = response.data;
 
     imagePreviewUrls.value = {};
@@ -55,11 +104,25 @@ const fetchDetail = async (id: number) => {
         }
       }
     }
-  } catch (error) {
-    ElMessage.error('获取报销单详情失败');
+    
+    hasAccessPermission.value = true;
+  } catch (error: any) {
     console.error('获取报销单详情失败:', error);
+    
+    if (error?.response?.status === 403) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '您没有权限查看此报销单';
+    } else if (error?.response?.status === 404) {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '报销单不存在或已被删除';
+    } else {
+      hasAccessPermission.value = false;
+      permissionDeniedMessage.value = '获取报销单详情失败，请稍后重试';
+    }
+    ElMessage.error(permissionDeniedMessage.value);
   } finally {
     loading.value = false;
+    permissionChecking.value = false;
   }
 };
 
@@ -229,6 +292,27 @@ onMounted(() => {
 
 <template>
   <div class="expense-reimbursement-detail-page">
+    <!-- 权限检查中或无权限时的显示 -->
+    <ElCard v-if="permissionChecking || !hasAccessPermission" shadow="hover" class="permission-check-card">
+      <div class="permission-check-container">
+        <ElSkeleton v-if="permissionChecking" :rows="5" animated />
+        <div v-else class="permission-denied">
+          <Icon icon="lucide:shield-x" class="permission-denied-icon" />
+          <h2 class="permission-denied-title">访问受限</h2>
+          <p class="permission-denied-message">{{ permissionDeniedMessage }}</p>
+          <p class="permission-denied-hint">您可能没有权限查看此报销单，或报销单不存在。</p>
+          <div class="permission-denied-actions">
+            <ElButton type="primary" @click="handleBack">
+              <Icon icon="lucide:arrow-left" class="mr-2" />
+              返回列表
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElCard>
+
+    <!-- 有权限时显示正常内容 -->
+    <div v-show="hasAccessPermission && !permissionChecking">
     <div class="page-header">
       <h1>报销单详情</h1>
       <el-button @click="handleBack">返回列表</el-button>
@@ -406,6 +490,7 @@ onMounted(() => {
         <span>文件处理中...</span>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -413,6 +498,56 @@ onMounted(() => {
 .expense-reimbursement-detail-page {
   box-sizing: border-box;
   width: 100%;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: #f5f7fa;
+}
+
+/* 权限检查卡片样式 */
+.permission-check-card {
+  margin: 20px;
+  min-height: 400px;
+}
+
+.permission-check-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.permission-denied {
+  text-align: center;
+  padding: 40px;
+}
+
+.permission-denied-icon {
+  font-size: 80px;
+  color: #f56c6c;
+  margin-bottom: 20px;
+}
+
+.permission-denied-title {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.permission-denied-message {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 12px;
+}
+
+.permission-denied-hint {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 24px;
+}
+
+.permission-denied-actions {
+  margin-top: 20px;
+}
   min-height: 100vh;
   padding: 20px;
   background-color: #f5f7fa;

@@ -72,8 +72,7 @@ const uploadVersion = async () => {
 
   uploadLoading.value = true;
   try {
-    await uploadVersionApi({
-      documentId: props.documentId,
+    await uploadVersionApi(props.documentId, {
       file: uploadForm.value.file,
       changeSummary: uploadForm.value.changeSummary || undefined,
       isMajor: uploadForm.value.isMajor,
