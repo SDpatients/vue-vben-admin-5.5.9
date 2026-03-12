@@ -609,6 +609,18 @@ export async function getDashboardStatisticsApi(): Promise<DocumentLibraryApi.Ap
   return requestClient.get(`${BASE_URL}/statistics/dashboard`);
 }
 
+export async function getRecentDocumentsApi(page: number = 1, size: number = 5): Promise<DocumentLibraryApi.DocumentListResponse> {
+  return requestClient.get(`${BASE_URL}/documents/recent`, {
+    params: { page, size },
+  });
+}
+
+export async function getPopularDocumentsApi(page: number = 1, size: number = 5, timeRange: 'all' | 'week' | 'month' | 'year' = 'all'): Promise<DocumentLibraryApi.DocumentListResponse> {
+  return requestClient.get(`${BASE_URL}/documents/popular`, {
+    params: { page, size, timeRange },
+  });
+}
+
 export async function getOfficePreviewConfigApi(documentId: number): Promise<DocumentLibraryApi.ApiResponse<DocumentLibraryApi.OfficePreviewConfig>> {
   return requestClient.get(`${BASE_URL}/documents/${documentId}/office-config`);
 }
