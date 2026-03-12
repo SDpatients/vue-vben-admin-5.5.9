@@ -19,12 +19,16 @@ import {
   ElRadio,
   ElRadioGroup,
   ElMessage,
+  ElMessageBox,
 } from 'element-plus';
 import { Icon } from '@iconify/vue';
 
 import {
   getDocumentListApi,
+  getRecentDocumentsApi,
+  getPopularDocumentsApi,
   getDashboardStatisticsApi,
+  downloadDocumentApi,
   formatFileSize,
   getDocumentTypeIcon,
   getDocumentTypeColor,
@@ -49,6 +53,52 @@ const { renderEcharts: renderSizeChart } = useEcharts(chartRef3);
 
 const chartType1 = ref('pie');
 const chartType2 = ref('line');
+
+const recentDocOffset = ref(0);
+const popularDocOffset = ref(0);
+
+const recentVisibleDocs = computed(() => {
+  return recentDocuments.value.slice(recentDocOffset.value, recentDocOffset.value + 5);
+});
+
+const popularVisibleDocs = computed(() => {
+  return recentViewedDocuments.value.slice(popularDocOffset.value, popularDocOffset.value + 5);
+});
+
+const canSlideLeft = (type: 'recent' | 'popular') => {
+  if (type === 'recent') {
+    return recentDocOffset.value > 0;
+  }
+  return popularDocOffset.value > 0;
+};
+
+const canSlideRight = (type: 'recent' | 'popular') => {
+  const totalDocs = type === 'recent' ? recentDocuments.value.length : recentViewedDocuments.value.length;
+  const offset = type === 'recent' ? recentDocOffset.value : popularDocOffset.value;
+  return offset + 5 < totalDocs;
+};
+
+// 计算轮播轨道的总宽度百分比
+const getTrackWidth = (type: 'recent' | 'popular') => {
+  const totalDocs = type === 'recent' ? recentDocuments.value.length : recentViewedDocuments.value.length;
+  return totalDocs * 20; // 每个文档占 20% 宽度
+};
+
+const slideLeft = (type: 'recent' | 'popular') => {
+  if (type === 'recent' && canSlideLeft('recent')) {
+    recentDocOffset.value--;
+  } else if (type === 'popular' && canSlideLeft('popular')) {
+    popularDocOffset.value--;
+  }
+};
+
+const slideRight = (type: 'recent' | 'popular') => {
+  if (type === 'recent' && canSlideRight('recent')) {
+    recentDocOffset.value++;
+  } else if (type === 'popular' && canSlideRight('popular')) {
+    popularDocOffset.value++;
+  }
+};
 
 const totalSizeMB = computed(() => {
   return Math.round(totalSize.value / 1024 / 1024 * 100) / 100;
@@ -147,18 +197,61 @@ const trendData = computed(() => {
   return { months, uploadData, viewData };
 });
 
-const recentDocuments = computed(() => {
-  return [...documents.value]
-    .sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime())
-    .slice(0, 10);
-});
+const recentDocuments = ref<DocumentLibraryApi.Document[]>([]);
+const recentViewedDocuments = ref<DocumentLibraryApi.Document[]>([]);
 
-const recentViewedDocuments = computed(() => {
-  return [...documents.value]
-    .filter(doc => doc.viewCount > 0)
-    .sort((a, b) => b.viewCount - a.viewCount)
-    .slice(0, 10);
-});
+const fetchRecentDocuments = async () => {
+  try {
+    const response = await getRecentDocumentsApi(1, 10); // 获取最新的10个文档
+    recentDocuments.value = response.documents || [];
+  } catch (error) {
+    console.error('获取最近上传文档失败:', error);
+    ElMessage.error('获取最近上传文档失败');
+  }
+};
+
+const fetchPopularDocuments = async () => {
+  try {
+    const response = await getPopularDocumentsApi(1, 10, 'all'); // 获取热门的 10 个文档
+    recentViewedDocuments.value = response.documents || [];
+  } catch (error) {
+    console.error('获取热门文档失败:', error);
+    ElMessage.error('获取热门文档失败');
+  }
+};
+
+const handleDownload = async (doc: DocumentLibraryApi.Document) => {
+  try {
+    const confirm = await ElMessageBox.confirm(
+      `确定要下载文档"${doc.documentName}"吗？`,
+      '下载确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'info',
+      }
+    );
+
+    if (confirm) {
+      const blob = await downloadDocumentApi(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.fileName || `${doc.documentName}.${doc.fileExtension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      ElMessage.success('下载成功');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('下载失败:', error);
+      ElMessage.error('下载失败');
+    }
+  }
+};
 
 const fetchStatistics = async () => {
   statisticsLoading.value = true;
@@ -390,6 +483,8 @@ onMounted(async () => {
   // 先获取统计数据，再获取文档列表
   await fetchStatistics();
   await fetchDocuments();
+  await fetchRecentDocuments();
+  await fetchPopularDocuments();
   renderCharts();
 });
 </script>
@@ -527,87 +622,124 @@ onMounted(async () => {
       </ElCol>
     </ElRow>
 
-    <ElRow :gutter="20">
-      <ElCol :xs="24" :md="12">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <Icon icon="lucide:clock" class="text-primary" />
-              <span class="font-semibold">最近上传的文档</span>
-            </div>
-          </template>
-          <ElTable :data="recentDocuments" size="small" max-height="350">
-            <template #empty>
-              <ElEmpty description="暂无文档" :image-size="60" />
-            </template>
-            <ElTableColumn prop="documentName" label="文档名称" min-width="150" show-overflow-tooltip>
-              <template #default="{ row }">
-                <div class="flex items-center gap-2">
-                  <Icon
-                    :icon="getDocumentTypeIcon(row.documentType)"
-                    class="text-lg"
-                    :style="{ color: getDocumentTypeColor(row.documentType) }"
-                  />
-                  <span>{{ row.documentName }}</span>
-                </div>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="documentType" label="类型" width="80" align="center">
-              <template #default="{ row }">
-                <ElTag :type="getDocumentTypeTag(row.documentType).type" size="small">
-                  {{ getDocumentTypeTag(row.documentType).label }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="createTime" label="上传时间" width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.createTime) }}
-              </template>
-            </ElTableColumn>
-          </ElTable>
-        </ElCard>
-      </ElCol>
-
-      <ElCol :xs="24" :md="12">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <Icon icon="lucide:eye" class="text-green-500" />
-              <span class="font-semibold">热门文档</span>
-            </div>
-          </template>
-          <ElTable :data="recentViewedDocuments" size="small" max-height="350">
-            <template #empty>
-              <ElEmpty description="暂无数据" :image-size="60" />
-            </template>
-            <ElTableColumn prop="documentName" label="文档名称" min-width="150" show-overflow-tooltip>
-              <template #default="{ row }">
-                <div class="flex items-center gap-2">
-                  <Icon
-                    :icon="getDocumentTypeIcon(row.documentType)"
-                    class="text-lg"
-                    :style="{ color: getDocumentTypeColor(row.documentType) }"
-                  />
-                  <span>{{ row.documentName }}</span>
-                </div>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="documentType" label="类型" width="80" align="center">
-              <template #default="{ row }">
-                <ElTag :type="getDocumentTypeTag(row.documentType).type" size="small">
-                  {{ getDocumentTypeTag(row.documentType).label }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="viewCount" label="查看次数" width="100" align="center">
-              <template #default="{ row }">
-                <span class="text-primary font-semibold">{{ row.viewCount }}</span>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-        </ElCard>
+    <ElRow :gutter="20" class="mb-6">
+      <ElCol :span="24">
+        <div class="section-header">
+          <div class="flex justify-center items-center gap-2 mb-1">
+            <Icon icon="lucide:clock" class="text-primary" />
+            <h3 class="section-title">最近上传的文档</h3>
+          </div>
+          <p class="section-subtitle">最新上传到文档库的文件</p>
+        </div>
       </ElCol>
     </ElRow>
+
+    <div class="carousel-container mb-6">
+      <button 
+        class="carousel-btn carousel-btn-left" 
+        :class="{ disabled: !canSlideLeft('recent') }"
+        @click="slideLeft('recent')"
+      >
+        <Icon icon="lucide:chevron-left" />
+      </button>
+      
+      <div class="carousel-wrapper">
+        <div class="carousel-track" :style="{ transform: `translateX(-${recentDocOffset * 20}%)` }">
+          <div v-for="doc in recentDocuments" :key="`recent-${doc.id}`" class="carousel-item">
+            <div class="document-card" @click="handleDownload(doc)">
+              <div class="document-card-icon">
+                <Icon
+                  :icon="getDocumentTypeIcon(doc.documentType)"
+                  :style="{ color: getDocumentTypeColor(doc.documentType) }"
+                />
+              </div>
+              <div class="document-card-content">
+                <h4 class="document-card-title" :title="doc.documentName">
+                  {{ doc.documentName }}
+                </h4>
+                <div class="document-card-meta">
+                  <ElTag :type="getDocumentTypeTag(doc.documentType).type" size="small">
+                    {{ getDocumentTypeTag(doc.documentType).label }}
+                  </ElTag>
+                  <span class="document-card-date">{{ formatDate(doc.createTime) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button 
+        class="carousel-btn carousel-btn-right" 
+        :class="{ disabled: !canSlideRight('recent') }"
+        @click="slideRight('recent')"
+      >
+        <Icon icon="lucide:chevron-right" />
+      </button>
+    </div>
+
+    <ElEmpty v-if="recentDocuments.length === 0" description="暂无文档" :image-size="80" />
+
+    <ElRow :gutter="20">
+      <ElCol :span="24">
+        <div class="section-header">
+          <div class="flex justify-center items-center gap-2 mb-1">
+            <Icon icon="lucide:fire" class="text-red-500" />
+            <h3 class="section-title">热门文档</h3>
+          </div>
+          <p class="section-subtitle">查看次数最多的文档</p>
+        </div>
+      </ElCol>
+    </ElRow>
+
+    <div class="carousel-container">
+      <button 
+        class="carousel-btn carousel-btn-left" 
+        :class="{ disabled: !canSlideLeft('popular') }"
+        @click="slideLeft('popular')"
+      >
+        <Icon icon="lucide:chevron-left" />
+      </button>
+      
+      <div class="carousel-wrapper">
+        <div class="carousel-track" :style="{ transform: `translateX(-${popularDocOffset * 20}%)` }">
+          <div v-for="doc in recentViewedDocuments" :key="`popular-${doc.id}`" class="carousel-item">
+            <div class="document-card" @click="handleDownload(doc)">
+              <div class="document-card-icon">
+                <Icon
+                  :icon="getDocumentTypeIcon(doc.documentType)"
+                  :style="{ color: getDocumentTypeColor(doc.documentType) }"
+                />
+              </div>
+              <div class="document-card-content">
+                <h4 class="document-card-title" :title="doc.documentName">
+                  {{ doc.documentName }}
+                </h4>
+                <div class="document-card-meta">
+                  <ElTag :type="getDocumentTypeTag(doc.documentType).type" size="small">
+                    {{ getDocumentTypeTag(doc.documentType).label }}
+                  </ElTag>
+                  <span class="document-card-views">
+                    <Icon icon="lucide:eye" class="inline text-xs" />
+                    {{ doc.viewCount }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button 
+        class="carousel-btn carousel-btn-right" 
+        :class="{ disabled: !canSlideRight('popular') }"
+        @click="slideRight('popular')"
+      >
+        <Icon icon="lucide:chevron-right" />
+      </button>
+    </div>
+
+    <ElEmpty v-if="recentViewedDocuments.length === 0" description="暂无数据" :image-size="80" />
   </div>
 </template>
 
@@ -626,5 +758,203 @@ onMounted(async () => {
 
 .stat-card :deep(.el-card__body) {
   padding: 20px;
+}
+
+.section-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 8px 0 0 0;
+}
+
+.carousel-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.carousel-wrapper {
+  flex: 1;
+  overflow: visible;
+  margin: 0 40px;
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.4s ease-in-out;
+}
+
+.carousel-item {
+  width: 20%;
+  flex-shrink: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #6b7280;
+  transition: all 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.carousel-btn:hover:not(.disabled) {
+  background: #f3f4f6;
+  color: #409eff;
+  border-color: #409eff;
+}
+
+.carousel-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.carousel-btn-left {
+  left: 0;
+}
+
+.carousel-btn-right {
+  right: 0;
+}
+
+.document-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.document-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.document-card-icon {
+  width: 100%;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 64px;
+  overflow: hidden;
+}
+
+.document-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.document-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.5;
+  min-height: 42px;
+}
+
+.document-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.document-card-date {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.document-card-views {
+  font-size: 12px;
+  color: #409eff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (max-width: 1200px) {
+  .carousel-item {
+    width: 25%;
+  }
+}
+
+@media (max-width: 992px) {
+  .carousel-item {
+    width: 33.333%;
+  }
+}
+
+@media (max-width: 768px) {
+  .carousel-item {
+    width: 50%;
+  }
+  
+  .carousel-wrapper {
+    margin: 0 30px;
+  }
+  
+  .document-card-icon {
+    height: 200px;
+    font-size: 48px;
+  }
+  
+  .document-card-title {
+    font-size: 13px;
+    min-height: 39px;
+  }
 }
 </style>

@@ -1852,10 +1852,6 @@ onMounted(async () => {
                 <span>{{ announcementDetail.caseNumber || '无' }}</span>
               </div>
               <div class="meta-row">
-                <span class="label">主要负责人：</span>
-                <span>{{ announcementDetail.principalOfficer || '无' }}</span>
-              </div>
-              <div class="meta-row">
                 <span class="label">浏览次数：</span>
                 <span>{{ announcementDetail.view_count || 0 }}</span>
                 <ElButton
