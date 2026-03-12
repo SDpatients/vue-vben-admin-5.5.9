@@ -1,9 +1,5 @@
 <script setup lang="ts">
-<<<<<<< HEAD
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
-=======
-import { computed, ref, watch, onUnmounted, nextTick } from 'vue';
->>>>>>> cd228d27b7991f9ab89d42ed55d35168bb09bdec
 
 import { Icon } from '@iconify/vue';
 import {

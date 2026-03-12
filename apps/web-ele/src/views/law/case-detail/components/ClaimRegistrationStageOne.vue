@@ -89,6 +89,7 @@ const importLoading = ref(false);
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(
   null,
 );
+const emptyFileList = ref<number[]>([]);
 const importResult = ref<any>(null);
 
 const materialForm = reactive({
@@ -1660,7 +1661,7 @@ onMounted(() => {
         </div>
         <FileUpload
           v-if="currentClaim"
-          v-model="[]"
+          v-model="emptyFileList"
           :biz-type="'claim'"
           :biz-id="currentClaim.claimRegistrationId || currentClaim.id"
           :disabled="true"
