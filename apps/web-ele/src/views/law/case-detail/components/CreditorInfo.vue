@@ -298,6 +298,10 @@ const formatDate = (dateStr: string | undefined | null) => {
 onMounted(() => {
   fetchCreditors();
 });
+
+defineExpose({
+  refresh: fetchCreditors,
+});
 </script>
 
 <template>

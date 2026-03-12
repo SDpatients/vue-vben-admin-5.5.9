@@ -209,6 +209,9 @@ const fetchCreditorList = async (keyword: string = '') => {
         creditorType: convertCreditorType(creditor.creditorType),
         caseNumber: creditor.caseNumber,
         caseName: creditor.caseName,
+        idNumber: creditor.idNumber || '',
+        legalRepresentative: creditor.legalRepresentative || '',
+        address: creditor.address || '',
       }));
     }
   } catch (error) {
@@ -232,6 +235,8 @@ const searchCreditor = async (keyword: string) => {
         value: creditor.id,
         idNumber: creditor.idNumber,
         creditorType: convertCreditorType(creditor.creditorType),
+        legalRepresentative: creditor.legalRepresentative || '',
+        address: creditor.address || '',
       }));
     }
   } catch (error) {
@@ -509,7 +514,10 @@ const handleCreditorChange = (value: string) => {
     (creditor) => creditor.label === value,
   );
   if (selectedCreditor) {
+    claimForm.creditCode = selectedCreditor.idNumber || '';
     claimForm.creditorType = selectedCreditor.creditorType;
+    claimForm.legalRepresentative = selectedCreditor.legalRepresentative || '';
+    claimForm.serviceAddress = selectedCreditor.address || '';
   }
 };
 
@@ -520,6 +528,8 @@ const handleCreditorSearchChange = (value: string) => {
   if (selectedCreditor) {
     claimForm.creditCode = selectedCreditor.idNumber || '';
     claimForm.creditorType = selectedCreditor.creditorType;
+    claimForm.legalRepresentative = selectedCreditor.legalRepresentative || '';
+    claimForm.serviceAddress = selectedCreditor.address || '';
   }
 };
 
@@ -1216,6 +1226,7 @@ defineExpose({
   hasRegisteredClaims,
   openAddDialog,
   openImportDialog,
+  refresh: fetchClaims,
 });
 
 onMounted(() => {

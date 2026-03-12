@@ -500,6 +500,10 @@ const handleRejectClaim = async (row: any) => {
 onMounted(() => {
   fetchClaims();
 });
+
+defineExpose({
+  refresh: fetchClaims,
+});
 </script>
 
 <template>

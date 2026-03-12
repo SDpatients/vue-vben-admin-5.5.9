@@ -2451,7 +2451,6 @@ onMounted(async () => {
   box-shadow: none !important;
   transform: none;
   border-color: #d1d5db !important;
-  background-color: rgba(243, 244, 246, 0.3) !important;
 }
 
 .announcement-card:last-child {

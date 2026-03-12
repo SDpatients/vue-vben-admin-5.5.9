@@ -229,7 +229,7 @@ defineExpose({
   position: relative;
   margin-top: 0;
   overflow: visible;
-  padding-bottom: 60px;
+  padding-bottom: 50px;
 }
 
 .activity-item {
@@ -247,7 +247,6 @@ defineExpose({
 }
 
 .activity-item:hover {
-  background-color: #f5f5f5;
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   transform: translateY(-2px);
 }
@@ -308,7 +307,6 @@ defineExpose({
 /* 滚动条样式 */
 :deep(.el-scrollbar__wrap) {
   overflow-x: hidden;
-  padding-bottom: 20px !important;
 }
 
 :deep(.el-scrollbar__bar.is-vertical) {

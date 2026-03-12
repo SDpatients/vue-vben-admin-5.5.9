@@ -259,41 +259,39 @@ onUnmounted(() => {});
           </div>
         </div>
 
-        <ElScrollbar style="flex: 1; min-height: 0">
-          <div class="notification-content-wrapper">
-            <!-- 最新动态 -->
-            <div
-              v-show="activeTab === 'dynamic'"
-              class="notification-content-section"
-            >
-              <ActivityTimeline
-                ref="activityTimelineRef"
-                :initial-activities="activities"
-                @update:count="dynamicCount = $event"
+        <div class="notification-content-wrapper">
+          <!-- 最新动态 -->
+          <div
+            v-show="activeTab === 'dynamic'"
+            class="notification-content-section"
+          >
+            <ActivityTimeline
+              ref="activityTimelineRef"
+              :initial-activities="activities"
+              @update:count="dynamicCount = $event"
+            />
+          </div>
+
+          <!-- 待审核 -->
+          <div
+            v-show="activeTab === 'approval'"
+            class="notification-content-section"
+          >
+            <div v-if="pendingApprovals.length > 0" class="pending-approvals">
+              <ApprovalCard
+                v-for="approval in pendingApprovals"
+                :key="approval.id"
+                :approval="approval"
+                @refresh="loadPendingApprovals"
+                @click="handleApprovalClick(approval)"
               />
             </div>
-
-            <!-- 待审核 -->
-            <div
-              v-show="activeTab === 'approval'"
-              class="notification-content-section"
-            >
-              <div v-if="pendingApprovals.length > 0" class="pending-approvals">
-                <ApprovalCard
-                  v-for="approval in pendingApprovals"
-                  :key="approval.id"
-                  :approval="approval"
-                  @refresh="loadPendingApprovals"
-                  @click="handleApprovalClick(approval)"
-                />
-              </div>
-              <div v-else class="approval-empty">
-                <div class="empty-icon">📋</div>
-                <div class="empty-text">暂无待审核任务</div>
-              </div>
+            <div v-else class="approval-empty">
+              <div class="empty-icon">📋</div>
+              <div class="empty-text">暂无待审核任务</div>
             </div>
           </div>
-        </ElScrollbar>
+        </div>
 
         <!-- 底部操作 -->
         <div class="notification-footer">
@@ -380,19 +378,20 @@ onUnmounted(() => {});
   border-bottom: 1px solid #f0f0f0;
 }
 
-/* 内容区域滚动 */
+/* 内容区域 */
+.notification-content-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .notification-content-section {
   flex: 1;
   overflow: hidden;
 }
 
-/* 确保滚动条只在内容区域显示 */
-:deep(.el-scrollbar__wrap) {
-  max-height: calc(
-    500px - 50px - 50px
-  ); /* 总高度 - 标签栏高度(减少10px) - 底部操作栏高度 */
-  overflow-y: auto;
-}
+
 
 .notification-overlay {
   position: fixed;
