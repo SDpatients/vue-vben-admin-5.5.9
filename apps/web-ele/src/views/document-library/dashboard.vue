@@ -572,39 +572,6 @@ onMounted(async () => {
     </ElRow>
 
     <ElRow :gutter="20" class="mb-6">
-      <ElCol :xs="24" :md="12">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="font-semibold">文档类型分布</span>
-              <ElRadioGroup v-model="chartType1" size="small">
-                <ElRadio value="pie">饼图</ElRadio>
-                <ElRadio value="donut">环形图</ElRadio>
-              </ElRadioGroup>
-            </div>
-          </template>
-          <div class="h-[300px]">
-            <EchartsUI ref="chartRef1" />
-          </div>
-        </ElCard>
-      </ElCol>
-
-      <ElCol :xs="24" :md="12">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="font-semibold">存储空间分布</span>
-              <span class="text-sm text-gray-500">按文档类型</span>
-            </div>
-          </template>
-          <div class="h-[300px]">
-            <EchartsUI ref="chartRef3" />
-          </div>
-        </ElCard>
-      </ElCol>
-    </ElRow>
-
-    <ElRow :gutter="20" class="mb-6">
       <ElCol :span="24">
         <ElCard shadow="hover">
           <template #header>
@@ -681,7 +648,7 @@ onMounted(async () => {
 
     <ElEmpty v-if="recentDocuments.length === 0" description="暂无文档" :image-size="80" />
 
-    <ElRow :gutter="20">
+    <ElRow :gutter="20" class="mb-6">
       <ElCol :span="24">
         <div class="section-header">
           <div class="flex justify-center items-center gap-2 mb-1">
@@ -693,7 +660,7 @@ onMounted(async () => {
       </ElCol>
     </ElRow>
 
-    <div class="carousel-container">
+    <div class="carousel-container mb-6">
       <button 
         class="carousel-btn carousel-btn-left" 
         :class="{ disabled: !canSlideLeft('popular') }"
@@ -741,6 +708,39 @@ onMounted(async () => {
     </div>
 
     <ElEmpty v-if="recentViewedDocuments.length === 0" description="暂无数据" :image-size="80" />
+
+    <ElRow :gutter="20" class="mb-6">
+      <ElCol :xs="24" :md="12">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">文档类型分布</span>
+              <ElRadioGroup v-model="chartType1" size="small">
+                <ElRadio value="pie">饼图</ElRadio>
+                <ElRadio value="donut">环形图</ElRadio>
+              </ElRadioGroup>
+            </div>
+          </template>
+          <div class="h-[300px]">
+            <EchartsUI ref="chartRef1" />
+          </div>
+        </ElCard>
+      </ElCol>
+
+      <ElCol :xs="24" :md="12">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">存储空间分布</span>
+              <span class="text-sm text-gray-500">按文档类型</span>
+            </div>
+          </template>
+          <div class="h-[300px]">
+            <EchartsUI ref="chartRef3" />
+          </div>
+        </ElCard>
+      </ElCol>
+    </ElRow>
   </div>
 </template>
 

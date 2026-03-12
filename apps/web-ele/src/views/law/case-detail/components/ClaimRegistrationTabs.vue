@@ -17,9 +17,34 @@ const activeTab = ref('creditorInfo');
 const stageOneRef = ref<InstanceType<typeof ClaimRegistrationStageOne> | null>(
   null,
 );
+const stageTwoRef = ref<InstanceType<typeof ClaimRegistrationStageTwo> | null>(
+  null,
+);
+const stageThreeRef = ref<InstanceType<typeof ClaimRegistrationStageThree> | null>(
+  null,
+);
+const creditorInfoRef = ref<InstanceType<typeof CreditorInfo> | null>(
+  null,
+);
 
 const handleTabChange = (tabName: string) => {
   console.log('切换标签页:', tabName);
+  
+  // 根据标签页名称调用对应组件的刷新方法
+  switch (tabName) {
+    case 'creditorInfo':
+      creditorInfoRef.value?.refresh();
+      break;
+    case 'stage1':
+      stageOneRef.value?.refresh();
+      break;
+    case 'stage2':
+      stageTwoRef.value?.refresh();
+      break;
+    case 'stage3':
+      stageThreeRef.value?.refresh();
+      break;
+  }
 };
 
 const handleAdd = () => {
@@ -56,7 +81,7 @@ const handleAdd = () => {
               债权人信息
             </div>
           </template>
-          <CreditorInfo :case-id="caseId" />
+          <CreditorInfo ref="creditorInfoRef" :case-id="caseId" />
         </ElTabPane>
 
         <ElTabPane label="债权申报登记" name="stage1">
@@ -76,7 +101,7 @@ const handleAdd = () => {
               债权审查
             </div>
           </template>
-          <ClaimRegistrationStageTwo :case-id="caseId" />
+          <ClaimRegistrationStageTwo ref="stageTwoRef" :case-id="caseId" />
         </ElTabPane>
 
         <ElTabPane label="债权确认" name="stage3">
@@ -86,7 +111,7 @@ const handleAdd = () => {
               债权确认
             </div>
           </template>
-          <ClaimRegistrationStageThree :case-id="caseId" />
+          <ClaimRegistrationStageThree ref="stageThreeRef" :case-id="caseId" />
         </ElTabPane>
       </ElTabs>
     </ElCard>

@@ -4569,13 +4569,17 @@ const handleEditMember = async (row: any) => {
 // 保存成员
 const handleSaveMember = async () => {
   try {
-    if (
-      !selectedTeamId.value ||
-      !memberForm.value.userId ||
-      memberForm.value.userId.length === 0 ||
-      !memberForm.value.teamRole
-    ) {
+    // 编辑模式下只需要检查团队角色，新增模式需要检查更多信息
+    const isNewMode = !memberForm.value.id;
+    
+    if (!selectedTeamId.value || !memberForm.value.teamRole) {
       ElMessage.warning('请填写完整信息');
+      return;
+    }
+    
+    // 新增模式下需要检查用户 ID
+    if (isNewMode && (!memberForm.value.userId || memberForm.value.userId.length === 0)) {
+      ElMessage.warning('请选择成员');
       return;
     }
 
