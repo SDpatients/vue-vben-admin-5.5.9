@@ -1176,9 +1176,10 @@ const handleSubmit = async () => {
     <ElCard header="银行账户管理" size="small">
       <template #header>
         <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center">
             <span class="text-lg font-semibold">银行账户管理</span>
-            <div class="flex items-center space-x-2">
+            <span class="ml-3 text-sm text-gray-400">（仅能查看到自己创建的银行账户）</span>
+            <div class="flex items-center space-x-2 ml-4">
               <ElButton
                 :type="viewMode === 'account' ? 'primary' : 'default'"
                 @click="switchToAccountView"
@@ -1211,14 +1212,6 @@ const handleSubmit = async () => {
             >
               <i class="i-lucide-download mr-1"></i>
               导出数据
-            </ElButton>
-            <ElButton
-              type="primary"
-              @click="showTemplateExportDialog"
-              v-if="viewMode === 'account'"
-            >
-              <i class="i-lucide-file-text mr-1"></i>
-              模板导出
             </ElButton>
             <ElButton
               type="primary"

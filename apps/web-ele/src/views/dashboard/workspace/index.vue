@@ -1198,7 +1198,7 @@ const handleLogout = async () => {
 
 // 跳转到个人中心
 const handleGoProfile = () => {
-  router.push('/profile');
+  router.push('/dashboard/profile');
 };
 
 // 月份变化处理

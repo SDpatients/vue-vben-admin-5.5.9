@@ -65,8 +65,9 @@ const canEdit = computed(() => {
 
 const canDelete = computed(() => {
   if (!detail.value) return false;
-  const isCreator = detail.value.creatorId && currentUserId.value === detail.value.creatorId;
-  return isAdmin.value || isSuperAdmin.value || isCreator;
+  const applicantId = detail.value.applicantId || detail.value.creatorId;
+  const isCreator = applicantId && currentUserId.value === applicantId;
+  return isCreator;
 });
 
 const fetchDetail = async (id: number) => {
@@ -157,56 +158,60 @@ const handleDelete = async () => {
   }
 };
 
-const handleApprove = async () => {
+const handleApprovePass = async () => {
   if (!canEdit.value) {
     ElMessage.warning('只能审批待审批状态的报销单');
     return;
   }
 
   try {
-    const { value } = await ElMessageBox.prompt('请输入审批意见', '审批操作', {
-      confirmButtonText: '通过',
-      cancelButtonText: '拒绝',
-      distinguishCancelAndClose: true,
-      inputPattern: /.+/,
-      inputErrorMessage: '请输入审批意见',
+    const { value } = await ElMessageBox.prompt('请输入审批意见（可选）', '审批通过', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPlaceholder: '请输入审批意见',
     });
 
     loading.value = true;
     await approveReimbursement(detail.value.id, {
       approvalStatus: 'APPROVED',
-      approvalOpinion: value,
+      approvalOpinion: value || '审批通过',
     });
     ElMessage.success('审批通过');
     fetchDetail(detail.value.id);
   } catch (error: any) {
-    if (error === 'cancel') {
-      try {
-        const { value } = await ElMessageBox.prompt(
-          '请输入拒绝理由（可选）',
-          '拒绝操作',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-          },
-        );
-
-        loading.value = true;
-        await approveReimbursement(detail.value.id, {
-          approvalStatus: 'REJECTED',
-          approvalOpinion: value,
-        });
-        ElMessage.success('已拒绝该报销单');
-        fetchDetail(detail.value.id);
-      } catch (error_: any) {
-        if (error_ !== 'cancel') {
-          ElMessage.error('操作失败');
-          console.error('拒绝报销单失败:', error_);
-        }
-      }
-    } else {
+    if (error !== 'cancel') {
       ElMessage.error('操作失败');
       console.error('审批报销单失败:', error);
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleApproveReject = async () => {
+  if (!canEdit.value) {
+    ElMessage.warning('只能审批待审批状态的报销单');
+    return;
+  }
+
+  try {
+    const { value } = await ElMessageBox.prompt('请输入拒绝理由（可选）', '审批拒绝', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPlaceholder: '请输入拒绝理由',
+    });
+
+    loading.value = true;
+    await approveReimbursement(detail.value.id, {
+      approvalStatus: 'REJECTED',
+      approvalOpinion: value || '审批拒绝',
+    });
+    ElMessage.success('已拒绝该报销单');
+    fetchDetail(detail.value.id);
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error('操作失败');
+      console.error('拒绝报销单失败:', error);
     }
   } finally {
     loading.value = false;
@@ -467,12 +472,19 @@ onMounted(() => {
         <el-button @click="handleBack">返回</el-button>
         <el-button
           v-if="canApprove && canEdit"
-          type="warning"
-          @click="handleApprove"
+          type="success"
+          @click="handleApprovePass"
         >
-          审批
+          审批通过
         </el-button>
-        <el-button v-if="canEdit" type="danger" @click="handleDelete">
+        <el-button
+          v-if="canApprove && canEdit"
+          type="danger"
+          @click="handleApproveReject"
+        >
+          审批拒绝
+        </el-button>
+        <el-button v-if="canEdit && canDelete" type="warning" @click="handleDelete">
           删除
         </el-button>
       </div>
@@ -547,10 +559,6 @@ onMounted(() => {
 
 .permission-denied-actions {
   margin-top: 20px;
-}
-  min-height: 100vh;
-  padding: 20px;
-  background-color: #f5f7fa;
 }
 
 .page-header {

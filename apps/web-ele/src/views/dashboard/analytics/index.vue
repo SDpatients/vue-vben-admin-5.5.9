@@ -520,8 +520,7 @@ onMounted(() => {
         <h3 class="text-lg font-semibold">案件管理分析</h3>
         <ElSwitch
           v-model="viewOnlyMyCases"
-          inline-prompt
-          active-text="仅查看我的"
+          active-text="仅查看我负责的案件"
           inactive-text="查看全部"
           size="default"
         />

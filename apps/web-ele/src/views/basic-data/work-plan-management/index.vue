@@ -490,7 +490,10 @@ const exportWorkPlanData = () => {
     <ElCard header="工作计划管理" size="small">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">工作计划管理</span>
+          <div class="flex items-center">
+            <span class="text-lg font-semibold">工作计划管理</span>
+            <span class="ml-3 text-sm text-gray-400">（仅能查看到自己或者工作团队的工作计划）</span>
+          </div>
           <div class="flex items-center space-x-2">
             <ElButton type="primary" @click="handleAddWorkPlan">
               <i class="i-lucide-plus mr-1"></i>
@@ -499,10 +502,6 @@ const exportWorkPlanData = () => {
             <ElButton type="success" @click="exportWorkPlanData">
               <i class="i-lucide-download mr-1"></i>
               导出数据
-            </ElButton>
-            <ElButton type="primary" @click="showTemplateExportDialog">
-              <i class="i-lucide-file-text mr-1"></i>
-              模板导出
             </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>

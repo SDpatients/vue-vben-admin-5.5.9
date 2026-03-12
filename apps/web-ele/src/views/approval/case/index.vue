@@ -1262,7 +1262,6 @@ document.head.appendChild(style);
               />
             </ElFormItem>
           </div>
-        </div>
         </template>
       </div>
 

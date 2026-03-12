@@ -25,15 +25,17 @@ export namespace DocumentLibraryApi {
     name: string;
     type: 'folder' | 'root';
     parentId: number | null;
-    path: string;
-    folderLevel: number;
-    sortOrder: number;
-    documentCount?: number;
+    path: string | null;
+    folderLevel: number | null;
+    sortOrder: number | null;
+    documentCount?: number | null;
     children?: FolderTreeNode[] | null;
-    icon?: string;
-    color?: string;
-    isPublic?: boolean;
-    createTime?: string;
+    icon?: string | null;
+    color?: string | null;
+    isPublic?: boolean | null;
+    createTime?: string | null;
+    createUserId?: number | null;
+    createUserName?: string | null;
   }
 
   export interface FolderBreadcrumb {

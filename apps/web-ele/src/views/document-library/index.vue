@@ -30,6 +30,8 @@ import {
   ElFormItem,
   ElDatePicker,
   ElMessageBox,
+  ElProgress,
+  ElTooltip,
 } from 'element-plus';
 import { Icon } from '@iconify/vue';
 
@@ -626,23 +628,33 @@ onMounted(() => {
             class="folder-tree"
           >
             <template #default="{ node, data }">
-              <div class="folder-node" :style="{ borderLeftColor: data.color || '#d9d9d9' }">
-                <div class="flex items-center gap-2">
-                  <Icon
-                    :icon="data.icon || (data.type === 'root' ? 'lucide:database' : 'lucide:folder')"
-                    class="text-lg folder-icon"
-                    :style="{ color: data.color || (data.type === 'root' ? '#1890ff' : '#f5c542') }"
-                  />
-                  <span>{{ data.name }}</span>
-                  <span v-if="data.documentCount" class="text-xs text-gray-400">
-                    ({{ data.documentCount }})
-                  </span>
-                  <ElTag v-if="data.isPublic === false" type="info" size="small" class="ml-1">
-                    <Icon icon="lucide:lock" class="mr-1" />
-                    私有
-                  </ElTag>
+              <ElTooltip 
+                placement="right" 
+                :disabled="!data.createUserName && !data.createTime"
+              >
+                <template #content>
+                  <div v-if="data.createUserName">创建者: {{ data.createUserName }}</div>
+                  <div v-if="data.createTime">创建时间: {{ formatDate(data.createTime) }}</div>
+                  <div v-if="data.documentCount">文档数: {{ data.documentCount }}</div>
+                </template>
+                <div class="folder-node" :style="{ borderLeftColor: data.color || '#d9d9d9' }">
+                  <div class="flex items-center gap-2">
+                    <Icon
+                      :icon="data.icon || (data.type === 'root' ? 'lucide:database' : 'lucide:folder')"
+                      class="text-lg folder-icon"
+                      :style="{ color: data.color || (data.type === 'root' ? '#1890ff' : '#f5c542') }"
+                    />
+                    <span>{{ data.name }}</span>
+                    <span v-if="data.documentCount" class="text-xs text-gray-400">
+                      ({{ data.documentCount }})
+                    </span>
+                    <ElTag v-if="data.isPublic === false" type="info" size="small" class="ml-1">
+                      <Icon icon="lucide:lock" class="mr-1" />
+                      私有
+                    </ElTag>
+                  </div>
                 </div>
-              </div>
+              </ElTooltip>
             </template>
           </ElTree>
 

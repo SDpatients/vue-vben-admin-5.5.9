@@ -1464,15 +1464,6 @@ onMounted(() => {
                 v-if="scope.row.registration_status === 'PENDING'"
                 link
                 size="small"
-                type="primary"
-                @click.stop="handleEditClaim(scope.row)"
-              >
-                修改
-              </ElButton>
-              <ElButton
-                v-if="scope.row.registration_status === 'PENDING'"
-                link
-                size="small"
                 type="danger"
                 @click.stop="handleRejectClaim(scope.row)"
               >

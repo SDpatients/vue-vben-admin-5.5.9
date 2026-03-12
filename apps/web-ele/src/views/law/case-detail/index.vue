@@ -144,6 +144,7 @@ const canEdit = ref(false);
 const canDelete = ref(false);
 const isCreator = ref(false);
 const teamMemberInfo = ref<any>(null);
+const isTeamLeader = ref(false);
 
 // 案件访问权限相关
 const hasAccessPermission = ref(true);
@@ -4161,11 +4162,6 @@ watch(
   () => memberForm.value.teamRole,
   (newRole) => {
     switch (newRole) {
-      case 'GUEST': {
-        memberForm.value.permissionLevel = 'VIEW';
-
-        break;
-      }
       case 'LEADER': {
         memberForm.value.permissionLevel = 'ADMIN';
 
@@ -4766,6 +4762,7 @@ const checkPermissions = async () => {
     })();
 
     let isWorkTeamMember = false;
+    let isUserTeamLeader = false;
     try {
       const currentCaseId = Number(caseId.value);
       
@@ -4780,6 +4777,10 @@ const checkPermissions = async () => {
         const teams = response.data.list;
 
         for (const team of teams) {
+          if (team.teamLeaderId === currentUserId.value) {
+            isUserTeamLeader = true;
+          }
+
           try {
             const teamDetailResponse = await getWorkTeamDetailWithMembersApi(team.id);
             let members = [];
@@ -4797,7 +4798,6 @@ const checkPermissions = async () => {
 
             if (isMember) {
               isWorkTeamMember = true;
-              break;
             }
           } catch (teamError) {
             console.error('获取团队成员详情失败:', teamError);
@@ -4807,6 +4807,8 @@ const checkPermissions = async () => {
     } catch (workTeamError) {
       console.error('检查工作团队成员权限失败:', workTeamError);
     }
+
+    isTeamLeader.value = isUserTeamLeader;
 
     const hasBasicPermission = isAdmin.value || isSuperAdmin.value || isCaseCreator || isUndertakingPersonnel || isWorkTeamMember;
 
@@ -6096,15 +6098,6 @@ const endDrag = () => {
                       >
                         详情
                       </ElButton>
-                      <ElButton
-                        v-if="scope.row.status !== 'PUBLISHED'"
-                        type="primary"
-                        link
-                        size="small"
-                        @click="editAnnouncement(scope.row)"
-                      >
-                        编辑
-                      </ElButton>
                       <ElPopconfirm
                         title="确定要删除该公告吗？"
                         @confirm="deleteAnnouncement(scope.row.id)"
@@ -6193,7 +6186,7 @@ const endDrag = () => {
                   <ElButton
                     type="primary"
                     @click="openAddTeamDialog"
-                    v-if="isCreator"
+                    v-if="isCreator || isAdmin || isSuperAdmin || isTeamLeader"
                   >
                     <Icon icon="lucide:plus" class="mr-1" />
                     添加工作团队
@@ -6308,7 +6301,7 @@ const endDrag = () => {
                         size="small"
                         type="primary"
                         @click="handleAddMember(team.id)"
-                        v-if="isCreator"
+                        v-if="isCreator || isAdmin || isSuperAdmin || (isTeamLeader && team.teamLeaderId === currentUserId)"
                       >
                         <Icon icon="lucide:plus" class="mr-1" />
                         添加成员
@@ -6389,7 +6382,7 @@ const endDrag = () => {
                         label="操作"
                         width="150"
                         fixed="right"
-                        v-if="isCreator"
+                        v-if="isCreator || isAdmin || isSuperAdmin || isTeamLeader"
                       >
                         <template #default="{ row }">
                           <div style="display: flex; align-items: center;">
@@ -7402,7 +7395,6 @@ const endDrag = () => {
                 >
                   <ElOption label="负责人" value="LEADER" />
                   <ElOption label="成员" value="MEMBER" />
-                  <ElOption label="访客" value="GUEST" />
                 </ElSelect>
               </ElFormItem>
 

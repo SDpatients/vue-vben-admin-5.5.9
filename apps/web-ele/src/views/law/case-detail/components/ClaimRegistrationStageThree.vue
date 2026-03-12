@@ -28,6 +28,7 @@ import {
 
 import FileUpload from './FileUpload.vue';
 
+import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
 import { ClaimService } from './services/claimService';
 import { useConfirmationForm } from './composables/useClaimForm';
 import { useClaimPagination } from './composables/useClaimPagination';
@@ -66,6 +67,7 @@ const { confirmationForm, resetConfirmationForm } = useConfirmationForm();
 const showDetailDialog = ref(false);
 const showConfirmDialog = ref(false);
 const confirmLoading = ref(false);
+const confirmationUploadRef = ref<any>();
 const currentClaim = ref<any>(null);
 const confirmationCollapseActive = ref<string[]>([]);
 
@@ -295,6 +297,33 @@ const openConfirmDialog = async (row: any) => {
       // 没有确认记录，使用基本信息初始化
       currentClaim.value = row;
       
+      // 加载债权申报的文件
+      try {
+        const claimRegistrationId = row.claimRegistrationId || row.id;
+        console.log('📁 [调试] 加载债权申报文件，ID:', claimRegistrationId);
+        const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
+        
+        if (filesResponse.code === 200 && filesResponse.data) {
+          console.log('📁 [调试] 获取到的文件列表:', filesResponse.data);
+          
+          // 将文件转换为 FileUpload 组件需要的格式
+          const files = filesResponse.data.map((file: any) => ({
+            id: file.id,
+            originalFileName: file.originalFileName || file.fileName,
+            fileSize: file.fileSize,
+            fileExtension: file.fileExtension,
+            mimeType: file.mimeType,
+            uploadTime: file.uploadTime,
+            filePath: file.filePath,
+          }));
+          
+          confirmationForm.confirmationAttachments = files;
+          console.log('📁 [调试] 设置的文件列表:', files);
+        }
+      } catch (error) {
+        console.error('❌ [调试] 加载文件失败:', error);
+      }
+      
       // 初始化表单数据
       const targetAmount = row.confirmedTotalAmount || row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0;
       console.log('💰 [调试] 目标金额:', targetAmount);
@@ -330,7 +359,7 @@ const openConfirmDialog = async (row: any) => {
         finalConfirmedAmount: targetAmount,
         finalConfirmationDate: '',
         finalConfirmationBasis: '',
-        confirmationAttachments: [],
+        // confirmationAttachments: [], // 不要覆盖之前加载的文件
         remarks: '',
       });
       
@@ -427,29 +456,88 @@ const handleSaveConfirmation = async () => {
     };
 
     let result;
-    // 检查是否有确认记录 ID
-    // 如果有 confirmationInfo，使用它的 ID
-    // 否则检查 currentClaim 本身是否有 id（后端直接返回的确认记录）
-    const confirmationId = currentClaim.value.confirmationInfo?.id || currentClaim.value.id;
-    console.log('🔍 [调试] 确认记录 ID:', confirmationId);
-    console.log('🔍 [调试] 是否有 confirmationInfo:', !!currentClaim.value.confirmationInfo);
+    let confirmationId: number;
     
-    if (confirmationId) {
-      console.log('✏️ [调试] 使用 PUT 接口更新确认记录，ID:', confirmationId);
+    // 检查是否有确认记录 ID
+    const existingConfirmationId = currentClaim.value.confirmationInfo?.id || currentClaim.value.id;
+    
+    if (existingConfirmationId) {
+      console.log('✏️ [调试] 使用 PUT 接口更新确认记录，ID:', existingConfirmationId);
       result = await ClaimService.updateConfirmation(
-        confirmationId,
+        existingConfirmationId,
         requestData,
       );
+      confirmationId = existingConfirmationId;
     } else {
       console.log('➕ [调试] 使用 POST 接口创建新的确认记录');
-      // 如果没有确认记录 ID，创建新的确认记录
       result = await ClaimService.createConfirmation(requestData);
+      confirmationId = result.data?.id || result.data?.confirmationId;
     }
 
     if (result.success) {
-      ElMessage.success('保存成功');
+      if (!confirmationId) {
+        console.error('确认记录 ID 为空，无法上传文件');
+        ElMessage.warning('保存成功，但返回的 ID 为空');
+        return;
+      }
+      
+      // 1. 首先转移手机上传的临时文件（如果有）
+      let allUploadedFileIds: number[] = [];
+      
+      if (confirmationUploadRef.value && confirmationUploadRef.value.getHasUntransferredFiles()) {
+        console.log('发现手机上传的临时文件，开始转移...');
+        const transferredFiles = await confirmationUploadRef.value.transferMobileFiles(confirmationId);
+        console.log('转移成功的文件:', transferredFiles);
+        
+        // 收集转移的文件 ID
+        if (transferredFiles && transferredFiles.length > 0) {
+          allUploadedFileIds = transferredFiles.map(f => f.id);
+        }
+      }
+      
+      // 2. 上传本地文件（电脑选择的文件）
+      if (confirmationUploadRef.value && confirmationForm.confirmationAttachments && confirmationForm.confirmationAttachments.length > 0) {
+        console.log('=== 准备债权确认文件上传 ===');
+        console.log('confirmationForm.confirmationAttachments:', confirmationForm.confirmationAttachments);
+        console.log('confirmationUploadRef.value.getLocalFiles():', confirmationUploadRef.value?.getLocalFiles());
+        
+        // 筛选出需要上传的新文件
+        const filesToUpload = confirmationForm.confirmationAttachments
+          .filter((attach: any) => {
+            const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
+            const isMobile = attach.id?.toString().startsWith('mobile-');
+            console.log('检查文件:', attach.originalFileName || attach.name, {
+              isExisting,
+              isMobile,
+              hasFile: !!attach.file,
+              id: attach.id
+            });
+            return !isExisting && !isMobile && attach.file;
+          })
+          .map((attach: any) => attach.file);
+
+        console.log('需要上传的文件数量:', filesToUpload.length);
+        console.log('需要上传的文件:', filesToUpload);
+
+        if (filesToUpload.length > 0) {
+          try {
+            console.log('开始上传本地文件...');
+            const uploadedIds = await confirmationUploadRef.value.uploadLocalFiles(confirmationId);
+            console.log('上传成功的文件 ID:', uploadedIds);
+            
+            if (uploadedIds && uploadedIds.length > 0) {
+              allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
+            }
+          } catch (error: any) {
+            console.error('文件上传失败:', error);
+            ElMessage.warning(`保存成功，但文件上传失败：${error.message || '未知错误'}`);
+          }
+        }
+      }
+      
       await fetchClaims();
       closeConfirmDialog();
+      ElMessage.success('保存成功');
     }
   } catch (error) {
     console.error('❌ [调试] 保存确认记录失败:', error);
@@ -1178,6 +1266,7 @@ defineExpose({
           <ElRow :gutter="20">
             <ElCol :span="24">
               <FileUpload
+                ref="confirmationUploadRef"
                 v-model="confirmationForm.confirmationAttachments"
                 :biz-type="'claim-confirmation'"
                 :biz-id="currentClaim?.confirmationInfo?.id || 0"
@@ -1186,6 +1275,9 @@ defineExpose({
                 :multiple="true"
                 title="债权确认附件"
                 :disabled="false"
+                :local-mode="true"
+                :existing-files="confirmationForm.confirmationAttachments || []"
+                @local-files-change="(files) => { console.log('债权确认附件变化:', files); confirmationForm.confirmationAttachments = files; }"
               />
             </ElCol>
           </ElRow>

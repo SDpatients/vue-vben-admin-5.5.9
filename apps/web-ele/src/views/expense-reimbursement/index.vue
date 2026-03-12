@@ -42,6 +42,29 @@ const canApprove = computed(() => {
   return roles.includes('SUPER_ADMIN') || roles.includes('ADMIN');
 });
 
+const currentUserId = computed(() => {
+  const userId = userStore.userInfo?.userId;
+  if (userId) {
+    return Number.parseInt(userId as string, 10);
+  }
+  const localStorageUserId = localStorage.getItem('user_id');
+  if (localStorageUserId) {
+    return Number.parseInt(localStorageUserId, 10);
+  }
+  return 0;
+});
+
+const isAdmin = computed(() => {
+  const roles = userStore.userRoles || [];
+  return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员') || roles.includes('SUPER_ADMIN') || roles.includes('超级管理员');
+});
+
+const canDelete = (row: any) => {
+  const applicantId = row.applicantId || row.creatorId;
+  const isCreator = applicantId && currentUserId.value === applicantId;
+  return isCreator;
+};
+
 const fetchReimbursements = async () => {
   loading.value = true;
   try {
@@ -223,7 +246,7 @@ onMounted(() => {
 <template>
   <div class="expense-reimbursement-page">
     <div class="page-header">
-      <h1>费用报销</h1>
+      <h1>费用报销 <span class="page-tip">（律师仅能查看自己申请的报销单）</span></h1>
     </div>
 
     <div class="expense-reimbursement-content">
@@ -340,7 +363,7 @@ onMounted(() => {
                 审批
               </el-button>
               <el-button
-                v-if="scope.row.approvalStatus === 'PENDING'"
+                v-if="scope.row.approvalStatus === 'PENDING' && canDelete(scope.row)"
                 type="danger"
                 size="small"
                 @click="handleDelete(scope.row)"
@@ -385,6 +408,13 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 600;
   color: #333;
+}
+
+.page-tip {
+  font-size: 14px;
+  font-weight: 400;
+  color: #909399;
+  margin-left: 8px;
 }
 
 .expense-reimbursement-content {

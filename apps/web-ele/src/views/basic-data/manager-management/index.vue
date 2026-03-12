@@ -401,10 +401,6 @@ onMounted(() => {
               <i class="i-lucide-download mr-1"></i>
               导出数据
             </ElButton>
-            <ElButton type="primary" @click="showTemplateExportDialog">
-              <i class="i-lucide-file-text mr-1"></i>
-              模板导出
-            </ElButton>
             <ElButton @click="handleRefresh">
               <i class="i-lucide-refresh-cw mr-1"></i>
               刷新

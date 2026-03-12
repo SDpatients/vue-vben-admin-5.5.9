@@ -61,6 +61,7 @@ const claims = ref<any[]>([]);
 const showDetailDialog = ref(false);
 const showReviewDialog = ref(false);
 const reviewLoading = ref(false);
+const reviewUploadRef = ref<any>();
 const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null);
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
 const reviewStatusFilter = ref<string>(''); // 空字符串表示全部
@@ -275,16 +276,82 @@ const handleSaveReview = async () => {
   };
 
   let result;
+  let reviewId: number;
+  
   if (currentClaim.value.reviewInfo) {
     result = await ClaimService.updateReview(currentClaim.value.reviewInfo.id, requestData);
+    reviewId = currentClaim.value.reviewInfo.id;
   } else {
     result = await ClaimService.createReview(requestData);
+    reviewId = result.data?.id || result.data?.reviewId;
   }
 
   try {
     if (result.success) {
+      if (!reviewId) {
+        console.error('审查记录 ID 为空，无法上传文件');
+        ElMessage.warning('审查保存成功，但返回的 ID 为空');
+        return;
+      }
+      
+      // 1. 首先转移手机上传的临时文件（如果有）
+      let allUploadedFileIds: number[] = [];
+      
+      if (reviewUploadRef.value && reviewUploadRef.value.getHasUntransferredFiles()) {
+        console.log('发现手机上传的临时文件，开始转移...');
+        const transferredFiles = await reviewUploadRef.value.transferMobileFiles(reviewId);
+        console.log('转移成功的文件:', transferredFiles);
+        
+        // 收集转移的文件 ID
+        if (transferredFiles && transferredFiles.length > 0) {
+          allUploadedFileIds = transferredFiles.map(f => f.id);
+        }
+      }
+      
+      // 2. 上传本地文件（电脑选择的文件）
+      if (reviewUploadRef.value && reviewForm.reviewAttachments && reviewForm.reviewAttachments.length > 0) {
+        console.log('=== 准备债权审查文件上传 ===');
+        console.log('reviewForm.reviewAttachments:', reviewForm.reviewAttachments);
+        console.log('reviewUploadRef.value.getLocalFiles():', reviewUploadRef.value?.getLocalFiles());
+        
+        // 筛选出需要上传的新文件（没有file_id的文件，且不是手机上传的文件）
+        const filesToUpload = reviewForm.reviewAttachments
+          .filter((attach: any) => {
+            // 过滤掉已有文件和手机上传的文件
+            const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
+            const isMobile = attach.id?.toString().startsWith('mobile-');
+            console.log('检查文件:', attach.originalFileName || attach.name, {
+              isExisting,
+              isMobile,
+              hasFile: !!attach.file,
+              id: attach.id
+            });
+            return !isExisting && !isMobile && attach.file;
+          })
+          .map((attach: any) => attach.file);
+
+        console.log('需要上传的文件数量:', filesToUpload.length);
+        console.log('需要上传的文件:', filesToUpload);
+
+        if (filesToUpload.length > 0) {
+          try {
+            console.log('开始上传本地文件...');
+            const uploadedIds = await reviewUploadRef.value.uploadLocalFiles(reviewId);
+            console.log('上传成功的文件 ID:', uploadedIds);
+            
+            if (uploadedIds && uploadedIds.length > 0) {
+              allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
+            }
+          } catch (error: any) {
+            console.error('文件上传失败:', error);
+            ElMessage.warning(`审查保存成功，但文件上传失败：${error.message || '未知错误'}`);
+          }
+        }
+      }
+      
       await fetchClaims();
       closeReviewDialog();
+      ElMessage.success('审查保存成功');
     }
   } finally {
     reviewLoading.value = false;
@@ -1291,6 +1358,7 @@ defineExpose({
         <ElRow :gutter="20">
           <ElCol :span="24">
             <FileUpload
+              ref="reviewUploadRef"
               v-model="reviewForm.reviewAttachments"
               :biz-type="'claim-review'"
               :biz-id="currentClaim?.reviewInfo?.id || 0"
@@ -1299,6 +1367,9 @@ defineExpose({
               :multiple="true"
               title="债权审查附件"
               :disabled="false"
+              :local-mode="true"
+              :existing-files="reviewForm.reviewAttachments || []"
+              @local-files-change="(files) => { console.log('债权审查附件变化:', files); reviewForm.reviewAttachments = files; }"
             />
           </ElCol>
         </ElRow>

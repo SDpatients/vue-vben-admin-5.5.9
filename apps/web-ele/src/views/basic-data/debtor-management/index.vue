@@ -1136,94 +1136,11 @@ const getRowKey = (row: any) => row.id;
     <ElCard header="债务人管理" size="small">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">债务人管理</span>
+          <div class="flex items-center">
+            <span class="text-lg font-semibold">债务人管理</span>
+            <span class="ml-3 text-sm text-gray-400">（仅能查看到自己或者工作团队的债务人）</span>
+          </div>
           <div class="flex items-center space-x-2">
-            <ElDropdown trigger="click">
-              <ElButton type="info" size="small">
-                <i class="i-lucide-settings mr-1"></i>
-                列设置
-              </ElButton>
-              <template #dropdown>
-                <ElDropdownMenu>
-                  <ElDropdownItem @click="showAllColumns">
-                    显示所有列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="hideNonCoreColumns">
-                    仅显示核心列
-                  </ElDropdownItem>
-                  <ElDropdownItem @click="resetColumns">
-                    重置为默认
-                  </ElDropdownItem>
-                  <ElDropdownItem divided>
-                    <ElPopover
-                      placement="right"
-                      width="300"
-                      trigger="click"
-                      title="自定义列显示"
-                    >
-                      <template #reference>
-                        <span>自定义列显示</span>
-                      </template>
-                      <div class="space-y-2">
-                        <div class="mb-2 text-sm text-gray-500">
-                          选择要显示的列：
-                        </div>
-                        <ElCheckboxGroup v-model="columnVisible">
-                          <div class="grid grid-cols-2 gap-2">
-                            <ElCheckbox value="行号" name="行号">
-                              行号
-                            </ElCheckbox>
-
-                            <ElCheckbox value="企业名称" name="企业名称">
-                              企业名称
-                            </ElCheckbox>
-                            <ElCheckbox
-                              value="统一社会信用代码"
-                              name="统一社会信用代码"
-                            >
-                              统一社会信用代码
-                            </ElCheckbox>
-                            <ElCheckbox value="法定代表人" name="法定代表人">
-                              法定代表人
-                            </ElCheckbox>
-                            <ElCheckbox value="登记机关" name="登记机关">
-                              登记
-                            </ElCheckbox>
-                            <ElCheckbox value="成立日期" name="成立日期">
-                              成立日期
-                            </ElCheckbox>
-                            <ElCheckbox value="注册资本" name="注册资本">
-                              注册资本
-                            </ElCheckbox>
-                            <ElCheckbox value="经营范围" name="经营范围">
-                              经营范围
-                            </ElCheckbox>
-                            <ElCheckbox value="企业类型" name="企业类型">
-                              企业类型
-                            </ElCheckbox>
-                            <ElCheckbox value="所属行业" name="所属行业">
-                              所属行业
-                            </ElCheckbox>
-                            <ElCheckbox value="注册地址" name="注册地址">
-                              注册地址
-                            </ElCheckbox>
-                            <ElCheckbox value="联系电话" name="联系电话">
-                              联系电话
-                            </ElCheckbox>
-                            <ElCheckbox value="联系人" name="联系人">
-                              联系人
-                            </ElCheckbox>
-                            <ElCheckbox value="状态" name="状态">
-                              状态
-                            </ElCheckbox>
-                          </div>
-                        </ElCheckboxGroup>
-                      </div>
-                    </ElPopover>
-                  </ElDropdownItem>
-                </ElDropdownMenu>
-              </template>
-            </ElDropdown>
             <ElButton type="primary" @click="handleAddDebtor">
               <i class="i-lucide-plus mr-1"></i>
               新增债务人
@@ -1231,10 +1148,6 @@ const getRowKey = (row: any) => row.id;
             <ElButton type="success" @click="exportDebtorData">
               <i class="i-lucide-download mr-1"></i>
               导出数据
-            </ElButton>
-            <ElButton type="primary" @click="showTemplateExportDialog">
-              <i class="i-lucide-file-text mr-1"></i>
-              模板导出
             </ElButton>
             <ElButton type="primary" @click="handleRefresh" :loading="loading">
               <i class="i-lucide-refresh-cw mr-1"></i>
