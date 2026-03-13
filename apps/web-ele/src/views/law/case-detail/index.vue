@@ -7217,6 +7217,9 @@ const endDrag = () => {
                     选择负责人
                   </ElButton>
                 </div>
+                <div style="color: #e6a23c; font-size: 12px; margin-top: 8px;">
+                  谨慎选择，仅此负责人能够决定团队最初的成员
+                </div>
               </ElFormItem>
 
               <ElFormItem label="团队描述">

@@ -8,14 +8,8 @@ import { defineOverridesPreferences } from '@vben/preferences';
 export const overridesPreferences = defineOverridesPreferences({
   // overrides
   app: {
-    name: import.meta.env.VITE_APP_TITLE,
+    name: '永惠破管云・破产案件智能管理系统',
     defaultHomePath: '/workspace',
     enableCheckUpdates: false,  // 禁用版本更新检测
-  },
-  // 禁用logo，避免请求外部资源
-  logo: {
-    enable: false,
-    // 或者将logo.source改为空字符串
-    // source: '',
   },
 });

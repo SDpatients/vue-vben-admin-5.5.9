@@ -229,7 +229,7 @@ defineExpose({
   position: relative;
   margin-top: 0;
   overflow: visible;
-  padding-bottom: 50px;
+  padding-bottom: 80px;
 }
 
 .activity-item {

@@ -5,6 +5,7 @@ import { computed, markRaw } from 'vue';
 
 import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
+import { preferences } from '@vben/preferences';
 
 import { ElMessage } from 'element-plus';
 
@@ -61,7 +62,11 @@ const handleForgetPassword = () => {
       :show-third-party-login="false"
       @submit="authStore.authLogin"
       @forget-password-click="handleForgetPassword"
-    />
+    >
+      <template #title>
+        <h2 class="text-2xl font-bold">永惠破管云・破产案件智能管理系统</h2>
+      </template>
+    </AuthenticationLogin>
   </div>
 </template>
 

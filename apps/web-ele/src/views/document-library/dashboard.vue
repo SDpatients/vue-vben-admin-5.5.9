@@ -492,7 +492,7 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard p-4">
-    <div class="mb-6">
+    <div class="mb-6 text-center">
       <h2 class="text-2xl font-bold text-gray-800">文档库仪表盘</h2>
       <p class="text-gray-500 mt-1">文档统计与分析概览</p>
       <p class="text-gray-400 text-sm mt-1">仅展示公开的文档统计数据</p>
@@ -865,11 +865,11 @@ onMounted(async () => {
 
 .document-card-icon {
   width: 100%;
-  height: 250px;
+  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: #fff;
   border-radius: 8px;
   margin-bottom: 12px;
   font-size: 64px;
