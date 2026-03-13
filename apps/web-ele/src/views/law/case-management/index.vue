@@ -592,15 +592,6 @@ const cancelDelete = () => {
               show-overflow-tooltip
             />
 
-            <!-- 创建者 -->
-            <ElTableColumn
-              
-              prop="创建者"
-              label="创建者"
-              min-width="120"
-              show-overflow-tooltip
-            />
-
             <!-- 受理日期 -->
             <ElTableColumn
               
@@ -614,19 +605,6 @@ const cancelDelete = () => {
               </template>
             </ElTableColumn>
 
-            <!-- 创建时间 -->
-            <ElTableColumn
-              
-              prop="创建时间"
-              label="创建时间"
-              min-width="180"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                {{ formatTimestamp(row['创建时间']) }}
-              </template>
-            </ElTableColumn>
-
             <!-- 案件来源 -->
             <ElTableColumn
               
@@ -635,28 +613,6 @@ const cancelDelete = () => {
               min-width="150"
               show-overflow-tooltip
             />
-
-            <!-- 修改者 -->
-            <ElTableColumn
-              
-              prop="修改者"
-              label="修改者"
-              min-width="120"
-              show-overflow-tooltip
-            />
-
-            <!-- 修改时间 -->
-            <ElTableColumn
-              
-              prop="修改时间"
-              label="修改时间"
-              min-width="180"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                {{ formatTimestamp(row['修改时间']) }}
-              </template>
-            </ElTableColumn>
 
             <!-- 管理人 -->
             <ElTableColumn
@@ -689,73 +645,12 @@ const cancelDelete = () => {
               </template>
             </ElTableColumn>
 
-            <!-- 文件上传 -->
-            <ElTableColumn
-              
-              prop="文件上传"
-              label="文件上传"
-              min-width="100"
-              align="center"
-            />
-
             <!-- 备注 -->
             <ElTableColumn
               
               prop="备注"
               label="备注"
               min-width="200"
-              show-overflow-tooltip
-            />
-
-
-
-            <!-- 审核状态 -->
-            <ElTableColumn
-              
-              prop="审核状态"
-              label="审核状态"
-              min-width="120"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                <ElTag
-                  :type="getReviewStatusType(row['审核状态'])"
-                  size="small"
-                >
-                  {{ row['审核状态'] || '未设置' }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
-            <!-- 审核时间 -->
-            <ElTableColumn
-              
-              prop="审核时间"
-              label="审核时间"
-              min-width="180"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                {{ formatTimestamp(row['审核时间']) }}
-              </template>
-            </ElTableColumn>
-
-            <!-- 审核意见 -->
-            <ElTableColumn
-              
-              prop="审核意见"
-              label="审核意见"
-              min-width="200"
-              show-overflow-tooltip
-            />
-
-            <!-- 审核次数 -->
-            <ElTableColumn
-              
-              prop="审核次数"
-              label="审核次数"
-              min-width="100"
-              align="center"
               show-overflow-tooltip
             />
 

@@ -204,6 +204,8 @@ const canDeleteCase = computed(() => {
 const deleteDialogVisible = ref(false);
 const deleteLoading = ref(false);
 const relatedData = ref<any>(null);
+const secondConfirmVisible = ref(false);
+const deleteTime = ref('');
 
 // 显示删除确认弹窗
 const showDeleteDialog = async () => {
@@ -223,14 +225,28 @@ const showDeleteDialog = async () => {
   }
 };
 
-// 确认删除案件
-const confirmDelete = async () => {
+// 确认删除案件 - 显示二次确认
+const confirmDelete = () => {
+  deleteTime.value = new Date().toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  secondConfirmVisible.value = true;
+};
+
+// 最终确认删除
+const finalConfirmDelete = async () => {
   deleteLoading.value = true;
   try {
     const response = await deleteCaseApi(Number(caseId.value));
     if (response.code === 200) {
       ElMessage.success('删除成功');
       deleteDialogVisible.value = false;
+      secondConfirmVisible.value = false;
       relatedData.value = null;
       router.push('/law/case-management');
     } else {
@@ -246,7 +262,13 @@ const confirmDelete = async () => {
 // 取消删除
 const cancelDelete = () => {
   deleteDialogVisible.value = false;
+  secondConfirmVisible.value = false;
   relatedData.value = null;
+};
+
+// 取消二次确认
+const cancelSecondConfirm = () => {
+  secondConfirmVisible.value = false;
 };
 
 // 案件卷宗归档相关
@@ -8909,6 +8931,49 @@ const endDrag = () => {
             <ElButton
               type="danger"
               @click="confirmDelete"
+              :loading="deleteLoading"
+            >
+              确认删除
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
+      <!-- 二次确认删除弹窗 -->
+      <ElDialog
+        v-model="secondConfirmVisible"
+        title="最终确认删除"
+        width="500px"
+        :close-on-click-modal="false"
+        :close-on-press-escape="false"
+      >
+        <div class="second-confirm-content">
+          <div class="confirm-warning">
+            <Icon icon="lucide:alert-triangle" class="warning-icon" />
+            <div class="confirm-text">
+              <p class="confirm-title">你确定要删除"{{ caseDetail?.案号 }}"？</p>
+              <p class="confirm-subtitle">此操作不可逆！</p>
+            </div>
+          </div>
+          
+          <div class="delete-info">
+            <div class="info-item">
+              <span class="info-label">删除人：</span>
+              <span class="info-value">{{ userStore.userInfo?.realName || userStore.userInfo?.username || '未知' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">删除时间：</span>
+              <span class="info-value">{{ deleteTime }}</span>
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end space-x-3">
+            <ElButton @click="cancelSecondConfirm">取消</ElButton>
+            <ElButton
+              type="danger"
+              @click="finalConfirmDelete"
               :loading="deleteLoading"
             >
               确认删除

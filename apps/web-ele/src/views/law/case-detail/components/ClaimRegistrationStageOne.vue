@@ -1339,10 +1339,6 @@ onMounted(() => {
               <Icon icon="lucide:plus" class="mr-1" />
               新增债权
             </ElButton>
-            <ElButton type="success" @click="openImportDialog">
-              <Icon icon="lucide:file-spreadsheet" class="mr-1" />
-              Excel导入
-            </ElButton>
             <ElButton type="primary" @click="fetchClaims">
               <Icon icon="lucide:refresh-cw" class="mr-1" />
               刷新

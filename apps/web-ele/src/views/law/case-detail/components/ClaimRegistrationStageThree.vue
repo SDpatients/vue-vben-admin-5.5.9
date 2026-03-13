@@ -147,6 +147,36 @@ const openConfirmDialog = async (row: any) => {
       console.log('💡 [调试] 存在确认记录，准备获取详情');
       // 使用 claimRegistrationId 获取确认详情
       const claimRegistrationId = row.claimRegistrationId || row.id;
+      
+      // 首先获取债权申报详情，以获取金额明细数据（reviewInfo）
+      let claimDetailData: any = null;
+      try {
+        const claimDetailResult = await ClaimService.getClaimDetail(claimRegistrationId);
+        if (claimDetailResult.success) {
+          claimDetailData = claimDetailResult.data;
+          console.log('📋 [调试] 获取债权申报详情成功，reviewInfo:', claimDetailData?.reviewInfo);
+          console.log('💰 [调试] reviewInfo 金额明细:', {
+            declaredPrincipal: claimDetailData?.reviewInfo?.declaredPrincipal,
+            declaredInterest: claimDetailData?.reviewInfo?.declaredInterest,
+            declaredPenalty: claimDetailData?.reviewInfo?.declaredPenalty,
+            declaredOtherLosses: claimDetailData?.reviewInfo?.declaredOtherLosses,
+            declaredTotalAmount: claimDetailData?.reviewInfo?.declaredTotalAmount,
+            confirmedPrincipal: claimDetailData?.reviewInfo?.confirmedPrincipal,
+            confirmedInterest: claimDetailData?.reviewInfo?.confirmedInterest,
+            confirmedPenalty: claimDetailData?.reviewInfo?.confirmedPenalty,
+            confirmedOtherLosses: claimDetailData?.reviewInfo?.confirmedOtherLosses,
+            confirmedTotalAmount: claimDetailData?.reviewInfo?.confirmedTotalAmount,
+            unconfirmedPrincipal: claimDetailData?.reviewInfo?.unconfirmedPrincipal,
+            unconfirmedInterest: claimDetailData?.reviewInfo?.unconfirmedInterest,
+            unconfirmedPenalty: claimDetailData?.reviewInfo?.unconfirmedPenalty,
+            unconfirmedOtherLosses: claimDetailData?.reviewInfo?.unconfirmedOtherLosses,
+            unconfirmedTotalAmount: claimDetailData?.reviewInfo?.unconfirmedTotalAmount,
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ [调试] 获取债权申报详情失败，继续使用现有数据');
+      }
+      
       const result = await ClaimService.getConfirmationDetailByClaimId(claimRegistrationId);
       
       if (result.success) {
@@ -170,10 +200,41 @@ const openConfirmDialog = async (row: any) => {
             });
             
             // 使用刷新后的数据
+            // 合并 row、claimDetailData.reviewInfo 和 confirmationInfo 的数据
+            // 金额明细字段来自 reviewInfo，需要确保正确传递
+            const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
             currentClaim.value = {
               ...row,
+              // 优先使用 claimDetailData.reviewInfo 中的金额明细字段
+              declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? 0,
+              declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? 0,
+              declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? 0,
+              declaredOtherLosses: reviewInfo?.declaredOtherLosses ?? row.declaredOtherLosses ?? 0,
+              declaredTotalAmount: reviewInfo?.declaredTotalAmount ?? row.declaredTotalAmount ?? row.totalAmount ?? 0,
+              confirmedPrincipal: reviewInfo?.confirmedPrincipal ?? 0,
+              confirmedInterest: reviewInfo?.confirmedInterest ?? 0,
+              confirmedPenalty: reviewInfo?.confirmedPenalty ?? 0,
+              confirmedOtherLosses: reviewInfo?.confirmedOtherLosses ?? 0,
+              confirmedTotalAmount: reviewInfo?.confirmedTotalAmount ?? refreshedResult.data.confirmedTotalAmount ?? 0,
+              unconfirmedPrincipal: reviewInfo?.unconfirmedPrincipal ?? 0,
+              unconfirmedInterest: reviewInfo?.unconfirmedInterest ?? 0,
+              unconfirmedPenalty: reviewInfo?.unconfirmedPenalty ?? 0,
+              unconfirmedOtherLosses: reviewInfo?.unconfirmedOtherLosses ?? 0,
+              unconfirmedTotalAmount: reviewInfo?.unconfirmedTotalAmount ?? 0,
+              reviewInfo: reviewInfo,
               confirmationInfo: refreshedResult.data
             };
+            
+            console.log('💰 [调试] currentClaim 金额明细字段:', {
+              declaredPrincipal: currentClaim.value.declaredPrincipal,
+              declaredInterest: currentClaim.value.declaredInterest,
+              declaredTotalAmount: currentClaim.value.declaredTotalAmount,
+              confirmedPrincipal: currentClaim.value.confirmedPrincipal,
+              confirmedInterest: currentClaim.value.confirmedInterest,
+              confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
+              unconfirmedPrincipal: currentClaim.value.unconfirmedPrincipal,
+              unconfirmedTotalAmount: currentClaim.value.unconfirmedTotalAmount,
+            });
             
             // 完整填充确认表单数据（使用刷新后的数据）
             const targetAmount = refreshedResult.data.finalConfirmedAmount ||
@@ -240,10 +301,38 @@ const openConfirmDialog = async (row: any) => {
         } else {
           console.warn('⚠️ [调试] 同步审查数据失败，但继续使用现有数据');
           // 保持 currentClaim 的结构与 row 一致，包含 confirmationInfo 字段
+          // 金额明细字段来自 reviewInfo，需要确保正确传递
+          const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
           currentClaim.value = {
             ...row,
+            // 优先使用 claimDetailData.reviewInfo 中的金额明细字段
+            declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? 0,
+            declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? 0,
+            declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? 0,
+            declaredOtherLosses: reviewInfo?.declaredOtherLosses ?? row.declaredOtherLosses ?? 0,
+            declaredTotalAmount: reviewInfo?.declaredTotalAmount ?? row.declaredTotalAmount ?? row.totalAmount ?? 0,
+            confirmedPrincipal: reviewInfo?.confirmedPrincipal ?? 0,
+            confirmedInterest: reviewInfo?.confirmedInterest ?? 0,
+            confirmedPenalty: reviewInfo?.confirmedPenalty ?? 0,
+            confirmedOtherLosses: reviewInfo?.confirmedOtherLosses ?? 0,
+            confirmedTotalAmount: reviewInfo?.confirmedTotalAmount ?? result.data.confirmedTotalAmount ?? 0,
+            unconfirmedPrincipal: reviewInfo?.unconfirmedPrincipal ?? 0,
+            unconfirmedInterest: reviewInfo?.unconfirmedInterest ?? 0,
+            unconfirmedPenalty: reviewInfo?.unconfirmedPenalty ?? 0,
+            unconfirmedOtherLosses: reviewInfo?.unconfirmedOtherLosses ?? 0,
+            unconfirmedTotalAmount: reviewInfo?.unconfirmedTotalAmount ?? 0,
+            reviewInfo: reviewInfo,
             confirmationInfo: result.data
           };
+          
+          console.log('💰 [调试] currentClaim 金额明细字段 (同步失败分支):', {
+            declaredPrincipal: currentClaim.value.declaredPrincipal,
+            declaredInterest: currentClaim.value.declaredInterest,
+            declaredTotalAmount: currentClaim.value.declaredTotalAmount,
+            confirmedPrincipal: currentClaim.value.confirmedPrincipal,
+            confirmedInterest: currentClaim.value.confirmedInterest,
+            confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
+          });
           
           // 完整填充确认表单数据
           const targetAmount = result.data.finalConfirmedAmount ||
@@ -295,11 +384,53 @@ const openConfirmDialog = async (row: any) => {
     } else {
       console.log('❌ [调试] 不存在确认记录，使用默认初始化');
       // 没有确认记录，使用基本信息初始化
-      currentClaim.value = row;
+      // 首先获取债权申报详情，以获取金额明细数据（reviewInfo）
+      const claimRegistrationId = row.claimRegistrationId || row.id;
+      let claimDetailData: any = null;
+      try {
+        const claimDetailResult = await ClaimService.getClaimDetail(claimRegistrationId);
+        if (claimDetailResult.success) {
+          claimDetailData = claimDetailResult.data;
+          console.log('📋 [调试] 获取债权申报详情成功，reviewInfo:', claimDetailData?.reviewInfo);
+        }
+      } catch (error) {
+        console.warn('⚠️ [调试] 获取债权申报详情失败，继续使用现有数据');
+      }
+      
+      // 金额明细字段来自 reviewInfo，需要确保正确传递
+      const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
+      currentClaim.value = {
+        ...row,
+        // 金额明细字段优先从 reviewInfo 获取
+        declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? row.principal ?? 0,
+        declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? row.interest ?? 0,
+        declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? row.penalty ?? 0,
+        declaredOtherLosses: reviewInfo?.declaredOtherLosses ?? row.declaredOtherLosses ?? row.otherLosses ?? 0,
+        declaredTotalAmount: reviewInfo?.declaredTotalAmount ?? row.declaredTotalAmount ?? row.totalAmount ?? 0,
+        confirmedPrincipal: reviewInfo?.confirmedPrincipal ?? 0,
+        confirmedInterest: reviewInfo?.confirmedInterest ?? 0,
+        confirmedPenalty: reviewInfo?.confirmedPenalty ?? 0,
+        confirmedOtherLosses: reviewInfo?.confirmedOtherLosses ?? 0,
+        confirmedTotalAmount: reviewInfo?.confirmedTotalAmount ?? row.confirmedTotalAmount ?? 0,
+        unconfirmedPrincipal: reviewInfo?.unconfirmedPrincipal ?? 0,
+        unconfirmedInterest: reviewInfo?.unconfirmedInterest ?? 0,
+        unconfirmedPenalty: reviewInfo?.unconfirmedPenalty ?? 0,
+        unconfirmedOtherLosses: reviewInfo?.unconfirmedOtherLosses ?? 0,
+        unconfirmedTotalAmount: reviewInfo?.unconfirmedTotalAmount ?? 0,
+        reviewInfo: reviewInfo,
+      };
+      
+      console.log('💰 [调试] currentClaim 金额明细字段 (无确认记录分支):', {
+        declaredPrincipal: currentClaim.value.declaredPrincipal,
+        declaredInterest: currentClaim.value.declaredInterest,
+        declaredTotalAmount: currentClaim.value.declaredTotalAmount,
+        confirmedPrincipal: currentClaim.value.confirmedPrincipal,
+        confirmedInterest: currentClaim.value.confirmedInterest,
+        confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
+      });
       
       // 加载债权申报的文件
       try {
-        const claimRegistrationId = row.claimRegistrationId || row.id;
         console.log('📁 [调试] 加载债权申报文件，ID:', claimRegistrationId);
         const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
         
@@ -325,7 +456,7 @@ const openConfirmDialog = async (row: any) => {
       }
       
       // 初始化表单数据
-      const targetAmount = row.confirmedTotalAmount || row.reviewInfo?.confirmedTotalAmount || row.totalAmount || 0;
+      const targetAmount = reviewInfo?.confirmedTotalAmount || row.confirmedTotalAmount || row.totalAmount || 0;
       console.log('💰 [调试] 目标金额:', targetAmount);
       
       // 使用 nextTick 确保响应式更新

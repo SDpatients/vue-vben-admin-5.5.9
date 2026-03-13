@@ -226,25 +226,6 @@ onMounted(() => {
             </ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="180">
-          <template #default="{ row }">
-            <ElButton
-              type="primary"
-              size="small"
-              @click="openEditDialog(row)"
-              class="mr-2"
-            >
-              编辑
-            </ElButton>
-            <ElButton
-              type="danger"
-              size="small"
-              @click="deleteUser(row)"
-            >
-              删除
-            </ElButton>
-          </template>
-        </ElTableColumn>
       </ElTable>
 
       <div class="pagination-container">
@@ -288,7 +269,7 @@ onMounted(() => {
           <ElInput v-model="form.email" placeholder="请输入邮箱" />
         </ElFormItem>
         <ElFormItem label="状态">
-          <ElSelect v-model="form.status" placeholder="请选择状态">
+          <ElSelect v-model="form.status" placeholder="请选择状态" disabled>
             <ElOption label="启用" value="ACTIVE" />
             <ElOption label="禁用" value="INACTIVE" />
             <ElOption label="锁定" value="LOCKED" />

@@ -24,6 +24,13 @@ import {
   uploadFileApi,
 } from '#/api/core/file';
 import type { FileApi } from '#/api/core/file';
+import {
+  createTempUploadToken,
+  getTempUploadFiles,
+  cancelTempUploadToken,
+  transferTempFiles,
+  type TempUploadFile,
+} from '#/api/core/temp-upload';
 
 const props = defineProps<{
   caseId: string;
@@ -41,6 +48,11 @@ const showQrCodeDialog = ref(false);
 const qrCodeUrl = ref('');
 const qrCodeExpireTime = ref(0);
 const qrCodePolling = ref<NodeJS.Timeout | null>(null);
+
+// 临时上传Token相关
+const currentTempToken = ref('');
+const tempFilePolling = ref<NodeJS.Timeout | null>(null);
+const mobileUploadedFiles = ref<TempUploadFile[]>([]);
 
 // 移动端上传配置
 const mobileUploadConfig = ref({
@@ -204,6 +216,15 @@ onUnmounted(() => {
     clearInterval(qrCodePolling.value);
     qrCodePolling.value = null;
   }
+  // 清理临时文件轮询
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
+  }
+  // 取消临时Token
+  if (currentTempToken.value) {
+    cancelTempUploadToken(currentTempToken.value).catch(() => {});
+  }
 });
 
 // 检测本机局域网IP地址
@@ -296,84 +317,161 @@ const detectLocalIP = async () => {
   }
 };
 
-// 打开手机上传二维码弹窗
-const openMobileUploadDialog = async () => {
-  // 自动检测本地IP地址
-  if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
-    await detectLocalIP();
+// 从环境变量获取配置的IP地址
+const getConfiguredIP = (): string | null => {
+  const envIP = import.meta.env.VITE_MOBILE_UPLOAD_IP;
+  if (envIP && envIP !== 'localhost' && envIP !== '127.0.0.1') {
+    console.log('[IP检测] 使用环境变量配置的IP:', envIP);
+    return envIP;
   }
-
-  // 生成随机的上传会话ID
-  const uploadSessionId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-  // 生成二维码URL，包含当前页面的信息、上传会话ID和案件ID
-  // 使用网络可访问的地址，确保手机能够访问
-  let baseUrl = window.location.origin;
-
-  // 强制使用配置的端口
-  const currentUrl = new URL(window.location.href);
-  if (mobileUploadConfig.value.ip) {
-    // 使用配置的IP和端口
-    baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
-    console.log(`使用配置的IP和端口: ${baseUrl}`);
-  } else {
-    // 使用当前主机名和配置的端口
-    baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
-    console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
-  }
-
-  // 获取localStorage中的token
-  const token = localStorage.getItem('token');
-  let tokenParam = '';
-  if (token) {
-    // 提取token值（去掉Bearer前缀）
-    const tokenValue = token.startsWith('Bearer ') ? token.substring(7) : token;
-    tokenParam = `&token=${encodeURIComponent(tokenValue)}`;
-  }
-
-  const mobileUploadUrl = `${baseUrl}/websocket-test?mode=upload&bizType=case&bizId=${props.caseId}&caseId=${props.caseId}&sessionId=${uploadSessionId}${tokenParam}`;
-  console.log(`生成的二维码URL: ${mobileUploadUrl}`);
-
-  qrCodeUrl.value = mobileUploadUrl;
-  qrCodeExpireTime.value = 300; // 5分钟过期
-  showQrCodeDialog.value = true;
-
-  // 开始轮询检查上传状态
-  startQrCodePolling(uploadSessionId);
+  return null;
 };
 
-// 开始轮询检查手机上传状态
-const startQrCodePolling = (_sessionId: string) => {
+// 打开手机上传二维码弹窗
+const openMobileUploadDialog = async () => {
+  try {
+    // 创建临时上传Token
+    const tokenResponse = await createTempUploadToken({
+      bizType: 'case',
+      description: '案件附件上传',
+      expireMinutes: 30,
+    });
+
+    if (tokenResponse.code !== 200 || !tokenResponse.data) {
+      ElMessage.error('创建上传Token失败');
+      return;
+    }
+
+    currentTempToken.value = tokenResponse.data.token;
+    console.log('创建临时Token成功:', currentTempToken.value);
+
+    // 自动检测本地IP地址
+    if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
+      await detectLocalIP();
+    }
+
+    // 生成二维码URL
+    let baseUrl = window.location.origin;
+
+    // 优先使用环境变量配置的IP
+    const configuredIP = getConfiguredIP();
+    if (configuredIP) {
+      baseUrl = `http://${configuredIP}:${mobileUploadConfig.value.port}`;
+    } else if (mobileUploadConfig.value.ip) {
+      baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+    } else {
+      const currentUrl = new URL(window.location.href);
+      baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+    }
+
+    // 生成手机上传页面URL，包含token
+    const mobileUploadUrl = `${baseUrl}/mobile-upload?token=${encodeURIComponent(currentTempToken.value)}`;
+    console.log(`生成的二维码URL: ${mobileUploadUrl}`);
+
+    qrCodeUrl.value = mobileUploadUrl;
+    qrCodeExpireTime.value = 1800; // 30分钟过期
+    showQrCodeDialog.value = true;
+
+    // 开始轮询获取手机上传的文件列表
+    startTempFilePolling();
+  } catch (error) {
+    console.error('打开手机上传弹窗失败:', error);
+    ElMessage.error('打开手机上传功能失败');
+  }
+};
+
+// 开始轮询获取手机上传的文件列表
+const startTempFilePolling = () => {
   // 清除之前的轮询
-  if (qrCodePolling.value) {
-    clearInterval(qrCodePolling.value);
-    qrCodePolling.value = null;
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
   }
 
-  qrCodePolling.value = setInterval(async () => {
-    try {
-      // 检查二维码是否过期
-      if (qrCodeExpireTime.value <= 0) {
-        clearInterval(qrCodePolling.value!);
-        qrCodePolling.value = null;
-        ElMessage.warning('二维码已过期，请重新生成');
-        showQrCodeDialog.value = false;
-        return;
-      }
+  // 立即执行一次
+  pollTempFiles();
 
-      qrCodeExpireTime.value--;
-    } catch (error) {
-      console.error('轮询检查失败:', error);
+  // 每3秒轮询一次
+  tempFilePolling.value = setInterval(async () => {
+    await pollTempFiles();
+  }, 3000);
+};
+
+// 轮询获取临时文件列表
+const pollTempFiles = async () => {
+  if (!currentTempToken.value) return;
+
+  try {
+    const response = await getTempUploadFiles(currentTempToken.value);
+    
+    if (response.code === 200 && response.data) {
+      const newFiles = response.data;
+      
+      // 检查是否有新文件上传
+      if (newFiles.length > mobileUploadedFiles.value.length) {
+        const diffCount = newFiles.length - mobileUploadedFiles.value.length;
+        ElMessage.success(`手机上传了 ${diffCount} 个新文件`);
+      }
+      
+      mobileUploadedFiles.value = newFiles;
     }
-  }, 1000);
+  } catch (error) {
+    console.error('获取临时文件列表失败:', error);
+  }
+};
+
+// 转移临时文件到业务
+const transferMobileFiles = async () => {
+  if (!currentTempToken.value || mobileUploadedFiles.value.length === 0) {
+    return;
+  }
+
+  try {
+    const response = await transferTempFiles({
+      token: currentTempToken.value,
+      bizType: 'case',
+      bizId: props.caseId,
+    });
+
+    if (response.code === 200 && response.data) {
+      const transferredFiles = response.data;
+      ElMessage.success(`成功转移 ${transferredFiles.length} 个文件到案件`);
+      
+      // 刷新文件列表
+      await fetchAttachments();
+      
+      // 清理状态
+      currentTempToken.value = '';
+      mobileUploadedFiles.value = [];
+    }
+  } catch (error) {
+    console.error('转移临时文件失败:', error);
+    ElMessage.error('转移临时文件失败');
+  }
 };
 
 // 关闭二维码弹窗
-const closeQrCodeDialog = () => {
+const closeQrCodeDialog = async () => {
   showQrCodeDialog.value = false;
-  if (qrCodePolling.value) {
-    clearInterval(qrCodePolling.value);
-    qrCodePolling.value = null;
+  
+  // 停止轮询
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
+  }
+  
+  // 如果有上传的文件，自动转移
+  if (mobileUploadedFiles.value.length > 0) {
+    await transferMobileFiles();
+  } else if (currentTempToken.value) {
+    // 如果没有上传文件，取消Token
+    try {
+      await cancelTempUploadToken(currentTempToken.value);
+      console.log('Token已取消:', currentTempToken.value);
+    } catch (error) {
+      console.error('取消Token失败:', error);
+    }
+    currentTempToken.value = '';
   }
 };
 
@@ -505,7 +603,22 @@ const handleRefresh = async () => {
           <div class="qr-code-tip">
             <p>1. 使用手机浏览器扫描二维码</p>
             <p>2. 在手机端选择要上传的文件</p>
-            <p>3. 等待上传完成后，文件将自动显示在附件列表中</p>
+            <p>3. 等待上传完成后，关闭弹窗即可自动转移文件到案件</p>
+          </div>
+
+          <!-- 手机上传状态 -->
+          <div v-if="mobileUploadedFiles.length > 0" class="mobile-upload-status">
+            <div class="status-header">
+              <Icon icon="lucide:check-circle" class="status-icon success" />
+              <span>已上传 {{ mobileUploadedFiles.length }} 个文件</span>
+            </div>
+            <div class="file-list-preview">
+              <div v-for="file in mobileUploadedFiles" :key="file.id" class="file-item">
+                <Icon :icon="getFileIcon(file.fileExtension)" class="file-icon-small" />
+                <span class="file-name">{{ file.originalFileName }}</span>
+                <span class="file-size">{{ formatFileSize(file.fileSize) }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- 微信浏览器提示 -->
@@ -692,5 +805,59 @@ const handleRefresh = async () => {
   display: inline-block;
   vertical-align: middle;
   margin: 0 4px;
+}
+
+/* 手机上传状态样式 */
+.mobile-upload-status {
+  width: 100%;
+  background: #f0f9ff;
+  border: 1px solid #91d5ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  color: #52c41a;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.status-icon.success {
+  color: #52c41a;
+}
+
+.file-list-preview {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.file-icon-small {
+  font-size: 16px;
+  color: #409eff;
+  margin-right: 8px;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 </style>
