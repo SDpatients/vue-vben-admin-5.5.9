@@ -1606,7 +1606,7 @@ onMounted(async () => {
           </AnalysisChartCard>
 
           <!-- 功能导航板块 -->
-          <AnalysisChartCard title="功能导航" :class="['bg-white']">
+          <AnalysisChartCard title="功能导航" :class="['bg-white', 'mb-[8px]']">
             <div class="module-container">
               <div class="module-content">
                 <div class="grid grid-cols-4 gap-3">
@@ -1703,20 +1703,8 @@ onMounted(async () => {
             </div>
           </AnalysisChartCard>
 
-          <!-- 最新动态板块 - 放在功能导航下方 -->
-          <div class="w-full" v-if="!isLawyer">
-            <AnalysisChartCard title="最新动态" class="bg-white">
-              <div class="module-container">
-  
-                <div class="module-content">
-                  <ActivityTimeline @update:count="(count) => { todoCount = count; }" />
-                </div>
-              </div>
-            </AnalysisChartCard>
-          </div>
-
-          <!-- 友情链接板块 -->
-          <AnalysisChartCard title="友情链接" class="bg-white mt-[5px]">
+          <!-- 友情链接板块 - 放在最新动态上方 -->
+          <AnalysisChartCard title="友情链接" class="bg-white mb-[8px]">
             <div class="friend-links-container">
               <div class="friend-links-grid">
                 <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
@@ -1752,6 +1740,18 @@ onMounted(async () => {
               </div>
             </div>
           </AnalysisChartCard>
+
+          <!-- 最新动态板块 - 放在友情链接下方 -->
+          <div class="w-full" v-if="!isLawyer">
+            <AnalysisChartCard title="最新动态" class="bg-white">
+              <div class="module-container">
+  
+                <div class="module-content">
+                  <ActivityTimeline @update:count="(count) => { todoCount = count; }" />
+                </div>
+              </div>
+            </AnalysisChartCard>
+          </div>
         </div>
       </div>
     </div>
@@ -2895,7 +2895,7 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
-/* 友情链接样式 */
+/* 友情链接样式 - 去掉外边框和背景色 */
 .friend-links-container {
   padding: 8px 0;
 }
@@ -2910,16 +2910,15 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  background-color: #f5f7fa;
+  background-color: transparent;
   border-radius: 6px;
   text-decoration: none;
   transition: all 0.3s ease;
-  border: 1px solid transparent;
+  border: none;
 }
 
 .friend-link-item:hover {
-  background-color: #ecf5ff;
-  border-color: #409eff;
+  background-color: transparent;
   transform: translateX(4px);
 }
 
