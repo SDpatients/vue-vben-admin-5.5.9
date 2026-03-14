@@ -2130,37 +2130,6 @@ onMounted(() => {
       destroy-on-close
     >
       <div class="add-claim-dialog">
-        <div class="excel-upload-section mb-4">
-          <ElAlert title="文件导入" type="info" :closable="false" class="mb-2">
-            <p>上传Excel文件可自动填充表单字段</p>
-          </ElAlert>
-          <div class="flex items-center gap-2">
-            <input
-              ref="uploadRef"
-              type="file"
-              accept=".xls,.xlsx"
-              @change="handleFileChange"
-              style="display: none"
-            />
-            <ElButton @click="uploadRef?.click()">
-              <Icon icon="lucide:upload" class="mr-1" />
-              选择Excel文件
-            </ElButton>
-            <ElButton
-              type="success"
-              @click="handleImportExcel"
-              :loading="importing"
-              :disabled="!selectedFile"
-            >
-              <Icon icon="lucide:magic-wand" class="mr-1" />
-              导入并自动填充
-            </ElButton>
-            <span v-if="selectedFile" class="text-sm text-gray-600">
-              已选择: {{ selectedFile.name }}
-            </span>
-          </div>
-        </div>
-
         <ElForm label-width="120px" :model="claimForm">
           <ElRow :gutter="20">
             <ElCol :span="12">
@@ -2541,13 +2510,6 @@ onMounted(() => {
   border-top: 1px solid #ebeef5;
   padding-top: 16px;
   margin-bottom: 16px;
-}
-
-.excel-upload-section {
-  background-color: #f5f7fa;
-  padding: 16px;
-  border-radius: 4px;
-  margin-bottom: 20px;
 }
 
 .field-filled {

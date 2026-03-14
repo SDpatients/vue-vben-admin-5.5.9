@@ -564,6 +564,11 @@ const getWorkTypeLabel = (type: string) => {
   return option ? option.label : type;
 };
 
+const canDeleteWorkLog = (log: any) => {
+  if (!currentUserId.value) return false;
+  return log.createUserId === currentUserId.value;
+};
+
 const fetchWorkLogs = async () => {
   try {
     workLogLoading.value = true;
@@ -1018,7 +1023,7 @@ const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
-// 友情链接相关
+// 尽职调查相关
 const showFriendLinksDialog = ref(false);
 
 // 批审相关
@@ -5167,7 +5172,7 @@ const endDrag = () => {
             <div class="header-actions">
               <ElButton type="primary" @click="openFriendLinksDialog">
                 <Icon icon="lucide:link" class="mr-2" />
-                友情链接
+                尽职调查
               </ElButton>
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
@@ -6631,6 +6636,7 @@ const endDrag = () => {
                         查看
                       </ElButton>
                       <ElPopconfirm
+                        v-if="canDeleteWorkLog(log)"
                         title="确定要删除这条日志吗？"
                         @confirm="deleteWorkLog(log.id)"
                       >
@@ -8669,10 +8675,10 @@ const endDrag = () => {
         @progress-updated="handleProgressUpdated"
       />
       
-      <!-- 友情链接对话框 -->
+      <!-- 尽职调查对话框 -->
       <ElDialog
         v-model="showFriendLinksDialog"
-        title="友情链接"
+        title="尽职调查"
         width="600px"
         destroy-on-close
       >
@@ -8717,6 +8723,10 @@ const endDrag = () => {
             <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
               <Icon icon="lucide:external-link" class="link-icon" />
               <span class="link-text">企查查</span>
+            </a>
+            <a href="https://gswsdj.zjzwfw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+              <Icon icon="lucide:external-link" class="link-icon" />
+              <span class="link-text">浙江省企业登记全程化电子平台</span>
             </a>
           </div>
         </div>
@@ -10508,7 +10518,7 @@ const endDrag = () => {
   margin-bottom: 0;
 }
 
-/* 友情链接样式 */
+/* 尽职调查样式 */
 .friend-links-container {
   padding: 16px;
 }

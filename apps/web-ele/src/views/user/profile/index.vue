@@ -255,9 +255,6 @@ onMounted(() => {
               </ElButton>
             </div>
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="电话">
-            <span class="text-gray-700">{{ currentUser.phone || '-' }}</span>
-          </ElDescriptionsItem>
         </ElDescriptions>
         <div v-else class="no-data">
           <p>暂无用户信息</p>

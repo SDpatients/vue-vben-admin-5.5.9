@@ -523,7 +523,7 @@ const exportBankAccountData = () => {
   try {
     exportToExcel({
       data: bankAccountList.value,
-      fileName: '银行账户管理数据',
+      fileName: '管理人银行账户数据',
       sheetName: '银行账户',
       columns: exportColumns,
     });
@@ -1173,11 +1173,11 @@ const handleSubmit = async () => {
 
 <template>
   <div class="p-6">
-    <ElCard header="银行账户管理" size="small">
+    <ElCard header="管理人银行账户" size="small">
       <template #header>
         <div class="flex items-center justify-between">
           <div class="flex items-center">
-            <span class="text-lg font-semibold">银行账户管理</span>
+            <span class="text-lg font-semibold">管理人银行账户</span>
             <span class="ml-3 text-sm text-gray-400">（仅能查看到自己创建的银行账户）</span>
             <div class="flex items-center space-x-2 ml-4">
               <ElButton

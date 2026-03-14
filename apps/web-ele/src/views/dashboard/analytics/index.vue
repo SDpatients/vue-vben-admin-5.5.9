@@ -7,7 +7,10 @@ import { computed, onMounted, ref, watch } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { ElCard, ElCol, ElRadio, ElRadioGroup, ElRow } from 'element-plus';
+import { ElCard, ElCol, ElRadio, ElRadioGroup, ElRow, ElCollapse, ElCollapseItem } from 'element-plus';
+
+import LawyerCaseChart from './components/LawyerCaseChart.vue';
+import YearlyTransactionChart from './components/YearlyTransactionChart.vue';
 
 import {
   getCaseAmountRanking,
@@ -514,7 +517,22 @@ onMounted(() => {
 
 <template>
   <div class="p-5">
-    <!-- 案件管理图表 -->
+    <ElCollapse class="mb-5">
+      <ElCollapseItem title="年度统计" name="yearly">
+        <template #title>
+          <span class="text-lg font-semibold">年度统计</span>
+        </template>
+        <ElRow :gutter="20">
+          <ElCol :span="12">
+            <LawyerCaseChart />
+          </ElCol>
+          <ElCol :span="12">
+            <YearlyTransactionChart />
+          </ElCol>
+        </ElRow>
+      </ElCollapseItem>
+    </ElCollapse>
+
     <div class="mt-5">
       <div class="flex items-center gap-3 mb-4">
         <h3 class="text-lg font-semibold">案件管理分析</h3>

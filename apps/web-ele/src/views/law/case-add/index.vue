@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CaseApi } from '#/api/core/case';
 
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAccessStore } from '@vben/stores';
@@ -31,24 +31,99 @@ const form = reactive<CaseApi.CreateCaseRequest>({
   acceptanceCourt: '',
   designatedJudge: '',
   designatedInstitution: '',
-  mainResponsiblePerson: '',
+  mainResponsiblePerson: '李律师',
   undertakingPersonnel: undefined,
   isSimplifiedTrial: 0,
-  caseReason: '',
   caseProgress: 'FIRST',
   debtClaimDeadline: '',
-  filingDate: '',
   remarks: '',
 });
+
+const STORAGE_KEY = 'law_case_add_form';
+
+const saveFormToLocalStorage = () => {
+  const dataToSave = {
+    caseNumber: form.caseNumber,
+    caseName: form.caseName,
+    acceptanceDate: form.acceptanceDate,
+    caseSource: form.caseSource,
+    acceptanceCourt: form.acceptanceCourt,
+    designatedJudge: form.designatedJudge,
+    designatedInstitution: form.designatedInstitution,
+    mainResponsiblePerson: form.mainResponsiblePerson,
+    undertakingPersonnel: form.undertakingPersonnel,
+    isSimplifiedTrial: form.isSimplifiedTrial,
+    caseProgress: form.caseProgress,
+    debtClaimDeadline: form.debtClaimDeadline,
+    remarks: form.remarks,
+    uploadedFiles: uploadedFiles.value.map((f) => ({
+      name: f.name,
+      fileId: f.fileId,
+      url: f.url,
+    })),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+};
+
+const loadFormFromLocalStorage = () => {
+  const savedData = localStorage.getItem(STORAGE_KEY);
+  if (savedData) {
+    try {
+      const parsed = JSON.parse(savedData);
+      form.caseNumber = parsed.caseNumber || '';
+      form.caseName = parsed.caseName || '';
+      form.acceptanceDate = parsed.acceptanceDate || '';
+      form.caseSource = parsed.caseSource || '';
+      form.acceptanceCourt = parsed.acceptanceCourt || '';
+      form.designatedJudge = parsed.designatedJudge || '';
+      form.designatedInstitution = parsed.designatedInstitution || '';
+      form.mainResponsiblePerson = parsed.mainResponsiblePerson || '李律师';
+      form.undertakingPersonnel = parsed.undertakingPersonnel;
+      form.isSimplifiedTrial = parsed.isSimplifiedTrial ?? 0;
+      form.caseProgress = parsed.caseProgress || 'FIRST';
+      form.debtClaimDeadline = parsed.debtClaimDeadline || '';
+      form.remarks = parsed.remarks || '';
+
+      if (parsed.uploadedFiles && parsed.uploadedFiles.length > 0) {
+        ElMessage.info(`已恢复 ${parsed.uploadedFiles.length} 个文件，请重新选择文件上传`);
+      }
+    } catch (e) {
+      console.error('恢复表单数据失败:', e);
+    }
+  }
+};
+
+const clearFormFromLocalStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
+
+const uploadedFiles = ref<
+  { file: File; fileId: number; name: string; url: string }[]
+>([]);
+
+loadFormFromLocalStorage();
+
+watch(
+  () => form,
+  () => {
+    saveFormToLocalStorage();
+  },
+  { deep: true },
+);
+
+watch(
+  () => uploadedFiles.value,
+  () => {
+    saveFormToLocalStorage();
+  },
+  { deep: true },
+);
 
 const courtList = ref<{ label: string; value: string }[]>([]);
 const managerList = ref<{ label: string; sepId: string; value: string }[]>([]);
 const userList = ref<{ label: string; value: number }[]>([]);
 const userListLoading = ref(false);
 
-const uploadedFiles = ref<
-  { file: File; fileId: number; name: string; url: string }[]
->([]);
 const maxFileSize = 10 * 1024 * 1024;
 const allowedTypes = new Set([
   '.doc',
@@ -218,9 +293,6 @@ const rules = reactive({
   mainResponsiblePerson: [
     { max: 50, message: '主要负责人长度不能超过 50 个字符', trigger: 'blur' },
   ],
-  caseReason: [
-    { max: 200, message: '案件原因长度不能超过 200 个字符', trigger: 'blur' },
-  ],
   remarks: [
     { max: 500, message: '备注长度不能超过 500 个字符', trigger: 'blur' },
   ],
@@ -228,6 +300,7 @@ const rules = reactive({
 
 const resetForm = () => {
   formRef.value?.resetFields();
+  clearFormFromLocalStorage();
   ElMessage.info('表单已重置');
 };
 
@@ -248,10 +321,8 @@ const submitForm = async () => {
       mainResponsiblePerson: form.mainResponsiblePerson?.trim(),
       undertakingPersonnel: form.undertakingPersonnel,
       isSimplifiedTrial: form.isSimplifiedTrial,
-      caseReason: form.caseReason?.trim(),
       caseProgress: form.caseProgress,
       debtClaimDeadline: form.debtClaimDeadline,
-      filingDate: form.filingDate,
       remarks: form.remarks?.trim(),
     };
 
@@ -279,8 +350,6 @@ const submitForm = async () => {
         <p><strong>承办人员：</strong>${submitData.undertakingPersonnel || '-'}</p>
         <p><strong>是否简化审：</strong>${submitData.isSimplifiedTrial === 1 ? '是' : '否'}</p>
         <p><strong>案件进度：</strong>${caseProgressMap[submitData.caseProgress] || submitData.caseProgress}</p>
-        <p><strong>案件原因：</strong>${submitData.caseReason || '-'}</p>
-        <p><strong>立案日期：</strong>${submitData.filingDate || '-'}</p>
         <p><strong>备注：</strong>${submitData.remarks || '-'}</p>
         ${uploadedFiles.value.length > 0 ? `<h3 style="margin: 16px 0 12px 0; font-size: 16px; font-weight: bold; color: #303133;">文件列表</h3><p>${uploadedFiles.value.map((f) => f.name).join('、')}</p>` : ''}
       </div>
@@ -330,6 +399,7 @@ const submitForm = async () => {
         ElMessage.success('案件添加成功');
       }
 
+      clearFormFromLocalStorage();
       router.push(`/law/case-detail/${caseId}`);
     } else {
       ElMessage.error(caseResult.message || '案件添加失败');
@@ -546,31 +616,6 @@ const submitForm = async () => {
                     <el-option value="SIXTH" label="第六阶段" />
                     <el-option value="SEVENTH" label="第七阶段" />
                   </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-form-item label="案件原因" prop="caseReason">
-                  <el-input
-                    v-model="form.caseReason"
-                    placeholder="请输入案件原因"
-                    maxlength="200"
-                  />
-                </el-form-item>
-              </el-col>
-
-              <el-col :span="8">
-                <el-form-item label="立案日期" prop="filingDate">
-                  <el-date-picker
-                    v-model="form.filingDate"
-                    type="date"
-                    placeholder="请选择立案日期"
-                    format="YYYY-MM-DD"
-                    value-format="YYYY-MM-DD"
-                    style="width: 100%"
-                  />
                 </el-form-item>
               </el-col>
             </el-row>

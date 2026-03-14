@@ -1676,7 +1676,7 @@ onMounted(async () => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <span class="function-nav-text text-sm font-medium">银行账户</span>
+                    <span class="function-nav-text text-sm font-medium">管理人银行账户</span>
                   </router-link>
                   
                   <!-- 工作计划管理 -->
@@ -1703,8 +1703,8 @@ onMounted(async () => {
             </div>
           </AnalysisChartCard>
 
-          <!-- 友情链接板块 - 放在最新动态上方 -->
-          <AnalysisChartCard title="友情链接" class="bg-white mb-[8px]">
+          <!-- 尽职调查板块 - 放在最新动态上方 -->
+          <AnalysisChartCard title="尽职调查" class="bg-white mb-[8px]">
             <div class="friend-links-container">
               <div class="friend-links-grid">
                 <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
@@ -1737,11 +1737,14 @@ onMounted(async () => {
                 <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
                   <span class="link-text">企查查</span>
                 </a>
+                <a href="https://gswsdj.zjzwfw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江省企业登记全程化电子平台</span>
+                </a>
               </div>
             </div>
           </AnalysisChartCard>
 
-          <!-- 最新动态板块 - 放在友情链接下方 -->
+          <!-- 最新动态板块 - 放在尽职调查下方 -->
           <div class="w-full" v-if="!isLawyer">
             <AnalysisChartCard title="最新动态" class="bg-white">
               <div class="module-container">
@@ -2895,7 +2898,7 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
-/* 友情链接样式 - 去掉外边框和背景色 */
+/* 尽职调查样式 - 去掉外边框和背景色 */
 .friend-links-container {
   padding: 8px 0;
 }

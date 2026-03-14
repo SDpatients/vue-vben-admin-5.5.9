@@ -138,3 +138,50 @@ export const getCreditorClaimAmountRanking = (params: { topN?: number; userId?: 
     { params },
   );
 };
+
+export namespace YearlyStatisticsApi {
+  export interface LawyerCaseStatistics {
+    userId: number;
+    realName: string;
+    username: string;
+    totalCaseCount: number;
+    leaderCaseCount: number;
+    adminCaseCount: number;
+    year: number;
+  }
+
+  export interface MonthlyTransactionData {
+    month: number;
+    monthLabel: string;
+    incomeAmount: number;
+    expenseAmount: number;
+    netAmount: number;
+    incomeCount: number;
+    expenseCount: number;
+  }
+
+  export interface YearlyTransactionStatistics {
+    year: number;
+    totalIncomeAmount: number;
+    totalExpenseAmount: number;
+    netAmount: number;
+    totalIncomeCount: number;
+    totalExpenseCount: number;
+    totalTransactionCount: number;
+    monthlyData: MonthlyTransactionData[];
+  }
+}
+
+export const getLawyerCaseStatistics = (params?: { year?: number }) => {
+  return requestClient.get<YearlyStatisticsApi.LawyerCaseStatistics[]>(
+    '/api/v1/statistics/lawyer-case',
+    { params },
+  );
+};
+
+export const getYearlyTransactionStatistics = (params?: { year?: number }) => {
+  return requestClient.get<YearlyStatisticsApi.YearlyTransactionStatistics>(
+    '/api/v1/statistics/yearly-transaction',
+    { params },
+  );
+};
