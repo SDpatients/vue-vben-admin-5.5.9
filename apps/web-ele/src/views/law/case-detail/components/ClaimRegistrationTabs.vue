@@ -94,21 +94,21 @@ const handleAdd = () => {
           <ClaimRegistrationStageOne ref="stageOneRef" :case-id="caseId" />
         </ElTabPane>
 
-        <ElTabPane label="债权审查" name="stage2">
+        <ElTabPane label="债权审查与确认" name="stage2">
           <template #label>
             <div class="tab-label">
               <Icon icon="lucide:file-search" class="mr-1" />
-              债权审查
+              债权审查与确认
             </div>
           </template>
           <ClaimRegistrationStageTwo ref="stageTwoRef" :case-id="caseId" />
         </ElTabPane>
 
-        <ElTabPane label="债权确认" name="stage3">
+        <ElTabPane label="债权复查" name="stage3">
           <template #label>
             <div class="tab-label">
               <Icon icon="lucide:file-check" class="mr-1" />
-              债权确认
+              债权复查
             </div>
           </template>
           <ClaimRegistrationStageThree ref="stageThreeRef" :case-id="caseId" />

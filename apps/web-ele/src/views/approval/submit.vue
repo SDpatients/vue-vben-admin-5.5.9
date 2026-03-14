@@ -98,24 +98,24 @@ const rules = {
               <ElOption label="全面接管债务人" value="TASK_003" />
               <ElOption label="管理人印章" value="TASK_004" />
               <ElOption label="调查财产及经营状况" value="TASK_005" />
-              <ElOption label="决定合同继续履行或解除" value="TASK_006" />
-              <ElOption label="追收债务人财产" value="TASK_007" />
+              <ElOption label="追收债务人财产" value="TASK_006" />
+              <ElOption label="决定合同继续履行或解除" value="TASK_007" />
               <ElOption label="通知已知债权人并公告" value="TASK_008" />
               <ElOption label="接收、登记债权申报" value="TASK_009" />
               <ElOption label="审查申报债权并编制债权表" value="TASK_010" />
-              <ElOption label="筹备第一次债权人会议" value="TASK_011" />
-              <ElOption label="召开会议核查债权与议决事项" value="TASK_012" />
-              <ElOption label="表决通过财产变价/分配方案" value="TASK_013" />
-              <ElOption label="宣告重整与和解" value="TASK_014" />
-              <ElOption label="审查宣告破产条件" value="TASK_015" />
-              <ElOption label="裁定宣告债务人破产" value="TASK_016" />
-              <ElOption label="拟定并执行财产变价方案" value="TASK_017" />
-              <ElOption label="执行破产财产分配" value="TASK_018" />
-              <ElOption label="破产费用与共益债务" value="TASK_019" />
-              <ElOption label="提请终结破产程序" value="TASK_020" />
-              <ElOption label="法院裁定并公告" value="TASK_021" />
-              <ElOption label="办理企业注销登记" value="TASK_022" />
-              <ElOption label="管理人终止执行职务并归档" value="TASK_023" />
+              <ElOption label="债权审查结果通知" value="TASK_010_1" />
+              <ElOption label="会议资料" value="TASK_011" />
+              <ElOption label="表决事项和表决结果" value="TASK_014" />
+              <ElOption label="宣告重整与和解" value="TASK_015" />
+              <ElOption label="审查宣告破产条件" value="TASK_016" />
+              <ElOption label="裁定宣告债务人破产" value="TASK_017" />
+              <ElOption label="破产财产变价方案" value="TASK_018" />
+              <ElOption label="破产财产分配方案" value="TASK_019" />
+              <ElOption label="破产费用与共益债务" value="TASK_020" />
+              <ElOption label="提请终结破产程序" value="TASK_021" />
+              <ElOption label="法院裁定并公告" value="TASK_022" />
+              <ElOption label="办理企业注销登记" value="TASK_023" />
+              <ElOption label="管理人终止执行职务并归档" value="TASK_024" />
             </ElSelect>
           </ElFormItem>
 

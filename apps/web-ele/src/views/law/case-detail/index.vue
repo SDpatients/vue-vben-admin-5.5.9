@@ -377,13 +377,13 @@ const stages = [
       },
       {
         code: 'TASK_006',
-        name: '决定合同继续履行或解除',
-        description: '管理人决定债务人未履行完毕合同的继续履行或解除。需上传：1.合同清单；2.合同履行情况说明；3.继续履行或解除的决定文件；4.相关债权人意见（如有）。需确认：1.决定是否符合法律规定；2.是否充分考虑债权人利益；3.程序是否合法合规。'
+        name: '追收债务人财产',
+        description: '管理人追收债务人的财产，包括到期债权、出资人未缴出资、抽逃出资等。需上传：1.财产追收方案；2.追收进展情况报告；3.相关法律文书（如起诉状、执行申请书等）；4.追收结果说明。需确认：1.追收措施是否合法有效；2.是否充分行使管理人职责；3.追收结果是否及时入账。'
       },
       {
         code: 'TASK_007',
-        name: '追收债务人财产',
-        description: '管理人追收债务人的财产，包括到期债权、出资人未缴出资、抽逃出资等。需上传：1.财产追收方案；2.追收进展情况报告；3.相关法律文书（如起诉状、执行申请书等）；4.追收结果说明。需确认：1.追收措施是否合法有效；2.是否充分行使管理人职责；3.追收结果是否及时入账。'
+        name: '决定合同继续履行或解除',
+        description: '管理人决定债务人未履行完毕合同的继续履行或解除。需上传：1.合同清单；2.合同履行情况说明；3.继续履行或解除的决定文件；4.相关债权人意见（如有）。需确认：1.决定是否符合法律规定；2.是否充分考虑债权人利益；3.程序是否合法合规。'
       },
     ],
   },
@@ -407,6 +407,11 @@ const stages = [
         name: '审查申报债权并编制债权表',
         description: '管理人审查申报的债权并编制债权表。需上传：1.债权审查意见；2.债权表；3.债权审查中发现的问题及处理建议；4.债权人对债权表的异议及处理情况。需确认：1.审查是否依法进行；2.债权表是否准确反映债权情况；3.异议处理是否合法合规。'
       },
+      {
+        code: 'TASK_010_1',
+        name: '债权审查结果通知',
+        description: '管理人将债权审查结果通知各债权人。需上传：1.债权审查结论通知书；2.送达证明；3.债权人签收记录；4.异议处理记录（如有）。需确认：1.通知是否送达所有申报债权人；2.通知内容是否准确完整；3.异议处理是否及时合法。'
+      },
     ],
   },
   {
@@ -416,94 +421,82 @@ const stages = [
     modules: [
       {
         code: 'TASK_011',
-        name: '筹备第一次债权人会议',
+        name: '会议资料',
         description: '管理人筹备第一次债权人会议。需上传：1.会议议程；2.会议材料（债权表、管理人工作报告、财产管理方案等）；3.会议通知及送达证明；4.会场布置及设备准备情况。需确认：1.会议材料是否充分完整；2.通知是否送达所有债权人；3.筹备工作是否符合法律规定。'
       },
       {
-        code: 'TASK_012',
-        name: '召开会议核查债权与议决事项',
-        description: '召开债权人会议，核查债权并议决相关事项。需上传：1.会议记录；2.债权核查情况报告；3.决议事项表决结果；4.会议签到簿。需确认：1.会议程序是否合法；2.决议是否符合法律规定；3.表决结果是否准确记录。'
-      },
-      {
-        code: 'TASK_013',
-        name: '表决通过财产变价/分配方案',
-        description: '债权人会议表决通过财产变价方案和分配方案。需上传：1.财产变价方案；2.财产分配方案；3.表决结果；4.相关债权人意见。需确认：1.方案是否符合债权人利益；2.表决程序是否合法；3.决议是否通过。'
+        code: 'TASK_014',
+        name: '表决事项和表决结果',
+        description: '债权人会议对表决事项进行表决并记录结果。需上传：1.表决事项清单；2.表决票统计表；3.表决结果报告；4.决议通过证明。需确认：1.表决事项是否完整；2.表决程序是否合法；3.表决结果是否准确记录并及时报告。'
       },
     ],
   },
   {
     id: 5,
-    name: '五、重整与和解',
-    description: '审查并裁定债务人重整或和解',
+    name: '五、重整和解及破产宣告',
+    description: '审查并裁定债务人重整、和解或宣告破产',
     modules: [
       {
-        code: 'TASK_014',
+        code: 'TASK_015_1',
         name: '宣告重整与和解',
         description: '审查并裁定债务人重整或和解。需上传：1.重整或和解申请；2.重整计划或和解协议草案；3.债权人会议决议；4.法院裁定书。需确认：1.重整或和解申请是否符合法律规定；2.重整计划或和解协议草案是否合法可行；3.程序是否合法合规。'
       },
-    ],
-  },
-  {
-    id: 6,
-    name: '六、破产宣告',
-    description: '审查并裁定宣告债务人破产',
-    modules: [
       {
-        code: 'TASK_015',
+        code: 'TASK_016',
         name: '审查宣告破产条件',
         description: '法院审查债务人是否符合宣告破产的条件。需上传：1.债务人财产状况报告；2.债权清偿情况报告；3.管理人关于宣告破产的申请；4.其他相关材料。需确认：债务人是否存在不能清偿到期债务且资产不足以清偿全部债务，或明显缺乏清偿能力的情形，且无法达成和解或重整协议。'
       },
       {
-        code: 'TASK_016',
+        code: 'TASK_017',
         name: '裁定宣告债务人破产',
         description: '法院裁定宣告债务人破产。需上传：1.法院宣告破产裁定书；2.破产宣告公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
       },
     ],
   },
   { 
-    id: 7,
-    name: '七、财产变价与分配',
+    id: 6,
+    name: '六、财产变价与分配',
     description: '拟定执行财产变价方案并分配破产财产',
     modules: [
       {
-        code: 'TASK_017',
-        name: '拟定并执行财产变价方案',
+        code: 'TASK_018',
+        name: '破产财产变价方案',
         description: '管理人拟定财产变价方案并执行。需上传：1.财产变价方案；2.财产评估报告（如有）；3.变价方式说明（拍卖、变卖等）；4.变价结果报告。需确认：1.变价方案是否符合债权人会议决议；2.变价程序是否合法透明；3.变价结果是否公平合理。'
       },
       {
-        code: 'TASK_018',
-        name: '执行破产财产分配',
+        code: 'TASK_019',
+        name: '破产财产分配方案',
         description: '管理人执行破产财产分配方案。需上传：1.破产财产分配方案；2.分配明细表；3.分配通知及送达证明；4.分配结果报告。需确认：1.分配是否按照法定顺序进行；2.分配金额是否准确；3.程序是否合法合规。'
       },
       {
-        code: 'TASK_019',
+        code: 'TASK_020',
         name: '破产费用与共益债务',
         description: '管理人审核确认破产费用和共益债务。需上传：1.破产费用清单；2.共益债务清单；3.费用支出凭证；4.审核意见。需确认：1.费用是否真实发生；2.是否符合法律规定的范围；3.支出是否合理必要。'
       },
     ],
   },
   {
-    id: 8,
-    name: '八、程序终结',
+    id: 7,
+    name: '七、程序终结',
     description: '终结破产程序、办理企业注销并归档',
     modules: [
       {
-        code: 'TASK_020',
+        code: 'TASK_021',
         name: '提请终结破产程序',
         description: '管理人提请法院终结破产程序。需上传：1.破产财产分配报告；2.管理人工作报告；3.提请终结破产程序的申请。需确认：1.破产财产是否分配完毕；2.报告内容是否真实完整；3.申请是否符合法律规定。'
       },
       {
-        code: 'TASK_021',
+        code: 'TASK_022',
         name: '法院裁定并公告',
         description: '法院裁定终结破产程序并公告。需上传：1.法院终结破产程序裁定书；2.终结破产程序公告。需确认：裁定书内容是否完整准确，公告是否及时发布。'
       },
       {
-        code: 'TASK_022',
+        code: 'TASK_023',
         name: '办理企业注销登记',
         description: '管理人办理债务人企业注销登记。需上传：1.企业注销登记申请书；2.法院终结破产程序裁定书；3.税务注销证明；4.注销登记证明。需确认：1.注销程序是否合法；2.是否完成所有注销手续；3.证明文件是否齐全。'
       },
       {
-        code: 'TASK_023',
+        code: 'TASK_024',
         name: '管理人终止执行职务并归档',
         description: '管理人终止执行职务并将相关资料归档。需上传：1.管理人终止执行职务申请书；2.法院关于终止管理人执行职务的决定书；3.破产案件卷宗归档目录；4.归档证明。需确认：1.所有工作是否完成；2.资料是否完整归档；3.程序是否合法合规。'
       },
@@ -970,6 +963,7 @@ const announcementData = reactive({
   attachments: [],
   caseNumber: '',
   principalOfficer: '',
+  publishTime: '',
 });
 
 const announcements = ref<any[]>([]);
@@ -1509,10 +1503,10 @@ const recipientTypeOptions = [
 // 送达方式选项
 const serviceMethodOptions = [
   { label: '电子送达', value: '电子送达' },
-  { label: '邮寄送达', value: '邮寄送达' },
   { label: '直接送达', value: '直接送达' },
-  { label: '公告送达', value: '公告送达' },
+  { label: '邮寄送达', value: '邮寄送达' },
   { label: '委托送达', value: '委托送达' },
+  { label: '留置送达', value: '留置送达' },
 ];
 
 // 上传文件相关
@@ -2852,6 +2846,7 @@ const fetchAnnouncements = async () => {
         publisher_name: item.publisherName,
         publish_time: item.publishTime,
         view_count: item.viewCount,
+        date: item.publishTime, // 将 publishTime 映射到 date 字段用于表格显示
       }));
       // 排序：置顶的放最前面，然后按ID降序（ID越大越靠前）
       list.sort((a: any, b: any) => {
@@ -2893,6 +2888,7 @@ const saveAnnouncement = async () => {
       title: announcementData.title,
       content: announcementData.content,
       announcementType: announcementData.announcement_type,
+      publishTime: announcementData.publishTime || undefined,
     };
 
     console.log('=== 保存公告 ===');
@@ -3317,6 +3313,19 @@ const openNewAnnouncementDialog = async () => {
 
   // 自动设置案号
   announcementData.caseNumber = caseDetail.value?.案号 || '';
+
+  // 设置默认发布时间为当前北京时间
+  const now = new Date();
+  // 获取当前 UTC 时间并转换为北京时间 (UTC+8)
+  const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  // 格式化为 YYYY-MM-DD HH:mm:ss
+  const year = beijingTime.getFullYear();
+  const month = String(beijingTime.getMonth() + 1).padStart(2, '0');
+  const day = String(beijingTime.getDate()).padStart(2, '0');
+  const hours = String(beijingTime.getHours()).padStart(2, '0');
+  const minutes = String(beijingTime.getMinutes()).padStart(2, '0');
+  const seconds = String(beijingTime.getSeconds()).padStart(2, '0');
+  announcementData.publishTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
   showAnnouncementDialog.value = true;
 };
@@ -3950,7 +3959,7 @@ const mapCaseProgress = (progress: string): string => {
     SECOND: '二、管理人履职与财产接管',
     THIRD: '三、债权申报与核查',
     FOURTH: '四、债权人会议',
-    FIFTH: '五、破产宣告',
+    FIFTH: '五、重整和解及破产宣告',
     SIXTH: '六、财产变价与分配',
     SEVENTH: '七、程序终结',
   };
@@ -6036,6 +6045,11 @@ const endDrag = () => {
                     min-width="200"
                   />
                   <ElTableColumn
+                    prop="date"
+                    label="发布时间"
+                    width="150"
+                  />
+                  <ElTableColumn
                     prop="announcement_type"
                     label="公告类型"
                     width="150"
@@ -7020,6 +7034,16 @@ const endDrag = () => {
                 <ElOption label="重要公告" value="IMPORTANT" />
                 <ElOption label="紧急公告" value="URGENT" />
               </ElSelect>
+            </ElFormItem>
+            <ElFormItem label="发布时间">
+              <ElDatePicker
+                v-model="announcementData.publishTime"
+                type="datetime"
+                placeholder="选择发布时间"
+                size="large"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+              />
             </ElFormItem>
             <ElFormItem label="公告内容" required>
               <RichTextEditor
