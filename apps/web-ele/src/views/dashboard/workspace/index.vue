@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Todo } from '#/api/core/todo';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '#/store';
 
@@ -85,6 +85,103 @@ const loading = ref(false);
 const todoCount = ref(0);
 const caseCount = ref(0);
 const teamCount = ref(0);
+
+// 悬浮球相关状态
+const showCalendarFloat = ref(false);
+const floatBallPosition = ref({ x: window.innerWidth - 80, y: window.innerHeight - 150 });
+const isDragging = ref(false);
+const dragStartPos = ref({ x: 0, y: 0 });
+const dragOffset = ref({ x: 0, y: 0 });
+
+// 悬浮球拖动相关方法
+const handleMouseDown = (e: MouseEvent) => {
+  isDragging.value = true;
+  dragStartPos.value = { x: e.clientX, y: e.clientY };
+  dragOffset.value = {
+    x: e.clientX - floatBallPosition.value.x,
+    y: e.clientY - floatBallPosition.value.y
+  };
+  e.preventDefault();
+};
+
+const handleMouseMove = (e: MouseEvent) => {
+  if (!isDragging.value) return;
+  
+  const newX = e.clientX - dragOffset.value.x;
+  const newY = e.clientY - dragOffset.value.y;
+  
+  // 限制在屏幕范围内
+  const maxX = window.innerWidth - 60;
+  const maxY = window.innerHeight - 60;
+  
+  floatBallPosition.value = {
+    x: Math.max(0, Math.min(newX, maxX)),
+    y: Math.max(0, Math.min(newY, maxY))
+  };
+};
+
+const handleMouseUp = (e: MouseEvent) => {
+  if (isDragging.value) {
+    const moveDistance = Math.sqrt(
+      Math.pow(e.clientX - dragStartPos.value.x, 2) +
+      Math.pow(e.clientY - dragStartPos.value.y, 2)
+    );
+    
+    // 如果移动距离小于5px，则认为是点击事件
+    if (moveDistance < 5) {
+      showCalendarFloat.value = true;
+    }
+  }
+  isDragging.value = false;
+};
+
+const handleTouchStart = (e: TouchEvent) => {
+  const touch = e.touches[0];
+  isDragging.value = true;
+  dragStartPos.value = { x: touch.clientX, y: touch.clientY };
+  dragOffset.value = {
+    x: touch.clientX - floatBallPosition.value.x,
+    y: touch.clientY - floatBallPosition.value.y
+  };
+  e.preventDefault();
+};
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (!isDragging.value) return;
+  
+  const touch = e.touches[0];
+  const newX = touch.clientX - dragOffset.value.x;
+  const newY = touch.clientY - dragOffset.value.y;
+  
+  // 限制在屏幕范围内
+  const maxX = window.innerWidth - 60;
+  const maxY = window.innerHeight - 60;
+  
+  floatBallPosition.value = {
+    x: Math.max(0, Math.min(newX, maxX)),
+    y: Math.max(0, Math.min(newY, maxY))
+  };
+};
+
+const handleTouchEnd = (e: TouchEvent) => {
+  if (isDragging.value && e.changedTouches.length > 0) {
+    const touch = e.changedTouches[0];
+    const moveDistance = Math.sqrt(
+      Math.pow(touch.clientX - dragStartPos.value.x, 2) +
+      Math.pow(touch.clientY - dragStartPos.value.y, 2)
+    );
+    
+    // 如果移动距离小于5px，则认为是点击事件
+    if (moveDistance < 5) {
+      showCalendarFloat.value = true;
+    }
+  }
+  isDragging.value = false;
+};
+
+const closeCalendarFloat = () => {
+  showCalendarFloat.value = false;
+};
 
 // 加载用户案件数量
 const loadUserCaseCount = async () => {
@@ -235,6 +332,9 @@ const statusMap: Record<string, string> = {
   'CANCELLED': '已取消'
 };
 
+// 日历加载状态
+const calendarLoading = ref(false);
+
 // FullCalendar 日历相关
 const FullCalendar_ref = ref();
 const calendarOptions = ref({
@@ -352,10 +452,10 @@ const calendarOptions = ref({
     loadCalendarEvents();
   },
   viewDidUpdate: (info) => {
-    loadCalendarEvents();
+    // 注释掉自动加载，改为手动控制
   },
   datesSet: (info) => {
-    loadCalendarEvents();
+    // 注释掉自动加载，改为手动控制
   }
 });
 
@@ -481,26 +581,40 @@ const loadCalendarEvents = async () => {
     calendarOptions.value.events = events;
   } catch (error) {
     ElMessage.error('加载日历事件数据失败');
+  } finally {
+    calendarLoading.value = false;
   }
 };
 
 // 切换日历视图
 const switchToView = (mode: string) => {
   FullCalendar_ref.value?.getApi().changeView(mode);
+  // 等待视图切换完成后再加载数据
+  setTimeout(() => {
+    loadCalendarEvents();
+  }, 50);
 };
 
 // 定位到今天
-const toToday = () => {
+const toToday = async () => {
   FullCalendar_ref.value?.getApi().today();
+  // 等待视图切换完成后再加载数据
+  setTimeout(() => {
+    loadCalendarEvents();
+  }, 50);
 };
 
 // 日历翻页
-const pageTurning = (mode: string) => {
+const pageTurning = async (mode: string) => {
   if (mode == 'prev') {
     FullCalendar_ref.value?.getApi().prev();
   } else {
     FullCalendar_ref.value?.getApi().next();
   }
+  // 等待视图切换完成后再加载数据，避免闪烁
+  setTimeout(() => {
+    loadCalendarEvents();
+  }, 50);
 };
 
 // 模拟接口获取日历列表事项
@@ -1234,6 +1348,20 @@ onMounted(async () => {
   loadTeamCount();
   initWeather();
   await loadCalendarEvents();
+  
+  // 添加全局鼠标事件监听
+  document.addEventListener('mousemove', handleMouseMove);
+  document.addEventListener('mouseup', handleMouseUp);
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd);
+});
+
+onUnmounted(() => {
+  // 移除全局鼠标事件监听
+  document.removeEventListener('mousemove', handleMouseMove);
+  document.removeEventListener('mouseup', handleMouseUp);
+  document.removeEventListener('touchmove', handleTouchMove);
+  document.removeEventListener('touchend', handleTouchEnd);
 });
 </script>
 
@@ -1588,19 +1716,43 @@ onMounted(async () => {
 
         <!-- 右侧辅助内容区 - 占页面总宽度的1/3 -->
         <div class="w-full lg:w-1/3">
-          <!-- 日历板块 - 缩小后放在功能导航上方 -->
-          <AnalysisChartCard v-if="isLawyer" title="日历" class="mb-[5px] bg-white">
-            <div class="calendar-container w-full" style="height: 480px; overflow: hidden;">
-              <!-- 简化的自定义工具组 -->
-              <div class="flex flex-wrap gap-1 mb-2">
-                <button @click="pageTurning('prev')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs"><</button>
-                <button @click="toToday()" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">今天</button>
-                <button @click="pageTurning('next')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">></button>
-                <button @click="addMatter()" class="px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-xs ml-auto">+待办</button>
-              </div>
-              <!-- 日历组件 -->
-              <div style="transform: scale(0.95); transform-origin: top left; width: 105.3%;">
-                <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" style="height: 420px;" />
+          <!-- 尽职调查板块 - 放在日历上方 -->
+          <AnalysisChartCard title="尽职调查" class="bg-white mb-[5px]">
+            <div class="friend-links-container">
+              <div class="friend-links-grid">
+                <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">全国企业破产重整案件信息网</span>
+                </a>
+                <a href="https://pcgl.zjsfgkw.gov.cn:10020/#/login" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江法院破产智审管理人服务端</span>
+                </a>
+                <a href="https://www.zjaba.cn/zjaba/web/hom" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江省破产管理人网</span>
+                </a>
+                <a href="https://zjsfgkw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江法院网</span>
+                </a>
+                <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">国家企业信用信息公示系统</span>
+                </a>
+                <a href="https://www.cnipa.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">国家知识产权局</span>
+                </a>
+                <a href="https://www.zhongdengwang.org.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">中国人民银行征信中心（动产融资登记）</span>
+                </a>
+                <a href="https://register.ccopyright.com.cn/query.html" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">中国版权登记查询服务中心</span>
+                </a>
+                <a href="https://www.creditchina.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">信用中国</span>
+                </a>
+                <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">企查查</span>
+                </a>
+                <a href="https://gswsdj.zjzwfw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">浙江省企业登记全程化电子平台</span>
+                </a>
               </div>
             </div>
           </AnalysisChartCard>
@@ -1703,48 +1855,7 @@ onMounted(async () => {
             </div>
           </AnalysisChartCard>
 
-          <!-- 尽职调查板块 - 放在最新动态上方 -->
-          <AnalysisChartCard title="尽职调查" class="bg-white mb-[8px]">
-            <div class="friend-links-container">
-              <div class="friend-links-grid">
-                <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">全国企业破产重整案件信息网</span>
-                </a>
-                <a href="https://pcgl.zjsfgkw.gov.cn:10020/#/login" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江法院破产智审管理人服务端</span>
-                </a>
-                <a href="https://www.zjaba.cn/zjaba/web/hom" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江省破产管理人网</span>
-                </a>
-                <a href="https://zjsfgkw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江法院网</span>
-                </a>
-                <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">国家企业信用信息公示系统</span>
-                </a>
-                <a href="https://www.cnipa.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">国家知识产权局</span>
-                </a>
-                <a href="https://www.zhongdengwang.org.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">中国人民银行征信中心（动产融资登记）</span>
-                </a>
-                <a href="https://register.ccopyright.com.cn/query.html" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">中国版权登记查询服务中心</span>
-                </a>
-                <a href="https://www.creditchina.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">信用中国</span>
-                </a>
-                <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">企查查</span>
-                </a>
-                <a href="https://gswsdj.zjzwfw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江省企业登记全程化电子平台</span>
-                </a>
-              </div>
-            </div>
-          </AnalysisChartCard>
-
-          <!-- 最新动态板块 - 放在尽职调查下方 -->
+          <!-- 最新动态板块 - 放在功能导航下方 -->
           <div class="w-full" v-if="!isLawyer">
             <AnalysisChartCard title="最新动态" class="bg-white">
               <div class="module-container">
@@ -2155,6 +2266,47 @@ onMounted(async () => {
           </ElButton>
         </div>
       </template>
+    </ElDialog>
+
+    <!-- 日历悬浮球 - 仅律师可见 -->
+    <div v-if="isLawyer" class="calendar-float-ball"
+      :style="{
+        left: floatBallPosition.x + 'px',
+        top: floatBallPosition.y + 'px'
+      }"
+      @mousedown="handleMouseDown"
+      @touchstart="handleTouchStart"
+    >
+      <div class="float-ball-inner">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- 日历弹出面板 -->
+    <ElDialog
+      v-model="showCalendarFloat"
+      title="日历"
+      width="600px"
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
+      class="calendar-float-dialog"
+      append-to-body
+    >
+      <div class="calendar-container w-full" style="height: 500px; overflow: hidden;" v-loading="calendarLoading">
+        <!-- 简化的自定义工具组 -->
+        <div class="flex flex-wrap gap-1 mb-2">
+          <button @click="pageTurning('prev')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs" :disabled="calendarLoading"><</button>
+          <button @click="toToday()" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs" :disabled="calendarLoading">今天</button>
+          <button @click="pageTurning('next')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs" :disabled="calendarLoading">></button>
+          <button @click="addMatter()" class="px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-xs ml-auto" :disabled="calendarLoading">+待办</button>
+        </div>
+        <!-- 日历组件 -->
+        <div style="transform: scale(0.95); transform-origin: top left; width: 105.3%;">
+          <FullCalendar ref="FullCalendar_ref" :options="calendarOptions" style="height: 450px;" />
+        </div>
+      </div>
     </ElDialog>
   </div>
 </template>
@@ -2896,6 +3048,55 @@ onMounted(async () => {
   font-size: 14px;
   color: #606266;
   line-height: 1.4;
+}
+
+/* 日历悬浮球样式 */
+.calendar-float-ball {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  touch-action: none;
+}
+
+.calendar-float-ball:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.calendar-float-ball:active {
+  transform: scale(0.95);
+}
+
+.float-ball-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  pointer-events: none;
+}
+
+.float-ball-inner svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 日历弹出对话框样式 */
+.calendar-float-dialog :deep(.el-dialog__body) {
+  padding: 10px 20px 20px;
+}
+
+.calendar-float-dialog :deep(.el-dialog__header) {
+  padding: 15px 20px 10px;
 }
 
 /* 尽职调查样式 - 去掉外边框和背景色 */
