@@ -6,7 +6,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { ElCard, ElSelect, ElOption, ElEmpty, ElSkeleton, ElStatistic, ElRow, ElCol } from 'element-plus';
+import { ElCard, ElSelect, ElOption, ElEmpty, ElStatistic, ElRow, ElCol } from 'element-plus';
 
 import { getYearlyTransactionStatistics } from '#/api';
 
@@ -46,13 +46,6 @@ const chartData = computed(() => {
     netAmounts: sortedData.map((item) => item.netAmount / 10000),
   };
 });
-
-const formatAmount = (amount: number) => {
-  if (amount >= 10000) {
-    return `${(amount / 10000).toFixed(2)}万`;
-  }
-  return amount.toFixed(2);
-};
 
 const renderChart = () => {
   if (!chartData.value.months.length) {
@@ -131,15 +124,16 @@ const fetchData = async () => {
   try {
     const response = await getYearlyTransactionStatistics({ year: selectedYear.value });
     data.value = response;
-    
-    await nextTick();
-    renderChart();
   } catch (err: any) {
     console.error('获取年度交易金额统计失败:', err);
     error.value = err?.message || '获取数据失败';
     data.value = null;
   } finally {
     loading.value = false;
+    await nextTick();
+    nextTick(() => {
+      renderChart();
+    });
   }
 };
 
@@ -168,42 +162,46 @@ onMounted(() => {
       </div>
     </template>
 
-    <ElSkeleton :loading="loading" animated>
-      <template #default>
-        <div v-if="error" class="h-[400px] flex items-center justify-center">
-          <ElEmpty :description="error" />
+    <div class="relative">
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10 min-h-[400px]">
+        <span class="text-gray-400">加载中...</span>
+      </div>
+      
+      <div v-if="error && !loading" class="min-h-[400px] flex items-center justify-center">
+        <ElEmpty :description="error" />
+      </div>
+      
+      <div v-else-if="!loading && !data" class="min-h-[400px] flex items-center justify-center">
+        <ElEmpty description="暂无数据" />
+      </div>
+      
+      <template v-else-if="data">
+        <ElRow :gutter="20" class="mb-4">
+          <ElCol :span="6">
+            <ElStatistic title="总流入金额" :value="data.totalIncomeAmount" :precision="2">
+              <template #suffix>元</template>
+            </ElStatistic>
+          </ElCol>
+          <ElCol :span="6">
+            <ElStatistic title="总流出金额" :value="data.totalExpenseAmount" :precision="2">
+              <template #suffix>元</template>
+            </ElStatistic>
+          </ElCol>
+          <ElCol :span="6">
+            <ElStatistic title="净额" :value="data.netAmount" :precision="2">
+              <template #suffix>元</template>
+            </ElStatistic>
+          </ElCol>
+          <ElCol :span="6">
+            <ElStatistic title="总交易笔数" :value="data.totalTransactionCount">
+              <template #suffix>笔</template>
+            </ElStatistic>
+          </ElCol>
+        </ElRow>
+        <div class="h-[300px]">
+          <EchartsUI ref="chartRef" />
         </div>
-        <div v-else-if="!data" class="h-[400px] flex items-center justify-center">
-          <ElEmpty description="暂无数据" />
-        </div>
-        <template v-else>
-          <ElRow :gutter="20" class="mb-4">
-            <ElCol :span="6">
-              <ElStatistic title="总流入金额" :value="data.totalIncomeAmount" :precision="2">
-                <template #suffix>元</template>
-              </ElStatistic>
-            </ElCol>
-            <ElCol :span="6">
-              <ElStatistic title="总流出金额" :value="data.totalExpenseAmount" :precision="2">
-                <template #suffix>元</template>
-              </ElStatistic>
-            </ElCol>
-            <ElCol :span="6">
-              <ElStatistic title="净额" :value="data.netAmount" :precision="2">
-                <template #suffix>元</template>
-              </ElStatistic>
-            </ElCol>
-            <ElCol :span="6">
-              <ElStatistic title="总交易笔数" :value="data.totalTransactionCount">
-                <template #suffix>笔</template>
-              </ElStatistic>
-            </ElCol>
-          </ElRow>
-          <div class="h-[300px]">
-            <EchartsUI ref="chartRef" />
-          </div>
-        </template>
       </template>
-    </ElSkeleton>
+    </div>
   </ElCard>
 </template>

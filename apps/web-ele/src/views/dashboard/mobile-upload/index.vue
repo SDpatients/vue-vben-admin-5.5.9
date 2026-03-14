@@ -15,31 +15,33 @@ import {
 import { UploadFilled, Delete, Refresh } from '@element-plus/icons-vue';
 
 import {
-  validateTempUploadToken,
-  getTempUploadFiles,
-  mobileUploadFile,
-  mobileUploadBatch,
+  validateMobileUploadToken,
+  getMobileUploadFiles,
+  mobileUploadFileUnauth,
+  mobileUploadBatchUnauth,
   type TempUploadFile,
+  type TempUploadToken,
 } from '#/api/core/temp-upload';
+import {
+  MOBILE_UPLOAD_CONFIG,
+  formatFileSize as formatFileSizeUtil,
+} from '#/config/mobile-upload';
 
 const route = useRoute();
 const router = useRouter();
 
-// Token相关
 const token = ref('');
 const tokenValid = ref(false);
 const tokenLoading = ref(true);
 const tokenError = ref('');
+const tokenInfo = ref<TempUploadToken | null>(null);
 
-// 文件列表
 const fileList = ref<TempUploadFile[]>([]);
 const fileLoading = ref(false);
 
-// 上传相关
 const uploading = ref(false);
 const uploadProgress = ref(0);
 
-// 调试信息
 const debugInfo = ref({
   url: '',
   query: '',
@@ -48,27 +50,22 @@ const debugInfo = ref({
   apiStatus: '',
 });
 
-// 业务信息
 const bizInfo = computed(() => {
-  if (fileList.value.length > 0) {
+  if (tokenInfo.value) {
     return {
-      bizType: fileList.value[0].token,
+      bizType: tokenInfo.value.bizType,
+      bizName: tokenInfo.value.bizName || tokenInfo.value.description,
+      taskTitle: tokenInfo.value.taskTitle,
+      creatorName: tokenInfo.value.realName || tokenInfo.value.userName,
       fileCount: fileList.value.length,
+      expireTime: tokenInfo.value.expireTime,
     };
   }
   return null;
 });
 
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
+const formatFileSize = formatFileSizeUtil;
 
-// 获取文件图标
 const getFileIcon = (file: TempUploadFile): string => {
   const ext = file.fileExtension.toLowerCase();
   const iconMap: Record<string, string> = {
@@ -88,7 +85,17 @@ const getFileIcon = (file: TempUploadFile): string => {
   return iconMap[ext] || 'lucide:file';
 };
 
-// 验证Token
+const getBizTypeText = (bizType: string): string => {
+  const bizTypeMap: Record<string, string> = {
+    case: '案件',
+    case_task_submission: '任务提交',
+    claim_registration: '债权申报',
+    document: '文档',
+    announcement: '公告',
+  };
+  return bizTypeMap[bizType] || bizType;
+};
+
 const validateToken = async () => {
   if (!token.value) {
     tokenError.value = '未提供Token';
@@ -98,16 +105,17 @@ const validateToken = async () => {
 
   try {
     tokenLoading.value = true;
-    const response = await validateTempUploadToken(token.value);
+    const response = await validateMobileUploadToken(token.value);
     
     if (response.code === 200 && response.data) {
       tokenValid.value = true;
       tokenError.value = '';
-      ElMessage.success('Token验证成功');
+      tokenInfo.value = response.data;
+      ElMessage.success('验证成功，可以开始上传');
       await loadFileList();
     } else {
       tokenValid.value = false;
-      tokenError.value = 'Token无效或已过期';
+      tokenError.value = response.message || 'Token无效或已过期';
       ElMessage.error('Token无效或已过期');
     }
   } catch (error: any) {
@@ -120,13 +128,12 @@ const validateToken = async () => {
   }
 };
 
-// 加载文件列表
 const loadFileList = async () => {
   if (!token.value || !tokenValid.value) return;
 
   try {
     fileLoading.value = true;
-    const response = await getTempUploadFiles(token.value);
+    const response = await getMobileUploadFiles(token.value);
     
     if (response.code === 200 && response.data) {
       fileList.value = response.data;
@@ -142,7 +149,6 @@ const loadFileList = async () => {
   }
 };
 
-// 处理文件选择
 const handleFileChange = async (uploadFile: any) => {
   const rawFile = uploadFile.raw;
   if (!rawFile) return;
@@ -152,27 +158,24 @@ const handleFileChange = async (uploadFile: any) => {
     return;
   }
 
-  // 检查文件大小（50MB限制）
-  const maxSize = 50 * 1024 * 1024;
-  if (rawFile.size > maxSize) {
-    ElMessage.error(`文件大小不能超过 ${formatFileSize(maxSize)}`);
+  if (rawFile.size > MOBILE_UPLOAD_CONFIG.maxFileSize) {
+    ElMessage.error(`文件大小不能超过 ${formatFileSize(MOBILE_UPLOAD_CONFIG.maxFileSize)}`);
     return;
   }
 
   await uploadFileToServer(rawFile);
 };
 
-// 上传文件到服务器
 const uploadFileToServer = async (file: File) => {
   uploading.value = true;
   uploadProgress.value = 0;
 
   try {
-    const response = await mobileUploadFile(token.value, file);
+    const response = await mobileUploadFileUnauth(token.value, file);
     
     if (response.code === 200 && response.data) {
       ElMessage.success(`文件 "${file.name}" 上传成功`);
-      await loadFileList(); // 刷新文件列表
+      await loadFileList();
     } else {
       ElMessage.error(response.message || '文件上传失败');
     }
@@ -185,7 +188,6 @@ const uploadFileToServer = async (file: File) => {
   }
 };
 
-// 批量上传文件
 const handleFilesChange = async (uploadFiles: any[]) => {
   if (!tokenValid.value) {
     ElMessage.error('Token无效，无法上传');
@@ -195,10 +197,8 @@ const handleFilesChange = async (uploadFiles: any[]) => {
   const files = uploadFiles.map(f => f.raw).filter(Boolean);
   if (files.length === 0) return;
 
-  // 检查文件大小
-  const maxSize = 50 * 1024 * 1024;
   const validFiles = files.filter(file => {
-    if (file.size > maxSize) {
+    if (file.size > MOBILE_UPLOAD_CONFIG.maxFileSize) {
       ElMessage.warning(`文件 "${file.name}" 超过大小限制，已跳过`);
       return false;
     }
@@ -210,11 +210,11 @@ const handleFilesChange = async (uploadFiles: any[]) => {
   uploading.value = true;
   
   try {
-    const response = await mobileUploadBatch(token.value, validFiles);
+    const response = await mobileUploadBatchUnauth(token.value, validFiles);
     
     if (response.code === 200 && response.data) {
       ElMessage.success(`成功上传 ${response.data.length} 个文件`);
-      await loadFileList(); // 刷新文件列表
+      await loadFileList();
     } else {
       ElMessage.error(response.message || '文件上传失败');
     }
@@ -226,32 +226,44 @@ const handleFilesChange = async (uploadFiles: any[]) => {
   }
 };
 
-// 删除文件
 const handleDelete = async (file: TempUploadFile) => {
-  // 临时上传的文件暂不支持删除，或者可以调用取消Token接口
   ElMessage.info('暂不支持删除已上传的文件');
 };
 
-// 刷新文件列表
 const handleRefresh = async () => {
   await loadFileList();
   ElMessage.success('刷新成功');
 };
 
-// 页面初始化
+const formatExpireTime = (expireTime: string): string => {
+  const expire = new Date(expireTime);
+  const now = new Date();
+  const diff = expire.getTime() - now.getTime();
+  
+  if (diff <= 0) {
+    return '已过期';
+  }
+  
+  const minutes = Math.floor(diff / (1000 * 60));
+  if (minutes < 60) {
+    return `${minutes}分钟后过期`;
+  }
+  
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}小时${remainingMinutes}分钟后过期`;
+};
+
 onMounted(async () => {
-  // 收集调试信息
   debugInfo.value.url = window.location.href;
   debugInfo.value.query = JSON.stringify(route.query);
   
-  // 从URL参数获取token
   const urlToken = route.query.token as string;
   if (urlToken) {
     token.value = urlToken;
     debugInfo.value.token = urlToken.substring(0, 20) + '...';
   }
   
-  // 验证token
   await validateToken();
 });
 </script>
@@ -263,13 +275,11 @@ onMounted(async () => {
       <p class="page-subtitle">请上传您需要提交的文件</p>
     </div>
 
-    <!-- Token验证中 -->
     <div v-if="tokenLoading" class="loading-container">
       <ElIcon class="is-loading loading-icon"><Refresh /></ElIcon>
       <p>正在验证上传凭证...</p>
     </div>
 
-    <!-- Token验证失败 -->
     <div v-else-if="!tokenValid" class="error-container">
       <Icon icon="lucide:alert-circle" class="error-icon" />
       <h3>上传凭证无效</h3>
@@ -280,23 +290,42 @@ onMounted(async () => {
       </ElButton>
     </div>
 
-    <!-- 上传界面 -->
     <template v-else>
-      <!-- 业务信息卡片 -->
-      <ElCard class="biz-info-card" shadow="never">
+      <ElCard v-if="bizInfo" class="biz-info-card" shadow="never">
+        <template #header>
+          <div class="card-header">
+            <span>上传任务信息</span>
+            <ElTag type="success" size="small">
+              {{ getBizTypeText(bizInfo.bizType) }}
+            </ElTag>
+          </div>
+        </template>
         <div class="biz-info">
-          <div class="biz-info-item">
-            <span class="label">上传凭证：</span>
-            <ElTag type="success" size="small">有效</ElTag>
+          <div v-if="bizInfo.taskTitle" class="biz-info-item">
+            <span class="label">任务名称：</span>
+            <span class="value">{{ bizInfo.taskTitle }}</span>
+          </div>
+          <div v-if="bizInfo.bizName" class="biz-info-item">
+            <span class="label">关联业务：</span>
+            <span class="value">{{ bizInfo.bizName }}</span>
+          </div>
+          <div v-if="bizInfo.creatorName" class="biz-info-item">
+            <span class="label">发起人：</span>
+            <span class="value">{{ bizInfo.creatorName }}</span>
           </div>
           <div class="biz-info-item">
             <span class="label">已上传文件：</span>
-            <span class="value">{{ fileList.length }} 个</span>
+            <span class="value">{{ bizInfo.fileCount }} 个</span>
+          </div>
+          <div class="biz-info-item">
+            <span class="label">有效期：</span>
+            <ElTag type="warning" size="small">
+              {{ formatExpireTime(bizInfo.expireTime) }}
+            </ElTag>
           </div>
         </div>
       </ElCard>
 
-      <!-- 文件上传区域 -->
       <ElCard class="upload-card" shadow="never">
         <template #header>
           <div class="card-header">
@@ -328,19 +357,17 @@ onMounted(async () => {
             <p class="main-text">点击或拖拽文件到此处上传</p>
             <p class="sub-text">
               支持 doc、docx、pdf、jpg、png、xls、xlsx 等格式<br>
-              单个文件不超过 50MB
+              单个文件不超过 {{ formatFileSize(MOBILE_UPLOAD_CONFIG.maxFileSize) }}
             </p>
           </div>
         </ElUpload>
 
-        <!-- 上传进度 -->
         <div v-if="uploading" class="upload-progress">
           <ElIcon class="is-loading"><Refresh /></ElIcon>
           <span>正在上传...</span>
         </div>
       </ElCard>
 
-      <!-- 已上传文件列表 -->
       <ElCard class="file-list-card" shadow="never">
         <template #header>
           <div class="card-header">
@@ -385,18 +412,17 @@ onMounted(async () => {
         </div>
       </ElCard>
 
-      <!-- 操作提示 -->
       <div class="tips-section">
         <h4>上传说明</h4>
         <ul>
           <li>请确保上传的文件内容真实有效</li>
           <li>文件上传后将自动同步到电脑端</li>
           <li>上传完成后可以在电脑端查看和管理文件</li>
+          <li>上传者将记录为生成二维码的用户</li>
         </ul>
       </div>
     </template>
 
-    <!-- 调试信息（仅开发环境显示） -->
     <div v-if="false" class="debug-section">
       <h4>调试信息</h4>
       <pre>{{ JSON.stringify(debugInfo, null, 2) }}</pre>
@@ -429,7 +455,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* 加载状态 */
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -447,7 +472,6 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
-/* 错误状态 */
 .error-container {
   display: flex;
   flex-direction: column;
@@ -478,15 +502,14 @@ onMounted(async () => {
   margin: 0 0 24px;
 }
 
-/* 业务信息卡片 */
 .biz-info-card {
   margin-bottom: 16px;
 }
 
 .biz-info {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .biz-info-item {
@@ -498,6 +521,7 @@ onMounted(async () => {
 .biz-info-item .label {
   font-size: 14px;
   color: #606266;
+  min-width: 80px;
 }
 
 .biz-info-item .value {
@@ -506,7 +530,6 @@ onMounted(async () => {
   color: #303133;
 }
 
-/* 上传卡片 */
 .upload-card {
   margin-bottom: 16px;
 }
@@ -567,7 +590,6 @@ onMounted(async () => {
   color: #409eff;
 }
 
-/* 文件列表卡片 */
 .file-list-card {
   margin-bottom: 16px;
 }
@@ -643,7 +665,6 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-/* 提示区域 */
 .tips-section {
   background: #fff;
   border-radius: 8px;
@@ -669,7 +690,6 @@ onMounted(async () => {
   line-height: 1.8;
 }
 
-/* 调试区域 */
 .debug-section {
   background: #fff;
   border-radius: 8px;
@@ -694,7 +714,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* 响应式适配 */
 @media (max-width: 480px) {
   .mobile-upload-page {
     padding: 12px;

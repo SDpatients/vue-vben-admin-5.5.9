@@ -1,10 +1,25 @@
 import { fileUploadRequestClient } from '#/api/request';
 
+import { useAppConfig } from '@vben/hooks';
+import { RequestClient } from '@vben/request';
+
+const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+const mobileUploadRequestClient = new RequestClient({
+  baseURL: apiURL,
+  responseReturn: 'body',
+});
+
 export interface TempUploadToken {
   id: number;
   token: string;
   bizType: string;
   userId: number;
+  userName?: string;
+  realName?: string;
+  bizId?: string;
+  bizName?: string;
+  taskTitle?: string;
   expireTime: string;
   status: 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
   fileCount: number;
@@ -143,5 +158,67 @@ export const transferTempFiles = (params: TransferParams) => {
 export const cancelTempUploadToken = (token: string) => {
   return fileUploadRequestClient.delete<{ code: number; message: string; data: null }>(
     `/api/v1/temp-upload/token/${token}`,
+  );
+};
+
+export const getTempUploadTokenInfo = (token: string) => {
+  return mobileUploadRequestClient.get<{ code: number; message: string; data: TempUploadToken }>(
+    `/api/v1/temp-upload/mobile/token/${token}/info`,
+  );
+};
+
+export const validateMobileUploadToken = (token: string) => {
+  return mobileUploadRequestClient.get<{ code: number; message: string; data: TempUploadToken }>(
+    `/api/v1/temp-upload/mobile/token/${token}/validate`,
+  );
+};
+
+export const getMobileUploadFiles = (token: string) => {
+  return mobileUploadRequestClient.get<{ code: number; message: string; data: TempUploadFile[] }>(
+    `/api/v1/temp-upload/mobile/token/${token}/files`,
+  );
+};
+
+export const mobileUploadFileUnauth = (token: string, file: File, description?: string) => {
+  const formData = new FormData();
+  formData.append('token', token);
+  formData.append('file', file);
+  if (description) {
+    formData.append('description', description);
+  }
+  return mobileUploadRequestClient.post<{ code: number; message: string; data: TempUploadFile }>(
+    '/api/v1/temp-upload/mobile/upload',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+};
+
+export const mobileUploadBatchUnauth = (
+  token: string,
+  files: File[],
+  descriptions?: string[],
+) => {
+  const formData = new FormData();
+  formData.append('token', token);
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+  if (descriptions) {
+    descriptions.forEach((desc) => {
+      formData.append('descriptions', desc);
+    });
+  }
+  return mobileUploadRequestClient.post<{ code: number; message: string; data: TempUploadFile[] }>(
+    '/api/v1/temp-upload/mobile/upload-batch',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
   );
 };

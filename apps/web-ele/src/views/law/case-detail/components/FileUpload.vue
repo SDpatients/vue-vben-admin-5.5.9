@@ -37,6 +37,15 @@ import {
   type TempUploadFile,
 } from '#/api/core/temp-upload';
 import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
+import {
+  MOBILE_UPLOAD_CONFIG,
+  getMobileUploadUrl,
+  getBaseUrl,
+  getConfiguredIP,
+  isValidIP,
+  getDefaultIP,
+  formatFileSize as formatFileSizeUtil,
+} from '#/config/mobile-upload';
 
 interface FileItem {
   id: number;
@@ -124,7 +133,7 @@ const mobileUploadedFiles = ref<TempUploadFile[]>([]);
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 5779,
+  port: MOBILE_UPLOAD_CONFIG.port,
   autoDetect: true,
 });
 
@@ -133,15 +142,9 @@ const isWeChatBrowser = ref(false);
 
 const isLocalMode = computed(() => props.localMode);
 
-const maxSize = computed(() => props.maxSize || 50 * 1024 * 1024);
+const maxSize = computed(() => props.maxSize || MOBILE_UPLOAD_CONFIG.maxFileSize);
 
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
+const formatFileSize = formatFileSizeUtil;
 
 const getFileIcon = (file: FileItem | LocalFileItem | TempUploadFile): string => {
   const ext = (file.fileExtension || '').toLowerCase();
@@ -198,43 +201,34 @@ const loadFiles = async () => {
   }
 };
 
-// 从环境变量获取配置的IP地址
-const getConfiguredIP = (): string | null => {
-  // 尝试从环境变量获取IP配置
-  // Vite环境变量需要以VITE_开头
-  const envIP = import.meta.env.VITE_MOBILE_UPLOAD_IP;
-  if (envIP && envIP !== 'localhost' && envIP !== '127.0.0.1') {
+const getConfiguredIPLocal = (): string | null => {
+  const envIP = getConfiguredIP();
+  if (envIP) {
     console.log('[IP检测] 使用环境变量配置的IP:', envIP);
-    return envIP;
   }
-  return null;
+  return envIP;
 };
 
-// 检测本机局域网IP地址
 const detectLocalIP = async (): Promise<string> => {
   try {
     console.log('[IP检测] 开始检测本机IP地址...');
     console.log('[IP检测] 当前主机名:', window.location.hostname);
     console.log('[IP检测] 当前页面URL:', window.location.href);
 
-    // 方法0: 优先使用环境变量配置的IP
-    const configuredIP = getConfiguredIP();
+    const configuredIP = getConfiguredIPLocal();
     if (configuredIP) {
       console.log('[IP检测] ✓ 使用环境变量配置的IP:', configuredIP);
       mobileUploadConfig.value.ip = configuredIP;
       return configuredIP;
     }
 
-    // 方法1: 检查当前主机名是否已经是有效IP
     const hostname = window.location.hostname;
-    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    if (ipRegex.test(hostname) && !hostname.startsWith('127.')) {
+    if (isValidIP(hostname)) {
       console.log('[IP检测] ✓ 当前主机名是有效IP地址:', hostname);
       mobileUploadConfig.value.ip = hostname;
       return hostname;
     }
 
-    // 方法2: 通过WebRTC获取本地IP
     console.log('[IP检测] 尝试通过WebRTC获取IP...');
     const rtc = new RTCPeerConnection({ iceServers: [] });
     rtc.createDataChannel('');
@@ -249,14 +243,12 @@ const detectLocalIP = async (): Promise<string> => {
           const candidate = event.candidate.candidate;
           console.log('[IP检测] 收到ICE候选:', candidate);
 
-          // 尝试匹配IPv4地址（排除mDNS地址如xxx.local）
           const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
 
           if (ipMatch && ipMatch[1]) {
             const ip = ipMatch[1];
             console.log('[IP检测] 提取到IP:', ip);
 
-            // 排除回环地址和私有地址范围检查
             if (!ip.startsWith('127.') && !ip.startsWith('0.')) {
               console.log('[IP检测] ✓ 通过WebRTC获取到有效IP地址:', ip);
               mobileUploadConfig.value.ip = ip;
@@ -269,7 +261,6 @@ const detectLocalIP = async (): Promise<string> => {
         } else {
           console.log('[IP检测] ICE候选收集完成');
           
-          // 如果收集完成但未找到IP，使用后备方法
           if (!foundIP) {
             resolve(useFallbackIP());
             rtc.close();
@@ -277,14 +268,13 @@ const detectLocalIP = async (): Promise<string> => {
         }
       };
 
-      // 超时处理 - 改为1秒
       setTimeout(() => {
         if (!foundIP) {
           console.log('[IP检测] WebRTC超时，使用后备方法');
           rtc.close();
           resolve(useFallbackIP());
         }
-      }, 1000);
+      }, MOBILE_UPLOAD_CONFIG.webrtcTimeout);
     });
   } catch (error) {
     console.error('[IP检测] 检测IP过程出错:', error);
@@ -292,9 +282,7 @@ const detectLocalIP = async (): Promise<string> => {
   }
 };
 
-// 后备IP获取方法
 const useFallbackIP = (): string => {
-  // 优先使用当前主机名（如果不是localhost）
   const hostname = window.location.hostname;
   if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
     console.log('[IP检测] ✓ 使用当前主机名作为IP:', hostname);
@@ -302,22 +290,17 @@ const useFallbackIP = (): string => {
     return hostname;
   }
 
-  // 最后使用默认IP地址
-  const defaultIP = '192.168.0.151';
-  console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
-  console.log('[IP检测] 提示: 可以通过设置环境变量 VITE_MOBILE_UPLOAD_IP 来指定IP地址');
+  const defaultIP = getDefaultIP();
   mobileUploadConfig.value.ip = defaultIP;
   return defaultIP;
 };
 
-// 打开手机上传二维码弹窗
 const openMobileUploadDialog = async () => {
   try {
-    // 创建临时上传Token
     const tokenResponse = await createTempUploadToken({
       bizType: props.bizType,
       description: `${props.title || '文件'}上传`,
-      expireMinutes: 30,
+      expireMinutes: MOBILE_UPLOAD_CONFIG.tokenExpireMinutes,
     });
 
     if (tokenResponse.code !== 200 || !tokenResponse.data) {
@@ -328,34 +311,26 @@ const openMobileUploadDialog = async () => {
     currentTempToken.value = tokenResponse.data.token;
     console.log('创建临时Token成功:', currentTempToken.value);
 
-    // 自动检测本地IP地址
     if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
       await detectLocalIP();
     }
 
-    // 生成二维码URL，使用后端返回的qrCodeContent
-    // qrCodeContent格式: http://localhost:8080/api/v1/temp-upload/mobile?token=xxx
-    // 需要将其转换为前端页面URL
     let baseUrl = window.location.origin;
 
-    // 强制使用配置的端口
     const currentUrl = new URL(window.location.href);
     if (mobileUploadConfig.value.ip) {
-      // 使用配置的IP和端口
-      baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+      baseUrl = getBaseUrl(mobileUploadConfig.value.ip);
       console.log(`使用配置的IP和端口: ${baseUrl}`);
     } else {
-      // 使用当前主机名和配置的端口
-      baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+      baseUrl = getBaseUrl(currentUrl.hostname);
       console.log(`使用当前主机名和配置的端口: ${baseUrl}`);
     }
 
-    // 生成手机上传页面URL，包含token
-    const mobileUploadUrl = `${baseUrl}/mobile-upload?token=${encodeURIComponent(currentTempToken.value)}`;
+    const mobileUploadUrl = getMobileUploadUrl(baseUrl, currentTempToken.value);
     console.log(`生成的二维码URL: ${mobileUploadUrl}`);
 
     qrCodeUrl.value = mobileUploadUrl;
-    qrCodeExpireTime.value = 1800; // 30分钟过期
+    qrCodeExpireTime.value = MOBILE_UPLOAD_CONFIG.tokenExpireSeconds;
     showQrCodeDialog.value = true;
 
     // 开始轮询获取手机上传的文件列表
@@ -380,7 +355,7 @@ const startTempFilePolling = () => {
   // 每3秒轮询一次
   tempFilePolling.value = setInterval(async () => {
     await pollTempFiles();
-  }, 3000);
+  }, MOBILE_UPLOAD_CONFIG.pollingInterval);
 };
 
 // 轮询获取临时文件列表

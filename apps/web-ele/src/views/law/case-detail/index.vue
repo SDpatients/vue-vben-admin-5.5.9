@@ -3720,7 +3720,7 @@ const saveEditing = async () => {
     const updateData: any = {
       caseName: editedData.案件名称 || caseDetail.value?.caseName,
       caseReason: editedData.案由 || caseDetail.value?.caseReason,
-      remarks: editedData.备注 || caseDetail.value?.remarks,
+      remarks: editedData.remarks || caseDetail.value?.remarks,
       filingDate:
         formatDateForApi(editedData.立案日期) || caseDetail.value?.filingDate,
       caseProgress: editedData.案件进度 || caseDetail.value?.caseProgress,
@@ -5550,6 +5550,37 @@ const endDrag = () => {
                         </template>
                         <template v-else>
                           {{ caseDetail.是否简化审 }}
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="detail-info-row">
+                    <div
+                      class="detail-info-item"
+                      :class="{ editing: isEditing }"
+                      style="grid-column: 1 / -1"
+                    >
+                      <div
+                        class="detail-info-label"
+                        :class="{ editing: isEditing }"
+                      >
+                        备注
+                      </div>
+                      <div
+                        class="detail-info-value"
+                        :class="{ editing: isEditing }"
+                      >
+                        <template v-if="isEditing">
+                          <ElInput
+                            v-model="editedData.remarks"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请输入备注"
+                            style="width: 100%"
+                          />
+                        </template>
+                        <template v-else>
+                          {{ caseDetail.remarks || '-' }}
                         </template>
                       </div>
                     </div>

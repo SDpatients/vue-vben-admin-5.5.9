@@ -31,6 +31,15 @@ import {
   transferTempFiles,
   type TempUploadFile,
 } from '#/api/core/temp-upload';
+import {
+  MOBILE_UPLOAD_CONFIG,
+  getMobileUploadUrl,
+  getBaseUrl,
+  getConfiguredIP,
+  isValidIP,
+  getDefaultIP,
+  formatFileSize as formatFileSizeUtil,
+} from '#/config/mobile-upload';
 
 const props = defineProps<{
   caseId: string;
@@ -57,7 +66,7 @@ const mobileUploadedFiles = ref<TempUploadFile[]>([]);
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 5779,
+  port: MOBILE_UPLOAD_CONFIG.port,
   autoDetect: true,
 });
 
@@ -156,13 +165,7 @@ const handleDelete = async (fileId: number) => {
   }
 };
 
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-};
+const formatFileSize = formatFileSizeUtil;
 
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
@@ -227,14 +230,26 @@ onUnmounted(() => {
   }
 });
 
-// 检测本机局域网IP地址
 const detectLocalIP = async () => {
   try {
     console.log('[IP检测] 开始检测本机IP地址...');
     console.log('[IP检测] 当前主机名:', window.location.hostname);
     console.log('[IP检测] 当前页面URL:', window.location.href);
 
-    // 方法1: 通过WebRTC获取本地IP
+    const configuredIP = getConfiguredIP();
+    if (configuredIP) {
+      console.log('[IP检测] ✓ 使用环境变量配置的IP:', configuredIP);
+      mobileUploadConfig.value.ip = configuredIP;
+      return configuredIP;
+    }
+
+    const hostname = window.location.hostname;
+    if (isValidIP(hostname)) {
+      console.log('[IP检测] ✓ 当前主机名是有效IP地址:', hostname);
+      mobileUploadConfig.value.ip = hostname;
+      return hostname;
+    }
+
     console.log('[IP检测] 尝试通过WebRTC获取IP...');
     const rtc = new RTCPeerConnection({ iceServers: [] });
     rtc.createDataChannel('');
@@ -259,7 +274,6 @@ const detectLocalIP = async () => {
             const ip = ipMatch[1];
             console.log('[IP检测] 提取到IP:', ip);
 
-            // 排除回环地址
             if (!ip.startsWith('127.')) {
               console.log('[IP检测] ✓ 通过WebRTC获取到有效IP地址:', ip);
               mobileUploadConfig.value.ip = ip;
@@ -274,12 +288,10 @@ const detectLocalIP = async () => {
         }
       };
 
-      // 超时处理 - 1秒超时
       setTimeout(() => {
         console.log('[IP检测] 超时，关闭WebRTC连接');
         rtc.close();
 
-        // 如果WebRTC失败，使用当前主机名
         const hostname = window.location.hostname;
         console.log('[IP检测] 检查主机名:', hostname);
 
@@ -288,18 +300,15 @@ const detectLocalIP = async () => {
           mobileUploadConfig.value.ip = hostname;
           resolve(hostname);
         } else {
-          // 默认使用固定IP地址
-          const defaultIP = '192.168.0.151';
-          console.log('[IP检测] ✗ 无法检测IP，使用默认IP:', defaultIP);
+          const defaultIP = getDefaultIP();
           mobileUploadConfig.value.ip = defaultIP;
           resolve(defaultIP);
         }
-      }, 1000); // 1秒超时
+      }, MOBILE_UPLOAD_CONFIG.webrtcTimeout);
     });
   } catch (error) {
     console.error('[IP检测] 检测IP过程出错:', error);
 
-    // 使用当前主机名作为后备
     const hostname = window.location.hostname;
     console.log('[IP检测] 异常处理 - 检查主机名:', hostname);
 
@@ -309,32 +318,18 @@ const detectLocalIP = async () => {
       return hostname;
     }
 
-    // 默认使用固定IP地址
-    const defaultIP = '192.168.0.151';
-    console.log('[IP检测] 异常处理 - 使用默认IP:', defaultIP);
+    const defaultIP = getDefaultIP();
     mobileUploadConfig.value.ip = defaultIP;
     return defaultIP;
   }
 };
 
-// 从环境变量获取配置的IP地址
-const getConfiguredIP = (): string | null => {
-  const envIP = import.meta.env.VITE_MOBILE_UPLOAD_IP;
-  if (envIP && envIP !== 'localhost' && envIP !== '127.0.0.1') {
-    console.log('[IP检测] 使用环境变量配置的IP:', envIP);
-    return envIP;
-  }
-  return null;
-};
-
-// 打开手机上传二维码弹窗
 const openMobileUploadDialog = async () => {
   try {
-    // 创建临时上传Token
     const tokenResponse = await createTempUploadToken({
       bizType: 'case',
       description: '案件附件上传',
-      expireMinutes: 30,
+      expireMinutes: MOBILE_UPLOAD_CONFIG.tokenExpireMinutes,
     });
 
     if (tokenResponse.code !== 200 || !tokenResponse.data) {
@@ -345,34 +340,29 @@ const openMobileUploadDialog = async () => {
     currentTempToken.value = tokenResponse.data.token;
     console.log('创建临时Token成功:', currentTempToken.value);
 
-    // 自动检测本地IP地址
     if (mobileUploadConfig.value.autoDetect && !mobileUploadConfig.value.ip) {
       await detectLocalIP();
     }
 
-    // 生成二维码URL
     let baseUrl = window.location.origin;
 
-    // 优先使用环境变量配置的IP
     const configuredIP = getConfiguredIP();
     if (configuredIP) {
-      baseUrl = `http://${configuredIP}:${mobileUploadConfig.value.port}`;
+      baseUrl = getBaseUrl(configuredIP);
     } else if (mobileUploadConfig.value.ip) {
-      baseUrl = `http://${mobileUploadConfig.value.ip}:${mobileUploadConfig.value.port}`;
+      baseUrl = getBaseUrl(mobileUploadConfig.value.ip);
     } else {
       const currentUrl = new URL(window.location.href);
-      baseUrl = `http://${currentUrl.hostname}:${mobileUploadConfig.value.port}`;
+      baseUrl = getBaseUrl(currentUrl.hostname);
     }
 
-    // 生成手机上传页面URL，包含token
-    const mobileUploadUrl = `${baseUrl}/mobile-upload?token=${encodeURIComponent(currentTempToken.value)}`;
+    const mobileUploadUrl = getMobileUploadUrl(baseUrl, currentTempToken.value);
     console.log(`生成的二维码URL: ${mobileUploadUrl}`);
 
     qrCodeUrl.value = mobileUploadUrl;
-    qrCodeExpireTime.value = 1800; // 30分钟过期
+    qrCodeExpireTime.value = MOBILE_UPLOAD_CONFIG.tokenExpireSeconds;
     showQrCodeDialog.value = true;
 
-    // 开始轮询获取手机上传的文件列表
     startTempFilePolling();
   } catch (error) {
     console.error('打开手机上传弹窗失败:', error);
@@ -380,21 +370,17 @@ const openMobileUploadDialog = async () => {
   }
 };
 
-// 开始轮询获取手机上传的文件列表
 const startTempFilePolling = () => {
-  // 清除之前的轮询
   if (tempFilePolling.value) {
     clearInterval(tempFilePolling.value);
     tempFilePolling.value = null;
   }
 
-  // 立即执行一次
   pollTempFiles();
 
-  // 每3秒轮询一次
   tempFilePolling.value = setInterval(async () => {
     await pollTempFiles();
-  }, 3000);
+  }, MOBILE_UPLOAD_CONFIG.pollingInterval);
 };
 
 // 轮询获取临时文件列表

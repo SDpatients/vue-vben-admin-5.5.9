@@ -40,6 +40,15 @@ import {
   cancelTempUploadToken,
   type TempUploadFile,
 } from '../../../api/core/temp-upload';
+import {
+  MOBILE_UPLOAD_CONFIG,
+  getMobileUploadUrl,
+  getBaseUrl,
+  getConfiguredIP,
+  isValidIP,
+  getDefaultIP,
+  formatFileSize as formatFileSizeUtil,
+} from '../../../config/mobile-upload';
 
 import ClaimProcessingModules from '../case-detail/components/ClaimProcessingModules.vue';
 
@@ -106,7 +115,7 @@ const mobileUploadedFiles = ref<TempUploadFile[]>([]);
 // 移动端上传配置
 const mobileUploadConfig = ref({
   ip: '',
-  port: 5779,
+  port: MOBILE_UPLOAD_CONFIG.port,
   autoDetect: true
 });
 
@@ -791,12 +800,24 @@ const isImageFile = (fileName: string): boolean => {
   return imageExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
 };
 
-// 检测本机局域网IP地址
 const detectLocalIP = async () => {
   try {
     console.log('开始检测本机IP地址...');
     
-    // 方法1: 通过WebRTC获取本地IP
+    const configuredIP = getConfiguredIP();
+    if (configuredIP) {
+      console.log('[IP检测] 使用环境变量配置的IP:', configuredIP);
+      mobileUploadConfig.value.ip = configuredIP;
+      return configuredIP;
+    }
+
+    const hostname = window.location.hostname;
+    if (isValidIP(hostname)) {
+      console.log('[IP检测] 当前主机名是有效IP地址:', hostname);
+      mobileUploadConfig.value.ip = hostname;
+      return hostname;
+    }
+
     const rtc = new RTCPeerConnection({ iceServers: [] });
     rtc.createDataChannel('');
     const offer = await rtc.createOffer();
@@ -817,12 +838,11 @@ const detectLocalIP = async () => {
         }
       };
       
-      // 超时处理
       setTimeout(() => {
         rtc.close();
         console.log('IP检测超时，请手动设置IP地址');
         resolve('');
-      }, 3000);
+      }, MOBILE_UPLOAD_CONFIG.webrtcTimeout);
     });
   } catch (error: any) {
     console.error(`IP检测失败: ${error.message}`);
@@ -2389,18 +2409,15 @@ const closeQrCodeDialog = () => {
   }
 };
 
-// 开始轮询获取临时文件列表
 const startTempFilePolling = () => {
-  // 清除之前的轮询
   if (tempFilePolling.value) {
     clearInterval(tempFilePolling.value);
     tempFilePolling.value = null;
   }
 
-  // 每 3 秒轮询一次
   tempFilePolling.value = setInterval(async () => {
     await pollTempFiles();
-  }, 3000);
+  }, MOBILE_UPLOAD_CONFIG.pollingInterval);
 };
 
 // 轮询获取临时文件列表
@@ -2530,7 +2547,6 @@ const transferMobileFiles = async (bizId: number): Promise<TempUploadFile[]> => 
   return [];
 };
 
-// 打开手机上传对话框
 const openMobileUploadDialog = async () => {
   if (!currentItem.value) {
     ElMessage.warning('请先选择或创建一个任务提交记录');
@@ -2538,11 +2554,10 @@ const openMobileUploadDialog = async () => {
   }
   
   try {
-    // 1. 创建临时上传 Token
     const tokenResponse = await createTempUploadToken({
       bizType: 'case_task_submission',
       description: `任务提交附件上传`,
-      expireMinutes: 30,
+      expireMinutes: MOBILE_UPLOAD_CONFIG.tokenExpireMinutes,
     });
 
     if (tokenResponse.code !== 200 || !tokenResponse.data) {
@@ -2553,34 +2568,28 @@ const openMobileUploadDialog = async () => {
     currentTempToken.value = tokenResponse.data.token;
     console.log('创建临时 Token 成功:', currentTempToken.value);
 
-    // 2. 生成二维码 URL
     let baseUrl = window.location.origin;
     
-    // 使用配置的 IP 地址
-    const configuredIP = import.meta.env.VITE_MOBILE_UPLOAD_IP;
-    if (configuredIP && configuredIP !== 'localhost' && configuredIP !== '127.0.0.1') {
-      baseUrl = `http://${configuredIP}:5779`;
+    const configuredIP = getConfiguredIP();
+    if (configuredIP) {
+      baseUrl = getBaseUrl(configuredIP);
       console.log('[IP 检测] 使用环境变量配置的 IP:', configuredIP);
     } else if (mobileUploadConfig.value.ip) {
-      // 使用检测到的 IP
-      baseUrl = `http://${mobileUploadConfig.value.ip}:5779`;
+      baseUrl = getBaseUrl(mobileUploadConfig.value.ip);
       console.log('[IP 检测] 使用检测到的 IP:', mobileUploadConfig.value.ip);
     } else {
-      // 使用当前主机名
       const currentUrl = new URL(window.location.href);
-      baseUrl = `http://${currentUrl.hostname}:5779`;
+      baseUrl = getBaseUrl(currentUrl.hostname);
       console.log('[IP 检测] 使用当前主机名:', currentUrl.hostname);
     }
 
-    // 生成手机上传页面 URL
-    const mobileUploadUrl = `${baseUrl}/mobile-upload?token=${encodeURIComponent(currentTempToken.value)}`;
+    const mobileUploadUrl = getMobileUploadUrl(baseUrl, currentTempToken.value);
     console.log(`生成的二维码 URL: ${mobileUploadUrl}`);
 
     qrCodeUrl.value = mobileUploadUrl;
-    qrCodeExpireTime.value = 1800; // 30 分钟过期
+    qrCodeExpireTime.value = MOBILE_UPLOAD_CONFIG.tokenExpireSeconds;
     showQrCodeDialog.value = true;
 
-    // 3. 开始轮询获取手机上传的文件列表
     startTempFilePolling();
     
     ElMessage.success('二维码已生成，请使用手机扫描上传');

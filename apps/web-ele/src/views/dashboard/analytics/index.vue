@@ -517,7 +517,7 @@ onMounted(() => {
 
 <template>
   <div class="p-5">
-    <ElCollapse class="mb-5">
+    <ElCollapse v-if="isAdminUser" class="mb-5">
       <ElCollapseItem title="年度统计" name="yearly">
         <template #title>
           <span class="text-lg font-semibold">年度统计</span>

@@ -6,7 +6,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { ElCard, ElSelect, ElOption, ElEmpty, ElSkeleton } from 'element-plus';
+import { ElCard, ElSelect, ElOption, ElEmpty } from 'element-plus';
 
 import { getLawyerCaseStatistics } from '#/api';
 
@@ -121,15 +121,16 @@ const fetchData = async () => {
   try {
     const response = await getLawyerCaseStatistics({ year: selectedYear.value });
     data.value = response || [];
-    
-    await nextTick();
-    renderChart();
   } catch (err: any) {
     console.error('获取律师年度案件统计失败:', err);
     error.value = err?.message || '获取数据失败';
     data.value = [];
   } finally {
     loading.value = false;
+    await nextTick();
+    nextTick(() => {
+      renderChart();
+    });
   }
 };
 
@@ -158,18 +159,22 @@ onMounted(() => {
       </div>
     </template>
 
-    <ElSkeleton :loading="loading" animated>
-      <template #default>
-        <div v-if="error" class="h-[350px] flex items-center justify-center">
-          <ElEmpty :description="error" />
-        </div>
-        <div v-else-if="!chartData.names.length" class="h-[350px] flex items-center justify-center">
-          <ElEmpty description="暂无数据" />
-        </div>
-        <div v-else class="h-[350px]">
-          <EchartsUI ref="chartRef" />
-        </div>
-      </template>
-    </ElSkeleton>
+    <div class="h-[350px] relative">
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+        <span class="text-gray-400">加载中...</span>
+      </div>
+      
+      <div v-if="error && !loading" class="absolute inset-0 flex items-center justify-center z-20">
+        <ElEmpty :description="error" />
+      </div>
+      
+      <div v-show="!loading && !error && chartData.names.length === 0" class="absolute inset-0 flex items-center justify-center z-20">
+        <ElEmpty description="暂无数据" />
+      </div>
+      
+      <div v-show="!loading && !error && chartData.names.length > 0" class="h-full w-full">
+        <EchartsUI ref="chartRef" />
+      </div>
+    </div>
   </ElCard>
 </template>
