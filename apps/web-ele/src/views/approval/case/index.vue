@@ -129,7 +129,7 @@ const caseTypes = [
   { label: '其他', value: 'other' },
 ];
 
-const approvalTypes = {
+const approvalTypes: Record<string, string> = {
   CASE_SUBMIT: '案件提交',
   CASE_CLOSE: '案件结案',
   FEE_APPLY: '费用申请',
@@ -144,19 +144,19 @@ const approvalTypes = {
   TASK_008: '通知已知债权人并公告',
   TASK_009: '接收、登记债权申报',
   TASK_010: '审查申报债权并编制债权表',
-  TASK_010_1: '债权审查结果通知',
-  TASK_011: '会议资料',
-  TASK_014: '表决事项和表决结果',
-  TASK_015: '宣告重整与和解',
-  TASK_016: '审查宣告破产条件',
-  TASK_017: '裁定宣告债务人破产',
-  TASK_018: '破产财产变价方案',
+  TASK_011: '债权审查结果通知',
+  TASK_012: '会议资料',
+  TASK_013: '表决事项和表决结果',
+  TASK_014: '宣告重整与和解',
+  TASK_015: '审查宣告破产条件',
+  TASK_016: '裁定宣告债务人破产及公告',
+  TASK_017: '破产财产变价方案',
+  TASK_018: '破产费用与共益债务',
   TASK_019: '破产财产分配方案',
-  TASK_020: '破产费用与共益债务',
-  TASK_021: '提请终结破产程序',
-  TASK_022: '法院裁定并公告',
-  TASK_023: '办理企业注销登记',
-  TASK_024: '管理人终止执行职务并归档',
+  TASK_020: '提请终结破产程序',
+  TASK_021: '法院裁定并公告',
+  TASK_022: '办理企业注销登记',
+  TASK_023: '管理人终止执行职务并归档',
 };
 
 
@@ -1138,103 +1138,6 @@ document.head.appendChild(style);
           <div v-else-if="contentData && 'originalContent' in contentData" class="original-content-section">
             <div class="section-title">审批内容</div>
             <div class="content-box">{{ contentData.originalContent }}</div>
-          </div>
-          
-          <!-- 附件列表（兼容旧格式） -->
-          <div v-if="attachmentData && 'files' in attachmentData && Object.keys(attachmentData.files).length > 0" class="attachments-section">
-            <div class="section-title">附件列表</div>
-            <div class="attachment-content">
-              <!-- 任务切换标签栏 -->
-              <div v-if="Object.keys(attachmentData.files).length > 1" class="task-tabs">
-                <ElTabs v-model="selectedTaskId" type="border-card">
-                  <ElTabPane 
-                    v-for="(files, submissionId) in attachmentData.files" 
-                    :key="submissionId" 
-                    :label="contentData?.submissions?.find(s => s.id.toString() === submissionId)?.submissionTitle || `提交 ${submissionId}`"
-                    :name="submissionId"
-                  />
-                </ElTabs>
-              </div>
-              
-              <!-- 附件列表内容 -->
-              <div v-if="selectedTaskId && attachmentData.files[selectedTaskId]" class="attachment-list">
-                <!-- 当前选中任务的附件 -->
-                <div class="task-attachments">
-                  <div class="task-header">
-                    <span class="task-title">{{ contentData?.submissions?.find(s => s.id.toString() === selectedTaskId)?.submissionTitle || '任务' }}</span>
-                    <span class="file-count">({{ Array.isArray(attachmentData.files[selectedTaskId]) ? attachmentData.files[selectedTaskId].length : 0 }}个文件)</span>
-                  </div>
-                  
-                  <!-- 图片文件网格布局 -->
-                  <div v-if="Array.isArray(attachmentData.files[selectedTaskId]) && attachmentData.files[selectedTaskId].some(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="image-grid">
-                    <div 
-                      v-for="file in attachmentData.files[selectedTaskId].filter(file => file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 
-                      :key="file.id || file.filePath"
-                      class="image-item"
-                      @click="handlePreviewFile(file.id, file.filePath)"
-                    >
-                      <div class="image-container">
-                        <img 
-                          :src="file.id !== null ? (previewUrls[file.id] || '') : ''" 
-                          :alt="file.originalFileName"
-                          @error="(e) => { e.target.src = ''; e.target.alt = '图片加载失败'; }"
-                        />
-                        <div v-if="file.id !== null && !previewUrls[file.id]" class="image-loading">
-                          <div class="loading-spinner"></div>
-                        </div>
-                      </div>
-                      <div class="image-name">{{ file.originalFileName || '未知文件' }}</div>
-                    </div>
-                  </div>
-                  
-                  <!-- 非图片文件列表 -->
-                  <div v-if="Array.isArray(attachmentData.files[selectedTaskId]) && attachmentData.files[selectedTaskId].some(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" class="non-image-files">
-                    <div class="section-subtitle">其他文件</div>
-                    <div 
-                      v-for="file in attachmentData.files[selectedTaskId].filter(file => !file.originalFileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i))" 
-                      :key="file.id || file.filePath"
-                      class="file-item"
-                    >
-                      <div class="file-info">
-                        <div class="file-icon">
-                          <i v-if="file.originalFileName?.includes('.pdf')" class="i-lucide-file-text"></i>
-                          <i v-else-if="file.originalFileName?.includes('.doc')" class="i-lucide-file-word"></i>
-                          <i v-else-if="file.originalFileName?.includes('.xls')" class="i-lucide-file-excel"></i>
-                          <i v-else class="i-lucide-file"></i>
-                        </div>
-                        <div class="file-details">
-                          <div class="file-name">{{ file.originalFileName || '未知文件' }}</div>
-                          <div class="file-meta">
-                            <span>{{ file.fileSize ? formatFileSize(file.fileSize) : '0 B' }}</span>
-                            <span>{{ file.originalFileName ? file.originalFileName.split('.').pop() || '未知' : '未知' }}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="file-actions">
-                        <ElButton 
-                          type="primary" 
-                          size="small" 
-                          link 
-                          @click.stop="handlePreviewFile(file.id, file.filePath)"
-                        >
-                          <i class="i-lucide-eye mr-1"></i>
-                          预览
-                        </ElButton>
-                        <ElButton 
-                          type="primary" 
-                          size="small" 
-                          link 
-                          @click.stop="handleDownloadFile(file.id, file.originalFileName || '未知文件', file.filePath)"
-                        >
-                          <i class="i-lucide-download mr-1"></i>
-                          下载
-                        </ElButton>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
           
           <!-- 解析失败的原始附件内容 -->

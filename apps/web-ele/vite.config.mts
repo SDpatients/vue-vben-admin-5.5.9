@@ -1,13 +1,14 @@
-import { defineConfig } from '@vben/vite-config';
+import { defineConfig, loadEnv } from '@vben/vite-config';
 
 import ElementPlus from 'unplugin-element-plus/vite';
 
-export default defineConfig(async (): Promise<any> => {
+export default defineConfig(async ({ mode }): Promise<any> => {
+  const env = loadEnv(mode, process.cwd());
+  const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://192.168.0.151:8080';
+
   return {
     application: {},
     vite: {
-      // 添加类型注释以避免推断类型不可移植的问题
-      // @ts-ignore 忽略未找到模块的类型检查
       plugins: [
         ElementPlus({
           format: 'esm',
@@ -23,25 +24,25 @@ export default defineConfig(async (): Promise<any> => {
         proxy: {
           '/api': {
             changeOrigin: true,
-            target: 'http://192.168.0.151:8080',
+            target: proxyTarget,
             ws: true,
             rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
           '/api/v1': {
             changeOrigin: true,
-            target: 'http://192.168.0.151:8080',
+            target: proxyTarget,
             ws: true,
             rewrite: (path: string) => path,
           },
           '/users': {
             changeOrigin: true,
-            target: 'http://192.168.0.151:8080',
+            target: proxyTarget,
             ws: true,
             rewrite: (path: string) => path,
           },
           '/ws': {
             changeOrigin: true,
-            target: 'http://192.168.0.151:8080',
+            target: proxyTarget,
             ws: true,
             rewrite: (path: string) => path.replace(/^\/ws/, '/ws'),
           },

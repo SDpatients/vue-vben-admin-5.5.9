@@ -43,6 +43,7 @@ import { getWorkPlanListByTimeApi } from '#/api/core/work-plan';
 import { fileUploadRequestClient } from '#/api/request';
 import { changePasswordApi } from '#/api/core/auth';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
+import { EXTERNAL_LINKS } from '#/config/external-links';
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
@@ -1720,26 +1721,26 @@ onUnmounted(() => {
           <AnalysisChartCard title="尽职调查" class="bg-white mb-[5px]">
             <div class="friend-links-container">
               <div class="friend-links-grid">
-                <a href="https://pccz.court.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">全国企业破产重整案件信息网</span>
+                <a :href="EXTERNAL_LINKS.pccz.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.pccz.name }}</span>
                 </a>
-                <a href="https://pcgl.zjsfgkw.gov.cn:10020/#/login" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江法院破产智审管理人服务端</span>
+                <a :href="EXTERNAL_LINKS.zjpcgl.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.zjpcgl.name }}</span>
                 </a>
-                <a href="https://www.zjaba.cn/zjaba/web/hom" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江省破产管理人网</span>
+                <a :href="EXTERNAL_LINKS.zjaba.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.zjaba.name }}</span>
                 </a>
-                <a href="https://zjsfgkw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">浙江法院网</span>
+                <a :href="EXTERNAL_LINKS.zjsfgkw.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.zjsfgkw.name }}</span>
                 </a>
-                <a href="https://www.gsxt.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">国家企业信用信息公示系统</span>
+                <a :href="EXTERNAL_LINKS.gsxt.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.gsxt.name }}</span>
                 </a>
-                <a href="https://www.cnipa.gov.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">国家知识产权局</span>
+                <a :href="EXTERNAL_LINKS.cnipa.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.cnipa.name }}</span>
                 </a>
-                <a href="https://www.zhongdengwang.org.cn/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-                  <span class="link-text">中国人民银行征信中心（动产融资登记）</span>
+                <a :href="EXTERNAL_LINKS.zhongdengwang.url" target="_blank" rel="noopener noreferrer" class="friend-link-item">
+                  <span class="link-text">{{ EXTERNAL_LINKS.zhongdengwang.name }}</span>
                 </a>
                 <a href="https://register.ccopyright.com.cn/query.html" target="_blank" rel="noopener noreferrer" class="friend-link-item">
                   <span class="link-text">中国版权登记查询服务中心</span>

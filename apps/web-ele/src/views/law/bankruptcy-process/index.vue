@@ -1657,7 +1657,7 @@ const stages = [
     ],
   },
   {
-    title: '五、重整和解及破产宣告',
+    title: '五、破产宣告',
     icon: 'lucide:gavel',
     color: '#909399',
     modules: [
@@ -1691,7 +1691,7 @@ const stages = [
     modules: [
       {
         id: '6-1',
-        title: '破产财产变价方案',
+        title: '拟定并执行财产变价方案',
         description: '管理人拟定并执行财产变价方案',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
@@ -1705,7 +1705,7 @@ const stages = [
       },
       {
         id: '6-3',
-        title: '破产财产分配方案',
+        title: '执行破产财产分配',
         description: '管理人执行破产财产分配',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],

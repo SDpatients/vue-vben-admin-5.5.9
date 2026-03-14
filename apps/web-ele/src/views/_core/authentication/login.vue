@@ -2,6 +2,7 @@
 import type { VbenFormSchema } from '@vben/common-ui';
 
 import { computed, markRaw } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
@@ -11,7 +12,12 @@ import { ElMessage } from 'element-plus';
 
 import { useAuthStore } from '#/store';
 
+const route = useRoute();
 const authStore = useAuthStore();
+
+const hasRedirect = computed(() => {
+  return !!route.query.redirect;
+});
 
 const formSchema = computed((): VbenFormSchema[] => {
   const baseSchema: VbenFormSchema[] = [
@@ -53,6 +59,9 @@ const handleForgetPassword = () => {
 
 <template>
   <div class="login-container">
+    <div v-if="hasRedirect" class="mobile-login-tip">
+      手机在一周内需要重新登陆一次，记录上传信息。
+    </div>
     <AuthenticationLogin
       :form-schema="formSchema"
       :loading="authStore.loginLoading"
@@ -75,5 +84,17 @@ const handleForgetPassword = () => {
   max-width: 400px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.mobile-login-tip {
+  background-color: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  color: #e6a23c;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
 }
 </style>
