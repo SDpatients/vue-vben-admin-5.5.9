@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from '@vben/vite-config';
+import { defineConfig } from '@vben/vite-config';
+import { loadEnv } from 'vite';
 
 import ElementPlus from 'unplugin-element-plus/vite';
 

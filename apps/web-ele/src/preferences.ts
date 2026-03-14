@@ -8,7 +8,7 @@ import { defineOverridesPreferences } from '@vben/preferences';
 export const overridesPreferences = defineOverridesPreferences({
   // overrides
   app: {
-    name: '永惠破管云・破产案件智能管理系统',
+    name: '破管通',
     defaultHomePath: '/workspace',
     enableCheckUpdates: false,  // 禁用版本更新检测
   },
