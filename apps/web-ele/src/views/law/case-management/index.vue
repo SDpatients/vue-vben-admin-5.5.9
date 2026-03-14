@@ -153,7 +153,7 @@ const fetchCaseList = async () => {
           SECOND: '二、管理人履职与财产接管',
           THIRD: '三、债权申报与核查',
           FOURTH: '四、债权人会议',
-          FIFTH: '五、破产宣告',
+          FIFTH: '五、重整和解及破产宣告',
           SIXTH: '六、财产变价与分配',
           SEVENTH: '七、程序终结',
         };
@@ -322,7 +322,7 @@ const getCaseProgressType = (progress: string) => {
     '二、管理人履职与财产接管': 'success',
     '三、债权申报与核查': 'warning',
     '四、债权人会议': 'danger',
-    '五、破产宣告': 'info',
+    '五、重整和解及破产宣告': 'info',
     '六、财产变价与分配': 'primary',
     '七、程序终结': 'success',
     // 特殊状态

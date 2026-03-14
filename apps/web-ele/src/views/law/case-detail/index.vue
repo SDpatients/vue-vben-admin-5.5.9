@@ -204,8 +204,6 @@ const canDeleteCase = computed(() => {
 const deleteDialogVisible = ref(false);
 const deleteLoading = ref(false);
 const relatedData = ref<any>(null);
-const secondConfirmVisible = ref(false);
-const deleteTime = ref('');
 
 // 显示删除确认弹窗
 const showDeleteDialog = async () => {
@@ -225,28 +223,14 @@ const showDeleteDialog = async () => {
   }
 };
 
-// 确认删除案件 - 显示二次确认
-const confirmDelete = () => {
-  deleteTime.value = new Date().toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  secondConfirmVisible.value = true;
-};
-
-// 最终确认删除
-const finalConfirmDelete = async () => {
+// 确认删除案件
+const confirmDelete = async () => {
   deleteLoading.value = true;
   try {
     const response = await deleteCaseApi(Number(caseId.value));
     if (response.code === 200) {
       ElMessage.success('删除成功');
       deleteDialogVisible.value = false;
-      secondConfirmVisible.value = false;
       relatedData.value = null;
       router.push('/law/case-management');
     } else {
@@ -262,13 +246,7 @@ const finalConfirmDelete = async () => {
 // 取消删除
 const cancelDelete = () => {
   deleteDialogVisible.value = false;
-  secondConfirmVisible.value = false;
   relatedData.value = null;
-};
-
-// 取消二次确认
-const cancelSecondConfirm = () => {
-  secondConfirmVisible.value = false;
 };
 
 // 案件卷宗归档相关
@@ -433,14 +411,21 @@ const stages = [
   },
   {
     id: 5,
-    name: '五、重整和解及破产宣告',
-    description: '审查并裁定债务人重整、和解或宣告破产',
+    name: '五、重整与和解',
+    description: '审查并裁定债务人重整或和解',
     modules: [
       {
         code: 'TASK_015_1',
         name: '宣告重整与和解',
         description: '审查并裁定债务人重整或和解。需上传：1.重整或和解申请；2.重整计划或和解协议草案；3.债权人会议决议；4.法院裁定书。需确认：1.重整或和解申请是否符合法律规定；2.重整计划或和解协议草案是否合法可行；3.程序是否合法合规。'
       },
+    ],
+  },
+  {
+    id: 6,
+    name: '六、重整和解及破产宣告',
+    description: '审查并裁定债务人重整、和解或宣告破产',
+    modules: [
       {
         code: 'TASK_016',
         name: '审查宣告破产条件',
@@ -454,8 +439,8 @@ const stages = [
     ],
   },
   { 
-    id: 6,
-    name: '六、财产变价与分配',
+    id: 7,
+    name: '七、财产变价与分配',
     description: '拟定执行财产变价方案并分配破产财产',
     modules: [
       {
@@ -476,8 +461,8 @@ const stages = [
     ],
   },
   {
-    id: 7,
-    name: '七、程序终结',
+    id: 8,
+    name: '八、程序终结',
     description: '终结破产程序、办理企业注销并归档',
     modules: [
       {
@@ -555,11 +540,6 @@ const workLogPagination = reactive({
 const getWorkTypeLabel = (type: string) => {
   const option = workTypeOptions.find((opt) => opt.value === type);
   return option ? option.label : type;
-};
-
-const canDeleteWorkLog = (log: any) => {
-  if (!currentUserId.value) return false;
-  return log.createUserId === currentUserId.value;
 };
 
 const fetchWorkLogs = async () => {
@@ -1017,7 +997,7 @@ const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
-// 尽职调查相关
+// 友情链接相关
 const showFriendLinksDialog = ref(false);
 
 // 批审相关
@@ -3959,7 +3939,7 @@ const mapCaseProgress = (progress: string): string => {
     SECOND: '二、管理人履职与财产接管',
     THIRD: '三、债权申报与核查',
     FOURTH: '四、债权人会议',
-    FIFTH: '五、重整和解及破产宣告',
+    FIFTH: '五、破产宣告',
     SIXTH: '六、财产变价与分配',
     SEVENTH: '七、程序终结',
   };
@@ -5181,7 +5161,7 @@ const endDrag = () => {
             <div class="header-actions">
               <ElButton type="primary" @click="openFriendLinksDialog">
                 <Icon icon="lucide:link" class="mr-2" />
-                尽职调查
+                友情链接
               </ElButton>
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
@@ -6650,7 +6630,6 @@ const endDrag = () => {
                         查看
                       </ElButton>
                       <ElPopconfirm
-                        v-if="canDeleteWorkLog(log)"
                         title="确定要删除这条日志吗？"
                         @confirm="deleteWorkLog(log.id)"
                       >
@@ -8699,10 +8678,10 @@ const endDrag = () => {
         @progress-updated="handleProgressUpdated"
       />
       
-      <!-- 尽职调查对话框 -->
+      <!-- 友情链接对话框 -->
       <ElDialog
         v-model="showFriendLinksDialog"
-        title="尽职调查"
+        title="友情链接"
         width="600px"
         destroy-on-close
       >
@@ -8747,10 +8726,6 @@ const endDrag = () => {
             <a href="https://www.qcc.com/" target="_blank" rel="noopener noreferrer" class="friend-link-item">
               <Icon icon="lucide:external-link" class="link-icon" />
               <span class="link-text">企查查</span>
-            </a>
-            <a href="https://gswsdj.zjzwfw.gov.cn" target="_blank" rel="noopener noreferrer" class="friend-link-item">
-              <Icon icon="lucide:external-link" class="link-icon" />
-              <span class="link-text">浙江省企业登记全程化电子平台</span>
             </a>
           </div>
         </div>
@@ -8965,49 +8940,6 @@ const endDrag = () => {
             <ElButton
               type="danger"
               @click="confirmDelete"
-              :loading="deleteLoading"
-            >
-              确认删除
-            </ElButton>
-          </div>
-        </template>
-      </ElDialog>
-
-      <!-- 二次确认删除弹窗 -->
-      <ElDialog
-        v-model="secondConfirmVisible"
-        title="最终确认删除"
-        width="500px"
-        :close-on-click-modal="false"
-        :close-on-press-escape="false"
-      >
-        <div class="second-confirm-content">
-          <div class="confirm-warning">
-            <Icon icon="lucide:alert-triangle" class="warning-icon" />
-            <div class="confirm-text">
-              <p class="confirm-title">你确定要删除"{{ caseDetail?.案号 }}"？</p>
-              <p class="confirm-subtitle">此操作不可逆！</p>
-            </div>
-          </div>
-          
-          <div class="delete-info">
-            <div class="info-item">
-              <span class="info-label">删除人：</span>
-              <span class="info-value">{{ userStore.userInfo?.realName || userStore.userInfo?.username || '未知' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">删除时间：</span>
-              <span class="info-value">{{ deleteTime }}</span>
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <div class="flex justify-end space-x-3">
-            <ElButton @click="cancelSecondConfirm">取消</ElButton>
-            <ElButton
-              type="danger"
-              @click="finalConfirmDelete"
               :loading="deleteLoading"
             >
               确认删除
@@ -10542,7 +10474,7 @@ const endDrag = () => {
   margin-bottom: 0;
 }
 
-/* 尽职调查样式 */
+/* 友情链接样式 */
 .friend-links-container {
   padding: 16px;
 }
