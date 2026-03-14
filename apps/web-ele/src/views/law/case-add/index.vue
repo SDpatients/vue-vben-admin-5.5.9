@@ -31,7 +31,7 @@ const form = reactive<CaseApi.CreateCaseRequest>({
   acceptanceCourt: '',
   designatedJudge: '',
   designatedInstitution: '',
-  mainResponsiblePerson: '李律师',
+  mainResponsiblePerson: '李国祥',
   undertakingPersonnel: undefined,
   isSimplifiedTrial: 0,
   caseProgress: 'FIRST',
@@ -77,7 +77,7 @@ const loadFormFromLocalStorage = () => {
       form.acceptanceCourt = parsed.acceptanceCourt || '';
       form.designatedJudge = parsed.designatedJudge || '';
       form.designatedInstitution = parsed.designatedInstitution || '';
-      form.mainResponsiblePerson = parsed.mainResponsiblePerson || '李律师';
+      form.mainResponsiblePerson = parsed.mainResponsiblePerson || '李国祥';
       form.undertakingPersonnel = parsed.undertakingPersonnel;
       form.isSimplifiedTrial = parsed.isSimplifiedTrial ?? 0;
       form.caseProgress = parsed.caseProgress || 'FIRST';

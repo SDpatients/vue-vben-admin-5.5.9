@@ -49,11 +49,10 @@ const loading = ref(false);
 
 // 法院级别选项
 const courtLevelOptions = [
-  { label: '中级人民法院', value: '中级人民法院' },
+  { label: '最高人民法院', value: '最高人民法院' },
   { label: '高级人民法院', value: '高级人民法院' },
-  { label: '省级人民法院', value: '省级人民法院' },
-  { label: '县级人民法院', value: '县级人民法院' },
-  { label: '市级人民法院', value: '市级人民法院' },
+  { label: '中级人民法院', value: '中级人民法院' },
+  { label: '基层人民法院', value: '基层人民法院' },
 ];
 
 // 搜索表单

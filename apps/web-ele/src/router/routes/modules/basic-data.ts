@@ -85,6 +85,18 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.basicData.managerManagement'),
         },
       },
+
+      {
+        name: 'BasicDataStaffManagement',
+        path: 'staff-management',
+        component: () =>
+          import('#/views/basic-data/staff-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:users',
+          title: $t('page.basicData.staffManagement'),
+        },
+      },
     ],
   },
 ];

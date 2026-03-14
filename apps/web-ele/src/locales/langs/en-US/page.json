@@ -36,7 +36,8 @@
     "workPlanManagement": "Work Plan Management",
     "workTeamManagement": "Work Team Management",
     "workTeamEdit": "Edit Work Team",
-    "managerManagement": "Manager Information"
+    "managerManagement": "Manager Information",
+    "staffManagement": "Staff Management"
   },
   "chat": {
     "title": "Chat",

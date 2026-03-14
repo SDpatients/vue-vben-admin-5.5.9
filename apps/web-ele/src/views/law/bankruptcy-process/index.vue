@@ -2869,6 +2869,10 @@ const openMobileUploadDialog = async () => {
                               selectedDataItem.date
                             }}</span>
                           </div>
+                          <div v-if="selectedDataItem.content" class="data-row">
+                            <span class="data-label">内容:</span>
+                            <div class="data-content-text">{{ selectedDataItem.content }}</div>
+                          </div>
                           <div
                             v-if="
                               selectedDataItem.files &&
@@ -2876,6 +2880,7 @@ const openMobileUploadDialog = async () => {
                             "
                             class="attachments-preview-section"
                           >
+                            <div class="attachments-label">附件:</div>
                             <div
                               class="attachments-preview-grid"
                               ref="attachmentsGridRef"
@@ -3090,6 +3095,10 @@ const openMobileUploadDialog = async () => {
                             selectedDataItem.date
                           }}</span>
                         </div>
+                        <div v-if="selectedDataItem.content" class="data-row">
+                          <span class="data-label">内容:</span>
+                          <div class="data-content-text">{{ selectedDataItem.content }}</div>
+                        </div>
                         <div
                           v-if="
                             selectedDataItem.files &&
@@ -3097,6 +3106,7 @@ const openMobileUploadDialog = async () => {
                           "
                           class="attachments-preview-section"
                         >
+                          <div class="attachments-label">附件:</div>
                           <div
                             class="attachments-preview-grid"
                             ref="attachmentsGridRef"
@@ -4584,9 +4594,10 @@ const openMobileUploadDialog = async () => {
 
 .data-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   font-size: 12px;
-  padding: 2px 0;
+  padding: 4px 0;
+  flex-direction: column;
 }
 
 .data-label {
@@ -4601,6 +4612,27 @@ const openMobileUploadDialog = async () => {
   flex: 1;
   font-weight: 400;
   line-height: 1.4;
+}
+
+.data-content-text {
+  color: #374151;
+  flex: 1;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background-color: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  margin-top: 4px;
+}
+
+.attachments-label {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
 
 .module-empty {

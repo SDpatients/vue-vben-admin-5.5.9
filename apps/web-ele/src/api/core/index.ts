@@ -29,6 +29,7 @@ export * from './manager';
 export * from './menu';
 export * from './notification';
 export * from './statistics';
+export * from './staff';
 export * from './todo';
 export * from './user';
 export * from './work-log';
