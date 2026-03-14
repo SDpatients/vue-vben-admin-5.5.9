@@ -12,8 +12,8 @@ const logo = computed(() => preferences.logo.source);
   <AuthPageLayout
     :app-name="appName"
     :logo="logo"
-    page-description="开箱即用的大型中后台管理系统 工程化、高性能、跨组件库的前端模版"
-    page-title="永惠破管云・破产案件智能管理系统"
+    page-description="破产核心业务 - 管理人主办—全生命周期打通完成"
+    page-title="破管通"
   >
     <!-- 自定义工具栏 -->
     <!-- <template #toolbar></template> -->

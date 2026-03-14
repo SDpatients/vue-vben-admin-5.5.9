@@ -64,7 +64,7 @@ const handleForgetPassword = () => {
       @forget-password-click="handleForgetPassword"
     >
       <template #title>
-        <h2 class="text-2xl font-bold">永惠破管云・破产案件智能管理系统</h2>
+        <h2 class="text-2xl font-bold">破产核心业务-管理人主办—全生命周期打通完成</h2>
       </template>
     </AuthenticationLogin>
   </div>
