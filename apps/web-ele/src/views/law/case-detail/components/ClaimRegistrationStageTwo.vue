@@ -36,6 +36,7 @@ import {
 import FileUpload from './FileUpload.vue';
 
 import { getClaimRegistrationDetailApi } from '#/api/core/claim-registration';
+import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
 
 import { useReviewForm } from './composables/useClaimForm';
 import { useClaimPagination } from './composables/useClaimPagination';
@@ -66,6 +67,7 @@ const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(null
 const currentReview = ref<ClaimReviewApi.ClaimReviewInfo | null>(null);
 const reviewStatusFilter = ref<string>(''); // 空字符串表示全部
 const reviewCollapseActive = ref<string[]>([]);
+const reviewExistingFiles = ref<any[]>([]);
 
 // 监听折叠状态变化，用于调试
 watch(reviewCollapseActive, (newVal) => {
@@ -124,6 +126,8 @@ const openDetailDialog = async (row: any) => {
 const openReviewDialog = async (row: any) => {
   let response;
   try {
+    const claimRegistrationId = row.claimRegistrationId || row.id;
+    
     if (row.reviewInfo) {
       const result = await ClaimService.getReviewDetail(row.reviewInfo.id);
       if (result.success) {
@@ -161,6 +165,33 @@ const openReviewDialog = async (row: any) => {
         ElMessage.error('获取债权详情失败');
         return;
       }
+    }
+
+    // 获取该债权申报的所有附件文件
+    try {
+      console.log('获取债权申报附件，claimRegistrationId:', claimRegistrationId);
+      const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
+      if (filesResponse.code === 200 && filesResponse.data) {
+        console.log('获取到的附件文件:', filesResponse.data);
+        reviewExistingFiles.value = filesResponse.data.map((file: any) => ({
+          id: file.id,
+          originalFileName: file.originalFileName,
+          fileSize: file.fileSize,
+          fileExtension: file.fileExtension,
+          mimeType: file.mimeType,
+          uploadTime: file.uploadTime,
+          filePath: file.filePath,
+        }));
+        // 同时初始化 reviewAttachments
+        reviewForm.reviewAttachments = [...reviewExistingFiles.value];
+      } else {
+        reviewExistingFiles.value = [];
+        reviewForm.reviewAttachments = [];
+      }
+    } catch (fileError) {
+      console.error('获取债权申报附件失败:', fileError);
+      reviewExistingFiles.value = [];
+      reviewForm.reviewAttachments = [];
     }
 
     // 设置默认审查日期为今天（北京时间），覆盖响应中的数据
@@ -211,6 +242,7 @@ const closeReviewDialog = () => {
   resetReviewForm();
   currentClaim.value = null;
   reviewCollapseActive.value = [];
+  reviewExistingFiles.value = [];
   console.log('关闭审查对话框，重置折叠状态');
 };
 
@@ -288,18 +320,15 @@ const handleSaveReview = async () => {
 
   try {
     if (result.success) {
-      if (!reviewId) {
-        console.error('审查记录 ID 为空，无法上传文件');
-        ElMessage.warning('审查保存成功，但返回的 ID 为空');
-        return;
-      }
+      // 文件上传使用债权申报ID，而不是审查记录ID
+      const fileUploadBizId = claimId;
       
       // 1. 首先转移手机上传的临时文件（如果有）
       let allUploadedFileIds: number[] = [];
       
       if (reviewUploadRef.value && reviewUploadRef.value.getHasUntransferredFiles()) {
         console.log('发现手机上传的临时文件，开始转移...');
-        const transferredFiles = await reviewUploadRef.value.transferMobileFiles(reviewId);
+        const transferredFiles = await reviewUploadRef.value.transferMobileFiles(fileUploadBizId);
         console.log('转移成功的文件:', transferredFiles);
         
         // 收集转移的文件 ID
@@ -313,6 +342,7 @@ const handleSaveReview = async () => {
         console.log('=== 准备债权审查文件上传 ===');
         console.log('reviewForm.reviewAttachments:', reviewForm.reviewAttachments);
         console.log('reviewUploadRef.value.getLocalFiles():', reviewUploadRef.value?.getLocalFiles());
+        console.log('文件上传 bizId:', fileUploadBizId);
         
         // 筛选出需要上传的新文件（没有file_id的文件，且不是手机上传的文件）
         const filesToUpload = reviewForm.reviewAttachments
@@ -336,7 +366,7 @@ const handleSaveReview = async () => {
         if (filesToUpload.length > 0) {
           try {
             console.log('开始上传本地文件...');
-            const uploadedIds = await reviewUploadRef.value.uploadLocalFiles(reviewId);
+            const uploadedIds = await reviewUploadRef.value.uploadLocalFiles(fileUploadBizId);
             console.log('上传成功的文件 ID:', uploadedIds);
             
             if (uploadedIds && uploadedIds.length > 0) {
@@ -492,7 +522,7 @@ defineExpose({
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
             <Icon icon="lucide:file-search" class="mr-2 text-primary" />
-            <span class="text-lg font-semibold">债权审查</span>
+            <span class="text-lg font-semibold">债权审查与确认</span>
           </div>
           <div class="flex space-x-2">
             <ElSelect v-model="reviewStatusFilter" placeholder="选择审查状态" style="width: 200px" @change="fetchClaims">
@@ -655,7 +685,7 @@ defineExpose({
 
     <ElDialog
       v-model="showDetailDialog"
-      title="债权申报详情"
+      title="债权审查与确认详情"
       width="90%"
       destroy-on-close
     >
@@ -888,7 +918,7 @@ defineExpose({
 
     <ElDialog
       v-model="showReviewDialog"
-      title="债权审查"
+      title="债权审查与确认"
       width="90%"
       destroy-on-close
     >
@@ -1360,15 +1390,15 @@ defineExpose({
             <FileUpload
               ref="reviewUploadRef"
               v-model="reviewForm.reviewAttachments"
-              :biz-type="'claim-review'"
-              :biz-id="currentClaim?.reviewInfo?.id || 0"
+              :biz-type="'claim'"
+              :biz-id="currentClaim?.claimRegistrationId || currentClaim?.id || 0"
               :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
               :max-size="50 * 1024 * 1024"
               :multiple="true"
               title="债权审查附件"
               :disabled="false"
               :local-mode="true"
-              :existing-files="reviewForm.reviewAttachments || []"
+              :existing-files="reviewExistingFiles"
               @local-files-change="(files) => { console.log('债权审查附件变化:', files); reviewForm.reviewAttachments = files; }"
             />
           </ElCol>

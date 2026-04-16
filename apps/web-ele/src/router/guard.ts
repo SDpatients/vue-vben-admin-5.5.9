@@ -6,8 +6,9 @@ import { useAccessStore, useUserStore } from '@vben/stores';
 import { startProgress, stopProgress } from '@vben/utils';
 
 import { selectLoginRecordApi } from '#/api/core/auth';
-import { accessRoutes, coreRouteNames } from '#/router/routes';
-import { useAuthStore } from '#/store';
+import { LICENSE_PATH } from '#/router/routes/core';
+import { coreRouteNames, getAccessRoutes } from '#/router/routes';
+import { useAuthStore, useLicenseStore } from '#/store';
 
 import { generateAccess } from './access';
 
@@ -113,6 +114,9 @@ function setupAccessGuard(router: Router) {
     const userInfo = userStore.userInfo || (await authStore.fetchUserInfo());
     const userRoles = userInfo?.roles ?? [];
 
+    // 异步加载路由模块
+    const accessRoutes = await getAccessRoutes();
+
     // 生成菜单和路由
     const { accessibleMenus, accessibleRoutes } = await generateAccess({
       roles: userRoles,
@@ -126,13 +130,20 @@ function setupAccessGuard(router: Router) {
     accessStore.setAccessRoutes(accessibleRoutes);
     accessStore.setIsAccessChecked(true);
 
-    const redirectPath = (from.query.redirect ??
-      (to.path === preferences.app.defaultHomePath
-        ? userInfo?.homePath || preferences.app.defaultHomePath
-        : to.fullPath)) as string;
+    let redirectPath = to.fullPath;
+    
+    if (to.query.redirect) {
+      redirectPath = decodeURIComponent(to.query.redirect as string);
+    } else if (from.query.redirect) {
+      redirectPath = decodeURIComponent(from.query.redirect as string);
+    } else if (to.path === preferences.app.defaultHomePath) {
+      redirectPath = userInfo?.homePath || preferences.app.defaultHomePath;
+    }
+
+    console.log('[RouterGuard] Final redirect path:', redirectPath);
 
     return {
-      ...router.resolve(decodeURIComponent(redirectPath)),
+      ...router.resolve(redirectPath),
       replace: true,
     };
   });
@@ -244,14 +255,11 @@ function setupChatGuard(router: Router) {
  */
 function setupCaseDetailGuard(router: Router) {
   router.beforeEach(async (to) => {
-    // 检查是否是案件详情页面
     if (to.name === 'LawCaseDetail') {
       const caseId = to.params.id;
       
-      // 检查案件ID是否有效
       if (!caseId || Number.isNaN(Number.parseInt(caseId as string, 10))) {
         console.log('CaseDetailGuard: Invalid case ID:', caseId);
-        // 无效的案件ID，重定向到案件列表页
         return {
           path: '/law/case-management',
           replace: true,
@@ -259,12 +267,74 @@ function setupCaseDetailGuard(router: Router) {
       }
       
       console.log('CaseDetailGuard: Valid case ID, proceeding to page for permission check:', caseId);
-      // 案件ID有效，允许进入页面
-      // 具体的权限检查在页面组件的 onMounted 中进行
       return true;
     }
     
-    // 不是案件详情页面，直接通过
+    return true;
+  });
+}
+
+/**
+ * 许可证守卫配置
+ * 检查许可证是否有效，无效则跳转到许可证激活页面
+ * @param router
+ */
+function setupLicenseGuard(router: Router) {
+  router.beforeEach(async (to) => {
+    console.log('LicenseGuard: 检查路由', to.path);
+
+    // 如果已经在许可证页面，不跳转
+    if (to.path === LICENSE_PATH) {
+      console.log('LicenseGuard: 已在许可证页面，放行');
+      return true;
+    }
+
+    // 如果页面明确标记为忽略访问控制（如许可证页面），不检查
+    if (to.meta.ignoreAccess) {
+      console.log('LicenseGuard: 页面标记为ignoreAccess，放行');
+      return true;
+    }
+
+    const licenseStore = useLicenseStore();
+
+    // 如果还没有检查过许可证状态，先获取
+    if (!licenseStore.licenseChecked) {
+      console.log('LicenseGuard: 正在获取许可证状态...');
+      try {
+        await licenseStore.fetchLicenseStatus();
+        console.log('LicenseGuard: 许可证状态获取完成', licenseStore.licenseStatus);
+      } catch (error) {
+        console.error('LicenseGuard: 检查许可证状态失败:', error);
+      }
+    }
+
+    // 如果许可证无效，跳转到许可证页面
+    if (!licenseStore.isValid()) {
+      console.log('LicenseGuard: 许可证无效，跳转到许可证页面');
+      return {
+        path: LICENSE_PATH,
+        replace: true,
+      };
+    }
+
+    console.log('LicenseGuard: 许可证有效，放行');
+
+    // 检查模块级权限
+    if (to.meta.requiredModules && Array.isArray(to.meta.requiredModules)) {
+      const requiredModules = to.meta.requiredModules as string[];
+      const hasAllModules = requiredModules.every((mod) =>
+        licenseStore.hasModule(mod),
+      );
+
+      if (!hasAllModules) {
+        console.log('LicenseGuard: 缺少必要的模块授权:', requiredModules);
+        return {
+          path: '/fallback/forbidden',
+          replace: true,
+        };
+      }
+    }
+
     return true;
   });
 }
@@ -276,6 +346,8 @@ function setupCaseDetailGuard(router: Router) {
 function createRouterGuard(router: Router) {
   /** 通用 */
   setupCommonGuard(router);
+  /** 许可证检查 - 必须在权限访问守卫之前执行 */
+  setupLicenseGuard(router);
   /** 权限访问 */
   setupAccessGuard(router);
   /** 聊天功能 */

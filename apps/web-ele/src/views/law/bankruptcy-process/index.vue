@@ -2156,15 +2156,27 @@ const handleAddSubmit = async () => {
       // 新增模式：找到新创建的数据项并更新
       await loadStageData(currentStageIndex.value);
 
+      // 使用 nextTick 确保 DOM 更新完成后再选择新创建的数据项
+      await nextTick();
+
       // 重新选择当前模块和数据项
       const refreshedModule = stages[currentStageIndex.value].modules.find(
         (m) => m.id === currentModule.value.id,
       );
       if (refreshedModule && refreshedModule.data.length > 0) {
+        // 先清空选中状态，强制触发响应式更新
+        selectedModule.value = null;
+        selectedDataItem.value = null;
+        
+        // 等待下一个 tick 后再设置新值
+        await nextTick();
+        
         selectedModule.value = refreshedModule;
         // 选择最新的一个数据项（刚刚创建的）
         selectedDataItem.value =
           refreshedModule.data[refreshedModule.data.length - 1];
+          
+        console.log('新增成功，已刷新并选中最新数据项:', selectedDataItem.value);
       }
     }
   } catch (error: any) {
@@ -3459,9 +3471,10 @@ const openMobileUploadDialog = async () => {
     <ElDialog
       v-model="previewDialogVisible"
       :title="`文件预览 - ${previewFileName}`"
-      width="90%"
+      width="95%"
       destroy-on-close
       class="file-preview-dialog"
+      top="2vh"
     >
       <div class="file-preview-content">
         <iframe
@@ -5174,18 +5187,22 @@ const openMobileUploadDialog = async () => {
 }
 
 .file-preview-dialog :deep(.el-dialog__body) {
-  padding: 0;
-  height: 70vh;
+  padding: 0 !important;
+  height: 85vh !important;
+  position: relative;
+  overflow: hidden;
 }
 
 .file-preview-content {
   width: 100%;
   height: 100%;
+  min-height: 85vh;
 }
 
 .preview-iframe {
   width: 100%;
   height: 100%;
+  min-height: 85vh;
   border: none;
 }
 
@@ -5706,5 +5723,28 @@ const openMobileUploadDialog = async () => {
   gap: 8px;
   font-size: 14px;
   color: #1a1a2e;
+}
+</style>
+
+<!-- 全局样式：确保PDF预览对话框高度生效 -->
+<style>
+.file-preview-dialog .el-dialog__body {
+  padding: 0 !important;
+  height: 85vh !important;
+  min-height: 85vh !important;
+  overflow: hidden !important;
+}
+
+.file-preview-dialog .file-preview-content {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 85vh !important;
+}
+
+.file-preview-dialog .preview-iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 85vh !important;
+  border: none !important;
 }
 </style>

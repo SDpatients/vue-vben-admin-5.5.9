@@ -998,7 +998,7 @@ const workPlanDrawerRef = ref<InstanceType<typeof WorkPlanDrawer> | null>(
 
 const showAssetManagementDialog = ref(false);
 
-// 友情链接相关
+// 尽职调查相关
 const showFriendLinksDialog = ref(false);
 
 // 批审相关
@@ -5157,7 +5157,7 @@ const endDrag = () => {
             <div class="header-actions">
               <ElButton type="primary" @click="openFriendLinksDialog">
                 <Icon icon="lucide:link" class="mr-2" />
-                友情链接
+                尽职调查
               </ElButton>
               <ElButton type="primary" @click="openFundControlDrawer">
                 <Icon icon="lucide:landmark" class="mr-2" />
@@ -8705,10 +8705,10 @@ const endDrag = () => {
         @progress-updated="handleProgressUpdated"
       />
       
-      <!-- 友情链接对话框 -->
+      <!-- 尽职调查对话框 -->
       <ElDialog
         v-model="showFriendLinksDialog"
-        title="友情链接"
+        title="尽职调查"
         width="600px"
         destroy-on-close
       >
@@ -10501,7 +10501,7 @@ const endDrag = () => {
   margin-bottom: 0;
 }
 
-/* 友情链接样式 */
+/* 尽职调查样式 */
 .friend-links-container {
   padding: 16px;
 }

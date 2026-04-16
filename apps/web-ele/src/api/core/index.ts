@@ -1,3 +1,4 @@
+export * from './actuator';
 export * from './activity';
 export * from './approval';
 export * from './archive';
@@ -36,3 +37,4 @@ export * from './work-log';
 export * from './work-plan';
 export * from './work-team';
 export * from './excel-templates';
+export * from './license';

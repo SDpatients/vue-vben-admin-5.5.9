@@ -39,7 +39,9 @@ export const getMobileUploadUrl = (
   baseUrl: string,
   token: string,
 ): string => {
-  return `${baseUrl}${MOBILE_UPLOAD_CONFIG.mobileUploadPath}?token=${encodeURIComponent(token)}`;
+  const useHashRouter = import.meta.env.VITE_ROUTER_HISTORY === 'hash';
+  const hashPrefix = useHashRouter ? '/#' : '';
+  return `${baseUrl}${hashPrefix}${MOBILE_UPLOAD_CONFIG.mobileUploadPath}?token=${encodeURIComponent(token)}`;
 };
 
 export const getBaseUrl = (ip: string): string => {

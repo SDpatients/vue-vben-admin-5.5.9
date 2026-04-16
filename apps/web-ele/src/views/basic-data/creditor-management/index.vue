@@ -341,6 +341,60 @@ const formatDateTime = (dateStr: string | undefined | null) => {
   }
 };
 
+// 债权申报状态映射
+const getRegistrationStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'REGISTERED': { text: '已登记', type: 'success' },
+    'CONFIRMING': { text: '确认中', type: 'warning' },
+    'REVIEWING': { text: '审查中', type: 'warning' },
+    'REVIEW_COMPLETED': { text: '审查完成', type: 'info' },
+    'CONFIRMED': { text: '已确认', type: 'success' },
+    'REJECTED': { text: '已驳回', type: 'danger' },
+    'PENDING': { text: '待处理', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+// 债权审查状态映射
+const getReviewStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'COMPLETED': { text: '已完成', type: 'success' },
+    'IN_PROGRESS': { text: '进行中', type: 'warning' },
+    'PENDING': { text: '待审查', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+// 债权确认状态映射
+const getConfirmationStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'COMPLETED': { text: '已完成', type: 'success' },
+    'IN_PROGRESS': { text: '进行中', type: 'warning' },
+    'PENDING': { text: '待确认', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+// 审查结论映射
+const getReviewConclusionTag = (conclusion: string) => {
+  const conclusionMap: Record<string, { text: string; type: string }> = {
+    'CONFIRMED': { text: '确认', type: 'success' },
+    'PARTIAL_CONFIRMED': { text: '部分确认', type: 'warning' },
+    'UNCONFIRMED': { text: '不确认', type: 'danger' },
+  };
+  return conclusionMap[conclusion] || { text: conclusion || '待定', type: 'info' };
+};
+
+// 表决结果映射
+const getVoteResultTag = (result: string) => {
+  const resultMap: Record<string, { text: string; type: string }> = {
+    'AGREE': { text: '通过', type: 'success' },
+    'DISAGREE': { text: '不通过', type: 'danger' },
+    'ABSTAIN': { text: '弃权', type: 'info' },
+  };
+  return resultMap[result] || { text: result || '待定', type: 'info' };
+};
+
 // 获取债权人类型标签
 const getCreditorType = (type: string) => {
   switch (type) {
@@ -1811,8 +1865,8 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                   >
                     <div class="claim-card-header">
                       <span class="claim-index">申报 {{ index + 1 }}</span>
-                      <ElTag :type="claim.registrationStatus === 'REGISTERED' ? 'success' : 'warning'" size="small">
-                        {{ claim.registrationStatus === 'REGISTERED' ? '已登记' : '待登记' }}
+                      <ElTag :type="getRegistrationStatusTag(claim.registrationStatus).type" size="small">
+                        {{ getRegistrationStatusTag(claim.registrationStatus).text }}
                       </ElTag>
                     </div>
                     <ElDescriptions :column="2" border class="mt-3">
@@ -1863,7 +1917,7 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                 <ElEmpty v-else description="暂无债权申报记录" />
               </ElTabPane>
 
-              <ElTabPane label="债权审查阶段" name="review">
+              <ElTabPane label="债权审查与确认阶段" name="review">
                 <div v-if="creditorDetailData.claimReviews && creditorDetailData.claimReviews.length > 0">
                   <div
                     v-for="(review, index) in creditorDetailData.claimReviews"
@@ -1872,8 +1926,8 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                   >
                     <div class="claim-card-header">
                       <span class="claim-index">审查 {{ index + 1 }}</span>
-                      <ElTag :type="review.reviewStatus === 'COMPLETED' ? 'success' : 'warning'" size="small">
-                        {{ review.reviewStatus === 'COMPLETED' ? '已完成' : '进行中' }}
+                      <ElTag :type="getReviewStatusTag(review.reviewStatus).type" size="small">
+                        {{ getReviewStatusTag(review.reviewStatus).text }}
                       </ElTag>
                     </div>
                     <ElDescriptions :column="2" border class="mt-3">
@@ -1881,8 +1935,8 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                       <ElDescriptionsItem label="审查人">{{ review.reviewer }}</ElDescriptionsItem>
                       <ElDescriptionsItem label="审查轮次">{{ review.reviewRound }}</ElDescriptionsItem>
                       <ElDescriptionsItem label="审查结论">
-                        <ElTag :type="review.reviewConclusion === 'CONFIRMED' ? 'success' : 'danger'" size="small">
-                          {{ review.reviewConclusion === 'CONFIRMED' ? '确认' : '不确认' }}
+                        <ElTag :type="getReviewConclusionTag(review.reviewConclusion).type" size="small">
+                          {{ getReviewConclusionTag(review.reviewConclusion).text }}
                         </ElTag>
                       </ElDescriptionsItem>
                       <ElDescriptionsItem label="申报本金">{{ formatCurrency(review.declaredPrincipal) }}</ElDescriptionsItem>
@@ -1935,7 +1989,7 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                 <ElEmpty v-else description="暂无债权审查记录" />
               </ElTabPane>
 
-              <ElTabPane label="债权确认阶段" name="confirmation">
+              <ElTabPane label="债权复查阶段" name="confirmation">
                 <div v-if="creditorDetailData.claimConfirmations && creditorDetailData.claimConfirmations.length > 0">
                   <div
                     v-for="(confirmation, index) in creditorDetailData.claimConfirmations"
@@ -1943,18 +1997,18 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
                     class="claim-card mb-4"
                   >
                     <div class="claim-card-header">
-                      <span class="claim-index">确认 {{ index + 1 }}</span>
-                      <ElTag :type="confirmation.confirmationStatus === 'CONFIRMED' ? 'success' : 'warning'" size="small">
-                        {{ confirmation.confirmationStatus === 'CONFIRMED' ? '已确认' : '待确认' }}
+                      <span class="claim-index">复查 {{ index + 1 }}</span>
+                      <ElTag :type="getConfirmationStatusTag(confirmation.confirmationStatus).type" size="small">
+                        {{ getConfirmationStatusTag(confirmation.confirmationStatus).text }}
                       </ElTag>
                     </div>
                     <ElDescriptions :column="2" border class="mt-3">
                       <ElDescriptionsItem label="会议类型">{{ confirmation.meetingType }}</ElDescriptionsItem>
                       <ElDescriptionsItem label="会议日期">{{ formatDateTime(confirmation.meetingDate) }}</ElDescriptionsItem>
                       <ElDescriptionsItem label="会议地点">{{ confirmation.meetingLocation }}</ElDescriptionsItem>
-                      <ElDescriptionsItem label="投票结果">
-                        <ElTag :type="confirmation.voteResult === 'APPROVED' ? 'success' : 'danger'" size="small">
-                          {{ confirmation.voteResult === 'APPROVED' ? '通过' : '未通过' }}
+                      <ElDescriptionsItem label="表决结果">
+                        <ElTag :type="getVoteResultTag(confirmation.voteResult).type" size="small">
+                          {{ getVoteResultTag(confirmation.voteResult).text }}
                         </ElTag>
                       </ElDescriptionsItem>
                       <ElDescriptionsItem label="是否有异议">

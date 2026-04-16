@@ -8,10 +8,65 @@ import '@vben/styles';
 import '@vben/styles/ele';
 
 import { useTitle } from '@vueuse/core';
-import ElementPlus, { ElLoading } from 'element-plus';
-
-// 全局被动事件监听器已禁用，以避免在键盘事件中调用 preventDefault() 时出现错误
-// import 'default-passive-events';
+import {
+  ElAlert,
+  ElAutocomplete,
+  ElAvatar,
+  ElBadge,
+  ElButton,
+  ElCard,
+  ElCarousel,
+  ElCarouselItem,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElCollapse,
+  ElCollapseItem,
+  ElCol,
+  ElDatePicker,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElDivider,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElImage,
+  ElInput,
+  ElInputNumber,
+  ElLink,
+  ElLoading,
+  ElOption,
+  ElPagination,
+  ElPopconfirm,
+  ElPopover,
+  ElProgress,
+  ElRadio,
+  ElRadioButton,
+  ElRadioGroup,
+  ElResult,
+  ElRow,
+  ElScrollbar,
+  ElSelect,
+  ElSkeleton,
+  ElSkeletonItem,
+  ElSpace,
+  ElStatistic,
+  ElStep,
+  ElSteps,
+  ElSwitch,
+  ElTabPane,
+  ElTable,
+  ElTableColumn,
+  ElTabs,
+  ElTag,
+  ElTimePicker,
+  ElTimeline,
+  ElTimelineItem,
+  ElTooltip,
+  ElTreeSelect,
+  ElUpload,
+} from 'element-plus';
 
 import { $t, setupI18n } from '#/locales';
 
@@ -29,22 +84,72 @@ async function bootstrap(namespace: string) {
   // 初始化表单组件
   await initSetupVbenForm();
 
-  // // 设置弹窗的默认配置
-  // setDefaultModalProps({
-  //   fullscreenButton: false,
-  // });
-  // // 设置抽屉的默认配置
-  // setDefaultDrawerProps({
-  //   zIndex: 2000,
-  // });
   const app = createApp(App);
 
-  // 注册Element Plus，会自动注册v-loading指令
-  app.use(ElementPlus);
+  // 注册 ElLoading 指令（v-loading）
+  app.use(ElLoading);
+
+  // 全局注册常用的 Element Plus 组件
+  app.component('ElDivider', ElDivider);
+  app.component('ElAlert', ElAlert);
+  app.component('ElTooltip', ElTooltip);
+  app.component('ElProgress', ElProgress);
+  app.component('ElSkeleton', ElSkeleton);
+  app.component('ElSkeletonItem', ElSkeletonItem);
+  app.component('ElStatistic', ElStatistic);
+  app.component('ElSteps', ElSteps);
+  app.component('ElStep', ElStep);
+  app.component('ElTimeline', ElTimeline);
+  app.component('ElTimelineItem', ElTimelineItem);
+  app.component('ElCollapse', ElCollapse);
+  app.component('ElCollapseItem', ElCollapseItem);
+  app.component('ElDescriptions', ElDescriptions);
+  app.component('ElDescriptionsItem', ElDescriptionsItem);
+  app.component('ElCarousel', ElCarousel);
+  app.component('ElCarouselItem', ElCarouselItem);
+  app.component('ElAutocomplete', ElAutocomplete);
+  app.component('ElEmpty', ElEmpty);
+  app.component('ElResult', ElResult);
+  app.component('ElCard', ElCard);
+  app.component('ElTabs', ElTabs);
+  app.component('ElTabPane', ElTabPane);
+  app.component('ElPopconfirm', ElPopconfirm);
+  app.component('ElPopover', ElPopover);
+  app.component('ElImage', ElImage);
+  app.component('ElDialog', ElDialog);
+  app.component('ElDrawer', ElDrawer);
+  app.component('ElPagination', ElPagination);
+  app.component('ElTable', ElTable);
+  app.component('ElTableColumn', ElTableColumn);
+  app.component('ElButton', ElButton);
+  app.component('ElInput', ElInput);
+  app.component('ElInputNumber', ElInputNumber);
+  app.component('ElSelect', ElSelect);
+  app.component('ElForm', ElForm);
+  app.component('ElFormItem', ElFormItem);
+  app.component('ElTag', ElTag);
+  app.component('ElBadge', ElBadge);
+  app.component('ElAvatar', ElAvatar);
+  app.component('ElRadioGroup', ElRadioGroup);
+  app.component('ElRadio', ElRadio);
+  app.component('ElRadioButton', ElRadioButton);
+  app.component('ElCheckboxGroup', ElCheckboxGroup);
+  app.component('ElCheckbox', ElCheckbox);
+  app.component('ElOption', ElOption);
+  app.component('ElSwitch', ElSwitch);
+  app.component('ElDatePicker', ElDatePicker);
+  app.component('ElTimePicker', ElTimePicker);
+  app.component('ElTreeSelect', ElTreeSelect);
+  app.component('ElUpload', ElUpload);
+  app.component('ElRow', ElRow);
+  app.component('ElCol', ElCol);
+  app.component('ElScrollbar', ElScrollbar);
+  app.component('ElSpace', ElSpace);
+  app.component('ElLink', ElLink);
 
   // 注册Vben提供的v-loading和v-spinning指令
   registerLoadingDirective(app, {
-    loading: false, // Vben提供的v-loading指令和Element Plus提供的v-loading指令二选一即可，此处false表示不注册Vben提供的v-loading指令
+    loading: false,
     spinning: 'spinning',
   });
 

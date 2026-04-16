@@ -51,6 +51,17 @@ const routes: RouteRecordRaw[] = [
           title: '个人中心',
         },
       },
+      {
+        name: 'SystemMonitor',
+        path: 'system-monitor',
+        component: () => import('#/views/dashboard/system-monitor/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:activity',
+          title: '系统健康监控',
+          roles: ['超级管理员', '管理员'],
+        },
+      },
     ],
   },
   {

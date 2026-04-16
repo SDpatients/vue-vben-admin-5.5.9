@@ -753,15 +753,27 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
   try {
     for (const localFile of localFiles.value) {
       try {
-        // 跳过从手机上传转换而来的本地文件，因为它们是空的
-        if (localFile.id.startsWith('mobile-')) {
+        // 跳过从手机上传转换而来的本地文件，因为它们需要通过转移接口处理
+        if (localFile.id.toString().startsWith('mobile-')) {
           console.log(`跳过手机上传的文件 ${localFile.originalFileName}，请使用 transferMobileFiles 方法转移`);
+          continue;
+        }
+        
+        // 跳过已有文件（从服务器获取的文件），因为它们已经存在于服务器
+        if (localFile.id.toString().startsWith('existing-')) {
+          console.log(`跳过已有文件 ${localFile.originalFileName}，文件已存在于服务器`);
           continue;
         }
         
         // 检查文件对象是否有效
         if (!localFile.file) {
           console.warn(`文件 ${localFile.originalFileName} 的 file 对象为空，跳过`);
+          continue;
+        }
+        
+        // 检查文件大小是否为0（空文件）
+        if (localFile.file.size === 0) {
+          console.warn(`文件 ${localFile.originalFileName} 大小为0，跳过`);
           continue;
         }
         
@@ -777,10 +789,8 @@ const uploadLocalFiles = async (bizId: number): Promise<number[]> => {
       }
     }
     
-    if (uploadedFileIds.length === localFiles.value.length) {
+    if (uploadedFileIds.length > 0) {
       ElMessage.success(`成功上传 ${uploadedFileIds.length} 个文件`);
-    } else if (uploadedFileIds.length > 0) {
-      ElMessage.warning(`成功上传 ${uploadedFileIds.length}/${localFiles.value.length} 个文件`);
     } else {
       ElMessage.info('没有需要上传的文件');
     }
@@ -817,28 +827,8 @@ defineExpose({
 
 const displayFiles = computed(() => {
   if (isLocalMode.value) {
-    // 在本地模式下，合并已有文件和本地文件
-    const existing = props.existingFiles || [];
-    const local = localFiles.value;
-    
-    // 创建一个 Map 来去重，以 id 为 key
-    const fileMap = new Map<string | number, any>();
-    
-    // 先添加已有文件
-    existing.forEach(file => {
-      fileMap.set(file.id, {
-        ...file,
-        file: new File([], file.originalFileName, { type: file.mimeType }),
-        isExisting: true,
-      });
-    });
-    
-    // 再添加本地文件（会覆盖同 id 的已有文件）
-    local.forEach(file => {
-      fileMap.set(file.id, file);
-    });
-    
-    const result = Array.from(fileMap.values());
+    // 在本地模式下，直接返回 localFiles（已经包含了所有文件）
+    const result = localFiles.value;
     console.log('[displayFiles] 本地模式，文件数:', result.length);
     return result;
   }
@@ -868,14 +858,46 @@ const displayFiles = computed(() => {
   return [];
 });
 
+// 用于防止递归更新的标志
+let isUpdatingFromExistingFiles = false;
+
 // 监听 existingFiles 变化，初始化本地文件列表
-watch(() => props.existingFiles, (newFiles) => {
+watch(() => props.existingFiles, (newFiles, oldFiles) => {
+  if (isUpdatingFromExistingFiles) {
+    console.log('跳过递归更新');
+    return;
+  }
+  
   console.log('=== watch existingFiles ===');
   console.log('isLocalMode:', isLocalMode.value);
   console.log('newFiles:', newFiles);
   
   if (newFiles && newFiles.length > 0) {
     if (isLocalMode.value) {
+      // 检查新传入的文件 ID 是否与当前已有文件相同
+      const newFileIds = new Set(newFiles.map(f => f.id));
+      
+      // 获取当前已有的 existing 文件的原始 ID
+      const currentExistingIds = new Set(
+        localFiles.value
+          .filter(f => f.id.toString().startsWith('existing-'))
+          .map(f => {
+            const idStr = f.id.toString();
+            return parseInt(idStr.replace('existing-', ''));
+          })
+      );
+      
+      // 如果 ID 集合完全相同，跳过更新
+      const isSame = currentExistingIds.size === newFileIds.size && 
+        [...currentExistingIds].every(id => newFileIds.has(id));
+      
+      if (isSame && localFiles.value.length > 0) {
+        console.log('文件列表未变化，跳过更新');
+        return;
+      }
+      
+      isUpdatingFromExistingFiles = true;
+      
       // 本地模式：转换为本地文件对象
       const existingLocalFiles = newFiles.map(file => ({
         file: new File([], file.originalFileName, { type: file.mimeType }),
@@ -889,12 +911,22 @@ watch(() => props.existingFiles, (newFiles) => {
         filePath: file.filePath,
       })) as any[];
       
-      const existingIds = new Set(existingLocalFiles.map(f => f.id));
-      const newLocalFiles = localFiles.value.filter(f => !existingIds.has(f.id));
-      localFiles.value = [...existingLocalFiles, ...newLocalFiles];
+      // 保留用户新添加的本地文件（非 existing- 开头的）
+      const newUserFiles = localFiles.value.filter(f => 
+        f.id.toString().startsWith('local-')
+      );
+      const mobileFiles = localFiles.value.filter(f => 
+        f.id.toString().startsWith('mobile-')
+      );
       
-      emit('local-files-change', localFiles.value);
-      console.log('触发 local-files-change，文件数:', localFiles.value.length);
+      localFiles.value = [...existingLocalFiles, ...newUserFiles, ...mobileFiles];
+      
+      // 使用 nextTick 后再重置标志
+      nextTick(() => {
+        isUpdatingFromExistingFiles = false;
+      });
+      
+      console.log('更新 localFiles，文件数:', localFiles.value.length);
     } else {
       // 非本地模式（查看模式）：直接设置 fileList
       console.log('非本地模式，直接设置 fileList');
@@ -906,16 +938,23 @@ watch(() => props.existingFiles, (newFiles) => {
         mimeType: file.mimeType,
         uploadTime: file.uploadTime,
         filePath: file.filePath,
-        name: file.originalFileName,  // 添加 name 字段
-        size: file.fileSize,          // 添加 size 字段
+        name: file.originalFileName,
+        size: file.fileSize,
         status: 'success' as const,
       }));
-      // 强制刷新 fileList，先清空再赋值
-      fileList.value = [];
-      nextTick(() => {
-        fileList.value = files;
-        console.log('设置 fileList:', fileList.value);
-      });
+      fileList.value = files;
+      console.log('设置 fileList:', fileList.value);
+    }
+  } else if (newFiles && newFiles.length === 0) {
+    // 如果传入空数组，清空本地文件列表（但保留新添加的文件）
+    if (isLocalMode.value) {
+      const newUserFiles = localFiles.value.filter(f => 
+        f.id.toString().startsWith('local-')
+      );
+      const mobileFiles = localFiles.value.filter(f => 
+        f.id.toString().startsWith('mobile-')
+      );
+      localFiles.value = [...newUserFiles, ...mobileFiles];
     }
   }
 }, { immediate: true });

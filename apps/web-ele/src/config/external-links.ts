@@ -27,7 +27,7 @@ export const EXTERNAL_LINKS: ExternalLinksConfig = {
   },
   zjaba: {
     name: '浙江省破产管理人网',
-    url: 'https://www.zjaba.cn/zjaba/web/hom',
+    url: 'https://www.zjaba.cn/zjaba/web/home',
     description: '浙江省破产管理人协会官网',
   },
   zjsfgkw: {

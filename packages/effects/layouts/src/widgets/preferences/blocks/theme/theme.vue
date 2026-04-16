@@ -3,31 +3,19 @@ import type { Component } from 'vue';
 
 import type { ThemeModeType } from '@vben/types';
 
-import { MoonStar, Sun, SunMoon } from '@vben/icons';
+import { Sun } from '@vben/icons';
 import { $t } from '@vben/locales';
-
-import SwitchItem from '../switch-item.vue';
 
 defineOptions({
   name: 'PreferenceTheme',
 });
 
-const modelValue = defineModel<string>({ default: 'auto' });
-const themeSemiDarkSidebar = defineModel<boolean>('themeSemiDarkSidebar');
-const themeSemiDarkHeader = defineModel<boolean>('themeSemiDarkHeader');
+const modelValue = defineModel<string>({ default: 'light' });
 
 const THEME_PRESET: Array<{ icon: Component; name: ThemeModeType }> = [
   {
     icon: Sun,
     name: 'light',
-  },
-  {
-    icon: MoonStar,
-    name: 'dark',
-  },
-  {
-    icon: SunMoon,
-    name: 'auto',
   },
 ];
 
@@ -37,12 +25,6 @@ function activeClass(theme: string): string[] {
 
 function nameView(name: string) {
   switch (name) {
-    case 'auto': {
-      return $t('preferences.followSystem');
-    }
-    case 'dark': {
-      return $t('preferences.theme.dark');
-    }
     case 'light': {
       return $t('preferences.theme.light');
     }
@@ -68,16 +50,5 @@ function nameView(name: string) {
         </div>
       </div>
     </template>
-
-    <SwitchItem
-      v-model="themeSemiDarkSidebar"
-      :disabled="modelValue === 'dark'"
-      class="mt-6"
-    >
-      {{ $t('preferences.theme.darkSidebar') }}
-    </SwitchItem>
-    <SwitchItem v-model="themeSemiDarkHeader" :disabled="modelValue === 'dark'">
-      {{ $t('preferences.theme.darkHeader') }}
-    </SwitchItem>
   </div>
 </template>

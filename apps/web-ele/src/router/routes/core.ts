@@ -7,7 +7,20 @@ import { $t } from '#/locales';
 
 const BasicLayout = () => import('#/layouts/basic.vue');
 const AuthPageLayout = () => import('#/layouts/auth.vue');
-/** 全局404页面 */
+
+const LICENSE_PATH = '/license';
+
+const licenseRoute: RouteRecordRaw = {
+  component: () => import('#/views/_core/license/index.vue'),
+  meta: {
+    hideInTab: true,
+    ignoreAccess: true,
+    title: '软件授权激活',
+  },
+  name: 'License',
+  path: LICENSE_PATH,
+};
+
 const fallbackNotFoundRoute: RouteRecordRaw = {
   component: () => import('#/views/_core/fallback/not-found.vue'),
   meta: {
@@ -94,4 +107,4 @@ const coreRoutes: RouteRecordRaw[] = [
   },
 ];
 
-export { coreRoutes, fallbackNotFoundRoute };
+export { coreRoutes, fallbackNotFoundRoute, LICENSE_PATH, licenseRoute };

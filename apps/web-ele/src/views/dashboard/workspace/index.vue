@@ -2024,7 +2024,7 @@ onUnmounted(() => {
     <ElDialog
       v-model="showPreviewDialog"
       :title="previewAttachment?.file_name || '文件预览'"
-      width="90%"
+      width="95%"
       destroy-on-close
       @close="closePreviewDialog"
     >
@@ -2732,7 +2732,7 @@ onUnmounted(() => {
 }
 
 .preview-content {
-  max-height: 700px;
+  max-height: 85vh;
   overflow-y: auto;
 }
 
@@ -2781,7 +2781,7 @@ onUnmounted(() => {
 /* PDF预览样式 */
 .pdf-preview {
   width: 100%;
-  height: 700px;
+  height: 85vh;
   overflow: hidden;
 }
 
@@ -2794,7 +2794,7 @@ onUnmounted(() => {
 /* 文本预览样式 */
 .text-preview {
   width: 100%;
-  height: 700px;
+  height: 85vh;
   overflow: hidden;
 }
 

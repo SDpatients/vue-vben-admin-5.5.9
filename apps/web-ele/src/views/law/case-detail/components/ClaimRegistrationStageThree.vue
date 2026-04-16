@@ -50,7 +50,6 @@ const { currentPage, pageSize, total } = useClaimPagination();
 const confirmationStatusFilter = ref<string>('');
 const showAllConfirmations = ref(true);
 
-// 自定义分页处理函数
 const handlePageChange = (page: number) => {
   currentPage.value = page;
   fetchClaims();
@@ -70,11 +69,9 @@ const confirmLoading = ref(false);
 const confirmationUploadRef = ref<any>();
 const currentClaim = ref<any>(null);
 const confirmationCollapseActive = ref<string[]>([]);
+const confirmationExistingFiles = ref<any[]>([]);
 
-// 监听折叠状态变化，用于调试
-watch(confirmationCollapseActive, (newVal) => {
-  console.log('确认对话框折叠状态变化:', newVal);
-}, { deep: true });
+watch(confirmationCollapseActive, () => {}, { deep: true });
 
 const fetchClaims = async () => {
   loading.value = true;
@@ -96,11 +93,9 @@ const fetchClaims = async () => {
 
 const openDetailDialog = async (row: any) => {
   let result;
-  // 如果有confirmationInfo，则调用确认详情接口
   if (row.confirmationInfo) {
     result = await ClaimService.getConfirmationDetail(row.confirmationInfo.id);
   } else {
-    // 否则调用债权详情接口
     const claimId = row.claimRegistrationId || row.id;
     result = await ClaimService.getClaimDetail(claimId);
   }
@@ -111,101 +106,47 @@ const openDetailDialog = async (row: any) => {
 };
 
 const openConfirmDialog = async (row: any) => {
-  console.log('🚀 [调试] openConfirmDialog 被调用');
-  console.log('📋 [调试] 传入的 row 数据:', row);
-  console.log('📋 [调试] row.confirmationInfo:', row.confirmationInfo);
-  console.log('📋 [调试] row.registration_status:', row.registration_status);
-  console.log('📋 [调试] row 是否有确认记录字段 (finalConfirmedAmount):', row.finalConfirmedAmount !== undefined);
-  
   try {
-    // 首先确保状态为 CONFIRMING
     if (row.registration_status !== 'CONFIRMING') {
-      console.log('⚙️ [调试] 状态不是 CONFIRMING，开始启动确认流程');
       const startConfirmResult = await ClaimService.startConfirmation(row.id);
       if (startConfirmResult.success) {
-        // 重新获取数据以更新状态
         await fetchClaims();
-        // 从重新获取的数据中找到对应的行
         const updatedRow = claims.value.find(item => item.id === row.id);
         if (updatedRow) {
           row = updatedRow;
-          console.log('✅ [调试] 状态已更新，使用新的 row:', updatedRow);
         }
       } else {
         ElMessage.error('开始确认失败');
         return;
       }
-    } else {
-      console.log('✅ [调试] 状态已经是 CONFIRMING');
     }
 
-    // 判断是否存在确认记录
-    // 后端返回的数据中，确认记录字段在根对象上（如 finalConfirmedAmount, confirmationStatus 等）
     const hasConfirmationRecord = row.finalConfirmedAmount !== undefined || row.confirmationStatus !== undefined;
     
     if (hasConfirmationRecord) {
-      console.log('💡 [调试] 存在确认记录，准备获取详情');
-      // 使用 claimRegistrationId 获取确认详情
       const claimRegistrationId = row.claimRegistrationId || row.id;
       
-      // 首先获取债权申报详情，以获取金额明细数据（reviewInfo）
       let claimDetailData: any = null;
       try {
         const claimDetailResult = await ClaimService.getClaimDetail(claimRegistrationId);
         if (claimDetailResult.success) {
           claimDetailData = claimDetailResult.data;
-          console.log('📋 [调试] 获取债权申报详情成功，reviewInfo:', claimDetailData?.reviewInfo);
-          console.log('💰 [调试] reviewInfo 金额明细:', {
-            declaredPrincipal: claimDetailData?.reviewInfo?.declaredPrincipal,
-            declaredInterest: claimDetailData?.reviewInfo?.declaredInterest,
-            declaredPenalty: claimDetailData?.reviewInfo?.declaredPenalty,
-            declaredOtherLosses: claimDetailData?.reviewInfo?.declaredOtherLosses,
-            declaredTotalAmount: claimDetailData?.reviewInfo?.declaredTotalAmount,
-            confirmedPrincipal: claimDetailData?.reviewInfo?.confirmedPrincipal,
-            confirmedInterest: claimDetailData?.reviewInfo?.confirmedInterest,
-            confirmedPenalty: claimDetailData?.reviewInfo?.confirmedPenalty,
-            confirmedOtherLosses: claimDetailData?.reviewInfo?.confirmedOtherLosses,
-            confirmedTotalAmount: claimDetailData?.reviewInfo?.confirmedTotalAmount,
-            unconfirmedPrincipal: claimDetailData?.reviewInfo?.unconfirmedPrincipal,
-            unconfirmedInterest: claimDetailData?.reviewInfo?.unconfirmedInterest,
-            unconfirmedPenalty: claimDetailData?.reviewInfo?.unconfirmedPenalty,
-            unconfirmedOtherLosses: claimDetailData?.reviewInfo?.unconfirmedOtherLosses,
-            unconfirmedTotalAmount: claimDetailData?.reviewInfo?.unconfirmedTotalAmount,
-          });
         }
       } catch (error) {
-        console.warn('⚠️ [调试] 获取债权申报详情失败，继续使用现有数据');
+        // 继续使用现有数据
       }
       
       const result = await ClaimService.getConfirmationDetailByClaimId(claimRegistrationId);
       
       if (result.success) {
-        console.log('📋 [调试] 获取确认详情成功:', result.data);
-        
-        // 调用同步接口，自动填充审查数据
         const confirmationId = result.data.id || row.id;
         const syncResult = await ClaimService.syncReviewData(confirmationId);
         if (syncResult.success) {
-          console.log('✅ [调试] 同步审查数据成功');
-          // 同步成功后重新获取确认详情，以获取最新的审查数据
           const refreshedResult = await ClaimService.getConfirmationDetailByClaimId(claimRegistrationId);
           if (refreshedResult.success) {
-            console.log('📋 [调试] 重新获取确认详情成功:', refreshedResult.data);
-            console.log('💰 [调试] 同步后的金额字段:', {
-              finalConfirmedAmount: refreshedResult.data.finalConfirmedAmount,
-              confirmedTotalAmount: refreshedResult.data.confirmedTotalAmount,
-              courtRulingAmount: refreshedResult.data.courtRulingAmount,
-              lawsuitAmount: refreshedResult.data.lawsuitAmount,
-              objectionAmount: refreshedResult.data.objectionAmount,
-            });
-            
-            // 使用刷新后的数据
-            // 合并 row、claimDetailData.reviewInfo 和 confirmationInfo 的数据
-            // 金额明细字段来自 reviewInfo，需要确保正确传递
             const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
             currentClaim.value = {
               ...row,
-              // 优先使用 claimDetailData.reviewInfo 中的金额明细字段
               declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? 0,
               declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? 0,
               declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? 0,
@@ -225,26 +166,11 @@ const openConfirmDialog = async (row: any) => {
               confirmationInfo: refreshedResult.data
             };
             
-            console.log('💰 [调试] currentClaim 金额明细字段:', {
-              declaredPrincipal: currentClaim.value.declaredPrincipal,
-              declaredInterest: currentClaim.value.declaredInterest,
-              declaredTotalAmount: currentClaim.value.declaredTotalAmount,
-              confirmedPrincipal: currentClaim.value.confirmedPrincipal,
-              confirmedInterest: currentClaim.value.confirmedInterest,
-              confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
-              unconfirmedPrincipal: currentClaim.value.unconfirmedPrincipal,
-              unconfirmedTotalAmount: currentClaim.value.unconfirmedTotalAmount,
-            });
-            
-            // 完整填充确认表单数据（使用刷新后的数据）
             const targetAmount = refreshedResult.data.finalConfirmedAmount ||
               refreshedResult.data.confirmedTotalAmount ||
               row.confirmedTotalAmount ||
               0;
             
-            console.log('💰 [调试] 最终确认金额:', targetAmount);
-            
-            // 使用 nextTick 确保响应式更新
             await new Promise(resolve => setTimeout(resolve, 100));
             
             Object.assign(confirmationForm, {
@@ -284,28 +210,30 @@ const openConfirmDialog = async (row: any) => {
               remarks: refreshedResult.data.remarks || '',
             });
             
-            console.log('📝 [调试] 确认表单填充后的值:', {
-              finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
-              voteResult: confirmationForm.voteResult,
-              hasObjection: confirmationForm.hasObjection,
-              hasLawsuit: confirmationForm.hasLawsuit,
-            });
-            
-            // 再次验证赋值后的值
-            setTimeout(() => {
-              console.log('⏱️ [调试] 100ms 后的表单值:', {
-                finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
-              });
-            }, 100);
+            // 获取该债权申报的所有附件文件
+            try {
+              const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
+              if (filesResponse.code === 200 && filesResponse.data) {
+                const files = filesResponse.data.map((file: any) => ({
+                  id: file.id,
+                  originalFileName: file.originalFileName || file.fileName,
+                  fileSize: file.fileSize,
+                  fileExtension: file.fileExtension,
+                  mimeType: file.mimeType,
+                  uploadTime: file.uploadTime,
+                  filePath: file.filePath,
+                }));
+                confirmationExistingFiles.value = files;
+                confirmationForm.confirmationAttachments = [...files];
+              }
+            } catch (error) {
+              confirmationExistingFiles.value = [];
+            }
           }
         } else {
-          console.warn('⚠️ [调试] 同步审查数据失败，但继续使用现有数据');
-          // 保持 currentClaim 的结构与 row 一致，包含 confirmationInfo 字段
-          // 金额明细字段来自 reviewInfo，需要确保正确传递
           const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
           currentClaim.value = {
             ...row,
-            // 优先使用 claimDetailData.reviewInfo 中的金额明细字段
             declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? 0,
             declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? 0,
             declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? 0,
@@ -325,16 +253,6 @@ const openConfirmDialog = async (row: any) => {
             confirmationInfo: result.data
           };
           
-          console.log('💰 [调试] currentClaim 金额明细字段 (同步失败分支):', {
-            declaredPrincipal: currentClaim.value.declaredPrincipal,
-            declaredInterest: currentClaim.value.declaredInterest,
-            declaredTotalAmount: currentClaim.value.declaredTotalAmount,
-            confirmedPrincipal: currentClaim.value.confirmedPrincipal,
-            confirmedInterest: currentClaim.value.confirmedInterest,
-            confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
-          });
-          
-          // 完整填充确认表单数据
           const targetAmount = result.data.finalConfirmedAmount ||
             result.data.confirmedTotalAmount ||
             row.confirmedTotalAmount ||
@@ -376,32 +294,46 @@ const openConfirmDialog = async (row: any) => {
             confirmationAttachments: result.data.confirmationAttachments || [],
             remarks: result.data.remarks || '',
           });
+          
+          // 获取该债权申报的所有附件文件
+          try {
+            const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
+            if (filesResponse.code === 200 && filesResponse.data) {
+              const files = filesResponse.data.map((file: any) => ({
+                id: file.id,
+                originalFileName: file.originalFileName || file.fileName,
+                fileSize: file.fileSize,
+                fileExtension: file.fileExtension,
+                mimeType: file.mimeType,
+                uploadTime: file.uploadTime,
+                filePath: file.filePath,
+              }));
+              confirmationExistingFiles.value = files;
+              confirmationForm.confirmationAttachments = [...files];
+            }
+          } catch (error) {
+            confirmationExistingFiles.value = [];
+          }
         }
       } else {
         ElMessage.error('获取确认详情失败');
         return;
       }
     } else {
-      console.log('❌ [调试] 不存在确认记录，使用默认初始化');
-      // 没有确认记录，使用基本信息初始化
-      // 首先获取债权申报详情，以获取金额明细数据（reviewInfo）
       const claimRegistrationId = row.claimRegistrationId || row.id;
       let claimDetailData: any = null;
       try {
         const claimDetailResult = await ClaimService.getClaimDetail(claimRegistrationId);
         if (claimDetailResult.success) {
           claimDetailData = claimDetailResult.data;
-          console.log('📋 [调试] 获取债权申报详情成功，reviewInfo:', claimDetailData?.reviewInfo);
         }
       } catch (error) {
-        console.warn('⚠️ [调试] 获取债权申报详情失败，继续使用现有数据');
+        // 继续使用现有数据
       }
       
-      // 金额明细字段来自 reviewInfo，需要确保正确传递
       const reviewInfo = claimDetailData?.reviewInfo || row.reviewInfo;
       currentClaim.value = {
         ...row,
-        // 金额明细字段优先从 reviewInfo 获取
         declaredPrincipal: reviewInfo?.declaredPrincipal ?? row.declaredPrincipal ?? row.principal ?? 0,
         declaredInterest: reviewInfo?.declaredInterest ?? row.declaredInterest ?? row.interest ?? 0,
         declaredPenalty: reviewInfo?.declaredPenalty ?? row.declaredPenalty ?? row.penalty ?? 0,
@@ -420,24 +352,10 @@ const openConfirmDialog = async (row: any) => {
         reviewInfo: reviewInfo,
       };
       
-      console.log('💰 [调试] currentClaim 金额明细字段 (无确认记录分支):', {
-        declaredPrincipal: currentClaim.value.declaredPrincipal,
-        declaredInterest: currentClaim.value.declaredInterest,
-        declaredTotalAmount: currentClaim.value.declaredTotalAmount,
-        confirmedPrincipal: currentClaim.value.confirmedPrincipal,
-        confirmedInterest: currentClaim.value.confirmedInterest,
-        confirmedTotalAmount: currentClaim.value.confirmedTotalAmount,
-      });
-      
-      // 加载债权申报的文件
       try {
-        console.log('📁 [调试] 加载债权申报文件，ID:', claimRegistrationId);
         const filesResponse = await getAllFilesByClaimRegistrationApi(claimRegistrationId);
         
         if (filesResponse.code === 200 && filesResponse.data) {
-          console.log('📁 [调试] 获取到的文件列表:', filesResponse.data);
-          
-          // 将文件转换为 FileUpload 组件需要的格式
           const files = filesResponse.data.map((file: any) => ({
             id: file.id,
             originalFileName: file.originalFileName || file.fileName,
@@ -448,18 +366,15 @@ const openConfirmDialog = async (row: any) => {
             filePath: file.filePath,
           }));
           
-          confirmationForm.confirmationAttachments = files;
-          console.log('📁 [调试] 设置的文件列表:', files);
+          confirmationExistingFiles.value = files;
+          confirmationForm.confirmationAttachments = [...files];
         }
       } catch (error) {
-        console.error('❌ [调试] 加载文件失败:', error);
+        // 加载文件失败，继续
       }
       
-      // 初始化表单数据
       const targetAmount = reviewInfo?.confirmedTotalAmount || row.confirmedTotalAmount || row.totalAmount || 0;
-      console.log('💰 [调试] 目标金额:', targetAmount);
       
-      // 使用 nextTick 确保响应式更新
       await new Promise(resolve => setTimeout(resolve, 100));
       
       Object.assign(confirmationForm, {
@@ -490,36 +405,12 @@ const openConfirmDialog = async (row: any) => {
         finalConfirmedAmount: targetAmount,
         finalConfirmationDate: '',
         finalConfirmationBasis: '',
-        // confirmationAttachments: [], // 不要覆盖之前加载的文件
         remarks: '',
       });
-      
-      console.log('📝 [调试] 默认初始化的表单值:', {
-        finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
-        reviewInfo: row.reviewInfo,
-      });
-      
-      // 再次验证赋值后的值
-      setTimeout(() => {
-        console.log('⏱️ [调试] 100ms 后的表单值:', {
-          finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
-        });
-      }, 100);
     }
     
-    console.log('✅ [调试] 准备打开对话框，currentClaim:', currentClaim.value);
-      showConfirmDialog.value = true;
-      
-      // 对话框打开后，强制刷新表单
-      setTimeout(() => {
-        console.log('🔧 [调试] 对话框打开后强制刷新表单');
-        console.log('💰 [调试] 刷新时的表单值:', {
-          finalConfirmedAmount: confirmationForm.finalConfirmedAmount,
-          voteResult: confirmationForm.voteResult,
-        });
-      }, 200);
+    showConfirmDialog.value = true;
   } catch (error) {
-    console.error('❌ [调试] 打开确认对话框失败:', error);
     ElMessage.error('打开确认对话框失败');
   }
 };
@@ -529,22 +420,16 @@ const closeConfirmDialog = () => {
   currentClaim.value = null;
   resetConfirmationForm();
   confirmationCollapseActive.value = [];
-  console.log('关闭确认对话框，重置折叠状态');
+  confirmationExistingFiles.value = [];
 };
 
-const handleConfirmationCollapseChange = (activeNames: string | string[]) => {
-  console.log('确认对话框折叠面板变化:', activeNames);
-};
+const handleConfirmationCollapseChange = (_activeNames: string | string[]) => {};
 
 const handleSaveConfirmation = async () => {
   if (!currentClaim.value) return;
 
   confirmLoading.value = true;
   try {
-    console.log('💾 [调试] 开始保存确认记录');
-    console.log('📋 [调试] currentClaim:', currentClaim.value);
-    console.log('📋 [调试] confirmationForm:', confirmationForm);
-    
     const claimId = currentClaim.value.claimRegistrationId || currentClaim.value.id;
     const requestData: any = {
       claimRegistrationId: claimId,
@@ -589,38 +474,29 @@ const handleSaveConfirmation = async () => {
     let result;
     let confirmationId: number;
     
-    // 检查是否有确认记录 ID
     const existingConfirmationId = currentClaim.value.confirmationInfo?.id || currentClaim.value.id;
     
     if (existingConfirmationId) {
-      console.log('✏️ [调试] 使用 PUT 接口更新确认记录，ID:', existingConfirmationId);
       result = await ClaimService.updateConfirmation(
         existingConfirmationId,
         requestData,
       );
       confirmationId = existingConfirmationId;
     } else {
-      console.log('➕ [调试] 使用 POST 接口创建新的确认记录');
       result = await ClaimService.createConfirmation(requestData);
       confirmationId = result.data?.id || result.data?.confirmationId;
     }
 
     if (result.success) {
-      if (!confirmationId) {
-        console.error('确认记录 ID 为空，无法上传文件');
-        ElMessage.warning('保存成功，但返回的 ID 为空');
-        return;
-      }
+      // 文件应该关联到债权申报，而不是确认记录
+      const fileBizId = claimId;
       
-      // 1. 首先转移手机上传的临时文件（如果有）
       let allUploadedFileIds: number[] = [];
       
+      // 1. 首先转移手机上传的临时文件
       if (confirmationUploadRef.value && confirmationUploadRef.value.getHasUntransferredFiles()) {
-        console.log('发现手机上传的临时文件，开始转移...');
-        const transferredFiles = await confirmationUploadRef.value.transferMobileFiles(confirmationId);
-        console.log('转移成功的文件:', transferredFiles);
+        const transferredFiles = await confirmationUploadRef.value.transferMobileFiles(fileBizId);
         
-        // 收集转移的文件 ID
         if (transferredFiles && transferredFiles.length > 0) {
           allUploadedFileIds = transferredFiles.map(f => f.id);
         }
@@ -628,41 +504,10 @@ const handleSaveConfirmation = async () => {
       
       // 2. 上传本地文件（电脑选择的文件）
       if (confirmationUploadRef.value && confirmationForm.confirmationAttachments && confirmationForm.confirmationAttachments.length > 0) {
-        console.log('=== 准备债权确认文件上传 ===');
-        console.log('confirmationForm.confirmationAttachments:', confirmationForm.confirmationAttachments);
-        console.log('confirmationUploadRef.value.getLocalFiles():', confirmationUploadRef.value?.getLocalFiles());
+        const uploadedIds = await confirmationUploadRef.value.uploadLocalFiles(fileBizId);
         
-        // 筛选出需要上传的新文件
-        const filesToUpload = confirmationForm.confirmationAttachments
-          .filter((attach: any) => {
-            const isExisting = attach.file_id || attach.id?.toString().startsWith('existing-');
-            const isMobile = attach.id?.toString().startsWith('mobile-');
-            console.log('检查文件:', attach.originalFileName || attach.name, {
-              isExisting,
-              isMobile,
-              hasFile: !!attach.file,
-              id: attach.id
-            });
-            return !isExisting && !isMobile && attach.file;
-          })
-          .map((attach: any) => attach.file);
-
-        console.log('需要上传的文件数量:', filesToUpload.length);
-        console.log('需要上传的文件:', filesToUpload);
-
-        if (filesToUpload.length > 0) {
-          try {
-            console.log('开始上传本地文件...');
-            const uploadedIds = await confirmationUploadRef.value.uploadLocalFiles(confirmationId);
-            console.log('上传成功的文件 ID:', uploadedIds);
-            
-            if (uploadedIds && uploadedIds.length > 0) {
-              allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
-            }
-          } catch (error: any) {
-            console.error('文件上传失败:', error);
-            ElMessage.warning(`保存成功，但文件上传失败：${error.message || '未知错误'}`);
-          }
+        if (uploadedIds && uploadedIds.length > 0) {
+          allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
         }
       }
       
@@ -671,7 +516,6 @@ const handleSaveConfirmation = async () => {
       ElMessage.success('保存成功');
     }
   } catch (error) {
-    console.error('❌ [调试] 保存确认记录失败:', error);
     ElMessage.error('保存失败');
   } finally {
     confirmLoading.value = false;
@@ -686,7 +530,6 @@ const handleCompleteConfirmation = async (row: any) => {
   })
     .then(async () => {
       const claimId = row.claimRegistrationId || row.id;
-      // 直接完成确认状态更新，不需要创建确认信息
       const result = await ClaimService.completeConfirmation(claimId);
       if (result.success) {
         await fetchClaims();
@@ -705,7 +548,6 @@ const handleRejectClaim = async (row: any) => {
   })
     .then(async () => {
       const claimId = row.claimRegistrationId || row.id;
-      // 直接完成确认状态更新，标记为驳回
       const result = await ClaimService.completeConfirmation(claimId);
       if (result.success) {
         await fetchClaims();
@@ -732,7 +574,7 @@ defineExpose({
         <div class="card-header flex items-center justify-between">
           <div class="flex items-center">
             <Icon icon="lucide:file-check" class="text-primary mr-2" />
-            <span class="text-lg font-semibold">债权确认</span>
+            <span class="text-lg font-semibold">债权复查</span>
           </div>
           <div class="flex space-x-2">
             <ElSelect v-model="confirmationStatusFilter" placeholder="选择确认状态" style="width: 200px" @change="fetchClaims">
@@ -843,7 +685,7 @@ defineExpose({
 
     <ElDialog
       v-model="showDetailDialog"
-      title="债权确认详情"
+      title="债权复查详情"
       width="90%"
       destroy-on-close
     >
@@ -996,7 +838,7 @@ defineExpose({
 
     <ElDialog
       v-model="showConfirmDialog"
-      title="债权确认"
+      title="债权复查"
       width="70%"
       destroy-on-close
     >
@@ -1031,7 +873,6 @@ defineExpose({
           </ElDescriptions>
         </div>
 
-        <!-- 新增：详细的金额信息展示 -->
         <div class="amount-detail-section mb-4">
           <h4 class="section-title mb-2">金额明细</h4>
           <ElTable :data="[{}]" border style="width: 100%" :show-header="true" size="small">
@@ -1399,16 +1240,16 @@ defineExpose({
               <FileUpload
                 ref="confirmationUploadRef"
                 v-model="confirmationForm.confirmationAttachments"
-                :biz-type="'claim-confirmation'"
-                :biz-id="currentClaim?.confirmationInfo?.id || 0"
+                :biz-type="'claim'"
+                :biz-id="currentClaim?.claimRegistrationId || currentClaim?.id || 0"
                 :accept="'.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar'"
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="债权确认附件"
                 :disabled="false"
                 :local-mode="true"
-                :existing-files="confirmationForm.confirmationAttachments || []"
-                @local-files-change="(files) => { console.log('债权确认附件变化:', files); confirmationForm.confirmationAttachments = files; }"
+                :existing-files="confirmationExistingFiles"
+                @local-files-change="(files) => { confirmationForm.confirmationAttachments = files; }"
               />
             </ElCol>
           </ElRow>
@@ -1476,7 +1317,6 @@ defineExpose({
   margin-top: 16px;
 }
 
-/* 金额明细表格样式 */
 .amount-detail-section {
   background: #f5f7fa;
   padding: 16px;

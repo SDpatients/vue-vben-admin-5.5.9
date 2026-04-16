@@ -131,7 +131,7 @@ const defaultPreferences: Preferences = {
     notification: true,
     refresh: true,
     sidebarToggle: true,
-    themeToggle: true,
+    themeToggle: false,
   },
 };
 

@@ -164,7 +164,24 @@ export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
-export const baseRequestClient = new RequestClient({ baseURL: apiURL });
+// 创建一个不带任何拦截器的简单请求客户端，用于许可证相关 API
+// 这些 API 需要在未登录状态下访问，不能经过认证拦截器
+export const baseRequestClient = (() => {
+  const client = new RequestClient({
+    baseURL: apiURL,
+    responseReturn: 'body',
+  });
+  // 添加一个简单的响应拦截器，将响应转换为 data 字段
+  client.addResponseInterceptor({
+    fulfilled: (response) => {
+      if (response && response.data) {
+        return response.data;
+      }
+      return response;
+    },
+  });
+  return client;
+})();
 
 export { createRequestClient };
 
@@ -222,6 +239,42 @@ export const workTeamRequestClient = createRequestClient(
     responseReturn: 'body',
   },
 );
+
+// Actuator API 专用客户端
+// Spring Boot Actuator 端点返回原始 JSON，没有 {code: 200, data: ...} 包装
+// 所以需要使用 body 模式直接返回响应数据
+export const actuatorRequestClient = (() => {
+  const client = new RequestClient({
+    baseURL: apiURL,
+    responseReturn: 'body',
+  });
+
+  // 添加认证头
+  client.addRequestInterceptor({
+    fulfilled: async (config) => {
+      config.headers['Accept-Language'] = preferences.app.locale;
+      const token = localStorage.getItem('token');
+      if (token) {
+        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        config.headers.Authorization = formattedToken;
+      }
+      return config;
+    },
+  });
+
+  // 添加一个简单的响应拦截器，直接返回响应数据
+  client.addResponseInterceptor({
+    fulfilled: (response) => {
+      if (response && response.data) {
+        return response.data;
+      }
+      return response;
+    },
+    rejected: (error) => Promise.reject(error),
+  });
+
+  return client;
+})();
 
 // 延迟初始化API跟踪拦截器
 if (typeof window !== 'undefined') {

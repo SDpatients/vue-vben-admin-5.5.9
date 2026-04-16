@@ -26,7 +26,7 @@ import {
 import {
   queryCreditorClaimsApi,
 } from '#/api/core/creditor-claim-query';
-import { createCreditorApi, getCreditorDetailApi } from '#/api/core/creditor';
+import { createCreditorApi, getCreditorClaimStagesApi } from '#/api/core/creditor';
 
 const props = defineProps<{
   caseId: string;
@@ -38,15 +38,12 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 
-// 搜索相关数据
 const searchName = ref('');
 const searchStatus = ref('');
 const searchClaimType = ref('');
 
-// 标签页激活状态
 const activeTab = ref('all');
 
-// 债权类型选项
 const claimTypeOptions = [
   { label: '担保债权', value: '担保债权' },
   { label: '职工债权', value: '职工债权' },
@@ -57,13 +54,11 @@ const claimTypeOptions = [
   { label: '未确认债权', value: '未确认债权' },
 ];
 
-// 状态映射
 const statusMap: Record<string, string> = {
   KNOWN: '已知债权人',
   CONFIRMED: '确认债权人',
 };
 
-// 债权人类型选项
 const creditorTypeOptions = [
   { label: '金融机构', value: '金融机构' },
   { label: '企业', value: '企业' },
@@ -82,7 +77,6 @@ const fetchCreditors = async () => {
       pageSize: pageSize.value,
     };
     
-    // 如果是确认债权人标签页，则传递 creditorStatus 参数
     if (searchStatus.value === 'CONFIRMED') {
       params.creditorStatus = 'CONFIRMED';
     }
@@ -97,7 +91,6 @@ const fetchCreditors = async () => {
       total.value = 0;
     }
   } catch (error) {
-    console.error('获取债权人列表失败:', error);
     ElMessage.error('获取债权人列表失败');
     creditors.value = [];
     total.value = 0;
@@ -119,20 +112,7 @@ const handleResetSearch = () => {
   fetchCreditors();
 };
 
-const showAllCreditors = () => {
-  searchStatus.value = '';
-  currentPage.value = 1;
-  fetchCreditors();
-};
-
-const showConfirmedCreditors = () => {
-  searchStatus.value = 'CONFIRMED';
-  currentPage.value = 1;
-  fetchCreditors();
-};
-
 const handleTabClick = (tab: any) => {
-  // 根据点击的标签页设置 searchStatus
   if (tab.props.name === 'confirmed') {
     searchStatus.value = 'CONFIRMED';
     activeTab.value = 'confirmed';
@@ -177,7 +157,6 @@ const formatCurrency = (value: number | string | undefined | null) => {
   }).format(num);
 };
 
-// 新增债权人相关
 const showAddDialog = ref(false);
 const addLoading = ref(false);
 const addForm = ref({
@@ -192,10 +171,9 @@ const addForm = ref({
   status: 'KNOWN',
 });
 
-// 债权人详情相关
 const showDetailDialog = ref(false);
 const detailLoading = ref(false);
-const detailData = ref<any>(null);
+const creditorDetailData = ref<any>(null);
 
 const openAddDialog = () => {
   addForm.value = {
@@ -248,7 +226,6 @@ const handleAddSubmit = async () => {
       ElMessage.error(`添加失败：${response.message || '未知错误'}`);
     }
   } catch (error) {
-    console.error('添加债权人失败:', error);
     ElMessage.error('添加债权人失败');
   } finally {
     addLoading.value = false;
@@ -258,15 +235,14 @@ const handleAddSubmit = async () => {
 const openDetailDialog = async (row: any) => {
   try {
     detailLoading.value = true;
-    const response = await getCreditorDetailApi(row.creditorId);
+    const response = await getCreditorClaimStagesApi(row.creditorId);
     if (response.code === 200 && response.data) {
-      detailData.value = response.data;
+      creditorDetailData.value = response.data;
       showDetailDialog.value = true;
     } else {
       ElMessage.error('获取债权人详情失败');
     }
   } catch (error) {
-    console.error('获取债权人详情失败:', error);
     ElMessage.error('获取债权人详情失败');
   } finally {
     detailLoading.value = false;
@@ -275,10 +251,10 @@ const openDetailDialog = async (row: any) => {
 
 const closeDetailDialog = () => {
   showDetailDialog.value = false;
-  detailData.value = null;
+  creditorDetailData.value = null;
 };
 
-const formatDate = (dateStr: string | undefined | null) => {
+const formatDateTime = (dateStr: string | undefined | null) => {
   if (!dateStr) return '-';
   try {
     const date = new Date(dateStr);
@@ -293,6 +269,55 @@ const formatDate = (dateStr: string | undefined | null) => {
   } catch (error) {
     return '-';
   }
+};
+
+const getRegistrationStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'REGISTERED': { text: '已登记', type: 'success' },
+    'CONFIRMING': { text: '确认中', type: 'warning' },
+    'REVIEWING': { text: '审查中', type: 'warning' },
+    'REVIEW_COMPLETED': { text: '审查完成', type: 'info' },
+    'CONFIRMED': { text: '已确认', type: 'success' },
+    'REJECTED': { text: '已驳回', type: 'danger' },
+    'PENDING': { text: '待处理', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+const getReviewStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'COMPLETED': { text: '已完成', type: 'success' },
+    'IN_PROGRESS': { text: '进行中', type: 'warning' },
+    'PENDING': { text: '待审查', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+const getConfirmationStatusTag = (status: string) => {
+  const statusMap: Record<string, { text: string; type: string }> = {
+    'COMPLETED': { text: '已完成', type: 'success' },
+    'IN_PROGRESS': { text: '进行中', type: 'warning' },
+    'PENDING': { text: '待确认', type: 'info' },
+  };
+  return statusMap[status] || { text: status || '未知', type: 'info' };
+};
+
+const getReviewConclusionTag = (conclusion: string) => {
+  const conclusionMap: Record<string, { text: string; type: string }> = {
+    'CONFIRMED': { text: '确认', type: 'success' },
+    'PARTIAL_CONFIRMED': { text: '部分确认', type: 'warning' },
+    'UNCONFIRMED': { text: '不确认', type: 'danger' },
+  };
+  return conclusionMap[conclusion] || { text: conclusion || '待定', type: 'info' };
+};
+
+const getVoteResultTag = (result: string) => {
+  const resultMap: Record<string, { text: string; type: string }> = {
+    'AGREE': { text: '通过', type: 'success' },
+    'DISAGREE': { text: '不通过', type: 'danger' },
+    'ABSTAIN': { text: '弃权', type: 'info' },
+  };
+  return resultMap[result] || { text: result || '待定', type: 'info' };
 };
 
 onMounted(() => {
@@ -550,32 +575,215 @@ defineExpose({
     </template>
   </ElDialog>
 
-  <!-- 债权人详情对话框 -->
+  <!-- 债权人债权详情对话框 -->
   <ElDialog
     v-model="showDetailDialog"
-    :title="`债权人详情 - ${detailData?.creditorName || ''}`"
-    width="700px"
+    title="债权人债权详情"
+    width="95%"
     destroy-on-close
   >
-    <div v-loading="detailLoading" style="min-height: 400px;">
-      <ElDescriptions :column="2" border v-if="detailData">
-        <ElDescriptionsItem label="债权人类型">{{ detailData.creditorType }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="债权人状态">
-          <ElTag :type="detailData.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'" size="small">
-            {{ statusMap[detailData.creditorStatus] || detailData.creditorStatus }}
-          </ElTag>
-        </ElDescriptionsItem>
-        <ElDescriptionsItem label="案件编号">{{ detailData.caseNumber }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="案件名称">{{ detailData.caseName }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="联系电话">{{ detailData.contactPhone || '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="联系邮箱">{{ detailData.contactEmail || '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="证件号码">{{ detailData.idNumber || '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="法定代表人">{{ detailData.legalRepresentative || '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="地址">{{ detailData.address || '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="注册资本">{{ detailData.registeredCapital ? formatCurrency(detailData.registeredCapital) : '-' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="创建时间">{{ formatDate(detailData.createTime) }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="更新时间">{{ formatDate(detailData.updateTime) }}</ElDescriptionsItem>
-      </ElDescriptions>
+    <div v-loading="detailLoading" class="creditor-detail-container">
+      <div v-if="creditorDetailData" class="creditor-detail-content">
+        <div class="creditor-header mb-6">
+          <div class="creditor-info-card">
+            <div class="creditor-name">
+              {{ creditorDetailData.creditorName }}
+            </div>
+          </div>
+        </div>
+
+        <ElTabs v-model="activeTab" type="border-card">
+          <ElTabPane label="债权申报阶段" name="registration">
+            <div v-if="creditorDetailData.claimRegistrations && creditorDetailData.claimRegistrations.length > 0">
+              <div
+                v-for="(claim, index) in creditorDetailData.claimRegistrations"
+                :key="claim.id"
+                class="claim-card mb-4"
+              >
+                <div class="claim-card-header">
+                  <span class="claim-index">申报 {{ index + 1 }}</span>
+                  <ElTag :type="getRegistrationStatusTag(claim.registrationStatus).type" size="small">
+                    {{ getRegistrationStatusTag(claim.registrationStatus).text }}
+                  </ElTag>
+                </div>
+                <ElDescriptions :column="2" border class="mt-3">
+                  <ElDescriptionsItem label="债权编号">{{ claim.claimNo }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="案件名称">{{ claim.caseName }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="债务人">{{ claim.debtor }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="债权人类型">{{ claim.creditorType }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="统一社会信用代码">{{ claim.creditCode }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="法定代表人">{{ claim.legalRepresentative }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报本金">{{ formatCurrency(claim.principal) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报利息">{{ formatCurrency(claim.interest) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报罚金">{{ formatCurrency(claim.penalty) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报其他损失">{{ formatCurrency(claim.otherLosses) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报总金额">{{ formatCurrency(claim.totalAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="债权性质">{{ claim.claimNature }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="债权种类">{{ claim.claimType }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="债权标识">{{ claim.claimIdentifier }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="是否有法院判决">
+                    <ElTag :type="claim.hasCourtJudgment ? 'success' : 'info'" size="small">
+                      {{ claim.hasCourtJudgment ? '是' : '否' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="是否有执行">
+                    <ElTag :type="claim.hasExecution ? 'success' : 'info'" size="small">
+                      {{ claim.hasExecution ? '是' : '否' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="是否有担保">
+                    <ElTag :type="claim.hasCollateral ? 'success' : 'info'" size="small">
+                      {{ claim.hasCollateral ? '是' : '否' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="登记日期">{{ formatDateTime(claim.registrationDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="材料接收人">{{ claim.materialReceiver }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="材料接收日期">{{ formatDateTime(claim.materialReceiveDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="材料完整性">{{ claim.materialCompleteness }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="备注" :span="2">{{ claim.remarks || '-' }}</ElDescriptionsItem>
+                </ElDescriptions>
+              </div>
+            </div>
+            <ElEmpty v-else description="暂无债权申报记录" />
+          </ElTabPane>
+
+          <ElTabPane label="债权审查与确认阶段" name="review">
+            <div v-if="creditorDetailData.claimReviews && creditorDetailData.claimReviews.length > 0">
+              <div
+                v-for="(review, index) in creditorDetailData.claimReviews"
+                :key="review.id"
+                class="claim-card mb-4"
+              >
+                <div class="claim-card-header">
+                  <span class="claim-index">审查 {{ index + 1 }}</span>
+                  <ElTag :type="getReviewStatusTag(review.reviewStatus).type" size="small">
+                    {{ getReviewStatusTag(review.reviewStatus).text }}
+                  </ElTag>
+                </div>
+                <ElDescriptions :column="2" border class="mt-3">
+                  <ElDescriptionsItem label="审查日期">{{ formatDateTime(review.reviewDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="审查人">{{ review.reviewer }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="审查轮次">{{ review.reviewRound }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="审查结论">
+                    <ElTag :type="getReviewConclusionTag(review.reviewConclusion).type" size="small">
+                      {{ getReviewConclusionTag(review.reviewConclusion).text }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报本金">{{ formatCurrency(review.declaredPrincipal) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报利息">{{ formatCurrency(review.declaredInterest) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报罚金">{{ formatCurrency(review.declaredPenalty) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报其他损失">{{ formatCurrency(review.declaredOtherLosses) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="申报总金额">{{ formatCurrency(review.declaredTotalAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认本金">{{ formatCurrency(review.confirmedPrincipal) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认利息">{{ formatCurrency(review.confirmedInterest) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认罚金">{{ formatCurrency(review.confirmedPenalty) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认其他损失">{{ formatCurrency(review.confirmedOtherLosses) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认总金额">{{ formatCurrency(review.confirmedTotalAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认本金">{{ formatCurrency(review.unconfirmedPrincipal) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认利息">{{ formatCurrency(review.unconfirmedInterest) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认罚金">{{ formatCurrency(review.unconfirmedPenalty) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认其他损失">{{ formatCurrency(review.unconfirmedOtherLosses) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认总金额">{{ formatCurrency(review.unconfirmedTotalAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="确认债权性质">{{ review.confirmedClaimNature }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="证据真实性">
+                    <ElTag :type="review.evidenceAuthenticity === 'VALID' ? 'success' : 'danger'" size="small">
+                      {{ review.evidenceAuthenticity === 'VALID' ? '有效' : '无效' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="证据相关性">
+                    <ElTag :type="review.evidenceRelevance === 'RELEVANT' ? 'success' : 'danger'" size="small">
+                      {{ review.evidenceRelevance === 'RELEVANT' ? '相关' : '不相关' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="证据合法性">
+                    <ElTag :type="review.evidenceLegality === 'LEGAL' ? 'success' : 'danger'" size="small">
+                      {{ review.evidenceLegality === 'LEGAL' ? '合法' : '不合法' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="担保类型">{{ review.collateralType }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="担保物">{{ review.collateralProperty }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="担保金额">{{ formatCurrency(review.collateralAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="担保期限">{{ review.collateralTerm }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="担保有效性">
+                    <ElTag :type="review.collateralValidity === 'VALID' ? 'success' : 'danger'" size="small">
+                      {{ review.collateralValidity === 'VALID' ? '有效' : '无效' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="调整原因" :span="2">{{ review.adjustmentReason }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="未确认原因" :span="2">{{ review.unconfirmedReason }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="审查摘要" :span="2">{{ review.reviewSummary }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="备注" :span="2">{{ review.remarks }}</ElDescriptionsItem>
+                </ElDescriptions>
+              </div>
+            </div>
+            <ElEmpty v-else description="暂无债权审查记录" />
+          </ElTabPane>
+
+          <ElTabPane label="债权复查阶段" name="confirmation">
+            <div v-if="creditorDetailData.claimConfirmations && creditorDetailData.claimConfirmations.length > 0">
+              <div
+                v-for="(confirmation, index) in creditorDetailData.claimConfirmations"
+                :key="confirmation.id"
+                class="claim-card mb-4"
+              >
+                <div class="claim-card-header">
+                  <span class="claim-index">复查 {{ index + 1 }}</span>
+                  <ElTag :type="getConfirmationStatusTag(confirmation.confirmationStatus).type" size="small">
+                    {{ getConfirmationStatusTag(confirmation.confirmationStatus).text }}
+                  </ElTag>
+                </div>
+                <ElDescriptions :column="2" border class="mt-3">
+                  <ElDescriptionsItem label="会议类型">{{ confirmation.meetingType }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="会议日期">{{ formatDateTime(confirmation.meetingDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="会议地点">{{ confirmation.meetingLocation }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="表决结果">
+                    <ElTag :type="getVoteResultTag(confirmation.voteResult).type" size="small">
+                      {{ getVoteResultTag(confirmation.voteResult).text }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="表决说明">{{ confirmation.voteNotes }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="是否有异议">
+                    <ElTag :type="confirmation.hasObjection ? 'danger' : 'success'" size="small">
+                      {{ confirmation.hasObjection ? '是' : '否' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="异议人">{{ confirmation.objector }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="异议原因">{{ confirmation.objectionReason }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="异议金额">{{ formatCurrency(confirmation.objectionAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="异议日期">{{ formatDateTime(confirmation.objectionDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="协商结果">{{ confirmation.negotiationResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="协商日期">{{ formatDateTime(confirmation.negotiationDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="协商参与人">{{ confirmation.negotiationParticipants }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="裁定日期">{{ formatDateTime(confirmation.courtRulingDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="裁定编号">{{ confirmation.courtRulingNo }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="裁定结果">{{ confirmation.courtRulingResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="裁定金额">{{ formatCurrency(confirmation.courtRulingAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="裁定备注">{{ confirmation.courtRulingNotes }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="是否有诉讼">
+                    <ElTag :type="confirmation.hasLawsuit ? 'danger' : 'success'" size="small">
+                      {{ confirmation.hasLawsuit ? '是' : '否' }}
+                    </ElTag>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="诉讼案号">{{ confirmation.lawsuitCaseNo }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="诉讼状态">{{ confirmation.lawsuitStatus }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="诉讼结果">{{ confirmation.lawsuitResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="诉讼金额">{{ formatCurrency(confirmation.lawsuitAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="诉讼备注">{{ confirmation.lawsuitNotes }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="最终确认金额">
+                    <span style="font-weight: bold; color: #409EFF; font-size: 16px;">
+                      {{ formatCurrency(confirmation.finalConfirmedAmount) }}
+                    </span>
+                  </ElDescriptionsItem>
+                  <ElDescriptionsItem label="最终确认日期">{{ formatDateTime(confirmation.finalConfirmationDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="最终确认依据" :span="2">{{ confirmation.finalConfirmationBasis }}</ElDescriptionsItem>
+                  <ElDescriptionsItem label="备注" :span="2">{{ confirmation.remarks }}</ElDescriptionsItem>
+                </ElDescriptions>
+              </div>
+            </div>
+            <ElEmpty v-else description="暂无债权复查记录" />
+          </ElTabPane>
+        </ElTabs>
+      </div>
     </div>
     <template #footer>
       <span class="dialog-footer">
@@ -602,7 +810,51 @@ defineExpose({
   padding: 60px 0;
 }
 
-/* 描述列表样式 */
+.creditor-detail-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.creditor-header {
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+}
+
+.creditor-info-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.creditor-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+}
+
+.claim-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.claim-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.claim-index {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
 :deep(.el-descriptions__label) {
   font-weight: 500;
   color: #4b5563;
@@ -618,7 +870,6 @@ defineExpose({
   padding: 12px 16px;
 }
 
-/* 标签样式 */
 :deep(.el-tag) {
   border-radius: 12px;
   padding: 0 10px;
@@ -626,7 +877,6 @@ defineExpose({
   line-height: 22px;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .creditor-info-card {
     padding: 20px;

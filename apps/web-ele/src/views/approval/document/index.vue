@@ -936,7 +936,7 @@ onMounted(() => {
       <ElDialog
         v-model="previewDialogVisible"
         :title="previewingFile?.fileName || '文件预览'"
-        width="800px"
+        width="95%"
         @close="
           () => {
             if (previewingFile.value?.previewUrl) {
@@ -956,7 +956,7 @@ onMounted(() => {
               :src="previewingFile.previewUrl"
               frameborder="0"
               width="100%"
-              height="500px"
+              height="85vh"
             ></iframe>
           </div>
           <div

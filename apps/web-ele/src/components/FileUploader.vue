@@ -423,7 +423,7 @@ const handleDownload = async (file: UploadFile) => {
     <ElDialog
       v-model="previewVisible"
       :title="`预览: ${previewFileName}`"
-      width="80%"
+      width="95%"
       :close-on-click-modal="false"
       @close="handlePreviewClose"
       class="file-preview-dialog"
@@ -507,18 +507,18 @@ const handleDownload = async (file: UploadFile) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 60vh;
+    min-height: 85vh;
   }
 
   .preview-iframe {
     width: 100%;
-    height: 70vh;
+    height: 85vh;
     border: none;
   }
 
   .preview-image {
     max-width: 100%;
-    max-height: 70vh;
+    max-height: 85vh;
     object-fit: contain;
   }
 

@@ -1,15 +1,9 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-// 定义模块类型
 interface RouteModuleType {
   default: RouteRecordRaw[];
 }
 
-/**
- * 合并动态路由模块的默认导出
- * @param routeModules 动态导入的路由模块对象
- * @returns 合并后的路由配置数组
- */
 function mergeRouteModules(
   routeModules: Record<string, unknown>,
 ): RouteRecordRaw[] {
@@ -17,7 +11,6 @@ function mergeRouteModules(
 
   for (const routeModule of Object.values(routeModules)) {
     const moduleRoutes = (routeModule as RouteModuleType)?.default;
-    // 确保moduleRoutes是一个数组
     if (Array.isArray(moduleRoutes)) {
       mergedRoutes.push(...moduleRoutes);
     }
@@ -26,6 +19,27 @@ function mergeRouteModules(
   return mergedRoutes;
 }
 
-export { mergeRouteModules };
+async function mergeRouteModulesAsync(
+  routeModules: Record<string, () => Promise<unknown>>,
+): Promise<RouteRecordRaw[]> {
+  const mergedRoutes: RouteRecordRaw[] = [];
+
+  const modulePromises = Object.values(routeModules).map((loadModule) =>
+    loadModule(),
+  );
+
+  const loadedModules = await Promise.all(modulePromises);
+
+  for (const routeModule of loadedModules) {
+    const moduleRoutes = (routeModule as RouteModuleType)?.default;
+    if (Array.isArray(moduleRoutes)) {
+      mergedRoutes.push(...moduleRoutes);
+    }
+  }
+
+  return mergedRoutes;
+}
+
+export { mergeRouteModules, mergeRouteModulesAsync };
 
 export type { RouteModuleType };

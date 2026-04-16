@@ -23,17 +23,17 @@ export default defineConfig(async ({ mode }): Promise<any> => {
         host: '0.0.0.0',
         allowedHosts: true,
         proxy: {
-          '/api': {
-            changeOrigin: true,
-            target: proxyTarget,
-            ws: true,
-            rewrite: (path: string) => path.replace(/^\/api/, '/api'),
-          },
           '/api/v1': {
             changeOrigin: true,
             target: proxyTarget,
             ws: true,
             rewrite: (path: string) => path,
+          },
+          '/api': {
+            changeOrigin: true,
+            target: proxyTarget,
+            ws: true,
+            rewrite: (path: string) => path.replace(/^\/api/, '/api'),
           },
           '/users': {
             changeOrigin: true,

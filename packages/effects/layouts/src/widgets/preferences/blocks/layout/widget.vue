@@ -16,7 +16,6 @@ const widgetGlobalSearch = defineModel<boolean>('widgetGlobalSearch');
 const widgetFullscreen = defineModel<boolean>('widgetFullscreen');
 const widgetLanguageToggle = defineModel<boolean>('widgetLanguageToggle');
 const widgetNotification = defineModel<boolean>('widgetNotification');
-const widgetThemeToggle = defineModel<boolean>('widgetThemeToggle');
 const widgetSidebarToggle = defineModel<boolean>('widgetSidebarToggle');
 const widgetLockScreen = defineModel<boolean>('widgetLockScreen');
 const appPreferencesButtonPosition = defineModel<string>(
@@ -43,9 +42,6 @@ const positionItems = computed((): SelectOption[] => [
 <template>
   <SwitchItem v-model="widgetGlobalSearch">
     {{ $t('preferences.widget.globalSearch') }}
-  </SwitchItem>
-  <SwitchItem v-model="widgetThemeToggle">
-    {{ $t('preferences.widget.themeToggle') }}
   </SwitchItem>
   <SwitchItem v-model="widgetLanguageToggle">
     {{ $t('preferences.widget.languageToggle') }}

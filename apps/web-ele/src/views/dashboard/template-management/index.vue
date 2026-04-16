@@ -991,8 +991,8 @@
     <ElDialog
       v-model="previewVisible"
       title="文档模板预览"
-      width="80vw"
-      top="50px"
+      width="95%"
+      top="2vh"
       :close-on-click-modal="false"
       :fullscreen="false"
     >
