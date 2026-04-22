@@ -1,0 +1,682 @@
+<template>
+  <view class="todo-edit-container">
+    <!-- 自定义导航栏 -->
+    <view class="custom-nav">
+      <view class="nav-content">
+        <view class="back-btn" @click="handleBack">
+          <u-icon name="arrow-left" color="#fff" size="20"></u-icon>
+        </view>
+        <text class="title">{{ pageTitle }}</text>
+        <view class="right-btn"></view>
+      </view>
+    </view>
+
+    <!-- 表单内容 -->
+    <view class="form-container">
+      <u-form :model="todoForm" ref="todoFormRef" :rules="rules" labelWidth="80">
+        <u-form-item label="标题" prop="title" required>
+          <u-input 
+            v-model="todoForm.title" 
+            placeholder="请输入待办标题"
+            border="surround"
+          ></u-input>
+        </u-form-item>
+
+        <u-form-item label="描述" prop="description">
+          <u-textarea 
+            v-model="todoForm.description" 
+            placeholder="请输入待办描述"
+            height="120"
+            border="surround"
+          ></u-textarea>
+        </u-form-item>
+
+        <u-form-item label="优先级" prop="priority" required>
+          <view class="priority-group">
+            <view 
+              :class="['priority-btn', { active: todoForm.priority === 'HIGH' }]"
+              @click="todoForm.priority = 'HIGH'"
+            >
+              <text class="btn-text high">高</text>
+            </view>
+            <view 
+              :class="['priority-btn', { active: todoForm.priority === 'NORMAL' }]"
+              @click="todoForm.priority = 'NORMAL'"
+            >
+              <text class="btn-text normal">中</text>
+            </view>
+            <view 
+              :class="['priority-btn', { active: todoForm.priority === 'LOW' }]"
+              @click="todoForm.priority = 'LOW'"
+            >
+              <text class="btn-text low">低</text>
+            </view>
+          </view>
+        </u-form-item>
+
+        <u-form-item label="截止日期" prop="deadline" required>
+          <view class="datetime-picker" @click="showDatePicker = true">
+            <text :class="['picker-text', { placeholder: !todoForm.deadline }]">
+              {{ todoForm.deadline || '请选择截止日期' }}
+            </text>
+            <u-icon name="calendar" color="#999" size="18"></u-icon>
+          </view>
+        </u-form-item>
+
+        <!-- 案号搜索 -->
+        <u-form-item label="关联案号" prop="caseNumber">
+          <view class="case-search-wrapper">
+            <u-input 
+              v-model="caseNumberInput" 
+              placeholder="请输入案号进行搜索（可选）"
+              border="surround"
+              @input="onCaseNumberInput"
+              @blur="onCaseNumberBlur"
+            ></u-input>
+            <view v-if="caseNumberInput && !selectedCase" class="search-btn" @click="searchCase">
+              <u-icon name="search" color="#fff" size="16"></u-icon>
+            </view>
+            <view v-if="selectedCase" class="clear-btn" @click="clearCase">
+              <u-icon name="close" color="#999" size="16"></u-icon>
+            </view>
+          </view>
+          
+          <!-- 已选案件标签 -->
+          <view v-if="selectedCase" class="selected-case-tag">
+            <text class="case-name">{{ selectedCase.caseName }}</text>
+            <text class="case-number">{{ selectedCase.caseNumber }}</text>
+          </view>
+
+          <!-- 搜索结果列表 -->
+          <view v-if="showSearchResults && searchResults.length > 0" class="search-results">
+            <view 
+              v-for="item in searchResults" 
+              :key="item.id"
+              class="result-item"
+              @click="selectCase(item)"
+            >
+              <view class="result-info">
+                <text class="result-name">{{ item.caseName }}</text>
+                <text class="result-number">{{ item.caseNumber }}</text>
+              </view>
+              <u-icon name="arrow-right" color="#999" size="14"></u-icon>
+            </view>
+          </view>
+
+          <!-- 搜索提示 -->
+          <view v-if="showSearchResults && searchResults.length === 0 && !searching" class="search-empty">
+            <text>未找到匹配的案件</text>
+          </view>
+
+          <!-- 搜索中 -->
+          <view v-if="searching" class="search-loading">
+            <u-loading-icon size="16" text="搜索中..."></u-loading-icon>
+          </view>
+        </u-form-item>
+      </u-form>
+    </view>
+
+    <!-- 底部按钮 -->
+    <view class="bottom-bar">
+      <u-button 
+        type="primary" 
+        text="保存"
+        :loading="submitting"
+        @click="handleSubmit"
+      ></u-button>
+    </view>
+
+    <!-- 日期选择器 -->
+    <u-datetime-picker
+      :show="showDatePicker"
+      v-model="selectedDate"
+      mode="datetime"
+      @confirm="onDateConfirm"
+      @cancel="showDatePicker = false"
+    ></u-datetime-picker>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { 
+  createTodoWithCase, 
+  updateTodoWithCase, 
+  getTodoById, 
+  searchSimpleCases,
+  type Todo,
+  type SimpleCaseInfo 
+} from '@/api/todo'
+import dayjs from 'dayjs'
+
+console.log('=== todo/edit.vue loaded ===')
+
+const authStore = useAuthStore()
+const todoId = ref('')
+const mode = ref<'add' | 'edit'>('add')
+const submitting = ref(false)
+const showDatePicker = ref(false)
+const selectedDate = ref(Date.now())
+
+// 案号搜索相关
+const caseNumberInput = ref('')
+const selectedCase = ref<SimpleCaseInfo | null>(null)
+const searchResults = ref<SimpleCaseInfo[]>([])
+const showSearchResults = ref(false)
+const searching = ref(false)
+const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const todoForm = ref<Partial<Todo>>({
+  title: '',
+  description: '',
+  priority: 'NORMAL',
+  deadline: '',
+  caseNumber: undefined,
+  caseId: undefined,
+  userId: 0,
+  status: 'PENDING',
+})
+
+const todoFormRef = ref()
+
+const rules = {
+  title: [
+    { required: true, message: '请输入标题', trigger: 'blur' },
+    { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
+  ],
+  priority: [{ required: true, message: '请选择优先级', trigger: 'change' }],
+  deadline: [{ required: true, message: '请选择截止日期', trigger: 'change' }],
+  caseNumber: [
+    { 
+      validator: (rule: any, value: string, callback: Function) => {
+        // 如果填写了案号，必须选择了有效的案件
+        if (caseNumberInput.value && !selectedCase.value) {
+          callback(new Error('请从搜索结果中选择有效的案件，或清空案号'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
+
+const pageTitle = computed(() => mode.value === 'add' ? '新建待办' : '编辑待办')
+
+onMounted(() => {
+  console.log('[onMounted] todo edit')
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1] as any
+  const options = currentPage.options || {}
+  
+  mode.value = options.mode || 'add'
+  todoId.value = options.id || ''
+  
+  console.log('[DEBUG onMounted] mode:', mode.value, 'id:', todoId.value)
+  console.log('[DEBUG onMounted] todoForm.priority:', todoForm.value.priority)
+  console.log('[DEBUG onMounted] todoForm type:', typeof todoForm.value.priority)
+
+  if (mode.value === 'edit' && todoId.value) {
+    loadTodoDetail()
+  }
+
+  // 设置当前用户ID
+  if (authStore.userInfo?.userId) {
+    todoForm.value.userId = authStore.userInfo.userId
+  }
+})
+
+const loadTodoDetail = async () => {
+  try {
+    const res = await getTodoById(Number(todoId.value))
+    console.log('[loadTodoDetail] Response:', res)
+    if (res.data) {
+      todoForm.value = {
+        ...res.data,
+        deadline: res.data.deadline ? dayjs(res.data.deadline).format('YYYY-MM-DD HH:mm') : '',
+      }
+      
+      // 如果有案号，显示已选案件
+      if (res.data.caseNumber) {
+        caseNumberInput.value = res.data.caseNumber
+        selectedCase.value = {
+          id: res.data.caseId || 0,
+          caseNumber: res.data.caseNumber,
+          caseName: res.data.caseName || res.data.caseNumber,
+        }
+      }
+      
+      if (res.data.deadline) {
+        selectedDate.value = dayjs(res.data.deadline).valueOf()
+      }
+    }
+  } catch (error) {
+    console.error('[loadTodoDetail] Error:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  }
+}
+
+// 案号输入处理
+const onCaseNumberInput = (value: string) => {
+  console.log('[DEBUG] onCaseNumberInput value:', value)
+  // 清除之前的定时器
+  if (searchTimer.value) {
+    clearTimeout(searchTimer.value)
+  }
+  
+  // 如果清空了输入，清除选择
+  if (!value.trim()) {
+    clearCase()
+    return
+  }
+  
+  // 延迟搜索，避免频繁请求
+  searchTimer.value = setTimeout(() => {
+    searchCase()
+  }, 500)
+}
+
+// 案号失去焦点
+const onCaseNumberBlur = () => {
+  // 延迟隐藏搜索结果，让用户可以点击
+  setTimeout(() => {
+    showSearchResults.value = false
+  }, 200)
+}
+
+// 搜索案件
+const searchCase = async () => {
+  const keyword = caseNumberInput.value.trim()
+  console.log('[DEBUG] searchCase keyword:', keyword)
+  if (!keyword) {
+    searchResults.value = []
+    showSearchResults.value = false
+    return
+  }
+
+  searching.value = true
+  showSearchResults.value = true
+  
+  try {
+    const res = await searchSimpleCases(keyword, 1, 10)
+    console.log('[DEBUG] searchCase raw response:', JSON.stringify(res))
+    console.log('[DEBUG] searchCase res.data:', JSON.stringify(res.data))
+    console.log('[DEBUG] searchCase res.data.list:', res.data?.list)
+    console.log('[DEBUG] searchCase res.data.content:', res.data?.content)
+    
+    if (res.data?.list) {
+      console.log('[DEBUG] searchCase using res.data.list, length:', res.data.list.length)
+      searchResults.value = res.data.list
+    } else {
+      console.log('[DEBUG] searchCase res.data.list is empty, fallback to []')
+      searchResults.value = []
+    }
+  } catch (error) {
+    console.error('[DEBUG] searchCase Error:', error)
+    searchResults.value = []
+  } finally {
+    searching.value = false
+  }
+  console.log('[DEBUG] searchCase final searchResults:', JSON.stringify(searchResults.value))
+  console.log('[DEBUG] searchCase showSearchResults:', showSearchResults.value)
+  console.log('[DEBUG] searchResults.length:', searchResults.value.length)
+}
+
+// 选择案件
+const selectCase = (caseItem: SimpleCaseInfo) => {
+  selectedCase.value = caseItem
+  caseNumberInput.value = caseItem.caseNumber
+  todoForm.value.caseNumber = caseItem.caseNumber
+  todoForm.value.caseId = caseItem.id
+  todoForm.value.relatedId = caseItem.id
+  todoForm.value.relatedType = 'CASE'
+  showSearchResults.value = false
+  
+  console.log('[selectCase] Selected:', caseItem)
+}
+
+// 清除案件选择
+const clearCase = () => {
+  selectedCase.value = null
+  caseNumberInput.value = ''
+  todoForm.value.caseNumber = undefined
+  todoForm.value.caseId = undefined
+  todoForm.value.relatedId = undefined
+  todoForm.value.relatedType = undefined
+  searchResults.value = []
+  showSearchResults.value = false
+}
+
+const onDateConfirm = (e: any) => {
+  console.log('[onDateConfirm]', e)
+  todoForm.value.deadline = dayjs(e.value).format('YYYY-MM-DD HH:mm')
+  showDatePicker.value = false
+}
+
+const handleSubmit = async () => {
+  console.log('[handleSubmit]', todoForm.value)
+  
+  const valid = await todoFormRef.value?.validate()
+  if (!valid) return
+
+  if (!todoForm.value.userId) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+
+  // 验证案号：如果输入了案号但没有选择案件，提示错误
+  if (caseNumberInput.value && !selectedCase.value) {
+    uni.showToast({ title: '请从搜索结果中选择有效的案件，或清空案号', icon: 'none', duration: 3000 })
+    return
+  }
+
+  submitting.value = true
+  try {
+    let res
+    const submitData = {
+      ...todoForm.value,
+      deadline: todoForm.value.deadline ? dayjs(todoForm.value.deadline).toISOString() : undefined,
+    }
+
+    if (mode.value === 'add') {
+      res = await createTodoWithCase(submitData as any)
+    } else {
+      res = await updateTodoWithCase(Number(todoId.value), submitData)
+    }
+    
+    console.log('[handleSubmit] Response:', res)
+    
+    if (res.code === 200) {
+      uni.showToast({ title: '保存成功', icon: 'success' })
+      setTimeout(() => {
+        uni.navigateBack()
+      }, 1500)
+    } else {
+      uni.showToast({ title: res.message || '保存失败', icon: 'none' })
+    }
+  } catch (error: any) {
+    console.error('[handleSubmit] Error:', error)
+    uni.showToast({ title: error.message || '保存失败', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
+
+const handleBack = () => {
+  uni.navigateBack()
+}
+</script>
+
+<style lang="scss" scoped>
+.todo-edit-container {
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.custom-nav {
+  background: #0068E2;
+  padding-top: var(--status-bar-height, 44rpx);
+
+  .nav-content {
+    height: 88rpx;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24rpx;
+
+    .back-btn {
+      width: 60rpx;
+      height: 60rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .right-btn {
+      width: 60rpx;
+    }
+  }
+}
+
+.form-container {
+  background: #fff;
+  margin: 20rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+
+  // 自定义优先级按钮样式
+  .priority-group {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+
+    .priority-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 72rpx;
+      min-width: 80rpx;
+      padding: 0 24rpx;
+      border: 2rpx solid #e8e8e8;
+      border-radius: 12rpx;
+      background: #fff;
+      transition: all 0.3s;
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      &.active {
+        border-color: #0068E2;
+        background: #e6f7ff;
+
+        .btn-text {
+          font-weight: bold;
+          font-size: 32rpx;
+        }
+      }
+
+      .btn-text {
+        font-size: 30rpx;
+        line-height: 1;
+
+        &.high {
+          color: #ff4d4f;
+        }
+
+        &.normal {
+          color: #faad14;
+        }
+
+        &.low {
+          color: #52c41a;
+        }
+      }
+    }
+  }
+
+  .priority-text {
+    margin-left: 8rpx;
+    font-size: 26rpx;
+
+    &.high {
+      color: #ff4d4f;
+    }
+
+    &.normal {
+      color: #faad14;
+    }
+
+    &.low {
+      color: #52c41a;
+    }
+  }
+
+  .datetime-picker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 20rpx;
+    border: 1rpx solid #dcdfe6;
+    border-radius: 8rpx;
+
+    .picker-text {
+      font-size: 28rpx;
+      color: #333;
+
+      &.placeholder {
+        color: #999;
+      }
+    }
+  }
+
+  // 案号搜索样式
+  .case-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+
+    :deep(.u-input) {
+      flex: 1;
+    }
+
+    .search-btn {
+      width: 64rpx;
+      height: 64rpx;
+      background: #0068E2;
+      border-radius: 12rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      &:active {
+        opacity: 0.8;
+      }
+    }
+
+    .clear-btn {
+      width: 64rpx;
+      height: 64rpx;
+      background: #f5f5f5;
+      border-radius: 12rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      &:active {
+        background: #e8e8e8;
+      }
+    }
+  }
+
+  // 已选案件标签
+  .selected-case-tag {
+    margin-top: 16rpx;
+    padding: 16rpx 20rpx;
+    background: #e6f7ff;
+    border: 1rpx solid #0068E2;
+    border-radius: 12rpx;
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
+
+    .case-name {
+      font-size: 28rpx;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .case-number {
+      font-size: 24rpx;
+      color: #666;
+    }
+  }
+
+  // 搜索结果列表
+  .search-results {
+    margin-top: 16rpx;
+    background: #fff;
+    border: 1rpx solid #e8e8e8;
+    border-radius: 12rpx;
+    max-height: 400rpx;
+    overflow-y: auto;
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20rpx 24rpx;
+      border-bottom: 1rpx solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:active {
+        background: #f5f7fa;
+      }
+
+      .result-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8rpx;
+        flex: 1;
+
+        .result-name {
+          font-size: 28rpx;
+          color: #333;
+          font-weight: 500;
+        }
+
+        .result-number {
+          font-size: 24rpx;
+          color: #999;
+        }
+      }
+    }
+  }
+
+  // 搜索空状态
+  .search-empty {
+    margin-top: 16rpx;
+    padding: 40rpx;
+    text-align: center;
+    background: #f5f5f5;
+    border-radius: 12rpx;
+
+    text {
+      font-size: 26rpx;
+      color: #999;
+    }
+  }
+
+  // 搜索加载中
+  .search-loading {
+    margin-top: 16rpx;
+    padding: 40rpx;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+</style>

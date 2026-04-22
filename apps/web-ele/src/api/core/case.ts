@@ -695,3 +695,45 @@ export const getCaseDetailApiOld = async (serialNumber: string) => {
   const caseId = Number.parseInt(serialNumber, 10);
   return getCaseDetailApi(caseId);
 };
+
+/** 最近查询案件项 */
+export interface RecentSearchItem {
+  caseId: number;
+  caseNumber: string;
+  caseName: string;
+  caseStatus: string;
+  caseProgress: string;
+  searchTime: string;
+}
+
+/** 最近查询案件列表响应 */
+export interface RecentSearchesResponse {
+  code: string;
+  data: RecentSearchItem[];
+}
+
+/**
+ * 获取用户最近查询的案件列表
+ * GET /api/v1/case/recent-searches
+ */
+export async function getRecentSearchesApi(limit: number = 10) {
+  return requestClient8085.get<RecentSearchesResponse>('/case/recent-searches', {
+    params: { limit },
+  });
+}
+
+/**
+ * 清除用户所有最近查询记录
+ * DELETE /api/v1/case/recent-searches
+ */
+export async function clearRecentSearchesApi() {
+  return requestClient8085.delete<CaseApi.CommonResponse>('/case/recent-searches');
+}
+
+/**
+ * 移除指定的最近查询记录
+ * DELETE /api/v1/case/recent-searches/{caseId}
+ */
+export async function removeRecentSearchApi(caseId: number) {
+  return requestClient8085.delete<CaseApi.CommonResponse>(`/case/recent-searches/${caseId}`);
+}

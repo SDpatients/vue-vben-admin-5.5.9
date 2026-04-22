@@ -1,0 +1,74 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/workspace/index",
+      "style": {
+        "navigationBarTitleText": "工作台"
+      }
+    },
+    {
+      "path": "pages/cases/index",
+      "style": {
+        "navigationBarTitleText": "案件管理"
+      }
+    },
+    {
+      "path": "pages/cases/detail",
+      "style": {
+        "navigationBarTitleText": "案件详情"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "破管通",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#3B82F6",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/workspace/index",
+        "iconPath": "static/tabbar/workspace.png",
+        "selectedIconPath": "static/tabbar/workspace-active.png",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/cases/index",
+        "iconPath": "static/tabbar/cases.png",
+        "selectedIconPath": "static/tabbar/cases-active.png",
+        "text": "案件"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "iconPath": "static/tabbar/profile.png",
+        "selectedIconPath": "static/tabbar/profile-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "condition": {}
+}

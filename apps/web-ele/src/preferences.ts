@@ -12,4 +12,9 @@ export const overridesPreferences = defineOverridesPreferences({
     defaultHomePath: '/workspace',
     enableCheckUpdates: false,  // 禁用版本更新检测
   },
+  logo: {
+    enable: true,
+    fit: 'contain',
+    source: '/original-logo.jpg',
+  },
 });

@@ -28,7 +28,12 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 
-import { getCaseListApi, getUserCaseListApi } from '#/api/core/case';
+import {
+  getCaseListApi,
+  getRecentSearchesApi,
+  getUserCaseListApi,
+  removeRecentSearchApi,
+} from '#/api/core/case';
 import {
   createViewRecordApi,
   getAnnouncementAttachmentsApi,
@@ -86,6 +91,10 @@ const loading = ref(false);
 const todoCount = ref(0);
 const caseCount = ref(0);
 const teamCount = ref(0);
+
+// 最近查询案件
+const recentSearches = ref<any[]>([]);
+const recentSearchesLoading = ref(false);
 
 // 悬浮球相关状态
 const showCalendarFloat = ref(false);
@@ -282,6 +291,52 @@ const caseProgressMap: Record<string, string> = {
   FIFTH: '第五阶段',
   SIXTH: '第六阶段',
   SEVENTH: '第七阶段',
+};
+
+// 加载最近查询案件列表
+const loadRecentSearches = async () => {
+  recentSearchesLoading.value = true;
+  try {
+    const res = await getRecentSearchesApi(10);
+    if (res.code === 'success' || res.code === '200' || res.code === 200) {
+      recentSearches.value = res.data || [];
+    } else {
+      recentSearches.value = [];
+    }
+  } catch (error) {
+    recentSearches.value = [];
+  } finally {
+    recentSearchesLoading.value = false;
+  }
+};
+
+// 移除单条最近查询记录
+const handleRemoveRecentSearch = async (caseId: number, event: Event) => {
+  event.stopPropagation();
+  try {
+    await removeRecentSearchApi(caseId);
+    ElMessage.success('已移除记录');
+    await loadRecentSearches();
+  } catch (error) {
+    ElMessage.error('移除记录失败');
+  }
+};
+
+// 格式化最近查询时间
+const formatSearchTime = (timeStr: string) => {
+  if (!timeStr) return '';
+  const date = new Date(timeStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return '刚刚';
+  if (diffMins < 60) return `${diffMins}分钟前`;
+  if (diffHours < 24) return `${diffHours}小时前`;
+  if (diffDays < 7) return `${diffDays}天前`;
+  return date.toLocaleDateString('zh-CN');
 };
 
 // 案件状态映射
@@ -1348,8 +1403,9 @@ onMounted(async () => {
   loadAnnouncements();
   loadTeamCount();
   initWeather();
+  loadRecentSearches();
   await loadCalendarEvents();
-  
+
   // 添加全局鼠标事件监听
   document.addEventListener('mousemove', handleMouseMove);
   document.addEventListener('mouseup', handleMouseUp);
@@ -1393,6 +1449,44 @@ onUnmounted(() => {
           }}，{{ weather.tempMin }} ~ {{ weather.tempMax }}！
         </template>
       </WorkbenchHeader>
+
+      <!-- 快捷入口 - 最近查询案件 -->
+      <AnalysisChartCard
+        v-if="recentSearches.length > 0"
+        title="快捷入口"
+        class="mb-[5px] bg-white"
+      >
+        <div v-loading="recentSearchesLoading" class="quick-access-container">
+          <div class="flex flex-wrap gap-3">
+            <div
+              v-for="item in recentSearches"
+              :key="item.caseId"
+              class="quick-access-item group relative flex cursor-pointer items-center rounded-lg border border-gray-200 bg-white px-4 py-2 shadow-sm transition-all hover:border-primary hover:shadow-md"
+              @click="goToCaseDetail(item.caseId)"
+            >
+              <div class="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                <Icon icon="lucide:briefcase" class="h-4 w-4" />
+              </div>
+              <div class="flex flex-col">
+                <span class="max-w-[160px] truncate text-sm font-medium text-gray-800">
+                  {{ item.caseNumber }}
+                </span>
+                <span class="text-xs text-gray-400">
+                  {{ formatSearchTime(item.searchTime) }}
+                </span>
+              </div>
+              <!-- 悬停显示移除按钮 -->
+              <button
+                class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                title="移除记录"
+                @click="handleRemoveRecentSearch(item.caseId, $event)"
+              >
+                <Icon icon="lucide:x" class="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </AnalysisChartCard>
 
       <div class="mt-0 flex flex-col lg:flex-row gap-[5px]">
         <!-- 左侧主要内容区 - 占页面总宽度的2/3 -->
@@ -1766,18 +1860,14 @@ onUnmounted(() => {
                   <!-- 案件管理相关 -->
                   <router-link to="/law/case-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-blue-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <Icon icon="lucide:file-text" class="h-6 w-6" />
                     </div>
                     <span class="function-nav-text text-sm font-medium">案件列表</span>
                   </router-link>
                   
                   <router-link to="/law/case-add" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-green-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                      </svg>
+                      <Icon icon="lucide:circle-plus" class="h-6 w-6" />
                     </div>
                     <span class="function-nav-text text-sm font-medium">新增案件</span>
                   </router-link>
@@ -1785,9 +1875,7 @@ onUnmounted(() => {
                   <!-- 费用报销 -->
                   <router-link to="/expense-reimbursement" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-purple-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <Icon icon="lucide:banknote" class="h-6 w-6" />
                     </div>
                     <span class="function-nav-text text-sm font-medium">费用报销</span>
                   </router-link>
@@ -1795,9 +1883,7 @@ onUnmounted(() => {
                   <!-- 债权人管理 -->
                   <router-link to="/basic-data/creditor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-indigo-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
+                      <Icon icon="lucide:users" class="h-6 w-6" />
                     </div>
                     <span class="function-nav-text text-sm font-medium">债权人</span>
                   </router-link>
