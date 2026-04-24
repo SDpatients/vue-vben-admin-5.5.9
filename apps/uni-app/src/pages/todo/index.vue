@@ -117,6 +117,9 @@ import {
 import dayjs from 'dayjs'
 
 console.log('=== todo/index.vue loaded ===')
+if (typeof window !== 'undefined') {
+  console.log('[DEBUG] Window location:', window.location.href)
+}
 
 const authStore = useAuthStore()
 const todoList = ref<Todo[]>([])
@@ -136,8 +139,11 @@ const filterTabs = [
 ]
 
 onMounted(() => {
-  console.log('[onMounted] todo index')
+  console.log('[onMounted] todo index - STARTING')
+  console.log('[onMounted] authStore.userInfo:', authStore.userInfo)
+  console.log('[onMounted] authStore.isLoggedIn:', authStore.isLoggedIn)
   loadData()
+  console.log('[onMounted] todo index - loadData called')
 })
 
 const handleFilterChange = (value: string) => {
@@ -149,35 +155,58 @@ const handleFilterChange = (value: string) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const userId = authStore.userInfo?.userId
-    console.log('[loadData] userId:', userId, 'filter:', currentFilter.value)
+    let userId = authStore.userInfo?.userId
+    console.log('[loadData] authStore userId:', userId, 'filter:', currentFilter.value)
+    
+    // 如果store中没有，尝试从storage读取
     if (!userId) {
-      console.error('[loadData] userId is empty, cannot load stats')
+      const savedUserInfo = uni.getStorageSync('userInfo')
+      console.log('[loadData] fallback userInfo from storage:', savedUserInfo)
+      if (savedUserInfo?.userId) {
+        userId = savedUserInfo.userId
+      }
+    }
+    
+    if (!userId) {
+      console.error('[loadData] userId is empty, cannot load data')
       uni.showToast({ title: '用户未登录', icon: 'none' })
+      loading.value = false
       return
     }
 
     const statusParam = currentFilter.value === 'all' ? undefined : currentFilter.value.toUpperCase()
 
     // 加载待办列表
+    console.log('[loadData] calling getTodoList with:', { userId, pageNum: 1, pageSize: 100, status: statusParam })
     const res = await getTodoList({ 
       userId,
       pageNum: 1,
       pageSize: 100,
       status: statusParam,
     })
-    console.log('[loadData] getTodoList Response:', JSON.stringify(res))
-    console.log('[loadData] res.data:', JSON.stringify(res.data))
+    console.log('[loadData] getTodoList raw res:', res)
+    console.log('[loadData] getTodoList res type:', typeof res)
+    console.log('[loadData] getTodoList res.data:', res?.data)
+    console.log('[loadData] getTodoList res.data?.list:', res?.data?.list)
+    console.log('[loadData] getTodoList res.data?.content:', res?.data?.content)
+    console.log('[loadData] Array.isArray(res):', Array.isArray(res))
+    console.log('[loadData] Array.isArray(res?.data):', Array.isArray(res?.data))
     
-    // 后端返回的数据格式是 data.list
-    if (res.data?.list) {
+    // 后端返回的数据格式可能是 data.list 或直接 data 为数组
+    if (res?.data?.list && Array.isArray(res.data.list)) {
       todoList.value = res.data.list
       console.log('[loadData] todoList from res.data.list, count:', todoList.value.length)
-    } else if (res.data?.content) {
+    } else if (res?.data?.content && Array.isArray(res.data.content)) {
       todoList.value = res.data.content
       console.log('[loadData] todoList from res.data.content, count:', todoList.value.length)
+    } else if (Array.isArray(res?.data)) {
+      todoList.value = res.data
+      console.log('[loadData] todoList from res.data (array), count:', todoList.value.length)
+    } else if (Array.isArray(res)) {
+      todoList.value = res
+      console.log('[loadData] todoList from res (array), count:', todoList.value.length)
     } else {
-      console.log('[loadData] no list or content in response')
+      console.warn('[loadData] unexpected response structure:', res)
       todoList.value = []
     }
     
@@ -195,10 +224,13 @@ const loadData = async () => {
     } else {
       console.warn('[loadData] Stats response has no data, response:', statsRes)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+    console.error('[loadData] Error message:', error?.message)
+    console.error('[loadData] Error response:', error?.response)
+    uni.showToast({ title: error?.message || '加载失败，请重试', icon: 'none', duration: 3000 })
   } finally {
+    console.log('[loadData] FINALLY - setting loading to false')
     loading.value = false
   }
 }
@@ -376,7 +408,7 @@ const formatDate = (date?: string) => {
     padding: 24rpx;
     margin-bottom: 16rpx;
     box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-    opacity: 0;
+    opacity: 1;
     animation-fill-mode: forwards;
 
     &:active {

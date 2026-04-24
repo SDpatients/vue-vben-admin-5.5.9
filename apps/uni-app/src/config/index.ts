@@ -1,5 +1,24 @@
-// 环境配置
+/**
+ * Copyright (c) 2026 湖州永惠软件有限公司. All rights reserved.
+ * This software is based on Vue Vben Admin (MIT License),
+ * Copyright (c) 2024-present, Vben.
+ */
+
+export * from '../customer.config';
+
+import { customerConfig } from '../customer.config';
+
 const env = import.meta.env
+
+// Log environment info once
+console.log('============ ENV CONFIG ============')
+console.log('[Config] Import Meta Env:', {
+  VITE_API_BASE_URL: env.VITE_API_BASE_URL,
+  VITE_APP_TITLE: env.VITE_APP_TITLE,
+  MODE: env.MODE,
+  DEV: env.DEV,
+  PROD: env.PROD,
+})
 
 // API 基础地址配置
 // H5 端使用相对路径 '/api'，通过 Vite 代理转发到后端
@@ -7,10 +26,13 @@ const env = import.meta.env
 export const getBaseUrl = () => {
   // 浏览器环境使用代理
   if (typeof window !== 'undefined') {
+    console.log('[Config] Browser environment detected, using proxy (empty base URL)')
     return ''  // 使用相对路径，让代理处理
   }
   // 非浏览器环境（小程序、APP）使用环境变量
-  return env.VITE_API_BASE_URL || 'http://192.168.0.151:8080'
+  const baseUrl = env.VITE_API_BASE_URL || 'http://192.168.0.151:8080'
+  console.log('[Config] Non-browser environment, base URL:', baseUrl)
+  return baseUrl
 }
 
 // API 统一前缀配置

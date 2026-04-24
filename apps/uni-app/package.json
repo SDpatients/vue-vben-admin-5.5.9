@@ -3,6 +3,11 @@
   "version": "5.5.9",
   "description": "破管通 UniApp 移动端",
   "license": "MIT",
+  "author": {
+    "name": "湖州永惠软件有限公司",
+    "email": "2263547451@qq.com",
+    "url": ""
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

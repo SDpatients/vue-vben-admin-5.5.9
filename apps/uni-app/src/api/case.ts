@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2026 湖州永惠软件有限公司. All rights reserved.
+ * This software is based on Vue Vben Admin (MIT License),
+ * Copyright (c) 2024-present, Vben.
+ */
+
 import http from './request'
 
 // 后端返回的案件数据结构
@@ -698,4 +704,204 @@ export const getAllCaseFiles = (caseId: number) => {
     bizType: 'case',
     bizId: caseId
   })
+}
+
+// ================= 最近查询案件 API =================
+
+export interface RecentSearchItem {
+  caseId: number
+  caseNumber: string
+  caseName: string
+  caseStatus: string
+  caseProgress: string
+  searchTime: string
+}
+
+export interface RecentSearchesResponse {
+  code: string
+  data: RecentSearchItem[]
+}
+
+export const getRecentSearches = (limit: number = 10) => {
+  return http.get<RecentSearchesResponse>('/case/recent-searches', { limit })
+}
+
+export const removeRecentSearch = (caseId: number) => {
+  return http.delete<{ code: number; message: string; data: null }>(`/case/recent-searches/${caseId}`)
+}
+
+// ================= 新增案件相关 API =================
+
+// 创建案件请求参数
+export interface CreateCaseParams {
+  caseNumber: string // 案号，必填
+  caseName: string // 案件名称，必填
+  acceptanceDate: string // 受理日期，必填，格式：YYYY-MM-DD
+  caseSource?: string // 案件来源
+  acceptanceCourt?: string // 受理法院
+  designatedJudge?: string // 承办法官
+  designatedInstitution?: string // 指定机构
+  mainResponsiblePerson?: string // 主要负责人
+  undertakingPersonnel?: number // 承办人员ID
+  isSimplifiedTrial?: number // 是否简化审(0=否, 1=是)
+  caseProgress?: string // 案件进度：FIRST/SECOND/THIRD/FOURTH/FIFTH/SIXTH/SEVENTH
+  debtClaimDeadline?: string // 债权申报截止日期，格式：YYYY-MM-DD
+  remarks?: string // 备注
+}
+
+// 创建案件响应数据
+export interface CreateCaseResponse {
+  code: number
+  message: string
+  data: {
+    caseId: number
+    caseNumber: string
+  }
+}
+
+// 法院信息
+export interface CourtInfo {
+  id: number
+  fullName: string // 法院全称
+  shortName: string // 法院简称
+  courtLevel: string // 法院级别
+  contactPhone: string
+  undertakingJudge: string
+  address: string
+}
+
+// 法院列表响应
+export interface CourtListResponse {
+  code: number
+  message: string
+  data: {
+    list: CourtInfo[]
+    total: number
+  }
+}
+
+// 管理人信息
+export interface ManagerInfo {
+  id: number
+  administratorName: string // 管理人名称
+  contactPhone: string
+  contactEmail: string
+  officeAddress: string
+}
+
+// 管理人列表响应
+export interface ManagerListResponse {
+  code: number
+  message: string
+  data: {
+    list: ManagerInfo[]
+    total: number
+  }
+}
+
+// 用户信息
+export interface UserInfo {
+  id: number
+  username: string
+  realName: string
+}
+
+// 用户列表响应
+export interface UserListResponse {
+  code: number
+  message: string
+  data: {
+    users: UserInfo[]
+  }
+}
+
+/**
+ * 创建案件
+ * POST /case
+ */
+export const createCaseApi = (data: CreateCaseParams) => {
+  return http.post<CreateCaseResponse>('/case', data)
+}
+
+/**
+ * 获取法院列表
+ * GET /court/list
+ */
+export const getCourtList = (params?: { page?: number; size?: number }) => {
+  return http.get<CourtListResponse>('/court/list', params)
+}
+
+/**
+ * 获取管理人列表
+ * GET /administrator/list
+ */
+export const getManagerList = (params?: { pageNum?: number; pageSize?: number }) => {
+  return http.get<ManagerListResponse>('/administrator/list', params)
+}
+
+/**
+ * 获取用户列表
+ * GET /users
+ */
+export const getUserList = (keyword?: string, page: number = 1, size: number = 10000) => {
+  return http.get<UserListResponse>('/users', { keyword, page, size })
+}
+
+/**
+ * 上传案件文件
+ * 使用 uni.uploadFile 上传
+ */
+export const uploadCaseFile = (filePath: string, caseId: number, bizType: string = 'case') => {
+  const { getBaseUrl } = require('@/config')
+  const baseUrl = getBaseUrl()
+  const token = uni.getStorageSync('token')
+  
+  console.log('[uploadCaseFile] 开始上传:', { filePath, caseId, bizType, baseUrl })
+
+  return new Promise<{ code: number; message: string; data: FileItem }>((resolve, reject) => {
+    if (!filePath) {
+      reject(new Error('文件路径为空'))
+      return
+    }
+    
+    uni.uploadFile({
+      url: `${baseUrl}/api/v1/file/upload`,
+      filePath: filePath,
+      name: 'file',
+      formData: {
+        bizType,
+        bizId: caseId.toString(),
+      },
+      header: {
+        Authorization: `Bearer ${token}`,
+      },
+      success: (res) => {
+        console.log('[uploadCaseFile] 上传成功:', res)
+        try {
+          const data = JSON.parse(res.data)
+          console.log('[uploadCaseFile] 解析响应:', data)
+          if (data.code === 200) {
+            resolve(data)
+          } else {
+            reject(new Error(data.message || '上传失败'))
+          }
+        } catch (e) {
+          console.error('[uploadCaseFile] 解析响应失败:', e, res.data)
+          reject(new Error('解析响应失败'))
+        }
+      },
+      fail: (err) => {
+        console.error('[uploadCaseFile] 上传失败:', err)
+        reject(new Error(`上传失败: ${err.errMsg || '未知错误'}`))
+      },
+    })
+  })
+}
+
+/**
+ * 批量上传案件文件
+ */
+export const batchUploadCaseFiles = async (filePaths: string[], caseId: number, bizType: string = 'case') => {
+  const promises = filePaths.map(path => uploadCaseFile(path, caseId, bizType))
+  return Promise.all(promises)
 }

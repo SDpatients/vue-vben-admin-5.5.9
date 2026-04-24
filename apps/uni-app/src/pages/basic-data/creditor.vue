@@ -1,5 +1,12 @@
 <template>
   <view class="creditor-container">
+    <view class="page-header">
+      <text class="page-title">债权人管理</text>
+      <view class="add-btn" @click="goToAdd">
+        <text>+</text>
+      </view>
+    </view>
+
     <view class="search-section">
       <view class="case-filter-bar">
         <view class="case-selector" @click="openCaseSelector">
@@ -75,6 +82,7 @@
       <view class="th th-name">债权人名称</view>
       <view class="th th-caseno">案号</view>
       <view class="th th-type">类型</view>
+      <view class="th th-actions">操作</view>
     </view>
 
     <scroll-view class="table-body" scroll-y @scrolltolower="onLoadMore">
@@ -99,6 +107,10 @@
         </view>
         <view class="td td-type">
           <text class="type-badge">{{ item.creditorType || '-' }}</text>
+        </view>
+        <view class="td td-actions">
+          <view class="action-btn edit-btn" @click.stop="goToEdit(item.id)">编辑</view>
+          <view class="action-btn delete-btn" @click.stop="handleDelete(item.id)">删除</view>
         </view>
       </view>
 
@@ -156,7 +168,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { getCreditorList, type CreditorItem } from '@/api/basic-data'
+import { getCreditorList, deleteCreditor, type CreditorItem } from '@/api/basic-data'
 import { getCaseList, type CaseItem } from '@/api/case'
 
 const searchKeyword = ref('')
@@ -353,6 +365,33 @@ onReachBottom(() => {
 
 const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/basic-data/creditor-detail?id=${id}` })
+}
+
+const goToAdd = () => {
+  uni.navigateTo({ url: '/pages/basic-data/creditor-form' })
+}
+
+const goToEdit = (id: number) => {
+  uni.navigateTo({ url: `/pages/basic-data/creditor-form?id=${id}` })
+}
+
+const handleDelete = async (id: number) => {
+  uni.showModal({
+    title: '确认删除',
+    content: '删除后将无法恢复，确定要删除该债权人吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await deleteCreditor(id)
+          uni.showToast({ title: '删除成功', icon: 'success' })
+          loadData(true)
+        } catch (error) {
+          console.error('[handleDelete] Error:', error)
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
+      }
+    }
+  })
 }
 
 const getStatusText = (status?: string) => {
@@ -600,12 +639,52 @@ const getStatusClass = (status?: string) => {
       width: 120rpx;
       text-align: center;
     }
+
+    &.th-actions {
+      width: 180rpx;
+      text-align: center;
+    }
   }
 }
 
 .table-body {
   flex: 1;
   overflow-y: auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+
+  .page-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .add-btn {
+    width: 60rpx;
+    height: 60rpx;
+    background: #1890ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text {
+      color: #fff;
+      font-size: 36rpx;
+      font-weight: bold;
+    }
+
+    &:active {
+      background: #096dd9;
+    }
+  }
 }
 
 .table-row {
@@ -683,6 +762,36 @@ const getStatusClass = (status?: string) => {
         padding: 4rpx 12rpx;
         background: #f5f5f5;
         border-radius: 6rpx;
+      }
+    }
+
+    &.td-actions {
+      width: 180rpx;
+      justify-content: center;
+      gap: 10rpx;
+
+      .action-btn {
+        padding: 8rpx 20rpx;
+        border-radius: 6rpx;
+        font-size: 22rpx;
+
+        &.edit-btn {
+          background: #e6f7ff;
+          color: #1890ff;
+
+          &:active {
+            background: #bae7ff;
+          }
+        }
+
+        &.delete-btn {
+          background: #fff1f0;
+          color: #ff4d4f;
+
+          &:active {
+            background: #ffccc7;
+          }
+        }
       }
     }
   }

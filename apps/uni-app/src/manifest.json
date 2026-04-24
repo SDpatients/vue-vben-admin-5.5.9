@@ -38,7 +38,9 @@
                     "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\" />"
                 ]
             },
-            "ios" : {},
+            "ios" : {
+                "dSYMs" : false
+            },
             "sdkConfigs" : {},
             "icons" : {
                 "android" : {

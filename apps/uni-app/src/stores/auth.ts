@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2026 湖州永惠软件有限公司. All rights reserved.
+ * This software is based on Vue Vben Admin (MIT License),
+ * Copyright (c) 2024-present, Vben.
+ */
+
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
 import { login as loginApi, getUserInfo as getUserInfoApi, refreshToken as refreshTokenApi, type LoginParams, type LoginResult } from '@/api/auth'
@@ -14,12 +20,32 @@ interface UserInfo {
 const TOKEN_EXPIRY_KEY = 'tokenExpiry'
 const TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000
 
+// 兼容 uni-app 各平台的 base64 解码
+const safeAtob = (base64: string): string => {
+  // 小程序/APP 环境可能没有 atob，使用 uni.base64ToArrayBuffer 替代
+  if (typeof atob === 'undefined') {
+    try {
+      const arrayBuffer = uni.base64ToArrayBuffer(base64)
+      const uint8Array = new Uint8Array(arrayBuffer)
+      let result = ''
+      for (let i = 0; i < uint8Array.length; i++) {
+        result += String.fromCharCode(uint8Array[i])
+      }
+      return result
+    } catch (e) {
+      throw new Error('Base64 decode failed: ' + e)
+    }
+  }
+  return atob(base64)
+}
+
 const parseJwt = (token: string): any => {
   try {
     const base64Payload = token.split('.')[1]
-    const payload = atob(base64Payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const payload = safeAtob(base64Payload.replace(/-/g, '+').replace(/_/g, '/'))
     return JSON.parse(payload)
-  } catch {
+  } catch (error) {
+    console.log('[Auth] Failed to parse JWT:', error)
     return null
   }
 }
@@ -39,7 +65,6 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (params: LoginParams) => {
     try {
       const res = await loginApi(params)
-      console.log('authStore login - API response:', res)
       
       if (res && res.code === 200 && res.data) {
         token.value = res.data.accessToken
@@ -52,19 +77,13 @@ export const useAuthStore = defineStore('auth', () => {
           refreshToken: res.data.refreshToken,
         }
 
-        console.log('Storing token:', res.data.accessToken)
         uni.setStorageSync('token', res.data.accessToken)
         uni.setStorageSync('refreshToken', res.data.refreshToken)
         uni.setStorageSync('userInfo', userInfo.value)
-        
-        // Verify storage
-        const storedToken = uni.getStorageSync('token')
-        console.log('Stored token verified:', storedToken)
       }
 
       return res
     } catch (error) {
-      console.error('authStore login - error:', error)
       throw error
     }
   }
@@ -73,16 +92,12 @@ export const useAuthStore = defineStore('auth', () => {
     const savedToken = uni.getStorageSync('token')
     const savedRefreshToken = uni.getStorageSync('refreshToken')
     const savedUserInfo = uni.getStorageSync('userInfo')
-    console.log('restoreLoginState - savedToken:', savedToken)
-    console.log('restoreLoginState - savedRefreshToken:', savedRefreshToken)
-    console.log('restoreLoginState - savedUserInfo:', savedUserInfo)
     
     if (!savedToken) {
       return false
     }
 
     if (isTokenExpired(savedToken)) {
-      console.log('Token expired, attempting refresh...')
       if (savedRefreshToken) {
         try {
           const res = await refreshTokenApi(savedRefreshToken)
@@ -99,11 +114,10 @@ export const useAuthStore = defineStore('auth', () => {
             uni.setStorageSync('token', res.data.accessToken)
             uni.setStorageSync('refreshToken', res.data.refreshToken)
             uni.setStorageSync('userInfo', userInfo.value)
-            console.log('Token refreshed successfully')
             return true
           }
         } catch (error) {
-          console.error('Token refresh failed:', error)
+          // 静默处理刷新失败
         }
       }
       logout()
@@ -113,8 +127,6 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = savedToken
     refreshTokenValue.value = savedRefreshToken || ''
     userInfo.value = savedUserInfo ? JSON.parse(JSON.stringify(savedUserInfo)) : null
-    console.log('restoreLoginState - token.value set to:', token.value)
-    console.log('restoreLoginState - refreshTokenValue set to:', refreshTokenValue.value)
     return true
   }
 

@@ -173,8 +173,8 @@
           </view>
           <view class="file-list" v-if="selectedFiles.length > 0">
             <view v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-              <text class="file-icon">{{ getFileIcon(file.name || file.path) }}</text>
-              <text class="file-name">{{ file.name || getFileName(file.path) }}</text>
+              <text class="file-icon">{{ getFileIcon(file.name) }}</text>
+              <text class="file-name">{{ file.name }}</text>
               <text class="delete-btn" @click="removeFile(index)">✕</text>
             </view>
           </view>
@@ -398,6 +398,10 @@ import {
   type ManagerInfo,
   type UserInfo,
 } from '@/api/case'
+import { getBaseUrl } from '@/config'
+
+// 判断是否 H5 环境
+const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
 
 // 表单数据
 const formData = reactive<CreateCaseParams>({
@@ -446,7 +450,8 @@ const getProgressLabel = (value?: string) => {
 const selectedUndertakingPersonName = ref('')
 
 // 文件列表
-const selectedFiles = ref<{ path: string; name?: string; size?: number }[]>([])
+// 选中的文件列表 - H5环境存储File对象，小程序/APP环境存储文件路径
+const selectedFiles = ref<{ path?: string; file?: File; name: string; size: number }[]>([])
 
 // 提交状态
 const submitting = ref(false)
@@ -659,15 +664,19 @@ const searchUsers = () => {
   // 过滤逻辑在 computed 中处理
 }
 
-// 选择文件
+// 选择文件 - 统一使用 uni.chooseFile
 const handleSelectFile = () => {
   uni.chooseFile({
     count: 10,
     type: 'all',
     extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     success: (res: any) => {
+      console.log('[chooseFile] success:', res)
       const files = res.tempFiles || []
+      console.log('[chooseFile] tempFiles:', files)
+      
       const validFiles = files.filter((file: any) => {
+        console.log('[chooseFile] file object:', file)
         // 验证文件大小（10MB）
         if (file.size > 10 * 1024 * 1024) {
           uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
@@ -675,10 +684,19 @@ const handleSelectFile = () => {
         }
         return true
       })
-      selectedFiles.value.push(...validFiles)
+      
+      // 确保文件路径正确 - 小程序/APP环境使用 path 或 tempFilePath
+      const processedFiles = validFiles.map((file: any) => ({
+        path: file.path || file.tempFilePath,
+        name: file.name || file.path?.split('/').pop() || '未知文件',
+        size: file.size || 0
+      }))
+      
+      console.log('[chooseFile] processed files:', processedFiles)
+      selectedFiles.value.push(...processedFiles)
     },
-    fail: () => {
-      // 用户取消选择
+    fail: (err: any) => {
+      console.error('[chooseFile] fail:', err)
     },
   })
 }
@@ -705,6 +723,58 @@ const getFileName = (path: string) => {
   if (!path) return ''
   const parts = path.split('/')
   return parts[parts.length - 1]
+}
+
+// 统一上传文件 - 使用 uni.uploadFile
+const uploadFilesUniApp = async (caseId: number) => {
+  const baseUrl = getBaseUrl()
+  const token = uni.getStorageSync('token')
+  
+  console.log('[uploadFilesUniApp] 开始上传，caseId:', caseId)
+  console.log('[uploadFilesUniApp] baseUrl:', baseUrl)
+  
+  const files = selectedFiles.value.filter(f => f.path)
+  console.log('[uploadFilesUniApp] 文件数量:', files.length)
+  
+  let uploadedCount = 0
+  
+  for (const fileInfo of files) {
+    console.log('[uploadFilesUniApp] 上传文件:', fileInfo.name, fileInfo.size)
+    
+    try {
+      const uploadRes = await new Promise<any>((resolve, reject) => {
+        uni.uploadFile({
+          url: `${baseUrl}/api/v1/file/upload`,
+          filePath: fileInfo.path,
+          name: 'file',
+          formData: {
+            bizType: 'case',
+            bizId: caseId.toString(),
+          },
+          header: {
+            Authorization: `Bearer ${token}`,
+          },
+          success: (res) => resolve(res),
+          fail: (err) => reject(err),
+        })
+      })
+      
+      const result = JSON.parse(uploadRes.data)
+      console.log('[uploadFilesUniApp] 上传结果:', result)
+      
+      if (result.code === 200) {
+        uploadedCount++
+      }
+    } catch (error) {
+      console.error('[uploadFilesUniApp] 上传失败:', error)
+    }
+  }
+  
+  console.log('[uploadFilesUniApp] 上传完成，成功:', uploadedCount, '总数:', files.length)
+  uni.showToast({ 
+    title: `案件创建成功，已上传 ${uploadedCount}/${files.length} 个文件`, 
+    icon: 'success' 
+  })
 }
 
 // 取消
@@ -773,14 +843,19 @@ const confirmSubmit = async () => {
       // 2. 上传文件（如果有）
       if (selectedFiles.value.length > 0) {
         uni.showLoading({ title: '上传文件中...' })
-        const filePaths = selectedFiles.value.map(f => f.path)
+        console.log('[confirmSubmit] 准备上传文件，数量:', selectedFiles.value.length)
+        console.log('[confirmSubmit] caseId:', caseId)
+        console.log('[confirmSubmit] isH5:', isH5)
+        
         try {
-          await batchUploadCaseFiles(filePaths, caseId, 'case')
-        } catch (fileError) {
-          console.error('文件上传失败:', fileError)
-          uni.showToast({ title: '案件创建成功，但文件上传失败', icon: 'none' })
-          // 继续跳转到详情页
+          // 统一使用 uni.uploadFile 上传
+          await uploadFilesUniApp(caseId)
+        } catch (fileError: any) {
+          console.error('[confirmSubmit] 文件上传失败:', fileError)
+          uni.showToast({ title: `案件创建成功，但文件上传失败: ${fileError.message || '未知错误'}`, icon: 'none' })
         }
+      } else {
+        console.log('[confirmSubmit] 没有文件需要上传')
       }
 
       uni.hideLoading()

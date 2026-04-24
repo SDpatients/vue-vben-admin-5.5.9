@@ -147,6 +147,10 @@
           <text class="feature-text">工作日志</text>
           <text class="arrow">›</text>
         </view>
+        <view class="feature-item" @click="handleAnnouncement">
+          <text class="feature-text">公告管理</text>
+          <text class="arrow">›</text>
+        </view>
       </view>
     </view>
   </view>
@@ -266,6 +270,18 @@ const handleClaimManage = () => {
 
 const handleWorkLog = () => {
   uni.navigateTo({ url: `/pages/cases/work-log?id=${caseId.value}` })
+}
+
+const handleAnnouncement = () => {
+  // 缓存案件信息供公告列表页使用
+  if (caseDetail.value) {
+    uni.setStorageSync('current_case_info', {
+      id: caseDetail.value.id,
+      caseNumber: caseDetail.value.caseNumber,
+      caseName: caseDetail.value.caseName,
+    })
+  }
+  uni.navigateTo({ url: `/pages/cases/announcement-list?caseId=${caseId.value}` })
 }
 </script>
 

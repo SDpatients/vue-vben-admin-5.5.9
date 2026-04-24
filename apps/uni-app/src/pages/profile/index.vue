@@ -82,8 +82,9 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const userInfo = computed(() => authStore.userInfo)
 
-onMounted(async () => {
-  await authStore.restoreLoginState()
+onMounted(() => {
+  // 异步恢复登录状态，不阻塞页面渲染
+  authStore.restoreLoginState().catch(() => {})
 })
 
 const handleMyCases = () => {

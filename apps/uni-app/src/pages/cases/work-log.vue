@@ -417,28 +417,16 @@ const handleSaveLog = async () => {
 }
 
 const chooseFileForWorkLog = () => {
-  if (isH5) {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = true
-    input.style.display = 'none'
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement
-      const files = target.files
-      if (files && files.length > 0) {
-        uploadFilesH5WorkLog(Array.from(files))
-      }
-      document.body.removeChild(input)
-    }
-    document.body.appendChild(input)
-    input.click()
-    return
-  }
-
   uni.chooseFile({
     count: 10,
+    type: 'all',
+    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     success: (res: any) => {
-      uploadFilesUniAppWorkLog(res.tempFilePaths)
+      const files = res.tempFiles || []
+      const filePaths = files.map((f: any) => f.path || f.tempFilePath).filter(Boolean)
+      if (filePaths.length > 0) {
+        uploadFilesWorkLog(filePaths)
+      }
     },
     fail: () => {
       uni.showToast({ title: '选择文件取消', icon: 'none' })
@@ -446,44 +434,7 @@ const chooseFileForWorkLog = () => {
   })
 }
 
-const uploadFilesH5WorkLog = async (files: File[]) => {
-  uploadingFile.value = true
-  uni.showLoading({ title: '上传中...' })
-
-  const baseUrl = getBaseUrl()
-  const token = uni.getStorageSync('token')
-
-  for (const file of files) {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bizType', 'workLog')
-    formData.append('bizId', caseId.value)
-
-    try {
-      const response = await fetch(`${baseUrl}${API_PREFIX}/file/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      const result = await response.json()
-      if (result.code === 200 || result.code === 0) {
-        uploadedFiles.value.push(result.data)
-      }
-    } catch (error) {
-      console.error('Upload error:', error)
-      uni.showToast({ title: '上传失败', icon: 'none' })
-    }
-  }
-
-  uni.hideLoading()
-  uploadingFile.value = false
-  uni.showToast({ title: '上传成功', icon: 'success' })
-}
-
-const uploadFilesUniAppWorkLog = async (filePaths: string[]) => {
+const uploadFilesWorkLog = async (filePaths: string[]) => {
   uploadingFile.value = true
   uni.showLoading({ title: '上传中...' })
 
@@ -556,9 +507,12 @@ const viewAttachment = async (file: FileItem) => {
       current: `${baseUrl}${API_PREFIX}/file/preview/${file.id}`,
     })
   } else if (['pdf'].includes(ext || '')) {
-    if (isH5) {
+    if (isH5 && typeof window !== 'undefined') {
       try {
         uni.showLoading({ title: '加载中...' })
+        if (typeof fetch === 'undefined') {
+          throw new Error('fetch not available')
+        }
         const response = await fetch(`${baseUrl}${API_PREFIX}/file/preview/${file.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })

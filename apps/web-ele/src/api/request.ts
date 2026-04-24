@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2026 湖州永惠软件有限公司. All rights reserved.
+ * This software is based on Vue Vben Admin (MIT License),
+ * Copyright (c) 2024-present, Vben.
+ *
  * 该文件可自行根据业务逻辑进行调整
  */
 import type { RequestClientOptions } from '@vben/request';

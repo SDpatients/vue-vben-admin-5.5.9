@@ -1,5 +1,12 @@
 <template>
   <view class="court-container">
+    <view class="page-header">
+      <text class="page-title">法院管理</text>
+      <view class="add-btn" @click="goToAdd">
+        <text>+</text>
+      </view>
+    </view>
+
     <view class="search-section">
       <view class="search-bar">
         <view class="search-input">
@@ -48,6 +55,7 @@
     <view class="table-header">
       <view class="th th-name">法院名称</view>
       <view class="th th-level">级别</view>
+      <view class="th th-actions">操作</view>
     </view>
 
     <scroll-view class="table-body" scroll-y @scrolltolower="onLoadMore">
@@ -70,6 +78,10 @@
         <view class="td td-level">
           <text class="level-badge">{{ item.courtLevel }}</text>
         </view>
+        <view class="td td-actions">
+          <view class="action-btn edit-btn" @click.stop="goToEdit(item.id)">编辑</view>
+          <view class="action-btn delete-btn" @click.stop="handleDelete(item.id)">删除</view>
+        </view>
       </view>
 
       <view class="loading-more" v-if="loading">
@@ -89,7 +101,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { getCourtList, type CourtItem } from '@/api/basic-data'
+import { getCourtList, deleteCourt, type CourtItem } from '@/api/basic-data'
 
 const searchKeyword = ref('')
 const courtList = shallowRef<CourtItem[]>([])
@@ -216,6 +228,33 @@ onReachBottom(() => {
 const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/basic-data/court-detail?id=${id}` })
 }
+
+const goToAdd = () => {
+  uni.navigateTo({ url: '/pages/basic-data/court-form' })
+}
+
+const goToEdit = (id: number) => {
+  uni.navigateTo({ url: `/pages/basic-data/court-form?id=${id}` })
+}
+
+const handleDelete = async (id: number) => {
+  uni.showModal({
+    title: '确认删除',
+    content: '删除后将无法恢复，确定要删除该法院吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await deleteCourt(id)
+          uni.showToast({ title: '删除成功', icon: 'success' })
+          loadData(true)
+        } catch (error) {
+          console.error('[handleDelete] Error:', error)
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -224,6 +263,41 @@ const goToDetail = (id: number) => {
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+
+  .page-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .add-btn {
+    width: 60rpx;
+    height: 60rpx;
+    background: #1890ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text {
+      color: #fff;
+      font-size: 36rpx;
+      font-weight: bold;
+    }
+
+    &:active {
+      background: #096dd9;
+    }
+  }
 }
 
 .search-section {

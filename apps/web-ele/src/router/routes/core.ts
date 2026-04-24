@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2026 湖州永惠软件有限公司. All rights reserved.
+ * This software is based on Vue Vben Admin (MIT License),
+ * Copyright (c) 2024-present, Vben.
+ */
+
 import type { RouteRecordRaw } from 'vue-router';
 
 import { LOGIN_PATH } from '@vben/constants';
@@ -49,7 +55,41 @@ const coreRoutes: RouteRecordRaw[] = [
     name: 'Root',
     path: '/',
     redirect: preferences.app.defaultHomePath,
-    children: [],
+    children: [
+      {
+        name: 'Terms',
+        path: 'terms',
+        component: () => import('#/views/_core/terms/index.vue'),
+        meta: {
+          hideInMenu: true,
+          hideInTab: true,
+          ignoreAccess: true,
+          title: '用户协议',
+        },
+      },
+      {
+        name: 'Privacy',
+        path: 'privacy',
+        component: () => import('#/views/_core/privacy/index.vue'),
+        meta: {
+          hideInMenu: true,
+          hideInTab: true,
+          ignoreAccess: true,
+          title: '隐私政策',
+        },
+      },
+      {
+        name: 'About',
+        path: 'about',
+        component: () => import('#/views/_core/about/index.vue'),
+        meta: {
+          hideInMenu: true,
+          hideInTab: true,
+          ignoreAccess: true,
+          title: '关于',
+        },
+      },
+    ],
   },
   {
     component: AuthPageLayout,
@@ -107,4 +147,9 @@ const coreRoutes: RouteRecordRaw[] = [
   },
 ];
 
-export { coreRoutes, fallbackNotFoundRoute, LICENSE_PATH, licenseRoute };
+export {
+  coreRoutes,
+  fallbackNotFoundRoute,
+  LICENSE_PATH,
+  licenseRoute,
+};

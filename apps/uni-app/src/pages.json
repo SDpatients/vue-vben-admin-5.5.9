@@ -97,6 +97,36 @@
       }
     },
     {
+      "path": "pages/cases/announcement-list",
+      "style": {
+        "navigationBarTitleText": "案件公告",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 50
+      }
+    },
+    {
+      "path": "pages/cases/announcement-detail",
+      "style": {
+        "navigationBarTitleText": "公告详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/announcement/index",
+      "style": {
+        "navigationBarTitleText": "公告总览",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 50
+      }
+    },
+    {
+      "path": "pages/announcement/form",
+      "style": {
+        "navigationBarTitleText": "公告表单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/todo/index",
       "style": {
         "navigationBarTitleText": "待办事项",
@@ -236,6 +266,48 @@
       }
     },
     {
+      "path": "pages/basic-data/creditor-form",
+      "style": {
+        "navigationBarTitleText": "债权人表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/debtor-form",
+      "style": {
+        "navigationBarTitleText": "债务人表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/court-form",
+      "style": {
+        "navigationBarTitleText": "法院表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/bank-form",
+      "style": {
+        "navigationBarTitleText": "银行账户表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/plan-form",
+      "style": {
+        "navigationBarTitleText": "工作计划表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/team-form",
+      "style": {
+        "navigationBarTitleText": "工作团队表单"
+      }
+    },
+    {
+      "path": "pages/basic-data/admin-form",
+      "style": {
+        "navigationBarTitleText": "管理人表单"
+      }
+    },
+    {
       "path": "pages/profile/change-password",
       "style": {
         "navigationBarTitleText": "修改密码"
@@ -245,6 +317,104 @@
       "path": "pages/profile/edit-profile",
       "style": {
         "navigationBarTitleText": "修改个人资料"
+      }
+    },
+    {
+      "path": "pages/about/index",
+      "style": {
+        "navigationBarTitleText": "关于"
+      }
+    },
+    {
+      "path": "pages/about/terms",
+      "style": {
+        "navigationBarTitleText": "用户协议"
+      }
+    },
+    {
+      "path": "pages/about/privacy",
+      "style": {
+        "navigationBarTitleText": "隐私政策"
+      }
+    },
+    {
+      "path": "pages/expense/index",
+      "style": {
+        "navigationBarTitleText": "费用报销",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 50
+      }
+    },
+    {
+      "path": "pages/expense/detail",
+      "style": {
+        "navigationBarTitleText": "报销单详情"
+      }
+    },
+    {
+      "path": "pages/expense/form",
+      "style": {
+        "navigationBarTitleText": "报销单表单"
+      }
+    },
+    {
+      "path": "pages/expense/approve",
+      "style": {
+        "navigationBarTitleText": "审核报销单",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 50
+      }
+    },
+    {
+      "path": "pages/document-library/index",
+      "style": {
+        "navigationBarTitleText": "文档库",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 50
+      }
+    },
+    {
+      "path": "pages/document-library/detail",
+      "style": {
+        "navigationBarTitleText": "文档详情"
+      }
+    },
+    {
+      "path": "pages/document-library/form",
+      "style": {
+        "navigationBarTitleText": "编辑文档"
+      }
+    },
+    {
+      "path": "pages/document-library/folder",
+      "style": {
+        "navigationBarTitleText": "文件夹管理"
+      }
+    },
+    {
+      "path": "pages/document-library/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/document-library/share",
+      "style": {
+        "navigationBarTitleText": "分享文档"
+      }
+    },
+    {
+      "path": "pages/document-library/preview",
+      "style": {
+        "navigationBarTitleText": "文档预览",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/document-library/statistics",
+      "style": {
+        "navigationBarTitleText": "文档统计"
       }
     }
   ],

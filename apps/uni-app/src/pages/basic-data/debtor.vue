@@ -1,5 +1,12 @@
 <template>
   <view class="debtor-container">
+    <view class="page-header">
+      <text class="page-title">债务人管理</text>
+      <view class="add-btn" @click="goToAdd">
+        <text>+</text>
+      </view>
+    </view>
+
     <view class="search-section">
       <view class="case-filter-bar">
         <view class="case-selector" @click="openCaseSelector">
@@ -61,6 +68,7 @@
     <view class="table-header">
       <view class="th th-name">企业名称</view>
       <view class="th th-code">信用代码</view>
+      <view class="th th-actions">操作</view>
     </view>
 
     <scroll-view class="table-body" scroll-y @scrolltolower="onLoadMore">
@@ -82,6 +90,10 @@
         </view>
         <view class="td td-code">
           <text class="code-text">{{ item.unifiedSocialCreditCode || '-' }}</text>
+        </view>
+        <view class="td td-actions">
+          <view class="action-btn edit-btn" @click.stop="goToEdit(item.id)">编辑</view>
+          <view class="action-btn delete-btn" @click.stop="handleDelete(item.id)">删除</view>
         </view>
       </view>
 
@@ -139,7 +151,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { getDebtorList, type DebtorItem } from '@/api/basic-data'
+import { getDebtorList, deleteDebtor, type DebtorItem } from '@/api/basic-data'
 import { getCaseList, type CaseItem } from '@/api/case'
 
 const searchKeyword = ref('')
@@ -328,6 +340,33 @@ onReachBottom(() => {
 const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/basic-data/debtor-detail?id=${id}` })
 }
+
+const goToAdd = () => {
+  uni.navigateTo({ url: '/pages/basic-data/debtor-form' })
+}
+
+const goToEdit = (id: number) => {
+  uni.navigateTo({ url: `/pages/basic-data/debtor-form?id=${id}` })
+}
+
+const handleDelete = async (id: number) => {
+  uni.showModal({
+    title: '确认删除',
+    content: '删除后将无法恢复，确定要删除该债务人吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await deleteDebtor(id)
+          uni.showToast({ title: '删除成功', icon: 'success' })
+          loadData(true)
+        } catch (error) {
+          console.error('[handleDelete] Error:', error)
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -336,6 +375,41 @@ const goToDetail = (id: number) => {
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+
+  .page-title {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .add-btn {
+    width: 60rpx;
+    height: 60rpx;
+    background: #1890ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text {
+      color: #fff;
+      font-size: 36rpx;
+      font-weight: bold;
+    }
+
+    &:active {
+      background: #096dd9;
+    }
+  }
 }
 
 .search-section {
@@ -558,6 +632,11 @@ const goToDetail = (id: number) => {
     &.th-code {
       width: 280rpx;
     }
+
+    &.th-actions {
+      width: 180rpx;
+      text-align: center;
+    }
   }
 }
 
@@ -628,6 +707,36 @@ const goToDetail = (id: number) => {
         font-size: 22rpx;
         color: #999;
         font-family: monospace;
+      }
+    }
+
+    &.td-actions {
+      width: 180rpx;
+      justify-content: center;
+      gap: 10rpx;
+
+      .action-btn {
+        padding: 8rpx 20rpx;
+        border-radius: 6rpx;
+        font-size: 22rpx;
+
+        &.edit-btn {
+          background: #e6f7ff;
+          color: #1890ff;
+
+          &:active {
+            background: #bae7ff;
+          }
+        }
+
+        &.delete-btn {
+          background: #fff1f0;
+          color: #ff4d4f;
+
+          &:active {
+            background: #ffccc7;
+          }
+        }
       }
     }
   }

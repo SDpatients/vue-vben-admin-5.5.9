@@ -51,11 +51,11 @@
       <view class="staff-list" v-if="staffList.length > 0">
         <view class="staff-item" v-for="staff in staffList" :key="staff.id">
           <view class="staff-avatar">
-            <text>{{ staff.staffName?.substring(0, 1) || '?' }}</text>
+            <text>{{ staff.name?.substring(0, 1) || '?' }}</text>
           </view>
           <view class="staff-info">
-            <text class="name">{{ staff.staffName }}</text>
-            <text class="position">{{ staff.staffPosition || '未知职位' }}</text>
+            <text class="name">{{ staff.name }}</text>
+            <text class="position">{{ staff.staffType || '工作人员' }}</text>
           </view>
           <view class="staff-contact">
             <text class="phone" v-if="staff.contactPhone">{{ staff.contactPhone }}</text>

@@ -167,14 +167,22 @@ export interface AdministratorItem {
 
 export interface StaffItem {
   id: number
-  administratorId: number
-  staffName: string
-  staffPosition: string
-  contactPhone: string
-  contactEmail: string
   status: string
+  isDeleted: boolean
   createTime: string
   updateTime: string
+  createUserId: number | null
+  updateUserId: number | null
+  administratorId: number
+  name: string
+  staffType: string | null
+  idNumber: string | null
+  lawyerLicenseNumber: string | null
+  contactPhone: string | null
+  email: string | null
+  responsibility: string | null
+  appointmentDate: string | null
+  userId: number | null
 }
 
 export const getCreditorList = (params?: BaseDataListParams & { caseId?: number; creditorType?: string }) => {

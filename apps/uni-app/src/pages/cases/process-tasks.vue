@@ -55,14 +55,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getCaseStageData, deleteCaseStageData, type CaseStageItem } from '@/api/process'
+import {
+  getCaseStageDataByStageNum,
+  deleteCaseStageData,
+  type ProcessStageData,
+} from '@/api/process-stage'
 import dayjs from 'dayjs'
 
 const caseId = ref('')
 const stageId = ref(1)
 const moduleCode = ref('')
 const moduleName = ref('')
-const taskList = ref<CaseStageItem[]>([])
+const taskList = ref<ProcessStageData[]>([])
 const refreshing = ref(false)
 
 onMounted(() => {
@@ -88,7 +92,7 @@ const loadTasks = async () => {
     return
   }
   try {
-    const res = await getCaseStageData(caseId.value, stageId.value)
+    const res = await getCaseStageDataByStageNum(Number(caseId.value), stageId.value)
     if (res.code === 200 && res.data) {
       taskList.value = res.data.filter((item) => item.moduleCode === moduleCode.value)
     }
@@ -134,19 +138,19 @@ const handleAddTask = () => {
   })
 }
 
-const handleTaskClick = (task: CaseStageItem) => {
+const handleTaskClick = (task: ProcessStageData) => {
   uni.navigateTo({
     url: `/pages/cases/process-task-edit?caseId=${caseId.value}&stageId=${stageId.value}&moduleCode=${moduleCode.value}&moduleName=${encodeURIComponent(moduleName.value)}&mode=view&taskId=${task.id}`,
   })
 }
 
-const handleEditTask = (task: CaseStageItem) => {
+const handleEditTask = (task: ProcessStageData) => {
   uni.navigateTo({
     url: `/pages/cases/process-task-edit?caseId=${caseId.value}&stageId=${stageId.value}&moduleCode=${moduleCode.value}&moduleName=${encodeURIComponent(moduleName.value)}&mode=edit&taskId=${task.id}`,
   })
 }
 
-const handleDeleteTask = (task: CaseStageItem) => {
+const handleDeleteTask = (task: ProcessStageData) => {
   uni.showModal({
     title: '确认删除',
     content: `确定要删除任务"${task.title}"吗？`,

@@ -38,3 +38,10 @@ export const getCaseStageDataByModule = (caseId: number, moduleCode: string) => 
     `/api/case-process-stage/case/${caseId}/module/${moduleCode}`
   )
 }
+
+// 删除阶段数据
+export const deleteCaseStageData = (id: number) => {
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/api/case-process-stage/${id}`
+  )
+}

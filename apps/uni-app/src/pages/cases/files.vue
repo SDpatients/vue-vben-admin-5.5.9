@@ -28,35 +28,53 @@
       </view>
     </view>
 
-    <view class="file-list">
+    <!-- 文件网格视图 - 支持图片和PDF预览 -->
+    <view class="file-grid">
       <view
         v-for="item in fileList"
         :key="item.id"
-        class="file-card"
+        class="file-grid-item"
         @click="handlePreview(item)"
+        @longpress="handleLongPress(item)"
       >
-        <view class="file-checkbox" @click.stop="toggleSelect(item)">
-          <view class="checkbox" :class="{ checked: selectedIds.includes(item.id) }">
-            <text v-if="selectedIds.includes(item.id)">✓</text>
+        <!-- 图片预览 -->
+        <view v-if="isImageFile(item.fileExtension)" class="file-preview image-preview">
+          <image
+            v-if="item._blobUrl"
+            :src="item._blobUrl"
+            mode="aspectFill"
+            class="preview-image"
+            @error="handleImageError(item)"
+          />
+          <view v-if="!item._blobUrl" class="loading-mask">
+            <text class="loading-text">加载中...</text>
           </view>
         </view>
-        <view class="file-icon">
-          <text class="icon">{{ getFileIcon(item.fileExtension) }}</text>
-        </view>
-        <view class="file-info">
-          <text class="file-name">{{ item.originalFileName || item.fileName }}</text>
-          <view class="file-meta">
-            <text class="file-size">{{ formatFileSize(item.fileSize) }}</text>
-            <text class="file-time">{{ formatDateTime(item.uploadTime) }}</text>
+        
+        <!-- PDF预览 -->
+        <view v-else-if="isPdfFile(item.fileExtension)" class="file-preview pdf-preview">
+          <view class="pdf-icon-wrapper">
+            <text class="pdf-icon">📕</text>
+            <text class="pdf-label">PDF</text>
           </view>
-          <view class="file-status" v-if="item.status">
-            <text :class="['status-tag', item.status.toLowerCase()]">{{ item.status === 'ACTIVE' ? '有效' : '无效' }}</text>
-          </view>
+          <text class="file-name-overlay">{{ truncateFileName(item.originalFileName || item.fileName, 15) }}</text>
         </view>
-        <view class="file-actions">
-          <text class="action-btn" @click.stop="handleDownload(item)">下载</text>
-          <text class="action-btn rename" @click.stop="handleRename(item)">重命名</text>
-          <text class="action-btn delete" @click.stop="handleDelete(item)">删除</text>
+        
+        <!-- 其他文件类型 -->
+        <view v-else class="file-preview other-preview">
+          <text class="file-type-icon">{{ getFileIcon(item.fileExtension) }}</text>
+          <text class="file-type-text">{{ item.fileExtension?.toUpperCase() || 'FILE' }}</text>
+        </view>
+        
+        <!-- 文件信息 -->
+        <view class="file-info-overlay">
+          <text class="file-name-text">{{ item.originalFileName || item.fileName }}</text>
+          <text class="file-size-text">{{ formatFileSize(item.fileSize) }}</text>
+        </view>
+        
+        <!-- 选中状态 -->
+        <view v-if="selectedIds.includes(item.id)" class="selected-mask">
+          <view class="selected-check">✓</view>
         </view>
       </view>
 
@@ -73,6 +91,7 @@
       </view>
     </view>
 
+    <!-- 批量操作栏 -->
     <view class="batch-actions" v-if="selectedIds.length > 0">
       <view class="selected-count">
         <text>已选择 {{ selectedIds.length }} 个文件</text>
@@ -90,11 +109,78 @@
       </view>
     </view>
 
+    <!-- 上传按钮 -->
     <view class="upload-btn" @click="handleUpload">
       <text class="icon">+</text>
       <text class="text">上传</text>
     </view>
 
+    <!-- 图片预览弹窗 -->
+    <view class="image-preview-modal" v-if="showImagePreview" @click="closeImagePreview">
+      <view class="preview-header">
+        <text class="preview-title">{{ currentPreviewFile?.originalFileName || currentPreviewFile?.fileName }}</text>
+        <text class="close-btn" @click.stop="closeImagePreview">✕</text>
+      </view>
+      <view class="preview-content" @click.stop>
+        <image
+          :src="currentPreviewUrl"
+          mode="aspectFit"
+          class="preview-full-image"
+          @longpress="handleDownloadFromPreview"
+        />
+      </view>
+      <view class="preview-footer">
+        <text class="tip-text">长按图片可下载</text>
+        <text class="download-btn" @click.stop="handleDownloadFromPreview">下载图片</text>
+      </view>
+    </view>
+
+    <!-- PDF预览弹窗 -->
+    <view class="pdf-preview-modal" v-if="showPdfPreview">
+      <view class="preview-header">
+        <text class="preview-title">{{ currentPreviewFile?.originalFileName || currentPreviewFile?.fileName }}</text>
+        <text class="close-btn" @click="closePdfPreview">✕</text>
+      </view>
+      <view class="preview-content" @click.stop>
+        <iframe
+          v-if="pdfPreviewUrl"
+          :src="pdfPreviewUrl"
+          class="pdf-iframe"
+        ></iframe>
+        <view v-else class="pdf-loading">
+          <text>加载中...</text>
+        </view>
+      </view>
+      <view class="preview-footer">
+        <text class="download-btn" @click.stop="handleDownloadFromPreview">下载PDF</text>
+      </view>
+    </view>
+
+    <!-- 操作菜单弹窗 -->
+    <view class="action-menu-modal" v-if="showActionMenu" @click="showActionMenu = false">
+      <view class="action-menu" @click.stop>
+        <view class="menu-title">
+          <text>{{ currentActionFile?.originalFileName || currentActionFile?.fileName }}</text>
+        </view>
+        <view class="menu-item" @click="handleActionPreview">
+          <text>👁️ 预览</text>
+        </view>
+        <view class="menu-item" @click="handleActionDownload">
+          <text>📥 下载</text>
+        </view>
+        <view class="menu-item" @click="handleActionRename">
+          <text>✏️ 重命名</text>
+        </view>
+        <view class="menu-item danger" @click="handleActionDelete">
+          <text>🗑️ 删除</text>
+        </view>
+        <view class="menu-item cancel" @click="showActionMenu = false">
+          <text>取消</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 重命名弹窗 -->
     <view class="rename-modal" v-if="showRenameModal">
       <view class="modal-mask" @click="showRenameModal = false"></view>
       <view class="modal-content">
@@ -121,13 +207,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick, computed } from 'vue'
 import {
   getCaseFiles,
   deleteCaseFile,
   batchDeleteCaseFiles,
   renameCaseFile,
-  updateCaseFileStatus,
   getCaseFileStatistics,
   type FileItem,
   type FileStatisticsResponse
@@ -135,96 +220,78 @@ import {
 import { getBaseUrl } from '@/config'
 import dayjs from 'dayjs'
 
-console.log('=== files.vue loaded ===')
-
 const caseId = ref('')
-const fileList = ref<FileItem[]>([])
+const fileList = ref<(FileItem & { _loaded?: boolean; _blobUrl?: string })[]>([])
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
 const loading = ref(false)
-const refreshing = ref(false)
 const hasMore = ref(true)
 const statusFilter = ref('')
 const statistics = ref<FileStatisticsResponse['data'] | null>(null)
 const selectedIds = ref<number[]>([])
+
+const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
+
 const showRenameModal = ref(false)
 const newFileName = ref('')
 const renamingFile = ref<FileItem | null>(null)
 
-const isH5 = typeof window !== 'undefined' && document !== undefined
+const showImagePreview = ref(false)
+const showPdfPreview = ref(false)
+const currentPreviewFile = ref<FileItem | null>(null)
+const currentPreviewUrl = ref('')
+const pdfPreviewUrl = ref('')
+
+const showActionMenu = ref(false)
+const currentActionFile = ref<FileItem | null>(null)
+
+const baseUrl = getBaseUrl()
+const token = uni.getStorageSync('token')
+
+const isImageFile = (extension?: string) => {
+  if (!extension) return false
+  const ext = extension.toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)
+}
+
+const isPdfFile = (extension?: string) => {
+  if (!extension) return false
+  return extension.toLowerCase() === 'pdf'
+}
+
+const getPreviewUrl = (fileId: number) => {
+  return `${baseUrl}/api/v1/file/preview/${fileId}`
+}
+
+const fetchFileBlob = async (fileId: number) => {
+  // 仅在 H5 环境使用 fetch
+  if (typeof fetch === 'undefined') {
+    throw new Error('文件预览仅在 H5 环境支持')
+  }
+  const response = await fetch(`${baseUrl}/api/v1/file/preview/${fileId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) throw new Error('加载失败')
+  return response.blob()
+}
+
+const truncateFileName = (name: string, maxLen: number) => {
+  if (!name || name.length <= maxLen) return name
+  const ext = name.split('.').pop()
+  const baseName = name.substring(0, name.lastIndexOf('.'))
+  const truncated = baseName.substring(0, maxLen - 4) + '...'
+  return ext ? `${truncated}.${ext}` : truncated
+}
 
 watch(statusFilter, () => {
-  console.log('[Watch] statusFilter changed:', statusFilter.value)
   loadFiles(true)
 })
 
-const handleFileChange = (e: Event) => {
-  console.log('[Event] handleFileChange triggered')
-  const target = e.target as HTMLInputElement
-  const files = target.files
-  console.log('[Event] Selected files:', files?.length || 0)
-  if (!files || files.length === 0) return
-
-  uploadFilesH5(Array.from(files))
-  target.value = ''
-}
-
-const uploadFilesH5 = async (files: File[]) => {
-  console.log('[Upload] uploadFilesH5 called, files count:', files.length)
-  uni.showLoading({ title: '上传中...' })
-
-  const baseUrl = getBaseUrl()
-  const token = uni.getStorageSync('token')
-  console.log('[Upload] baseUrl:', baseUrl)
-  console.log('[Upload] token exists:', !!token)
-
-  let uploadedCount = 0
-  const totalFiles = files.length
-  const results: any[] = []
-
-  for (const file of files) {
-    console.log('[Upload] Uploading file:', file.name, 'size:', file.size)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bizType', 'case')
-    formData.append('bizId', caseId.value)
-
-    try {
-      const response = await fetch(`${baseUrl}/api/v1/file/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      const result = await response.json()
-      console.log('[Upload] Upload response:', result)
-      results.push(result)
-
-      uploadedCount++
-      if (uploadedCount === totalFiles) {
-        uni.hideLoading()
-        const successCount = results.filter(r => r.code === 200).length
-        console.log('[Upload] Upload completed, success:', successCount, 'total:', totalFiles)
-        uni.showToast({ title: `成功上传 ${successCount} 个文件`, icon: 'success' })
-        loadFiles(true)
-        loadStatistics()
-      }
-    } catch (error) {
-      console.error('[Upload] Upload error:', error)
-      uni.showToast({ title: '上传失败', icon: 'none' })
-    }
-  }
-}
-
 onMounted(() => {
-  console.log('=== onMounted ===')
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
   caseId.value = currentPage.options?.id || ''
-  console.log('[onMounted] caseId:', caseId.value)
 
   if (caseId.value) {
     loadFiles()
@@ -233,11 +300,7 @@ onMounted(() => {
 })
 
 const loadFiles = async (isRefresh = false) => {
-  console.log('[loadFiles] called, isRefresh:', isRefresh, 'page:', page.value)
-  if (loading.value) {
-    console.log('[loadFiles] Already loading, skip')
-    return
-  }
+  if (loading.value) return
   loading.value = true
 
   try {
@@ -248,23 +311,17 @@ const loadFiles = async (isRefresh = false) => {
     if (statusFilter.value) {
       params.status = statusFilter.value
     }
-    console.log('[loadFiles] Request params:', params)
-    console.log('[loadFiles] caseId:', caseId.value)
 
     const res = await getCaseFiles(Number(caseId.value), params)
-    console.log('[loadFiles] Full Response:', JSON.stringify(res, null, 2))
-    console.log('[loadFiles] res.data:', res.data)
-    console.log('[loadFiles] res.data?.list:', res.data?.list)
-
     const rawList = res.data?.list || []
-    console.log('[loadFiles] rawList:', rawList)
-    console.log('[loadFiles] rawList type:', typeof rawList, 'isArray:', Array.isArray(rawList))
-
-    const listData = Array.isArray(rawList) ? rawList.map(item => ({ ...item })) : []
-    console.log('[loadFiles] listData:', listData)
-    console.log('[loadFiles] listData count:', listData.length)
+    const listData = Array.isArray(rawList) ? rawList.map(item => ({ ...item, _loaded: false, _blobUrl: '' })) : []
 
     if (isRefresh) {
+      fileList.value.forEach(f => {
+        if (f._blobUrl && f._blobUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(f._blobUrl)
+        }
+      })
       fileList.value = []
       await nextTick()
       fileList.value = listData
@@ -275,24 +332,35 @@ const loadFiles = async (isRefresh = false) => {
 
     total.value = res.data?.total || 0
     hasMore.value = fileList.value.length < (res.data?.total || 0)
-    console.log('[loadFiles] fileList.value after update:', fileList.value)
-    console.log('[loadFiles] fileList.value.length:', fileList.value.length)
-    console.log('[loadFiles] total:', total.value, 'hasMore:', hasMore.value)
+    
+    if (isH5) {
+      preloadImages()
+    }
   } catch (error) {
     console.error('[loadFiles] Error:', error)
     uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
-    refreshing.value = false
-    console.log('[loadFiles] finished, fileList.value:', fileList.value)
+  }
+}
+
+const preloadImages = async () => {
+  for (const item of fileList.value) {
+    if (isImageFile(item.fileExtension) && !item._blobUrl) {
+      try {
+        const blob = await fetchFileBlob(item.id)
+        item._blobUrl = URL.createObjectURL(blob)
+        item._loaded = true
+      } catch (error) {
+        console.error('Failed to load image:', item.id)
+      }
+    }
   }
 }
 
 const loadStatistics = async () => {
-  console.log('[loadStatistics] called')
   try {
     const res = await getCaseFileStatistics(Number(caseId.value))
-    console.log('[loadStatistics] Response:', res)
     if (res.data) {
       statistics.value = res.data
     }
@@ -301,18 +369,8 @@ const loadStatistics = async () => {
   }
 }
 
-const onRefresh = () => {
-  console.log('[onRefresh] triggered')
-  refreshing.value = true
-  loadFiles(true)
-  loadStatistics()
-}
-
-const onLoadMore = () => {
-  console.log('[onLoadMore] triggered, hasMore:', hasMore.value, 'loading:', loading.value)
-  if (!hasMore.value || loading.value) return
-  page.value++
-  loadFiles()
+const handleImageError = (item: FileItem) => {
+  console.error('Image load error:', item.id)
 }
 
 const getFileIcon = (extension?: string) => {
@@ -338,209 +396,169 @@ const formatFileSize = (bytes?: number) => {
     size /= 1024
     unitIndex++
   }
-  return `${size.toFixed(2)} ${units[unitIndex]}`
-}
-
-const formatDateTime = (date?: string) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
-}
-
-const toggleSelect = (item: FileItem) => {
-  console.log('[toggleSelect] item:', item.id)
-  const index = selectedIds.value.indexOf(item.id)
-  if (index > -1) {
-    selectedIds.value.splice(index, 1)
-  } else {
-    selectedIds.value.push(item.id)
-  }
-  console.log('[toggleSelect] selectedIds:', selectedIds.value)
-}
-
-const clearSelection = () => {
-  console.log('[clearSelection]')
-  selectedIds.value = []
+  return `${size.toFixed(1)} ${units[unitIndex]}`
 }
 
 const handlePreview = async (item: FileItem) => {
-  console.log('[handlePreview] item:', item)
-  const ext = item.fileExtension?.toLowerCase()
-  const baseUrl = getBaseUrl()
-  const token = uni.getStorageSync('token')
+  currentPreviewFile.value = item
+  
+  if (isImageFile(item.fileExtension)) {
+    await openImagePreview(item)
+  } else if (isPdfFile(item.fileExtension)) {
+    await openPdfPreview(item)
+  } else {
+    showActionMenu.value = true
+    currentActionFile.value = item
+  }
+}
 
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext || '')) {
-    if (isH5) {
-      try {
+const openImagePreview = async (item: FileItem & { _blobUrl?: string }) => {
+  if (isH5) {
+    try {
+      if (item._blobUrl) {
+        currentPreviewUrl.value = item._blobUrl
+        showImagePreview.value = true
+      } else {
         uni.showLoading({ title: '加载中...' })
-        const response = await fetch(`${baseUrl}/api/v1/file/preview/${item.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        if (!response.ok) {
-          throw new Error('加载失败')
-        }
-        const blob = await response.blob()
-        const blobUrl = URL.createObjectURL(blob)
+        const blob = await fetchFileBlob(item.id)
+        currentPreviewUrl.value = URL.createObjectURL(blob)
         uni.hideLoading()
-        uni.previewImage({
-          urls: [blobUrl],
-          current: blobUrl,
-        })
-        console.log('[handlePreview] blobUrl:', blobUrl)
-      } catch (error) {
-        uni.hideLoading()
-        console.error('[handlePreview] error:', error)
-        uni.showToast({ title: '预览失败', icon: 'none' })
+        showImagePreview.value = true
       }
-    } else {
-      uni.previewImage({
-        urls: [`${baseUrl}/api/v1/file/preview/${item.id}`],
-        current: `${baseUrl}/api/v1/file/preview/${item.id}`,
-      })
-    }
-  } else if (['pdf'].includes(ext || '')) {
-    if (isH5) {
-      try {
-        uni.showLoading({ title: '加载中...' })
-        const response = await fetch(`${baseUrl}/api/v1/file/preview/${item.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        if (!response.ok) {
-          throw new Error('加载失败')
-        }
-        const blob = await response.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        uni.hideLoading()
-        window.open(blobUrl, '_blank')
-        console.log('[handlePreview] PDF blobUrl:', blobUrl)
-      } catch (error) {
-        uni.hideLoading()
-        console.error('[handlePreview] PDF error:', error)
-        uni.showToast({ title: '预览失败', icon: 'none' })
-      }
-    } else {
-      uni.showToast({ title: '请在浏览器中查看', icon: 'none' })
+    } catch (error) {
+      uni.hideLoading()
+      uni.showToast({ title: '预览失败', icon: 'none' })
     }
   } else {
-    uni.showToast({ title: '暂不支持预览此类型文件', icon: 'none' })
+    uni.previewImage({
+      urls: [`${baseUrl}/api/v1/file/preview/${item.id}`],
+      current: `${baseUrl}/api/v1/file/preview/${item.id}`,
+    })
   }
 }
 
-const handleDownload = async (item: FileItem) => {
-  console.log('[handleDownload] item:', item)
-  const baseUrl = getBaseUrl()
-  const token = uni.getStorageSync('token')
-  const fileUrl = `${baseUrl}/api/v1/file/download/${item.id}`
-  console.log('[handleDownload] fileUrl:', fileUrl)
+const closeImagePreview = () => {
+  showImagePreview.value = false
+  currentPreviewUrl.value = ''
+  currentPreviewFile.value = null
+}
 
-  uni.showModal({
-    title: '确认下载',
-    content: `确定要下载 ${item.originalFileName || item.fileName} 吗？`,
-    success: async (res: UniApp.ShowModalRes) => {
-      if (res.confirm) {
-        console.log('[handleDownload] User confirmed download')
-        if (isH5) {
-          try {
-            uni.showLoading({ title: '下载中...' })
-            const response = await fetch(fileUrl, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            })
-            if (!response.ok) {
-              throw new Error('下载失败')
-            }
-            const blob = await response.blob()
-            const blobUrl = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = blobUrl
-            link.download = item.originalFileName || item.fileName
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            URL.revokeObjectURL(blobUrl)
-            uni.hideLoading()
-            uni.showToast({ title: '下载成功', icon: 'success' })
-          } catch (error) {
-            uni.hideLoading()
-            console.error('[handleDownload] error:', error)
-            uni.showToast({ title: '下载失败', icon: 'none' })
-          }
-        } else {
-          uni.downloadFile({
-            url: `${baseUrl}/api/v1/file/download/${item.id}`,
-            header: {
-              Authorization: `Bearer ${token}`
-            },
-            success: (downloadRes: any) => {
-              console.log('[handleDownload] downloadFile success:', downloadRes)
-              if (downloadRes.statusCode === 200) {
-                uni.saveFile({
-                  tempFilePath: downloadRes.tempFilePath,
-                  success: () => {
-                    uni.showToast({ title: '下载成功', icon: 'success' })
-                  },
-                  fail: () => {
-                    uni.showToast({ title: '保存失败', icon: 'none' })
-                  },
-                })
-              }
-            },
-            fail: (err: any) => {
-              console.error('[handleDownload] downloadFile fail:', err)
-              uni.showToast({ title: '下载失败', icon: 'none' })
-            },
+const openPdfPreview = async (item: FileItem) => {
+  if (isH5) {
+    try {
+      uni.showLoading({ title: '加载中...' })
+      const blob = await fetchFileBlob(item.id)
+      pdfPreviewUrl.value = URL.createObjectURL(blob)
+      uni.hideLoading()
+      showPdfPreview.value = true
+    } catch (error) {
+      uni.hideLoading()
+      uni.showToast({ title: '预览失败', icon: 'none' })
+    }
+  } else {
+    uni.showToast({ title: '请在浏览器中查看PDF', icon: 'none' })
+  }
+}
+
+const closePdfPreview = () => {
+  showPdfPreview.value = false
+  if (pdfPreviewUrl.value && pdfPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(pdfPreviewUrl.value)
+  }
+  pdfPreviewUrl.value = ''
+  currentPreviewFile.value = null
+}
+
+const handleLongPress = (item: FileItem) => {
+  showActionMenu.value = true
+  currentActionFile.value = item
+}
+
+const handleActionPreview = () => {
+  showActionMenu.value = false
+  if (currentActionFile.value) {
+    handlePreview(currentActionFile.value)
+  }
+}
+
+const handleActionDownload = () => {
+  showActionMenu.value = false
+  if (currentActionFile.value) {
+    downloadFile(currentActionFile.value)
+  }
+}
+
+const handleActionRename = () => {
+  showActionMenu.value = false
+  if (currentActionFile.value) {
+    renamingFile.value = currentActionFile.value
+    newFileName.value = currentActionFile.value.originalFileName || currentActionFile.value.fileName
+    showRenameModal.value = true
+  }
+}
+
+const handleActionDelete = () => {
+  showActionMenu.value = false
+  if (currentActionFile.value) {
+    handleDelete(currentActionFile.value)
+  }
+}
+
+const handleDownloadFromPreview = async () => {
+  if (currentPreviewFile.value) {
+    await downloadFile(currentPreviewFile.value)
+  }
+}
+
+const downloadFile = async (item: FileItem) => {
+  if (isH5) {
+    try {
+      uni.showLoading({ title: '下载中...' })
+      const response = await fetch(`${baseUrl}/api/v1/file/download/${item.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) throw new Error('下载失败')
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = item.originalFileName || item.fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+      uni.hideLoading()
+      uni.showToast({ title: '下载成功', icon: 'success' })
+    } catch (error) {
+      uni.hideLoading()
+      uni.showToast({ title: '下载失败', icon: 'none' })
+    }
+  } else {
+    uni.downloadFile({
+      url: `${baseUrl}/api/v1/file/download/${item.id}`,
+      header: { Authorization: `Bearer ${token}` },
+      success: (downloadRes: any) => {
+        if (downloadRes.statusCode === 200) {
+          uni.saveFile({
+            tempFilePath: downloadRes.tempFilePath,
+            success: () => uni.showToast({ title: '下载成功', icon: 'success' }),
+            fail: () => uni.showToast({ title: '保存失败', icon: 'none' }),
           })
         }
-      }
-    },
-  })
-}
-
-const handleRename = (item: FileItem) => {
-  console.log('[handleRename] item:', item)
-  renamingFile.value = item
-  newFileName.value = item.originalFileName || item.fileName
-  showRenameModal.value = true
-}
-
-const confirmRename = async () => {
-  console.log('[confirmRename] newFileName:', newFileName.value)
-  if (!renamingFile.value || !newFileName.value.trim()) {
-    uni.showToast({ title: '请输入文件名', icon: 'none' })
-    return
-  }
-
-  try {
-    const result = await renameCaseFile(renamingFile.value.id, newFileName.value.trim())
-    console.log('[confirmRename] result:', result)
-    if (result.code === 200) {
-      uni.showToast({ title: '重命名成功', icon: 'success' })
-      showRenameModal.value = false
-      loadFiles(true)
-    } else {
-      uni.showToast({ title: result.message || '重命名失败', icon: 'none' })
-    }
-  } catch (error) {
-    console.error('[confirmRename] error:', error)
-    uni.showToast({ title: '重命名失败', icon: 'none' })
+      },
+      fail: () => uni.showToast({ title: '下载失败', icon: 'none' }),
+    })
   }
 }
 
 const handleDelete = (item: FileItem) => {
-  console.log('[handleDelete] item:', item)
   uni.showModal({
     title: '确认删除',
     content: `确定要删除 ${item.originalFileName || item.fileName} 吗？`,
-    success: async (res: UniApp.ShowModalRes) => {
+    success: async (res) => {
       if (res.confirm) {
-        console.log('[handleDelete] User confirmed delete')
         try {
           const result = await deleteCaseFile(item.id)
-          console.log('[handleDelete] result:', result)
           if (result.code === 200) {
             uni.showToast({ title: '删除成功', icon: 'success' })
             loadFiles(true)
@@ -549,7 +567,6 @@ const handleDelete = (item: FileItem) => {
             uni.showToast({ title: result.message || '删除失败', icon: 'none' })
           }
         } catch (error) {
-          console.error('[handleDelete] error:', error)
           uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
@@ -557,13 +574,35 @@ const handleDelete = (item: FileItem) => {
   })
 }
 
+const confirmRename = async () => {
+  if (!renamingFile.value || !newFileName.value.trim()) {
+    uni.showToast({ title: '请输入文件名', icon: 'none' })
+    return
+  }
+
+  try {
+    const result = await renameCaseFile(renamingFile.value.id, newFileName.value.trim())
+    if (result.code === 200) {
+      uni.showToast({ title: '重命名成功', icon: 'success' })
+      showRenameModal.value = false
+      loadFiles(true)
+    } else {
+      uni.showToast({ title: result.message || '重命名失败', icon: 'none' })
+    }
+  } catch (error) {
+    uni.showToast({ title: '重命名失败', icon: 'none' })
+  }
+}
+
+const clearSelection = () => {
+  selectedIds.value = []
+}
+
 const handleBatchDownload = () => {
-  console.log('[handleBatchDownload] selectedIds:', selectedIds.value)
   uni.showToast({ title: '批量下载功能开发中', icon: 'none' })
 }
 
 const handleBatchDelete = () => {
-  console.log('[handleBatchDelete] selectedIds:', selectedIds.value)
   if (selectedIds.value.length === 0) {
     uni.showToast({ title: '请选择要删除的文件', icon: 'none' })
     return
@@ -572,12 +611,10 @@ const handleBatchDelete = () => {
   uni.showModal({
     title: '确认批量删除',
     content: `确定要删除选中的 ${selectedIds.value.length} 个文件吗？`,
-    success: async (res: UniApp.ShowModalRes) => {
+    success: async (res) => {
       if (res.confirm) {
-        console.log('[handleBatchDelete] User confirmed')
         try {
           const result = await batchDeleteCaseFiles(selectedIds.value)
-          console.log('[handleBatchDelete] result:', result)
           if (result.code === 200) {
             uni.showToast({ title: '删除成功', icon: 'success' })
             selectedIds.value = []
@@ -587,7 +624,6 @@ const handleBatchDelete = () => {
             uni.showToast({ title: result.message || '删除失败', icon: 'none' })
           }
         } catch (error) {
-          console.error('[handleBatchDelete] error:', error)
           uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
@@ -596,28 +632,16 @@ const handleBatchDelete = () => {
 }
 
 const handleUpload = () => {
-  console.log('[handleUpload] triggered, isH5:', isH5)
-  
-  if (isH5) {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = true
-    input.style.display = 'none'
-    input.onchange = (e: Event) => {
-      handleFileChange(e)
-      document.body.removeChild(input)
-    }
-    document.body.appendChild(input)
-    input.click()
-    console.log('[handleUpload] H5 input created and clicked')
-    return
-  }
-
   uni.chooseFile({
     count: 10,
+    type: 'all',
+    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     success: (res: any) => {
-      console.log('[handleUpload] choose success:', res)
-      uploadFiles(res.tempFilePaths)
+      const files = res.tempFiles || []
+      const filePaths = files.map((f: any) => f.path || f.tempFilePath).filter(Boolean)
+      if (filePaths.length > 0) {
+        uploadFiles(filePaths)
+      }
     },
     fail: () => {
       uni.showToast({ title: '选择文件取消', icon: 'none' })
@@ -626,12 +650,7 @@ const handleUpload = () => {
 }
 
 const uploadFiles = (filePaths: string[]) => {
-  console.log('[uploadFiles] filePaths:', filePaths)
   uni.showLoading({ title: '上传中...' })
-
-  const baseUrl = getBaseUrl()
-  const token = uni.getStorageSync('token')
-
   let uploadedCount = 0
   const totalFiles = filePaths.length
 
@@ -647,8 +666,7 @@ const uploadFiles = (filePaths: string[]) => {
       header: {
         Authorization: `Bearer ${token}`,
       },
-      success: (res) => {
-        console.log('[uploadFiles] upload success:', res)
+      success: () => {
         uploadedCount++
         if (uploadedCount === totalFiles) {
           uni.hideLoading()
@@ -657,8 +675,7 @@ const uploadFiles = (filePaths: string[]) => {
           loadStatistics()
         }
       },
-      fail: (err) => {
-        console.error('[uploadFiles] upload fail:', err)
+      fail: () => {
         uni.showToast({ title: '上传失败', icon: 'none' })
       },
     })
@@ -744,130 +761,151 @@ const uploadFiles = (filePaths: string[]) => {
   }
 }
 
-.file-list {
-  height: calc(100vh - 320rpx);
-  padding: 0 20rpx;
+.file-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 10rpx;
+  gap: 16rpx;
 
-  .file-card {
+  .file-grid-item {
+    width: calc(33.33% - 12rpx);
+    aspect-ratio: 1;
     background: #fff;
     border-radius: 16rpx;
-    padding: 24rpx;
-    margin-bottom: 20rpx;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 
-    .file-checkbox {
-      margin-right: 16rpx;
-
-      .checkbox {
-        width: 40rpx;
-        height: 40rpx;
-        border: 2rpx solid #ddd;
-        border-radius: 8rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24rpx;
-        color: #fff;
-
-        &.checked {
-          background: #0068E2;
-          border-color: #0068E2;
-        }
-      }
-    }
-
-    .file-icon {
-      width: 80rpx;
-      height: 80rpx;
-      background: #f5f7fa;
-      border-radius: 12rpx;
+    .file-preview {
+      width: 100%;
+      height: 70%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-right: 20rpx;
+      background: #f8f9fa;
+      position: relative;
 
-      .icon {
-        font-size: 40rpx;
+      &.image-preview {
+        .preview-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .loading-mask {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(255, 255, 255, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          .loading-text {
+            font-size: 24rpx;
+            color: #999;
+          }
+        }
+      }
+
+      &.pdf-preview {
+        flex-direction: column;
+
+        .pdf-icon-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+
+          .pdf-icon {
+            font-size: 60rpx;
+          }
+
+          .pdf-label {
+            font-size: 24rpx;
+            color: #d32f2f;
+            font-weight: bold;
+            margin-top: 8rpx;
+          }
+        }
+
+        .file-name-overlay {
+          font-size: 20rpx;
+          color: #666;
+          margin-top: 12rpx;
+          text-align: center;
+          padding: 0 10rpx;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+
+      &.other-preview {
+        flex-direction: column;
+
+        .file-type-icon {
+          font-size: 60rpx;
+        }
+
+        .file-type-text {
+          font-size: 22rpx;
+          color: #999;
+          margin-top: 8rpx;
+        }
       }
     }
 
-    .file-info {
-      flex: 1;
-      overflow: hidden;
+    .file-info-overlay {
+      padding: 12rpx;
+      background: #fff;
 
-      .file-name {
+      .file-name-text {
         display: block;
-        font-size: 28rpx;
+        font-size: 22rpx;
         color: #333;
-        font-weight: 500;
-        margin-bottom: 8rpx;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        margin-bottom: 4rpx;
       }
 
-      .file-meta {
-        display: flex;
-        gap: 20rpx;
-
-        .file-size,
-        .file-time {
-          font-size: 24rpx;
-          color: #999;
-        }
-      }
-
-      .file-status {
-        margin-top: 8rpx;
-
-        .status-tag {
-          font-size: 22rpx;
-          padding: 4rpx 16rpx;
-          border-radius: 8rpx;
-
-          &.active {
-            background: #e8f5e9;
-            color: #4caf50;
-          }
-
-          &.inactive {
-            background: #ffebee;
-            color: #f44336;
-          }
-        }
+      .file-size-text {
+        font-size: 20rpx;
+        color: #999;
       }
     }
 
-    .file-actions {
+    .selected-mask {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 104, 226, 0.2);
       display: flex;
-      flex-direction: column;
-      gap: 12rpx;
+      align-items: center;
+      justify-content: center;
 
-      .action-btn {
-        font-size: 24rpx;
-        color: #0068E2;
-        padding: 8rpx 16rpx;
-        border-radius: 8rpx;
-        background: #f0f4ff;
-        text-align: center;
-
-        &.rename {
-          color: #ff9800;
-          background: #fff3e0;
-        }
-
-        &.delete {
-          color: #ff4d4f;
-          background: #fff1f0;
-        }
+      .selected-check {
+        width: 50rpx;
+        height: 50rpx;
+        background: #0068E2;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 28rpx;
       }
     }
   }
 
   .loading-more,
   .no-more {
+    width: 100%;
     text-align: center;
     padding: 30rpx;
     color: #999;
@@ -875,6 +913,7 @@ const uploadFiles = (filePaths: string[]) => {
   }
 
   .empty {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -967,13 +1006,152 @@ const uploadFiles = (filePaths: string[]) => {
   }
 }
 
+// 图片预览弹窗
+.image-preview-modal,
+.pdf-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx 30rpx;
+    background: rgba(0, 0, 0, 0.5);
+
+    .preview-title {
+      flex: 1;
+      font-size: 28rpx;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 20rpx;
+    }
+
+    .close-btn {
+      font-size: 40rpx;
+      color: #fff;
+      padding: 10rpx;
+    }
+  }
+
+  .preview-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    .preview-full-image {
+      width: 100%;
+      height: 100%;
+    }
+
+    .pdf-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .pdf-loading {
+      color: #fff;
+      font-size: 28rpx;
+    }
+  }
+
+  .preview-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20rpx 30rpx;
+    background: rgba(0, 0, 0, 0.5);
+    gap: 30rpx;
+
+    .tip-text {
+      font-size: 24rpx;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .download-btn {
+      font-size: 28rpx;
+      color: #0068E2;
+      background: #fff;
+      padding: 16rpx 40rpx;
+      border-radius: 8rpx;
+    }
+  }
+}
+
+// 操作菜单
+.action-menu-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  .action-menu {
+    width: 100%;
+    background: #fff;
+    border-radius: 24rpx 24rpx 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+
+    .menu-title {
+      padding: 30rpx;
+      text-align: center;
+      border-bottom: 1rpx solid #f0f0f0;
+      font-size: 28rpx;
+      color: #333;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .menu-item {
+      padding: 30rpx;
+      text-align: center;
+      font-size: 30rpx;
+      color: #333;
+      border-bottom: 1rpx solid #f5f5f5;
+
+      &:active {
+        background: #f5f5f5;
+      }
+
+      &.danger {
+        color: #ff4d4f;
+      }
+
+      &.cancel {
+        margin-top: 16rpx;
+        background: #f5f5f5;
+        border-bottom: none;
+      }
+    }
+  }
+}
+
+// 重命名弹窗
 .rename-modal {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 999;
+  z-index: 1002;
 
   .modal-mask {
     position: absolute;
