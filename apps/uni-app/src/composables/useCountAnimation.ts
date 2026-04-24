@@ -6,6 +6,24 @@ interface UseCountAnimationOptions {
   autoStart?: boolean
 }
 
+// 兼容的 requestAnimationFrame
+const safeRequestAnimationFrame = (callback: FrameRequestCallback): number => {
+  if (typeof requestAnimationFrame !== 'undefined') {
+    return requestAnimationFrame(callback)
+  }
+  // 降级方案：使用 setTimeout
+  return setTimeout(callback, 16) as unknown as number
+}
+
+// 兼容的 cancelAnimationFrame
+const safeCancelAnimationFrame = (id: number): void => {
+  if (typeof cancelAnimationFrame !== 'undefined') {
+    cancelAnimationFrame(id)
+  } else {
+    clearTimeout(id)
+  }
+}
+
 // 数字滚动动画
 export function useCountAnimation(
   targetValue: number | (() => number),
@@ -35,16 +53,16 @@ export function useCountAnimation(
       displayValue.value = Math.round(startValue + (endValue - startValue) * easedProgress)
 
       if (progress < 1) {
-        animationFrameId = requestAnimationFrame(step)
+        animationFrameId = safeRequestAnimationFrame(step)
       }
     }
 
-    animationFrameId = requestAnimationFrame(step)
+    animationFrameId = safeRequestAnimationFrame(step)
   }
 
   const start = () => {
     if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
+      safeCancelAnimationFrame(animationFrameId)
     }
     if (timeoutId) {
       clearTimeout(timeoutId)
@@ -60,7 +78,7 @@ export function useCountAnimation(
 
   onUnmounted(() => {
     if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
+      safeCancelAnimationFrame(animationFrameId)
     }
     if (timeoutId) {
       clearTimeout(timeoutId)

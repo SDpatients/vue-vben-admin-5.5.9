@@ -175,11 +175,15 @@ const loadUserInfo = () => {
 
 const loadStats = async () => {
   try {
+    // 获取当前登录用户信息
+    const info = uni.getStorageSync('userInfo')
+    const userId = info?.userId
+    
     const [caseStatsRes, pendingRes, completedRes, overdueRes] = await Promise.all([
       getMyCaseStats(),
-      getPendingCount(1),
-      getCompletedCount(1),
-      getOverdueCount(1),
+      getPendingCount(userId || 0),
+      getCompletedCount(userId || 0),
+      getOverdueCount(userId || 0),
     ])
 
     stats.value.pendingCases = caseStatsRes?.data?.inProgressCases || 0

@@ -319,7 +319,9 @@ const loadFiles = async (isRefresh = false) => {
     if (isRefresh) {
       fileList.value.forEach(f => {
         if (f._blobUrl && f._blobUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(f._blobUrl)
+          if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+            URL.revokeObjectURL(f._blobUrl)
+          }
         }
       })
       fileList.value = []
@@ -345,6 +347,11 @@ const loadFiles = async (isRefresh = false) => {
 }
 
 const preloadImages = async () => {
+  // 仅在 H5 环境预加载图片 blob
+  if (!isH5 || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return
+  }
+  
   for (const item of fileList.value) {
     if (isImageFile(item.fileExtension) && !item._blobUrl) {
       try {
@@ -413,27 +420,32 @@ const handlePreview = async (item: FileItem) => {
 }
 
 const openImagePreview = async (item: FileItem & { _blobUrl?: string }) => {
-  if (isH5) {
-    try {
-      if (item._blobUrl) {
-        currentPreviewUrl.value = item._blobUrl
-        showImagePreview.value = true
-      } else {
-        uni.showLoading({ title: '加载中...' })
-        const blob = await fetchFileBlob(item.id)
-        currentPreviewUrl.value = URL.createObjectURL(blob)
-        uni.hideLoading()
-        showImagePreview.value = true
-      }
-    } catch (error) {
-      uni.hideLoading()
-      uni.showToast({ title: '预览失败', icon: 'none' })
-    }
-  } else {
+  // 非 H5 环境直接使用 uni.previewImage
+  if (!isH5) {
     uni.previewImage({
       urls: [`${baseUrl}/api/v1/file/preview/${item.id}`],
       current: `${baseUrl}/api/v1/file/preview/${item.id}`,
     })
+    return
+  }
+
+  // H5 环境使用 blob URL 预览
+  try {
+    if (item._blobUrl) {
+      currentPreviewUrl.value = item._blobUrl
+      showImagePreview.value = true
+    } else {
+      uni.showLoading({ title: '加载中...' })
+      const blob = await fetchFileBlob(item.id)
+      if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        currentPreviewUrl.value = URL.createObjectURL(blob)
+      }
+      uni.hideLoading()
+      showImagePreview.value = true
+    }
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({ title: '预览失败', icon: 'none' })
   }
 }
 
@@ -444,26 +456,33 @@ const closeImagePreview = () => {
 }
 
 const openPdfPreview = async (item: FileItem) => {
-  if (isH5) {
-    try {
-      uni.showLoading({ title: '加载中...' })
-      const blob = await fetchFileBlob(item.id)
-      pdfPreviewUrl.value = URL.createObjectURL(blob)
-      uni.hideLoading()
-      showPdfPreview.value = true
-    } catch (error) {
-      uni.hideLoading()
-      uni.showToast({ title: '预览失败', icon: 'none' })
-    }
-  } else {
+  // 非 H5 环境提示使用浏览器查看
+  if (!isH5) {
     uni.showToast({ title: '请在浏览器中查看PDF', icon: 'none' })
+    return
+  }
+
+  // H5 环境使用 blob URL 预览
+  try {
+    uni.showLoading({ title: '加载中...' })
+    const blob = await fetchFileBlob(item.id)
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      pdfPreviewUrl.value = URL.createObjectURL(blob)
+    }
+    uni.hideLoading()
+    showPdfPreview.value = true
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({ title: '预览失败', icon: 'none' })
   }
 }
 
 const closePdfPreview = () => {
   showPdfPreview.value = false
   if (pdfPreviewUrl.value && pdfPreviewUrl.value.startsWith('blob:')) {
-    URL.revokeObjectURL(pdfPreviewUrl.value)
+    if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(pdfPreviewUrl.value)
+    }
   }
   pdfPreviewUrl.value = ''
   currentPreviewFile.value = null

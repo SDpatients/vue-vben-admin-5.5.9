@@ -211,7 +211,7 @@ const uploadedFiles = ref<any[]>([])
 const logDetailPopup = ref()
 const addLogPopup = ref()
 
-const isH5 = typeof window !== 'undefined' && document !== undefined
+const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
 
 const workTypeOptions = computed(() => {
   return [

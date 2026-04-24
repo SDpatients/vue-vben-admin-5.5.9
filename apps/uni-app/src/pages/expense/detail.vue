@@ -75,7 +75,7 @@
     <view class="info-section">
       <view class="section-header">
         <text class="section-title">报销明细</text>
-        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING'" @click="showAddItem = true">+ 添加</text>
+        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="showAddItem = true">+ 添加</text>
       </view>
       <view class="item-list">
         <view class="item-card" v-for="(item, index) in expenseDetail.items" :key="item.id">
@@ -86,7 +86,7 @@
           <view class="item-desc" v-if="item.itemDescription">{{ item.itemDescription }}</view>
           <view class="item-footer">
             <text class="item-index">明细 {{ index + 1 }}</text>
-            <text class="item-delete" v-if="expenseDetail.approvalStatus === 'PENDING' && expenseDetail.items.length > 1" @click="handleDeleteItem(item.id)">删除</text>
+            <text class="item-delete" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin && expenseDetail.items.length > 1" @click="handleDeleteItem(item.id)">删除</text>
           </view>
         </view>
         <view class="empty-items" v-if="!expenseDetail.items || expenseDetail.items.length === 0">
@@ -99,7 +99,7 @@
     <view class="info-section">
       <view class="section-header">
         <text class="section-title">附件</text>
-        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING'" @click="handleUploadAttachment">+ 上传</text>
+        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleUploadAttachment">+ 上传</text>
       </view>
       <view class="attachment-list">
         <view class="attachment-card" v-for="file in expenseDetail.attachments" :key="file.id">
@@ -110,7 +110,7 @@
           <view class="file-actions">
             <text class="action-btn" v-if="isImageFile(file.fileType)" @click="previewImage(file)">预览</text>
             <text class="action-btn" @click="downloadFile(file)">下载</text>
-            <text class="action-btn delete" v-if="expenseDetail.approvalStatus === 'PENDING'" @click="handleDeleteAttachment(file.id)">删除</text>
+            <text class="action-btn delete" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleDeleteAttachment(file.id)">删除</text>
           </view>
         </view>
         <view class="empty-attachments" v-if="!expenseDetail.attachments || expenseDetail.attachments.length === 0">
@@ -139,10 +139,10 @@
       <view class="action-btn" @click="handleBack">
         <text>返回</text>
       </view>
-      <view class="action-btn" v-if="expenseDetail.approvalStatus === 'PENDING'" @click="handleEdit">
+      <view class="action-btn" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleEdit">
         <text>编辑</text>
       </view>
-      <view class="action-btn danger" v-if="expenseDetail.approvalStatus === 'PENDING'" @click="handleDelete">
+      <view class="action-btn danger" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleDelete">
         <text>删除</text>
       </view>
       <view class="action-btn primary" v-if="expenseDetail.approvalStatus === 'PENDING' && isAdmin" @click="showApprove = true">

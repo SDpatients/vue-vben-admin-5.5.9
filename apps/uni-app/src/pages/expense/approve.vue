@@ -43,32 +43,43 @@
         :key="item.id"
         class="expense-card animate-fade-in-up"
         :style="{ animationDelay: `${index * 0.05}s` }"
-        @click="goToDetail(item.id)"
       >
-        <view class="card-header">
-          <text class="expense-no">{{ item.reimbursementNumber }}</text>
-          <text :class="['status', getApprovalStatusClass(item.approvalStatus)]">
-            {{ getApprovalStatusText(item.approvalStatus) }}
-          </text>
+        <view @click="goToDetail(item.id)">
+          <view class="card-header">
+            <text class="expense-no">{{ item.reimbursementNumber }}</text>
+            <text :class="['status', getApprovalStatusClass(item.approvalStatus)]">
+              {{ getApprovalStatusText(item.approvalStatus) }}
+            </text>
+          </view>
+          <view class="card-body">
+            <text class="case-name">{{ item.caseName }}</text>
+            <view class="info-row">
+              <text class="label">申请人：</text>
+              <text class="value">{{ item.applicantName || '-' }}</text>
+            </view>
+            <view class="info-row">
+              <text class="label">报销日期：</text>
+              <text class="value">{{ formatDate(item.reimbursementDate) }}</text>
+            </view>
+            <view class="info-row" v-if="item.description">
+              <text class="label">报销说明：</text>
+              <text class="value">{{ item.description }}</text>
+            </view>
+          </view>
+          <view class="card-footer">
+            <text class="time">{{ formatDateTime(item.createTime) }}</text>
+            <text class="amount">¥{{ formatAmount(item.totalAmount) }}</text>
+          </view>
         </view>
-        <view class="card-body">
-          <text class="case-name">{{ item.caseName }}</text>
-          <view class="info-row">
-            <text class="label">申请人：</text>
-            <text class="value">{{ item.applicantName || '-' }}</text>
+        
+        <!-- 快速审批按钮 - 仅待审批状态显示 -->
+        <view class="quick-actions" v-if="item.approvalStatus === 'PENDING'">
+          <view class="action-btn approve" @click.stop="handleQuickApprove(item.id, 'APPROVED')">
+            <text>✓ 通过</text>
           </view>
-          <view class="info-row">
-            <text class="label">报销日期：</text>
-            <text class="value">{{ formatDate(item.reimbursementDate) }}</text>
+          <view class="action-btn reject" @click.stop="handleQuickApprove(item.id, 'REJECTED')">
+            <text>✗ 拒绝</text>
           </view>
-          <view class="info-row" v-if="item.description">
-            <text class="label">报销说明：</text>
-            <text class="value">{{ item.description }}</text>
-          </view>
-        </view>
-        <view class="card-footer">
-          <text class="time">{{ formatDateTime(item.createTime) }}</text>
-          <text class="amount">¥{{ formatAmount(item.totalAmount) }}</text>
         </view>
       </view>
 
@@ -92,6 +103,7 @@ import { ref, shallowRef, onMounted, computed } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import {
   getExpenseReimbursementList,
+  approveExpenseReimbursement,
   getApprovalStatusText,
   getApprovalStatusClass,
   type ExpenseReimbursement,
@@ -176,6 +188,33 @@ onReachBottom(() => {
 
 const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/expense/detail?id=${id}` })
+}
+
+const handleQuickApprove = (id: number, status: 'APPROVED' | 'REJECTED') => {
+  const statusText = status === 'APPROVED' ? '通过' : '拒绝'
+  uni.showModal({
+    title: `确认${statusText}`,
+    content: `确定要${statusText}该报销单吗？`,
+    confirmText: '确定',
+    cancelText: '取消',
+    success: async (res: UniApp.ShowModalRes) => {
+      if (res.confirm) {
+        uni.showLoading({ title: '审批中...' })
+        try {
+          await approveExpenseReimbursement(id, {
+            approvalStatus: status,
+            approvalOpinion: '',
+          })
+          uni.hideLoading()
+          uni.showToast({ title: `已${statusText}`, icon: 'success' })
+          loadData(true)
+        } catch (error) {
+          uni.hideLoading()
+          uni.showToast({ title: '审批失败', icon: 'none' })
+        }
+      }
+    },
+  })
 }
 
 const pendingCount = computed(() =>
@@ -388,6 +427,43 @@ const formatAmount = (amount?: number) => {
         font-size: 32rpx;
         color: #f44336;
         font-weight: bold;
+      }
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 16rpx;
+      margin-top: 20rpx;
+      padding-top: 20rpx;
+      border-top: 1rpx solid #f0f0f0;
+
+      .action-btn {
+        flex: 1;
+        height: 72rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8rpx;
+        font-size: 28rpx;
+        font-weight: 500;
+
+        &.approve {
+          background: #e8f5e9;
+          color: #4caf50;
+
+          &:active {
+            background: #c8e6c9;
+          }
+        }
+
+        &.reject {
+          background: #ffebee;
+          color: #f44336;
+
+          &:active {
+            background: #ffcdd2;
+          }
+        }
       }
     }
   }
