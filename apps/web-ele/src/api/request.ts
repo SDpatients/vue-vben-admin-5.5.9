@@ -20,10 +20,22 @@ import { useAccessStore } from '@vben/stores';
 import { ElMessage } from 'element-plus';
 
 import { useAuthStore } from '#/store';
+import { logger } from '#/utils/logger';
 
 import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+// 统一的请求头处理逻辑
+async function addAuthHeader(config: any) {
+  config.headers['Accept-Language'] = preferences.app.locale;
+  const token = localStorage.getItem('token');
+  if (token) {
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    config.headers.Authorization = formattedToken;
+  }
+  return config;
+}
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
@@ -35,7 +47,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    * 重新认证逻辑
    */
   async function doReAuthenticate() {
-    console.warn('Access token or refresh token is invalid or expired. ');
+    logger.warn('Access token or refresh token is invalid or expired. ');
     const accessStore = useAccessStore();
     const authStore = useAuthStore();
     accessStore.setAccessToken(null);
@@ -85,16 +97,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
   // 请求头处理
   client.addRequestInterceptor({
-    fulfilled: async (config) => {
-      config.headers['Accept-Language'] = preferences.app.locale;
-      const token = localStorage.getItem('token');
-      if (token) {
-        // 确保不会重复添加 Bearer 前缀
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-        config.headers.Authorization = formattedToken;
-      }
-      return config;
-    },
+    fulfilled: addAuthHeader,
   });
 
   // 处理返回的响应数据格式
@@ -136,8 +139,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
-      // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
-      // 当前mock接口返回的错误字段是 error 或者 message
       const responseData = error?.response?.data ?? {};
       let errorMessage = responseData?.error ?? responseData?.message ?? '';
 
@@ -168,14 +169,12 @@ export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
-// 创建一个不带任何拦截器的简单请求客户端，用于许可证相关 API
-// 这些 API 需要在未登录状态下访问，不能经过认证拦截器
+// 创建一个不带认证拦截器的简单请求客户端，用于许可证相关 API
 export const baseRequestClient = (() => {
   const client = new RequestClient({
     baseURL: apiURL,
     responseReturn: 'body',
   });
-  // 添加一个简单的响应拦截器，将响应转换为 data 字段
   client.addResponseInterceptor({
     fulfilled: (response) => {
       if (response && response.data) {
@@ -189,84 +188,62 @@ export const baseRequestClient = (() => {
 
 export { createRequestClient };
 
-export const chatRequestClient = createRequestClient(
-  import.meta.env.VITE_CHAT_API_URL || '/api/v1',
-  {
-    responseReturn: 'body',
-  },
-);
+// 预定义常用 baseURL
+const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/v1';
+const API_URL_8080 = import.meta.env.VITE_API_URL_8080 || '/api/v1';
 
-export const requestClient8085 = createRequestClient(
-  import.meta.env.VITE_API_URL_8085 || '/api/v1',
-  {
-    responseReturn: 'body',
-  },
-);
-
-// 文件下载专用API客户端，不使用响应拦截器，直接返回完整响应体
-export const fileDownloadRequestClient8085 = new RequestClient({
-  baseURL: import.meta.env.VITE_API_URL_8085 || '/api/v1',
+// 聊天API客户端
+export const chatRequestClient = createRequestClient(CHAT_API_URL, {
   responseReturn: 'body',
 });
 
-// 为文件下载客户端添加请求头处理
-fileDownloadRequestClient8085.addRequestInterceptor({
-  fulfilled: async (config) => {
-    config.headers['Accept-Language'] = preferences.app.locale;
-    const token = localStorage.getItem('token');
-    if (token) {
-      // 确保不会重复添加Bearer前缀
-      const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      config.headers.Authorization = formattedToken;
-    }
-    return config;
-  },
-});
-
-// 文件上传API客户端，使用环境变量中的API URL，通过Vite代理
-export const fileUploadRequestClient = createRequestClient(apiURL, {
+// 8080端口API客户端
+export const requestClient8080 = createRequestClient(API_URL_8080, {
   responseReturn: 'body',
 });
 
-// 资金管理API客户端，使用Vite代理
-export const fundRequestClient = createRequestClient(
-  '/api',
-  {
+// 文件下载专用API客户端
+export const fileDownloadRequestClient8080 = (() => {
+  const client = new RequestClient({
+    baseURL: API_URL_8080,
     responseReturn: 'body',
-  },
-);
+  });
+  client.addRequestInterceptor({
+    fulfilled: addAuthHeader,
+  });
+  return client;
+})();
 
-// 工作团队API客户端，使用Vite代理
-export const workTeamRequestClient = createRequestClient(
-  '/api/v1',
-  {
+// 文件上传API客户端
+export const fileUploadRequestClient = (() => {
+  const client = createRequestClient(apiURL, {
     responseReturn: 'body',
-  },
-);
+  });
+  client.addRequestInterceptor({
+    fulfilled: addAuthHeader,
+  });
+  return client;
+})();
+
+// 资金管理API客户端
+export const fundRequestClient = createRequestClient('/api', {
+  responseReturn: 'body',
+});
+
+// 工作团队API客户端
+export const workTeamRequestClient = createRequestClient('/api/v1', {
+  responseReturn: 'body',
+});
 
 // Actuator API 专用客户端
-// Spring Boot Actuator 端点返回原始 JSON，没有 {code: 200, data: ...} 包装
-// 所以需要使用 body 模式直接返回响应数据
 export const actuatorRequestClient = (() => {
   const client = new RequestClient({
     baseURL: apiURL,
     responseReturn: 'body',
   });
-
-  // 添加认证头
   client.addRequestInterceptor({
-    fulfilled: async (config) => {
-      config.headers['Accept-Language'] = preferences.app.locale;
-      const token = localStorage.getItem('token');
-      if (token) {
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-        config.headers.Authorization = formattedToken;
-      }
-      return config;
-    },
+    fulfilled: addAuthHeader,
   });
-
-  // 添加一个简单的响应拦截器，直接返回响应数据
   client.addResponseInterceptor({
     fulfilled: (response) => {
       if (response && response.data) {
@@ -276,38 +253,32 @@ export const actuatorRequestClient = (() => {
     },
     rejected: (error) => Promise.reject(error),
   });
-
   return client;
 })();
 
+// 所有需要跟踪的客户端列表
+const trackedClients = [
+  requestClient,
+  chatRequestClient,
+  requestClient8080,
+  fileUploadRequestClient,
+  fundRequestClient,
+  workTeamRequestClient,
+];
+
 // 延迟初始化API跟踪拦截器
 if (typeof window !== 'undefined') {
-  // 在浏览器环境中，延迟添加API跟踪拦截器
   setTimeout(async () => {
     try {
       const { createApiTrackingInterceptor } = await import('./operation-tracker');
       const apiTrackingInterceptor = createApiTrackingInterceptor();
 
-      // 为所有客户端添加拦截器
-      requestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      requestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
-
-      chatRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      chatRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
-
-      requestClient8085.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      requestClient8085.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
-
-      fileUploadRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      fileUploadRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
-
-      fundRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      fundRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
-
-      workTeamRequestClient.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
-      workTeamRequestClient.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+      for (const client of trackedClients) {
+        client.addRequestInterceptor(apiTrackingInterceptor.requestInterceptor);
+        client.addResponseInterceptor(apiTrackingInterceptor.responseInterceptor);
+      }
     } catch (error) {
-      console.warn('API跟踪拦截器加载失败:', error);
+      logger.warn('API跟踪拦截器加载失败:', error);
     }
   }, 0);
 }

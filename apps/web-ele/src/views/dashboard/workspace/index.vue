@@ -49,6 +49,7 @@ import { fileUploadRequestClient } from '#/api/request';
 import { changePasswordApi } from '#/api/core/auth';
 import ActivityTimeline from '#/components/ActivityTimeline.vue';
 import { EXTERNAL_LINKS } from '#/config/external-links';
+import { sanitizeHtml } from '#/utils/htmlSanitizer';
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
@@ -62,6 +63,7 @@ const getUserInfoFromLocal = () => {
       return JSON.parse(chatUserInfoStr);
     }
   } catch (error) {
+    logger.warn('解析本地存储的用户信息失败:', error);
   }
   return null;
 };
@@ -91,6 +93,9 @@ const loading = ref(false);
 const todoCount = ref(0);
 const caseCount = ref(0);
 const teamCount = ref(0);
+const pendingCaseCount = ref(0);
+const completedCaseCount = ref(0);
+const notificationCount = ref(0);
 
 // 最近查询案件
 const recentSearches = ref<any[]>([]);
@@ -198,13 +203,13 @@ const loadUserCaseCount = async () => {
   try {
     const chatUserId = localStorage.getItem('chat_user_id');
     const userId = Number(chatUserId) || 0;
-    
+
     if (userId === 0) {
       return;
     }
-    
+
     const token = localStorage.getItem('token');
-    
+
     const response = await fetch(`/api/v1/case/user/${userId}/count`, {
       method: 'GET',
       headers: {
@@ -212,7 +217,7 @@ const loadUserCaseCount = async () => {
         'Authorization': token ? `Bearer ${token}` : ''
       }
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       caseCount.value = data.data || 0;
@@ -224,13 +229,61 @@ const loadUserCaseCount = async () => {
   }
 };
 
+// 加载待处理和已完成案件数量
+const loadCaseStatusCounts = async () => {
+  try {
+    const chatUserId = localStorage.getItem('chat_user_id');
+    const userId = Number(chatUserId) || 0;
+
+    if (userId === 0) {
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+
+    const [pendingRes, completedRes] = await Promise.all([
+      fetch(`/api/v1/case/user/${userId}/count?status=PENDING`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      }),
+      fetch(`/api/v1/case/user/${userId}/count?status=COMPLETED`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      })
+    ]);
+
+    if (pendingRes.ok) {
+      const data = await pendingRes.json();
+      pendingCaseCount.value = data.data || 0;
+    } else {
+      pendingCaseCount.value = 0;
+    }
+
+    if (completedRes.ok) {
+      const data = await completedRes.json();
+      completedCaseCount.value = data.data || 0;
+    } else {
+      completedCaseCount.value = 0;
+    }
+  } catch (error) {
+    pendingCaseCount.value = 0;
+    completedCaseCount.value = 0;
+  }
+};
+
 // 案件列表相关数据
 const caseList = ref<any[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(3); // 每页显示3个数据
 const totalCases = ref(0);
 const searchKeyword = ref('');
-const caseStatus = ref('在办');
+const caseStatus = ref('进行中');
 
 // 计算办理天数
 const calculateDays = (filingDate?: string) => {
@@ -260,7 +313,7 @@ const calculateAcceptDays = (filingDate?: string, closingDate?: string, caseStat
   const beijingFilingTime = filingDateObj.getTime() + beijingTimeOffset;
   
   // 判断案件是否已结
-  const isCompleted = caseStatus === 'COMPLETED' || caseStatus === '已结';
+  const isCompleted = caseStatus === 'COMPLETED' || caseStatus === '已结案';
   
   let endDateObj: Date;
   
@@ -339,11 +392,13 @@ const formatSearchTime = (timeStr: string) => {
   return date.toLocaleDateString('zh-CN');
 };
 
-// 案件状态映射
+// 案件状态映射（精简为5个状态）
 const caseStatusMap: Record<string, string> = {
-  ONGOING: '在办',
-  AWAITING: '报结',
-  COMPLETED: '已结',
+  PENDING: '待处理',
+  ONGOING: '进行中',
+  AWAITING: '报结中',
+  COMPLETED: '已结案',
+  ARCHIVED: '已归档',
 };
 
 // 公告相关数据
@@ -463,7 +518,7 @@ const calendarOptions = ref({
       if (!tooltipEl) {
         tooltipEl = document.createElement('div');
         tooltipEl.className = 'fc-tooltip';
-        tooltipEl.innerHTML = tooltipContent;
+        tooltipEl.innerHTML = sanitizeHtml(tooltipContent);
         tooltipEl.style.cssText = `
           position: absolute;
           background: #303133;
@@ -887,6 +942,7 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
         viewerId: userId,
       });
     } catch (recordError) {
+      logger.warn('创建查看记录失败:', recordError);
     }
 
     // 调用获取公告详情API
@@ -1103,6 +1159,7 @@ const loadTodoItems = async () => {
       completed: item.status === 'COMPLETED',
     }));
   } catch (error) {
+    logger.warn('获取待办事项失败:', error);
   }
 };
 
@@ -1122,11 +1179,13 @@ const isLawyer = computed(() => {
 const loadCaseList = async () => {
   loading.value = true;
   try {
-    // 映射案件状态到后端需要的英文状态
+    // 映射案件状态到后端需要的英文状态（精简为5个状态）
     const statusMap: Record<string, string> = {
-      在办: 'ONGOING',
-      报结: 'AWAITING',
-      已结: 'COMPLETED',
+      待处理: 'PENDING',
+      进行中: 'ONGOING',
+      报结中: 'AWAITING',
+      已结案: 'COMPLETED',
+      已归档: 'ARCHIVED',
     };
     const caseStatusEn = statusMap[caseStatus.value] || 'ONGOING';
 
@@ -1371,6 +1430,23 @@ const handleGoProfile = () => {
   router.push('/dashboard/profile');
 };
 
+// 点击统计卡片跳转
+const handleClickPendingCases = () => {
+  router.push('/law/case-list');
+};
+
+const handleClickCompletedCases = () => {
+  router.push('/law/case-list');
+};
+
+const handleClickTodos = () => {
+  router.push('/dashboard/todo-items');
+};
+
+const handleClickNotifications = () => {
+  router.push('/law/announcement-list');
+};
+
 // 月份变化处理
 const handleMonthChange = async (value: any) => {
   try {
@@ -1399,6 +1475,7 @@ const handleMonthChange = async (value: any) => {
 
 onMounted(async () => {
   loadUserCaseCount(); // 加载案件数量
+  loadCaseStatusCounts(); // 加载待处理和已完成案件数量
   loadCaseList();
   loadAnnouncements();
   loadTeamCount();
@@ -1414,10 +1491,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  // 移除全局鼠标事件监听
+  // 移除全局鼠标事件监听 - 必须与 addEventListener 的参数完全一致才能正确移除
   document.removeEventListener('mousemove', handleMouseMove);
   document.removeEventListener('mouseup', handleMouseUp);
-  document.removeEventListener('touchmove', handleTouchMove);
+  document.removeEventListener('touchmove', handleTouchMove, { passive: false });
   document.removeEventListener('touchend', handleTouchEnd);
 });
 </script>
@@ -1430,12 +1507,18 @@ onUnmounted(() => {
     <div class="p-0">
       <WorkbenchHeader
         :avatar="currentUserInfo?.avatar || preferences.app.defaultAvatar"
-        :case-count="caseCount"
-        :team-count="teamCount"
+        :pending-case-count="pendingCaseCount"
+        :completed-case-count="completedCaseCount"
+        :todo-count="todoCount"
+        :notification-count="announcementTotal"
         :real-name="currentUserInfo?.realName"
         @logout="handleLogout"
         @change-password="openChangePasswordDialog"
         @go-profile="handleGoProfile"
+        @click-pending-cases="handleClickPendingCases"
+        @click-completed-cases="handleClickCompletedCases"
+        @click-todos="handleClickTodos"
+        @click-notifications="handleClickNotifications"
       >
         <template #title>
           <span
@@ -1496,7 +1579,7 @@ onUnmounted(() => {
             <div class="case-header mb-4">
               <div class="case-tabs flex">
                 <button
-                  v-for="status in ['在办', '报结', '已结']"
+                  v-for="status in ['待处理', '进行中', '报结中', '已结案', '已归档']"
                   :key="status"
                   class="case-tab-btn mr-2 rounded-full px-3 py-1 text-sm"
                   :class="{
@@ -1707,7 +1790,7 @@ onUnmounted(() => {
                     <!-- 第二行：公告内容摘要 -->
                     <div
                       class="announcement-content mb-2 line-clamp-2 text-xs text-gray-600"
-                      v-html="item.content"
+                      v-html="sanitizeHtml(item.content)"
                     ></div>
 
                     <!-- 第三行：发布人 + 时间 + 浏览次数 -->
@@ -2010,7 +2093,7 @@ onUnmounted(() => {
               <h4 class="section-title">公告内容</h4>
               <div
                 class="content-html"
-                v-html="announcementDetail.content"
+                v-html="sanitizeHtml(announcementDetail?.content)"
               ></div>
             </div>
 

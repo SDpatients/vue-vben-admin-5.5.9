@@ -5,6 +5,7 @@
  */
 
 import http from './request'
+import { getBaseUrl, API_PREFIX } from '@/config'
 
 // 后端返回的案件数据结构
 export interface CaseItem {
@@ -157,8 +158,11 @@ export interface CaseMyStatsResponse {
   message: string
   data: {
     totalCases: number
-    inProgressCases: number
+    pendingCases: number
+    ongoingCases: number
+    awaitingCases: number
     completedCases: number
+    archivedCases: number
   }
 }
 
@@ -173,6 +177,8 @@ export interface ClaimRegistrationItem {
   creditorName: string
   creditorType: string
   creditCode: string
+  legalRepresentative: string
+  serviceAddress: string
   principal: number
   interest: number
   penalty: number
@@ -207,12 +213,18 @@ export interface ClaimReviewItem {
   reviewRound: number
   declaredPrincipal: number
   declaredInterest: number
+  declaredPenalty: number
+  declaredOtherLosses: number
   declaredTotalAmount: number
   confirmedPrincipal: number
   confirmedInterest: number
+  confirmedPenalty: number
+  confirmedOtherLosses: number
   confirmedTotalAmount: number
   unconfirmedPrincipal: number
   unconfirmedInterest: number
+  unconfirmedPenalty: number
+  unconfirmedOtherLosses: number
   unconfirmedTotalAmount: number
   reviewConclusion: string
   reviewSummary: string
@@ -327,6 +339,7 @@ export const createClaimRegistration = (data: {
   creditorName: string
   creditorType: string
   creditCode?: string
+  legalRepresentative?: string
   principal: number
   interest: number
   penalty: number
@@ -568,13 +581,11 @@ export const searchCreditor = (params: { caseId: number; creditorName: string; l
 }
 
 export const getCaseList = (params?: CaseListParams) => {
-  console.log('[API] getCaseList called:', params)
-  return http.get<CaseListResponse>('/case/list', params)
+return http.get<CaseListResponse>('/case/list', params)
 }
 
 export const advancedCaseSearch = (params: CaseListParams) => {
-  console.log('[API] advancedCaseSearch called:', params)
-  return http.post<CaseListResponse>('/case-search/advanced', {
+return http.post<CaseListResponse>('/case-search/advanced', {
     page: params.pageNum || 1,
     pageSize: params.pageSize || 10,
     ...params,
@@ -582,8 +593,7 @@ export const advancedCaseSearch = (params: CaseListParams) => {
 }
 
 export const keywordCaseSearch = (keyword: string, page: number = 1, size: number = 10) => {
-  console.log('[API] keywordCaseSearch called:', { keyword, page, size })
-  return http.get<CaseListResponse>('/case-search/keyword', {
+return http.get<CaseListResponse>('/case-search/keyword', {
     keyword,
     page,
     size,
@@ -596,8 +606,7 @@ export const keywordAndStatusSearch = (
   page: number = 1,
   size: number = 10
 ) => {
-  console.log('[API] keywordAndStatusSearch called:', { keyword, caseStatus, page, size })
-  return http.get<CaseListResponse>('/case-search/keyword-and-status', {
+return http.get<CaseListResponse>('/case-search/keyword-and-status', {
     keyword,
     caseStatus,
     page,
@@ -611,8 +620,7 @@ export const keywordAndProgressSearch = (
   page: number = 1,
   size: number = 10
 ) => {
-  console.log('[API] keywordAndProgressSearch called:', { keyword, caseProgress, page, size })
-  return http.get<CaseListResponse>('/case-search/keyword-and-progress', {
+return http.get<CaseListResponse>('/case-search/keyword-and-progress', {
     keyword,
     caseProgress,
     page,
@@ -627,8 +635,7 @@ export const keywordStatusProgressSearch = (
   page: number = 1,
   size: number = 10
 ) => {
-  console.log('[API] keywordStatusProgressSearch called:', { keyword, caseStatus, caseProgress, page, size })
-  return http.get<CaseListResponse>('/case-search/keyword-and-status-and-progress', {
+return http.get<CaseListResponse>('/case-search/keyword-and-status-and-progress', {
     keyword,
     caseStatus,
     caseProgress,
@@ -657,8 +664,7 @@ export const getCaseFiles = (
   caseId: number,
   params?: { pageNum?: number; pageSize?: number; status?: string }
 ) => {
-  console.log('[API] getCaseFiles called:', { caseId, params })
-  return http.get<FileListResponse>('/file/list', {
+return http.get<FileListResponse>('/file/list', {
     bizType: 'case',
     bizId: caseId,
     ...params
@@ -666,41 +672,34 @@ export const getCaseFiles = (
 }
 
 export const getCaseFileInfo = (fileId: number) => {
-  console.log('[API] getCaseFileInfo called:', { fileId })
-  return http.get<FileUploadResponse>(`/file/${fileId}`)
+return http.get<FileUploadResponse>(`/file/${fileId}`)
 }
 
 export const deleteCaseFile = (fileId: number) => {
-  console.log('[API] deleteCaseFile called:', { fileId })
-  return http.delete<{ code: number; message: string; data: null }>(`/file/${fileId}`)
+return http.delete<{ code: number; message: string; data: null }>(`/file/${fileId}`)
 }
 
 export const batchDeleteCaseFiles = (fileIds: number[]) => {
-  console.log('[API] batchDeleteCaseFiles called:', { fileIds })
-  return http.delete<{ code: number; message: string; data: null }>('/file/batch', fileIds)
+return http.delete<{ code: number; message: string; data: null }>('/file/batch', fileIds)
 }
 
 export const renameCaseFile = (fileId: number, newFileName: string) => {
-  console.log('[API] renameCaseFile called:', { fileId, newFileName })
-  return http.put<FileUploadResponse>(`/file/${fileId}/rename`, { newFileName })
+return http.put<FileUploadResponse>(`/file/${fileId}/rename`, { newFileName })
 }
 
 export const updateCaseFileStatus = (fileId: number, status: string) => {
-  console.log('[API] updateCaseFileStatus called:', { fileId, status })
-  return http.put<FileUploadResponse>(`/file/${fileId}/status`, { status })
+return http.put<FileUploadResponse>(`/file/${fileId}/status`, { status })
 }
 
 export const getCaseFileStatistics = (caseId: number) => {
-  console.log('[API] getCaseFileStatistics called:', { caseId })
-  return http.get<FileStatisticsResponse>('/file/statistics', {
+return http.get<FileStatisticsResponse>('/file/statistics', {
     bizType: 'case',
     bizId: caseId
   })
 }
 
 export const getAllCaseFiles = (caseId: number) => {
-  console.log('[API] getAllCaseFiles called:', { caseId })
-  return http.get<{ code: number; message: string; data: FileItem[] }>('/file/all', {
+return http.get<{ code: number; message: string; data: FileItem[] }>('/file/all', {
     bizType: 'case',
     bizId: caseId
   })
@@ -852,20 +851,16 @@ export const getUserList = (keyword?: string, page: number = 1, size: number = 1
  * 使用 uni.uploadFile 上传
  */
 export const uploadCaseFile = (filePath: string, caseId: number, bizType: string = 'case') => {
-  const { getBaseUrl } = require('@/config')
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
-  
-  console.log('[uploadCaseFile] 开始上传:', { filePath, caseId, bizType, baseUrl })
-
-  return new Promise<{ code: number; message: string; data: FileItem }>((resolve, reject) => {
+return new Promise<{ code: number; message: string; data: FileItem }>((resolve, reject) => {
     if (!filePath) {
       reject(new Error('文件路径为空'))
       return
     }
     
     uni.uploadFile({
-      url: `${baseUrl}/api/v1/file/upload`,
+      url: `${baseUrl}${API_PREFIX}/file/upload`,
       filePath: filePath,
       name: 'file',
       formData: {
@@ -876,23 +871,19 @@ export const uploadCaseFile = (filePath: string, caseId: number, bizType: string
         Authorization: `Bearer ${token}`,
       },
       success: (res) => {
-        console.log('[uploadCaseFile] 上传成功:', res)
-        try {
+try {
           const data = JSON.parse(res.data)
-          console.log('[uploadCaseFile] 解析响应:', data)
-          if (data.code === 200) {
+if (data.code === 200) {
             resolve(data)
           } else {
             reject(new Error(data.message || '上传失败'))
           }
         } catch (e) {
-          console.error('[uploadCaseFile] 解析响应失败:', e, res.data)
-          reject(new Error('解析响应失败'))
+reject(new Error('解析响应失败'))
         }
       },
       fail: (err) => {
-        console.error('[uploadCaseFile] 上传失败:', err)
-        reject(new Error(`上传失败: ${err.errMsg || '未知错误'}`))
+reject(new Error(`上传失败: ${err.errMsg || '未知错误'}`))
       },
     })
   })

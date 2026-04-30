@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace ClaimReviewApi {
   /** 审查状态枚举 */
@@ -241,7 +241,7 @@ export namespace ClaimReviewApi {
  * POST /api/v1/claim-review
  */
 export async function createClaimReviewApi(data: ClaimReviewApi.CreateClaimReviewRequest) {
-  return requestClient8085.post<ClaimReviewApi.CreateClaimReviewResponse>('/claim-review', data);
+  return requestClient8080.post<ClaimReviewApi.CreateClaimReviewResponse>('/claim-review', data);
 }
 
 /**
@@ -249,7 +249,7 @@ export async function createClaimReviewApi(data: ClaimReviewApi.CreateClaimRevie
  * GET /api/v1/claim-review/{reviewId}
  */
 export async function getClaimReviewDetailApi(reviewId: number) {
-  return requestClient8085.get<ClaimReviewApi.ClaimReviewDetailResponse>(`/claim-review/${reviewId}`);
+  return requestClient8080.get<ClaimReviewApi.ClaimReviewDetailResponse>(`/claim-review/${reviewId}`);
 }
 
 /**
@@ -257,7 +257,7 @@ export async function getClaimReviewDetailApi(reviewId: number) {
  * GET /api/v1/claim-review/claim/{claimId}
  */
 export async function getClaimReviewsByClaimIdApi(claimId: number) {
-  return requestClient8085.get<ClaimReviewApi.ClaimReviewListResponse>(`/claim-review/claim/${claimId}`);
+  return requestClient8080.get<ClaimReviewApi.ClaimReviewListResponse>(`/claim-review/claim/${claimId}`);
 }
 
 /**
@@ -265,7 +265,7 @@ export async function getClaimReviewsByClaimIdApi(claimId: number) {
  * GET /api/v1/claim-review/case/{caseId}
  */
 export async function getClaimReviewsByCaseIdApi(caseId: number, params: { pageNum?: number; pageSize?: number } = {}) {
-  return requestClient8085.get<ClaimReviewApi.ClaimReviewPageResponse>(`/claim-review/case/${caseId}`, { params });
+  return requestClient8080.get<ClaimReviewApi.ClaimReviewPageResponse>(`/claim-review/case/${caseId}`, { params });
 }
 
 /**
@@ -273,7 +273,7 @@ export async function getClaimReviewsByCaseIdApi(caseId: number, params: { pageN
  * PUT /api/v1/claim-review/{reviewId}
  */
 export async function updateClaimReviewApi(reviewId: number, data: ClaimReviewApi.UpdateClaimReviewRequest) {
-  return requestClient8085.put<ClaimReviewApi.UpdateClaimReviewResponse>(`/claim-review/${reviewId}`, data);
+  return requestClient8080.put<ClaimReviewApi.UpdateClaimReviewResponse>(`/claim-review/${reviewId}`, data);
 }
 
 /**
@@ -281,7 +281,7 @@ export async function updateClaimReviewApi(reviewId: number, data: ClaimReviewAp
  * DELETE /api/v1/claim-review/{reviewId}
  */
 export async function deleteClaimReviewApi(reviewId: number) {
-  return requestClient8085.delete<ClaimReviewApi.DeleteClaimReviewResponse>(`/claim-review/${reviewId}`);
+  return requestClient8080.delete<ClaimReviewApi.DeleteClaimReviewResponse>(`/claim-review/${reviewId}`);
 }
 
 /**
@@ -289,7 +289,7 @@ export async function deleteClaimReviewApi(reviewId: number) {
  * POST /api/v1/claim-review/{reviewId}/submit
  */
 export async function submitClaimReviewApi(reviewId: number, data?: ClaimReviewApi.CreateClaimReviewRequest) {
-  return requestClient8085.post<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/submit`, data);
+  return requestClient8080.post<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/submit`, data);
 }
 
 /**
@@ -297,7 +297,7 @@ export async function submitClaimReviewApi(reviewId: number, data?: ClaimReviewA
  * GET /api/v1/claim-review/pending/{caseId}
  */
 export async function getPendingClaimsForReviewApi(caseId: number) {
-  return requestClient8085.get<ClaimReviewApi.ClaimReviewListResponse>(`/claim-review/pending/${caseId}`);
+  return requestClient8080.get<ClaimReviewApi.ClaimReviewListResponse>(`/claim-review/pending/${caseId}`);
 }
 
 /**
@@ -305,7 +305,7 @@ export async function getPendingClaimsForReviewApi(caseId: number) {
  * GET /api/v1/claim-review/statistics/{caseId}
  */
 export async function getReviewStatisticsApi(caseId: number) {
-  return requestClient8085.get<ClaimReviewApi.ReviewStatisticsResponse>(`/claim-review/statistics/${caseId}`);
+  return requestClient8080.get<ClaimReviewApi.ReviewStatisticsResponse>(`/claim-review/statistics/${caseId}`);
 }
 
 /**
@@ -313,7 +313,7 @@ export async function getReviewStatisticsApi(caseId: number) {
  * PUT /api/v1/claim-review/{reviewId}/reject
  */
 export async function rejectClaimReviewApi(reviewId: number, rejectReason: string) {
-  return requestClient8085.put<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
+  return requestClient8080.put<ClaimReviewApi.CommonResponse>(`/claim-review/${reviewId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },

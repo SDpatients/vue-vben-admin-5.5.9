@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   getDocumentList,
@@ -258,6 +258,11 @@ const currentDoc = ref<DocumentItem>()
 onMounted(() => {
   loadData()
   calculateScrollHeight()
+  uni.$on('refresh-document-list', () => loadData())
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-document-list')
 })
 
 onShow(() => {
@@ -309,8 +314,7 @@ const loadDocuments = async () => {
       total.value = totalCount
     }
   } catch (error) {
-    console.error('[loadDocuments] Error:', error)
-  } finally {
+} finally {
     loading.value = false
   }
 }
@@ -332,8 +336,7 @@ const loadFolders = async () => {
         }))
       }
     } catch (error) {
-      console.error('[loadFolders] Error:', error)
-    }
+}
   } else {
     try {
       const res = await getRootFolders()
@@ -342,8 +345,7 @@ const loadFolders = async () => {
       }
       folderPath.value = []
     } catch (error) {
-      console.error('[loadRootFolders] Error:', error)
-    }
+}
   }
 }
 
@@ -430,6 +432,28 @@ const closeUploadOptions = () => {
 
 const chooseFile = () => {
   closeUploadOptions()
+
+  // #ifdef H5
+  // H5环境：创建隐藏的input元素选择文件
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.style.display = 'none'
+  input.accept = '.doc,.docx,.xls,.xlsx,.pdf,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar'
+  input.onchange = (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (file) {
+      const filePath = URL.createObjectURL(file)
+      handleUpload(filePath, file.name, file)
+    }
+    document.body.removeChild(input)
+  }
+  document.body.appendChild(input)
+  input.click()
+  // #endif
+
+  // #ifndef H5
+  // 小程序/APP环境使用uni.chooseMessageFile
   uni.chooseMessageFile({
     count: 1,
     type: 'file',
@@ -441,21 +465,22 @@ const chooseFile = () => {
       uni.showToast({ title: '选择文件失败', icon: 'none' })
     },
   })
+  // #endif
 }
 
-const handleUpload = async (filePath: string, fileName: string) => {
+const handleUpload = async (filePath: string, fileName: string, fileObj?: File) => {
   uni.showLoading({ title: '上传中...' })
   try {
     const res = await uploadDocument(filePath, {
       folderId: currentFolderId.value,
       documentName: fileName,
-    })
+    }, fileObj)
     if (res.code === 200) {
       uni.showToast({ title: '上传成功', icon: 'success' })
       loadData()
     }
-  } catch (error) {
-    uni.showToast({ title: '上传失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '上传失败', icon: 'none' })
   } finally {
     uni.hideLoading()
   }

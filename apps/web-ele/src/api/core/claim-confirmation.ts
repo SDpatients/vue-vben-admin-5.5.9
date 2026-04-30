@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace ClaimConfirmationApi {
   /** 确认状态枚举 */
@@ -201,7 +201,7 @@ export namespace ClaimConfirmationApi {
  * POST /api/v1/claim-confirmation
  */
 export async function createClaimConfirmationApi(data: ClaimConfirmationApi.CreateClaimConfirmationRequest) {
-  return requestClient8085.post<ClaimConfirmationApi.CreateClaimConfirmationResponse>('/claim-confirmation', data);
+  return requestClient8080.post<ClaimConfirmationApi.CreateClaimConfirmationResponse>('/claim-confirmation', data);
 }
 
 /**
@@ -209,7 +209,7 @@ export async function createClaimConfirmationApi(data: ClaimConfirmationApi.Crea
  * GET /api/v1/claim-confirmation/{confirmationId}
  */
 export async function getClaimConfirmationDetailApi(confirmationId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationDetailResponse>(`/claim-confirmation/${confirmationId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationDetailResponse>(`/claim-confirmation/${confirmationId}`);
 }
 
 /**
@@ -217,7 +217,7 @@ export async function getClaimConfirmationDetailApi(confirmationId: number) {
  * GET /api/v1/claim-confirmation/claim/{claimId}
  */
 export async function getClaimConfirmationByClaimIdApi(claimId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationDetailResponse>(`/claim-confirmation/claim/${claimId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationDetailResponse>(`/claim-confirmation/claim/${claimId}`);
 }
 
 /**
@@ -225,7 +225,7 @@ export async function getClaimConfirmationByClaimIdApi(claimId: number) {
  * GET /api/v1/claim-confirmation/case/{caseId}
  */
 export async function getClaimConfirmationsByCaseIdApi(caseId: number, params: { pageNum?: number; pageSize?: number } = {}) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/case/${caseId}`, { params });
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/case/${caseId}`, { params });
 }
 
 /**
@@ -233,7 +233,7 @@ export async function getClaimConfirmationsByCaseIdApi(caseId: number, params: {
  * PUT /api/v1/claim-confirmation/{confirmationId}
  */
 export async function updateClaimConfirmationApi(confirmationId: number, data: ClaimConfirmationApi.UpdateClaimConfirmationRequest) {
-  return requestClient8085.put<ClaimConfirmationApi.UpdateClaimConfirmationResponse>(`/claim-confirmation/${confirmationId}`, data);
+  return requestClient8080.put<ClaimConfirmationApi.UpdateClaimConfirmationResponse>(`/claim-confirmation/${confirmationId}`, data);
 }
 
 /**
@@ -241,7 +241,7 @@ export async function updateClaimConfirmationApi(confirmationId: number, data: C
  * DELETE /api/v1/claim-confirmation/{confirmationId}
  */
 export async function deleteClaimConfirmationApi(confirmationId: number) {
-  return requestClient8085.delete<ClaimConfirmationApi.DeleteClaimConfirmationResponse>(`/claim-confirmation/${confirmationId}`);
+  return requestClient8080.delete<ClaimConfirmationApi.DeleteClaimConfirmationResponse>(`/claim-confirmation/${confirmationId}`);
 }
 
 /**
@@ -249,7 +249,7 @@ export async function deleteClaimConfirmationApi(confirmationId: number) {
  * POST /api/v1/claim-confirmation/{confirmationId}/vote
  */
 export async function submitVoteApi(confirmationId: number, params: { voteResult: ClaimConfirmationApi.VoteResult; voteNotes?: string }) {
-  return requestClient8085.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/vote`, null, { params });
+  return requestClient8080.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/vote`, null, { params });
 }
 
 /**
@@ -257,7 +257,7 @@ export async function submitVoteApi(confirmationId: number, params: { voteResult
  * POST /api/v1/claim-confirmation/{confirmationId}/objection
  */
 export async function submitObjectionApi(confirmationId: number) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/objection`);
+  return requestClient8080.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/objection`);
 }
 
 /**
@@ -265,7 +265,7 @@ export async function submitObjectionApi(confirmationId: number) {
  * POST /api/v1/claim-confirmation/{confirmationId}/negotiation
  */
 export async function handleNegotiationApi(confirmationId: number, params: { result: string }) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/negotiation`, null, { params });
+  return requestClient8080.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/negotiation`, null, { params });
 }
 
 /**
@@ -273,7 +273,7 @@ export async function handleNegotiationApi(confirmationId: number, params: { res
  * POST /api/v1/claim-confirmation/{confirmationId}/court-ruling
  */
 export async function submitCourtRulingApi(confirmationId: number) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/court-ruling`);
+  return requestClient8080.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/court-ruling`);
 }
 
 /**
@@ -281,7 +281,7 @@ export async function submitCourtRulingApi(confirmationId: number) {
  * PUT /api/v1/claim-confirmation/{confirmationId}/lawsuit-status
  */
 export async function updateLawsuitStatusApi(confirmationId: number, status: ClaimConfirmationApi.LawsuitStatus) {
-  return requestClient8085.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/lawsuit-status`, null, { params: { status } });
+  return requestClient8080.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/lawsuit-status`, null, { params: { status } });
 }
 
 /**
@@ -289,7 +289,7 @@ export async function updateLawsuitStatusApi(confirmationId: number, status: Cla
  * POST /api/v1/claim-confirmation/{confirmationId}/finalize
  */
 export async function finalizeClaimConfirmationApi(confirmationId: number) {
-  return requestClient8085.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/finalize`);
+  return requestClient8080.put<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/finalize`);
 }
 
 /**
@@ -297,7 +297,7 @@ export async function finalizeClaimConfirmationApi(confirmationId: number) {
  * GET /api/v1/claim-confirmation/objections/{caseId}
  */
 export async function getObjectionClaimsApi(caseId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/objections/${caseId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/objections/${caseId}`);
 }
 
 /**
@@ -305,7 +305,7 @@ export async function getObjectionClaimsApi(caseId: number) {
  * GET /api/v1/claim-confirmation/lawsuits/{caseId}
  */
 export async function getLawsuitClaimsApi(caseId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/lawsuits/${caseId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/lawsuits/${caseId}`);
 }
 
 /**
@@ -313,7 +313,7 @@ export async function getLawsuitClaimsApi(caseId: number) {
  * GET /api/v1/claim-confirmation/pending/{caseId}
  */
 export async function getPendingClaimsForConfirmationApi(caseId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/pending/${caseId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ClaimConfirmationListResponse>(`/claim-confirmation/pending/${caseId}`);
 }
 
 /**
@@ -321,7 +321,7 @@ export async function getPendingClaimsForConfirmationApi(caseId: number) {
  * GET /api/v1/claim-confirmation/statistics/{caseId}
  */
 export async function getConfirmationStatisticsApi(caseId: number) {
-  return requestClient8085.get<ClaimConfirmationApi.ConfirmationStatisticsResponse>(`/claim-confirmation/statistics/${caseId}`);
+  return requestClient8080.get<ClaimConfirmationApi.ConfirmationStatisticsResponse>(`/claim-confirmation/statistics/${caseId}`);
 }
 
 /**
@@ -329,7 +329,7 @@ export async function getConfirmationStatisticsApi(caseId: number) {
  * POST /api/v1/claim-confirmation/{confirmationId}/sync-review-data
  */
 export async function syncReviewDataApi(confirmationId: number) {
-  return requestClient8085.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/sync-review-data`);
+  return requestClient8080.post<ClaimConfirmationApi.CommonResponse>(`/claim-confirmation/${confirmationId}/sync-review-data`);
 }
 
 export type { ClaimConfirmationApi };

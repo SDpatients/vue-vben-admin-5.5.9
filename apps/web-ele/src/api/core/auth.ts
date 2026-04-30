@@ -5,6 +5,7 @@
  */
 
 import { baseRequestClient, fileUploadRequestClient } from '#/api/request';
+import { logger } from '#/utils/logger';
 
 export namespace AuthApi {
   /** 登录接口参数 */
@@ -115,11 +116,11 @@ export async function loginApi(data: AuthApi.LoginParams) {
     localStorage.setItem('token', userInfo.accessToken);
     localStorage.setItem('refreshToken', userInfo.refreshToken);
     
-    // 添加调试日志
-    console.log('Login success - Token stored in localStorage:', userInfo.accessToken.substring(0, 30) + '...');
-    console.log('Login success - Refresh token stored in localStorage:', userInfo.refreshToken.substring(0, 30) + '...');
-    console.log('Login success - All localStorage keys:', Object.keys(localStorage));
-    console.log('Login success - Token value check:', localStorage.getItem('token')?.substring(0, 30) + '...');
+    // 添加调试日志（仅在开发环境输出）
+    logger.log('Login success - Token stored in localStorage:', userInfo.accessToken.substring(0, 30) + '...');
+    logger.log('Login success - Refresh token stored in localStorage:', userInfo.refreshToken.substring(0, 30) + '...');
+    logger.log('Login success - All localStorage keys:', Object.keys(localStorage));
+    logger.log('Login success - Token value check:', localStorage.getItem('token')?.substring(0, 30) + '...');
   }
 
   return result;

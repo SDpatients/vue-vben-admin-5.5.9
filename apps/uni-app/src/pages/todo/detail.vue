@@ -174,6 +174,7 @@ const handleComplete = async () => {
           const result = await completeTodo(Number(todoId.value))
           if (result.code === 200) {
             uni.showToast({ title: '已完成', icon: 'success' })
+            uni.$emit('refresh-todo-list')
             setTimeout(() => {
               uni.navigateBack()
             }, 1500)

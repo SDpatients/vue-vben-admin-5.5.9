@@ -1,4 +1,4 @@
-import { requestClient8085 } from '../request';
+import { requestClient8080 } from '../request';
 
 export interface CaseTask {
   id: number;
@@ -57,29 +57,29 @@ export namespace CaseTaskApi {
     page?: number;
     size?: number;
   }) {
-    return requestClient8085.get<PageResponse<CaseTask>>('/api/case-tasks', { params });
+    return requestClient8080.get<PageResponse<CaseTask>>('/api/case-tasks', { params });
   }
 
   export async function getCaseTaskById(id: number) {
-    return requestClient8085.get<CaseTaskDetail>(`/api/case-tasks/${id}`);
+    return requestClient8080.get<CaseTaskDetail>(`/api/case-tasks/${id}`);
   }
 
   export async function updateCaseTask(id: number, data: {
     taskDescription?: string;
     status?: string;
   }) {
-    return requestClient8085.patch<CaseTask>(`/api/case-tasks/${id}`, data);
+    return requestClient8080.patch<CaseTask>(`/api/case-tasks/${id}`, data);
   }
 
   export async function batchUpdateTaskStatus(data: {
     taskIds: number[];
     status: string;
   }) {
-    return requestClient8085.put<{ successCount: number; failCount: number }>('/api/case-tasks/batch-status', data);
+    return requestClient8080.put<{ successCount: number; failCount: number }>('/api/case-tasks/batch-status', data);
   }
 
   export async function getTaskStatistics(caseId: number) {
-    return requestClient8085.get<TaskStatistics>(`/api/case-tasks/statistics/${caseId}`);
+    return requestClient8080.get<TaskStatistics>(`/api/case-tasks/statistics/${caseId}`);
   }
 
   export async function uploadTaskFile(taskId: number, file: File, description?: string) {
@@ -88,7 +88,7 @@ export namespace CaseTaskApi {
     if (description) {
       formData.append('description', description);
     }
-    return requestClient8085.post<TaskFile>(`/api/case-tasks/${taskId}/files`, formData, {
+    return requestClient8080.post<TaskFile>(`/api/case-tasks/${taskId}/files`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -96,10 +96,10 @@ export namespace CaseTaskApi {
   }
 
   export async function getTaskFiles(taskId: number) {
-    return requestClient8085.get<TaskFile[]>(`/api/case-tasks/${taskId}/files`);
+    return requestClient8080.get<TaskFile[]>(`/api/case-tasks/${taskId}/files`);
   }
 
   export async function deleteTaskFile(taskId: number, fileId: number) {
-    return requestClient8085.delete(`/api/case-tasks/${taskId}/files/${fileId}`);
+    return requestClient8080.delete(`/api/case-tasks/${taskId}/files/${fileId}`);
   }
 }

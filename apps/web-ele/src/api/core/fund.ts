@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 // 驼峰命名转下划线命名
 function camelToSnake(obj: any): any {
@@ -280,7 +280,7 @@ export async function getFundAccountListApi(
   params: FundApi.FundAccountQueryParams,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
+  const response = await requestClient8080.get<any>(
     '/api/fund/account/list',
     {
       params: {
@@ -299,7 +299,7 @@ export async function addFundAccountApi(
   data: FundApi.AddFundAccountRequest,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.post<any>(
+  const response = await requestClient8080.post<any>(
     '/api/fund/account',
     camelToSnake(data),
     {
@@ -321,7 +321,7 @@ export async function updateFundAccountApi(
   data: FundApi.UpdateFundAccountRequest,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.put<any>(
+  const response = await requestClient8080.put<any>(
     `/api/fund/account/${data.accountId}`,
     camelToSnake(data),
     {
@@ -344,7 +344,7 @@ export async function updateFundAccountStatusApi(
   status: string,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.put<any>(
+  const response = await requestClient8080.put<any>(
     `/api/fund/account/${accountId}/status`,
     { status },
     {
@@ -366,7 +366,7 @@ export async function getFundCategoryListApi(
   params: FundApi.FundCategoryQueryParams,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
+  const response = await requestClient8080.get<any>(
     '/api/fund/category/list',
     {
       params: {
@@ -385,7 +385,7 @@ export async function getFundFlowListApi(
   params: FundApi.FundFlowQueryParams,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
+  const response = await requestClient8080.get<any>(
     '/api/fund/flow/list',
     {
       params: {
@@ -404,7 +404,7 @@ export async function addFundInflowApi(
   data: FundApi.FundInflowRequest,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.post<any>(
+  const response = await requestClient8080.post<any>(
     '/api/fund/flow/in',
     camelToSnake(data),
     {
@@ -426,7 +426,7 @@ export async function addFundOutflowApi(
   data: FundApi.FundOutflowRequest,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.post<any>(
+  const response = await requestClient8080.post<any>(
     '/api/fund/flow/out',
     camelToSnake(data),
     {
@@ -448,7 +448,7 @@ export async function getFundReportApi(
   params: FundApi.FundReportQueryParams,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
+  const response = await requestClient8080.get<any>(
     '/api/fund/report',
     {
       params: {
@@ -467,7 +467,7 @@ export async function getFundLogListApi(
   params: FundApi.FundLogQueryParams,
 ) {
   const token = localStorage.getItem('token') || '';
-  const response = await requestClient8085.get<any>(
+  const response = await requestClient8080.get<any>(
     '/api/fund/log/list',
     {
       params: {

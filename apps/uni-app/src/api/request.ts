@@ -6,6 +6,11 @@
 
 import { getBaseUrl, API_PREFIX } from '@/config'
 
+function getBaseUrl8080(): string {
+  const baseUrl = getBaseUrl()
+  return baseUrl.replace(/:\d+/, ':8080')
+}
+
 interface RequestOptions {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -14,7 +19,8 @@ interface RequestOptions {
   headers?: Record<string, string>
   showLoading?: boolean
   showErrorToast?: boolean
-  skipPrefix?: boolean // 是否跳过自动添加前缀
+  skipPrefix?: boolean
+  _baseUrlOverride?: string
 }
 
 interface ApiResponse<T = any> {
@@ -25,13 +31,7 @@ interface ApiResponse<T = any> {
 
 const requestInterceptor = (options: RequestOptions) => {
   const token = uni.getStorageSync('token')
-  console.log('============ REQUEST INTERCEPTOR ============')
-  console.log('[Interceptor] Target URL:', options.url)
-  console.log('[Interceptor] Method:', options.method || 'GET')
-  console.log('[Interceptor] Request token type:', typeof token)
-  console.log('[Interceptor] Request token length:', token?.length)
-  console.log('[Interceptor] Request token:', token ? `${token.substring(0, 30)}...` : 'NULL/EMPTY')
-  
+
   // 如果是 FormData，不设置 Content-Type，让浏览器自动处理
   // 使用 typeof 检查 FormData 是否存在（小程序/APP 环境可能没有 FormData）
   const isFormData = typeof FormData !== 'undefined' && options.data instanceof FormData
@@ -46,36 +46,22 @@ const requestInterceptor = (options: RequestOptions) => {
       ...options.headers,
     }
   }
-  
+
   if (token) {
     options.headers.Authorization = `Bearer ${token}`
-    console.log('[Interceptor] Authorization header added')
-  } else {
-    console.log('[Interceptor] No token available, skipping Authorization header')
   }
-  console.log('[Interceptor] Final headers:', JSON.stringify(options.headers, null, 2))
-  console.log('============ REQUEST INTERCEPTOR END ============')
+
   return options
 }
 
 const responseInterceptor = <T>(response: any, showErrorToast: boolean = true): Promise<ApiResponse<T>> => {
   return new Promise((resolve, reject) => {
     const { statusCode, data } = response
-    console.log('============ RESPONSE INTERCEPTOR ============')
-    console.log('[Response] Status code:', statusCode)
-    console.log('[Response] Data:', JSON.stringify(data, null, 2))
-    console.log('[Response] Data code:', data?.code)
-    console.log('[Response] Data message:', data?.message)
 
     if (statusCode === 200) {
       if (data.code === 0 || data.code === 200) {
-        console.log('[Response] Response is successful')
-        console.log('============ RESPONSE INTERCEPTOR END ============')
         resolve(data)
       } else {
-        console.log('[Response] Business logic failed - code:', data.code)
-        console.log('[Response] Business logic failed - message:', data.message)
-        console.log('============ RESPONSE INTERCEPTOR END ============')
         if (showErrorToast) {
           uni.showToast({
             title: data.message || '请求失败',
@@ -85,14 +71,10 @@ const responseInterceptor = <T>(response: any, showErrorToast: boolean = true): 
         reject(data)
       }
     } else if (statusCode === 401) {
-      console.log('[Response] Unauthorized (401) - clearing token')
-      console.log('============ RESPONSE INTERCEPTOR END ============')
       uni.removeStorageSync('token')
       uni.navigateTo({ url: '/pages/login/index' })
       reject(new Error('登录已过期'))
     } else {
-      console.log('[Response] Network error - status code:', statusCode)
-      console.log('============ RESPONSE INTERCEPTOR END ============')
       if (showErrorToast) {
         uni.showToast({
           title: '网络错误',
@@ -129,10 +111,7 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
     requestUrl = `${API_PREFIX}${requestUrl}`
   }
   
-  let finalUrl = `${getBaseUrl()}${requestUrl}`
-  console.log('[Request] Base URL:', getBaseUrl())
-  console.log('[Request] Request URL:', requestUrl)
-  console.log('[Request] Final URL:', finalUrl)
+  let finalUrl = `${options._baseUrlOverride || getBaseUrl()}${requestUrl}`
 
   // 对于GET请求，将params拼接到URL中
   let requestData = config.data
@@ -143,14 +122,6 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
     }
   }
 
-  console.log('[Request] Request data:', JSON.stringify(requestData, null, 2))
-  console.log('Making request:', {
-    url: finalUrl,
-    method: config.method || 'GET',
-    data: requestData,
-    header: config.headers,
-  })
-
   return new Promise((resolve, reject) => {
     uni.request({
       url: finalUrl,
@@ -158,17 +129,11 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
       data: requestData,
       header: config.headers,
       success: (res: UniApp.RequestSuccessCallbackResult) => {
-        console.log('[Request] Response received')
-        console.log('[Request] Response status code:', res.statusCode)
-        console.log('[Request] Response data:', JSON.stringify(res.data, null, 2))
         responseInterceptor<T>(res, showErrorToast)
           .then((data) => resolve(data as T))
           .catch(reject)
       },
       fail: (err: UniApp.GeneralCallbackResult) => {
-        console.log('[Request] Request failed')
-        console.log('[Request] Error message:', err.errMsg)
-        console.log('[Request] Error:', JSON.stringify(err, null, 2))
         if (showLoading) {
           uni.hideLoading()
         }
@@ -194,11 +159,30 @@ export const http = {
     request<T>({ url, method: 'POST', data, ...config }),
   put: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
     request<T>({ url, method: 'PUT', data, ...config }),
-  delete: <T = any>(url: string, params?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'DELETE', params, ...config }),
+  delete: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'DELETE', data, ...config }),
   patch: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
     request<T>({ url, method: 'PATCH', data, ...config }),
 }
 
 export default http
-export { getBaseUrl }
+export { getBaseUrl, getBaseUrl8080 }
+
+/**
+ * http8080 客户端 - 用于访问特殊前缀的API（双api前缀）
+ * 这些API在Controller中显式定义了 /api/xxx 路径，加上 context-path /api/v1 后
+ * 实际路径为 /api/v1/api/xxx
+ * 此客户端会自动添加 /api/v1 前缀，并指向8080端口
+ */
+export const http8080 = {
+  get: <T = any>(url: string, params?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'GET', params, ...config, _baseUrlOverride: getBaseUrl8080() }),
+  post: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'POST', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+  put: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'PUT', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+  delete: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'DELETE', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+  patch: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
+    request<T>({ url, method: 'PATCH', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+}

@@ -71,7 +71,9 @@
         </view>
         <view class="card-footer">
           <text class="time">{{ formatDateTime(item.createTime) }}</text>
-          <text class="amount">¥{{ formatAmount(item.totalAmount) }}</text>
+          <view class="footer-actions">
+            <text class="amount">¥{{ formatAmount(item.totalAmount) }}</text>
+          </view>
         </view>
       </view>
 
@@ -131,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, computed, watch } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import {
   getExpenseReimbursementList,
@@ -200,6 +202,11 @@ watch(showFilter, (newVal) => {
 
 onMounted(() => {
   loadData()
+  uni.$on('refresh-expense-list', () => loadData(true))
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-expense-list')
 })
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -268,8 +275,7 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = expenseList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     refreshing.value = false
@@ -298,6 +304,10 @@ onReachBottom(() => {
 
 const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/expense/detail?id=${id}` })
+}
+
+const goToEdit = (id: number) => {
+  uni.navigateTo({ url: `/pages/expense/form?id=${id}` })
 }
 
 const handleCreate = () => {
@@ -500,10 +510,24 @@ const formatAmount = (amount?: number) => {
         color: #999;
       }
 
-      .amount {
-        font-size: 32rpx;
-        color: #f44336;
-        font-weight: bold;
+      .footer-actions {
+        display: flex;
+        align-items: center;
+        gap: 16rpx;
+
+        .edit-btn {
+          font-size: 26rpx;
+          color: #0068E2;
+          padding: 6rpx 16rpx;
+          background: #f0f4ff;
+          border-radius: 8rpx;
+        }
+
+        .amount {
+          font-size: 32rpx;
+          color: #f44336;
+          font-weight: bold;
+        }
       }
     }
   }

@@ -1,4 +1,4 @@
-import { requestClient8085, fileDownloadRequestClient8085 } from '#/api/request';
+import { requestClient8080, fileDownloadRequestClient8080 } from '#/api/request';
 
 export type FieldType = 'TEXT' | 'NUMBER' | 'DATE' | 'LIST' | 'IMAGE' | 'TABLE';
 
@@ -104,68 +104,68 @@ interface ListResponse<T> {
 
 export const documentTemplatesApi = {
   createTemplate: (data: DocumentTemplateRequest) => {
-    return requestClient8085.post<CommonResponse<DocumentTemplate>>(
+    return requestClient8080.post<CommonResponse<DocumentTemplate>>(
       '/document-templates',
       data,
     );
   },
 
   updateTemplate: (id: number, data: Partial<DocumentTemplateRequest>) => {
-    return requestClient8085.put<CommonResponse<DocumentTemplate>>(
+    return requestClient8080.put<CommonResponse<DocumentTemplate>>(
       `/document-templates/${id}`,
       data,
     );
   },
 
   deleteTemplate: (id: number) => {
-    return requestClient8085.delete<CommonResponse>(`/document-templates/${id}`);
+    return requestClient8080.delete<CommonResponse>(`/document-templates/${id}`);
   },
 
   getTemplates: () => {
-    return requestClient8085.get<ListResponse<DocumentTemplate>>(
+    return requestClient8080.get<ListResponse<DocumentTemplate>>(
       '/document-templates',
     );
   },
 
   getTemplatesByType: (templateType: TemplateType) => {
-    return requestClient8085.get<ListResponse<DocumentTemplate>>(
+    return requestClient8080.get<ListResponse<DocumentTemplate>>(
       `/document-templates/type/${templateType}`,
     );
   },
 
   getTemplatesByDescription: (description: string) => {
-    return requestClient8085.get<ListResponse<DocumentTemplate>>(
+    return requestClient8080.get<ListResponse<DocumentTemplate>>(
       '/document-templates',
       { params: { description } },
     );
   },
 
   getTemplateById: (id: number) => {
-    return requestClient8085.get<CommonResponse<DocumentTemplate>>(
+    return requestClient8080.get<CommonResponse<DocumentTemplate>>(
       `/document-templates/${id}`,
     );
   },
 
   getTemplateByCode: (templateCode: string) => {
-    return requestClient8085.get<CommonResponse<DocumentTemplate>>(
+    return requestClient8080.get<CommonResponse<DocumentTemplate>>(
       `/document-templates/code/${templateCode}`,
     );
   },
 
   getTemplateDetail: (id: number) => {
-    return requestClient8085.get<CommonResponse<DocumentTemplate>>(
+    return requestClient8080.get<CommonResponse<DocumentTemplate>>(
       `/document-templates/${id}/detail`,
     );
   },
 
   getTemplateFields: (id: number) => {
-    return requestClient8085.get<CommonResponse<TemplateField[]>>(
+    return requestClient8080.get<CommonResponse<TemplateField[]>>(
       `/document-templates/${id}/fields`,
     );
   },
 
   setDefaultTemplate: (id: number, templateType: TemplateType) => {
-    return requestClient8085.post<CommonResponse>(
+    return requestClient8080.post<CommonResponse>(
       `/document-templates/${id}/set-default`,
       null,
       {
@@ -177,7 +177,7 @@ export const documentTemplatesApi = {
   uploadTemplateFile: (id: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return requestClient8085.post<CommonResponse<string>>(
+    return requestClient8080.post<CommonResponse<string>>(
       `/document-templates/${id}/upload`,
       formData,
       {
@@ -194,7 +194,7 @@ export const documentTemplatesApi = {
     if (imageType) {
       formData.append('imageType', imageType);
     }
-    return requestClient8085.post<CommonResponse<ImageUploadResponse>>(
+    return requestClient8080.post<CommonResponse<ImageUploadResponse>>(
       `/document-templates/${id}/upload-image`,
       formData,
       {
@@ -206,7 +206,7 @@ export const documentTemplatesApi = {
   },
 
   exportWord: (id: number, data: ExportRequest) => {
-    return fileDownloadRequestClient8085.post<Blob>(
+    return fileDownloadRequestClient8080.post<Blob>(
       `/document-templates/${id}/export/word`,
       data,
       {
@@ -216,7 +216,7 @@ export const documentTemplatesApi = {
   },
 
   exportExcel: (id: number, data: ExportRequest) => {
-    return fileDownloadRequestClient8085.post<Blob>(
+    return fileDownloadRequestClient8080.post<Blob>(
       `/document-templates/${id}/export/excel`,
       data,
       {
@@ -226,7 +226,7 @@ export const documentTemplatesApi = {
   },
 
   batchExportExcel: (data: BatchExportRequest) => {
-    return fileDownloadRequestClient8085.post<Blob>(
+    return fileDownloadRequestClient8080.post<Blob>(
       '/document-templates/batch-export/excel',
       data,
       {
@@ -236,7 +236,7 @@ export const documentTemplatesApi = {
   },
 
   exportPdf: (id: number, data: ExportRequest) => {
-    return fileDownloadRequestClient8085.post<Blob>(
+    return fileDownloadRequestClient8080.post<Blob>(
       `/document-templates/${id}/export/pdf`,
       data,
       {
@@ -246,7 +246,7 @@ export const documentTemplatesApi = {
   },
 
   previewTemplate: (id: number) => {
-    return requestClient8085.get<Blob>(
+    return requestClient8080.get<Blob>(
       `/document-templates/${id}/preview`,
       {
         responseType: 'blob',
@@ -255,7 +255,7 @@ export const documentTemplatesApi = {
   },
 
   previewPdf: (id: number) => {
-    return requestClient8085.get<Blob>(
+    return requestClient8080.get<Blob>(
       `/document-templates/${id}/preview/pdf`,
       {
         responseType: 'blob',
@@ -264,13 +264,13 @@ export const documentTemplatesApi = {
   },
 
   getExportHistory: () => {
-    return requestClient8085.get<ListResponse<ExportHistory>>(
+    return requestClient8080.get<ListResponse<ExportHistory>>(
       '/document-templates/export-history',
     );
   },
 
   getTemplateExportHistory: (id: number) => {
-    return requestClient8085.get<ListResponse<ExportHistory>>(
+    return requestClient8080.get<ListResponse<ExportHistory>>(
       `/document-templates/${id}/export-history`,
     );
   },

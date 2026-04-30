@@ -42,13 +42,19 @@ function useEcharts(chartRef: Ref<EchartsUIType>) {
     };
   });
 
-  const initCharts = (t?: EchartsThemeType) => {
+  const initCharts = (t?: EchartsThemeType): echarts.ECharts | null => {
     const el = chartRef?.value?.$el;
     if (!el) {
-      return;
+      return null;
+    }
+    // 检查 DOM 是否有有效的宽高
+    const clientWidth = el.clientWidth;
+    const clientHeight = el.clientHeight;
+    if (clientWidth === 0 || clientHeight === 0) {
+      console.warn('ECharts DOM 元素宽高为 0，稍后重试');
+      return null;
     }
     chartInstance = echarts.init(el, t || isDark.value ? 'dark' : null);
-
     return chartInstance;
   };
 
@@ -62,10 +68,16 @@ function useEcharts(chartRef: Ref<EchartsUIType>) {
       ...getOptions.value,
     };
     return new Promise((resolve) => {
-      if (chartRef.value?.offsetHeight === 0) {
+      if (!chartRef.value || chartRef.value.offsetHeight === 0) {
         useTimeoutFn(async () => {
-          resolve(await renderEcharts(currentOptions));
-        }, 30);
+          const el = chartRef?.value?.$el;
+          if (!el || el.clientWidth === 0 || el.clientHeight === 0) {
+            // 如果 DOM 仍然不可见，继续延迟尝试
+            resolve(await renderEcharts(currentOptions));
+          } else {
+            resolve(await renderEcharts(currentOptions));
+          }
+        }, 50);
         return;
       }
       nextTick(() => {
@@ -77,7 +89,7 @@ function useEcharts(chartRef: Ref<EchartsUIType>) {
           clear && chartInstance?.clear();
           chartInstance?.setOption(currentOptions);
           resolve(chartInstance);
-        }, 30);
+        }, 50);
       });
     });
   };

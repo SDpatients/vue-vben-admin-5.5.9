@@ -126,8 +126,7 @@ const loadDetail = async (id: number) => {
       responsibleUserId: data.responsibleUserId,
     }
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
 
@@ -153,18 +152,18 @@ const handleSubmit = async () => {
 
   try {
     if (isEdit.value && courtId.value) {
-      await updateCourt(courtId.value, formData.value)
+      await updateCourt(courtId.value, { id: courtId.value, ...formData.value })
       uni.showToast({ title: '更新成功', icon: 'success' })
     } else {
       await createCourt(formData.value)
       uni.showToast({ title: '创建成功', icon: 'success' })
     }
+    uni.$emit('refresh-court-list')
     setTimeout(() => {
       uni.navigateBack()
     }, 1500)
   } catch (error) {
-    console.error('[submit] Error:', error)
-    uni.showToast({ title: '操作失败', icon: 'none' })
+uni.showToast({ title: '操作失败', icon: 'none' })
   } finally {
     submitting.value = false
   }

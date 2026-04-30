@@ -1,6 +1,6 @@
 import type { UserInfo } from '@vben/types';
 
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace UserApi {
   /** 用户信息 */
@@ -78,7 +78,7 @@ export async function getUserInfoApi() {
  * @param administratorId 管理人ID
  */
 export async function getUserByDeptIdApi(administratorId: number) {
-  return requestClient8085.get<UserApi.StaffListResponse>(
+  return requestClient8080.get<UserApi.StaffListResponse>(
     `/administrator/${administratorId}/staff/list`,
   );
 }
@@ -90,7 +90,7 @@ export async function getUserByDeptIdApi(administratorId: number) {
  * @param size 每页数量，默认 10000
  */
 export async function getUsersApi(keyword: string, page: number = 1, size: number = 10000) {
-  return requestClient8085.get<UserApi.StaffListResponse>('/users', {
+  return requestClient8080.get<UserApi.StaffListResponse>('/users', {
     params: { keyword, page, size },
   });
 }
@@ -99,5 +99,5 @@ export async function getUsersApi(keyword: string, page: number = 1, size: numbe
  * 获取所有管理员用户
  */
 export async function getAdminUsersApi() {
-  return requestClient8085.get<UserApi.StaffListResponse>('/users/admins');
+  return requestClient8080.get<UserApi.StaffListResponse>('/users/admins');
 }

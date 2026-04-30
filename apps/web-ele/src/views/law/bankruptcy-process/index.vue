@@ -31,7 +31,7 @@ import Sortable from 'sortablejs';
 import { CaseTaskSubmissionApi } from '../../../api/core/case-task-submissions';
 import { CaseTaskApi } from '../../../api/core/case-tasks';
 // 导入 API 请求客户端
-import { requestClient8085 } from '../../../api/request';
+import { requestClient8080 } from '../../../api/request';
 // 导入临时上传相关 API
 import {
   createTempUploadToken,
@@ -572,7 +572,7 @@ const handleFileRemove = (file: UploadFile) => {
           }
 
           // 调用删除接口
-          await requestClient8085.delete(`/file/${fileId}`, {
+          await requestClient8080.delete(`/file/${fileId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -632,7 +632,7 @@ const handleRenameFile = async () => {
     }
 
     // 调用重命名接口
-    await requestClient8085.put(
+    await requestClient8080.put(
       `/file/${fileId}/rename`,
       { newFileName: newFileName.value.trim() },
       {
@@ -710,7 +710,7 @@ const handleFileDownload = async (file: any) => {
     }
 
     // 使用 fetch 下载，将 token 放在请求头中
-    const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+    const baseUrl = import.meta.env.VITE_API_URL_8080 || '/api/v1';
     const response = await fetch(`${baseUrl}/file/download/${fileId}`, {
       method: 'GET',
       headers: {
@@ -913,7 +913,7 @@ const handleImagePreview = async (file: any) => {
       return;
     }
 
-    const baseUrl = import.meta.env.VITE_API_URL_8085 || '/api/v1';
+    const baseUrl = import.meta.env.VITE_API_URL_8080 || '/api/v1';
 
     // 获取当前图片在图片列表中的索引
     const allImageFiles = uploadFiles.value.filter((f) => isImageFile(f.name));

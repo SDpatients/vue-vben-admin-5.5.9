@@ -890,7 +890,7 @@ const loadTemplates = async () => {
 
     // 检查 response 结构
     if (response) {
-      // 直接检查 response.code，因为 requestClient8085 返回的就是后端响应体
+      // 直接检查 response.code，因为 requestClient8080 返回的就是后端响应体
       if (response.code === 200) {
         console.log('准备赋值给 templates:', response.data);
         templates.value = response.data || [];

@@ -29,6 +29,8 @@ export namespace WorkTeamApi {
     memberCount?: number
     teamMembers?: string
     creator?: string
+    members?: TeamMemberInfo[]
+    membersLoading?: boolean
   }
 
   export interface WorkTeamListResponse {
@@ -144,6 +146,7 @@ export namespace WorkTeamApi {
   export interface TeamRoleInfo {
     id: number
     roleName: string
+    roleCode?: string
     roleDescription?: string
     status: TeamStatus
     createTime: string

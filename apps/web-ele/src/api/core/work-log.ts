@@ -1,4 +1,4 @@
-import { fileUploadRequestClient, requestClient8085 } from '#/api/request';
+import { fileUploadRequestClient, requestClient8080 } from '#/api/request';
 
 export namespace WorkLogApi {
   export type WorkType =
@@ -156,7 +156,7 @@ export namespace WorkLogApi {
 }
 
 export async function createWorkLogApi(data: WorkLogApi.CreateWorkLogRequest) {
-  return requestClient8085.post<WorkLogApi.CreateWorkLogResponse>(
+  return requestClient8080.post<WorkLogApi.CreateWorkLogResponse>(
     '/work-log',
     data,
   );
@@ -165,14 +165,14 @@ export async function createWorkLogApi(data: WorkLogApi.CreateWorkLogRequest) {
 export async function getWorkLogListApi(
   params: WorkLogApi.WorkLogListQueryParams = {},
 ) {
-  return requestClient8085.get<WorkLogApi.WorkLogListResponse>(
+  return requestClient8080.get<WorkLogApi.WorkLogListResponse>(
     '/work-log/list',
     { params },
   );
 }
 
 export async function getWorkLogDetailApi(logId: number) {
-  return requestClient8085.get<WorkLogApi.WorkLogDetailResponse>(
+  return requestClient8080.get<WorkLogApi.WorkLogDetailResponse>(
     `/work-log/${logId}`,
   );
 }
@@ -181,7 +181,7 @@ export async function updateWorkLogApi(
   logId: number,
   data: WorkLogApi.UpdateWorkLogRequest,
 ) {
-  return requestClient8085.put<WorkLogApi.CommonResponse>(
+  return requestClient8080.put<WorkLogApi.CommonResponse>(
     `/work-log/${logId}`,
     data,
   );
@@ -191,14 +191,14 @@ export async function updateWorkLogStatusApi(
   logId: number,
   data: WorkLogApi.UpdateWorkLogStatusRequest,
 ) {
-  return requestClient8085.put<WorkLogApi.CommonResponse>(
+  return requestClient8080.put<WorkLogApi.CommonResponse>(
     `/work-log/${logId}/status`,
     data,
   );
 }
 
 export async function deleteWorkLogApi(logId: number) {
-  return requestClient8085.delete<WorkLogApi.CommonResponse>(
+  return requestClient8080.delete<WorkLogApi.CommonResponse>(
     `/work-log/${logId}`,
   );
 }
@@ -216,7 +216,7 @@ export async function createWorkLogWithFilesApi(formData: FormData) {
 }
 
 export async function getWorkLogWithFilesApi(logId: number) {
-  return requestClient8085.get<WorkLogApi.WorkLogDetailWithFilesResponse>(
+  return requestClient8080.get<WorkLogApi.WorkLogDetailWithFilesResponse>(
     `/work-log/${logId}/with-files`,
   );
 }

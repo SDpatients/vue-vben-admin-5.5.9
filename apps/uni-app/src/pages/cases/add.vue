@@ -526,8 +526,7 @@ const loadCourtList = async () => {
       courtList.value = res.data.list
     }
   } catch (error) {
-    console.error('加载法院列表失败:', error)
-  }
+}
 }
 
 // 加载管理人列表
@@ -538,8 +537,7 @@ const loadManagerList = async () => {
       managerList.value = res.data.list
     }
   } catch (error) {
-    console.error('加载管理人列表失败:', error)
-  }
+}
 }
 
 // 加载用户列表
@@ -550,8 +548,7 @@ const loadUserList = async () => {
       userList.value = res.data.users
     }
   } catch (error) {
-    console.error('加载用户列表失败:', error)
-  }
+}
 }
 
 // 日期选择
@@ -671,13 +668,9 @@ const handleSelectFile = () => {
     type: 'all',
     extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     success: (res: any) => {
-      console.log('[chooseFile] success:', res)
-      const files = res.tempFiles || []
-      console.log('[chooseFile] tempFiles:', files)
-      
-      const validFiles = files.filter((file: any) => {
-        console.log('[chooseFile] file object:', file)
-        // 验证文件大小（10MB）
+const files = res.tempFiles || []
+const validFiles = files.filter((file: any) => {
+// 验证文件大小（10MB）
         if (file.size > 10 * 1024 * 1024) {
           uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
           return false
@@ -691,13 +684,10 @@ const handleSelectFile = () => {
         name: file.name || file.path?.split('/').pop() || '未知文件',
         size: file.size || 0
       }))
-      
-      console.log('[chooseFile] processed files:', processedFiles)
-      selectedFiles.value.push(...processedFiles)
+selectedFiles.value.push(...processedFiles)
     },
     fail: (err: any) => {
-      console.error('[chooseFile] fail:', err)
-    },
+},
   })
 }
 
@@ -729,19 +719,11 @@ const getFileName = (path: string) => {
 const uploadFilesUniApp = async (caseId: number) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
-  
-  console.log('[uploadFilesUniApp] 开始上传，caseId:', caseId)
-  console.log('[uploadFilesUniApp] baseUrl:', baseUrl)
-  
-  const files = selectedFiles.value.filter(f => f.path)
-  console.log('[uploadFilesUniApp] 文件数量:', files.length)
-  
-  let uploadedCount = 0
+const files = selectedFiles.value.filter(f => f.path)
+let uploadedCount = 0
   
   for (const fileInfo of files) {
-    console.log('[uploadFilesUniApp] 上传文件:', fileInfo.name, fileInfo.size)
-    
-    try {
+try {
       const uploadRes = await new Promise<any>((resolve, reject) => {
         uni.uploadFile({
           url: `${baseUrl}/api/v1/file/upload`,
@@ -760,18 +742,13 @@ const uploadFilesUniApp = async (caseId: number) => {
       })
       
       const result = JSON.parse(uploadRes.data)
-      console.log('[uploadFilesUniApp] 上传结果:', result)
-      
-      if (result.code === 200) {
+if (result.code === 200) {
         uploadedCount++
       }
     } catch (error) {
-      console.error('[uploadFilesUniApp] 上传失败:', error)
-    }
+}
   }
-  
-  console.log('[uploadFilesUniApp] 上传完成，成功:', uploadedCount, '总数:', files.length)
-  uni.showToast({ 
+uni.showToast({ 
     title: `案件创建成功，已上传 ${uploadedCount}/${files.length} 个文件`, 
     icon: 'success' 
   })
@@ -843,23 +820,18 @@ const confirmSubmit = async () => {
       // 2. 上传文件（如果有）
       if (selectedFiles.value.length > 0) {
         uni.showLoading({ title: '上传文件中...' })
-        console.log('[confirmSubmit] 准备上传文件，数量:', selectedFiles.value.length)
-        console.log('[confirmSubmit] caseId:', caseId)
-        console.log('[confirmSubmit] isH5:', isH5)
-        
-        try {
+try {
           // 统一使用 uni.uploadFile 上传
           await uploadFilesUniApp(caseId)
         } catch (fileError: any) {
-          console.error('[confirmSubmit] 文件上传失败:', fileError)
-          uni.showToast({ title: `案件创建成功，但文件上传失败: ${fileError.message || '未知错误'}`, icon: 'none' })
+uni.showToast({ title: `案件创建成功，但文件上传失败: ${fileError.message || '未知错误'}`, icon: 'none' })
         }
       } else {
-        console.log('[confirmSubmit] 没有文件需要上传')
-      }
+}
 
       uni.hideLoading()
       uni.showToast({ title: '案件创建成功', icon: 'success' })
+      uni.$emit('refresh-case-list')
 
       // 3. 跳转到案件详情页
       setTimeout(() => {

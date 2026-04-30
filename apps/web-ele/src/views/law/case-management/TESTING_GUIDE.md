@@ -209,7 +209,7 @@ beforeEach(() => {
 
 ```env
 # API 基础地址
-VITE_API_BASE_URL=http://localhost:8085
+VITE_API_BASE_URL=http://localhost:8080
 
 # 测试环境标识
 NODE_ENV=test

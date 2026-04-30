@@ -22,16 +22,28 @@
     <!-- 统计卡片 -->
     <view class="stats-bar">
       <view class="stat-item" @click="quickFilter('')">
-        <text class="num" :class="{ active: !filterParams.caseStatus }">{{ total }}</text>
-        <text class="label">全部案件</text>
+        <text class="num" :class="{ active: !filterParams.caseStatus }">{{ statsTotal }}</text>
+        <text class="label">全部</text>
+      </view>
+      <view class="stat-item" @click="quickFilter('PENDING')">
+        <text class="num" :class="{ active: filterParams.caseStatus === 'PENDING' }">{{ statsPending }}</text>
+        <text class="label">待处理</text>
       </view>
       <view class="stat-item" @click="quickFilter('ONGOING')">
-        <text class="num" :class="{ active: filterParams.caseStatus === 'ONGOING' }">{{ ongoingCount }}</text>
+        <text class="num" :class="{ active: filterParams.caseStatus === 'ONGOING' }">{{ statsOngoing }}</text>
         <text class="label">进行中</text>
       </view>
-      <view class="stat-item" @click="quickFilter('CLOSED')">
-        <text class="num" :class="{ active: filterParams.caseStatus === 'CLOSED' }">{{ closedCount }}</text>
+      <view class="stat-item" @click="quickFilter('AWAITING')">
+        <text class="num" :class="{ active: filterParams.caseStatus === 'AWAITING' }">{{ statsAwaiting }}</text>
+        <text class="label">报结中</text>
+      </view>
+      <view class="stat-item" @click="quickFilter('COMPLETED')">
+        <text class="num" :class="{ active: filterParams.caseStatus === 'COMPLETED' }">{{ statsCompleted }}</text>
         <text class="label">已结案</text>
+      </view>
+      <view class="stat-item" @click="quickFilter('ARCHIVED')">
+        <text class="num" :class="{ active: filterParams.caseStatus === 'ARCHIVED' }">{{ statsArchived }}</text>
+        <text class="label">已归档</text>
       </view>
     </view>
 
@@ -138,18 +150,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, computed, watch } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, computed, watch } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
-import { getCaseList, advancedCaseSearch, type CaseItem, type CaseListParams } from '@/api/case'
+import { getCaseList, advancedCaseSearch, getMyCaseStats, type CaseItem, type CaseListParams } from '@/api/case'
 import dayjs from 'dayjs'
-
-console.log('=== cases/index.vue loaded ===')
-
 const searchKeyword = ref('')
 const caseList = shallowRef<CaseItem[]>([])
 const page = ref(1)
 const pageSize = 10
 const total = ref(0)
+const statsTotal = ref(0)
+const statsPending = ref(0)
+const statsOngoing = ref(0)
+const statsAwaiting = ref(0)
+const statsCompleted = ref(0)
+const statsArchived = ref(0)
 const loading = ref(false)
 const refreshing = ref(false)
 const hasMore = ref(true)
@@ -174,7 +189,7 @@ const tempFilterParams = ref<{
 const statusOptions = [
   { label: '全部', value: '' },
   { label: '进行中', value: 'ONGOING' },
-  { label: '已结案', value: 'CLOSED' },
+  { label: '已结案', value: 'COMPLETED' },
   { label: '待受理', value: 'PENDING' },
   { label: '已归档', value: 'ARCHIVED' },
 ]
@@ -201,13 +216,7 @@ const activeFilterCount = computed(() => {
   return count
 })
 
-const ongoingCount = computed(() =>
-  caseList.value.filter((item) => item.caseStatus === 'ONGOING' || item.caseStatus === 'IN_PROGRESS').length
-)
 
-const closedCount = computed(() =>
-  caseList.value.filter((item) => item.caseStatus === 'CLOSED' || item.caseStatus === 'COMPLETED').length
-)
 
 watch(showFilter, (newVal) => {
   if (newVal) {
@@ -216,8 +225,16 @@ watch(showFilter, (newVal) => {
 })
 
 onMounted(() => {
-  console.log('[onMounted] Loading data...')
   loadData()
+  loadStats()
+  uni.$on('refresh-case-list', () => {
+    loadData(true)
+    loadStats()
+  })
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-case-list')
 })
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -227,48 +244,40 @@ const handleSearchInput = () => {
     clearTimeout(searchTimer)
   }
   searchTimer = setTimeout(() => {
-    console.log('[handleSearchInput] Search keyword:', searchKeyword.value)
-    loadData(true)
+loadData(true)
   }, 500)
 }
 
 const handleSearch = () => {
-  console.log('[handleSearch] Search triggered:', searchKeyword.value)
-  loadData(true)
+loadData(true)
 }
 
 const clearSearch = () => {
-  console.log('[clearSearch] Clearing search')
-  searchKeyword.value = ''
+searchKeyword.value = ''
   loadData(true)
 }
 
 const quickFilter = (status: string) => {
-  console.log('[quickFilter] Status:', status)
-  filterParams.value.caseStatus = status
+filterParams.value.caseStatus = status
   loadData(true)
 }
 
 const resetFilter = () => {
-  console.log('[resetFilter] Resetting filter')
-  tempFilterParams.value = {
+tempFilterParams.value = {
     caseStatus: '',
     caseProgress: '',
   }
 }
 
 const applyFilter = () => {
-  console.log('[applyFilter] Applying filter:', tempFilterParams.value)
-  filterParams.value = { ...tempFilterParams.value }
+filterParams.value = { ...tempFilterParams.value }
   showFilter.value = false
   loadData(true)
 }
 
 const loadData = async (isRefresh = false) => {
-  console.log('[loadData] isRefresh:', isRefresh, 'page:', page.value)
-  if (loading.value) {
-    console.log('[loadData] Already loading, skip')
-    return
+if (loading.value) {
+return
   }
   loading.value = true
 
@@ -289,25 +298,17 @@ const loadData = async (isRefresh = false) => {
     if (filterParams.value.caseProgress) {
       params.caseProgress = filterParams.value.caseProgress
     }
-
-    console.log('[loadData] Request params:', params)
-
-    let res
+let res
     const hasSearchOrFilter = searchKeyword.value.trim() || 
                                filterParams.value.caseStatus || 
                                filterParams.value.caseProgress
 
     if (hasSearchOrFilter) {
-      console.log('[loadData] Using advanced search API')
-      res = await advancedCaseSearch(params)
+res = await advancedCaseSearch(params)
     } else {
-      console.log('[loadData] Using basic list API')
-      res = await getCaseList(params)
+res = await getCaseList(params)
     }
-    
-    console.log('[loadData] Response:', res)
-
-    const rawList = res.data?.list || []
+const rawList = res.data?.list || []
     const listData = Array.isArray(rawList) ? rawList.map(item => ({ ...item })) : []
 
     if (isRefresh) {
@@ -319,10 +320,8 @@ const loadData = async (isRefresh = false) => {
 
     total.value = res.data?.total || 0
     hasMore.value = caseList.value.length < (res.data?.total || 0)
-    console.log('[loadData] Total:', total.value, 'hasMore:', hasMore.value)
-  } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+} catch (error) {
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     refreshing.value = false
@@ -330,15 +329,13 @@ const loadData = async (isRefresh = false) => {
 }
 
 const onRefresh = () => {
-  console.log('[onRefresh] Refreshing...')
-  loadData(true).finally(() => {
+  Promise.all([loadData(true), loadStats()]).finally(() => {
     uni.stopPullDownRefresh()
   })
 }
 
 const onLoadMore = () => {
-  console.log('[onLoadMore] Loading more, hasMore:', hasMore.value)
-  if (!hasMore.value || loading.value) return
+if (!hasMore.value || loading.value) return
   page.value++
   loadData()
 }
@@ -352,8 +349,7 @@ onReachBottom(() => {
 })
 
 const goToDetail = (id: number) => {
-  console.log('[goToDetail] id:', id)
-  uni.navigateTo({ url: `/pages/cases/detail?id=${id}` })
+uni.navigateTo({ url: `/pages/cases/detail?id=${id}` })
 }
 
 const handleCreate = () => {
@@ -396,6 +392,23 @@ const getProgressText = (progress?: string) => {
 const formatDate = (date?: string) => {
   if (!date) return '-'
   return dayjs(date).format('YYYY-MM-DD')
+}
+
+const loadStats = async () => {
+  try {
+    const res = await getMyCaseStats()
+    if (res.data?.code === 200 || res.code === 200) {
+      const data = res.data?.data || res.data
+      statsTotal.value = data?.totalCases || 0
+      statsPending.value = data?.pendingCases || 0
+      statsOngoing.value = data?.ongoingCases || 0
+      statsAwaiting.value = data?.awaitingCases || 0
+      statsCompleted.value = data?.completedCases || 0
+      statsArchived.value = data?.archivedCases || 0
+    }
+  } catch (error) {
+    console.error('加载统计数据失败', error)
+  }
 }
 
 

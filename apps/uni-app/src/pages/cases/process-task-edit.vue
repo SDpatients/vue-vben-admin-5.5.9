@@ -104,9 +104,6 @@ import {
   type CaseTask,
   type CaseTaskDetail 
 } from '@/api/process'
-
-console.log('=== process-task-edit.vue loaded ===')
-
 const caseId = ref('')
 const taskId = ref('')
 const mode = ref<'add' | 'edit' | 'view'>('add')
@@ -134,18 +131,14 @@ const pageTitle = computed(() => {
 })
 
 onMounted(() => {
-  console.log('[onMounted] process-task-edit')
-  const pages = getCurrentPages()
+const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
   const options = currentPage.options || {}
   
   caseId.value = options.caseId || ''
   taskId.value = options.taskId || ''
   mode.value = options.mode || 'add'
-  
-  console.log('[onMounted] caseId:', caseId.value, 'taskId:', taskId.value, 'mode:', mode.value)
-
-  if (mode.value !== 'add' && taskId.value) {
+if (mode.value !== 'add' && taskId.value) {
     loadTaskDetail()
   }
 })
@@ -154,14 +147,12 @@ const loadTaskDetail = async () => {
   loading.value = true
   try {
     const res = await getCaseTaskById(Number(taskId.value))
-    console.log('[loadTaskDetail] Response:', res)
-    if (res.data) {
+if (res.data) {
       taskForm.value = res.data
       loadTaskFiles()
     }
   } catch (error) {
-    console.error('[loadTaskDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -170,17 +161,13 @@ const loadTaskDetail = async () => {
 const loadTaskFiles = async () => {
   try {
     const res = await getTaskFiles(Number(taskId.value))
-    console.log('[loadTaskFiles] Response:', res)
-    fileList.value = res.data || []
+fileList.value = res.data || []
   } catch (error) {
-    console.error('[loadTaskFiles] Error:', error)
-  }
+}
 }
 
 const handleSubmit = async () => {
-  console.log('[handleSubmit]', taskForm.value)
-  
-  const valid = await taskFormRef.value?.validate()
+const valid = await taskFormRef.value?.validate()
   if (!valid) return
 
   submitting.value = true
@@ -197,11 +184,9 @@ const handleSubmit = async () => {
         status: taskForm.value.status,
       })
     }
-    
-    console.log('[handleSubmit] Response:', res)
-    
-    if (res.code === 200) {
+if (res.code === 200) {
       uni.showToast({ title: '保存成功', icon: 'success' })
+      uni.$emit('refresh-task-list', caseId.value)
       setTimeout(() => {
         uni.navigateBack()
       }, 1500)
@@ -209,21 +194,18 @@ const handleSubmit = async () => {
       uni.showToast({ title: res.message || '保存失败', icon: 'none' })
     }
   } catch (error) {
-    console.error('[handleSubmit] Error:', error)
-    uni.showToast({ title: '保存失败', icon: 'none' })
+uni.showToast({ title: '保存失败', icon: 'none' })
   } finally {
     submitting.value = false
   }
 }
 
 const handleUpload = () => {
-  console.log('[handleUpload]')
-  uni.showToast({ title: '上传功能开发中', icon: 'none' })
+uni.showToast({ title: '上传功能开发中', icon: 'none' })
 }
 
 const handleDeleteFile = (fileId: number) => {
-  console.log('[handleDeleteFile] fileId:', fileId)
-  uni.showModal({
+uni.showModal({
     title: '确认删除',
     content: '确定要删除这个文件吗？',
     success: (res) => {

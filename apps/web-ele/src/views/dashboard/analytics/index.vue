@@ -101,10 +101,11 @@ const hasCreditorClaimRankingPermission = ref(true);
 
 const translateStatus = (status: string): string => {
   const statusMap: Record<string, string> = {
-    COMPLETED: '已完成',
-    ONGOING: '进行中',
     PENDING: '待处理',
-    AWAITING: '等待中',
+    ONGOING: '进行中',
+    AWAITING: '报结中',
+    COMPLETED: '已结案',
+    ARCHIVED: '已归档',
   };
   return statusMap[status] || status;
 };

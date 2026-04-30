@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import dayjs from 'dayjs'
 import {
@@ -249,6 +249,12 @@ onMounted(() => {
   if (caseId.value) {
     loadData()
   }
+
+  uni.$on('refresh-work-log-list', () => loadData())
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-work-log-list')
 })
 
 onShow(() => {
@@ -465,8 +471,7 @@ const uploadFilesWorkLog = async (filePaths: string[]) => {
         uploadedFiles.value.push(result.data)
       }
     } catch (error) {
-      console.error('Upload error:', error)
-      uni.showToast({ title: '上传失败', icon: 'none' })
+uni.showToast({ title: '上传失败', icon: 'none' })
     }
   }
 
@@ -490,8 +495,7 @@ const getAttachmentFiles = async (attachmentIds: string) => {
         files.push(res.data)
       }
     } catch (error) {
-      console.error('Failed to get file info:', error)
-    }
+}
   }
   return files
 }

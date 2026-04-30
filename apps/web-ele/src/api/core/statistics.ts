@@ -42,11 +42,9 @@ export namespace StatisticsApi {
   export interface CaseStatisticsData {
     totalCases: number;
     pendingCases: number;
-    inProgressCases: number;
-    approvedCases: number;
+    ongoingCases: number;
+    awaitingCases: number;
     completedCases: number;
-    closedCases: number;
-    terminatedCases: number;
     archivedCases: number;
     statusDistribution: Record<string, number>;
     progressDistribution: Record<string, number>;
@@ -56,6 +54,15 @@ export namespace StatisticsApi {
     todayCreatedCases: number;
     monthCreatedCases: number;
     yearCreatedCases: number;
+  }
+
+  export interface MyCaseStatsData {
+    totalCases: number;
+    pendingCases: number;
+    ongoingCases: number;
+    awaitingCases: number;
+    completedCases: number;
+    archivedCases: number;
   }
 
   export interface CreditorClaimStatisticsData {
@@ -115,6 +122,12 @@ export const getCaseStatistics = (params?: {
     {
       params,
     },
+  );
+};
+
+export const getMyCaseStats = () => {
+  return requestClient.get<StatisticsApi.MyCaseStatsData>(
+    '/api/v1/case/my-stats',
   );
 };
 

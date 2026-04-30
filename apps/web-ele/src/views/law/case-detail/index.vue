@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
 import {
+  ElAlert,
   ElButton,
   ElCard,
   ElCol,
@@ -13,6 +14,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElPopconfirm,
@@ -56,18 +58,18 @@ import {
   getCaseAbbreviationApi,
   getLatestAbbreviationApi,
 } from '#/api/core/document-service';
-import { deleteFileApi, downloadFileApi, uploadFileApi, batchUploadFilesApi } from '#/api/core/file';
+import { deleteFileApi, downloadFileApi, uploadFileApi, batchUploadFilesApi, renameFileApi, getFilePreviewUrl } from '#/api/core/file';
+import { sanitizeHtml } from '#/utils/htmlSanitizer';
 import { getManagerListApi } from '#/api/core/manager';
 import { getUserByDeptIdApi, getUsersApi } from '#/api/core/user';
 import { EXTERNAL_LINKS } from '#/config/external-links';
+import type { WorkLogApi } from '#/api/core/work-log';
 import {
   createWorkLogApi,
-  createWorkLogWithFilesApi,
   deleteWorkLogWithFilesApi,
   getWorkLogListApi,
   getWorkLogWithFilesApi,
   updateWorkLogApi,
-  updateWorkLogWithFilesApi,
 } from '#/api/core/work-log';
 import {
   addTeamMemberApi,
@@ -81,12 +83,14 @@ import {
 import { fileUploadRequestClient } from '#/api/request';
 
 import {
+  archiveCaseApi,
   createApprovalApi,
   deleteCaseApi,
   getCaseApprovalHistoryApi,
   getCaseApprovalProgressApi,
   getCaseDetailApi,
   getCaseRelatedDataApi,
+  unarchiveCaseApi,
   updateCaseApi,
 } from '../../../api/core/case';
 import { useUserStore } from '@vben/stores';
@@ -101,6 +105,7 @@ import DebtorInfo from './components/DebtorInfo.vue';
 import FileUpload from './components/FileUpload.vue';
 import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
+import WorkLogImage from './components/WorkLogImage.vue';
 import WorkPlanDrawer from './components/WorkPlanDrawer.vue';
 
 // 路由和状态管理
@@ -109,6 +114,9 @@ const router = useRouter();
 const caseId = ref(route.params.id as string);
 const loading = ref(false);
 const caseDetail = ref<any>(null);
+const rawCaseStatus = ref<string>('');
+const isCaseArchived = computed(() => rawCaseStatus.value === 'ARCHIVED');
+const isCaseCompleted = computed(() => rawCaseStatus.value === 'COMPLETED');
 const isInfoCollapsed = ref(false);
 const isEditing = ref(false);
 const editedData = reactive<any>({});
@@ -208,6 +216,10 @@ const relatedData = ref<any>(null);
 
 // 显示删除确认弹窗
 const showDeleteDialog = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   deleteLoading.value = true;
   try {
     const response = await getCaseRelatedDataApi(Number(caseId.value));
@@ -505,9 +517,15 @@ const fileUploadRef = ref<any>();
 const documentUploadRef = ref<any>();
 const approvalUploadRef = ref<any>();
 const announcementUploadRef = ref<any>();
+
+// 工作日志附件重命名相关
+const showWorkLogRenameDialog = ref(false);
+const currentWorkLogRenameFile = ref<any>(null);
+const newWorkLogFileName = ref('');
+const workLogRenameLoading = ref(false);
 const workLogForm = reactive({
   workDate: '',
-  workType: 'CASE_INVESTIGATION',
+  workType: 'CASE_INVESTIGATION' as WorkLogApi.WorkType,
   workContent: '',
   workResult: '',
   attachmentIds: '',
@@ -538,25 +556,74 @@ const workLogPagination = reactive({
   total: 0,
 });
 
+// 工作日志筛选条件（独立的状态，避免与表单状态耦合）
+const workLogFilter = reactive({
+  workType: '' as string,
+});
+
 const getWorkTypeLabel = (type: string) => {
   const option = workTypeOptions.find((opt) => opt.value === type);
   return option ? option.label : type;
 };
 
+// 判断文件是否为图片
+const isImageFile = (fileName: string): boolean => {
+  if (!fileName) return false;
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext);
+};
+
+
+
 const fetchWorkLogs = async () => {
   try {
     workLogLoading.value = true;
-    const response = await getWorkLogListApi({
+    console.log('[fetchWorkLogs] 开始获取工作日志列表');
+    const params: any = {
       caseId: Number(caseId.value),
       pageNum: workLogPagination.pageNum,
       pageSize: workLogPagination.pageSize,
-    });
+    };
+    // 只有在选择了工作类型时才添加筛选条件
+    if (workLogFilter.workType) {
+      params.workType = workLogFilter.workType;
+    }
+    console.log('[fetchWorkLogs] 请求参数:', params);
+    const response = await getWorkLogListApi(params);
+    console.log('[fetchWorkLogs] API响应:', response);
     if (response.code === 200) {
-      workLogs.value = response.data.list;
-      workLogPagination.total = response.data.total;
+      // 处理工作日志列表数据，确保 attachments 字段存在
+      const logs = (response.data.list || []).map((log: any) => ({
+        ...log,
+        // 如果后端返回 attachments，使用后端数据；否则根据 attachmentIds 构建空数组
+        attachments: log.attachments || [],
+      }));
+      console.log('[fetchWorkLogs] 原始日志数据:', logs);
+
+      // 如果后端没有返回 attachments，但有 attachmentIds，则逐个获取详情
+      for (const log of logs) {
+        console.log(`[fetchWorkLogs] 日志ID=${log.id}, attachmentIds=${log.attachmentIds}, attachments数量=${log.attachments?.length || 0}`);
+        if ((!log.attachments || log.attachments.length === 0) && log.attachmentIds) {
+          console.log(`[fetchWorkLogs] 日志ID=${log.id} 需要获取附件详情`);
+          try {
+            const detailResponse = await getWorkLogWithFilesApi(log.id);
+            console.log(`[fetchWorkLogs] 日志ID=${log.id} 详情响应:`, detailResponse);
+            if (detailResponse.code === 200 && detailResponse.data) {
+              log.attachments = detailResponse.data.attachments || [];
+              console.log(`[fetchWorkLogs] 日志ID=${log.id} 附件加载成功, 数量=${log.attachments.length}`);
+            }
+          } catch (e) {
+            console.error(`[fetchWorkLogs] 获取工作日志 ${log.id} 的附件详情失败:`, e);
+          }
+        }
+      }
+
+      workLogs.value = logs;
+      console.log('[fetchWorkLogs] 最终workLogs:', workLogs.value);
+      workLogPagination.total = response.data.total || 0;
     }
   } catch (error) {
-    console.error('获取工作日志失败:', error);
+    console.error('[fetchWorkLogs] 获取工作日志失败:', error);
     ElMessage.error('获取工作日志失败');
   } finally {
     workLogLoading.value = false;
@@ -564,6 +631,10 @@ const fetchWorkLogs = async () => {
 };
 
 const openAddWorkLogDialog = () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   isViewingWorkLog.value = false;
   isEditingWorkLog.value = false;
   currentWorkLogId.value = null;
@@ -578,6 +649,7 @@ const openAddWorkLogDialog = () => {
 };
 
 const viewWorkLog = async (log: any) => {
+  console.log('[viewWorkLog] 开始查看工作日志:', log);
   isViewingWorkLog.value = true;
   currentWorkLogId.value = log.id;
   workLogForm.workDate = log.workDate;
@@ -587,29 +659,29 @@ const viewWorkLog = async (log: any) => {
   workLogForm.attachmentIds = log.attachmentIds || '';
   workLogForm.remark = log.remark || '';
   workLogForm.files = [];
-  
-  console.log('=== 查看工作日志 ===');
-  console.log('工作日志 ID:', log.id);
-  console.log('工作日志 attachmentIds:', log.attachmentIds);
-  
+
+  console.log('[viewWorkLog] 工作日志 ID:', log.id);
+  console.log('[viewWorkLog] 工作日志 attachmentIds:', log.attachmentIds);
+  console.log('[viewWorkLog] 工作日志 attachments:', log.attachments);
+
   // 加载工作日志的文件列表
   try {
-    console.log('调用 getWorkLogWithFilesApi, logId:', log.id);
+    console.log('[viewWorkLog] 调用 getWorkLogWithFilesApi, logId:', log.id);
     const response = await getWorkLogWithFilesApi(log.id);
-    console.log('API 响应:', response);
-    
+    console.log('[viewWorkLog] API 响应:', response);
+
     if (response.code === 200 && response.data) {
-      console.log('response.data:', response.data);
+      console.log('[viewWorkLog] response.data:', response.data);
       const attachments = response.data.attachments || [];
-      console.log('attachments:', attachments);
-      console.log('attachments length:', attachments.length);
-      
+      console.log('[viewWorkLog] attachments:', attachments);
+      console.log('[viewWorkLog] attachments length:', attachments.length);
+
       // 将附件转换为 FileUpload 组件可以显示的格式
       workLogForm.files = attachments.map((file: any) => {
         // 从文件名中提取扩展名（如果 fileExtension 为空）
         const fileName = file.fileName || file.originalFileName || '';
         const fileExt = file.fileExtension || fileName.split('.').pop() || '';
-        
+
         const fileData = {
           id: file.id,
           originalFileName: fileName,
@@ -619,24 +691,30 @@ const viewWorkLog = async (log: any) => {
           filePath: file.filePath,
           uploadTime: file.uploadTime,
         };
-        console.log('转换后的文件:', fileData);
+        console.log('[viewWorkLog] 转换后的文件:', fileData);
         return fileData;
       });
-      
-      console.log('workLogForm.files:', workLogForm.files);
+
+      console.log('[viewWorkLog] workLogForm.files:', workLogForm.files);
     } else {
-      console.error('API 响应不成功或没有 data:', response);
+      console.error('[viewWorkLog] API 响应不成功或没有 data:', response);
     }
   } catch (error: any) {
-    console.error('加载工作日志附件失败:', error);
-    console.error('错误堆栈:', error.stack);
+    console.error('[viewWorkLog] 加载工作日志附件失败:', error);
+    console.error('[viewWorkLog] 错误堆栈:', error.stack);
   }
-  
+
   showWorkLogDialog.value = true;
 };
 
-const editWorkLog = (log: any) => {
+const editWorkLog = async (log: any) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
+  console.log('[editWorkLog] 开始编辑工作日志:', log);
   isEditingWorkLog.value = true;
+  isViewingWorkLog.value = false;
   currentWorkLogId.value = log.id;
   workLogForm.workDate = log.workDate;
   workLogForm.workType = log.workType;
@@ -645,24 +723,57 @@ const editWorkLog = (log: any) => {
   workLogForm.attachmentIds = log.attachmentIds || '';
   workLogForm.remark = log.remark || '';
   workLogForm.files = [];
+
+  // 加载工作日志的附件列表
+  try {
+    console.log('[editWorkLog] 调用 getWorkLogWithFilesApi, logId:', log.id);
+    const response = await getWorkLogWithFilesApi(log.id);
+    console.log('[editWorkLog] API响应:', response);
+    if (response.code === 200 && response.data) {
+      const attachments = response.data.attachments || [];
+      console.log('[editWorkLog] attachments:', attachments);
+      workLogForm.files = attachments.map((file: any) => ({
+        id: file.id,
+        originalFileName: file.fileName || file.originalFileName || '',
+        fileSize: file.fileSize,
+        fileExtension: file.fileExtension || (file.fileName || file.originalFileName || '').split('.').pop() || '',
+        mimeType: file.mimeType || file.fileType,
+        filePath: file.filePath,
+        uploadTime: file.uploadTime,
+      }));
+      console.log('[editWorkLog] workLogForm.files:', workLogForm.files);
+    } else {
+      console.error('[editWorkLog] API响应不成功:', response);
+    }
+  } catch (error) {
+    console.error('[editWorkLog] 加载工作日志附件失败:', error);
+  }
+
   showWorkLogDialog.value = true;
 };
 
-const handleWorkLogFileChange = (file: any, fileList: any[]) => {
-  workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
-};
-
-const handleWorkLogFileRemove = (file: any, fileList: any[]) => {
-  workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
-};
+// 注意：文件变更现在由 FileUpload 组件的 local-files-change 事件处理
+// 这些处理函数保留用于兼容旧的 ElUpload 直接绑定方式
+// const handleWorkLogFileChange = (file: any, fileList: any[]) => {
+//   workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
+// };
+//
+// const handleWorkLogFileRemove = (file: any, fileList: any[]) => {
+//   workLogForm.files = fileList.map((item: any) => item.raw).filter(Boolean);
+// };
 
 const saveWorkLog = async () => {
   try {
+    console.log('[saveWorkLog] 开始保存工作日志');
+    console.log('[saveWorkLog] isEditingWorkLog:', isEditingWorkLog.value);
+    console.log('[saveWorkLog] currentWorkLogId:', currentWorkLogId.value);
+    console.log('[saveWorkLog] workLogForm:', { ...workLogForm });
     await workLogFormRef.value?.validate();
     savingWorkLog.value = true;
 
     if (isEditingWorkLog.value && currentWorkLogId.value) {
       // 先更新工作日志基本信息
+      console.log('[saveWorkLog-编辑模式] 开始更新工作日志');
       const logData = {
         caseId: Number(caseId.value),
         workDate: workLogForm.workDate,
@@ -672,37 +783,43 @@ const saveWorkLog = async () => {
         attachmentIds: workLogForm.attachmentIds || undefined,
         remark: workLogForm.remark || undefined,
       };
+      console.log('[saveWorkLog-编辑模式] logData:', logData);
       const response = await updateWorkLogApi(currentWorkLogId.value, logData);
+      console.log('[saveWorkLog-编辑模式] updateWorkLogApi响应:', response);
       if (response.code === 200) {
         // 1. 首先转移手机上传的临时文件（如果有）
         let allUploadedFileIds: number[] = [];
         
         if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
-          console.log('发现手机上传的临时文件，开始转移...');
+          console.log('[saveWorkLog-编辑模式] 发现手机上传的临时文件，开始转移...');
           const transferredFiles = await fileUploadRef.value.transferMobileFiles(currentWorkLogId.value);
-          console.log('转移成功的文件:', transferredFiles);
+          console.log('[saveWorkLog-编辑模式] 转移成功的文件:', transferredFiles);
           
           // 收集转移的文件 ID
           if (transferredFiles && transferredFiles.length > 0) {
-            allUploadedFileIds = transferredFiles.map(f => f.id);
+            allUploadedFileIds = transferredFiles.map((f: any) => f.id);
+            console.log('[saveWorkLog-编辑模式] 转移的文件IDs:', allUploadedFileIds);
           }
         }
         
         // 2. 上传本地文件（电脑选择的文件）
-        console.log('=== 准备工作日志文件上传（修改模式） ===');
-        console.log('workLogForm.files:', workLogForm.files);
-        console.log('fileUploadRef.value:', fileUploadRef.value);
-        console.log('fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
+        console.log('[saveWorkLog-编辑模式] === 准备工作日志文件上传（修改模式） ===');
+        console.log('[saveWorkLog-编辑模式] workLogForm.files:', workLogForm.files);
+        console.log('[saveWorkLog-编辑模式] fileUploadRef.value:', fileUploadRef.value);
+        console.log('[saveWorkLog-编辑模式] fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
         
         if (fileUploadRef.value && workLogForm.files.length > 0) {
-          console.log('开始上传本地文件...');
+          console.log('[saveWorkLog-编辑模式] 开始上传本地文件...');
           const uploadedIds = await fileUploadRef.value.uploadLocalFiles(currentWorkLogId.value);
-          console.log('上传成功的文件 ID:', uploadedIds);
+          console.log('[saveWorkLog-编辑模式] 上传成功的文件 ID:', uploadedIds);
           
           // 收集上传的文件 ID
           if (uploadedIds && uploadedIds.length > 0) {
             allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
+            console.log('[saveWorkLog-编辑模式] 合并后的文件IDs:', allUploadedFileIds);
           }
+        } else {
+          console.log('[saveWorkLog-编辑模式] 没有本地文件需要上传');
         }
         
         // 3. 如果有新上传的文件，更新 attachmentIds 字段
@@ -713,7 +830,7 @@ const saveWorkLog = async () => {
             : [];
           const allIds = [...existingAttachmentIds.map(id => Number(id)), ...allUploadedFileIds];
           
-          console.log('更新工作日志的 attachmentIds:', allIds.join(','));
+          console.log('[saveWorkLog-编辑模式] 更新工作日志的 attachmentIds:', allIds.join(','));
           const updateResponse = await updateWorkLogApi(currentWorkLogId.value, {
             caseId: Number(caseId.value),
             workDate: workLogForm.workDate,
@@ -723,19 +840,25 @@ const saveWorkLog = async () => {
             attachmentIds: allIds.join(','),
             remark: workLogForm.remark || undefined,
           });
+          console.log('[saveWorkLog-编辑模式] updateWorkLogApi响应:', updateResponse);
           
           if (updateResponse.code === 200) {
-            console.log('工作日志 attachmentIds 更新成功');
+            console.log('[saveWorkLog-编辑模式] 工作日志 attachmentIds 更新成功');
           } else {
-            console.error('工作日志 attachmentIds 更新失败:', updateResponse);
+            console.error('[saveWorkLog-编辑模式] 工作日志 attachmentIds 更新失败:', updateResponse);
           }
+        } else {
+          console.log('[saveWorkLog-编辑模式] 没有新上传的文件，不需要更新attachmentIds');
         }
         
         ElMessage.success('工作日志更新成功');
         await fetchWorkLogs();
+      } else {
+        console.error('[saveWorkLog-编辑模式] 更新工作日志失败:', response);
       }
     } else {
       // 先创建工作日志，获取工作日志ID
+      console.log('[saveWorkLog-创建模式] 开始创建工作日志');
       const logData = {
         caseId: Number(caseId.value),
         workDate: workLogForm.workDate,
@@ -745,13 +868,16 @@ const saveWorkLog = async () => {
         attachmentIds: workLogForm.attachmentIds || undefined,
         remark: workLogForm.remark || undefined,
       };
+      console.log('[saveWorkLog-创建模式] logData:', logData);
       const response = await createWorkLogApi(logData);
+      console.log('[saveWorkLog-创建模式] createWorkLogApi响应:', response);
       if (response.code === 200 && response.data) {
         const workLogId = response.data.logId || response.data.id;
-        console.log('创建工作日志成功，workLogId:', workLogId);
+        console.log('[saveWorkLog-创建模式] 创建工作日志成功，workLogId:', workLogId);
+        console.log('[saveWorkLog-创建模式] 响应data:', response.data);
         
         if (!workLogId) {
-          console.error('工作日志 ID 为空，无法上传文件');
+          console.error('[saveWorkLog-创建模式] 工作日志 ID 为空，无法上传文件');
           ElMessage.error('创建工作日志成功，但返回的 ID 为空');
           return;
         }
@@ -760,37 +886,41 @@ const saveWorkLog = async () => {
         let allUploadedFileIds: number[] = [];
         
         if (fileUploadRef.value && fileUploadRef.value.getHasUntransferredFiles()) {
-          console.log('发现手机上传的临时文件，开始转移...');
+          console.log('[saveWorkLog-创建模式] 发现手机上传的临时文件，开始转移...');
           const transferredFiles = await fileUploadRef.value.transferMobileFiles(workLogId);
-          console.log('转移成功的文件:', transferredFiles);
+          console.log('[saveWorkLog-创建模式] 转移成功的文件:', transferredFiles);
           
           // 收集转移的文件 ID
           if (transferredFiles && transferredFiles.length > 0) {
-            allUploadedFileIds = transferredFiles.map(f => f.id);
+            allUploadedFileIds = transferredFiles.map((f: any) => f.id);
+            console.log('[saveWorkLog-创建模式] 转移的文件IDs:', allUploadedFileIds);
           }
         }
         
         // 2. 上传本地文件（电脑选择的文件）
-        console.log('=== 准备工作日志文件上传 ===');
-        console.log('workLogForm.files:', workLogForm.files);
-        console.log('fileUploadRef.value:', fileUploadRef.value);
-        console.log('fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
-        console.log('workLogId:', workLogId);
+        console.log('[saveWorkLog-创建模式] === 准备工作日志文件上传 ===');
+        console.log('[saveWorkLog-创建模式] workLogForm.files:', workLogForm.files);
+        console.log('[saveWorkLog-创建模式] fileUploadRef.value:', fileUploadRef.value);
+        console.log('[saveWorkLog-创建模式] fileUploadRef.value.getLocalFiles():', fileUploadRef.value?.getLocalFiles());
+        console.log('[saveWorkLog-创建模式] workLogId:', workLogId);
         
         if (fileUploadRef.value && workLogForm.files.length > 0) {
-          console.log('开始上传本地文件...');
+          console.log('[saveWorkLog-创建模式] 开始上传本地文件...');
           const uploadedIds = await fileUploadRef.value.uploadLocalFiles(workLogId);
-          console.log('上传成功的文件 ID:', uploadedIds);
+          console.log('[saveWorkLog-创建模式] 上传成功的文件 ID:', uploadedIds);
           
           // 收集上传的文件 ID
           if (uploadedIds && uploadedIds.length > 0) {
             allUploadedFileIds = [...allUploadedFileIds, ...uploadedIds];
+            console.log('[saveWorkLog-创建模式] 合并后的文件IDs:', allUploadedFileIds);
           }
+        } else {
+          console.log('[saveWorkLog-创建模式] 没有本地文件需要上传');
         }
         
         // 3. 更新工作日志的 attachmentIds 字段
         if (allUploadedFileIds.length > 0) {
-          console.log('更新工作日志的 attachmentIds:', allUploadedFileIds.join(','));
+          console.log('[saveWorkLog-创建模式] 更新工作日志的 attachmentIds:', allUploadedFileIds.join(','));
           const updateResponse = await updateWorkLogApi(workLogId, {
             caseId: Number(caseId.value),
             workDate: workLogForm.workDate,
@@ -800,16 +930,21 @@ const saveWorkLog = async () => {
             attachmentIds: allUploadedFileIds.join(','),
             remark: workLogForm.remark || undefined,
           });
+          console.log('[saveWorkLog-创建模式] updateWorkLogApi响应:', updateResponse);
           
           if (updateResponse.code === 200) {
-            console.log('工作日志 attachmentIds 更新成功');
+            console.log('[saveWorkLog-创建模式] 工作日志 attachmentIds 更新成功');
           } else {
-            console.error('工作日志 attachmentIds 更新失败:', updateResponse);
+            console.error('[saveWorkLog-创建模式] 工作日志 attachmentIds 更新失败:', updateResponse);
           }
+        } else {
+          console.log('[saveWorkLog-创建模式] 没有新上传的文件，不需要更新attachmentIds');
         }
         
         ElMessage.success('工作日志创建成功');
         await fetchWorkLogs();
+      } else {
+        console.error('[saveWorkLog-创建模式] 创建工作日志失败:', response);
       }
     }
 
@@ -823,6 +958,10 @@ const saveWorkLog = async () => {
 };
 
 const deleteWorkLog = async (id: number) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await deleteWorkLogWithFilesApi(id);
     if (response.code === 200) {
@@ -852,15 +991,81 @@ const downloadWorkLogFile = async (file: any) => {
   }
 };
 
+// 打开工作日志附件重命名对话框
+const handleWorkLogRename = (file: any) => {
+  currentWorkLogRenameFile.value = file;
+  const lastDotIndex = file.originalFileName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newWorkLogFileName.value = file.originalFileName.substring(0, lastDotIndex);
+  } else {
+    newWorkLogFileName.value = file.originalFileName;
+  }
+  showWorkLogRenameDialog.value = true;
+};
+
+// 取消工作日志附件重命名
+const cancelWorkLogRename = () => {
+  showWorkLogRenameDialog.value = false;
+  currentWorkLogRenameFile.value = null;
+  newWorkLogFileName.value = '';
+};
+
+// 确认工作日志附件重命名
+const confirmWorkLogRename = async () => {
+  if (!currentWorkLogRenameFile.value || !newWorkLogFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    workLogRenameLoading.value = true;
+    const fileId = currentWorkLogRenameFile.value.id;
+    if (!fileId) {
+      ElMessage.error('文件ID不存在');
+      return;
+    }
+
+    // 保留原后缀
+    const originalName = currentWorkLogRenameFile.value.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newWorkLogFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    const response = await renameFileApi(fileId, finalName);
+    if (response.code === 200) {
+      ElMessage.success('重命名成功');
+      // 刷新工作日志列表
+      await fetchWorkLogs();
+      showWorkLogRenameDialog.value = false;
+      currentWorkLogRenameFile.value = null;
+      newWorkLogFileName.value = '';
+    } else {
+      ElMessage.error(response.message || '重命名失败');
+    }
+  } catch (error) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    workLogRenameLoading.value = false;
+  }
+};
+
 const previewWorkLogFile = async (file: any) => {
+  console.log('[previewWorkLogFile] 开始预览文件:', file);
   try {
     if (!file.id) {
+      console.error('[previewWorkLogFile] 无效的文件ID');
       ElMessage.error('无效的文件ID');
       return;
     }
 
     const fileId = Number(file.id);
+    console.log('[previewWorkLogFile] fileId:', fileId);
     if (isNaN(fileId)) {
+      console.error('[previewWorkLogFile] 文件ID必须是数字');
       ElMessage.error('文件ID必须是数字');
       return;
     }
@@ -871,16 +1076,20 @@ const previewWorkLogFile = async (file: any) => {
     try {
       ElMessage.info('正在加载文件...');
 
+      const previewUrlStr = `/api/v1/file/preview/${fileId}`;
+      console.log('[previewWorkLogFile] 请求预览URL:', previewUrlStr);
       const response = await fileUploadRequestClient.get(
-        `/api/v1/file/preview/${fileId}`,
+        previewUrlStr,
         {
           responseType: 'blob',
         },
       );
+      console.log('[previewWorkLogFile] 预览响应:', response);
 
       const blob = new Blob([response], {
         type: response.type || 'application/octet-stream',
       });
+      console.log('[previewWorkLogFile] blob类型:', blob.type, '大小:', blob.size);
 
       if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl.value);
@@ -888,15 +1097,16 @@ const previewWorkLogFile = async (file: any) => {
 
       previewUrl.value = URL.createObjectURL(blob);
       showPreviewDialog.value = true;
+      console.log('[previewWorkLogFile] 预览成功，URL:', previewUrl.value);
       ElMessage.success('文件加载成功');
     } catch (error) {
-      console.error('预览附件失败:', error);
+      console.error('[previewWorkLogFile] 预览附件失败:', error);
       ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
     } finally {
       previewLoading.value = false;
     }
   } catch (error) {
-    console.error('预览附件失败:', error);
+    console.error('[previewWorkLogFile] 预览附件失败:', error);
     ElMessage.error('文件预览失败');
     previewLoading.value = false;
   }
@@ -970,6 +1180,12 @@ const showDetailDialog = ref(false);
 const currentAnnouncementDetail = ref<any>(null);
 const detailLoading = ref(false);
 
+// 公告附件重命名相关
+const showAnnouncementRenameDialog = ref(false);
+const currentAnnouncementRenameFile = ref<any>(null);
+const newAnnouncementFileName = ref('');
+const announcementRenameLoading = ref(false);
+
 const showViewsDialog = ref(false);
 const viewsList = ref<any[]>([]);
 const viewsTotal = ref(0);
@@ -1016,7 +1232,6 @@ const reviewForm = reactive({
 const reviewTypeOptions = [
   { label: '案件审批', value: 'CASE_REVIEW' },
   { label: '流程审批', value: 'PROCESS_REVIEW' },
-  { label: '文书审批', value: 'DOCUMENT_REVIEW' },
 ];
 
 // 阶段选项
@@ -1079,7 +1294,11 @@ const handleStageChange = (stageId: string) => {
 };
 
 // 打开审批弹窗时加载数据
-const openReviewDialog = async () => {
+const openReviewDialog = async (forceCaseReview = false) => {
+  // 如果强制案件审批，则重置审批类型
+  if (forceCaseReview) {
+    reviewForm.reviewType = 'CASE_REVIEW';
+  }
   // 如果是流程审批，加载阶段列表
   if (reviewForm.reviewType === 'PROCESS_REVIEW') {
     fetchStages();
@@ -1089,6 +1308,70 @@ const openReviewDialog = async () => {
   // 加载审批历史记录
   await fetchReviewHistory();
   showReviewDialog.value = true;
+};
+
+const archiveLoading = ref(false);
+
+const handleArchiveCase = () => {
+  ElMessageBox.confirm(
+    '确认将此案件进行归档？归档后案件将无法进行任何修改操作。',
+    '案件归档确认',
+    {
+      confirmButtonText: '确认归档',
+      cancelButtonText: '取消',
+      type: 'warning',
+    },
+  ).then(async () => {
+    if (!caseId.value) return;
+    archiveLoading.value = true;
+    try {
+      const response = await archiveCaseApi(Number(caseId.value));
+      if ((response as any).code === 200) {
+        ElMessage.success('案件归档成功');
+        rawCaseStatus.value = 'ARCHIVED';
+        if (caseDetail.value) {
+          caseDetail.value.案件状态 = '已归档';
+        }
+      } else {
+        ElMessage.error((response as any).message || '案件归档失败');
+      }
+    } catch (error: any) {
+      ElMessage.error(`案件归档失败：${error.message || '未知错误'}`);
+    } finally {
+      archiveLoading.value = false;
+    }
+  }).catch(() => {});
+};
+
+const handleUnarchiveCase = () => {
+  ElMessageBox.confirm(
+    '确认撤销此案件的归档？撤销后案件将恢复为已结案状态，可以进行修改操作。',
+    '撤销归档确认',
+    {
+      confirmButtonText: '确认撤销',
+      cancelButtonText: '取消',
+      type: 'warning',
+    },
+  ).then(async () => {
+    if (!caseId.value) return;
+    archiveLoading.value = true;
+    try {
+      const response = await unarchiveCaseApi(Number(caseId.value));
+      if ((response as any).code === 200) {
+        ElMessage.success('撤销归档成功');
+        rawCaseStatus.value = 'COMPLETED';
+        if (caseDetail.value) {
+          caseDetail.value.案件状态 = '已结案';
+        }
+      } else {
+        ElMessage.error((response as any).message || '撤销归档失败');
+      }
+    } catch (error: any) {
+      ElMessage.error(`撤销归档失败：${error.message || '未知错误'}`);
+    } finally {
+      archiveLoading.value = false;
+    }
+  }).catch(() => {});
 };
 
 // 审批历史数据
@@ -1193,6 +1476,10 @@ const submitReview = async () => {
       const response = await createApprovalApi(approvalParams);
       if (response.code === 200) {
         ElMessage.success('案件审批已提交');
+        // 关闭审批弹窗
+        showReviewDialog.value = false;
+        // 切换到案件基本信息标签页
+        activeTab.value = 'caseInfo';
         // 刷新案件详情，更新审核状态
         const caseResponse = await getCaseDetailApi(Number(caseId.value));
         if (caseResponse.code === 200 && caseResponse.data) {
@@ -1208,7 +1495,7 @@ const submitReview = async () => {
       } else {
         ElMessage.error(response.message || '提交案件审批失败');
       }
-    
+
     break;
     }
     case 'DOCUMENT_REVIEW': {
@@ -1550,6 +1837,10 @@ const fetchLatestAbbreviation = async () => {
 
 // 打开新增文书送达弹窗
 const openAddDocumentDialog = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   // 重置表单
   resetDocumentForm();
   // 设置案件ID、案号和名称
@@ -1609,6 +1900,10 @@ const openApprovalSubmitDialog = async () => {
 
 // 编辑文书
 const editDocument = (row: any) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   // 设置编辑状态
   isEditingDocument.value = true;
   currentDocumentId.value = row.id;
@@ -2302,6 +2597,12 @@ const documentDetailLoading = ref(false);
 const documentAttachments = ref<any[]>([]);
 const documentAttachmentsLoading = ref(false);
 
+// 文书附件重命名相关
+const showDocumentRenameDialog = ref(false);
+const currentDocumentRenameFile = ref<any>(null);
+const newDocumentFileName = ref('');
+const documentRenameLoading = ref(false);
+
 // 查看文书详情
 const viewDocumentDetail = async (documentId: number) => {
   documentDetailLoading.value = true;
@@ -2649,7 +2950,69 @@ const previewDocumentAttachment = async (attachment: any) => {
   }
 };
 
+// 打开文书附件重命名对话框
+const handleDocumentRename = (attachment: any) => {
+  currentDocumentRenameFile.value = attachment;
+  const lastDotIndex = attachment.originalFileName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newDocumentFileName.value = attachment.originalFileName.substring(0, lastDotIndex);
+  } else {
+    newDocumentFileName.value = attachment.originalFileName;
+  }
+  showDocumentRenameDialog.value = true;
+};
 
+// 取消文书附件重命名
+const cancelDocumentRename = () => {
+  showDocumentRenameDialog.value = false;
+  currentDocumentRenameFile.value = null;
+  newDocumentFileName.value = '';
+};
+
+// 确认文书附件重命名
+const confirmDocumentRename = async () => {
+  if (!currentDocumentRenameFile.value || !newDocumentFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    documentRenameLoading.value = true;
+    const originalName = currentDocumentRenameFile.value.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newDocumentFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    // 如果有id则调用重命名API，否则只更新本地数据
+    if (currentDocumentRenameFile.value.id) {
+      const response = await renameFileApi(currentDocumentRenameFile.value.id, finalName);
+      if (response.code === 200) {
+        ElMessage.success('重命名成功');
+        if (documentDetail.value) {
+          await loadDocumentAttachments(documentDetail.value.id);
+        }
+      } else {
+        ElMessage.error(response.message || '重命名失败');
+      }
+    } else {
+      // 旧数据没有id，只更新本地显示
+      currentDocumentRenameFile.value.originalFileName = finalName;
+      ElMessage.success('重命名成功');
+    }
+
+    showDocumentRenameDialog.value = false;
+    currentDocumentRenameFile.value = null;
+    newDocumentFileName.value = '';
+  } catch (error) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    documentRenameLoading.value = false;
+  }
+};
 
 // 发送文书
 const sendDocument = async (documentId: number) => {
@@ -2670,6 +3033,10 @@ const sendDocument = async (documentId: number) => {
 
 // 删除文书送达记录
 const deleteDocument = async (documentId: number) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     // 先获取文书详情，检查状态
     const document = documentList.value.find((item) => item.id === documentId);
@@ -3070,6 +3437,10 @@ const unTopAnnouncement = async (announcementId: string) => {
 
 // 删除公告
 const deleteAnnouncement = async (announcementId: string) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await deleteAnnouncementApi(Number(announcementId));
     ElMessage.success('公告删除成功');
@@ -3082,6 +3453,10 @@ const deleteAnnouncement = async (announcementId: string) => {
 
 // 编辑公告
 const editAnnouncement = async (announcement: any) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   isEditingAnnouncement.value = true;
 
   // 检查公告对象的ID字段，可能是id或announcement_id
@@ -3287,6 +3662,10 @@ const viewAnnouncementDetail = async (announcement: any) => {
 
 // 打开新增公告对话框
 const openNewAnnouncementDialog = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   isEditingAnnouncement.value = false;
   currentAnnouncementId.value = null;
   dialogTitle.value = '发布新公告';
@@ -3537,6 +3916,76 @@ const downloadAttachment = async (attachment: any) => {
   }
 };
 
+// 打开公告附件重命名对话框
+const handleAnnouncementRename = (attachment: any) => {
+  currentAnnouncementRenameFile.value = attachment;
+  const lastDotIndex = attachment.file_name.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newAnnouncementFileName.value = attachment.file_name.substring(0, lastDotIndex);
+  } else {
+    newAnnouncementFileName.value = attachment.file_name;
+  }
+  showAnnouncementRenameDialog.value = true;
+};
+
+// 取消公告附件重命名
+const cancelAnnouncementRename = () => {
+  showAnnouncementRenameDialog.value = false;
+  currentAnnouncementRenameFile.value = null;
+  newAnnouncementFileName.value = '';
+};
+
+// 确认公告附件重命名
+const confirmAnnouncementRename = async () => {
+  if (!currentAnnouncementRenameFile.value || !newAnnouncementFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    announcementRenameLoading.value = true;
+    const originalName = currentAnnouncementRenameFile.value.file_name;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newAnnouncementFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    const fileId = Number(currentAnnouncementRenameFile.value.file_id);
+    if (!isNaN(fileId) && fileId > 0) {
+      const response = await renameFileApi(fileId, finalName);
+      if (response.code === 200) {
+        ElMessage.success('重命名成功');
+        // 更新本地数据
+        currentAnnouncementRenameFile.value.file_name = finalName;
+        // 如果当前有公告详情，刷新它
+        if (currentAnnouncementDetail.value && currentAnnouncementDetail.value.attachments) {
+          const attach = currentAnnouncementDetail.value.attachments.find(
+            (a: any) => a.file_id === currentAnnouncementRenameFile.value.file_id
+          );
+          if (attach) {
+            attach.file_name = finalName;
+          }
+        }
+      } else {
+        ElMessage.error(response.message || '重命名失败');
+      }
+    } else {
+      ElMessage.error('无效的文件ID');
+    }
+
+    showAnnouncementRenameDialog.value = false;
+    currentAnnouncementRenameFile.value = null;
+    newAnnouncementFileName.value = '';
+  } catch (error) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    announcementRenameLoading.value = false;
+  }
+};
+
 const viewAnnouncementViews = async (announcement: any) => {
   viewsLoading.value = true;
   showViewsDialog.value = true;
@@ -3642,9 +4091,11 @@ const getCaseStatusStyle = (status: string) => {
 
 const getCaseStatusTagType = (status: string) => {
   const typeMap: Record<string, any> = {
-    '在办': 'success',
-    '报结': 'warning',
-    '已结': 'success',
+    '待处理': 'info',
+    '进行中': 'primary',
+    '报结中': 'warning',
+    '已结案': 'success',
+    '已归档': 'info',
   };
   return typeMap[status] || 'info';
 };
@@ -3684,6 +4135,10 @@ const openAssetManagementDialog = () => {
 
 // 开始编辑
 const startEditing = () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   isEditing.value = true;
   // 复制当前数据到编辑对象
   Object.assign(editedData, caseDetail.value);
@@ -3805,6 +4260,7 @@ const handleProgressUpdated = async () => {
           备注: caseData.remarks,
           文件上传路径: caseData.fileUploadPath,
         };
+        rawCaseStatus.value = caseData.caseStatus || '';
         ElMessage.success('案件进度已更新');
       } else {
         throw new Error('API返回的数据结构异常');
@@ -3871,6 +4327,7 @@ onMounted(async () => {
           备注: caseData.remarks,
           文件上传路径: caseData.fileUploadPath,
         };
+        rawCaseStatus.value = caseData.caseStatus || '';
         ElMessage.success('案件详情加载成功');
       } else {
         throw new Error('API返回的数据结构异常');
@@ -3952,12 +4409,14 @@ const mapReviewStatus = (status: string): string => {
   return statusMap[status] || status;
 };
 
-// 映射案件状态
+// 映射案件状态（精简为5个状态）
 const mapCaseStatus = (status: string): string => {
   const statusMap: Record<string, string> = {
-    ONGOING: '在办',
-    AWAITING: '报结',
-    COMPLETED: '已结',
+    PENDING: '待处理',
+    ONGOING: '进行中',
+    AWAITING: '报结中',
+    COMPLETED: '已结案',
+    ARCHIVED: '已归档',
   };
   return statusMap[status] || status;
 };
@@ -4449,6 +4908,10 @@ const confirmSelectLeader = () => {
 
 // 添加成员
 const handleAddMember = async (teamId: number) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   selectedTeamId.value = teamId;
   memberDialogTitle.value = '添加成员';
   memberForm.value = {
@@ -4642,6 +5105,10 @@ const handleSaveMember = async () => {
 
 // 移除成员
 const handleRemoveMember = async (teamId: number, memberId: number) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await removeTeamMemberApi(teamId, memberId);
     // 检查响应code，200表示成功，403表示权限不足
@@ -5101,6 +5568,11 @@ const endDrag = () => {
   document.removeEventListener('mouseup', handleGlobalEndDrag);
   document.removeEventListener('mouseleave', handleGlobalEndDrag);
 };
+
+// 组件卸载时清理全局事件监听（防止内存泄漏）
+onUnmounted(() => {
+  endDrag();
+});
 </script>
 
 <template>
@@ -5127,6 +5599,16 @@ const endDrag = () => {
     <!-- 有权限时显示正常内容 -->
     <div v-show="hasAccessPermission && !permissionChecking">
     <div>
+      <!-- 已归档案件提示横幅 -->
+      <ElAlert
+        v-if="isCaseArchived"
+        title="此案件已归档"
+        description="当前案件已归档，无法进行任何修改操作。如需修改，请先撤销归档。"
+        type="warning"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 12px;"
+      />
       <!-- 白色卡片容器 -->
       <ElCard
         shadow="hover"
@@ -5171,10 +5653,38 @@ const endDrag = () => {
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
               </ElButton>
-              <ElButton type="primary" @click="openReviewDialog">
-                <Icon icon="lucide:check-square" class="mr-2" />
-                提交批审
-              </ElButton>
+              <ElButton
+                    v-if="!isCaseArchived"
+                    type="primary"
+                    @click="openReviewDialog"
+                  >
+                    <Icon icon="lucide:check-square" class="mr-2" />
+                    提交批审
+                  </ElButton>
+                  <ElButton
+                    v-if="!isCaseCompleted && !isCaseArchived"
+                    type="warning"
+                    @click="() => openReviewDialog(true)"
+                  >
+                    <Icon icon="lucide:flag" class="mr-2" />
+                    报结
+                  </ElButton>
+                  <ElButton
+                    v-if="isCaseCompleted"
+                    type="success"
+                    @click="handleArchiveCase"
+                  >
+                    <Icon icon="lucide:archive" class="mr-2" />
+                    归档
+                  </ElButton>
+                  <ElButton
+                    v-if="isCaseArchived"
+                    type="warning"
+                    @click="handleUnarchiveCase"
+                  >
+                    <Icon icon="lucide:undo-2" class="mr-2" />
+                    撤回归档
+                  </ElButton>
             </div>
           </div>
 
@@ -5245,7 +5755,7 @@ const endDrag = () => {
                   <span v-if="isEditing" class="edit-indicator ml-3">编辑中</span>
                 </div>
                 <div class="flex space-x-2">
-                  <template v-if="!isEditing && canEdit">
+                  <template v-if="!isEditing && canEdit && !isCaseArchived">
                     <ElButton type="primary" @click="startEditing">
                       <Icon icon="lucide:pencil" class="mr-1" />
                       编辑
@@ -6349,7 +6859,7 @@ const endDrag = () => {
                         size="small"
                         type="primary"
                         @click="handleAddMember(team.id)"
-                        v-if="isCreator || isAdmin || isSuperAdmin || (isTeamLeader && team.teamLeaderId === currentUserId)"
+                        v-if="!isCaseArchived && (isCreator || isAdmin || isSuperAdmin || (isTeamLeader && team.teamLeaderId === currentUserId))"
                       >
                         <Icon icon="lucide:plus" class="mr-1" />
                         添加成员
@@ -6581,7 +7091,7 @@ const endDrag = () => {
             >
               <div style="display: flex; gap: 12px; align-items: center">
                 <ElSelect
-                  v-model="workLogForm.workType"
+                  v-model="workLogFilter.workType"
                   placeholder="工作类型"
                   clearable
                   style="width: 200px"
@@ -6643,7 +7153,9 @@ const endDrag = () => {
                         v-if="log.workResult"
                         style="font-size: 14px; color: #666"
                       >
-                        {{ log.workResult }}
+                        <ElTag size="small" type="info" effect="plain">
+                          结果：{{ log.workResult }}
+                        </ElTag>
                       </div>
                     </div>
                     <div style="display: flex; gap: 8px">
@@ -6655,6 +7167,15 @@ const endDrag = () => {
                       >
                         <Icon icon="lucide:eye" class="mr-1" />
                         查看
+                      </ElButton>
+                      <ElButton
+                        type="primary"
+                        size="small"
+                        @click="editWorkLog(log)"
+                        style="padding: 4px 12px; font-size: 12px"
+                      >
+                        <Icon icon="lucide:edit-3" class="mr-1" />
+                        编辑
                       </ElButton>
                       <ElPopconfirm
                         title="确定要删除这条日志吗？"
@@ -6729,73 +7250,137 @@ const endDrag = () => {
                       v-for="file in log.attachments"
                       :key="file.id"
                       style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        padding: 6px 10px;
                         margin-bottom: 6px;
                         background: #fff;
                         border-radius: 4px;
                         font-size: 13px;
+                        overflow: hidden;
                       "
                     >
-                      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
-                        <Icon
-                          :icon="
-                            file.originalFileName.endsWith('.pdf')
-                              ? 'lucide:file-pdf'
-                              : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
-                                ? 'lucide:file-word'
-                                : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
-                                  ? 'lucide:file-excel'
-                                  : file.originalFileName.endsWith('.jpg') || file.originalFileName.endsWith('.jpeg') || file.originalFileName.endsWith('.png')
-                                    ? 'lucide:file-image'
-                                    : 'lucide:file'
-                          "
-                          :class="
-                            file.originalFileName.endsWith('.pdf')
-                              ? 'text-red-500'
-                              : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
-                                ? 'text-primary'
-                                : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
-                                  ? 'text-green-500'
-                                  : file.originalFileName.endsWith('.jpg') || file.originalFileName.endsWith('.jpeg') || file.originalFileName.endsWith('.png')
-                                    ? 'text-purple-500'
-                                    : 'text-gray-500'
-                          "
-                          style="font-size: 18px; flex-shrink: 0"
-                        />
-                        <span
-                          style="
-                            overflow: hidden;
-                            text-overflow: ellipsis;
-                            white-space: nowrap;
-                            color: #333;
-                          "
-                        >
-                          {{ file.originalFileName }}
-                        </span>
-                        <span style="color: #999; font-size: 12px; flex-shrink: 0">
-                          ({{ formatFileSize(file.fileSize) }})
-                        </span>
+                      <!-- 图片文件直接显示预览 -->
+                      <div
+                        v-if="isImageFile(file.originalFileName)"
+                        style="cursor: pointer;"
+                        @click="previewWorkLogFile(file)"
+                      >
+                        <div style="padding: 6px 10px; display: flex; align-items: center; gap: 8px;">
+                          <Icon
+                            icon="lucide:file-image"
+                            class="text-purple-500"
+                            style="font-size: 18px; flex-shrink: 0"
+                          />
+                          <span
+                            style="
+                              overflow: hidden;
+                              text-overflow: ellipsis;
+                              white-space: nowrap;
+                              color: #333;
+                              flex: 1;
+                            "
+                          >
+                            {{ file.originalFileName }}
+                          </span>
+                          <span style="color: #999; font-size: 12px; flex-shrink: 0">
+                            ({{ formatFileSize(file.fileSize) }})
+                          </span>
+                          <div style="display: flex; gap: 4px; flex-shrink: 0">
+                            <ElButton
+                              link
+                              size="small"
+                              @click.stop="downloadWorkLogFile(file)"
+                              style="padding: 2px 8px; font-size: 12px"
+                            >
+                              <Icon icon="lucide:download" />
+                            </ElButton>
+                            <ElButton
+                              link
+                              size="small"
+                              @click.stop="handleWorkLogRename(file)"
+                              style="padding: 2px 8px; font-size: 12px"
+                            >
+                              <Icon icon="lucide:edit-3" />
+                            </ElButton>
+                          </div>
+                        </div>
+                        <div style="padding: 0 10px 10px;">
+                          <WorkLogImage
+                            :file-id="file.id"
+                            :file-name="file.originalFileName"
+                          />
+                        </div>
                       </div>
-                      <div style="display: flex; gap: 4px; flex-shrink: 0">
-                        <ElButton
-                          link
-                          size="small"
-                          @click="previewWorkLogFile(file)"
-                          style="padding: 2px 8px; font-size: 12px"
-                        >
-                          <Icon icon="lucide:eye" />
-                        </ElButton>
-                        <ElButton
-                          link
-                          size="small"
-                          @click="downloadWorkLogFile(file)"
-                          style="padding: 2px 8px; font-size: 12px"
-                        >
-                          <Icon icon="lucide:download" />
-                        </ElButton>
+                      <!-- 非图片文件保持原有样式 -->
+                      <div
+                        v-else
+                        style="
+                          display: flex;
+                          align-items: center;
+                          justify-content: space-between;
+                          padding: 6px 10px;
+                        "
+                      >
+                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
+                          <Icon
+                            :icon="
+                              file.originalFileName.endsWith('.pdf')
+                                ? 'lucide:file-pdf'
+                                : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
+                                  ? 'lucide:file-word'
+                                  : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
+                                    ? 'lucide:file-excel'
+                                    : 'lucide:file'
+                            "
+                            :class="
+                              file.originalFileName.endsWith('.pdf')
+                                ? 'text-red-500'
+                                : file.originalFileName.endsWith('.doc') || file.originalFileName.endsWith('.docx')
+                                  ? 'text-primary'
+                                  : file.originalFileName.endsWith('.xls') || file.originalFileName.endsWith('.xlsx')
+                                    ? 'text-green-500'
+                                    : 'text-gray-500'
+                            "
+                            style="font-size: 18px; flex-shrink: 0"
+                          />
+                          <span
+                            style="
+                              overflow: hidden;
+                              text-overflow: ellipsis;
+                              white-space: nowrap;
+                              color: #333;
+                            "
+                          >
+                            {{ file.originalFileName }}
+                          </span>
+                          <span style="color: #999; font-size: 12px; flex-shrink: 0">
+                            ({{ formatFileSize(file.fileSize) }})
+                          </span>
+                        </div>
+                        <div style="display: flex; gap: 4px; flex-shrink: 0">
+                          <ElButton
+                            link
+                            size="small"
+                            @click="previewWorkLogFile(file)"
+                            style="padding: 2px 8px; font-size: 12px"
+                          >
+                            <Icon icon="lucide:eye" />
+                          </ElButton>
+                          <ElButton
+                            link
+                            size="small"
+                            @click="downloadWorkLogFile(file)"
+                            style="padding: 2px 8px; font-size: 12px"
+                          >
+                            <Icon icon="lucide:download" />
+                          </ElButton>
+                          <ElButton
+                            link
+                            size="small"
+                            @click="handleWorkLogRename(file)"
+                            style="padding: 2px 8px; font-size: 12px"
+                          >
+                            <Icon icon="lucide:edit-3" />
+                          </ElButton>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -6912,10 +7497,8 @@ const endDrag = () => {
             <ElFormItem label="附件上传">
               <FileUpload
                 ref="fileUploadRef"
-                v-model="workLogForm.files"
-                :model-value="[]"
                 :biz-type="'work_log'"
-                :biz-id="0"
+                :biz-id="currentWorkLogId || 0"
                 accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
@@ -7145,7 +7728,7 @@ const endDrag = () => {
                   <h4 class="section-title">公告内容</h4>
                   <div
                     class="content-html"
-                    v-html="currentAnnouncementDetail.content"
+                    v-html="sanitizeHtml(currentAnnouncementDetail?.content)"
                   ></div>
                 </div>
 
@@ -7186,12 +7769,88 @@ const endDrag = () => {
                       >
                         下载
                       </ElButton>
+                      <ElButton
+                        link
+                        type="primary"
+                        size="small"
+                        @click="handleAnnouncementRename(attachment)"
+                      >
+                        重命名
+                      </ElButton>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+        </ElDialog>
+
+        <!-- 公告附件重命名对话框 -->
+        <ElDialog
+          v-model="showAnnouncementRenameDialog"
+          title="重命名文件"
+          width="400px"
+          destroy-on-close
+        >
+          <div class="rename-dialog-content">
+            <div class="form-item mb-4">
+              <label class="form-label block mb-2">当前文件名：</label>
+              <div class="current-file-name text-gray-600">{{ currentAnnouncementRenameFile?.file_name }}</div>
+            </div>
+            <div class="form-item">
+              <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+              <ElInput
+                v-model="newAnnouncementFileName"
+                placeholder="请输入新文件名"
+                :disabled="announcementRenameLoading"
+                class="w-full"
+              />
+            </div>
+          </div>
+          <template #footer>
+            <span class="dialog-footer">
+              <ElButton @click="cancelAnnouncementRename" :loading="announcementRenameLoading">
+                取消
+              </ElButton>
+              <ElButton type="primary" @click="confirmAnnouncementRename" :loading="announcementRenameLoading">
+                确认重命名
+              </ElButton>
+            </span>
+          </template>
+        </ElDialog>
+
+        <!-- 工作日志附件重命名对话框 -->
+        <ElDialog
+          v-model="showWorkLogRenameDialog"
+          title="重命名文件"
+          width="400px"
+          destroy-on-close
+        >
+          <div class="rename-dialog-content">
+            <div class="form-item mb-4">
+              <label class="form-label block mb-2">当前文件名：</label>
+              <div class="current-file-name text-gray-600">{{ currentWorkLogRenameFile?.originalFileName }}</div>
+            </div>
+            <div class="form-item">
+              <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+              <ElInput
+                v-model="newWorkLogFileName"
+                placeholder="请输入新文件名"
+                :disabled="workLogRenameLoading"
+                class="w-full"
+              />
+            </div>
+          </div>
+          <template #footer>
+            <span class="dialog-footer">
+              <ElButton @click="cancelWorkLogRename" :loading="workLogRenameLoading">
+                取消
+              </ElButton>
+              <ElButton type="primary" @click="confirmWorkLogRename" :loading="workLogRenameLoading">
+                确认重命名
+              </ElButton>
+            </span>
+          </template>
         </ElDialog>
 
         <!-- 文件预览对话框 -->
@@ -8375,7 +9034,7 @@ const endDrag = () => {
               <h3 class="section-title">送达内容</h3>
               <div
                 class="detail-content"
-                v-html="documentDetail.deliveryContent"
+                v-html="sanitizeHtml(documentDetail?.deliveryContent)"
               ></div>
             </div>
 
@@ -8432,6 +9091,15 @@ const endDrag = () => {
                       <Icon icon="lucide:download" class="mr-1" />
                       下载
                     </ElButton>
+                    <ElButton
+                      type="primary"
+                      size="small"
+                      link
+                      @click="handleDocumentRename(attachment)"
+                    >
+                      <Icon icon="lucide:edit-3" class="mr-1" />
+                      重命名
+                    </ElButton>
                   </div>
                 </div>
               </div>
@@ -8469,6 +9137,40 @@ const endDrag = () => {
             <ElEmpty description="暂无文书详情" />
           </div>
         </ElDialog>
+
+        <!-- 文书附件重命名对话框 -->
+        <ElDialog
+          v-model="showDocumentRenameDialog"
+          title="重命名文件"
+          width="400px"
+          destroy-on-close
+        >
+          <div class="rename-dialog-content">
+            <div class="form-item mb-4">
+              <label class="form-label block mb-2">当前文件名：</label>
+              <div class="current-file-name text-gray-600">{{ currentDocumentRenameFile?.originalFileName }}</div>
+            </div>
+            <div class="form-item">
+              <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+              <ElInput
+                v-model="newDocumentFileName"
+                placeholder="请输入新文件名"
+                :disabled="documentRenameLoading"
+                class="w-full"
+              />
+            </div>
+          </div>
+          <template #footer>
+            <span class="dialog-footer">
+              <ElButton @click="cancelDocumentRename" :loading="documentRenameLoading">
+                取消
+              </ElButton>
+              <ElButton type="primary" @click="confirmDocumentRename" :loading="documentRenameLoading">
+                确认重命名
+              </ElButton>
+            </span>
+          </template>
+        </ElDialog>
       </ElCard>
 
       <!-- 批审对话框 -->
@@ -8494,6 +9196,7 @@ const endDrag = () => {
                     v-model="reviewForm.reviewType"
                     placeholder="请选择审批类型"
                     style="width: 100%"
+                    :disabled="reviewForm.reviewType === 'CASE_REVIEW' && reviewTypeOptions.length === 2"
                     @change="
                       (value) => {
                         // 当选择流程审批时，加载阶段列表

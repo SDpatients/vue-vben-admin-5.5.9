@@ -213,8 +213,7 @@ const handleMarkAsRead = async () => {
       }
     }
   } catch (error) {
-    console.error('[handleMarkAsRead] Error:', error)
-    uni.showToast({ title: '操作失败', icon: 'none' })
+uni.showToast({ title: '操作失败', icon: 'none' })
   }
 }
 
@@ -231,8 +230,7 @@ const handleDelete = () => {
             uni.navigateBack()
           }, 1500)
         } catch (error) {
-          console.error('[handleDelete] Error:', error)
-          uni.showToast({ title: '删除失败', icon: 'none' })
+uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
     },

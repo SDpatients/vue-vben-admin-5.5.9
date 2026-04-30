@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace BankAccountTransactionApi {
   /** 交易记录查询参数 */
@@ -116,7 +116,7 @@ export namespace BankAccountTransactionApi {
 export async function getTransactionListApi(
   params: BankAccountTransactionApi.TransactionQueryParams,
 ) {
-  return requestClient8085.get<BankAccountTransactionApi.TransactionListResponse>(
+  return requestClient8080.get<BankAccountTransactionApi.TransactionListResponse>(
     '/bank-account-transaction/list',
     {
       params,
@@ -130,7 +130,7 @@ export async function getTransactionListApi(
 export async function getTransactionDetailApi(
   transactionId: number,
 ) {
-  return requestClient8085.get<BankAccountTransactionApi.TransactionDetailResponse>(
+  return requestClient8080.get<BankAccountTransactionApi.TransactionDetailResponse>(
     `/bank-account-transaction/${transactionId}`,
   );
 }
@@ -141,7 +141,7 @@ export async function getTransactionDetailApi(
 export async function createTransactionApi(
   data: BankAccountTransactionApi.CreateTransactionRequest,
 ) {
-  return requestClient8085.post<BankAccountTransactionApi.CreateTransactionResponse>(
+  return requestClient8080.post<BankAccountTransactionApi.CreateTransactionResponse>(
     '/bank-account-transaction',
     data,
     {
@@ -159,7 +159,7 @@ export async function updateTransactionApi(
   transactionId: number,
   data: BankAccountTransactionApi.UpdateTransactionRequest,
 ) {
-  return requestClient8085.put<BankAccountTransactionApi.UpdateTransactionResponse>(
+  return requestClient8080.put<BankAccountTransactionApi.UpdateTransactionResponse>(
     `/bank-account-transaction/${transactionId}`,
     data,
     {
@@ -176,7 +176,7 @@ export async function updateTransactionApi(
 export async function deleteTransactionApi(
   transactionId: number,
 ) {
-  return requestClient8085.delete<BankAccountTransactionApi.DeleteTransactionResponse>(
+  return requestClient8080.delete<BankAccountTransactionApi.DeleteTransactionResponse>(
     `/bank-account-transaction/${transactionId}`,
     {
       headers: {
@@ -193,7 +193,7 @@ export async function getAccountTransactionsApi(
   accountId: number,
   params?: Omit<BankAccountTransactionApi.TransactionQueryParams, 'accountId'>,
 ) {
-  return requestClient8085.get<BankAccountTransactionApi.TransactionListResponse>(
+  return requestClient8080.get<BankAccountTransactionApi.TransactionListResponse>(
     `/bank-account/${accountId}/transactions`,
     {
       params,

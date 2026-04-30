@@ -68,9 +68,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { stageConfig as defaultStageConfig } from '@/api/process'
-
-console.log('=== process-stage.vue loaded ===')
-
 const props = defineProps<{
   caseId: string
   stageNum: number
@@ -94,17 +91,14 @@ const completionRate = computed(() => {
 })
 
 onMounted(() => {
-  console.log('[onMounted] caseId:', props.caseId, 'stageNum:', props.stageNum)
-  loadStageData()
+loadStageData()
 })
 
 const loadStageData = async () => {
   try {
     // TODO: 调用API获取阶段数据
-    console.log('[loadStageData] Loading stage data...')
-  } catch (error) {
-    console.error('[loadStageData] Error:', error)
-  }
+} catch (error) {
+}
 }
 
 const getModuleIcon = (code: string) => {
@@ -175,21 +169,18 @@ const getModuleData = (code: string) => {
 }
 
 const handleModuleClick = (module: any) => {
-  console.log('[handleModuleClick] module:', module)
-  uni.navigateTo({
+uni.navigateTo({
     url: `/pages/cases/process-module?caseId=${props.caseId}&stageNum=${props.stageNum}&moduleCode=${module.code}&moduleName=${encodeURIComponent(module.name)}`
   })
 }
 
 const handleSubmit = async () => {
-  console.log('[handleSubmit] Submitting stage data...')
-  submitting.value = true
+submitting.value = true
   try {
     // TODO: 调用API保存阶段数据
     uni.showToast({ title: '保存成功', icon: 'success' })
   } catch (error) {
-    console.error('[handleSubmit] Error:', error)
-    uni.showToast({ title: '保存失败', icon: 'none' })
+uni.showToast({ title: '保存失败', icon: 'none' })
   } finally {
     submitting.value = false
   }

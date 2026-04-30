@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getAdministratorList, type AdministratorItem } from '@/api/basic-data'
 
@@ -118,6 +118,11 @@ const filterCount = computed(() => {
 
 onMounted(() => {
   loadData()
+  uni.$on('refresh-admin-list', () => loadData(true))
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-admin-list')
 })
 
 const handleSearchInput = () => {
@@ -186,8 +191,7 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = adminList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     uni.stopPullDownRefresh()

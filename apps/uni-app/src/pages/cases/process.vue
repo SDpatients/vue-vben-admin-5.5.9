@@ -401,9 +401,6 @@ import {
 import { getBaseUrl, API_PREFIX } from '@/config'
 import http from '@/api/request'
 import dayjs from 'dayjs'
-
-console.log('=== process.vue loaded ===')
-
 const caseId = ref('')
 const caseInfo = ref<CaseItem | null>(null)
 const loading = ref(false)
@@ -541,13 +538,10 @@ const taskStatusMap: Record<string, { text: string; type: string }> = {
 }
 
 onMounted(() => {
-  console.log('[onMounted] process page')
-  const pages = getCurrentPages()
+const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
   caseId.value = currentPage.options?.id || ''
-  console.log('[onMounted] caseId:', caseId.value)
-
-  if (caseId.value) {
+if (caseId.value) {
     initPage()
   }
 })
@@ -570,8 +564,7 @@ const initPage = async () => {
       expandedModules.value[stages.value[0].modules[0].id] = true
     }
   } catch (error) {
-    console.error('[initPage] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -594,8 +587,7 @@ const loadCaseInfo = async () => {
       }
     }
   } catch (error) {
-    console.error('[loadCaseInfo] Error:', error)
-  }
+}
 }
 
 // 加载所有阶段数据
@@ -644,8 +636,7 @@ const loadAllStageData = async () => {
             }
           }
         } catch (e) {
-          console.error('[loadAllStageData] 获取提交记录失败:', e)
-        }
+}
       }
 
       // 3. 分配任务到对应模块
@@ -684,8 +675,7 @@ const loadAllStageData = async () => {
       })
     }
   } catch (error) {
-    console.error('[loadAllStageData] Error:', error)
-  }
+}
 }
 
 // 初始化动画进度
@@ -760,8 +750,7 @@ const toggleModuleComplete = async (moduleId: string) => {
       uni.showToast({ title: response.message || '更新任务状态失败', icon: 'none' })
     }
   } catch (error) {
-    console.error('更新任务状态失败:', error)
-    uni.hideLoading()
+uni.hideLoading()
     uni.showToast({ title: '更新任务状态失败', icon: 'none' })
   }
 }
@@ -894,8 +883,7 @@ const handleSubmit = async () => {
     await loadAllStageData()
     initAnimatedProgress()
   } catch (error: any) {
-    console.error('[handleSubmit] Error:', error)
-    uni.showToast({ title: error.message || '保存失败', icon: 'none' })
+uni.showToast({ title: error.message || '保存失败', icon: 'none' })
   } finally {
     submitting.value = false
   }
@@ -1024,8 +1012,7 @@ const loadMeetingData = async (meetingId: number = 1) => {
     // 获取视频标签数据
     await fetchVideoTags(meetingId)
   } catch (error) {
-    console.error('[loadMeetingData] Error:', error)
-  } finally {
+} finally {
     uni.hideLoading()
   }
 }
@@ -1047,8 +1034,7 @@ const fetchVoteItems = async (meetingId: number) => {
       voteItems.value = []
     }
   } catch (error) {
-    console.error('[fetchVoteItems] Error:', error)
-    // API失败时使用默认数据
+// API失败时使用默认数据
     voteItems.value = [
       { id: 1, name: '通过财产变价方案', agree: 45, oppose: 8, abstain: 3, remark: '已通过' },
       { id: 2, name: '通过财产分配方案', agree: 42, oppose: 10, abstain: 4, remark: '已通过' },
@@ -1072,8 +1058,7 @@ const fetchVideoTags = async (meetingId: number) => {
       videoTags.value = []
     }
   } catch (error) {
-    console.error('[fetchVideoTags] Error:', error)
-    // API失败时使用默认数据
+// API失败时使用默认数据
     videoTags.value = [
       { id: 1, title: '会议开场致辞', status: 'generated', statusText: '已生成' },
       { id: 2, title: '管理人工作报告', status: 'generated', statusText: '已生成' },

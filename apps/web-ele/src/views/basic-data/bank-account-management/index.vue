@@ -2,10 +2,9 @@
 import type { BankAccountApi } from '#/api/core/bank-account';
 import type { BankAccountTransactionApi } from '#/api/core/bank-account-transaction';
 import type { ExportColumnConfig } from '#/utils/export-excel';
+import type { FormInstance, FormRules } from 'element-plus';
 
 import { onMounted, reactive, ref } from 'vue';
-
-import { useAccessStore } from '@vben/stores';
 
 import {
   ElButton,
@@ -46,9 +45,10 @@ import { getCaseSimpleListApi } from '#/api/core/case';
 import { exportToExcel } from '#/utils/export-excel';
 import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
-// 响应式数据
+// ==================== 响应式数据 ====================
 const bankAccountList = ref<BankAccountApi.BankAccountInfo[]>([]);
 const loading = ref(false);
+
 interface Pagination {
   page: number;
   pageSize: number;
@@ -56,12 +56,15 @@ interface Pagination {
   pages: number;
 }
 
-const pagination = ref<Pagination>({
+const pagination = ref<Pagination>(({
   page: 1,
   pageSize: 10,
   itemCount: 0,
   pages: 0,
-});
+}));
+
+// 搜索关键词
+const searchKeyword = ref('');
 
 // 模板导出相关
 const templateExportVisible = ref(false);
@@ -82,27 +85,19 @@ const bankAccountFieldMapping: Record<string, string> = {
 
 // 处理表格多选变化
 const handleSelectionChange = (selection: any[]) => {
-  selectedBankAccountIds.value = selection.map(item => item.id);
-};
-
-// 显示模板导出对话框
-const showTemplateExportDialog = () => {
-  if (selectedBankAccountIds.value.length === 0) {
-    ElMessage.warning('请先在表格中选择要导出的银行账户');
-    return;
-  }
-  templateExportVisible.value = true;
+  selectedBankAccountIds.value = selection.map((item) => item.id);
 };
 
 // 获取选中的银行账户数据
 const getSelectedBankAccountData = () => {
-  return bankAccountList.value.filter(b => selectedBankAccountIds.value.includes(b.id));
+  return bankAccountList.value.filter((b) =>
+    selectedBankAccountIds.value.includes(b.id),
+  );
 };
 
-// 列显示控制
+// ==================== 列显示控制 ====================
 const columnVisible = ref<string[]>([]);
 
-// 所有可用的列
 const availableColumns = [
   '行号',
   '账户名称',
@@ -118,7 +113,6 @@ const availableColumns = [
   '状态',
 ];
 
-// 默认显示的列（核心信息）
 const defaultColumns = new Set([
   '创建时间',
   '开户行',
@@ -133,21 +127,17 @@ const defaultColumns = new Set([
   '银行名称',
 ]);
 
-// 检查列是否可见（用于表格列的 v-if）
 const isColumnVisible = (columnName: string) => {
   return columnVisible.value.includes(columnName);
 };
 
-// 初始化列显示状态
 const initColumnVisibility = () => {
   columnVisible.value = availableColumns.filter((column) =>
     defaultColumns.has(column),
   );
 };
 
-const accessStore = useAccessStore();
-
-// 获取银行账户列表
+// ==================== 银行账户列表 ====================
 const fetchBankAccountList = async () => {
   loading.value = true;
   try {
@@ -156,6 +146,11 @@ const fetchBankAccountList = async () => {
       pageSize: pagination.value.pageSize,
     };
 
+    // 如果有搜索关键词，添加到参数
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim();
+    }
+
     const response = await getBankAccountListApi(params);
 
     if (response.code === 200) {
@@ -163,9 +158,6 @@ const fetchBankAccountList = async () => {
       pagination.value.itemCount = response.data.total || 0;
       pagination.value.pages =
         Math.ceil(pagination.value.itemCount / pagination.value.pageSize) || 0;
-      ElMessage.success(
-        `成功加载 ${bankAccountList.value.length} 条银行账户记录`,
-      );
 
       // 懒加载：逐个获取账户的总流入和总流出
       loadTransactionSummaries();
@@ -203,6 +195,19 @@ const loadTransactionSummaries = async () => {
   }
 };
 
+// 搜索银行账户
+const handleSearch = () => {
+  pagination.value.page = 1;
+  fetchBankAccountList();
+};
+
+// 重置搜索
+const handleResetSearch = () => {
+  searchKeyword.value = '';
+  pagination.value.page = 1;
+  fetchBankAccountList();
+};
+
 // 处理分页变化
 const handlePageChange = (page: number) => {
   pagination.value.page = page;
@@ -228,36 +233,21 @@ onMounted(() => {
   fetchBankAccountList();
 });
 
-// 重置列显示状态
-const resetColumns = () => {
-  initColumnVisibility();
-  ElMessage.success('已重置为默认列显示');
+// ==================== 格式化函数 ====================
+const formatDateTime = (timestamp: number | string | undefined) => {
+  if (!timestamp) return '-';
+  try {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('zh-CN');
+  } catch {
+    return '-';
+  }
 };
 
-// 显示所有列
-const showAllColumns = () => {
-  columnVisible.value = [...availableColumns];
-  ElMessage.success('已显示所有列');
-};
-
-// 隐藏所有非核心列
-const hideNonCoreColumns = () => {
-  columnVisible.value = availableColumns.filter((column) =>
-    defaultColumns.has(column),
-  );
-  ElMessage.success('已隐藏非核心列');
-};
-
-// 格式化日期显示
-const formatDate = (timestamp: number) => {
-  // 特殊处理无效时间戳
-  if (!timestamp || timestamp === -2_209_017_600_000) return '-';
-  return new Date(timestamp).toLocaleDateString('zh-CN');
-};
-
-// 格式化货币显示
-const formatCurrency = (amount: number) => {
-  if (!amount) return '-';
+const formatCurrency = (amount: number | undefined | null) => {
+  if (amount === undefined || amount === null) return '-';
+  if (amount === 0) return '¥0.00';
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: 'CNY',
@@ -265,23 +255,19 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// 获取账户状态标签类型
+// ==================== 状态相关 ====================
 const getStatusType = (status: string) => {
   switch (status) {
-    case 'ACTIVE': {
+    case 'ACTIVE':
+    case '启动': {
       return 'success';
     }
-    case 'INACTIVE': {
+    case 'INACTIVE':
+    case '销户': {
       return 'info';
     }
     case '冻结': {
       return 'danger';
-    }
-    case '启动': {
-      return 'success';
-    }
-    case '销户': {
-      return 'info';
     }
     default: {
       return 'warning';
@@ -289,7 +275,6 @@ const getStatusType = (status: string) => {
   }
 };
 
-// 状态翻译
 const getStatusText = (status: string) => {
   switch (status) {
     case 'ACTIVE': {
@@ -304,7 +289,6 @@ const getStatusText = (status: string) => {
   }
 };
 
-// 账户类型翻译映射
 const accountTypeTranslation: Record<string, string> = {
   FOREIGN: '外汇户',
   MARGIN: '保证金户',
@@ -318,7 +302,6 @@ const accountTypeTranslation: Record<string, string> = {
   专用户: '专用户',
 };
 
-// 获取账户类型标签类型
 const getAccountType = (type: string) => {
   switch (type) {
     case 'BASIC':
@@ -347,24 +330,36 @@ const getAccountType = (type: string) => {
   }
 };
 
-// 查看银行账户详情
-const viewBankAccountDetail = (row: BankAccountApi.BankAccountInfo) => {
-  ElMessage.info(`查看银行账户详情: ${row.accountName}`);
-  // 后续可添加路由跳转逻辑
-  // const router = useRouter();
-  // router.push(`/basic-data/bank-account-management/detail/${row.sepId}`);
-};
+// ==================== 编辑银行账户 ====================
+const editDialogVisible = ref(false);
+const editFormRef = ref<FormInstance>();
+const editFormLoading = ref(false);
+const editingRow = ref<BankAccountApi.BankAccountInfo | null>(null);
 
-// 编辑银行账户
+const editFormData = reactive({
+  caseId: 0,
+  caseNumber: '',
+  accountName: '',
+  accountNumber: '',
+  accountType: '',
+  openingBank: '',
+  password: '',
+  currentBalance: 0,
+  currency: '',
+  openingDate: '',
+  closingDate: null as null | string,
+  status: 'ACTIVE',
+  accountPurpose: '',
+});
+
 const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editingRow.value = row;
-  // 填充编辑表单数据
   editFormData.caseId = row.caseId || 0;
   editFormData.caseNumber = row.caseNumber || '';
   editFormData.accountName = row.accountName;
   editFormData.accountNumber = row.accountNumber;
   editFormData.accountType = row.accountType;
-  editFormData.openingBank = row.bankName; // 直接使用bankName
+  editFormData.openingBank = row.bankName;
   editFormData.password = '******';
   editFormData.currentBalance = row.currentBalance;
   editFormData.currency = row.currency || '';
@@ -372,43 +367,34 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editFormData.closingDate = row.closingDate || null;
   editFormData.status = row.status;
   editFormData.accountPurpose = row.accountPurpose || '';
-  // 显示编辑弹窗
   editDialogVisible.value = true;
-  // 打开弹窗时加载案号列表
   getCaseList();
 };
 
-// 关闭编辑账户弹窗
 const handleCloseEditDialog = () => {
   editDialogVisible.value = false;
   editingRow.value = null;
-  // 重置表单
   if (editFormRef.value) {
     editFormRef.value.resetFields();
   }
-  // 重置案号相关字段
   editFormData.caseId = 0;
   editFormData.caseNumber = '';
 };
 
-// 提交编辑账户表单
 const handleEditSubmit = async () => {
-  if (!editFormRef.value) return;
-  if (!editingRow.value) return;
+  if (!editFormRef.value || !editingRow.value) return;
 
   try {
     await editFormRef.value.validate();
     editFormLoading.value = true;
 
-    // 转换表单数据，将openingBank映射为bankName
     const { password, ...restFormData } = editFormData;
     const submitData = {
       ...restFormData,
-      bankName: editFormData.openingBank, // 转换字段名
-      openingBank: undefined, // 移除原始字段
+      bankName: editFormData.openingBank,
+      openingBank: undefined,
     };
 
-    // 调用更新账户API
     const response = await updateBankAccountApi(
       editingRow.value.id,
       submitData,
@@ -417,14 +403,12 @@ const handleEditSubmit = async () => {
     if (response.code === 200) {
       ElMessage.success('银行账户更新成功');
       handleCloseEditDialog();
-      // 刷新银行账户列表
       fetchBankAccountList();
     } else {
       ElMessage.error(response.message || '银行账户更新失败');
     }
   } catch (error: any) {
     if (error.name === 'ElValidationError') {
-      // 表单验证失败，已经有提示
       return;
     }
     ElMessage.error('银行账户更新失败，请稍后重试');
@@ -434,22 +418,21 @@ const handleEditSubmit = async () => {
   }
 };
 
-// 删除银行账户
-const handleDeleteBankAccount = async (row: BankAccountApi.BankAccountInfo) => {
+// ==================== 删除银行账户 ====================
+const handleDeleteBankAccount = async (
+  row: BankAccountApi.BankAccountInfo,
+) => {
   try {
-    // 确认删除
     await ElMessageBox.confirm('确定要删除该银行账户吗？', '删除确认', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     });
 
-    // 调用删除账户API
     const response = await deleteBankAccountApi(row.id);
 
     if (response.code === 200) {
       ElMessage.success('银行账户删除成功');
-      // 刷新银行账户列表
       fetchBankAccountList();
     } else {
       ElMessage.error(response.message || '银行账户删除失败');
@@ -462,16 +445,15 @@ const handleDeleteBankAccount = async (row: BankAccountApi.BankAccountInfo) => {
   }
 };
 
-// 导出银行账户数据为Excel
+// ==================== 导出Excel ====================
 const exportBankAccountData = () => {
   if (bankAccountList.value.length === 0) {
     ElMessage.warning('当前没有数据可导出');
     return;
   }
 
-  // 定义导出列配置
   const exportColumns: ExportColumnConfig[] = [
-    { field: 'sepId', title: '行号', width: 8 },
+    { field: 'id', title: 'ID', width: 8 },
     { field: 'accountName', title: '账户名称', width: 15 },
     { field: 'bankName', title: '银行名称', width: 12 },
     { field: 'accountNumber', title: '账户号码', width: 18 },
@@ -504,19 +486,19 @@ const exportBankAccountData = () => {
       field: 'createTime',
       title: '创建时间',
       width: 12,
-      formatter: (value) => new Date(value).toLocaleString('zh-CN'),
+      formatter: (value) => formatDateTime(value),
     },
     {
       field: 'updateTime',
       title: '更新时间',
       width: 12,
-      formatter: (value) => new Date(value).toLocaleString('zh-CN'),
+      formatter: (value) => formatDateTime(value),
     },
     {
       field: 'status',
       title: '状态',
       width: 8,
-      formatter: (value) => value || '-',
+      formatter: (value) => getStatusText(value) || '-',
     },
   ];
 
@@ -534,22 +516,19 @@ const exportBankAccountData = () => {
   }
 };
 
-// 新增银行账户相关
+// ==================== 新增银行账户 ====================
 const dialogVisible = ref(false);
-const formRef = ref();
+const formRef = ref<FormInstance>();
 const formLoading = ref(false);
 
-// 状态选项
 const statusOptions = [
   { label: '激活', value: 'ACTIVE' },
   { label: '停用', value: 'INACTIVE' },
 ];
 
-// 案件相关数据
 const caseList = ref<any[]>([]);
 const caseLoading = ref(false);
 
-// 获取案件列表
 const getCaseList = async (query = '') => {
   caseLoading.value = true;
   try {
@@ -569,43 +548,106 @@ const getCaseList = async (query = '') => {
   }
 };
 
-// 处理案号选择
 const handleCaseSelect = (value: string) => {
   formData.caseNumber = value;
-  // 根据选中的caseNumber值在caseList中找到对应的项，获取其id
-  const selectedCase = caseList.value.find((item) => item.caseNumber === value);
+  const selectedCase = caseList.value.find(
+    (item) => item.caseNumber === value,
+  );
   if (selectedCase) {
     formData.caseId = selectedCase.id;
   }
 };
 
-// 新增账户表单数据
 const formData = reactive({
-  caseId: 0, // 案件ID
-  caseNumber: '', // 案号，用于表单显示
+  caseId: 0,
+  caseNumber: '',
   accountName: '',
   accountNumber: '',
   accountType: '',
-  openingBank: '', // 表单使用openingBank，提交时转换为bank_name
+  openingBank: '',
   password: '',
   currentBalance: 0,
   currency: '',
   openingDate: '',
   closingDate: null as null | string,
   status: 'ACTIVE',
-  accountPurpose: '', // 账户用途
+  accountPurpose: '',
 });
 
 // 表单验证规则
-const rules = {};
+const rules: FormRules = {
+  accountName: [
+    { required: true, message: '请输入账户名称', trigger: 'blur' },
+    { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' },
+  ],
+  accountNumber: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 5, max: 50, message: '长度在 5 到 50 个字符', trigger: 'blur' },
+  ],
+  openingBank: [
+    { required: true, message: '请选择开户行', trigger: 'change' },
+  ],
+  accountType: [
+    { required: true, message: '请选择账户类型', trigger: 'change' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 50, message: '长度在 6 到 50 个字符', trigger: 'blur' },
+  ],
+  currentBalance: [
+    { required: true, message: '请输入当前余额', trigger: 'blur' },
+  ],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+};
 
-// 编辑银行账户相关
-const editDialogVisible = ref(false);
-const editFormRef = ref();
-const editFormLoading = ref(false);
-const editingRow = ref<BankAccountApi.BankAccountInfo | null>(null);
+const handleAddBankAccount = () => {
+  dialogVisible.value = true;
+  getCaseList();
+};
 
-// 交易记录相关
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  if (formRef.value) {
+    formRef.value.resetFields();
+  }
+  formData.caseId = 0;
+  formData.caseNumber = '';
+};
+
+const handleSubmit = async () => {
+  if (!formRef.value) return;
+
+  try {
+    await formRef.value.validate();
+    formLoading.value = true;
+
+    const submitData = {
+      ...formData,
+      bankName: formData.openingBank,
+      openingBank: undefined,
+    };
+
+    const response = await addBankAccountApi(submitData);
+
+    if (response.code === 200) {
+      ElMessage.success('银行账户添加成功');
+      dialogVisible.value = false;
+      fetchBankAccountList();
+    } else {
+      ElMessage.error(response.message || '银行账户添加失败');
+    }
+  } catch (error: any) {
+    if (error.name === 'ElValidationError') {
+      return;
+    }
+    ElMessage.error('银行账户添加失败，请稍后重试');
+    console.error('添加银行账户失败:', error);
+  } finally {
+    formLoading.value = false;
+  }
+};
+
+// ==================== 交易记录（流水模块）====================
 const transactionDialogVisible = ref(false);
 const transactionList = ref<BankAccountTransactionApi.TransactionInfo[]>([]);
 const transactionLoading = ref(false);
@@ -624,7 +666,7 @@ const transactionFilters = reactive({
 
 // 新增交易记录弹窗
 const addTransactionDialogVisible = ref(false);
-const addTransactionFormRef = ref();
+const addTransactionFormRef = ref<FormInstance>();
 const addTransactionFormLoading = ref(false);
 const addTransactionFormData = reactive({
   accountId: 0,
@@ -641,7 +683,7 @@ const addTransactionFormData = reactive({
 
 // 编辑交易记录弹窗
 const editTransactionDialogVisible = ref(false);
-const editTransactionFormRef = ref();
+const editTransactionFormRef = ref<FormInstance>();
 const editTransactionFormLoading = ref(false);
 const editingTransaction =
   ref<BankAccountTransactionApi.TransactionInfo | null>(null);
@@ -656,6 +698,25 @@ const editTransactionFormData = reactive({
   remark: '',
 });
 
+// 交易记录表单验证规则
+const transactionRules: FormRules = {
+  transactionType: [
+    { required: true, message: '请选择交易类型', trigger: 'change' },
+  ],
+  amount: [
+    { required: true, message: '请输入交易金额', trigger: 'blur' },
+    {
+      type: 'number',
+      min: 0.01,
+      message: '金额必须大于0',
+      trigger: 'blur',
+    },
+  ],
+  transactionDate: [
+    { required: true, message: '请选择交易日期', trigger: 'change' },
+  ],
+};
+
 // 视图切换相关
 const viewMode = ref<'account' | 'transaction'>('account');
 const latestTransactionList = ref<BankAccountTransactionApi.TransactionInfo[]>(
@@ -668,13 +729,11 @@ const latestTransactionPagination = ref({
   total: 0,
 });
 
-// 交易类型选项
 const transactionTypeOptions = [
   { label: '流入', value: 'IN' },
   { label: '流出', value: 'OUT' },
 ];
 
-// 业务类型选项
 const businessTypeOptions = [
   { label: '收款', value: '收款' },
   { label: '付款', value: '付款' },
@@ -776,9 +835,9 @@ const handleResetTransactionFilters = () => {
   fetchAccountTransactions();
 };
 
-// 获取交易类型标签类型
+// 获取交易类型标签类型 - 流入用success(绿色/红色表示收入)，流出用danger
 const getTransactionTypeType = (type: string) => {
-  return type === 'IN' ? 'danger' : 'success';
+  return type === 'IN' ? 'success' : 'danger';
 };
 
 // 获取交易类型文本
@@ -878,6 +937,8 @@ const handleSubmitAddTransaction = async () => {
       ElMessage.success('交易记录添加成功');
       handleCloseAddTransactionDialog();
       fetchAccountTransactions();
+      // 刷新账户列表以更新余额
+      fetchBankAccountList();
     } else {
       ElMessage.error(response.message || '交易记录添加失败');
     }
@@ -885,25 +946,8 @@ const handleSubmitAddTransaction = async () => {
     if (error.name === 'ElValidationError') {
       return;
     }
-    // 处理后端返回的业务异常
     if (error.response?.data?.message) {
-      const errorMessage = error.response.data.message;
-      switch (errorMessage) {
-        case '账户余额不足，无法完成流出交易':
-          ElMessage.error('账户余额不足，无法完成流出交易');
-          break;
-        case '无效的交易类型，必须是 IN(流入) 或 OUT(流出)':
-          ElMessage.error('无效的交易类型，必须是 流入(IN) 或 流出(OUT)');
-          break;
-        case '银行账户不存在':
-          ElMessage.error('银行账户不存在');
-          break;
-        case '关联银行账户不存在':
-          ElMessage.error('关联银行账户不存在');
-          break;
-        default:
-          ElMessage.error(errorMessage);
-      }
+      ElMessage.error(error.response.data.message);
     } else {
       ElMessage.error('交易记录添加失败，请稍后重试');
     }
@@ -955,6 +999,8 @@ const handleSubmitEditTransaction = async () => {
       ElMessage.success('交易记录更新成功');
       handleCloseEditTransactionDialog();
       fetchAccountTransactions();
+      // 刷新账户列表以更新余额
+      fetchBankAccountList();
     } else {
       ElMessage.error(response.message || '交易记录更新失败');
     }
@@ -962,25 +1008,8 @@ const handleSubmitEditTransaction = async () => {
     if (error.name === 'ElValidationError') {
       return;
     }
-    // 处理后端返回的业务异常
     if (error.response?.data?.message) {
-      const errorMessage = error.response.data.message;
-      switch (errorMessage) {
-        case '账户余额不足，无法完成流出交易':
-          ElMessage.error('账户余额不足，无法完成流出交易');
-          break;
-        case '无效的交易类型，必须是 IN(流入) 或 OUT(流出)':
-          ElMessage.error('无效的交易类型，必须是 流入(IN) 或 流出(OUT)');
-          break;
-        case '交易记录不存在':
-          ElMessage.error('交易记录不存在');
-          break;
-        case '无权访问该交易记录':
-          ElMessage.error('无权访问该交易记录');
-          break;
-        default:
-          ElMessage.error(errorMessage);
-      }
+      ElMessage.error(error.response.data.message);
     } else {
       ElMessage.error('交易记录更新失败，请稍后重试');
     }
@@ -1006,6 +1035,8 @@ const handleDeleteTransaction = async (
     if (response.code === 200) {
       ElMessage.success('交易记录删除成功');
       fetchAccountTransactions();
+      // 刷新账户列表以更新余额
+      fetchBankAccountList();
     } else {
       ElMessage.error(response.message || '交易记录删除失败');
     }
@@ -1013,19 +1044,8 @@ const handleDeleteTransaction = async (
     if (error.name === 'ElMessageBoxCancel') {
       return;
     }
-    // 处理后端返回的业务异常
     if (error.response?.data?.message) {
-      const errorMessage = error.response.data.message;
-      switch (errorMessage) {
-        case '交易记录不存在':
-          ElMessage.error('交易记录不存在');
-          break;
-        case '无权访问该交易记录':
-          ElMessage.error('无权访问该交易记录');
-          break;
-        default:
-          ElMessage.error(errorMessage);
-      }
+      ElMessage.error(error.response.data.message);
     } else {
       ElMessage.error('交易记录删除失败，请稍后重试');
     }
@@ -1033,24 +1053,7 @@ const handleDeleteTransaction = async (
   }
 };
 
-// 编辑账户表单数据
-const editFormData = reactive({
-  caseId: 0, // 案件ID
-  caseNumber: '', // 案号，用于表单显示
-  accountName: '',
-  accountNumber: '',
-  accountType: '',
-  openingBank: '', // 表单使用openingBank，提交时转换为bank_name
-  password: '',
-  currentBalance: 0,
-  currency: '',
-  openingDate: '',
-  closingDate: null as null | string,
-  status: 'ACTIVE',
-  accountPurpose: '', // 账户用途
-});
-
-// 开户行选项
+// ==================== 选项数据 ====================
 const bankOptions = ref([
   { label: '中国工商银行', value: '中国工商银行' },
   { label: '中国建设银行', value: '中国建设银行' },
@@ -1079,7 +1082,6 @@ const bankOptions = ref([
   { label: '徽商银行', value: '徽商银行' },
 ]);
 
-// 账户类型选项
 const accountTypeOptions = [
   { label: '基本户', value: '基本户' },
   { label: '一般户', value: '一般户' },
@@ -1090,7 +1092,6 @@ const accountTypeOptions = [
   { label: '临时户 (TEMPORARY)', value: 'TEMPORARY' },
 ];
 
-// 币种选项 (3位大写字母)
 const currencyOptions = ref([
   { label: '人民币 (CNY)', value: 'CNY' },
   { label: '美元 (USD)', value: 'USD' },
@@ -1104,7 +1105,6 @@ const currencyOptions = ref([
   { label: '新加坡元 (SGD)', value: 'SGD' },
 ]);
 
-// 账户用途选项
 const accountPurposeOptions = [
   { label: '日常经营', value: '日常经营' },
   { label: '项目专用', value: '项目专用' },
@@ -1112,63 +1112,6 @@ const accountPurposeOptions = [
   { label: '工资发放', value: '工资发放' },
   { label: '其他', value: '其他' },
 ];
-
-// 打开新增账户弹窗
-const handleAddBankAccount = () => {
-  dialogVisible.value = true;
-  // 打开弹窗时加载案号列表
-  getCaseList();
-};
-
-// 关闭新增账户弹窗
-const handleCloseDialog = () => {
-  dialogVisible.value = false;
-  // 重置表单
-  if (formRef.value) {
-    formRef.value.resetFields();
-  }
-  // 重置案号相关字段
-  formData.caseId = 0;
-  formData.caseNumber = '';
-};
-
-// 提交新增账户表单
-const handleSubmit = async () => {
-  if (!formRef.value) return;
-
-  try {
-    await formRef.value.validate();
-    formLoading.value = true;
-
-    // 转换表单数据，将openingBank映射为bankName
-    const submitData = {
-      ...formData,
-      bankName: formData.openingBank, // 转换字段名
-      openingBank: undefined, // 移除原始字段
-    };
-
-    // 调用新增账户API
-    const response = await addBankAccountApi(submitData);
-
-    if (response.code === 200) {
-      ElMessage.success('银行账户添加成功');
-      dialogVisible.value = false;
-      // 刷新银行账户列表
-      fetchBankAccountList();
-    } else {
-      ElMessage.error(response.message || '银行账户添加失败');
-    }
-  } catch (error: any) {
-    if (error.name === 'ElValidationError') {
-      // 表单验证失败，已经有提示
-      return;
-    }
-    ElMessage.error('银行账户添加失败，请稍后重试');
-    console.error('添加银行账户失败:', error);
-  } finally {
-    formLoading.value = false;
-  }
-};
 </script>
 
 <template>
@@ -1178,7 +1121,9 @@ const handleSubmit = async () => {
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             <span class="text-lg font-semibold">管理人银行账户</span>
-            <span class="ml-3 text-sm text-gray-400">（仅能查看到自己创建的银行账户）</span>
+            <span class="ml-3 text-sm text-gray-400"
+              >（仅能查看到自己创建的银行账户）</span
+            >
             <div class="flex items-center space-x-2 ml-4">
               <ElButton
                 :type="viewMode === 'account' ? 'primary' : 'default'"
@@ -1197,45 +1142,61 @@ const handleSubmit = async () => {
             </div>
           </div>
           <div class="flex items-center space-x-2">
-            <ElButton
-              type="primary"
-              @click="handleAddBankAccount"
-              v-if="viewMode === 'account'"
-            >
-              <i class="i-lucide-plus mr-1"></i>
-              新增账户
-            </ElButton>
-            <ElButton
-              type="success"
-              @click="exportBankAccountData"
-              v-if="viewMode === 'account'"
-            >
-              <i class="i-lucide-download mr-1"></i>
-              导出数据
-            </ElButton>
-            <ElButton
-              type="primary"
-              @click="handleRefresh"
-              :loading="loading"
-              v-if="viewMode === 'account'"
-            >
-              <i class="i-lucide-refresh-cw mr-1"></i>
-              刷新
-            </ElButton>
-            <ElButton
-              type="primary"
-              @click="fetchLatestTransactions"
-              :loading="latestTransactionLoading"
-              v-if="viewMode === 'transaction'"
-            >
-              <i class="i-lucide-refresh-cw mr-1"></i>
-              刷新
-            </ElButton>
+            <template v-if="viewMode === 'account'">
+              <ElButton type="primary" @click="handleAddBankAccount">
+                <i class="i-lucide-plus mr-1"></i>
+                新增账户
+              </ElButton>
+              <ElButton type="success" @click="exportBankAccountData">
+                <i class="i-lucide-download mr-1"></i>
+                导出数据
+              </ElButton>
+              <ElButton
+                type="primary"
+                @click="handleRefresh"
+                :loading="loading"
+              >
+                <i class="i-lucide-refresh-cw mr-1"></i>
+                刷新
+              </ElButton>
+            </template>
+            <template v-else>
+              <ElButton
+                type="primary"
+                @click="fetchLatestTransactions"
+                :loading="latestTransactionLoading"
+              >
+                <i class="i-lucide-refresh-cw mr-1"></i>
+                刷新
+              </ElButton>
+            </template>
           </div>
         </div>
       </template>
 
-      <!-- 数据表格 -->
+      <!-- 搜索栏 -->
+      <div v-if="viewMode === 'account'" class="mb-4">
+        <ElRow :gutter="16">
+          <ElCol :span="6">
+            <ElInput
+              v-model="searchKeyword"
+              placeholder="搜索账户名称/账号/案号"
+              clearable
+              @keyup.enter="handleSearch"
+            >
+              <template #prefix>
+                <i class="i-lucide-search"></i>
+              </template>
+            </ElInput>
+          </ElCol>
+          <ElCol :span="6">
+            <ElButton type="primary" @click="handleSearch">搜索</ElButton>
+            <ElButton @click="handleResetSearch">重置</ElButton>
+          </ElCol>
+        </ElRow>
+      </div>
+
+      <!-- 账户列表表格 -->
       <ElTable
         v-if="viewMode === 'account'"
         v-loading="loading"
@@ -1252,6 +1213,7 @@ const handleSubmit = async () => {
 
         <!-- 案号列 -->
         <ElTableColumn
+          v-if="isColumnVisible('行号')"
           prop="caseNumber"
           label="案号"
           width="200"
@@ -1266,16 +1228,42 @@ const handleSubmit = async () => {
           show-overflow-tooltip
         />
 
+        <!-- 银行名称列 -->
+        <ElTableColumn
+          v-if="isColumnVisible('银行名称')"
+          prop="bankName"
+          label="开户行"
+          width="150"
+          show-overflow-tooltip
+        />
+
         <!-- 账户号码列 -->
         <ElTableColumn
+          v-if="isColumnVisible('账户号码')"
           prop="accountNumber"
           label="账户号码"
           width="180"
           show-overflow-tooltip
         />
 
+        <!-- 账户类型列 -->
+        <ElTableColumn
+          v-if="isColumnVisible('账户类型')"
+          prop="accountType"
+          label="账户类型"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElTag :type="getAccountType(row.accountType)" size="small">
+              {{ accountTypeTranslation[row.accountType] || row.accountType }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+
         <!-- 余额列 -->
         <ElTableColumn
+          v-if="isColumnVisible('当前余额')"
           prop="currentBalance"
           label="当前余额"
           width="150"
@@ -1288,16 +1276,20 @@ const handleSubmit = async () => {
 
         <!-- 总流入列 -->
         <ElTableColumn
+          v-if="isColumnVisible('总流入')"
           prop="totalInflow"
           label="总流入"
           width="150"
           align="right"
         >
           <template #default="{ row }">
-            <span v-if="row.totalInflow !== undefined" style="color: red; font-weight: bold; font-size: 18px;">
+            <span
+              v-if="row.totalInflow !== undefined"
+              style="color: #67c23a; font-weight: bold"
+            >
               {{ formatCurrency(row.totalInflow) }}
             </span>
-            <span v-else style="color: #9ca3af;">
+            <span v-else style="color: #9ca3af">
               <i class="i-lucide-loader-2 animate-spin"></i>
             </span>
           </template>
@@ -1305,23 +1297,46 @@ const handleSubmit = async () => {
 
         <!-- 总流出列 -->
         <ElTableColumn
+          v-if="isColumnVisible('总流出')"
           prop="totalOutflow"
           label="总流出"
           width="150"
           align="right"
         >
           <template #default="{ row }">
-            <span v-if="row.totalOutflow !== undefined" style="color: green; font-weight: bold; font-size: 18px;">
+            <span
+              v-if="row.totalOutflow !== undefined"
+              style="color: #f56c6c; font-weight: bold"
+            >
               {{ formatCurrency(row.totalOutflow) }}
             </span>
-            <span v-else style="color: #9ca3af;">
+            <span v-else style="color: #9ca3af">
               <i class="i-lucide-loader-2 animate-spin"></i>
             </span>
           </template>
         </ElTableColumn>
 
+        <!-- 创建时间列 -->
+        <ElTableColumn
+          v-if="isColumnVisible('创建时间')"
+          prop="createTime"
+          label="创建时间"
+          width="160"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ formatDateTime(row.createTime) }}
+          </template>
+        </ElTableColumn>
+
         <!-- 状态列 -->
-        <ElTableColumn prop="status" label="状态" width="100" align="center">
+        <ElTableColumn
+          v-if="isColumnVisible('状态')"
+          prop="status"
+          label="状态"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
             <ElTag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
@@ -1330,7 +1345,7 @@ const handleSubmit = async () => {
         </ElTableColumn>
 
         <!-- 操作列 -->
-        <ElTableColumn label="操作" width="220" align="center" fixed="right">
+        <ElTableColumn label="操作" width="260" align="center" fixed="right">
           <template #default="{ row }">
             <ElSpace size="small" wrap>
               <ElButton
@@ -1340,7 +1355,7 @@ const handleSubmit = async () => {
                 class="text-primary"
               >
                 <i class="i-lucide-list mr-1"></i>
-                交易记录
+                流水记录
               </ElButton>
               <ElButton
                 size="small"
@@ -1422,7 +1437,14 @@ const handleSubmit = async () => {
 
         <ElTableColumn prop="amount" label="交易金额" width="150" align="right">
           <template #default="{ row }">
-            {{ formatCurrency(row.amount) }}
+            <span
+              :style="{
+                color: row.transactionType === 'IN' ? '#67c23a' : '#f56c6c',
+                fontWeight: 'bold',
+              }"
+            >
+              {{ formatCurrency(row.amount) }}
+            </span>
           </template>
         </ElTableColumn>
 
@@ -1465,7 +1487,7 @@ const handleSubmit = async () => {
           align="center"
         >
           <template #default="{ row }">
-            {{ new Date(row.createTime).toLocaleString('zh-CN') }}
+            {{ formatDateTime(row.createTime) }}
           </template>
         </ElTableColumn>
       </ElTable>
@@ -1496,7 +1518,7 @@ const handleSubmit = async () => {
         />
       </div>
 
-      <!-- 新增银行账户模态框 -->
+      <!-- ==================== 新增银行账户弹窗 ==================== -->
       <ElDialog
         v-model="dialogVisible"
         title="新增银行账户"
@@ -1565,18 +1587,6 @@ const handleSubmit = async () => {
                 </ElSelect>
               </ElFormItem>
             </ElCol>
-          </ElRow>
-          <ElRow :gutter="30">
-            <ElCol :span="12">
-              <ElFormItem label="账号" prop="accountNumber">
-                <ElInput
-                  v-model="formData.accountNumber"
-                  placeholder="请输入账号"
-                  size="large"
-                  style="width: 100%"
-                />
-              </ElFormItem>
-            </ElCol>
             <ElCol :span="12">
               <ElFormItem label="账户类型" prop="accountType">
                 <ElSelect
@@ -1597,6 +1607,16 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
+              <ElFormItem label="账号" prop="accountNumber">
+                <ElInput
+                  v-model="formData.accountNumber"
+                  placeholder="请输入账号"
+                  size="large"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
               <ElFormItem label="密码" prop="password">
                 <ElInput
                   v-model="formData.password"
@@ -1607,6 +1627,8 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="当前余额" prop="currentBalance">
                 <ElInputNumber
@@ -1620,8 +1642,6 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="币种" prop="currency">
                 <ElSelect
@@ -1639,6 +1659,8 @@ const handleSubmit = async () => {
                 </ElSelect>
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="状态" prop="status">
                 <ElSelect
@@ -1649,6 +1671,23 @@ const handleSubmit = async () => {
                 >
                   <ElOption
                     v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="账户用途" prop="accountPurpose">
+                <ElSelect
+                  v-model="formData.accountPurpose"
+                  placeholder="请选择账户用途"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="option in accountPurposeOptions"
                     :key="option.value"
                     :label="option.label"
                     :value="option.value"
@@ -1681,25 +1720,6 @@ const handleSubmit = async () => {
               </ElFormItem>
             </ElCol>
           </ElRow>
-          <ElRow :gutter="30">
-            <ElCol :span="12">
-              <ElFormItem label="账户用途" prop="accountPurpose">
-                <ElSelect
-                  v-model="formData.accountPurpose"
-                  placeholder="请选择账户用途"
-                  style="width: 100%"
-                  size="large"
-                >
-                  <ElOption
-                    v-for="option in accountPurposeOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
         </ElForm>
 
         <template #footer>
@@ -1716,7 +1736,7 @@ const handleSubmit = async () => {
         </template>
       </ElDialog>
 
-      <!-- 编辑银行账户模态框 -->
+      <!-- ==================== 编辑银行账户弹窗 ==================== -->
       <ElDialog
         v-model="editDialogVisible"
         title="编辑银行账户"
@@ -1744,9 +1764,9 @@ const handleSubmit = async () => {
                   :remote-method="getCaseList"
                   :loading="caseLoading"
                   @change="
-                    (value) => {
+                    (value: string) => {
                       editFormData.caseNumber = value;
-                      const selectedCase = caseList.value.find(
+                      const selectedCase = caseList.find(
                         (item) => item.caseNumber === value,
                       );
                       if (selectedCase) {
@@ -1795,18 +1815,6 @@ const handleSubmit = async () => {
                 </ElSelect>
               </ElFormItem>
             </ElCol>
-          </ElRow>
-          <ElRow :gutter="30">
-            <ElCol :span="12">
-              <ElFormItem label="账号" prop="accountNumber">
-                <ElInput
-                  v-model="editFormData.accountNumber"
-                  placeholder="请输入账号"
-                  size="large"
-                  style="width: 100%"
-                />
-              </ElFormItem>
-            </ElCol>
             <ElCol :span="12">
               <ElFormItem label="账户类型" prop="accountType">
                 <ElSelect
@@ -1827,6 +1835,16 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="30">
             <ElCol :span="12">
+              <ElFormItem label="账号" prop="accountNumber">
+                <ElInput
+                  v-model="editFormData.accountNumber"
+                  placeholder="请输入账号"
+                  size="large"
+                  style="width: 100%"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
               <ElFormItem label="密码" prop="password">
                 <ElInput
                   v-model="editFormData.password"
@@ -1838,6 +1856,8 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="当前余额" prop="currentBalance">
                 <ElInputNumber
@@ -1851,8 +1871,6 @@ const handleSubmit = async () => {
                 />
               </ElFormItem>
             </ElCol>
-          </ElRow>
-          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="币种" prop="currency">
                 <ElSelect
@@ -1870,6 +1888,8 @@ const handleSubmit = async () => {
                 </ElSelect>
               </ElFormItem>
             </ElCol>
+          </ElRow>
+          <ElRow :gutter="30">
             <ElCol :span="12">
               <ElFormItem label="状态" prop="status">
                 <ElSelect
@@ -1880,6 +1900,23 @@ const handleSubmit = async () => {
                 >
                   <ElOption
                     v-for="option in statusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="12">
+              <ElFormItem label="账户用途" prop="accountPurpose">
+                <ElSelect
+                  v-model="editFormData.accountPurpose"
+                  placeholder="请选择账户用途"
+                  style="width: 100%"
+                  size="large"
+                >
+                  <ElOption
+                    v-for="option in accountPurposeOptions"
                     :key="option.value"
                     :label="option.label"
                     :value="option.value"
@@ -1912,25 +1949,6 @@ const handleSubmit = async () => {
               </ElFormItem>
             </ElCol>
           </ElRow>
-          <ElRow :gutter="30">
-            <ElCol :span="12">
-              <ElFormItem label="账户用途" prop="accountPurpose">
-                <ElSelect
-                  v-model="editFormData.accountPurpose"
-                  placeholder="请选择账户用途"
-                  style="width: 100%"
-                  size="large"
-                >
-                  <ElOption
-                    v-for="option in accountPurposeOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
         </ElForm>
 
         <template #footer>
@@ -1947,14 +1965,43 @@ const handleSubmit = async () => {
         </template>
       </ElDialog>
 
-      <!-- 交易记录弹窗 -->
+      <!-- ==================== 交易记录（流水）弹窗 ==================== -->
       <ElDialog
         v-model="transactionDialogVisible"
-        :title="`交易记录 - ${selectedAccount?.accountName || ''} (${selectedAccount?.accountNumber || ''})`"
+        :title="`流水记录 - ${selectedAccount?.accountName || ''} (${selectedAccount?.accountNumber || ''})`"
         width="90%"
         :before-close="handleCloseTransactionDialog"
         class="transaction-dialog"
+        destroy-on-close
       >
+        <!-- 账户信息摘要 -->
+        <div
+          v-if="selectedAccount"
+          class="mb-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center"
+        >
+          <div class="flex space-x-6">
+            <div>
+              <span class="text-gray-500">当前余额：</span>
+              <span class="text-lg font-bold text-primary">{{
+                formatCurrency(selectedAccount.currentBalance)
+              }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">开户行：</span>
+              <span>{{ selectedAccount.bankName }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">案号：</span>
+              <span>{{ selectedAccount.caseNumber || '-' }}</span>
+            </div>
+          </div>
+          <div>
+            <ElTag :type="getStatusType(selectedAccount.status)" size="small">
+              {{ getStatusText(selectedAccount.status) }}
+            </ElTag>
+          </div>
+        </div>
+
         <!-- 筛选条件 -->
         <div class="mb-4">
           <ElRow :gutter="16">
@@ -2017,7 +2064,7 @@ const handleSubmit = async () => {
             <div>
               <ElButton type="primary" @click="handleAddTransaction">
                 <i class="i-lucide-plus mr-1"></i>
-                新增交易记录
+                新增流水
               </ElButton>
             </div>
             <div>
@@ -2041,7 +2088,12 @@ const handleSubmit = async () => {
           :stripe="true"
           :style="{ width: '100%' }"
         >
-          <ElTableColumn type="index" label="序号" width="60" align="center" />
+          <ElTableColumn
+            type="index"
+            label="序号"
+            width="60"
+            align="center"
+          />
 
           <ElTableColumn
             prop="transactionDate"
@@ -2073,11 +2125,11 @@ const handleSubmit = async () => {
             align="right"
           >
             <template #default="{ row }">
-              <span 
+              <span
                 :style="{
-                  color: row.transactionType === 'IN' ? 'red' : 'green',
-                  'font-weight': 'bold',
-                  'font-size': '18px'
+                  color: row.transactionType === 'IN' ? '#67c23a' : '#f56c6c',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
                 }"
               >
                 {{ formatCurrency(row.amount) }}
@@ -2138,7 +2190,7 @@ const handleSubmit = async () => {
             align="center"
           >
             <template #default="{ row }">
-              {{ new Date(row.createTime).toLocaleString('zh-CN') }}
+              {{ formatDateTime(row.createTime) }}
             </template>
           </ElTableColumn>
 
@@ -2186,22 +2238,23 @@ const handleSubmit = async () => {
         </template>
       </ElDialog>
 
-      <!-- 新增交易记录弹窗 -->
+      <!-- ==================== 新增流水弹窗 ==================== -->
       <ElDialog
         v-model="addTransactionDialogVisible"
-        title="新增交易记录"
+        title="新增流水记录"
         width="700px"
         :before-close="handleCloseAddTransactionDialog"
       >
         <ElForm
           ref="addTransactionFormRef"
           :model="addTransactionFormData"
+          :rules="transactionRules"
           label-width="120px"
           label-position="top"
         >
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="交易类型" required>
+              <ElFormItem label="交易类型" prop="transactionType">
                 <ElSelect
                   v-model="addTransactionFormData.transactionType"
                   placeholder="请选择交易类型"
@@ -2217,10 +2270,10 @@ const handleSubmit = async () => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="交易金额" required>
+              <ElFormItem label="交易金额" prop="amount">
                 <ElInputNumber
                   v-model="addTransactionFormData.amount"
-                  :min="0"
+                  :min="0.01"
                   :precision="2"
                   placeholder="请输入交易金额"
                   style="width: 100%"
@@ -2231,7 +2284,7 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="交易日期" required>
+              <ElFormItem label="交易日期" prop="transactionDate">
                 <ElDatePicker
                   v-model="addTransactionFormData.transactionDate"
                   type="date"
@@ -2322,22 +2375,23 @@ const handleSubmit = async () => {
         </template>
       </ElDialog>
 
-      <!-- 编辑交易记录弹窗 -->
+      <!-- ==================== 编辑流水弹窗 ==================== -->
       <ElDialog
         v-model="editTransactionDialogVisible"
-        title="编辑交易记录"
+        title="编辑流水记录"
         width="700px"
         :before-close="handleCloseEditTransactionDialog"
       >
         <ElForm
           ref="editTransactionFormRef"
           :model="editTransactionFormData"
+          :rules="transactionRules"
           label-width="120px"
           label-position="top"
         >
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="交易类型" required>
+              <ElFormItem label="交易类型" prop="transactionType">
                 <ElSelect
                   v-model="editTransactionFormData.transactionType"
                   placeholder="请选择交易类型"
@@ -2353,10 +2407,10 @@ const handleSubmit = async () => {
               </ElFormItem>
             </ElCol>
             <ElCol :span="12">
-              <ElFormItem label="交易金额" required>
+              <ElFormItem label="交易金额" prop="amount">
                 <ElInputNumber
                   v-model="editTransactionFormData.amount"
-                  :min="0"
+                  :min="0.01"
                   :precision="2"
                   placeholder="请输入交易金额"
                   style="width: 100%"
@@ -2367,7 +2421,7 @@ const handleSubmit = async () => {
           </ElRow>
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="交易日期" required>
+              <ElFormItem label="交易日期" prop="transactionDate">
                 <ElDatePicker
                   v-model="editTransactionFormData.transactionDate"
                   type="date"
@@ -2446,7 +2500,9 @@ const handleSubmit = async () => {
 
         <template #footer>
           <span class="dialog-footer">
-            <ElButton @click="handleCloseEditTransactionDialog">取消</ElButton>
+            <ElButton @click="handleCloseEditTransactionDialog"
+              >取消</ElButton
+            >
             <ElButton
               type="primary"
               @click="handleSubmitEditTransaction"
@@ -2469,3 +2525,26 @@ const handleSubmit = async () => {
     </ElCard>
   </div>
 </template>
+
+<style scoped>
+.bank-account-dialog :deep(.el-dialog__body) {
+  padding: 20px 30px;
+}
+
+.bank-account-form :deep(.el-form-item__label) {
+  font-weight: 500;
+  padding-bottom: 4px;
+}
+
+.transaction-dialog :deep(.el-dialog__body) {
+  padding: 15px 20px;
+}
+
+.text-primary {
+  color: var(--el-color-primary);
+}
+
+.text-danger {
+  color: var(--el-color-danger);
+}
+</style>

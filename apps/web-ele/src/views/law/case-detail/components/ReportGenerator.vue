@@ -430,7 +430,7 @@ const exportReport = async () => {
     const token = localStorage.getItem('token');
     const formattedToken = token && !token.startsWith('Bearer ') ? `Bearer ${token}` : token;
     
-    const fetchUrl = `${import.meta.env.VITE_API_URL_8085 || '/api/v1'}/document-templates/batch-export/excel`;
+    const fetchUrl = `${import.meta.env.VITE_API_URL_8080 || '/api/v1'}/document-templates/batch-export/excel`;
     
     const fetchResponse = await fetch(fetchUrl, {
       method: 'POST',

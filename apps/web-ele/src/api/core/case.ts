@@ -5,17 +5,16 @@
  */
 
 import { downloadFileApi } from '#/api/core/file';
-import { fileUploadRequestClient, requestClient8085 } from '#/api/request';
+import { fileUploadRequestClient, requestClient8080 } from '#/api/request';
 
 export namespace CaseApi {
-  /** 案件状态枚举 */
+  /** 案件状态枚举（精简为5个状态） */
   export type CaseStatus =
     | 'ARCHIVED'
-    | 'CLOSED'
+    | 'AWAITING'
     | 'COMPLETED'
-    | 'IN_PROGRESS'
-    | 'PENDING'
-    | 'TERMINATED';
+    | 'ONGOING'
+    | 'PENDING';
 
   /** 案件进度枚举 */
   export type CaseProgress =
@@ -213,10 +212,14 @@ export namespace CaseApi {
     };
   }
 
-  /** 案件列表查询参数 */
+  /** 案件列表查询参数
+   * 对应后端接口: GET /case/list
+   * 后端支持的字段: pageNum, pageSize, keyword, caseStatus, caseProgress
+   */
   export interface CaseListQueryParams {
     pageNum?: number;
     pageSize?: number;
+    keyword?: string;
     caseStatus?: CaseStatus;
     caseProgress?: CaseProgress;
   }
@@ -332,7 +335,7 @@ export namespace CaseApi {
  * GET /api/v1/case/{caseId}
  */
 export async function getCaseDetailApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CommonResponse>(`/case/${caseId}`);
+  return requestClient8080.get<CaseApi.CommonResponse>(`/case/${caseId}`);
 }
 
 /**
@@ -343,7 +346,7 @@ export async function updateCaseApi(
   caseId: number,
   data: CaseApi.UpdateCaseRequest,
 ) {
-  return requestClient8085.put<CaseApi.UpdateCaseResponse>(
+  return requestClient8080.put<CaseApi.UpdateCaseResponse>(
     `/case/${caseId}`,
     data,
   );
@@ -357,7 +360,7 @@ export async function updateCaseStatusApi(
   caseId: number,
   data: CaseApi.UpdateCaseStatusRequest,
 ) {
-  return requestClient8085.put<CaseApi.UpdateCaseStatusResponse>(
+  return requestClient8080.put<CaseApi.UpdateCaseStatusResponse>(
     `/case/${caseId}/status`,
     data,
   );
@@ -371,7 +374,7 @@ export async function updateCaseProgressApi(
   caseId: number,
   data: CaseApi.UpdateCaseProgressRequest,
 ) {
-  return requestClient8085.put<CaseApi.UpdateCaseProgressResponse>(
+  return requestClient8080.put<CaseApi.UpdateCaseProgressResponse>(
     `/case/${caseId}/progress`,
     data,
   );
@@ -382,7 +385,7 @@ export async function updateCaseProgressApi(
  * POST /api/v1/case
  */
 export async function createCaseApi(data: CaseApi.CreateCaseRequest) {
-  return requestClient8085.post<CaseApi.CreateCaseResponse>('/case', data);
+  return requestClient8080.post<CaseApi.CreateCaseResponse>('/case', data);
 }
 
 /**
@@ -393,7 +396,7 @@ export async function reviewCaseApi(
   caseId: number,
   data: CaseApi.ReviewCaseRequest,
 ) {
-  return requestClient8085.post<CaseApi.ReviewCaseResponse>(
+  return requestClient8080.post<CaseApi.ReviewCaseResponse>(
     `/case/${caseId}/review`,
     data,
   );
@@ -404,7 +407,7 @@ export async function reviewCaseApi(
  * GET /api/v1/case/{caseId}/review-status
  */
 export async function getCaseReviewStatusApi(caseId: number) {
-  return requestClient8085.get<CaseApi.ReviewStatusResponse>(
+  return requestClient8080.get<CaseApi.ReviewStatusResponse>(
     `/case/${caseId}/review-status`,
   );
 }
@@ -416,7 +419,7 @@ export async function getCaseReviewStatusApi(caseId: number) {
 export async function getCaseSimpleListApi(
   params: CaseApi.SimpleCaseListQueryParams = {},
 ) {
-  return requestClient8085.get<CaseApi.SimpleCaseListResponse>(
+  return requestClient8080.get<CaseApi.SimpleCaseListResponse>(
     '/case/simple-list',
     { params },
   );
@@ -427,7 +430,7 @@ export async function getCaseSimpleListApi(
  * GET /api/v1/case/list
  */
 export async function getCaseListApi(params: CaseApi.CaseListQueryParams = {}) {
-  return requestClient8085.get<CaseApi.CaseListResponse>('/case/list', {
+  return requestClient8080.get<CaseApi.CaseListResponse>('/case/list', {
     params,
   });
 }
@@ -437,7 +440,7 @@ export async function getCaseListApi(params: CaseApi.CaseListQueryParams = {}) {
  * GET /api/v1/case/{caseId}/related-data
  */
 export async function getCaseRelatedDataApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CaseRelatedDataResponse>(
+  return requestClient8080.get<CaseApi.CaseRelatedDataResponse>(
     `/case/${caseId}/related-data`,
   );
 }
@@ -447,7 +450,7 @@ export async function getCaseRelatedDataApi(caseId: number) {
  * DELETE /api/v1/case/{caseId}
  */
 export async function deleteCaseApi(caseId: number) {
-  return requestClient8085.delete<CaseApi.CommonResponse>(`/case/${caseId}`);
+  return requestClient8080.delete<CaseApi.CommonResponse>(`/case/${caseId}`);
 }
 
 /**
@@ -533,7 +536,7 @@ export async function downloadCaseFileApi(fileId: number) {
  * 获取案件处理进度数据
  */
 export async function getCaseProgressApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CommonResponse>(
+  return requestClient8080.get<CaseApi.CommonResponse>(
     `/case/${caseId}/progress`,
   );
 }
@@ -543,7 +546,7 @@ export async function getCaseProgressApi(caseId: number) {
  * POST /api/v1/case/{caseId}/submit-review
  */
 export async function submitCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(
+  return requestClient8080.post<CaseApi.CommonResponse>(
     `/case/${caseId}/submit-review`,
   );
 }
@@ -553,7 +556,7 @@ export async function submitCaseReviewApi(caseId: number) {
  * POST /api/v1/case/{caseId}/withdraw-review
  */
 export async function withdrawCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(
+  return requestClient8080.post<CaseApi.CommonResponse>(
     `/case/${caseId}/withdraw-review`,
   );
 }
@@ -563,7 +566,7 @@ export async function withdrawCaseReviewApi(caseId: number) {
  * POST /api/v1/case/{caseId}/resubmit-review
  */
 export async function resubmitCaseReviewApi(caseId: number) {
-  return requestClient8085.post<CaseApi.CommonResponse>(
+  return requestClient8080.post<CaseApi.CommonResponse>(
     `/case/${caseId}/resubmit-review`,
   );
 }
@@ -573,7 +576,7 @@ export async function resubmitCaseReviewApi(caseId: number) {
  * POST /approval
  */
 export async function createApprovalApi(data: any) {
-  return requestClient8085.post<CaseApi.CommonResponse>('/approval', data);
+  return requestClient8080.post<CaseApi.CommonResponse>('/approval', data);
 }
 
 /**
@@ -585,7 +588,7 @@ export async function getApprovalHistoryApi(
   pageNum: number = 1,
   pageSize: number = 10,
 ) {
-  return requestClient8085.get<any>(`/approval/${approvalId}/history`, {
+  return requestClient8080.get<any>(`/approval/${approvalId}/history`, {
     params: { pageNum, pageSize },
   });
 }
@@ -599,7 +602,7 @@ export async function getCaseApprovalHistoryApi(
   pageNum: number = 1,
   pageSize: number = 10,
 ) {
-  return requestClient8085.get<any>(`/approval/case/${caseId}/history`, {
+  return requestClient8080.get<any>(`/approval/case/${caseId}/history`, {
     params: { pageNum, pageSize },
   });
 }
@@ -609,7 +612,7 @@ export async function getCaseApprovalHistoryApi(
  * GET /approval/case/{caseId}/progress
  */
 export async function getCaseApprovalProgressApi(caseId: number) {
-  return requestClient8085.get<any>(`/approval/case/${caseId}/progress`);
+  return requestClient8080.get<any>(`/approval/case/${caseId}/progress`);
 }
 
 /**
@@ -635,10 +638,30 @@ export async function rejectCaseApi(caseId: number, opinion: string) {
 }
 
 /**
+ * 案件归档
+ * POST /case/{caseId}/archive
+ */
+export async function archiveCaseApi(caseId: number) {
+  return requestClient8080.post<CaseApi.CommonResponse>(
+    `/case/${caseId}/archive`,
+  );
+}
+
+/**
+ * 撤销归档
+ * POST /case/{caseId}/unarchive
+ */
+export async function unarchiveCaseApi(caseId: number) {
+  return requestClient8080.post<CaseApi.CommonResponse>(
+    `/case/${caseId}/unarchive`,
+  );
+}
+
+/**
  * 获取审核日志
  */
 export async function getReviewLogsApi(caseId: number) {
-  return requestClient8085.get<CaseApi.CommonResponse>(
+  return requestClient8080.get<CaseApi.CommonResponse>(
     `/case/${caseId}/review-logs`,
   );
 }
@@ -656,7 +679,7 @@ export async function getUserCaseListApi(
     pageSize?: number;
   } = {},
 ) {
-  const result = await requestClient8085.get<CaseApi.UserCaseListResponse>(
+  const result = await requestClient8080.get<CaseApi.UserCaseListResponse>(
     `/case/user/${userId}/list`,
     { params },
   );
@@ -723,7 +746,7 @@ export interface RecentSearchesResponse {
  * GET /api/v1/case/recent-searches
  */
 export async function getRecentSearchesApi(limit: number = 10) {
-  return requestClient8085.get<RecentSearchesResponse>('/case/recent-searches', {
+  return requestClient8080.get<RecentSearchesResponse>('/case/recent-searches', {
     params: { limit },
   });
 }
@@ -733,7 +756,7 @@ export async function getRecentSearchesApi(limit: number = 10) {
  * DELETE /api/v1/case/recent-searches
  */
 export async function clearRecentSearchesApi() {
-  return requestClient8085.delete<CaseApi.CommonResponse>('/case/recent-searches');
+  return requestClient8080.delete<CaseApi.CommonResponse>('/case/recent-searches');
 }
 
 /**
@@ -741,5 +764,5 @@ export async function clearRecentSearchesApi() {
  * DELETE /api/v1/case/recent-searches/{caseId}
  */
 export async function removeRecentSearchApi(caseId: number) {
-  return requestClient8085.delete<CaseApi.CommonResponse>(`/case/recent-searches/${caseId}`);
+  return requestClient8080.delete<CaseApi.CommonResponse>(`/case/recent-searches/${caseId}`);
 }

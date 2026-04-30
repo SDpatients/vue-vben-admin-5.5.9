@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { CaseApi } from '#/api';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useUserStore } from '@vben/stores';
@@ -9,16 +9,17 @@ import { useUserStore } from '@vben/stores';
 import {
   ElButton,
   ElCard,
-  ElCheckbox,
-  ElCheckboxGroup,
+  ElCol,
   ElDialog,
-  ElDropdown,
-  ElDropdownItem,
-  ElDropdownMenu,
   ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
-  ElPopover,
+  ElRow,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTabPane,
@@ -52,7 +53,6 @@ const currentUserId = computed(() => {
   return 0;
 });
 
-// 响应式数据
 const caseList = ref<any[]>([]);
 const loading = ref(false);
 const reviewModalVisible = ref(false);
@@ -68,12 +68,16 @@ const pagination = ref({
   pages: 0,
 });
 
-// 确保表格数据始终为数组
+const filterForm = reactive({
+  keyword: '',
+  caseStatus: '' as string,
+  caseProgress: '' as string,
+});
+
 const safeCaseList = computed(() =>
   Array.isArray(caseList.value) ? caseList.value : [],
 );
 
-// 判断用户是否为管理员
 const isAdmin = computed(() => {
   const roles = userStore.userRoles || [];
   return roles.includes('ADMIN') || roles.includes('admin') || roles.includes('管理员');
@@ -88,7 +92,6 @@ const canDeleteCase = computed(() => {
   return isAdmin.value || isSuperAdmin.value;
 });
 
-// 根据角色确定默认标签页
 const getDefaultTab = () => {
   if (isAdmin.value) {
     return 'allCases';
@@ -96,15 +99,57 @@ const getDefaultTab = () => {
   return 'myCases';
 };
 
-// 标签页控制
 const activeTab = ref(getDefaultTab());
 
-// 判断是否显示全部案件标签页
 const showAllCasesTab = computed(() => isAdmin.value);
 
+const caseStatusOptions = [
+  { label: '待处理', value: 'PENDING' },
+  { label: '进行中', value: 'ONGOING' },
+  { label: '报结中', value: 'AWAITING' },
+  { label: '已结案', value: 'COMPLETED' },
+  { label: '已归档', value: 'ARCHIVED' },
+];
 
+const caseProgressOptions = [
+  { label: '一、申请与受理', value: 'FIRST' },
+  { label: '二、管理人履职与财产接管', value: 'SECOND' },
+  { label: '三、债权申报与核查', value: 'THIRD' },
+  { label: '四、债权人会议', value: 'FOURTH' },
+  { label: '五、重整和解及破产宣告', value: 'FIFTH' },
+  { label: '六、财产变价与分配', value: 'SIXTH' },
+  { label: '七、程序终结', value: 'SEVENTH' },
+];
 
-// 格式化时间戳
+const hasActiveFilters = computed(() => {
+  return !!(
+    filterForm.keyword ||
+    filterForm.caseStatus ||
+    filterForm.caseProgress
+  );
+});
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filterForm.keyword) count++;
+  if (filterForm.caseStatus) count++;
+  if (filterForm.caseProgress) count++;
+  return count;
+});
+
+const buildQueryParams = (): CaseApi.CaseListQueryParams => {
+  const params: CaseApi.CaseListQueryParams = {
+    pageNum: pagination.value.page,
+    pageSize: pagination.value.pageSize,
+  };
+
+  if (filterForm.keyword) params.keyword = filterForm.keyword;
+  if (filterForm.caseStatus) params.caseStatus = filterForm.caseStatus as CaseApi.CaseStatus;
+  if (filterForm.caseProgress) params.caseProgress = filterForm.caseProgress as CaseApi.CaseProgress;
+
+  return params;
+};
+
 const formatTimestamp = (timestamp: number | string | undefined) => {
   if (!timestamp) return '-';
   return new Date(timestamp).toLocaleString('zh-CN', {
@@ -117,37 +162,31 @@ const formatTimestamp = (timestamp: number | string | undefined) => {
   });
 };
 
-// 获取案件列表
 const fetchCaseList = async () => {
   loading.value = true;
   try {
     let response;
 
     if (activeTab.value === 'myCases') {
-      // 获取我的案件
       if (!currentUserId.value) {
         ElMessage.warning('请先登录以查看您的案件');
         loading.value = false;
         return;
       }
-      response = await getUserCaseListApi(currentUserId.value, {
-        pageNum: pagination.value.page,
-        pageSize: pagination.value.pageSize,
-      });
-    } else {
-      // 获取全部案件（有权限的）
-      const params: CaseApi.CaseListQueryParams = {
+      const userParams: Record<string, any> = {
         pageNum: pagination.value.page,
         pageSize: pagination.value.pageSize,
       };
+      if (filterForm.keyword) userParams.caseNumber = filterForm.keyword;
+      if (filterForm.caseStatus) userParams.caseStatus = filterForm.caseStatus;
+      response = await getUserCaseListApi(currentUserId.value, userParams);
+    } else {
+      const params = buildQueryParams();
       response = await getCaseListApi(params);
     }
 
-    // 适配新的API响应格式
     if (response.code === 200 && response.data) {
-      // 将API返回的英文字段映射为表格期望的中文prop名称
       const mappedCases = response.data.list.map((item: any) => {
-        // 映射案件进度
         const caseProgressMap: Record<string, string> = {
           FIRST: '一、申请与受理',
           SECOND: '二、管理人履职与财产接管',
@@ -158,19 +197,14 @@ const fetchCaseList = async () => {
           SEVENTH: '七、程序终结',
         };
 
-        // 映射案件状态
         const caseStatusMap: Record<string, string> = {
           PENDING: '待处理',
-          ONGOING: '在办',
-          AWAITING: '报结',
-          IN_PROGRESS: '进行中',
-          COMPLETED: '已结',
-          CLOSED: '已结案',
-          TERMINATED: '已终结',
+          ONGOING: '进行中',
+          AWAITING: '报结中',
+          COMPLETED: '已结案',
           ARCHIVED: '已归档',
         };
 
-        // 映射审核状态
         const reviewStatusMap: Record<string, string> = {
           PENDING: '待审核',
           APPROVED: '已通过',
@@ -214,7 +248,6 @@ const fetchCaseList = async () => {
         pagination.value.itemCount / pagination.value.pageSize,
       );
 
-      // 更新分页信息，使用 API 返回的值
       if ('pageNum' in response.data && response.data.pageNum) {
         pagination.value.page = response.data.pageNum;
       }
@@ -241,10 +274,21 @@ const fetchCaseList = async () => {
   }
 };
 
-// 处理标签页切换
+const handleSearch = () => {
+  pagination.value.page = 1;
+  fetchCaseList();
+};
+
+const handleReset = () => {
+  filterForm.keyword = '';
+  filterForm.caseStatus = '';
+  filterForm.caseProgress = '';
+  pagination.value.page = 1;
+  fetchCaseList();
+};
+
 const handleTabChange = async (tabName: number | string) => {
   const tabNameStr = String(tabName);
-  // 如果不是管理员且尝试访问全部案件，强制切换到我的案件
   if (tabNameStr === 'allCases' && !isAdmin.value) {
     ElMessage.warning('您无权查看全部案件');
     activeTab.value = 'myCases';
@@ -255,32 +299,27 @@ const handleTabChange = async (tabName: number | string) => {
   pagination.value.page = 1;
   loading.value = true;
   try {
-    // 当切换到我的案件时，先尝试获取用户信息
     if (tabNameStr === 'myCases') {
       await authStore.fetchCurrentUser();
     }
     await fetchCaseList();
   } catch {
-    // 忽略错误，UI已显示loading状态
   } finally {
     loading.value = false;
   }
 };
 
-// 处理分页变化
 const handlePageChange = (page: number) => {
   pagination.value.page = page;
   fetchCaseList();
 };
 
-// 处理页面大小变化
 const handleSizeChange = (size: number) => {
   pagination.value.pageSize = size;
   pagination.value.page = 1;
   fetchCaseList();
 };
 
-// 刷新案件列表
 const handleRefresh = async () => {
   try {
     pagination.value.page = 1;
@@ -292,16 +331,12 @@ const handleRefresh = async () => {
   }
 };
 
-// 页面加载时获取数据
 onMounted(() => {
   fetchCaseList();
 });
 
-// 获取案件进度标签类型
 const getCaseProgressType = (progress: string) => {
-  // 映射每个阶段到对应的颜色类型
   const progressColorMap: Record<string, string> = {
-    // 英文阶段代码
     'FIRST': 'primary',
     'SECOND': 'success',
     'THIRD': 'warning',
@@ -309,7 +344,6 @@ const getCaseProgressType = (progress: string) => {
     'FIFTH': 'info',
     'SIXTH': 'primary',
     'SEVENTH': 'success',
-    // 中文简短阶段
     '第一阶段': 'primary',
     '第二阶段': 'success',
     '第三阶段': 'warning',
@@ -317,7 +351,6 @@ const getCaseProgressType = (progress: string) => {
     '第五阶段': 'info',
     '第六阶段': 'primary',
     '第七阶段': 'success',
-    // 中文完整阶段名称
     '一、申请与受理': 'primary',
     '二、管理人履职与财产接管': 'success',
     '三、债权申报与核查': 'warning',
@@ -325,40 +358,32 @@ const getCaseProgressType = (progress: string) => {
     '五、重整和解及破产宣告': 'info',
     '六、财产变价与分配': 'primary',
     '七、程序终结': 'success',
-    // 特殊状态
     '已结案': 'success',
   };
-  
+
   return progressColorMap[progress] || 'info';
 };
 
-// 获取案件状态标签类型
 const getCaseStatusType = (status: string) => {
   switch (status) {
     case 'ONGOING':
-    case '进行中':
-    case '在办': {
+    case '进行中': {
       return 'primary';
     }
-    case '已完成':
     case 'COMPLETED':
-    case '已结': {
-      return 'success';
-    }
-    case '已归档': {
-      return 'info';
-    }
-    case '已终结': {
-      return 'warning';
-    }
     case '已结案': {
       return 'success';
     }
+    case 'ARCHIVED':
+    case '已归档': {
+      return 'info';
+    }
+    case 'PENDING':
     case '待处理': {
       return 'info';
     }
     case 'AWAITING':
-    case '报结': {
+    case '报结中': {
       return 'warning';
     }
     default: {
@@ -367,7 +392,6 @@ const getCaseStatusType = (status: string) => {
   }
 };
 
-// 获取审核状态标签类型
 const getReviewStatusType = (status: string) => {
   switch (status) {
     case '已通过': {
@@ -385,7 +409,6 @@ const getReviewStatusType = (status: string) => {
   }
 };
 
-// 查看案件详情
 const router = useRouter();
 const viewCaseDetail = (row: any) => {
   if (row.id) {
@@ -395,7 +418,6 @@ const viewCaseDetail = (row: any) => {
   }
 };
 
-// 显示审核弹窗
 const showReviewModal = (row: CaseApi.CaseInfo) => {
   currentCase.value = row;
   reviewModalVisible.value = true;
@@ -481,8 +503,90 @@ const cancelDelete = () => {
         </ElTabPane>
       </ElTabs>
 
+      <!-- 筛选条件区域 -->
+      <ElCard size="small" class="mb-4 filter-card">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="i-lucide-search text-blue-500"></i>
+              <span class="font-medium">筛选条件</span>
+              <ElTag v-if="activeFilterCount > 0" type="primary" size="small" round>
+                {{ activeFilterCount }} 个条件
+              </ElTag>
+            </div>
+            <div class="flex items-center gap-2">
+              <ElButton type="primary" size="small" @click="handleSearch" :loading="loading">
+                <i class="i-lucide-search mr-1"></i>
+                查询
+              </ElButton>
+              <ElButton size="small" @click="handleReset">
+                <i class="i-lucide-rotate-ccw mr-1"></i>
+                重置
+              </ElButton>
+            </div>
+          </div>
+        </template>
+
+        <ElForm :model="filterForm" label-width="90px" label-position="right" size="default">
+          <ElRow :gutter="16">
+            <ElCol :span="12">
+              <ElFormItem label="关键词搜索">
+                <ElInput
+                  v-model="filterForm.keyword"
+                  placeholder="案号/名称/法院/管理人/负责人/案由/法官/来源"
+                  clearable
+                  @keyup.enter="handleSearch"
+                />
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="案件状态">
+                <ElSelect
+                  v-model="filterForm.caseStatus"
+                  placeholder="请选择"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="item in caseStatusOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :span="6">
+              <ElFormItem label="案件进度">
+                <ElSelect
+                  v-model="filterForm.caseProgress"
+                  placeholder="请选择"
+                  clearable
+                  style="width: 100%"
+                >
+                  <ElOption
+                    v-for="item in caseProgressOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
+        </ElForm>
+      </ElCard>
+
       <!-- 案件列表表格 -->
       <ElCard header="案件列表" size="small">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span class="font-medium">案件列表</span>
+            <span v-if="hasActiveFilters" class="text-sm text-gray-400">
+              已筛选，共 {{ pagination.itemCount }} 条记录
+            </span>
+          </div>
+        </template>
         <div class="table-wrapper">
           <ElTable
             :data="safeCaseList"
@@ -505,7 +609,7 @@ const cancelDelete = () => {
 
             <!-- 案号 -->
             <ElTableColumn
-              
+
               prop="案号"
               label="案号"
               min-width="180"
@@ -516,7 +620,7 @@ const cancelDelete = () => {
 
             <!-- 案件名称 -->
             <ElTableColumn
-              
+
               prop="案件名称"
               label="案件名称"
               min-width="180"
@@ -525,7 +629,7 @@ const cancelDelete = () => {
 
             <!-- 案件状态 -->
             <ElTableColumn
-              
+
               prop="案件状态"
               label="案件状态"
               min-width="120"
@@ -540,7 +644,7 @@ const cancelDelete = () => {
 
             <!-- 案件进度 -->
             <ElTableColumn
-              
+
               prop="案件进度"
               label="案件进度"
               min-width="120"
@@ -556,9 +660,23 @@ const cancelDelete = () => {
               </template>
             </ElTableColumn>
 
+            <!-- 审核状态 -->
+            <ElTableColumn
+              prop="审核状态"
+              label="审核状态"
+              min-width="100"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <ElTag :type="getReviewStatusType(row['审核状态'])" size="small">
+                  {{ row['审核状态'] || '未设置' }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+
             <!-- 案由 -->
             <ElTableColumn
-              
+
               prop="案由"
               label="案由"
               min-width="200"
@@ -567,7 +685,7 @@ const cancelDelete = () => {
 
             <!-- 受理法院 -->
             <ElTableColumn
-              
+
               prop="受理法院"
               label="受理法院"
               min-width="180"
@@ -576,7 +694,7 @@ const cancelDelete = () => {
 
             <!-- 主要负责人 -->
             <ElTableColumn
-              
+
               prop="主要负责人"
               label="主要负责人"
               min-width="150"
@@ -585,7 +703,7 @@ const cancelDelete = () => {
 
             <!-- 承办人员 -->
             <ElTableColumn
-              
+
               prop="承办人员"
               label="承办人员"
               min-width="150"
@@ -594,7 +712,7 @@ const cancelDelete = () => {
 
             <!-- 受理日期 -->
             <ElTableColumn
-              
+
               prop="受理日期"
               label="受理日期"
               min-width="120"
@@ -607,7 +725,7 @@ const cancelDelete = () => {
 
             <!-- 案件来源 -->
             <ElTableColumn
-              
+
               prop="案件来源"
               label="案件来源"
               min-width="150"
@@ -616,7 +734,7 @@ const cancelDelete = () => {
 
             <!-- 管理人 -->
             <ElTableColumn
-              
+
               prop="管理人"
               label="管理人"
               min-width="120"
@@ -625,7 +743,7 @@ const cancelDelete = () => {
 
             <!-- 是否简化审 -->
             <ElTableColumn
-              
+
               prop="是否简化审"
               label="是否简化审"
               min-width="120"
@@ -634,7 +752,7 @@ const cancelDelete = () => {
 
             <!-- 立案日期 -->
             <ElTableColumn
-              
+
               prop="立案日期"
               label="立案日期"
               min-width="180"
@@ -647,7 +765,7 @@ const cancelDelete = () => {
 
             <!-- 备注 -->
             <ElTableColumn
-              
+
               prop="备注"
               label="备注"
               min-width="200"
@@ -921,13 +1039,11 @@ const cancelDelete = () => {
 </template>
 
 <style scoped>
-/* 响应式设计 */
 @media (max-width: 768px) {
   .p-6 {
     padding: 1rem;
   }
 
-  /* 调整卡片头部按钮布局 */
   .flex.items-center.justify-between {
     flex-direction: column;
     align-items: stretch;
@@ -939,13 +1055,11 @@ const cancelDelete = () => {
     margin-top: 1rem;
   }
 
-  /* 调整按钮大小 */
   :deep(.el-button) {
     padding: 6px 12px;
     font-size: 12px;
   }
 
-  /* 调整表格字体大小 */
   :deep(.el-table__header-wrapper th) {
     padding: 8px 0;
     font-size: 12px;
@@ -959,7 +1073,6 @@ const cancelDelete = () => {
     padding: 8px 0;
   }
 
-  /* 调整分页组件 */
   :deep(.el-pagination) {
     font-size: 12px;
   }
@@ -979,7 +1092,6 @@ const cancelDelete = () => {
   box-shadow: 0 4px 16px 0 rgb(0 0 0 / 15%);
 }
 
-/* 按钮样式优化 */
 :deep(.el-button) {
   font-weight: 500;
   border-radius: 6px;
@@ -1007,22 +1119,6 @@ const cancelDelete = () => {
   border-color: #a6a9ad;
 }
 
-/* 下拉菜单样式优化 */
-:deep(.el-dropdown-menu) {
-  border-radius: 6px;
-  box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
-}
-
-:deep(.el-dropdown-item) {
-  transition: all 0.2s ease;
-}
-
-:deep(.el-dropdown-item:hover) {
-  color: #409eff;
-  background-color: #f5f7fa;
-}
-
-/* 表格样式优化 */
 :deep(.el-table) {
   overflow: hidden;
   border-radius: 6px;
@@ -1050,19 +1146,16 @@ const cancelDelete = () => {
   color: #606266;
 }
 
-/* 标签样式优化 */
 :deep(.el-tag) {
   padding: 2px 8px;
   font-size: 12px;
   border-radius: 4px;
 }
 
-/* 表格单元格样式 */
 :deep(.el-table .cell) {
   white-space: nowrap;
 }
 
-/* 确保表格容器可以滚动 */
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
@@ -1070,7 +1163,6 @@ const cancelDelete = () => {
   box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
 }
 
-/* 滚动条样式优化 */
 .table-wrapper::-webkit-scrollbar {
   height: 6px;
 }
@@ -1089,9 +1181,6 @@ const cancelDelete = () => {
   background: #a8a8a8;
 }
 
-/* 卡片样式增强 */
-
-/* 操作按钮样式 */
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -1100,5 +1189,13 @@ const cancelDelete = () => {
 
 .action-buttons .el-button {
   margin: 0;
+}
+
+.filter-card :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.filter-card :deep(.el-select) {
+  width: 100%;
 }
 </style>

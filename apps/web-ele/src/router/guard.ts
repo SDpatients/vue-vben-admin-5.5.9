@@ -15,6 +15,7 @@ import { selectLoginRecordApi } from '#/api/core/auth';
 import { LICENSE_PATH } from '#/router/routes/core';
 import { coreRouteNames, getAccessRoutes } from '#/router/routes';
 import { useAuthStore, useLicenseStore } from '#/store';
+import { logger } from '#/utils/logger';
 
 import { generateAccess } from './access';
 
@@ -72,7 +73,7 @@ function setupAccessGuard(router: Router) {
 
     // 优先检查ignoreAccess，确保即使没有accessToken也能访问
     if (to.meta.ignoreAccess) {
-      console.log('Route ignoreAccess is true for:', to.path);
+      logger.log('Route ignoreAccess is true for:', to.path);
       return true;
     }
 
@@ -146,7 +147,7 @@ function setupAccessGuard(router: Router) {
       redirectPath = userInfo?.homePath || preferences.app.defaultHomePath;
     }
 
-    console.log('[RouterGuard] Final redirect path:', redirectPath);
+    logger.log('[RouterGuard] Final redirect path:', redirectPath);
 
     return {
       ...router.resolve(redirectPath),
@@ -163,21 +164,21 @@ function setupChatGuard(router: Router) {
   router.beforeEach(async (to) => {
     // 检查是否是聊天相关路由
     if (to.path.startsWith('/chat')) {
-      console.log('ChatGuard: Checking chat route:', to.path);
+      logger.log('ChatGuard: Checking chat route:', to.path);
       // 检查本地存储中是否有登录信息
       const chatUserId = localStorage.getItem('chat_user_id');
       const chatLogintime = localStorage.getItem('chat_logintime');
       const chatUsername = localStorage.getItem('chat_username');
       
-      console.log('ChatGuard: chatUserId:', chatUserId);
-      console.log('ChatGuard: chatLogintime:', chatLogintime);
-      console.log('ChatGuard: chatUsername:', chatUsername);
+      logger.log('ChatGuard: chatUserId:', chatUserId);
+      logger.log('ChatGuard: chatLogintime:', chatLogintime);
+      logger.log('ChatGuard: chatUsername:', chatUsername);
       
       // 如果本地没有登录信息，尝试从后端获取
       if (!chatUserId || !chatLogintime) {
         if (!chatUsername) {
           // 如果没有用户名，跳转到登录页面
-          console.log('ChatGuard: No chat username, redirecting to login');
+          logger.log('ChatGuard: No chat username, redirecting to login');
           return {
             path: LOGIN_PATH,
             query: { redirect: encodeURIComponent(to.fullPath) },
@@ -188,7 +189,7 @@ function setupChatGuard(router: Router) {
           // 调用后端查询登录记录接口，使用从登录接口返回的token
           const token = localStorage.getItem('token');
           if (!token) {
-            console.log('ChatGuard: No token in localStorage, redirecting to login');
+            logger.log('ChatGuard: No token in localStorage, redirecting to login');
             return {
               path: LOGIN_PATH,
               query: { redirect: encodeURIComponent(to.fullPath) },
@@ -219,12 +220,12 @@ function setupChatGuard(router: Router) {
               localStorage.setItem('chat_logintime', latestRecord.logintime);
             }
             
-            console.log('ChatGuard: Chat user info loaded, allowing access');
+            logger.log('ChatGuard: Chat user info loaded, allowing access');
             // 继续访问聊天页面
             return true;
           } else {
             // 后端也没有记录，跳转到登录页面
-            console.log('ChatGuard: No chat records, redirecting to login');
+            logger.log('ChatGuard: No chat records, redirecting to login');
             return {
               path: LOGIN_PATH,
               query: { redirect: encodeURIComponent(to.fullPath) },
@@ -232,7 +233,7 @@ function setupChatGuard(router: Router) {
             };
           }
         } catch (error) {
-          console.error('查询登录记录失败:', error);
+          logger.error('查询登录记录失败:', error);
           // 查询失败，跳转到登录页面
           return {
             path: LOGIN_PATH,
@@ -242,12 +243,12 @@ function setupChatGuard(router: Router) {
         }
       }
       
-      console.log('ChatGuard: Chat user exists, allowing access');
+      logger.log('ChatGuard: Chat user exists, allowing access');
       // 不是聊天相关路由，直接通过
       return true;
     }
     
-    console.log('ChatGuard: Not a chat route, allowing access:', to.path);
+    logger.log('ChatGuard: Not a chat route, allowing access:', to.path);
     // 不是聊天相关路由，直接通过
     return true;
   });
@@ -265,14 +266,14 @@ function setupCaseDetailGuard(router: Router) {
       const caseId = to.params.id;
       
       if (!caseId || Number.isNaN(Number.parseInt(caseId as string, 10))) {
-        console.log('CaseDetailGuard: Invalid case ID:', caseId);
+        logger.log('CaseDetailGuard: Invalid case ID:', caseId);
         return {
           path: '/law/case-management',
           replace: true,
         };
       }
       
-      console.log('CaseDetailGuard: Valid case ID, proceeding to page for permission check:', caseId);
+      logger.log('CaseDetailGuard: Valid case ID, proceeding to page for permission check:', caseId);
       return true;
     }
     
@@ -287,17 +288,17 @@ function setupCaseDetailGuard(router: Router) {
  */
 function setupLicenseGuard(router: Router) {
   router.beforeEach(async (to) => {
-    console.log('LicenseGuard: 检查路由', to.path);
+    logger.log('LicenseGuard: 检查路由', to.path);
 
     // 如果已经在许可证页面，不跳转
     if (to.path === LICENSE_PATH) {
-      console.log('LicenseGuard: 已在许可证页面，放行');
+      logger.log('LicenseGuard: 已在许可证页面，放行');
       return true;
     }
 
     // 如果页面明确标记为忽略访问控制（如许可证页面），不检查
     if (to.meta.ignoreAccess) {
-      console.log('LicenseGuard: 页面标记为ignoreAccess，放行');
+      logger.log('LicenseGuard: 页面标记为ignoreAccess，放行');
       return true;
     }
 
@@ -305,25 +306,25 @@ function setupLicenseGuard(router: Router) {
 
     // 如果还没有检查过许可证状态，先获取
     if (!licenseStore.licenseChecked) {
-      console.log('LicenseGuard: 正在获取许可证状态...');
+      logger.log('LicenseGuard: 正在获取许可证状态...');
       try {
         await licenseStore.fetchLicenseStatus();
-        console.log('LicenseGuard: 许可证状态获取完成', licenseStore.licenseStatus);
+        logger.log('LicenseGuard: 许可证状态获取完成', licenseStore.licenseStatus);
       } catch (error) {
-        console.error('LicenseGuard: 检查许可证状态失败:', error);
+        logger.error('LicenseGuard: 检查许可证状态失败:', error);
       }
     }
 
     // 如果许可证无效，跳转到许可证页面
     if (!licenseStore.isValid()) {
-      console.log('LicenseGuard: 许可证无效，跳转到许可证页面');
+      logger.log('LicenseGuard: 许可证无效，跳转到许可证页面');
       return {
         path: LICENSE_PATH,
         replace: true,
       };
     }
 
-    console.log('LicenseGuard: 许可证有效，放行');
+    logger.log('LicenseGuard: 许可证有效，放行');
 
     // 检查模块级权限
     if (to.meta.requiredModules && Array.isArray(to.meta.requiredModules)) {
@@ -333,7 +334,7 @@ function setupLicenseGuard(router: Router) {
       );
 
       if (!hasAllModules) {
-        console.log('LicenseGuard: 缺少必要的模块授权:', requiredModules);
+        logger.log('LicenseGuard: 缺少必要的模块授权:', requiredModules);
         return {
           path: '/fallback/forbidden',
           replace: true,

@@ -240,8 +240,7 @@ const loadStats = async () => {
       }
     }
   } catch (error) {
-    console.error('[loadStats] Error:', error)
-  }
+}
 }
 
 const onRefresh = async () => {

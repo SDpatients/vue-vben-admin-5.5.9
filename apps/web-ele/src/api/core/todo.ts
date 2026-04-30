@@ -57,96 +57,287 @@ function getUserId(): number {
 export interface Todo {
   id: number;
   userId: number;
+  userAccount?: string;
+  userName?: string;
   title: string;
   description?: string;
+  type?: string;
   priority: string;
   status: string;
   deadline?: string;
-  sourceType?: string;
-  sourceId?: number;
-  relatedType?: string;
-  relatedId?: number;
   completedTime?: string;
-  createTime: string;
-  updateTime: string;
-}
-
-export interface TodoDTO {
-  title: string;
-  description?: string;
-  priority?: string;
-  deadline?: string;
-  relatedType?: string;
   relatedId?: number;
-  userId?: number;
-  userAccount?: string;
-  userName?: string;
-  type?: string;
-  status?: string;
+  relatedType?: string;
   assigneeId?: number;
   assigneeName?: string;
   createUserId?: number;
   createUserName?: string;
+  createTime: string;
+  updateTime: string;
   remark?: string;
 }
 
+export interface TodoDTO {
+  userId?: number;
+  userAccount?: string;
+  userName?: string;
+  title: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  deadline?: string;
+  remark?: string;
+  assigneeId?: number;
+  assigneeName?: string;
+  createUserId?: number;
+  createUserName?: string;
+  relatedId?: number;
+  relatedType?: string;
+  caseNumber?: string;
+  caseId?: number;
+}
+
+export interface TodoUpdateRequest {
+  title?: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  deadline?: string;
+  remark?: string;
+  relatedId?: number;
+  relatedType?: string;
+  caseNumber?: string;
+  caseId?: number;
+}
+
+export interface TodoPageResult {
+  content: Todo[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export interface MyTodoStatisticsResponse {
+  inProgressTodos: number;
+  completedTodos: number;
+  overdueTodos: number;
+}
+
+export interface CaseSimpleInfo {
+  id: number;
+  caseNumber: string;
+  caseName: string;
+}
+
+export interface CasePageResult {
+  total: number;
+  list: CaseSimpleInfo[];
+}
+
+/**
+ * 统一的响应解析函数
+ * 处理后端可能返回的多种格式：
+ * 1. { code: 200, message: "success", data: { content: [...], totalElements: ... } }
+ * 2. { code: 200, message: "success", data: [...] }
+ * 3. { content: [...], totalElements: ... } (直接返回分页对象)
+ * 4. [...] (直接返回数组)
+ */
+function parseApiResponse<T>(res: any): { data: T[]; total?: number; totalPages?: number } {
+  // 先解包外层的 ApiResponse
+  let payload = res;
+  if (res && typeof res === 'object' && 'data' in res && !Array.isArray(res.data)) {
+    payload = res.data;
+  }
+
+  // 处理直接返回数组的情况
+  if (Array.isArray(payload)) {
+    return { data: payload as T[], total: payload.length };
+  }
+
+  // 处理 { content, totalElements, totalPages } 分页格式 (Spring Data Page)
+  if (payload && payload.content && Array.isArray(payload.content)) {
+    return {
+      data: payload.content as T[],
+      total: payload.totalElements ?? payload.content.length,
+      totalPages: payload.totalPages ?? 1,
+    };
+  }
+
+  // 处理 { total, list: [...] } 分页格式
+  if (payload && payload.list && Array.isArray(payload.list)) {
+    return {
+      data: payload.list as T[],
+      total: payload.total ?? payload.list.length,
+    };
+  }
+
+  // 处理 { data: [...] } 格式
+  if (payload && payload.data && Array.isArray(payload.data)) {
+    return { data: payload.data as T[], total: payload.data.length };
+  }
+
+  // 默认返回空数组
+  return { data: [] };
+}
+
 export const todoApi = {
-  getTodoList: (
-    priority?: string,
-    pageNum: number = 0,
-    pageSize: number = 100,
-    startTime?: string,
-    endTime?: string,
-  ) => {
+  // ========== 创建 ==========
+
+  // 创建待办事项（基础版）
+  createTodo: (data: TodoDTO) => {
     const userId = getUserId();
-    
-    // 如果没有提供开始和结束日期，使用当前月份
-    let start, end;
-    if (startTime && endTime) {
-      start = startTime;
-      end = endTime;
-    } else {
-      // 获取当前月份的第一天和最后一天
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      
-      // 格式化日期为ISO格式
-      start = firstDay.toISOString();
-      end = new Date(lastDay.setHours(23, 59, 59, 999)).toISOString();
-    }
-    
-    return requestClient.get('/api/v1/todo/list', {
-      params: { userId, priority, pageNum, pageSize, startTime: start, endTime: end },
+    const requestData = { ...data, userId };
+    return requestClient.post<Todo>('/api/v1/todo', requestData);
+  },
+
+  // 创建待办事项（支持案件关联）
+  createTodoWithCase: (data: TodoDTO) => {
+    const userId = getUserId();
+    const requestData = { ...data, userId };
+    return requestClient.post<Todo>('/api/v1/todo/with-case', requestData);
+  },
+
+  // ========== 查询（统一使用 searchTodos，避免多个独立接口） ==========
+
+  /**
+   * 统一的待办搜索/列表接口
+   * 所有列表查询都应通过此接口，使用参数控制筛选条件
+   */
+  searchTodos: (params: {
+    type?: string;
+    status?: string;
+    priority?: string;
+    pageNum?: number;
+    pageSize?: number;
+  }) => {
+    return requestClient.get<TodoPageResult>('/api/v1/todo/search', {
+      params,
     });
   },
 
-  // 获取待处理待办事项
+  /**
+   * 获取当前用户待办列表（带时间范围）
+   * 注意：此接口与 searchTodos 功能有重叠，优先使用 searchTodos
+   */
+  getTodoList: (params: {
+    pageNum?: number;
+    pageSize?: number;
+    startTime?: string;
+    endTime?: string;
+  }) => {
+    return requestClient.get<TodoPageResult>('/api/v1/todo/list', {
+      params,
+    });
+  },
+
+  // 获取待办事项详情
+  getTodoDetail: (todoId: number) => {
+    return requestClient.get<Todo>(`/api/v1/todo/${todoId}`);
+  },
+
+  // ========== 统计（统一使用 getMyStats） ==========
+
+  // 获取当前用户的待办统计数据（推荐：一次请求获取所有统计）
+  getMyStats: () => {
+    return requestClient.get<MyTodoStatisticsResponse>('/api/v1/todo/my-stats');
+  },
+
+  // 以下单个统计接口保留但标记为不推荐，建议统一使用 getMyStats
+  /** @deprecated 请使用 getMyStats */
+  getPendingCount: () => {
+    return requestClient.get<number>('/api/v1/todo/count/pending');
+  },
+
+  /** @deprecated 请使用 getMyStats */
+  getCompletedCount: () => {
+    return requestClient.get<number>('/api/v1/todo/count/completed');
+  },
+
+  /** @deprecated 请使用 getMyStats */
+  getOverdueCount: () => {
+    return requestClient.get<number>('/api/v1/todo/count/overdue');
+  },
+
+  // ========== 更新 ==========
+
+  // 完成待办事项
+  completeTodo: (todoId: number) => {
+    return requestClient.put<Todo>(`/api/v1/todo/${todoId}/complete`);
+  },
+
+  // 更新待办事项（基础版）
+  updateTodo: (todoId: number, data: Partial<TodoDTO>) => {
+    return requestClient.put<Todo>(`/api/v1/todo/${todoId}`, data);
+  },
+
+  // 更新待办事项（支持案件关联）
+  updateTodoWithCase: (todoId: number, data: TodoUpdateRequest) => {
+    return requestClient.put<Todo>(`/api/v1/todo/${todoId}/with-case`, data);
+  },
+
+  // 更新待办状态
+  updateTodoStatus: (todoId: number, status: string) => {
+    return requestClient.put<Todo>(`/api/v1/todo/${todoId}/status`, null, {
+      params: { status },
+    });
+  },
+
+  // 分配待办事项
+  assignTodo: (todoId: number, assigneeId: number, assigneeName: string) => {
+    return requestClient.put<Todo>(`/api/v1/todo/${todoId}/assign`, null, {
+      params: { assigneeId, assigneeName },
+    });
+  },
+
+  // ========== 删除 ==========
+
+  // 删除待办事项
+  deleteTodo: (todoId: number) => {
+    return requestClient.delete(`/api/v1/todo/${todoId}`);
+  },
+
+  // 批量删除待办事项
+  batchDeleteTodos: (todoIds: number[]) => {
+    return requestClient.delete('/api/v1/todo/batch', {
+      data: todoIds,
+    });
+  },
+
+  // ========== 案件关联 ==========
+
+  // 根据案号模糊查询案件简单信息
+  searchCases: (caseNumber: string, page: number = 1, size: number = 10) => {
+    return requestClient.get<CasePageResult>('/api/v1/todo/case/simple-search', {
+      params: { caseNumber, page, size },
+    });
+  },
+
+  // ========== 兼容旧方法（标记为废弃） ==========
+
+  /** @deprecated 请使用 searchTodos */
   getPendingTodos: () => {
-    const userId = getUserId();
-    return requestClient.get('/api/v1/todo/pending', {
-      params: { userId },
+    return requestClient.get<Todo[]>('/api/v1/todo/search', {
+      params: { status: 'PENDING' },
     });
   },
 
-  // 获取已完成待办事项
+  /** @deprecated 请使用 searchTodos */
   getCompletedTodos: () => {
-    const userId = getUserId();
-    return requestClient.get('/api/v1/todo/COMPLETED', {
-      params: { userId },
+    return requestClient.get<Todo[]>('/api/v1/todo/search', {
+      params: { status: 'COMPLETED' },
     });
   },
 
-  // 获取过期待办事项
-  getOverdueTodos: () => {
-    const userId = getUserId();
-    return requestClient.get('/api/v1/todo/overdue', {
-      params: { userId },
+  // 获取过期待办事项（后端实时计算：deadline < NOW() AND status = 'PENDING'）
+  // 注意：数据库 status 字段没有 OVERDUE 值，不能通过 search?status=OVERDUE 查询
+  getOverdueTodos: (pageNum: number = 0, pageSize: number = 10) => {
+    return requestClient.get<TodoPageResult>('/api/v1/todo/overdue', {
+      params: { pageNum, pageSize },
     });
   },
 
+  /** @deprecated 请使用 searchTodos 或 getTodoList */
   getUserTodoList: (
     targetUserId: number,
     priority?: string,
@@ -155,61 +346,34 @@ export const todoApi = {
     startTime?: string,
     endTime?: string,
   ) => {
-    // 如果没有提供开始和结束日期，使用当前月份
-    let start, end;
+    let start: string | undefined;
+    let end: string | undefined;
     if (startTime && endTime) {
       start = startTime;
       end = endTime;
     } else {
-      // 获取当前月份的第一天和最后一天
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      
-      // 格式化日期为ISO格式
       start = firstDay.toISOString();
       end = new Date(lastDay.setHours(23, 59, 59, 999)).toISOString();
     }
-    
-    return requestClient.get(`/api/v1/todo/list`, {
+    return requestClient.get<TodoPageResult>('/api/v1/todo/list', {
       params: { userId: targetUserId, priority, pageNum, pageSize, startTime: start, endTime: end },
     });
   },
 
-  createTodo: (data: TodoDTO) => {
-    const userId = getUserId();
-    // 添加userId到请求数据
-    const requestData = {
-      ...data,
-      userId,
-    };
-    return requestClient.post('/api/v1/todo', requestData);
-  },
-
   createTodoForUser: (targetUserId: number, data: TodoDTO) => {
-    // 添加userId到请求数据，使用targetUserId作为userId
-    const requestData = {
-      ...data,
-      userId: targetUserId,
-    };
-    return requestClient.post('/api/v1/todo', requestData);
-  },
-
-  updateTodo: (id: number, data: Partial<TodoDTO>) => {
-    return requestClient.put(`/api/v1/todo/${id}`, data);
-  },
-
-  completeTodo: (id: number) => {
-    return requestClient.put(`/api/v1/todo/${id}/complete`);
+    const requestData = { ...data, userId: targetUserId };
+    return requestClient.post<Todo>('/api/v1/todo', requestData);
   },
 
   cancelTodo: (id: number) => {
-    return requestClient.put(`/api/v1/todo/${id}/cancel`);
-  },
-
-  deleteTodo: (id: number) => {
-    return requestClient.delete(`/api/v1/todo/${id}`);
+    return requestClient.put<Todo>(`/api/v1/todo/${id}/cancel`);
   },
 };
+
+// 导出解析函数，供页面使用
+export { parseApiResponse };

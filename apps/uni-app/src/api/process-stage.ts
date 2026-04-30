@@ -1,6 +1,5 @@
-import http from './request'
+import { http8085 } from './request'
 
-// 阶段数据接口
 export interface ProcessStageData {
   id: number
   caseId: number
@@ -18,30 +17,26 @@ export interface ProcessStageData {
   updateTime: string
 }
 
-// 查询案件的所有阶段数据
 export const getCaseStageDataList = (caseId: number) => {
-  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
     `/api/case-process-stage/case/${caseId}`
   )
 }
 
-// 查询案件的特定阶段数据
 export const getCaseStageDataByStageNum = (caseId: number, stageNum: number) => {
-  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
     `/api/case-process-stage/case/${caseId}/stage/${stageNum}`
   )
 }
 
-// 查询案件的特定模块数据
 export const getCaseStageDataByModule = (caseId: number, moduleCode: string) => {
-  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
     `/api/case-process-stage/case/${caseId}/module/${moduleCode}`
   )
 }
 
-// 删除阶段数据
 export const deleteCaseStageData = (id: number) => {
-  return http.delete<{ code: number; message: string; data: null }>(
+  return http8085.delete<{ code: number; message: string; data: null }>(
     `/api/case-process-stage/${id}`
   )
 }

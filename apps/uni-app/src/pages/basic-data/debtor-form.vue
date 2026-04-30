@@ -181,8 +181,7 @@ const loadCaseList = async () => {
     const res = await getCaseList({ pageNum: 1, pageSize: 100 })
     caseList.value = res.data?.list || []
   } catch (error) {
-    console.error('[loadCaseList] Error:', error)
-  }
+}
 }
 
 const openCaseSelector = () => {
@@ -215,8 +214,7 @@ const loadDetail = async (id: number) => {
       selectedCase.value = caseObj
     }
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
 
@@ -245,20 +243,20 @@ const handleSubmit = async () => {
     if (isEdit.value) {
       delete submitData.caseId
     }
-    
+
     if (isEdit.value && debtorId.value) {
-      await updateDebtor(debtorId.value, submitData)
+      await updateDebtor(debtorId.value, { id: debtorId.value, ...submitData })
       uni.showToast({ title: '更新成功', icon: 'success' })
     } else {
       await createDebtor(submitData)
       uni.showToast({ title: '创建成功', icon: 'success' })
     }
+    uni.$emit('refresh-debtor-list')
     setTimeout(() => {
       uni.navigateBack()
     }, 1500)
   } catch (error) {
-    console.error('[submit] Error:', error)
-    uni.showToast({ title: '操作失败', icon: 'none' })
+uni.showToast({ title: '操作失败', icon: 'none' })
   } finally {
     submitting.value = false
   }

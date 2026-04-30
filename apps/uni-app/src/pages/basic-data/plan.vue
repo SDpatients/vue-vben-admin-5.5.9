@@ -155,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getWorkPlanList, type WorkPlanItem } from '@/api/basic-data'
 import { getCaseList, type CaseItem } from '@/api/case'
@@ -214,6 +214,11 @@ const emptyText = computed(() => {
 
 onMounted(() => {
   loadData()
+  uni.$on('refresh-plan-list', () => loadData(true))
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-plan-list')
 })
 
 const handleSearchInput = () => {
@@ -269,8 +274,7 @@ const loadCaseList = async () => {
     const res = await getCaseList(params)
     caseList.value = res.data?.list || []
   } catch (error) {
-    console.error('[loadCaseList] Error:', error)
-  }
+}
 }
 
 const handleCaseSearchInput = () => {
@@ -308,7 +312,6 @@ const loadData = async (isRefresh = false) => {
     }
 
     if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
       params.planContent = searchKeyword.value.trim()
     }
     if (filterParams.value.planType) {
@@ -331,8 +334,7 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = planList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     uni.stopPullDownRefresh()

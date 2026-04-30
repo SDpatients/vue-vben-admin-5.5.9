@@ -139,10 +139,7 @@
       <view class="action-btn" @click="handleBack">
         <text>返回</text>
       </view>
-      <view class="action-btn" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleEdit">
-        <text>编辑</text>
-      </view>
-      <view class="action-btn danger" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleDelete">
+      <view class="action-btn danger" @click="handleDelete">
         <text>删除</text>
       </view>
       <view class="action-btn primary" v-if="expenseDetail.approvalStatus === 'PENDING' && isAdmin" @click="showApprove = true">
@@ -310,6 +307,7 @@ const handleDelete = () => {
         try {
           await deleteExpenseReimbursement(expenseId.value)
           uni.showToast({ title: '删除成功', icon: 'success' })
+          uni.$emit('refresh-expense-list')
           setTimeout(() => {
             uni.navigateBack()
           }, 1500)

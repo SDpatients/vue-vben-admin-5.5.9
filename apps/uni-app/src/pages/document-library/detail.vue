@@ -159,8 +159,7 @@ const loadDetail = async () => {
       isFavorited.value = favoriteRes.data
     }
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     uni.hideLoading()
   }
@@ -269,6 +268,7 @@ const handleDelete = () => {
         try {
           await deleteDocument(document.value!.id)
           uni.showToast({ title: '删除成功', icon: 'success' })
+          uni.$emit('refresh-document-list')
           setTimeout(() => {
             uni.navigateBack()
           }, 1500)

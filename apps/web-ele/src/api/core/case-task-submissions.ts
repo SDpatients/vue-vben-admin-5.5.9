@@ -1,4 +1,4 @@
-import { requestClient8085 } from '../request';
+import { requestClient8080 } from '../request';
 
 export interface CaseTaskSubmission {
   id: number;
@@ -63,7 +63,7 @@ export namespace CaseTaskSubmissionApi {
     submissionType?: string;
     createTime?: string;
   }) {
-    return requestClient8085.post<{ submissionId: number; submissionNumber: number }>('/api/case-task-submissions', data);
+    return requestClient8080.post<{ submissionId: number; submissionNumber: number }>('/api/case-task-submissions', data);
   }
 
   export async function getSubmissions(params: {
@@ -71,36 +71,36 @@ export namespace CaseTaskSubmissionApi {
     page?: number;
     size?: number;
   }) {
-    return requestClient8085.get<PageResponse<CaseTaskSubmission>>('/api/case-task-submissions', { params });
+    return requestClient8080.get<PageResponse<CaseTaskSubmission>>('/api/case-task-submissions', { params });
   }
 
   export async function getSubmissionById(id: number) {
-    return requestClient8085.get<CaseTaskSubmission>(`/api/case-task-submissions/${id}`);
+    return requestClient8080.get<CaseTaskSubmission>(`/api/case-task-submissions/${id}`);
   }
 
   export async function reviewSubmission(id: number, data: {
     reviewOpinion: string;
     status: 'APPROVED' | 'REJECTED';
   }) {
-    return requestClient8085.put<CaseTaskSubmission>(`/api/case-task-submissions/${id}/review`, data);
+    return requestClient8080.put<CaseTaskSubmission>(`/api/case-task-submissions/${id}/review`, data);
   }
 
   export async function deleteSubmission(id: number) {
-    return requestClient8085.delete(`/api/case-task-submissions/${id}`);
+    return requestClient8080.delete(`/api/case-task-submissions/${id}`);
   }
 
   export async function updateSubmission(id: number, data: {
     submissionTitle?: string;
     submissionContent?: string;
   }) {
-    return requestClient8085.put(`/api/case-task-submissions/${id}`, data);
+    return requestClient8080.put(`/api/case-task-submissions/${id}`, data);
   }
 
   export async function getLatestSubmissions(params: {
     caseTaskId: number;
     limit?: number;
   }) {
-    return requestClient8085.get<CaseTaskSubmission[]>('/api/case-task-submissions/latest', { params });
+    return requestClient8080.get<CaseTaskSubmission[]>('/api/case-task-submissions/latest', { params });
   }
 
   export async function uploadSubmissionFile(submissionId: number, file: File, description?: string, sortOrder?: number) {
@@ -112,7 +112,7 @@ export namespace CaseTaskSubmissionApi {
     if (sortOrder !== undefined) {
       formData.append('sortOrder', sortOrder.toString());
     }
-    return requestClient8085.post<SubmissionFile & { sortOrder: number }>(`/api/case-task-submissions/${submissionId}/files`, formData, {
+    return requestClient8080.post<SubmissionFile & { sortOrder: number }>(`/api/case-task-submissions/${submissionId}/files`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -120,24 +120,24 @@ export namespace CaseTaskSubmissionApi {
   }
 
   export async function updateFileSortOrder(submissionId: number, files: Array<{ fileId: number; sortOrder: number }>) {
-    return requestClient8085.put(`/api/case-task-submissions/${submissionId}/files/sort-order`, {
+    return requestClient8080.put(`/api/case-task-submissions/${submissionId}/files/sort-order`, {
       files,
     });
   }
 
   export async function getSubmissionFiles(submissionId: number) {
-    return requestClient8085.get<SubmissionFile[]>(`/api/case-task-submissions/${submissionId}/files`);
+    return requestClient8080.get<SubmissionFile[]>(`/api/case-task-submissions/${submissionId}/files`);
   }
 
   export async function deleteSubmissionFile(submissionId: number, fileId: number) {
-    return requestClient8085.delete(`/api/case-task-submissions/${submissionId}/files/${fileId}`);
+    return requestClient8080.delete(`/api/case-task-submissions/${submissionId}/files/${fileId}`);
   }
 
   export async function getLatestSubmissionsBatch(data: BatchSubmissionsRequest) {
-    return requestClient8085.post<BatchSubmissionsResponse>('/api/case-task-submissions/latest/batch', data);
+    return requestClient8080.post<BatchSubmissionsResponse>('/api/case-task-submissions/latest/batch', data);
   }
 
   export async function getSubmissionFilesBatch(data: BatchFilesRequest) {
-    return requestClient8085.post<BatchFilesResponse>('/api/case-task-submissions/files/batch', data);
+    return requestClient8080.post<BatchFilesResponse>('/api/case-task-submissions/files/batch', data);
   }
 }

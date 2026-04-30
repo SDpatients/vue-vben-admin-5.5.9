@@ -191,8 +191,7 @@ const loadDocument = async () => {
       previewUrl.value = previewDocument(res.data.id)
     }
   } catch (error) {
-    console.error('[loadDocument] Error:', error)
-  } finally {
+} finally {
     loading.value = false
   }
 }
@@ -273,7 +272,6 @@ const handleImageError = () => {
 }
 
 const handleImageLoad = () => {
-  console.log('图片加载成功')
 }
 
 const formatFileSize = (size?: number) => {

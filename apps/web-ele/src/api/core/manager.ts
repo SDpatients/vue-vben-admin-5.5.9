@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace ManagerApi {
   /** 管理人查询参数 */
@@ -45,7 +45,7 @@ export namespace ManagerApi {
  * 获取管理人列表（分页）
  */
 export async function getManagerListApi(params: ManagerApi.ManagerQueryParams) {
-  return requestClient8085.get<ManagerApi.ManagerListResponse>(
+  return requestClient8080.get<ManagerApi.ManagerListResponse>(
     '/administrator/list',
     {
       params,
@@ -67,7 +67,7 @@ export interface AddManagerRequest {
  * 添加管理人信息
  */
 export async function addManagerApi(data: AddManagerRequest) {
-  return requestClient8085.post<ManagerApi.ManagerOperationResponse>(
+  return requestClient8080.post<ManagerApi.ManagerOperationResponse>(
     '/administrator',
     data,
     {
@@ -92,7 +92,7 @@ export async function updateManagerApi(
   administratorId: number | string,
   data: UpdateManagerRequest,
 ) {
-  return requestClient8085.put<ManagerApi.ManagerOperationResponse>(
+  return requestClient8080.put<ManagerApi.ManagerOperationResponse>(
     `/administrator/${administratorId}`,
     data,
     {
@@ -107,7 +107,7 @@ export async function updateManagerApi(
  * 删除管理人信息
  */
 export async function deleteManagerApi(administratorId: number | string) {
-  return requestClient8085.delete<ManagerApi.ManagerOperationResponse>(
+  return requestClient8080.delete<ManagerApi.ManagerOperationResponse>(
     `/administrator/${administratorId}`,
   );
 }

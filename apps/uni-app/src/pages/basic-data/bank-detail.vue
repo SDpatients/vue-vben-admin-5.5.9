@@ -19,7 +19,7 @@
         </view>
         <view class="info-item">
           <text class="label">账户类型</text>
-          <text class="value">{{ detail.accountType || '-' }}</text>
+          <text class="value">{{ getAccountTypeText(detail.accountType) }}</text>
         </view>
         <view class="info-item">
           <text class="label">开户行</text>
@@ -28,6 +28,18 @@
         <view class="info-item">
           <text class="label">银行名称</text>
           <text class="value">{{ detail.bankName || '-' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">币种</text>
+          <text class="value">{{ detail.currency || 'CNY' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">开户日期</text>
+          <text class="value">{{ detail.openingDate || '-' }}</text>
+        </view>
+        <view class="info-item" v-if="detail.closingDate">
+          <text class="label">销户日期</text>
+          <text class="value">{{ detail.closingDate }}</text>
         </view>
       </view>
     </view>
@@ -40,12 +52,19 @@
       </view>
     </view>
 
+    <view class="transaction-entry">
+      <view class="entry-btn" @click="goToTransactions">
+        <text class="entry-icon">📋</text>
+        <text class="entry-text">查看账户流水</text>
+      </view>
+    </view>
+
     <view class="section">
       <view class="section-title">案件信息</view>
       <view class="info-list">
-        <view class="info-item" v-if="detail.caseNo">
+        <view class="info-item" v-if="detail.caseNumber">
           <text class="label">案号</text>
-          <text class="value case-no">{{ detail.caseNo }}</text>
+          <text class="value case-no">{{ detail.caseNumber }}</text>
         </view>
         <view class="info-item" v-if="detail.caseName">
           <text class="label">案件名称</text>
@@ -100,7 +119,6 @@ const loadDetail = async (id: number) => {
     const res = await getBankAccountDetail(id)
     detail.value = res.data
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
@@ -109,6 +127,7 @@ const getStatusText = (status?: string) => {
   const map: Record<string, string> = {
     ACTIVE: '正常',
     INACTIVE: '停用',
+    DELETED: '已删除',
   }
   return map[status || ''] || status || '未知'
 }
@@ -117,18 +136,41 @@ const getStatusClass = (status?: string) => {
   const map: Record<string, string> = {
     ACTIVE: 'status-active',
     INACTIVE: 'status-inactive',
+    DELETED: 'status-deleted',
   }
   return map[status || ''] || ''
 }
 
+const getAccountTypeText = (type?: string) => {
+  const map: Record<string, string> = {
+    BASIC: '基本户',
+    GENERAL: '一般户',
+    SPECIAL: '专用户',
+    TEMPORARY: '临时户',
+    MARGIN: '保证金户',
+    SETTLEMENT: '结算户',
+    FOREIGN: '外汇户',
+  }
+  return map[type || ''] || type || '-'
+}
+
 const formatMoney = (money?: number) => {
-  if (!money) return '0.00'
+  if (money === undefined || money === null) return '0.00'
   return money.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
 
 const formatDate = (date?: string) => {
   if (!date) return '-'
   return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+const goToTransactions = () => {
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1] as any
+  const id = currentPage.options?.id
+  if (id) {
+    uni.navigateTo({ url: `/pages/basic-data/bank-transactions?id=${id}` })
+  }
 }
 </script>
 
@@ -188,6 +230,11 @@ const formatDate = (date?: string) => {
         background: #f5f5f5;
         color: #999;
       }
+
+      &.status-deleted {
+        background: #fff1f0;
+        color: #ff4d4f;
+      }
     }
   }
 }
@@ -236,7 +283,7 @@ const formatDate = (date?: string) => {
     }
   }
 
-  .balance-card {
+  .balance-section {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -244,16 +291,48 @@ const formatDate = (date?: string) => {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 16rpx;
 
-    .label {
+    .balance-label {
       font-size: 26rpx;
       color: rgba(255, 255, 255, 0.8);
       margin-bottom: 16rpx;
     }
 
-    .balance {
+    .balance-amount {
       font-size: 48rpx;
       font-weight: bold;
       color: #fff;
+    }
+  }
+}
+
+.transaction-entry {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+
+  .entry-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16rpx;
+    height: 88rpx;
+    background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+    border-radius: 12rpx;
+    box-shadow: 0 4rpx 12rpx rgba(24, 144, 255, 0.3);
+
+    &:active {
+      opacity: 0.9;
+    }
+
+    .entry-icon {
+      font-size: 36rpx;
+    }
+
+    .entry-text {
+      font-size: 30rpx;
+      color: #fff;
+      font-weight: 500;
     }
   }
 }

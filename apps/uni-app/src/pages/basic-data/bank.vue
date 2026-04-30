@@ -93,6 +93,7 @@
           <text :class="['status-badge', getStatusClass(item.status)]">{{ getStatusText(item.status) }}</text>
         </view>
         <view class="td td-actions">
+          <view class="action-btn transaction-btn" @click.stop="goToTransactions(item.id)">流水</view>
           <view class="action-btn edit-btn" @click.stop="goToEdit(item.id)">编辑</view>
           <view class="action-btn delete-btn" @click.stop="handleDelete(item.id)">删除</view>
         </view>
@@ -113,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getBankAccountList, deleteBankAccount, type BankAccountItem } from '@/api/basic-data'
 
@@ -134,10 +135,10 @@ const filterParams = ref({
 
 const accountTypeOptions = [
   { label: '全部', value: '' },
-  { label: '基本存款账户', value: '基本存款账户' },
-  { label: '一般存款账户', value: '一般存款账户' },
-  { label: '临时存款账户', value: '临时存款账户' },
-  { label: '专用存款账户', value: '专用存款账户' },
+  { label: '基本户', value: 'BASIC' },
+  { label: '一般户', value: 'GENERAL' },
+  { label: '专用户', value: 'SPECIAL' },
+  { label: '临时户', value: 'TEMPORARY' },
 ]
 
 const statusOptions = [
@@ -155,6 +156,11 @@ const filterCount = computed(() => {
 
 onMounted(() => {
   loadData()
+  uni.$on('refresh-bank-list', () => loadData(true))
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-bank-list')
 })
 
 const handleSearchInput = () => {
@@ -203,7 +209,6 @@ const loadData = async (isRefresh = false) => {
     }
 
     if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
       params.accountName = searchKeyword.value.trim()
     }
     if (filterParams.value.accountType) {
@@ -226,7 +231,6 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = bankList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
     uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
@@ -256,6 +260,10 @@ const goToDetail = (id: number) => {
   uni.navigateTo({ url: `/pages/basic-data/bank-detail?id=${id}` })
 }
 
+const goToTransactions = (id: number) => {
+  uni.navigateTo({ url: `/pages/basic-data/bank-transactions?id=${id}` })
+}
+
 const goToAdd = () => {
   uni.navigateTo({ url: '/pages/basic-data/bank-form' })
 }
@@ -275,7 +283,6 @@ const handleDelete = async (id: number) => {
           uni.showToast({ title: '删除成功', icon: 'success' })
           loadData(true)
         } catch (error) {
-          console.error('[handleDelete] Error:', error)
           uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
@@ -284,17 +291,17 @@ const handleDelete = async (id: number) => {
 }
 
 const getStatusText = (status?: string) => {
-  const map: Record<string, string> = { ACTIVE: '正常', INACTIVE: '停用' }
+  const map: Record<string, string> = { ACTIVE: '正常', INACTIVE: '停用', DELETED: '已删除' }
   return map[status || ''] || status || '未知'
 }
 
 const getStatusClass = (status?: string) => {
-  const map: Record<string, string> = { ACTIVE: 'status-active', INACTIVE: 'status-inactive' }
+  const map: Record<string, string> = { ACTIVE: 'status-active', INACTIVE: 'status-inactive', DELETED: 'status-deleted' }
   return map[status || ''] || ''
 }
 
 const formatMoney = (money?: number) => {
-  if (!money) return '0.00'
+  if (money === undefined || money === null) return '0.00'
   return money.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
 </script>
@@ -507,7 +514,7 @@ const formatMoney = (money?: number) => {
     }
 
     &.th-actions {
-      width: 180rpx;
+      width: 240rpx;
       text-align: center;
     }
   }
@@ -596,6 +603,54 @@ const formatMoney = (money?: number) => {
         &.status-inactive {
           background: #f5f5f5;
           color: #999;
+        }
+
+        &.status-deleted {
+          background: #fff1f0;
+          color: #ff4d4f;
+        }
+      }
+    }
+
+    &.td-actions {
+      width: 240rpx;
+      text-align: center;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 12rpx;
+
+      .action-btn {
+        padding: 12rpx 16rpx;
+        border-radius: 8rpx;
+        font-size: 22rpx;
+
+        &.transaction-btn {
+          background: #f9f0ff;
+          color: #722ed1;
+          
+          &:active {
+            background: #efdbff;
+          }
+        }
+
+        &.edit-btn {
+          background: #e6f7ff;
+          color: #1890ff;
+          
+          &:active {
+            background: #bae7ff;
+          }
+        }
+
+        &.delete-btn {
+          background: #fff1f0;
+          color: #ff4d4f;
+          
+          &:active {
+            background: #ffccc7;
+          }
         }
       }
     }

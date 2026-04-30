@@ -7,7 +7,7 @@
 
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, markRaw } from 'vue';
+import { computed, h, markRaw } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
@@ -66,6 +66,46 @@ const formSchema = computed((): VbenFormSchema[] => {
     }),
   });
 
+  baseSchema.push({
+    component: 'VbenCheckbox',
+    fieldName: 'agreeTerms',
+    renderComponentContent: () => ({
+      default: () =>
+        h('span', [
+          '我已同意',
+          h(
+            'a',
+            {
+              class: 'vben-link ml-1',
+              href: 'javascript:void(0)',
+              onClick: (e: Event) => {
+                e.preventDefault();
+                navigateToTerms();
+              },
+            },
+            '用户协议',
+          ),
+          ' 和 ',
+          h(
+            'a',
+            {
+              class: 'vben-link',
+              href: 'javascript:void(0)',
+              onClick: (e: Event) => {
+                e.preventDefault();
+                navigateToPrivacy();
+              },
+            },
+            '隐私政策',
+          ),
+          ' 等条款',
+        ]),
+    }),
+    rules: z.boolean().refine((value) => !!value, {
+      message: '请同意用户协议和隐私政策等条款',
+    }),
+  });
+
   return baseSchema;
 });
 
@@ -95,17 +135,24 @@ const handleForgetPassword = () => {
     </AuthenticationLogin>
     <div class="login-footer">
       <p class="copyright-text">
-        © {{ customerConfig.copyright.year }} {{ customerConfig.copyright.company }} 版权所有
+        © {{ customerConfig.copyright.year }}
+        {{ customerConfig.copyright.company }} 版权所有
       </p>
-      <p class="copyright-sub">
-        基于 Vue Vben Admin (MIT License) 构建
-      </p>
+      <p class="copyright-sub">基于 Vue Vben Admin (MIT License) 构建</p>
       <div class="footer-links">
-        <a href="javascript:void(0)" @click="navigateToTerms" class="footer-link">
+        <a
+          href="javascript:void(0)"
+          @click="navigateToTerms"
+          class="footer-link"
+        >
           用户协议
         </a>
         <span class="footer-divider">|</span>
-        <a href="javascript:void(0)" @click="navigateToPrivacy" class="footer-link">
+        <a
+          href="javascript:void(0)"
+          @click="navigateToPrivacy"
+          class="footer-link"
+        >
           隐私政策
         </a>
       </div>

@@ -92,6 +92,44 @@
             class="form-input"
           />
         </view>
+
+        <view class="form-group">
+          <text class="label">币种</text>
+          <view class="radio-group">
+            <view
+              v-for="item in currencyOptions"
+              :key="item.value"
+              :class="['radio-item', { active: formData.currency === item.value }]"
+              @click="formData.currency = item.value"
+            >
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="label">开户日期</text>
+          <view class="date-picker" @click="showDatePicker = true">
+            <text class="value" :class="{ placeholder: !formData.openingDate }">
+              {{ formData.openingDate || '请选择开户日期' }}
+            </text>
+            <text class="arrow">▼</text>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="label">状态</text>
+          <view class="radio-group">
+            <view
+              v-for="item in statusOptions"
+              :key="item.value"
+              :class="['radio-item', { active: formData.status === item.value }]"
+              @click="formData.status = item.value"
+            >
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
+        </view>
       </view>
     </scroll-view>
 
@@ -120,6 +158,15 @@
       </view>
     </view>
 
+    <picker
+      v-if="showDatePicker"
+      mode="date"
+      :value="formData.openingDate || ''"
+      @change="onDateChange"
+      @cancel="showDatePicker = false"
+    >
+    </picker>
+
     <view class="form-footer">
       <view class="btn cancel-btn" @click="handleCancel">取消</view>
       <view class="btn submit-btn" @click="handleSubmit" :class="{ loading: submitting }">
@@ -145,6 +192,7 @@ const submitting = ref(false)
 const showCaseSelector = ref(false)
 const selectedCase = ref<CaseItem | null>(null)
 const caseList = ref<CaseItem[]>([])
+const showDatePicker = ref(false)
 
 const formData = ref({
   caseId: undefined as number | undefined,
@@ -155,13 +203,27 @@ const formData = ref({
   openingBank: '',
   password: '',
   currentBalance: undefined as number | undefined,
+  currency: 'CNY',
+  openingDate: '',
+  status: 'ACTIVE',
 })
 
 const accountTypeOptions = [
-  { label: '基本存款账户', value: '基本存款账户' },
-  { label: '一般存款账户', value: '一般存款账户' },
-  { label: '专用存款账户', value: '专用存款账户' },
-  { label: '临时存款账户', value: '临时存款账户' },
+  { label: '基本户', value: 'BASIC' },
+  { label: '一般户', value: 'GENERAL' },
+  { label: '专用户', value: 'SPECIAL' },
+  { label: '临时户', value: 'TEMPORARY' },
+]
+
+const currencyOptions = [
+  { label: '人民币', value: 'CNY' },
+  { label: '美元', value: 'USD' },
+  { label: '欧元', value: 'EUR' },
+]
+
+const statusOptions = [
+  { label: '正常', value: 'ACTIVE' },
+  { label: '停用', value: 'INACTIVE' },
 ]
 
 onMounted(() => {
@@ -182,7 +244,7 @@ const loadCaseList = async () => {
     const res = await getCaseList({ pageNum: 1, pageSize: 100 })
     caseList.value = res.data?.list || []
   } catch (error) {
-    console.error('[loadCaseList] Error:', error)
+    // silent fail
   }
 }
 
@@ -194,6 +256,11 @@ const selectCase = (item: CaseItem) => {
   selectedCase.value = item
   formData.value.caseId = item.id
   showCaseSelector.value = false
+}
+
+const onDateChange = (e: any) => {
+  formData.value.openingDate = e.detail.value
+  showDatePicker.value = false
 }
 
 const loadDetail = async (id: number) => {
@@ -209,9 +276,11 @@ const loadDetail = async (id: number) => {
       openingBank: data.openingBank || '',
       password: '',
       currentBalance: data.currentBalance,
+      currency: data.currency || 'CNY',
+      openingDate: data.openingDate || '',
+      status: data.status || 'ACTIVE',
     }
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
@@ -262,19 +331,19 @@ const handleSubmit = async () => {
       delete submitData.caseId
       delete submitData.password
     }
-    
+
     if (isEdit.value && accountId.value) {
-      await updateBankAccount(accountId.value, submitData)
+      await updateBankAccount(accountId.value, { id: accountId.value, ...submitData })
       uni.showToast({ title: '更新成功', icon: 'success' })
     } else {
       await createBankAccount(submitData)
       uni.showToast({ title: '创建成功', icon: 'success' })
     }
+    uni.$emit('refresh-bank-list')
     setTimeout(() => {
       uni.navigateBack()
     }, 1500)
   } catch (error) {
-    console.error('[submit] Error:', error)
     uni.showToast({ title: '操作失败', icon: 'none' })
   } finally {
     submitting.value = false
@@ -347,6 +416,32 @@ const handleCancel = () => {
   }
 
   .case-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 80rpx;
+    background: #f5f5f5;
+    border-radius: 12rpx;
+    padding: 0 24rpx;
+
+    .value {
+      flex: 1;
+      font-size: 28rpx;
+      color: #333;
+
+      &.placeholder {
+        color: #999;
+      }
+    }
+
+    .arrow {
+      font-size: 24rpx;
+      color: #999;
+      margin-left: 16rpx;
+    }
+  }
+
+  .date-picker {
     display: flex;
     align-items: center;
     justify-content: space-between;

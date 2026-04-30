@@ -2,6 +2,9 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import { $t } from '#/locales';
 
+// 预导入待办事项页面组件，避免动态导入问题
+import TodoItemsPage from '#/views/dashboard/activity-todo/index.vue';
+
 const routes: RouteRecordRaw[] = [
   {
     meta: {
@@ -14,52 +17,42 @@ const routes: RouteRecordRaw[] = [
     path: '/dashboard',
     children: [
       {
-        name: 'Analytics',
-        path: '/analytics',
+        name: 'CaseOverview',
+        path: 'overview',
         component: () => import('#/views/dashboard/analytics/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:area-chart',
+          title: $t('page.dashboard.overview'),
+        },
+      },
+      {
+        name: 'DataDashboard',
+        path: 'data-dashboard',
+        component: () => import('#/views/dashboard/workspace/index.vue'),
+        meta: {
+          icon: 'carbon:workspace',
           title: $t('page.dashboard.analytics'),
         },
       },
       {
-        name: 'Workspace',
-        path: '/workspace',
-        component: () => import('#/views/dashboard/workspace/index.vue'),
-        meta: {
-          icon: 'carbon:workspace',
-          title: $t('page.dashboard.workspace'),
-        },
-      },
-      {
-        name: 'TemplateManagement',
-        path: '/template-management',
-        component: () => import('#/views/_core/fallback/building.vue'),
-        meta: {
-          icon: 'lucide:file-text',
-          title: '模板管理',
-        },
-      },
-      {
-        name: 'UserProfile',
-        path: 'profile',
-        component: () => import('#/views/user/profile/index.vue'),
+        name: 'TodoItems',
+        path: 'todo-items',
+        component: TodoItemsPage,
         meta: {
           affixTab: false,
-          icon: 'lucide:user-round-pen',
-          title: '个人中心',
+          icon: 'lucide:list-checks',
+          title: $t('page.dashboard.todo'),
         },
       },
       {
-        name: 'SystemMonitor',
-        path: 'system-monitor',
-        component: () => import('#/views/dashboard/system-monitor/index.vue'),
+        name: 'NodeWarnings',
+        path: 'node-warnings',
+        component: () => import('#/views/dashboard/node-warning/index.vue'),
         meta: {
           affixTab: false,
-          icon: 'lucide:activity',
-          title: '系统健康监控',
-          roles: ['超级管理员', '管理员'],
+          icon: 'lucide:alert-triangle',
+          title: $t('page.dashboard.warning'),
         },
       },
     ],
@@ -74,6 +67,28 @@ const routes: RouteRecordRaw[] = [
       hideInMenu: true,
       ignoreAccess: true,
       roles: undefined,
+    },
+  },
+  {
+    name: 'WorkspaceLegacy',
+    path: '/workspace',
+    component: () => import('#/views/dashboard/workspace/index.vue'),
+    meta: {
+      icon: 'carbon:workspace',
+      title: '工作台',
+      hideInMenu: true,
+      hideInTab: true,
+    },
+  },
+  {
+    name: 'AnalyticsLegacy',
+    path: '/analytics',
+    component: () => import('#/views/dashboard/analytics/index.vue'),
+    meta: {
+      icon: 'lucide:area-chart',
+      title: '分析页',
+      hideInMenu: true,
+      hideInTab: true,
     },
   },
 

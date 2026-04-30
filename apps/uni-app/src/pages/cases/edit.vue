@@ -257,6 +257,8 @@ const handleSubmit = async () => {
     const res = await updateCase(caseId.value, formData)
     if (res.code === 200) {
       uni.showToast({ title: '保存成功', icon: 'success' })
+      uni.$emit('refresh-case-detail', caseId.value)
+      uni.$emit('refresh-case-list')
       setTimeout(() => {
         uni.navigateBack()
       }, 1500)

@@ -94,10 +94,45 @@ export interface BankAccountItem {
   currentBalance: number
   status: string
   caseId: number
-  caseNo: string
+  caseNumber: string
   caseName: string
+  currency?: string
+  openingDate?: string
+  closingDate?: string | null
+  password?: string
   createTime: string
   updateTime: string
+  createUserId?: number
+  updateUserId?: number
+  totalInflow?: number
+  totalOutflow?: number
+}
+
+export interface BankTransactionItem {
+  id: number
+  accountId: number
+  accountName: string
+  accountNumber: string
+  bankName: string
+  transactionType: 'IN' | 'OUT'
+  amount: number
+  transactionDate: string
+  summary?: string
+  businessType?: string
+  counterpartyAccount?: string
+  counterpartyName?: string
+  balanceAfter: number
+  attachmentId?: number | null
+  relatedBusinessId?: number | null
+  remark?: string
+  caseId: number
+  caseNumber?: string
+  caseName?: string
+  status?: string
+  createTime: string
+  updateTime: string
+  createUserId?: number
+  updateUserId?: number
 }
 
 export interface WorkPlanItem {
@@ -185,7 +220,7 @@ export interface StaffItem {
   userId: number | null
 }
 
-export const getCreditorList = (params?: BaseDataListParams & { caseId?: number; creditorType?: string }) => {
+export const getCreditorList = (params?: BaseDataListParams & { caseId?: number; caseNumber?: string; creditorType?: string; creditorName?: string; status?: string }) => {
   return http.get<BaseListResponse<CreditorItem>>('/creditor/list', params)
 }
 
@@ -205,7 +240,7 @@ export const deleteCreditor = (creditorId: number) => {
   return http.delete<BaseNullResponse>(`/creditor/${creditorId}`)
 }
 
-export const getDebtorList = (params?: BaseDataListParams & { caseId?: number; enterpriseName?: string }) => {
+export const getDebtorList = (params?: BaseDataListParams & { caseId?: number; enterpriseName?: string; unifiedSocialCreditCode?: string; legalRepresentative?: string; industry?: string }) => {
   return http.get<BaseListResponse<DebtorItem>>('/debtor/list', params)
 }
 
@@ -225,7 +260,7 @@ export const deleteDebtor = (debtorId: number) => {
   return http.delete<BaseNullResponse>(`/debtor/${debtorId}`)
 }
 
-export const getCourtList = (params?: BaseDataListParams & { courtLevel?: string; shortName?: string }) => {
+export const getCourtList = (params?: BaseDataListParams & { courtLevel?: string; shortName?: string; fullName?: string }) => {
   return http.get<BaseListResponse<CourtItem>>('/court/list', params)
 }
 
@@ -245,7 +280,7 @@ export const deleteCourt = (courtId: number) => {
   return http.delete<BaseNullResponse>(`/court/${courtId}`)
 }
 
-export const getBankAccountList = (params?: BaseDataListParams & { accountType?: string; status?: string }) => {
+export const getBankAccountList = (params?: BaseDataListParams & { accountType?: string; status?: string; accountName?: string; caseId?: number }) => {
   return http.get<BaseListResponse<BankAccountItem>>('/bank-account/list', params)
 }
 
@@ -273,7 +308,35 @@ export const deleteBankAccount = (accountId: number) => {
   return http.delete<BaseNullResponse>(`/bank-account/${accountId}`)
 }
 
-export const getWorkPlanList = (params?: BaseDataListParams & { caseId?: number; planType?: string; executionStatus?: string; status?: string }) => {
+export const getBankAccountWithTransactions = (accountId: number) => {
+  return http.get<BaseDetailResponse<BankAccountItem & { transactions: BankTransactionItem[]; totalInflow: number; totalOutflow: number }>>(`/bank-account/${accountId}/with-transactions`)
+}
+
+export const getBankAccountTransactions = (accountId: number, params?: BaseDataListParams & { transactionType?: string; businessType?: string; startDate?: string; endDate?: string; caseId?: number }) => {
+  return http.get<BaseListResponse<BankTransactionItem>>(`/bank-account/${accountId}/transactions`, params)
+}
+
+export const getBankTransactionList = (params?: BaseDataListParams & { accountId?: number; transactionType?: string; businessType?: string; startDate?: string; endDate?: string; caseId?: number }) => {
+  return http.get<BaseListResponse<BankTransactionItem>>('/bank-account-transaction/list', params)
+}
+
+export const getBankTransactionDetail = (transactionId: number) => {
+  return http.get<BaseDetailResponse<BankTransactionItem>>(`/bank-account-transaction/${transactionId}`)
+}
+
+export const createBankTransaction = (data: Partial<BankTransactionItem>) => {
+  return http.post<BaseIdResponse>('/bank-account-transaction', data)
+}
+
+export const updateBankTransaction = (transactionId: number, data: Partial<BankTransactionItem>) => {
+  return http.put<BaseNullResponse>(`/bank-account-transaction/${transactionId}`, data)
+}
+
+export const deleteBankTransaction = (transactionId: number) => {
+  return http.delete<BaseNullResponse>(`/bank-account-transaction/${transactionId}`)
+}
+
+export const getWorkPlanList = (params?: BaseDataListParams & { caseId?: number; planType?: string; executionStatus?: string; status?: string; planContent?: string }) => {
   return http.get<BaseListResponse<WorkPlanItem>>('/work-plan/list', params)
 }
 

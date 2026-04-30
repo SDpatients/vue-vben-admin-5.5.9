@@ -22,6 +22,7 @@ import {
   downloadFileApi,
   getAllFilesByBizApi,
   uploadFileApi,
+  renameFileApi,
 } from '#/api/core/file';
 import type { FileApi } from '#/api/core/file';
 import {
@@ -72,6 +73,18 @@ const mobileUploadConfig = ref({
 
 // 检测移动端和微信浏览器
 const isWeChatBrowser = ref(false);
+
+// 重命名相关
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<FileApi.FileRecord | null>(null);
+const newFileName = ref('');
+const renameLoading = ref(false);
+
+// 预览相关
+const showPreviewDialog = ref(false);
+const previewUrl = ref('');
+const previewFileName = ref('');
+const previewLoading = ref(false);
 
 const fetchAttachments = async () => {
   loading.value = true;
@@ -466,6 +479,106 @@ const handleRefresh = async () => {
   await fetchAttachments();
   ElMessage.success('刷新成功');
 };
+
+// 判断文件是否可预览
+const canPreview = (extension: string): boolean => {
+  const previewableExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'pdf'];
+  return previewableExtensions.includes(extension.toLowerCase());
+};
+
+// 预览文件
+const handlePreview = async (file: FileApi.FileRecord) => {
+  previewLoading.value = true;
+  previewFileName.value = file.originalFileName;
+  try {
+    const blob = await downloadFileApi(file.id);
+    previewUrl.value = window.URL.createObjectURL(blob);
+    showPreviewDialog.value = true;
+  } catch (error) {
+    console.error('预览失败:', error);
+    ElMessage.error('文件预览失败');
+  } finally {
+    previewLoading.value = false;
+  }
+};
+
+// 关闭预览
+const handlePreviewClose = () => {
+  if (previewUrl.value) {
+    window.URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
+  }
+  showPreviewDialog.value = false;
+  previewFileName.value = '';
+};
+
+// 打开重命名对话框
+const handleRename = (file: FileApi.FileRecord) => {
+  currentRenameFile.value = file;
+  // 隐藏后缀名
+  const lastDotIndex = file.originalFileName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newFileName.value = file.originalFileName.substring(0, lastDotIndex);
+  } else {
+    newFileName.value = file.originalFileName;
+  }
+  showRenameDialog.value = true;
+};
+
+// 取消重命名
+const cancelRename = () => {
+  showRenameDialog.value = false;
+  currentRenameFile.value = null;
+  newFileName.value = '';
+};
+
+// 确认重命名
+const confirmRename = async () => {
+  if (!currentRenameFile.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    // 保留原后缀
+    const originalName = currentRenameFile.value.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    const response = await renameFileApi(currentRenameFile.value.id, finalName);
+    if (response.code === 200) {
+      ElMessage.success('重命名成功');
+      await fetchAttachments();
+      showRenameDialog.value = false;
+      currentRenameFile.value = null;
+      newFileName.value = '';
+    } else {
+      ElMessage.error(response.message || '重命名失败');
+    }
+  } catch (error) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    renameLoading.value = false;
+  }
+};
+
+// 组件卸载时清理轮询定时器（防止内存泄漏）
+onUnmounted(() => {
+  if (tempFilePolling.value) {
+    clearInterval(tempFilePolling.value);
+    tempFilePolling.value = null;
+  }
+  if (qrCodePolling.value) {
+    clearInterval(qrCodePolling.value);
+    qrCodePolling.value = null;
+  }
+});
 </script>
 
 <template>
@@ -548,15 +661,36 @@ const handleRefresh = async () => {
       </ElTableColumn>
       <ElTableColumn prop="uploadUserName" label="上传人" width="120" />
 
-      <ElTableColumn label="操作" width="200" fixed="right">
+      <ElTableColumn label="操作" width="260" fixed="right">
         <template #default="scope">
-          <span
-            style="color: #409EFF; cursor: pointer; display: inline-flex; align-items: center; margin-right: 12px;"
+          <ElButton
+            v-if="canPreview(scope.row.fileExtension)"
+            link
+            type="primary"
+            size="small"
+            @click="handlePreview(scope.row)"
+          >
+            <Icon icon="lucide:eye" class="mr-1" />
+            预览
+          </ElButton>
+          <ElButton
+            link
+            type="primary"
+            size="small"
             @click="handleDownload(scope.row.id, scope.row.originalFileName)"
           >
             <Icon icon="lucide:download" class="mr-1" />
             下载
-          </span>
+          </ElButton>
+          <ElButton
+            link
+            type="primary"
+            size="small"
+            @click="handleRename(scope.row)"
+          >
+            <Icon icon="lucide:edit-3" class="mr-1" />
+            重命名
+          </ElButton>
           <ElPopconfirm
             title="确定要删除该附件吗？"
             @confirm="handleDelete(scope.row.id)"
@@ -571,6 +705,74 @@ const handleRefresh = async () => {
         </template>
       </ElTableColumn>
     </ElTable>
+
+    <!-- 文件预览弹窗 -->
+    <ElDialog
+      v-model="showPreviewDialog"
+      :title="previewFileName || '文件预览'"
+      width="90%"
+      destroy-on-close
+      @close="handlePreviewClose"
+    >
+      <div class="preview-container">
+        <div v-if="previewLoading" class="loading-container">
+          <ElEmpty description="加载中..." />
+        </div>
+        <div v-else-if="previewUrl" class="preview-content">
+          <img
+            v-if="previewFileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)
+"
+            :src="previewUrl"
+            class="preview-image"
+            alt="预览图片"
+          />
+          <iframe
+            v-else-if="previewFileName.toLowerCase().endsWith('.pdf')"
+            :src="previewUrl"
+            class="preview-pdf"
+            frameborder="0"
+          ></iframe>
+          <div v-else class="unsupported-preview">
+            <Icon icon="lucide:file-question" class="unsupported-icon" />
+            <p>该文件类型不支持在线预览</p>
+          </div>
+        </div>
+      </div>
+    </ElDialog>
+
+    <!-- 重命名对话框 -->
+    <ElDialog
+      v-model="showRenameDialog"
+      title="重命名文件"
+      width="400px"
+      destroy-on-close
+    >
+      <div class="rename-dialog-content">
+        <div class="form-item mb-4">
+          <label class="form-label block mb-2">当前文件名：</label>
+          <div class="current-file-name text-gray-600">{{ currentRenameFile?.originalFileName }}</div>
+        </div>
+        <div class="form-item">
+          <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+          <ElInput
+            v-model="newFileName"
+            placeholder="请输入新文件名"
+            :disabled="renameLoading"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="cancelRename" :loading="renameLoading">
+            取消
+          </ElButton>
+          <ElButton type="primary" @click="confirmRename" :loading="renameLoading">
+            确认重命名
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
 
     <!-- 手机上传二维码弹窗 -->
     <ElDialog
@@ -845,5 +1047,66 @@ const handleRefresh = async () => {
   font-size: 12px;
   color: #909399;
   margin-left: 8px;
+}
+
+/* 预览容器样式 */
+.preview-container {
+  width: 100%;
+  height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.unsupported-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.unsupported-icon {
+  font-size: 64px;
+  color: #909399;
+}
+
+/* 重命名对话框样式 */
+.rename-dialog-content {
+  padding: 10px 0;
+}
+
+.form-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.current-file-name {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 14px;
+  word-break: break-all;
 }
 </style>

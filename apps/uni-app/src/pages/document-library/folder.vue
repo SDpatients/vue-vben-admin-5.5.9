@@ -159,8 +159,7 @@ const loadFolders = async () => {
       }
     }
   } catch (error) {
-    console.error('[loadFolders] Error:', error)
-  } finally {
+} finally {
     loading.value = false
   }
 }

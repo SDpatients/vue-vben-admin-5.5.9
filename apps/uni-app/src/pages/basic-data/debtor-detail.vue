@@ -106,8 +106,7 @@ const loadDetail = async (id: number) => {
     const res = await getDebtorDetail(id)
     detail.value = res.data
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
 

@@ -104,7 +104,7 @@ const handleSettings = () => {
 }
 
 const handleAbout = () => {
-  uni.navigateTo({ url: '/pages/profile/about' })
+  uni.navigateTo({ url: '/pages/about/index' })
 }
 
 const handleLogout = () => {

@@ -6,23 +6,25 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:receipt',
       order: 3,
       title: '费用报销',
+      hideInMenu: true,
       roles: ['USER'],
     },
-    name: 'ExpenseReimbursement',
+    name: 'ExpenseReimbursementLegacy',
     path: '/expense-reimbursement',
     children: [
       {
-        name: 'ExpenseReimbursementList',
+        name: 'ExpenseReimbursementListLegacy',
         path: '',
         component: () => import('#/views/expense-reimbursement/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:list',
           title: '报销单列表',
+          hideInMenu: true,
         },
       },
       {
-        name: 'ExpenseReimbursementAdd',
+        name: 'ExpenseReimbursementAddLegacy',
         path: 'add',
         component: () => import('#/views/expense-reimbursement/form.vue'),
         meta: {
@@ -34,7 +36,7 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        name: 'ExpenseReimbursementDetail',
+        name: 'ExpenseReimbursementDetailLegacy',
         path: 'detail/:id',
         component: () => import('#/views/expense-reimbursement/detail.vue'),
         meta: {

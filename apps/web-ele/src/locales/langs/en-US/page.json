@@ -7,15 +7,25 @@
     "forgetPassword": "Forget Password"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "analytics": "Analytics",
-    "workspace": "Workspace"
+    "title": "Case Overview",
+    "overview": "Case Overview",
+    "analytics": "Data Dashboard",
+    "workspace": "Workspace",
+    "todo": "Todo Items",
+    "warning": "Node Warnings"
   },
   "law": {
-    "title": "Law Module",
-    "caseManagement": "Case Management",
+    "title": "Case Management",
+    "caseList": "Case List",
     "caseDetail": "Case Detail",
     "caseAdd": "Case Add",
+    "creditorManagement": "Creditor Management",
+    "debtorManagement": "Debtor Management",
+    "courtManagement": "Court Management",
+    "managerInfo": "Manager Information",
+    "workPlanManagement": "Work Plan Management",
+    "staffManagement": "Staff Management",
+    "announcement": "Case Announcement",
     "taskEdit": "Task Edit"
   },
   "user": {
@@ -23,29 +33,24 @@
     "management": "User List",
     "profile": "User Profile"
   },
-  "notification": {
-    "title": "Notification",
-    "center": "Notification Center"
-  },
   "basicData": {
-    "title": "Basic Data",
-    "creditorManagement": "Creditor Management",
-    "debtorManagement": "Debtor Management",
-    "courtManagement": "Court Management",
+    "title": "Basic Control",
+    "infoMaintenance": "Basic Information Maintenance",
     "bankAccountManagement": "Bank Account Management",
-    "workPlanManagement": "Work Plan Management",
     "workTeamManagement": "Work Team Management",
-    "workTeamEdit": "Edit Work Team",
-    "managerManagement": "Manager Information",
-    "staffManagement": "Staff Management"
+    "workTeamEdit": "Edit Work Team"
   },
   "chat": {
-    "title": "Chat",
+    "title": "Communication",
     "home": "Chat Home",
     "detail": "Chat Detail",
     "contactManagement": "Contact Management",
     "contactAdd": "Add Contact",
     "contactEdit": "Edit Contact"
+  },
+  "notification": {
+    "title": "Notification",
+    "center": "Notification Center"
   },
   "fund": {
     "title": "Fund Management",
@@ -56,5 +61,91 @@
   "permission": {
     "title": "Permission Management",
     "index": "Permission Management"
+  },
+  "documentLibrary": {
+    "title": "Document Library",
+    "dashboard": "Dashboard",
+    "management": "Document Management",
+    "favorites": "My Favorites",
+    "search": "Document Search",
+    "folder": {
+      "create": "Create Folder",
+      "edit": "Edit Folder",
+      "delete": "Delete Folder",
+      "move": "Move Folder",
+      "name": "Folder Name",
+      "description": "Description",
+      "icon": "Icon",
+      "color": "Color",
+      "isPublic": "Is Public",
+      "sortOrder": "Sort Order"
+    },
+    "document": {
+      "upload": "Upload Document",
+      "edit": "Edit Document",
+      "delete": "Delete Document",
+      "download": "Download Document",
+      "preview": "Preview Document",
+      "move": "Move Document",
+      "copy": "Copy Document",
+      "lock": "Lock Document",
+      "unlock": "Unlock Document",
+      "share": "Share Document",
+      "name": "Document Name",
+      "type": "Document Type",
+      "size": "File Size",
+      "version": "Version",
+      "tags": "Tags",
+      "description": "Description",
+      "createTime": "Create Time",
+      "updateTime": "Update Time"
+    },
+    "version": {
+      "title": "Version Management",
+      "upload": "Upload New Version",
+      "restore": "Restore Version",
+      "current": "Current Version",
+      "history": "History Versions",
+      "changeSummary": "Change Summary",
+      "isMajor": "Major Version"
+    },
+    "share": {
+      "title": "Share Management",
+      "create": "Create Share",
+      "link": "Share Link",
+      "password": "Share Password",
+      "permission": "Permission Type",
+      "expireTime": "Expire Time",
+      "maxAccessCount": "Max Access Count",
+      "enable": "Enable Share",
+      "disable": "Disable Share"
+    },
+    "permission": {
+      "title": "Permission Management",
+      "grant": "Grant Permission",
+      "read": "View Permission",
+      "write": "Edit Permission",
+      "delete": "Delete Permission",
+      "download": "Download Permission",
+      "admin": "Admin Permission",
+      "share": "Share Permission"
+    },
+    "log": {
+      "title": "Operation Log",
+      "document": "Document Operation Log",
+      "my": "My Operation Log"
+    }
+  },
+  "expenseSystem": {
+    "title": "Expense & System",
+    "expenseManagement": "Expense Management",
+    "expenseReimbursement": "Expense Reimbursement",
+    "reimbursementList": "Reimbursement List",
+    "approvalManagement": "Approval Management",
+    "documentApproval": "Document Approval",
+    "caseApproval": "Case Approval",
+    "expenseApproval": "Expense Approval",
+    "templateManagement": "Template Management",
+    "userProfile": "User Profile"
   }
 }

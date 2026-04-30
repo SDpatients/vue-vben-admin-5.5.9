@@ -170,6 +170,14 @@ watch(
   },
   { deep: true },
 );
+
+// 组件卸载时清理 typing 定时器（防止内存泄漏）
+onUnmounted(() => {
+  if (typingTimeoutRef.value) {
+    clearTimeout(typingTimeoutRef.value);
+    typingTimeoutRef.value = null;
+  }
+});
 </script>
 
 <template>

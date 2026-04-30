@@ -15,6 +15,7 @@ import {
   getFileListApi,
   getFilePreviewUrl,
   uploadFileApi,
+  renameFileApi,
 } from '#/api/core/file';
 
 interface Props {
@@ -67,6 +68,12 @@ const previewVisible = ref(false);
 const previewFileName = ref('');
 const previewError = ref('');
 const previewBlobUrl = ref('');
+
+// 重命名相关
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<UploadFile | null>(null);
+const newFileName = ref('');
+const renameLoading = ref(false);
 
 const fileType = computed(() => {
   return previewFileName.value.split('.').pop()?.toLowerCase() || '';
@@ -296,6 +303,73 @@ const handleDownload = async (file: UploadFile) => {
     ElMessage.error(`文件下载失败：${error.message || '未知错误'}`);
   }
 };
+
+// 打开重命名对话框
+const handleRename = (file: UploadFile) => {
+  currentRenameFile.value = file;
+  // 隐藏后缀名
+  const lastDotIndex = file.name.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newFileName.value = file.name.substring(0, lastDotIndex);
+  } else {
+    newFileName.value = file.name;
+  }
+  showRenameDialog.value = true;
+};
+
+// 取消重命名
+const cancelRename = () => {
+  showRenameDialog.value = false;
+  currentRenameFile.value = null;
+  newFileName.value = '';
+};
+
+// 确认重命名
+const confirmRename = async () => {
+  if (!currentRenameFile.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    const fileId = currentRenameFile.value.response?.id;
+    if (!fileId) {
+      ElMessage.error('文件ID不存在');
+      return;
+    }
+
+    // 保留原后缀
+    const originalName = currentRenameFile.value.name;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    const response = await renameFileApi(fileId, finalName);
+    if (response.code === 200) {
+      ElMessage.success('重命名成功');
+      // 更新本地文件名
+      currentRenameFile.value.name = finalName;
+      if (currentRenameFile.value.response) {
+        currentRenameFile.value.response.originalFileName = finalName;
+      }
+      await fetchFileList();
+      showRenameDialog.value = false;
+      currentRenameFile.value = null;
+      newFileName.value = '';
+    } else {
+      ElMessage.error(response.message || '重命名失败');
+    }
+  } catch (error: any) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    renameLoading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -402,6 +476,10 @@ const handleDownload = async (file: UploadFile) => {
                 <Icon icon="lucide:download" class="mr-1" />
                 下载
               </ElButton>
+              <ElButton link size="small" @click="handleRename(file)">
+                <Icon icon="lucide:edit-3" class="mr-1" />
+                重命名
+              </ElButton>
               <ElButton link size="small" @click="handleRemove(file)">
                 <Icon icon="lucide:trash-2" class="mr-1 text-red-500" />
                 删除
@@ -419,6 +497,40 @@ const handleDownload = async (file: UploadFile) => {
         <p>暂无上传文件</p>
       </div>
     </ElCard>
+
+    <!-- 重命名对话框 -->
+    <ElDialog
+      v-model="showRenameDialog"
+      title="重命名文件"
+      width="400px"
+      destroy-on-close
+    >
+      <div class="rename-dialog-content">
+        <div class="form-item mb-4">
+          <label class="form-label block mb-2">当前文件名：</label>
+          <div class="current-file-name text-gray-600">{{ currentRenameFile?.name }}</div>
+        </div>
+        <div class="form-item">
+          <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+          <ElInput
+            v-model="newFileName"
+            placeholder="请输入新文件名"
+            :disabled="renameLoading"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="cancelRename" :loading="renameLoading">
+            取消
+          </ElButton>
+          <ElButton type="primary" @click="confirmRename" :loading="renameLoading">
+            确认重命名
+          </ElButton>
+        </span>
+      </template>
+    </ElDialog>
 
     <ElDialog
       v-model="previewVisible"
@@ -534,5 +646,24 @@ const handleDownload = async (file: UploadFile) => {
     color: #f56c6c;
     text-align: center;
   }
+}
+
+/* 重命名对话框样式 */
+.rename-dialog-content {
+  padding: 10px 0;
+}
+
+.form-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.current-file-name {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 14px;
+  word-break: break-all;
 }
 </style>

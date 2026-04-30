@@ -45,8 +45,7 @@ const parseJwt = (token: string): any => {
     const payload = safeAtob(base64Payload.replace(/-/g, '+').replace(/_/g, '/'))
     return JSON.parse(payload)
   } catch (error) {
-    console.log('[Auth] Failed to parse JWT:', error)
-    return null
+return null
   }
 }
 

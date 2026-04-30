@@ -6,7 +6,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { ElCard, ElSelect, ElOption, ElEmpty, ElStatistic, ElRow, ElCol } from 'element-plus';
+import { ElCard, ElSelect, ElOption, ElEmpty, ElStatistic, ElRow, ElCol, ElTooltip, ElIcon } from 'element-plus';
+import { InfoFilled } from '@element-plus/icons-vue';
 
 import { getYearlyTransactionStatistics } from '#/api';
 
@@ -150,7 +151,15 @@ onMounted(() => {
   <ElCard>
     <template #header>
       <div class="flex items-center justify-between">
-        <span class="font-semibold">年度交易金额统计</span>
+        <div class="flex items-center gap-2">
+          <span class="font-semibold">年度交易金额统计</span>
+          <el-tooltip
+            content="统计银行账户交易流水表的年度收入与支出数据，按交易类型(IN/OUT)分组聚合"
+            placement="top"
+          >
+            <el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon>
+          </el-tooltip>
+        </div>
         <ElSelect v-model="selectedYear" size="small" style="width: 100px">
           <ElOption
             v-for="year in yearOptions"
@@ -162,19 +171,27 @@ onMounted(() => {
       </div>
     </template>
 
+    <div class="mb-3 text-sm text-gray-500 leading-relaxed">
+      <p>
+        本图表展示
+        <strong>{{ selectedYear }}</strong>
+        年度所有银行账户的交易流水汇总，包括月度流入金额、流出金额及净额趋势。数据来源于银行账户交易流水表，帮助掌握资金动态。
+      </p>
+    </div>
+
     <div class="relative">
       <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10 min-h-[400px]">
         <span class="text-gray-400">加载中...</span>
       </div>
-      
+
       <div v-if="error && !loading" class="min-h-[400px] flex items-center justify-center">
         <ElEmpty :description="error" />
       </div>
-      
+
       <div v-else-if="!loading && !data" class="min-h-[400px] flex items-center justify-center">
         <ElEmpty description="暂无数据" />
       </div>
-      
+
       <template v-else-if="data">
         <ElRow :gutter="20" class="mb-4">
           <ElCol :span="6">

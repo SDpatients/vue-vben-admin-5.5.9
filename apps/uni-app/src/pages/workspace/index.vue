@@ -186,13 +186,12 @@ const loadStats = async () => {
       getOverdueCount(userId || 0),
     ])
 
-    stats.value.pendingCases = caseStatsRes?.data?.inProgressCases || 0
+    stats.value.pendingCases = caseStatsRes?.data?.pendingCases || 0
     stats.value.completedCases = caseStatsRes?.data?.completedCases || 0
     stats.value.pendingTodos = pendingRes?.data || 0
     stats.value.notifications = (completedRes?.data || 0) + (overdueRes?.data || 0)
   } catch (error) {
-    console.error('[loadStats] Error:', error)
-  }
+}
 }
 
 const getGreeting = () => {
@@ -272,8 +271,7 @@ const loadRecentSearches = async () => {
       recentSearches.value = []
     }
   } catch (error) {
-    console.error('[loadRecentSearches] Error:', error)
-    recentSearches.value = []
+recentSearches.value = []
   } finally {
     recentSearchesLoading.value = false
   }

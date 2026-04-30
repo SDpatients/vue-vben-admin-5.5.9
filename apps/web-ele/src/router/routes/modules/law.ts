@@ -6,7 +6,7 @@ const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:scale',
-      order: 2,
+      order: 1,
       title: $t('page.law.title'),
       roles: ['USER'],
     },
@@ -14,13 +14,13 @@ const routes: RouteRecordRaw[] = [
     path: '/law',
     children: [
       {
-        name: 'LawCaseManagement',
-        path: 'case-management',
+        name: 'LawCaseList',
+        path: 'case-list',
         component: () => import('#/views/law/case-management/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:folder-open',
-          title: $t('page.law.caseManagement'),
+          title: $t('page.law.caseList'),
         },
       },
       {
@@ -46,7 +46,66 @@ const routes: RouteRecordRaw[] = [
           hideInMenu: true,
         },
       },
-
+      {
+        name: 'LawCreditorManagement',
+        path: 'creditor-management',
+        component: () => import('#/views/basic-data/creditor-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:users',
+          title: $t('page.law.creditorManagement'),
+        },
+      },
+      {
+        name: 'LawDebtorManagement',
+        path: 'debtor-management',
+        component: () => import('#/views/basic-data/debtor-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:user-minus',
+          title: $t('page.law.debtorManagement'),
+        },
+      },
+      {
+        name: 'LawCourtManagement',
+        path: 'court-management',
+        component: () => import('#/views/basic-data/court-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:scale',
+          title: $t('page.law.courtManagement'),
+        },
+      },
+      {
+        name: 'LawManagerInfo',
+        path: 'manager-info',
+        component: () => import('#/views/basic-data/manager-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:user',
+          title: $t('page.law.managerInfo'),
+        },
+      },
+      {
+        name: 'LawWorkPlanManagement',
+        path: 'work-plan-management',
+        component: () => import('#/views/basic-data/work-plan-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:calendar',
+          title: $t('page.law.workPlanManagement'),
+        },
+      },
+      {
+        name: 'LawStaffManagement',
+        path: 'staff-management',
+        component: () => import('#/views/basic-data/staff-management/index.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:users',
+          title: $t('page.law.staffManagement'),
+        },
+      },
       {
         name: 'LawAnnouncementList',
         path: 'announcement-list',
@@ -54,7 +113,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           affixTab: false,
           icon: 'lucide:bell',
-          title: '公告列表',
+          title: $t('page.law.announcement'),
         },
       },
       {

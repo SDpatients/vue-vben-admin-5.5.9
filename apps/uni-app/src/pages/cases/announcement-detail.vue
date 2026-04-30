@@ -65,7 +65,7 @@
         <text>公告内容</text>
       </view>
       <view class="content-body">
-        <text class="content-text">{{ announcement.content }}</text>
+        <rich-text class="content-rich" :nodes="announcement.content"></rich-text>
       </view>
     </view>
 
@@ -91,10 +91,36 @@
       <view class="section-title">
         <text>附件 ({{ attachments.length }})</text>
       </view>
-      <view class="attachment-list">
+      
+      <!-- 调试信息：显示附件数据 -->
+      <view style="padding: 10rpx; background: #f0f0f0; font-size: 20rpx; color: #666;">
+        <text>调试: attachments={{ attachments.length }}, image={{ imageAttachments.length }}, nonImage={{ nonImageAttachments.length }}</text>
+      </view>
+      
+      <!-- 图片附件网格显示 -->
+      <view class="image-grid" v-if="imageAttachments.length > 0">
         <view
-          v-for="file in attachments"
-          :key="file.id"
+          v-for="(file, index) in imageAttachments"
+          :key="`img_${file.id || index}`"
+          class="image-item"
+          @click="handlePreviewFile(file)"
+        >
+          <image
+            :src="getImagePreviewUrl(file) || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuS4je+8jOWkh+ato+aXtu+8jTwvdGV4dD48L3N2Zz4='"
+            mode="aspectFill"
+            class="image-preview"
+            :lazy-load="true"
+            @error="handleImageError(file.id, $event)"
+            @load="handleImageLoad(file.id)"
+          />
+        </view>
+      </view>
+      
+      <!-- 非图片附件列表显示 -->
+      <view class="attachment-list" v-if="nonImageAttachments.length > 0">
+        <view
+          v-for="(file, index) in nonImageAttachments"
+          :key="`file_${file.id || index}`"
           class="attachment-item"
           @click="handlePreviewFile(file)"
         >
@@ -102,7 +128,7 @@
             <text class="file-ext">{{ file.fileExtension?.toUpperCase() || 'FILE' }}</text>
           </view>
           <view class="file-info">
-            <text class="file-name">{{ file.originalFileName }}</text>
+            <text class="file-name">{{ file.originalFileName || '未知文件' }}</text>
             <text class="file-size">{{ formatFileSize(file.fileSize) }}</text>
           </view>
           <view class="file-action">
@@ -173,8 +199,31 @@ const loading = ref(false)
 const announcementId = ref('')
 const caseId = ref('')
 const showActionSheet = ref(false)
+const imageUrls = ref<Record<number, string>>({})
 
 const getCacheKey = (id: string) => `announcement_detail_${id}`
+
+// 图片附件
+const imageAttachments = computed(() => {
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+  const result = attachments.value.filter(f => {
+    const ext = f.fileExtension?.toLowerCase()
+    return ext && imageExts.includes(ext)
+  })
+  console.log('[imageAttachments] 计算属性触发, 总数:', attachments.value.length, '图片附件:', result.length, result)
+  return result
+})
+
+// 非图片附件
+const nonImageAttachments = computed(() => {
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+  const result = attachments.value.filter(f => {
+    const ext = f.fileExtension?.toLowerCase()
+    return !ext || !imageExts.includes(ext)
+  })
+  console.log('[nonImageAttachments] 计算属性触发, 非图片附件:', result.length, result)
+  return result
+})
 
 const actionSheetActions = computed(() => {
   const actions: any[] = []
@@ -207,42 +256,157 @@ onMounted(() => {
 const loadDetail = async () => {
   loading.value = true
   try {
+    console.log('[loadDetail] 开始加载公告详情, announcementId:', announcementId.value)
+    
     const [detailRes, attachmentRes] = await Promise.all([
       getAnnouncementDetail(Number(announcementId.value)),
-      getAnnouncementAttachments(Number(announcementId.value)).catch(() => null),
+      getAnnouncementAttachments(Number(announcementId.value)).catch((err) => {
+        console.error('[loadDetail] getAnnouncementAttachments 请求失败:', err)
+        return null
+      }),
     ])
+
+    console.log('[loadDetail] detailRes:', detailRes)
+    console.log('[loadDetail] attachmentRes:', attachmentRes)
 
     if (detailRes.code === 200 && detailRes.data) {
       announcement.value = detailRes.data
+      console.log('[loadDetail] announcement 设置成功, attachments 字段:', announcement.value?.attachments)
       uni.setStorageSync(getCacheKey(announcementId.value), {
         data: detailRes.data,
         timestamp: Date.now(),
       })
       recordView()
     } else {
+      console.warn('[loadDetail] detailRes 响应异常，尝试加载缓存')
       loadFromCache()
     }
 
-    if (attachmentRes && attachmentRes.code === 200 && attachmentRes.data) {
-      attachments.value = attachmentRes.data
-    } else {
+    // 解析附件数据：优先使用公告attachments字段中的文件ID
+    let attachmentList: AnnouncementAttachment[] = []
+    
+    // 方式1: 尝试从附件列表API获取
+    if (attachmentRes && attachmentRes.code === 200 && Array.isArray(attachmentRes.data) && attachmentRes.data.length > 0) {
+      console.log('[loadDetail] 使用附件列表API返回的数据')
+      attachmentList = attachmentRes.data
+    }
+    
+    // 方式2: 如果API没有返回数据，从公告的attachments字段解析文件ID
+    if (attachmentList.length === 0 && announcement.value?.attachments) {
+      console.log('[loadDetail] 附件列表API无数据，尝试从公告的attachments字段解析')
       try {
-        if (announcement.value?.attachments) {
-          const parsed = JSON.parse(announcement.value.attachments)
-          if (Array.isArray(parsed)) {
-            attachments.value = parsed
+        const parsed = typeof announcement.value.attachments === 'string' 
+          ? JSON.parse(announcement.value.attachments)
+          : announcement.value.attachments
+        
+        console.log('[loadDetail] JSON.parse 结果:', parsed)
+        
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // 获取文件详情
+          const fileDetails: AnnouncementAttachment[] = []
+          for (const fileId of parsed) {
+            try {
+              console.log('[loadDetail] 获取文件详情, fileId:', fileId)
+              const baseUrl = getBaseUrl()
+              const token = uni.getStorageSync('token')
+              const fileInfo = await new Promise<any>((resolve, reject) => {
+                uni.request({
+                  url: `${baseUrl}/api/v1/file/${fileId}`,
+                  header: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                  success: (res) => {
+                    console.log('[loadDetail] 文件详情请求成功, res:', res.data)
+                    resolve(res.data)
+                  },
+                  fail: (err) => {
+                    console.error('[loadDetail] 文件详情请求失败:', err)
+                    reject(err)
+                  },
+                })
+              })
+              if (fileInfo.code === 200 && fileInfo.data) {
+                console.log('[loadDetail] 文件详情获取成功:', fileInfo.data)
+                fileDetails.push(fileInfo.data)
+              }
+            } catch (e) {
+              console.error('[loadDetail] 获取文件详情异常:', e)
+            }
           }
+          console.log('[loadDetail] 最终解析的附件列表:', fileDetails)
+          attachmentList = fileDetails
+        } else {
+          console.log('[loadDetail] parsed 不是有效数组')
         }
       } catch (e) {
-        attachments.value = []
+        console.error('[loadDetail] 解析附件字段异常:', e)
       }
     }
+    
+    console.log('[loadDetail] 最终 attachmentList:', attachmentList)
+    attachments.value = attachmentList
+    
+    // 下载图片附件
+    if (attachmentList.length > 0) {
+      await loadImageUrls(attachmentList)
+    }
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
+    console.error('[loadDetail] 加载详情异常:', error)
     loadFromCache()
   } finally {
     loading.value = false
+    console.log('[loadDetail] 加载完成')
   }
+}
+
+// 下载图片附件（使用 uni.downloadFile 携带 Authorization 请求头）
+const loadImageUrls = async (files: AnnouncementAttachment[]) => {
+  console.log('[loadImageUrls] 开始下载图片, 数量:', files.length)
+  const token = uni.getStorageSync('token')
+  const baseUrl = getBaseUrl()
+  
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+  const imageFiles = files.filter(f => {
+    const ext = f.fileExtension?.toLowerCase()
+    return ext && imageExts.includes(ext)
+  })
+  
+  console.log('[loadImageUrls] 图片文件:', imageFiles)
+  
+  for (const file of imageFiles) {
+    if (!file.id) continue
+    
+    try {
+      const previewUrl = `${baseUrl}/api/v1/file/preview/${file.id}`
+      console.log('[loadImageUrls] 下载图片, fileId:', file.id, 'url:', previewUrl)
+      
+      const downloadRes = await new Promise<UniApp.DownloadSuccessCallbackResult>((resolve, reject) => {
+        uni.downloadFile({
+          url: previewUrl,
+          header: {
+            Authorization: `Bearer ${token}`,
+          },
+          success: (res) => {
+            console.log('[loadImageUrls] 下载成功, statusCode:', res.statusCode, 'tempFilePath:', res.tempFilePath)
+            resolve(res)
+          },
+          fail: (err) => {
+            console.error('[loadImageUrls] 下载失败:', err)
+            reject(err)
+          },
+        })
+      })
+      
+      if (downloadRes.statusCode === 200) {
+        imageUrls.value[file.id] = downloadRes.tempFilePath
+        console.log('[loadImageUrls] 图片URL设置成功, fileId:', file.id, 'url:', downloadRes.tempFilePath)
+      }
+    } catch (error) {
+      console.error('[loadImageUrls] 下载图片异常:', error)
+    }
+  }
+  
+  console.log('[loadImageUrls] 所有图片下载完成, imageUrls:', imageUrls.value)
 }
 
 const loadFromCache = () => {
@@ -253,8 +417,7 @@ const loadFromCache = () => {
       uni.showToast({ title: '已加载缓存数据', icon: 'none' })
     }
   } catch (e) {
-    console.error('[loadFromCache] Error:', e)
-  }
+}
 }
 
 const recordView = async () => {
@@ -270,8 +433,7 @@ const recordView = async () => {
       deviceType: 'MOBILE',
     })
   } catch (error) {
-    console.error('[recordView] Error:', error)
-  }
+}
 }
 
 const handleActionSelect = (e: any) => {
@@ -348,6 +510,7 @@ const handleDelete = () => {
           const result = await deleteAnnouncement(Number(announcementId.value))
           if (result.code === 200) {
             uni.showToast({ title: '删除成功', icon: 'success' })
+            uni.$emit('refresh-announcement-list', caseId.value)
             setTimeout(() => {
               uni.navigateBack()
             }, 1500)
@@ -362,6 +525,37 @@ const handleDelete = () => {
 
 const handleBack = () => {
   uni.navigateBack()
+}
+
+// 获取图片预览URL（使用下载后的本地临时路径）
+const getImagePreviewUrl = (file: AnnouncementAttachment): string => {
+  console.log('[getImagePreviewUrl] fileId:', file.id, 'localUrl:', imageUrls.value[file.id])
+  
+  if (!file.id) {
+    console.warn('[getImagePreviewUrl] 文件ID不存在')
+    return ''
+  }
+  
+  // 优先使用已下载的本地临时路径
+  const localUrl = imageUrls.value[file.id]
+  if (localUrl) {
+    console.log('[getImagePreviewUrl] 使用本地临时路径:', localUrl)
+    return localUrl
+  }
+  
+  // 如果还没有下载，返回空（等待 loadImageUrls 完成后再显示）
+  console.log('[getImagePreviewUrl] 图片尚未下载，返回空')
+  return ''
+}
+
+// 图片加载成功处理
+const handleImageLoad = (fileId: number) => {
+  console.log('[handleImageLoad] 图片加载成功, fileId:', fileId)
+}
+
+// 图片加载失败处理
+const handleImageError = (fileId: number, e: any) => {
+  console.error('[handleImageError] 图片加载失败, fileId:', fileId, 'error:', e)
 }
 
 const handlePreviewFile = (file: AnnouncementAttachment) => {
@@ -390,11 +584,9 @@ const handlePreviewFile = (file: AnnouncementAttachment) => {
             filePath: res.tempFilePath,
             showMenu: true,
             success: () => {
-              console.log('[handlePreviewFile] 打开文档成功')
-            },
+},
             fail: (err: any) => {
-              console.error('[handlePreviewFile] 打开文档失败:', err)
-              uni.showToast({ title: '无法打开文件', icon: 'none' })
+uni.showToast({ title: '无法打开文件', icon: 'none' })
             },
           })
         } else {
@@ -427,8 +619,7 @@ const handlePreviewFile = (file: AnnouncementAttachment) => {
                       uni.showToast({ title: '保存成功', icon: 'success' })
                     },
                     fail: (err: any) => {
-                      console.error('[saveImageToPhotosAlbum] Error:', err)
-                      if (err.errMsg?.includes('auth deny')) {
+if (err.errMsg?.includes('auth deny')) {
                         uni.showModal({
                           title: '提示',
                           content: '需要您授权保存图片到相册',
@@ -461,8 +652,7 @@ const handlePreviewFile = (file: AnnouncementAttachment) => {
                 }
               },
               fail: (err: any) => {
-                console.error('[longPressActions] Error:', err)
-              },
+},
             },
           })
         } else {
@@ -628,6 +818,13 @@ const formatDateTime = (date?: string) => {
       white-space: pre-wrap;
       word-break: break-all;
     }
+
+    .content-rich {
+      font-size: 30rpx;
+      color: #333;
+      line-height: 1.8;
+      word-break: break-all;
+    }
   }
 }
 
@@ -687,6 +884,31 @@ const formatDateTime = (date?: string) => {
     margin-bottom: 20rpx;
     padding-left: 16rpx;
     border-left: 6rpx solid #0068E2;
+  }
+
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16rpx;
+    margin-bottom: 20rpx;
+
+    .image-item {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12rpx;
+      overflow: hidden;
+      background: #f5f5f5;
+
+      .image-preview {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      &:active {
+        opacity: 0.8;
+      }
+    }
   }
 
   .attachment-list {

@@ -11,17 +11,18 @@ const routes: RouteRecordRaw[] = [
       roles: ['ADMIN'],
       hideInMenu: true,
     },
-    name: 'Notification',
+    name: 'NotificationLegacy',
     path: '/notification',
     children: [
       {
-        name: 'NotificationCenter',
+        name: 'NotificationCenterLegacy',
         path: '/notification/index',
         component: () => import('#/views/notification/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:bell',
           title: '通知中心',
+          hideInMenu: true,
         },
       },
     ],

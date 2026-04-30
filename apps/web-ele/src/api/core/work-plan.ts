@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace WorkPlanApi {
   /** 工作计划查询参数 */
@@ -122,7 +122,7 @@ export async function getWorkPlanListApi(
   params: WorkPlanApi.WorkPlanQueryParams,
 ) {
   const token = '3a4ba2bad1d89f5483940004de8bc922';
-  return requestClient8085.get<WorkPlanApi.WorkPlanListResponse>(
+  return requestClient8080.get<WorkPlanApi.WorkPlanListResponse>(
     '/api/web/getWorkPlanBCVIEW',
     {
       params: {
@@ -140,7 +140,7 @@ export async function updateWorkPlanApi(
   data: WorkPlanApi.UpdateWorkPlanRequest,
 ) {
   const token = 'bfcb667e437fa21701351b7d607f229a';
-  return requestClient8085.post<WorkPlanApi.UpdateWorkPlanResponse>(
+  return requestClient8080.post<WorkPlanApi.UpdateWorkPlanResponse>(
     '/api/web/updateWorkPlan',
     data,
     {
@@ -160,7 +160,7 @@ export async function updateWorkPlanApi(
 export async function createWorkPlanApi(
   data: WorkPlanApi.CreateWorkPlanRequest,
 ) {
-  return requestClient8085.post<WorkPlanApi.CreateWorkPlanResponse>(
+  return requestClient8080.post<WorkPlanApi.CreateWorkPlanResponse>(
     '/work-plan',
     data,
   );
@@ -172,7 +172,7 @@ export async function createWorkPlanApi(
 export async function getWorkPlanDetailApi(
   planId: number,
 ) {
-  return requestClient8085.get<WorkPlanApi.WorkPlanDetailResponse>(
+  return requestClient8080.get<WorkPlanApi.WorkPlanDetailResponse>(
     `/work-plan/${planId}`,
   );
 }
@@ -183,7 +183,7 @@ export async function getWorkPlanDetailApi(
 export async function deleteWorkPlanApi(
   planId: number,
 ) {
-  return requestClient8085.delete<WorkPlanApi.DeleteWorkPlanResponse>(
+  return requestClient8080.delete<WorkPlanApi.DeleteWorkPlanResponse>(
     `/work-plan/${planId}`,
   );
 }
@@ -199,7 +199,7 @@ export async function getWorkPlanListByTimeApi(
   pageNum: number = 1,
   pageSize: number = 10,
 ) {
-  return requestClient8085.get<{
+  return requestClient8080.get<{
     code: number;
     message: string;
     data: {
@@ -238,7 +238,7 @@ export async function getWorkPlanListByCaseIdApi(
   pageNum: number = 1,
   pageSize: number = 10,
 ) {
-  return requestClient8085.get<{
+  return requestClient8080.get<{
     code: number;
     message: string;
     data: {

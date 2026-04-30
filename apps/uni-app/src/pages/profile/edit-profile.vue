@@ -107,8 +107,7 @@ onMounted(async () => {
       await authStore.fetchUserInfo()
       userInfo.value = authStore.userInfo
     } catch (error) {
-      console.error('获取用户信息失败:', error)
-    }
+}
   }
 })
 
@@ -131,8 +130,7 @@ const handleUpdateRealName = async () => {
     realNameForm.realName = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-    console.error('修改姓名失败:', error)
-  } finally {
+} finally {
     submittingRealName.value = false
   }
 }
@@ -160,8 +158,7 @@ const handleUpdateMobile = async () => {
     mobileForm.smsCode = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-    console.error('修改手机号失败:', error)
-  } finally {
+} finally {
     submittingMobile.value = false
   }
 }
@@ -185,8 +182,7 @@ const handleUpdateEmail = async () => {
     emailForm.email = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-    console.error('修改邮箱失败:', error)
-  } finally {
+} finally {
     submittingEmail.value = false
   }
 }

@@ -12,7 +12,7 @@
 
       <view class="empty-state" v-else-if="!loading && teamList.length === 0">
         <text class="empty-text">暂无工作团队数据</text>
-        <button class="add-btn" size="mini" type="primary" @click="showCreateTeamDialog">
+        <button class="add-btn" size="mini" @click="showCreateTeamDialog">
           创建团队
         </button>
       </view>
@@ -37,7 +37,7 @@
           <view class="members-section" v-show="expandedTeams.has(team.id)">
             <view class="members-header">
               <text class="members-title">团队成员</text>
-              <button class="add-member-btn" size="mini" type="primary" @click.stop="showAddMemberDialog(team)">
+              <button class="add-member-btn" size="mini" @click.stop="showAddMemberDialog(team)">
                 添加成员
               </button>
             </view>
@@ -55,7 +55,7 @@
                 <view class="member-info">
                   <view class="member-name-row">
                     <text class="member-name">{{ member.userRealName || member.userName || '未知' }}</text>
-                    <text class="member-role" v-if="member.teamRole">{{ member.teamRole }}</text>
+                    <text class="member-role" v-if="member.teamRole">{{ getRoleDisplayName(member.teamRole) }}</text>
                   </view>
                   <view class="member-detail">
                     <text class="permission-level">{{ getPermissionLevelText(member.permissionLevel) }}</text>
@@ -71,13 +71,14 @@
         </view>
 
         <view class="create-team-footer">
-          <button class="add-team-btn" type="primary" @click="showCreateTeamDialog">
+          <button class="add-team-btn" @click="showCreateTeamDialog">
             创建新团队
           </button>
         </view>
       </view>
     </view>
 
+    <!-- 创建团队弹窗 -->
     <uni-popup ref="createTeamPopup" type="center">
       <view class="dialog-container">
         <view class="dialog-header">
@@ -90,19 +91,25 @@
             <input class="input" v-model="createTeamForm.teamName" placeholder="请输入团队名称" />
           </view>
           <view class="form-item">
-            <text class="label">选择成员 <text class="required">*</text></text>
+            <text class="label">团队负责人 <text class="required">*</text></text>
             <view class="user-search">
-              <input class="input" v-model="userSearchKeyword" placeholder="搜索用户" @confirm="searchUsers" />
-              <button class="search-btn" size="mini" @click="searchUsers">搜索</button>
+              <input class="input" v-model="leaderSearchKeyword" placeholder="搜索用户作为负责人" @confirm="searchLeaderUsers" />
+              <button class="search-btn" size="mini" @click="searchLeaderUsers">搜索</button>
             </view>
-            <view class="user-list" v-if="availableUsers.length > 0">
-              <view class="user-item" v-for="user in availableUsers" :key="user.id">
-                <checkbox :value="String(user.id)" :checked="memberForm.userId.includes(user.id)" @click="toggleUser(user.id)" />
-                <text class="user-name">{{ user.userRealName || user.userName || '未知' }}</text>
+            <view class="user-list" v-if="leaderUsers.length > 0">
+              <view
+                class="user-item"
+                v-for="user in leaderUsers"
+                :key="user.id"
+                :class="{ active: createTeamForm.teamLeaderId === user.id }"
+                @click="selectLeader(user)"
+              >
+                <text class="user-name">{{ user.realName || user.userName || '未知' }}</text>
+                <text class="user-selected" v-if="createTeamForm.teamLeaderId === user.id">✓</text>
               </view>
             </view>
-            <view class="user-empty" v-else>
-              <text>暂无用户</text>
+            <view class="user-empty" v-else-if="leaderSearchKeyword && !leaderUsersLoading">
+              <text>未找到用户</text>
             </view>
           </view>
           <view class="form-item">
@@ -112,13 +119,14 @@
         </view>
         <view class="dialog-footer">
           <button class="dialog-btn cancel" @click="closeCreateTeamDialog">取消</button>
-          <button class="dialog-btn confirm" type="primary" @click="handleCreateTeam" :loading="createTeamLoading">
+          <button class="dialog-btn confirm" @click="handleCreateTeam" :loading="createTeamLoading">
             创建
           </button>
         </view>
       </view>
     </uni-popup>
 
+    <!-- 添加/编辑成员弹窗 -->
     <uni-popup ref="memberPopup" type="center">
       <view class="dialog-container">
         <view class="dialog-header">
@@ -138,8 +146,17 @@
                 <text class="user-name">{{ user.realName || user.userName || '未知' }}</text>
               </view>
             </view>
-            <view class="user-empty" v-else>
-              <text>暂无用户</text>
+            <view class="user-empty" v-else-if="userSearchKeyword && !usersLoading">
+              <text>未找到用户</text>
+            </view>
+            <view class="selected-info" v-if="memberForm.userId.length > 0">
+              <text>已选择 {{ memberForm.userId.length }} 人</text>
+            </view>
+          </view>
+          <view class="form-item" v-else>
+            <text class="label">用户</text>
+            <view class="user-display">
+              <text class="user-name">{{ currentEditingMember?.userRealName || currentEditingMember?.userName || '未知' }}</text>
             </view>
           </view>
           <view class="form-item">
@@ -153,7 +170,7 @@
           </view>
           <view class="form-item">
             <text class="label">权限级别</text>
-            <picker mode="selector" :range="permissionLevels" @change="onPermissionChange">
+            <picker mode="selector" :range="permissionLevels" range-key="label" @change="onPermissionChange">
               <view class="picker-value">
                 <text>{{ selectedPermissionName || '请选择权限' }}</text>
                 <text class="picker-arrow">▼</text>
@@ -163,7 +180,7 @@
         </view>
         <view class="dialog-footer">
           <button class="dialog-btn cancel" @click="closeMemberDialog">取消</button>
-          <button class="dialog-btn confirm" type="primary" @click="handleSaveMember" :loading="memberLoading">
+          <button class="dialog-btn confirm" @click="handleSaveMember" :loading="memberLoading">
             确定
           </button>
         </view>
@@ -173,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   getWorkTeamListWithDetailsApi,
@@ -184,6 +201,7 @@ import {
   removeTeamMemberApi,
 } from '@/api/work-team'
 import type { WorkTeamApi } from '@/api/work-team'
+import { getUserList } from '@/api/case'
 
 const loading = ref(false)
 const caseId = ref('')
@@ -191,7 +209,11 @@ const caseNo = ref('')
 const teamList = ref<WorkTeamApi.WorkTeamInfo[]>([])
 const expandedTeams = ref<Set<number>>(new Set())
 const availableUsers = ref<any[]>([])
+const leaderUsers = ref<any[]>([])
 const userSearchKeyword = ref('')
+const leaderSearchKeyword = ref('')
+const usersLoading = ref(false)
+const leaderUsersLoading = ref(false)
 const createTeamLoading = ref(false)
 const memberLoading = ref(false)
 const memberDialogTitle = ref('添加成员')
@@ -199,24 +221,25 @@ const isEditingMember = ref(false)
 const currentEditingMember = ref<any>(null)
 const currentTeam = ref<any>(null)
 
-const createTeamPopup = ref()
-const memberPopup = ref()
+const createTeamPopup = ref<any>(null)
+const memberPopup = ref<any>(null)
 
 const createTeamForm = ref({
   teamName: '',
   teamDescription: '',
+  teamLeaderId: undefined as number | undefined,
 })
 
 const memberForm = ref({
   userId: [] as number[],
   teamRole: '',
-  permissionLevel: 'VIEW',
+  permissionLevel: 'VIEW' as WorkTeamApi.PermissionLevel,
 })
 
 const permissionLevels = [
-  { label: '管理员', value: 'ADMIN' },
-  { label: '编辑', value: 'EDIT' },
-  { label: '查看', value: 'VIEW' },
+  { label: '管理员', value: 'ADMIN' as WorkTeamApi.PermissionLevel },
+  { label: '编辑', value: 'EDIT' as WorkTeamApi.PermissionLevel },
+  { label: '查看', value: 'VIEW' as WorkTeamApi.PermissionLevel },
 ]
 
 const teamRoles = ref<WorkTeamApi.TeamRoleInfo[]>([
@@ -224,8 +247,16 @@ const teamRoles = ref<WorkTeamApi.TeamRoleInfo[]>([
   { id: 2, roleName: '团队成员', roleCode: 'MEMBER', status: 'ACTIVE', createTime: '' },
 ])
 
+// 角色英文代码到中文显示名的映射
+const roleCodeToNameMap: Record<string, string> = {
+  'LEADER': '团队负责人',
+  'MEMBER': '团队成员',
+  '团队负责人': '团队负责人',
+  '团队成员': '团队成员',
+}
+
 const selectedRoleName = computed(() => {
-  const role = teamRoles.value.find(r => r.id === Number(memberForm.value.teamRole))
+  const role = teamRoles.value.find(r => r.roleName === memberForm.value.teamRole)
   return role?.roleName || ''
 })
 
@@ -241,6 +272,12 @@ onMounted(() => {
   if (caseId.value) {
     loadData()
   }
+
+  uni.$on('refresh-work-team-list', () => loadData())
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-work-team-list')
 })
 
 onShow(() => {
@@ -257,8 +294,8 @@ const loadData = async () => {
       pageNum: 1,
       pageSize: 100,
     })
-    const list = res.data.list || []
-    list.forEach(team => {
+    const list = res.data?.list || []
+    list.forEach((team: any) => {
       team.members = team.members || []
     })
     teamList.value = list
@@ -285,7 +322,7 @@ const loadTeamMembers = async (team: any) => {
   team.membersLoading = true
   try {
     const res = await getWorkTeamDetailWithMembersApi(team.id)
-    team.members = res.members || []
+    team.members = res.data?.members || []
   } catch (error) {
     uni.showToast({ title: '加载成员失败', icon: 'none' })
     team.members = []
@@ -294,20 +331,66 @@ const loadTeamMembers = async (team: any) => {
   }
 }
 
+// 获取角色的中文显示名
+const getRoleDisplayName = (role?: string) => {
+  if (!role) return ''
+  return roleCodeToNameMap[role] || role
+}
+
+// 搜索用户（用于添加成员）
+const searchUsers = async () => {
+  usersLoading.value = true
+  try {
+    const res = await getUserList(userSearchKeyword.value, 1, 100)
+    const users = res.data?.users || []
+    // 过滤掉已经是当前团队成员的用户
+    const existingMemberIds = new Set(currentTeam.value?.members?.map((m: any) => m.userId) || [])
+    availableUsers.value = users.filter((u: any) => !existingMemberIds.has(u.id))
+  } catch (error) {
+uni.showToast({ title: '搜索用户失败', icon: 'none' })
+    availableUsers.value = []
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+// 搜索负责人用户
+const searchLeaderUsers = async () => {
+  leaderUsersLoading.value = true
+  try {
+    const res = await getUserList(leaderSearchKeyword.value, 1, 100)
+    leaderUsers.value = res.data?.users || []
+  } catch (error) {
+uni.showToast({ title: '搜索用户失败', icon: 'none' })
+    leaderUsers.value = []
+  } finally {
+    leaderUsersLoading.value = false
+  }
+}
+
+const selectLeader = (user: any) => {
+  createTeamForm.value.teamLeaderId = user.id
+}
+
+const toggleUser = (userId: number) => {
+  const index = memberForm.value.userId.indexOf(userId)
+  if (index > -1) {
+    memberForm.value.userId.splice(index, 1)
+  } else {
+    memberForm.value.userId.push(userId)
+  }
+}
+
 const showCreateTeamDialog = () => {
   createTeamForm.value = {
     teamName: '',
     teamDescription: '',
+    teamLeaderId: undefined,
   }
-  memberForm.value = {
-    userId: [],
-    teamRole: 'LEADER',
-    permissionLevel: 'ADMIN',
-  }
+  leaderSearchKeyword.value = ''
   userSearchKeyword.value = ''
-  searchUsers()
-  memberDialogTitle.value = '添加成员'
-  isEditingMember.value = false
+  leaderUsers.value = []
+  availableUsers.value = []
   createTeamPopup.value?.open()
 }
 
@@ -316,41 +399,30 @@ const closeCreateTeamDialog = () => {
 }
 
 const handleCreateTeam = async () => {
-  if (!createTeamForm.value.teamName) {
+  if (!createTeamForm.value.teamName.trim()) {
     uni.showToast({ title: '请输入团队名称', icon: 'none' })
     return
   }
 
-  if (memberForm.value.userId.length === 0) {
-    uni.showToast({ title: '请至少选择一个团队成员', icon: 'none' })
+  if (!createTeamForm.value.teamLeaderId) {
+    uni.showToast({ title: '请选择团队负责人', icon: 'none' })
     return
   }
 
   createTeamLoading.value = true
   try {
-    const teamLeaderId = memberForm.value.userId[0]
-    const res = await createWorkTeamApi({
-      teamName: createTeamForm.value.teamName,
-      teamLeaderId,
+    await createWorkTeamApi({
+      teamName: createTeamForm.value.teamName.trim(),
+      teamLeaderId: createTeamForm.value.teamLeaderId,
       caseId: Number(caseId.value),
       teamDescription: createTeamForm.value.teamDescription,
     })
 
-    const teamId = res.data?.teamId
-    if (teamId && memberForm.value.userId.length > 0) {
-      await addTeamMemberApi(teamId, {
-        caseId: Number(caseId.value),
-        userId: memberForm.value.userId,
-        teamRole: 'LEADER',
-        permissionLevel: 'ADMIN',
-      })
-    }
-
     uni.showToast({ title: '创建成功', icon: 'success' })
     closeCreateTeamDialog()
     await loadData()
-  } catch (error) {
-    uni.showToast({ title: '创建失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error.message || '创建失败', icon: 'none' })
   } finally {
     createTeamLoading.value = false
   }
@@ -362,11 +434,11 @@ const showAddMemberDialog = (team: any) => {
   memberDialogTitle.value = '添加成员'
   memberForm.value = {
     userId: [],
-    teamRole: '',
+    teamRole: '团队成员',
     permissionLevel: 'VIEW',
   }
   userSearchKeyword.value = ''
-  searchUsers()
+  availableUsers.value = []
   memberPopup.value?.open()
 }
 
@@ -376,35 +448,14 @@ const showEditMemberDialog = (member: any) => {
   memberDialogTitle.value = '编辑成员'
   memberForm.value = {
     userId: [member.userId],
-    teamRole: member.teamRole || '',
-    permissionLevel: member.permissionLevel || 'VIEW',
+    teamRole: getRoleDisplayName(member.teamRole) || '',
+    permissionLevel: (member.permissionLevel as WorkTeamApi.PermissionLevel) || 'VIEW',
   }
   memberPopup.value?.open()
 }
 
 const closeMemberDialog = () => {
   memberPopup.value?.close()
-}
-
-const searchUsers = async () => {
-  try {
-    availableUsers.value = [
-      { id: 1, userName: 'user1', realName: '张律师' },
-      { id: 2, userName: 'user2', realName: '李助理' },
-      { id: 3, userName: 'user3', realName: '王会计师' },
-    ]
-  } catch (error) {
-    console.error('搜索用户失败', error)
-  }
-}
-
-const toggleUser = (userId: number) => {
-  const index = memberForm.value.userId.indexOf(userId)
-  if (index > -1) {
-    memberForm.value.userId.splice(index, 1)
-  } else {
-    memberForm.value.userId.push(userId)
-  }
 }
 
 const onRoleChange = (e: any) => {
@@ -431,22 +482,24 @@ const handleSaveMember = async () => {
     if (isEditingMember.value) {
       await updateTeamMemberApi(currentEditingMember.value.id, {
         teamRole: memberForm.value.teamRole,
-        permissionLevel: memberForm.value.permissionLevel as any,
+        permissionLevel: memberForm.value.permissionLevel,
       })
       uni.showToast({ title: '更新成功', icon: 'success' })
     } else {
       await addTeamMemberApi(currentTeam.value.id, {
         caseId: Number(caseId.value),
         userId: memberForm.value.userId,
-        teamRole: memberForm.value.teamRole || '',
-        permissionLevel: memberForm.value.permissionLevel as any,
+        teamRole: memberForm.value.teamRole || '团队成员',
+        permissionLevel: memberForm.value.permissionLevel,
       })
       uni.showToast({ title: '添加成功', icon: 'success' })
     }
     closeMemberDialog()
-    await loadTeamMembers(currentTeam.value)
-  } catch (error) {
-    uni.showToast({ title: isEditingMember.value ? '更新失败' : '添加失败', icon: 'none' })
+    if (currentTeam.value) {
+      await loadTeamMembers(currentTeam.value)
+    }
+  } catch (error: any) {
+    uni.showToast({ title: error.message || (isEditingMember.value ? '更新失败' : '添加失败'), icon: 'none' })
   } finally {
     memberLoading.value = false
   }
@@ -456,7 +509,7 @@ const confirmDeleteMember = (member: any) => {
   uni.showModal({
     title: '确认删除',
     content: `确定要删除成员${member.userRealName || member.userName || '未知'}吗？`,
-    success: async (res) => {
+    success: async (res: UniApp.ShowModalRes) => {
       if (res.confirm) {
         await handleDeleteMember(member)
       }
@@ -468,9 +521,12 @@ const handleDeleteMember = async (member: any) => {
   try {
     await removeTeamMemberApi(member.id)
     uni.showToast({ title: '删除成功', icon: 'success' })
-    await loadTeamMembers(currentTeam.value || teamList.value[0])
-  } catch (error) {
-    uni.showToast({ title: '删除失败', icon: 'none' })
+    const team = currentTeam.value || teamList.value.find((t: any) => t.id === member.teamId)
+    if (team) {
+      await loadTeamMembers(team)
+    }
+  } catch (error: any) {
+    uni.showToast({ title: error.message || '删除失败', icon: 'none' })
   }
 }
 
@@ -527,6 +583,8 @@ const getPermissionLevelText = (level?: string) => {
 
   .add-btn {
     margin-top: 20rpx;
+    background: #0068E2;
+    color: #fff;
   }
 }
 
@@ -608,6 +666,8 @@ const getPermissionLevelText = (level?: string) => {
 
         .add-member-btn {
           margin: 0;
+          background: #0068E2;
+          color: #fff;
         }
       }
 
@@ -693,6 +753,8 @@ const getPermissionLevelText = (level?: string) => {
 
     .add-team-btn {
       width: 100%;
+      background: #0068E2;
+      color: #fff;
     }
   }
 }
@@ -708,9 +770,12 @@ const getPermissionLevelText = (level?: string) => {
 
 .dialog-container {
   width: 600rpx;
+  max-height: 80vh;
   background: #fff;
   border-radius: 16rpx;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 
   .dialog-header {
     display: flex;
@@ -718,6 +783,7 @@ const getPermissionLevelText = (level?: string) => {
     align-items: center;
     padding: 30rpx;
     border-bottom: 1rpx solid #f5f5f5;
+    flex-shrink: 0;
 
     .dialog-title {
       font-size: 32rpx;
@@ -735,6 +801,8 @@ const getPermissionLevelText = (level?: string) => {
 
   .dialog-content {
     padding: 30rpx;
+    overflow-y: auto;
+    flex: 1;
 
     .form-item {
       margin-bottom: 30rpx;
@@ -786,16 +854,37 @@ const getPermissionLevelText = (level?: string) => {
       .user-list {
         max-height: 300rpx;
         overflow-y: auto;
+        border: 1rpx solid #f0f0f0;
+        border-radius: 8rpx;
+        padding: 8rpx 16rpx;
 
         .user-item {
           display: flex;
           align-items: center;
           padding: 16rpx 0;
+          border-bottom: 1rpx solid #f5f5f5;
+
+          &:last-child {
+            border-bottom: none;
+          }
+
+          &.active {
+            background: #e6f7ff;
+            margin: 0 -16rpx;
+            padding: 16rpx;
+          }
 
           .user-name {
             font-size: 28rpx;
             color: #333;
             margin-left: 16rpx;
+            flex: 1;
+          }
+
+          .user-selected {
+            color: #0068E2;
+            font-size: 28rpx;
+            font-weight: bold;
           }
         }
       }
@@ -804,6 +893,24 @@ const getPermissionLevelText = (level?: string) => {
         text-align: center;
         color: #999;
         padding: 40rpx 0;
+        font-size: 28rpx;
+      }
+
+      .selected-info {
+        margin-top: 16rpx;
+        font-size: 26rpx;
+        color: #0068E2;
+      }
+
+      .user-display {
+        padding: 20rpx;
+        background: #f5f5f5;
+        border-radius: 8rpx;
+
+        .user-name {
+          font-size: 28rpx;
+          color: #333;
+        }
       }
 
       .picker-value {
@@ -831,6 +938,7 @@ const getPermissionLevelText = (level?: string) => {
     display: flex;
     gap: 20rpx;
     padding: 0 30rpx 30rpx;
+    flex-shrink: 0;
 
     .dialog-btn {
       flex: 1;

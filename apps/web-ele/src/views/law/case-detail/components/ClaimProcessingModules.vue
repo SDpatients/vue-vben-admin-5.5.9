@@ -182,7 +182,7 @@ const handleImportExcel = async () => {
     formData.append('file', selectedFile.value);
     
     // 调用parse-excel接口
-    const response = await requestClient8085.post('/claim-registration/parse-excel', formData, {
+    const response = await requestClient8080.post('/claim-registration/parse-excel', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

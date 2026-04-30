@@ -131,8 +131,7 @@ const loadFavorites = async () => {
       total.value = totalCount
     }
   } catch (error) {
-    console.error('[loadFavorites] Error:', error)
-  } finally {
+} finally {
     loading.value = false
   }
 }
@@ -144,8 +143,7 @@ const loadFolders = async () => {
       favoriteFolders.value = res.data || []
     }
   } catch (error) {
-    console.error('[loadFolders] Error:', error)
-  }
+}
 }
 
 const switchFolder = (folder: string) => {

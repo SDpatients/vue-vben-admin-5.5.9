@@ -26,8 +26,10 @@ import {
   getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
+  uploadAnnouncementAttachmentsApi,
 } from '#/api/core/case-announcement';
 import { downloadFileApi } from '#/api/core/file';
+import { sanitizeHtml } from '#/utils/htmlSanitizer';
 import { fileUploadRequestClient, workTeamRequestClient } from '#/api/request';
 
 interface Announcement {
@@ -97,6 +99,9 @@ const handlePublishFormCaseChange = (caseId: number) => {
   if (selectedCase) {
     publishForm.value.caseNumber = selectedCase.caseNumber || '';
     publishForm.value.principalOfficer = selectedCase.principalOfficer || '';
+  } else {
+    publishForm.value.caseNumber = '';
+    publishForm.value.principalOfficer = '';
   }
 };
 
@@ -133,9 +138,9 @@ interface LocalFileItem {
 }
 
 const announcementTypeMap: Record<string, { label: string; type: string }> = {
-  NORMAL: { label: '普通', type: 'info' },
-  URGENT: { label: '紧急', type: 'danger' },
-  IMPORTANT: { label: '重要', type: 'warning' },
+  ANNOUNCEMENT: { label: '公告', type: 'info' },
+  NOTICE: { label: '通知', type: 'warning' },
+  WARNING: { label: '警告', type: 'danger' },
 };
 
 const statusMap: Record<string, { label: string; type: string }> = {
@@ -164,19 +169,20 @@ const fetchAnnouncements = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     };
-    
+
     // 如果选择了案号，添加caseId参数
     if (selectedCaseId.value !== null && selectedCaseId.value > 0) {
       requestParams.caseId = selectedCaseId.value;
     }
-    
+
     const response = await getAnnouncementListApi(requestParams);
     if (response.code === 200) {
       const list = response.data.list || [];
+      // 排序：置顶优先，然后按发布时间倒序
       announcements.value = list.sort((a, b) => {
         if (a.isTop && !b.isTop) return -1;
         if (!a.isTop && b.isTop) return 1;
-        return 0;
+        return new Date(b.publishTime || b.createTime).getTime() - new Date(a.publishTime || a.createTime).getTime();
       });
       total.value = response.data.total || 0;
     } else {
@@ -200,11 +206,13 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
   currentAnnouncement.value = announcement;
 
   try {
-    // 调用添加查看记录接口
-    await createViewRecordApi({
+    // 调用添加查看记录接口（不阻塞主流程）
+    createViewRecordApi({
       announcementId: announcement.id,
       announcementTitle: announcement.title,
       caseId: announcement.caseId,
+    }).catch((err) => {
+      console.warn('创建查看记录失败:', err);
     });
 
     const [detailResponse, attachmentsResponse] = await Promise.all([
@@ -228,6 +236,7 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
     }
   } catch (error) {
     console.error('获取公告详情失败:', error);
+    ElMessage.error('获取公告详情失败');
   } finally {
     detailLoading.value = false;
   }
@@ -250,26 +259,38 @@ const handlePageSizeChange = (size: number) => {
 const downloadFile = async (attachment: {
   file_id: string;
   file_name: string;
-  file_url: string;
+  file_url?: string;
 }) => {
+  if (!attachment.file_id) {
+    ElMessage.error('无效的文件ID');
+    return;
+  }
+
+  const fileId = Number(attachment.file_id);
+  if (isNaN(fileId)) {
+    ElMessage.error('文件ID格式错误');
+    return;
+  }
+
   try {
+    ElMessage.info('正在下载文件...');
     // 使用后端提供的下载接口
-    const downloadResponse = await downloadFileApi(Number(attachment.file_id));
+    const downloadResponse = await downloadFileApi(fileId);
 
     // 创建下载链接
     const blob = new Blob([downloadResponse], {
-      type: 'application/octet-stream',
+      type: downloadResponse.type || 'application/octet-stream',
     });
     const link = document.createElement('a');
     const url = window.URL.createObjectURL(blob);
     link.href = url;
-    link.download = attachment.file_name;
-    document.body.append(link);
+    link.download = attachment.file_name || '下载文件';
+    document.body.appendChild(link);
     link.click();
-    link.remove();
+    document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    ElMessage.success('文件下载开始');
+    ElMessage.success('文件下载完成');
   } catch (error) {
     console.error('文件下载失败:', error);
     ElMessage.error('文件下载失败');
@@ -337,8 +358,11 @@ const closePreviewDialog = () => {
  */
 const copyAttachmentData = () => {
   if (currentAnnouncement.value?.attachments) {
+    const textToCopy = typeof currentAnnouncement.value.attachments === 'string'
+      ? currentAnnouncement.value.attachments
+      : JSON.stringify(currentAnnouncement.value.attachments);
     navigator.clipboard
-      .writeText(currentAnnouncement.value.attachments)
+      .writeText(textToCopy)
       .then(() => {
         ElMessage.success('附件数据已复制到剪贴板');
       })
@@ -351,7 +375,6 @@ const copyAttachmentData = () => {
 
 // 打开发布公告对话框
 const openPublishDialog = () => {
-  showPublishDialog.value = true;
   // 重置表单
   publishForm.value = {
     caseId: 0,
@@ -362,6 +385,9 @@ const openPublishDialog = () => {
     announcementType: 'ANNOUNCEMENT',
     attachments: [],
   };
+  // 重置文件上传组件
+  fileUploadRef.value?.clearLocalFiles?.();
+  showPublishDialog.value = true;
 };
 
 
@@ -549,15 +575,8 @@ const submitPublishForm = async () => {
         
         // 处理手机上传的文件
         if (mobileFiles.length > 0) {
-          console.log('📱 [调试] 检测到手机上传文件，需要先转移临时文件');
-          // 手机上传的文件需要先转移到临时业务，然后一起提交
-          // 但 with-files 接口要求文件必须是 File 对象
-          // 所以我们需要先从服务器下载手机上传的文件，然后再上传
-          // 这是一个限制，建议手机上传的文件也使用两步走方案
-          
-          console.log('⚠️ [调试] 手机上传文件需要使用两步走方案');
-          console.log('   第一步：先创建公告（不含文件）');
-          
+          console.log('📱 [调试] 检测到手机上传文件，使用两步走方案');
+
           const announcementResponse = await createAnnouncementApi({
             caseId: publishForm.value.caseId,
             caseNumber: publishForm.value.caseNumber,
@@ -566,26 +585,32 @@ const submitPublishForm = async () => {
             content: publishForm.value.content,
             announcementType: publishForm.value.announcementType,
           });
-          
-          console.log('📥 [调试] createAnnouncementApi 响应:', announcementResponse);
-          
+
           if (announcementResponse.code !== 200 || !announcementResponse.data) {
-            console.error('❌ [调试] 公告创建失败:', announcementResponse);
             ElMessage.error(`公告创建失败：${announcementResponse.message || '未知错误'}`);
             publishLoading.value = false;
             return;
           }
-          
+
           const announcementId = announcementResponse.data.announcementId || announcementResponse.data.id;
-          console.log('✅ [调试] 公告创建成功，announcementId:', announcementId);
-          
+
           // 转移手机上传的文件
-          if (fileUploadRef.value) {
-            console.log('⏳ [调试] 开始调用 transferMobileFiles, announcementId:', announcementId);
-            const transferResult = await fileUploadRef.value.transferMobileFiles(announcementId);
-            console.log('📥 [调试] transferMobileFiles 完成，结果:', transferResult);
+          if (fileUploadRef.value && announcementId) {
+            await fileUploadRef.value.transferMobileFiles(announcementId);
           }
-          
+
+          // 如果还有本地文件，继续上传
+          if (localFiles.length > 0) {
+            const localFileItems = localFiles.filter((f: LocalFileItem) => !!f.file && f.file.size > 0);
+            if (localFileItems.length > 0) {
+              const uploadFormData = new FormData();
+              localFileItems.forEach((file: LocalFileItem) => {
+                uploadFormData.append('files', file.file);
+              });
+              await uploadAnnouncementAttachmentsApi(announcementId, localFileItems.map((f: LocalFileItem) => f.file));
+            }
+          }
+
           ElMessage.success('公告发布成功');
           closePublishDialog();
           fetchAnnouncements();
@@ -651,6 +676,15 @@ const submitPublishForm = async () => {
 
 onMounted(() => {
   fetchCaseList(); // 先获取案号列表
+  // 从URL参数获取caseId
+  const urlParams = new URLSearchParams(window.location.search);
+  const caseIdParam = urlParams.get('caseId');
+  if (caseIdParam) {
+    const caseId = Number(caseIdParam);
+    if (!isNaN(caseId) && caseId > 0) {
+      selectedCaseId.value = caseId;
+    }
+  }
   fetchAnnouncements(); // 再获取公告列表
 });
 </script>
@@ -728,38 +762,25 @@ onMounted(() => {
               v-for="item in announcements"
               :key="item.id"
               class="announcement-item"
+              :class="{ 'is-top': item.isTop }"
             >
               <div class="announcement-header">
                 <div class="title-section">
                   <Icon v-if="item.isTop" icon="lucide:pin" class="top-icon" />
                   <h3 class="announcement-title">{{ item.title }}</h3>
                   <ElTag
-                    :type="
-                      item.announcementType === 'ANNOUNCEMENT'
-                        ? 'info'
-                        : item.announcementType === 'NOTICE'
-                          ? 'warning'
-                          : item.announcementType === 'WARNING'
-                            ? 'danger'
-                            : 'info'
-                    "
+                    :type="announcementTypeMap[item.announcementType]?.type || 'info'"
                     size="small"
                     class="ml-2"
                   >
-                    {{ item.announcementType === 'ANNOUNCEMENT' ? '公告' : item.announcementType === 'NOTICE' ? '通知' : item.announcementType === 'WARNING' ? '警告' : '普通' }}
+                    {{ announcementTypeMap[item.announcementType]?.label || '公告' }}
                   </ElTag>
                   <ElTag
-                    :type="
-                      item.status === 'PUBLISHED'
-                        ? 'success'
-                        : item.status === 'DRAFT'
-                          ? 'info'
-                          : 'warning'
-                    "
+                    :type="statusMap[item.status]?.type || 'info'"
                     size="small"
                     class="status-tag ml-2"
                   >
-                    {{ item.status === 'PUBLISHED' ? '已发布' : item.status === 'DRAFT' ? '草稿' : '已撤回' }}
+                    {{ statusMap[item.status]?.label || item.status }}
                   </ElTag>
                 </div>
                 <div class="flex gap-2">
@@ -775,12 +796,12 @@ onMounted(() => {
 
               <!-- 公告内容 -->
               <div class="announcement-content">
-                <div 
+                <div
                   class="content-preview"
                   :class="{ full: expandedAnnouncements[item.id] }"
-                  v-html="item.content"
+                  v-html="sanitizeHtml(item.content)"
                 ></div>
-                <button 
+                <button
                   v-if="item.content && item.content.length > 100"
                   class="expand-btn"
                   @click="toggleExpand(item.id)"
@@ -792,15 +813,15 @@ onMounted(() => {
               <div class="announcement-meta">
                 <div class="meta-item">
                   <Icon icon="lucide:user" class="icon" />
-                  <span>发布人：{{ item.publisherName }}</span>
+                  <span>发布人：{{ item.publisherName || '未知' }}</span>
                 </div>
                 <div class="meta-item">
                   <Icon icon="lucide:calendar" class="icon" />
-                  <span>发布时间：{{ formatDate(item.publishTime) }}</span>
+                  <span>发布时间：{{ item.publishTime ? formatDate(item.publishTime) : '未发布' }}</span>
                 </div>
                 <div class="meta-item">
                   <Icon icon="lucide:eye" class="icon" />
-                  <span>浏览次数：{{ item.viewCount }}</span>
+                  <span>浏览次数：{{ item.viewCount || 0 }}</span>
                 </div>
               </div>
             </div>
@@ -836,47 +857,19 @@ onMounted(() => {
                 <div class="meta-item">
                   <span class="meta-label">公告类型</span>
                   <ElTag
-                    :type="
-                      currentAnnouncement.announcementType === 'ANNOUNCEMENT'
-                        ? 'warning'
-                        : currentAnnouncement.announcementType === 'NOTICE'
-                          ? 'info'
-                          : currentAnnouncement.announcementType === 'WARNING'
-                            ? 'danger'
-                            : 'info'
-                    "
+                    :type="announcementTypeMap[currentAnnouncement.announcementType]?.type || 'info'"
                     size="small"
                   >
-                    {{
-                      currentAnnouncement.announcementType === 'ANNOUNCEMENT'
-                        ? '公告'
-                        : currentAnnouncement.announcementType === 'NOTICE'
-                          ? '通知'
-                          : currentAnnouncement.announcementType === 'WARNING'
-                            ? '警告'
-                            : '普通'
-                    }}
+                    {{ announcementTypeMap[currentAnnouncement.announcementType]?.label || '公告' }}
                   </ElTag>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">状态</span>
                   <ElTag
-                    :type="
-                      currentAnnouncement.status === 'PUBLISHED'
-                        ? 'success'
-                        : currentAnnouncement.status === 'DRAFT'
-                          ? 'info'
-                          : 'warning'
-                    "
+                    :type="statusMap[currentAnnouncement.status]?.type || 'info'"
                     size="small"
                   >
-                    {{
-                      currentAnnouncement.status === 'PUBLISHED'
-                        ? '已发布'
-                        : currentAnnouncement.status === 'DRAFT'
-                          ? '草稿'
-                          : '已撤回'
-                    }}
+                    {{ statusMap[currentAnnouncement.status]?.label || currentAnnouncement.status }}
                   </ElTag>
                 </div>
                 <div class="meta-item">
@@ -907,7 +900,7 @@ onMounted(() => {
               <h4 class="section-title">公告内容</h4>
               <div
                 class="content-html"
-                v-html="currentAnnouncement.content"
+                v-html="sanitizeHtml(currentAnnouncement?.content)"
               ></div>
             </div>
 
@@ -915,7 +908,8 @@ onMounted(() => {
             <div
               v-if="
                 currentAnnouncement.attachments &&
-                currentAnnouncement.attachments !== 'string'
+                Array.isArray(currentAnnouncement.attachments) &&
+                currentAnnouncement.attachments.length > 0
               "
               class="detail-attachments"
             >
@@ -951,31 +945,6 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-
-            <!-- 附件为字符串时的特殊处理 -->
-            <div
-              v-else-if="currentAnnouncement.attachments === 'string'"
-              class="detail-attachments"
-            >
-              <h4 class="section-title">附件</h4>
-              <div class="attachment-list">
-                <div class="attachment-item">
-                  <div class="attachment-info">
-                    <Icon icon="lucide:paperclip" class="attachment-icon" />
-                    <span class="attachment-name">附件数据</span>
-                  </div>
-                  <div class="attachment-actions">
-                    <ElButton
-                      type="primary"
-                      size="small"
-                      @click="copyAttachmentData"
-                    >
-                      复制附件数据
-                    </ElButton>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </ElDialog>
@@ -998,6 +967,18 @@ onMounted(() => {
           ></iframe>
         </div>
       </ElDialog>
+
+      <!-- 发布按钮 -->
+      <div class="publish-btn-container">
+        <ElButton
+          type="primary"
+          size="large"
+          @click="openPublishDialog"
+        >
+          <Icon icon="lucide:plus" class="mr-2" />
+          发布新公告
+        </ElButton>
+      </div>
 
       <!-- 发布公告对话框 -->
       <ElDialog
@@ -1106,6 +1087,9 @@ onMounted(() => {
               @local-files-change="handleLocalFilesChange"
               @mobile-files-uploaded="handleMobileFilesUploaded"
             />
+            <div class="upload-hint">
+              支持格式：doc, docx, pdf, txt, jpg, jpeg, png, gif，单个文件不超过 50MB
+            </div>
           </ElFormItem>
         </ElForm>
 
@@ -1158,6 +1142,11 @@ onMounted(() => {
 .announcement-item:hover {
   border-color: #3b82f6;
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+}
+
+.announcement-item.is-top {
+  border-left: 4px solid #ef4444;
+  background-color: #fef2f2;
 }
 
 /* 公告详情弹窗样式 */
@@ -1418,6 +1407,13 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 24px;
+}
+
+.publish-btn-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding: 0 20px;
 }
 
 .announcement-detail {

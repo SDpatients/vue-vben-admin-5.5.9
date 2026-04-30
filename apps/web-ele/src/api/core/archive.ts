@@ -1,4 +1,4 @@
-import { fileUploadRequestClient, requestClient8085 } from '#/api/request';
+import { fileUploadRequestClient, requestClient8080 } from '#/api/request';
 
 export namespace ArchiveApi {
   /** 归档分类 */
@@ -131,7 +131,7 @@ export namespace ArchiveApi {
  * GET /api/v1/archive/categories
  */
 export async function getCategoryTreeApi(status: string = 'ACTIVE') {
-  return requestClient8085.get<{
+  return requestClient8080.get<{
     code: number;
     message: string;
     data: ArchiveApi.Category[];
@@ -165,7 +165,7 @@ export async function uploadArchiveFileApi(
     formData.append('accessLevel', data.accessLevel);
   }
 
-  return requestClient8085.post<ArchiveApi.UploadArchiveResponse>(
+  return requestClient8080.post<ArchiveApi.UploadArchiveResponse>(
     `/archive/${caseId}/upload`,
     formData,
     {
@@ -184,7 +184,7 @@ export async function getArchiveFilesApi(
   caseId: number,
   params: ArchiveApi.ArchiveListQueryParams = {},
 ) {
-  return requestClient8085.get<ArchiveApi.ArchiveListResponse>(
+  return requestClient8080.get<ArchiveApi.ArchiveListResponse>(
     `/archive/${caseId}/files`,
     { params },
   );
@@ -195,7 +195,7 @@ export async function getArchiveFilesApi(
  * GET /api/v1/archive/record/{recordId}
  */
 export async function getArchiveRecordApi(recordId: number) {
-  return requestClient8085.get<ArchiveApi.ArchiveDetailResponse>(
+  return requestClient8080.get<ArchiveApi.ArchiveDetailResponse>(
     `/archive/record/${recordId}`,
   );
 }
@@ -208,7 +208,7 @@ export async function updateArchiveRecordApi(
   recordId: number,
   data: ArchiveApi.UpdateArchiveRequest,
 ) {
-  return requestClient8085.put<ArchiveApi.UpdateArchiveResponse>(
+  return requestClient8080.put<ArchiveApi.UpdateArchiveResponse>(
     `/archive/record/${recordId}`,
     data,
   );
@@ -219,7 +219,7 @@ export async function updateArchiveRecordApi(
  * DELETE /api/v1/archive/record/{recordId}
  */
 export async function deleteArchiveRecordApi(recordId: number) {
-  return requestClient8085.delete<ArchiveApi.DeleteArchiveResponse>(
+  return requestClient8080.delete<ArchiveApi.DeleteArchiveResponse>(
     `/archive/record/${recordId}`,
   );
 }
@@ -229,7 +229,7 @@ export async function deleteArchiveRecordApi(recordId: number) {
  * DELETE /api/v1/archive/records/batch
  */
 export async function batchDeleteArchiveRecordsApi(recordIds: number[]) {
-  return requestClient8085.delete<ArchiveApi.DeleteArchiveResponse>(
+  return requestClient8080.delete<ArchiveApi.DeleteArchiveResponse>(
     '/archive/records/batch',
     {
       data: recordIds,
@@ -246,7 +246,7 @@ export async function getArchiveStatisticsApi(
   categoryCode?: string,
   status: string = 'ACTIVE',
 ) {
-  return requestClient8085.get<ArchiveApi.StatisticsResponse>(
+  return requestClient8080.get<ArchiveApi.StatisticsResponse>(
     `/archive/${caseId}/statistics`,
     {
       params: {
@@ -262,7 +262,7 @@ export async function getArchiveStatisticsApi(
  * GET /api/v1/archive/file/{fileId}/download
  */
 export async function downloadArchiveFileApi(fileId: number): Promise<Blob> {
-  return requestClient8085.get<Blob>(`/archive/file/${fileId}/download`, {
+  return requestClient8080.get<Blob>(`/archive/file/${fileId}/download`, {
     responseType: 'blob',
   });
 }
@@ -272,7 +272,7 @@ export async function downloadArchiveFileApi(fileId: number): Promise<Blob> {
  * GET /api/v1/archive/file/{fileId}/preview
  */
 export async function previewArchiveFileApi(fileId: number): Promise<Blob> {
-  return requestClient8085.get<Blob>(`/archive/file/${fileId}/preview`, {
+  return requestClient8080.get<Blob>(`/archive/file/${fileId}/preview`, {
     responseType: 'blob',
   });
 }

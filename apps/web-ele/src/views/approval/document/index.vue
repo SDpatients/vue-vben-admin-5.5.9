@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DocumentServiceApi } from '#/api/core/document-service';
 
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 import {
   ElButton,
@@ -32,7 +32,9 @@ import {
   previewFileApi,
   downloadFileByPathApi,
   previewFileByPathApi,
+  renameFileApi,
 } from '#/api/core/file';
+import { sanitizeHtml } from '#/utils/htmlSanitizer';
 
 interface DocumentAttachment {
   id: number | null;
@@ -81,6 +83,12 @@ const showFullContent = ref(false);
 const previewDialogVisible = ref(false);
 const previewingFile = ref<DocumentAttachment | null>(null);
 const previewTextContent = ref('');
+
+// 重命名相关
+const showRenameDialog = ref(false);
+const currentRenameFile = ref<DocumentAttachment | null>(null);
+const newFileName = ref('');
+const renameLoading = ref(false);
 
 // 格式化文件大小
 const formatFileSize = (size: number): string => {
@@ -184,6 +192,77 @@ const downloadFile = async (file: DocumentAttachment) => {
   } catch (error) {
     console.error('下载失败:', error);
     ElMessage.error('下载失败，请重试');
+  }
+};
+
+// 打开重命名对话框
+const handleRename = (attachment: DocumentAttachment) => {
+  currentRenameFile.value = attachment;
+  // 隐藏后缀名
+  const lastDotIndex = attachment.originalFileName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newFileName.value = attachment.originalFileName.substring(0, lastDotIndex);
+  } else {
+    newFileName.value = attachment.originalFileName;
+  }
+  showRenameDialog.value = true;
+};
+
+// 取消重命名
+const cancelRename = () => {
+  showRenameDialog.value = false;
+  currentRenameFile.value = null;
+  newFileName.value = '';
+};
+
+// 确认重命名
+const confirmRename = async () => {
+  if (!currentRenameFile.value || !newFileName.value.trim()) {
+    ElMessage.warning('请输入新文件名');
+    return;
+  }
+
+  try {
+    renameLoading.value = true;
+    // 保留原后缀
+    const originalName = currentRenameFile.value.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    if (currentRenameFile.value.id) {
+      const response = await renameFileApi(currentRenameFile.value.id, finalName);
+      if (response.code === 200) {
+        ElMessage.success('重命名成功');
+        // 更新本地数据
+        currentRenameFile.value.originalFileName = finalName;
+        // 如果当前有文档详情，刷新附件列表
+        if (currentDocument.value && currentDocument.value.attachments) {
+          const attach = currentDocument.value.attachments.find(
+            (a) => a.id === currentRenameFile.value?.id
+          );
+          if (attach) {
+            attach.originalFileName = finalName;
+          }
+        }
+      } else {
+        ElMessage.error(response.message || '重命名失败');
+      }
+    } else {
+      ElMessage.error('无效的文件ID');
+    }
+
+    showRenameDialog.value = false;
+    currentRenameFile.value = null;
+    newFileName.value = '';
+  } catch (error) {
+    console.error('重命名失败:', error);
+    ElMessage.error('重命名失败');
+  } finally {
+    renameLoading.value = false;
   }
 };
 
@@ -550,6 +629,22 @@ const handlePageChange = (page: number) => {
 onMounted(() => {
   loadDocuments();
 });
+
+// 组件卸载时清理所有 Blob URL（防止内存泄漏）
+onUnmounted(() => {
+  // 清理当前预览文件的 Blob URL
+  if (previewingFile.value?.previewUrl) {
+    window.URL.revokeObjectURL(previewingFile.value.previewUrl);
+  }
+  // 清理当前文档附件的 Blob URL
+  if (currentDocument.value?.attachments) {
+    currentDocument.value.attachments.forEach((attachment) => {
+      if (attachment.previewUrl) {
+        window.URL.revokeObjectURL(attachment.previewUrl);
+      }
+    });
+  }
+});
 </script>
 
 <template>
@@ -784,12 +879,12 @@ onMounted(() => {
               <div
                 v-if="!showFullContent"
                 class="content-preview"
-                v-html="currentDocument.deliveryContent"
+                v-html="sanitizeHtml(currentDocument?.deliveryContent)"
               ></div>
               <div v-else>
                 <div
                   class="content-full"
-                  v-html="currentDocument.deliveryContent"
+                  v-html="sanitizeHtml(currentDocument?.deliveryContent)"
                 ></div>
                 <ElButton
                   link
@@ -922,6 +1017,15 @@ onMounted(() => {
                     <i class="i-lucide-download mr-1"></i>
                     下载
                   </ElButton>
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    link
+                    @click="handleRename(attachment)"
+                  >
+                    <i class="i-lucide-edit-3 mr-1"></i>
+                    重命名
+                  </ElButton>
                 </div>
               </div>
             </div>
@@ -996,6 +1100,40 @@ onMounted(() => {
             <i class="i-lucide-download mr-1"></i>
             下载
           </ElButton>
+        </template>
+      </ElDialog>
+
+      <!-- 重命名对话框 -->
+      <ElDialog
+        v-model="showRenameDialog"
+        title="重命名文件"
+        width="400px"
+        destroy-on-close
+      >
+        <div class="rename-dialog-content">
+          <div class="form-item mb-4">
+            <label class="form-label block mb-2">当前文件名：</label>
+            <div class="current-file-name text-gray-600">{{ currentRenameFile?.originalFileName }}</div>
+          </div>
+          <div class="form-item">
+            <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
+            <ElInput
+              v-model="newFileName"
+              placeholder="请输入新文件名"
+              :disabled="renameLoading"
+              class="w-full"
+            />
+          </div>
+        </div>
+        <template #footer>
+          <span class="dialog-footer">
+            <ElButton @click="cancelRename" :loading="renameLoading">
+              取消
+            </ElButton>
+            <ElButton type="primary" @click="confirmRename" :loading="renameLoading">
+              确认重命名
+            </ElButton>
+          </span>
         </template>
       </ElDialog>
 
@@ -1354,6 +1492,25 @@ onMounted(() => {
 
 :deep(.el-form-item.approval-form-item) {
   margin-bottom: 0;
+}
+
+/* 重命名对话框样式 */
+.rename-dialog-content {
+  padding: 10px 0;
+}
+
+.form-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.current-file-name {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 14px;
+  word-break: break-all;
 }
 
 :deep(.el-table) {

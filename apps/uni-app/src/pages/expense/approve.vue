@@ -167,8 +167,7 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = expenseList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }

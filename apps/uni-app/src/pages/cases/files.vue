@@ -187,18 +187,28 @@
         <view class="modal-title">
           <text>重命名文件</text>
         </view>
-        <input
-          class="modal-input"
-          v-model="newFileName"
-          type="text"
-          placeholder="请输入新文件名"
-        />
+        <view class="rename-original-name">
+          <text class="rename-label">原文件名：</text>
+          <text class="rename-value">{{ renamingFile?.originalFileName || renamingFile?.fileName }}</text>
+        </view>
+        <view class="rename-input-wrapper">
+          <input
+            class="modal-input"
+            v-model="newFileName"
+            type="text"
+            placeholder="请输入新文件名"
+            focus
+          />
+          <text class="rename-extension" v-if="renamingFile && (renamingFile.originalFileName || renamingFile.fileName).lastIndexOf('.') > 0">
+            {{ (renamingFile.originalFileName || renamingFile.fileName).substring((renamingFile.originalFileName || renamingFile.fileName).lastIndexOf('.')) }}
+          </text>
+        </view>
         <view class="modal-btns">
           <view class="modal-btn cancel" @click="showRenameModal = false">
             <text>取消</text>
           </view>
-          <view class="modal-btn confirm" @click="confirmRename">
-            <text>确定</text>
+          <view class="modal-btn confirm" :class="{ disabled: renameLoading }" @click="confirmRename">
+            <text>{{ renameLoading ? '处理中...' : '确定' }}</text>
           </view>
         </view>
       </view>
@@ -236,6 +246,7 @@ const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
 const showRenameModal = ref(false)
 const newFileName = ref('')
 const renamingFile = ref<FileItem | null>(null)
+const renameLoading = ref(false)
 
 const showImagePreview = ref(false)
 const showPdfPreview = ref(false)
@@ -339,8 +350,7 @@ const loadFiles = async (isRefresh = false) => {
       preloadImages()
     }
   } catch (error) {
-    console.error('[loadFiles] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -359,8 +369,7 @@ const preloadImages = async () => {
         item._blobUrl = URL.createObjectURL(blob)
         item._loaded = true
       } catch (error) {
-        console.error('Failed to load image:', item.id)
-      }
+}
     }
   }
 }
@@ -372,12 +381,10 @@ const loadStatistics = async () => {
       statistics.value = res.data
     }
   } catch (error) {
-    console.error('[loadStatistics] Error:', error)
-  }
+}
 }
 
 const handleImageError = (item: FileItem) => {
-  console.error('Image load error:', item.id)
 }
 
 const getFileIcon = (extension?: string) => {
@@ -511,7 +518,13 @@ const handleActionRename = () => {
   showActionMenu.value = false
   if (currentActionFile.value) {
     renamingFile.value = currentActionFile.value
-    newFileName.value = currentActionFile.value.originalFileName || currentActionFile.value.fileName
+    const fullName = currentActionFile.value.originalFileName || currentActionFile.value.fileName || ''
+    const lastDotIndex = fullName.lastIndexOf('.')
+    if (lastDotIndex > 0) {
+      newFileName.value = fullName.substring(0, lastDotIndex)
+    } else {
+      newFileName.value = fullName
+    }
     showRenameModal.value = true
   }
 }
@@ -599,17 +612,34 @@ const confirmRename = async () => {
     return
   }
 
+  const fullName = renamingFile.value.originalFileName || renamingFile.value.fileName || ''
+  const lastDotIndex = fullName.lastIndexOf('.')
+  const extension = lastDotIndex > 0 ? fullName.substring(lastDotIndex) : ''
+  const finalFileName = newFileName.value.trim() + extension
+
+  if (finalFileName === fullName) {
+    showRenameModal.value = false
+    return
+  }
+
   try {
-    const result = await renameCaseFile(renamingFile.value.id, newFileName.value.trim())
+    renameLoading.value = true
+    const result = await renameCaseFile(renamingFile.value.id, finalFileName)
     if (result.code === 200) {
       uni.showToast({ title: '重命名成功', icon: 'success' })
       showRenameModal.value = false
-      loadFiles(true)
+      const idx = fileList.value.findIndex(f => f.id === renamingFile.value!.id)
+      if (idx !== -1) {
+        fileList.value[idx].originalFileName = finalFileName
+        fileList.value[idx].fileName = finalFileName
+      }
     } else {
       uni.showToast({ title: result.message || '重命名失败', icon: 'none' })
     }
   } catch (error) {
     uni.showToast({ title: '重命名失败', icon: 'none' })
+  } finally {
+    renameLoading.value = false
   }
 }
 
@@ -1200,13 +1230,44 @@ const uploadFiles = (filePaths: string[]) => {
     }
 
     .modal-input {
-      width: 100%;
+      flex: 1;
       height: 80rpx;
       background: #f5f5f5;
       border-radius: 12rpx;
       padding: 0 24rpx;
       font-size: 28rpx;
       box-sizing: border-box;
+    }
+
+    .rename-original-name {
+      margin-bottom: 20rpx;
+      padding: 16rpx 20rpx;
+      background: #f8f9fa;
+      border-radius: 8rpx;
+
+      .rename-label {
+        font-size: 24rpx;
+        color: #999;
+      }
+
+      .rename-value {
+        font-size: 24rpx;
+        color: #333;
+        word-break: break-all;
+      }
+    }
+
+    .rename-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+
+      .rename-extension {
+        font-size: 28rpx;
+        color: #999;
+        flex-shrink: 0;
+        padding-right: 8rpx;
+      }
     }
 
     .modal-btns {
@@ -1231,6 +1292,11 @@ const uploadFiles = (filePaths: string[]) => {
         &.confirm {
           background: #0068E2;
           color: #fff;
+
+          &.disabled {
+            background: #a0c4f1;
+            pointer-events: none;
+          }
         }
       }
     }

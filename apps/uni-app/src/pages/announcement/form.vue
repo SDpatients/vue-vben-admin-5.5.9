@@ -141,6 +141,7 @@ import {
   createAnnouncementWithFiles,
 } from '@/api/announcement'
 import { getCaseList } from '@/api/case'
+import { getBaseUrl } from '@/config'
 
 interface CaseOption {
   id: number
@@ -214,8 +215,7 @@ const loadCaseList = async () => {
       }
     }
   } catch (error) {
-    console.error('[loadCaseList] Error:', error)
-  }
+}
 }
 
 const handleSelectCase = (caseItem: CaseOption) => {
@@ -313,7 +313,7 @@ const uploadAnnouncementFiles = async (): Promise<boolean> => {
         uploadedFileIds.push(result.data.id)
       }
     } catch (error) {
-      console.error('[uploadAnnouncementFiles] 上传失败:', error)
+throw error
     }
   }
   
@@ -325,8 +325,8 @@ const uploadAnnouncementFiles = async (): Promise<boolean> => {
     title: form.value.title,
     content: form.value.content,
     announcementType: form.value.announcementType,
-    fileIds: uploadedFileIds,
-  })
+    attachments: uploadedFileIds.length > 0 ? JSON.stringify(uploadedFileIds) : undefined,
+  } as any)
   
   return res.code === 200
 }
@@ -341,6 +341,7 @@ const handleSubmit = async () => {
       const success = await uploadAnnouncementFiles()
       if (success) {
         uni.showToast({ title: '发布成功', icon: 'success' })
+        uni.$emit('refresh-announcement-list', caseId.value)
         setTimeout(() => {
           uni.navigateBack()
         }, 1500)
@@ -357,14 +358,14 @@ const handleSubmit = async () => {
       })
       if (res.code === 200) {
         uni.showToast({ title: '发布成功', icon: 'success' })
+        uni.$emit('refresh-announcement-list', caseId.value)
         setTimeout(() => {
           uni.navigateBack()
         }, 1500)
       }
     }
   } catch (error) {
-    console.error('[handleSubmit] Error:', error)
-    uni.showToast({ title: '发布失败', icon: 'none' })
+uni.showToast({ title: '发布失败', icon: 'none' })
   } finally {
     submitting.value = false
   }

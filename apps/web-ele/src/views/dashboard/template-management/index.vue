@@ -1,6 +1,27 @@
+<!-- TODO: 该页面已改为功能建设中展示，以下是原有完整代码，待后续功能恢复时启用 -->
+<template>
+  <Fallback
+    status="coming-soon"
+    title="功能建设中"
+    description="敬请期待"
+  />
+</template>
+
+<script lang="ts" setup>
+import { Fallback } from '@vben/common-ui';
+</script>
+
+<style scoped>
+/* 以下是原有页面样式，保留供后续恢复使用 */
+</style>
+
+<!-- 
+===========================================================================
+以下是原始模板管理页面完整代码，已注释保留，待功能恢复时启用
+===========================================================================
+
 <template>
   <div class="template-management">
-    <!-- 页面标题和操作栏 -->
     <div class="page-header">
       <div class="header-title">
         <h2>模板管理</h2>
@@ -8,11 +29,8 @@
       </div>
     </div>
 
-    <!-- 标签页导航 -->
     <ElTabs v-model="activeTab" class="template-tabs">
-      <!-- 模板管理标签页 -->
       <ElTabPane label="模板管理" name="template-management">
-        <!-- 统计卡片 -->
         <div class="stats-cards">
           <ElCard class="stat-card">
             <div class="stat-value">{{ stats.total }}</div>
@@ -32,7 +50,6 @@
           </ElCard>
         </div>
 
-        <!-- 模板列表 -->
         <ElCard class="template-list-card">
           <template #header>
             <div class="card-header">
@@ -139,9 +156,7 @@
         </ElCard>
       </ElTabPane>
 
-      <!-- 表单设计标签页 -->
       <ElTabPane label="表单设计" name="form-design">
-        <!-- 表单设计器卡片 -->
         <ElCard class="form-designer-card">
           <template #header>
             <div class="card-header">
@@ -185,9 +200,7 @@
         </ElCard>
       </ElTabPane>
 
-      <!-- 模板制作标签页 -->
       <ElTabPane label="模板制作" name="template-maker">
-        <!-- 模板制作卡片 -->
         <ElCard class="template-maker-card">
           <template #header>
             <div class="card-header">
@@ -220,7 +233,6 @@
               <p>选择一个现有模板进行编辑，或创建一个新的模板</p>
             </div>
             <div v-else class="template-editor">
-              <!-- 模板基本信息 -->
               <ElForm :model="templateMakerForm" label-width="120px" class="template-info-form">
                 <ElRow :gutter="20">
                   <ElCol :span="12">
@@ -241,7 +253,6 @@
                 </ElRow>
               </ElForm>
               
-              <!-- 模板内容编辑 -->
               <div class="template-content-editor">
                 <h4>模板内容编辑</h4>
                 <div class="editor-toolbar">
@@ -270,7 +281,6 @@
                 </div>
               </div>
               
-              <!-- 字段管理 -->
               <div class="template-fields">
                 <h4>字段管理</h4>
                 <ElButton type="primary" size="small" @click="addField">
@@ -290,7 +300,6 @@
                 </ElTable>
               </div>
               
-              <!-- 保存按钮 -->
               <div class="template-actions" style="margin-top: 20px">
                 <ElButton type="primary" @click="saveTemplateMaker">保存模板</ElButton>
                 <ElButton @click="resetTemplateMaker">重置</ElButton>
@@ -300,9 +309,7 @@
         </ElCard>
       </ElTabPane>
 
-      <!-- 数据导入导出标签页 -->
       <ElTabPane label="数据导入导出" name="data-import-export">
-        <!-- 功能操作区域 -->
         <ElCard class="operation-card">
           <template #header>
             <div class="card-header">
@@ -453,9 +460,7 @@
         </ElCard>
       </ElTabPane>
 
-      <!-- 系统字段管理标签页 -->
       <ElTabPane label="系统字段管理" name="system-fields">
-        <!-- 系统字段管理卡片 -->
         <ElCard style="margin-top: 20px">
           <template #header>
             <div class="card-header">
@@ -508,7 +513,6 @@
             </ElTableColumn>
           </ElTable>
 
-          <!-- 分页组件 -->
           <div class="pagination-container">
             <ElPagination
               v-model:current-page="currentPage"
@@ -524,7 +528,6 @@
       </ElTabPane>
     </ElTabs>
 
-    <!-- 创建/编辑模板对话框 -->
     <ElDialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -580,7 +583,6 @@
           <ElSwitch v-model="templateForm.isDefault" />
         </ElFormItem>
         
-        <!-- Excel模板字段映射 -->
         <ElFormItem label="字段映射" v-if="templateForm.templateType === 'EXCEL'">
           <div class="mapping-section">
             <div class="mapping-description">
@@ -589,12 +591,12 @@
                   <strong>字段映射说明</strong>
                 </template>
                 <div class="mapping-help">
-                  <p>字段映射用于建立<strong>Excel表头</strong>与<strong>系统字段</strong>之间的对应关系。</p>
-                  <p><strong>便捷操作：</strong>选择系统字段后，Excel表头会自动填充为对应的中文名称，您可以根据实际Excel文件进行修改。</p>
+                  <p>字段映射用于建立Excel表头与系统字段之间的对应关系。</p>
+                  <p>便捷操作：选择系统字段后，Excel表头会自动填充为对应的中文名称，您可以根据实际Excel文件进行修改。</p>
                   <p>配置步骤：</p>
                   <ol>
                     <li>在右侧选择对应的系统字段（如"creditorName"、"contactPhone"等）</li>
-                    <li>左侧会自动填充对应的中文名称（如"债权人名称"、"联系电话"）</li>
+                    <li>左侧会自动填充对应的中文名称（如"债权人名称"、"联系电话"等）</li>
                     <li>根据实际Excel文件的表头名称进行调整</li>
                     <li>可以添加多组映射关系，系统会自动匹配Excel中的数据</li>
                   </ol>
@@ -658,7 +660,6 @@
       </template>
     </ElDialog>
 
-    <!-- 表单设计器对话框 -->
     <ElDialog
       v-model="designerVisible"
       title="模板表单设计器"
@@ -688,7 +689,6 @@
       </template>
     </ElDialog>
 
-    <!-- 导出对话框 -->
     <ElDialog
       v-model="exportVisible"
       title="导出文档"
@@ -715,7 +715,6 @@
           </ElRadioGroup>
         </ElFormItem>
         
-        <!-- 动态字段输入区域 -->
         <ElFormItem label="导出数据">
           <div v-if="templateFields.length > 0" class="dynamic-fields">
             <div v-for="field in templateFields" :key="field.key" class="field-item">
@@ -725,7 +724,6 @@
                 <ElTag size="small" type="info" style="margin-left: 8px">{{ getFieldTypeLabel(field.fieldType) }}</ElTag>
               </div>
               
-              <!-- 文本类型 -->
               <ElInput 
                 v-if="field.fieldType === 'TEXT'"
                 v-model="fieldValues[field.key]" 
@@ -734,7 +732,6 @@
                 style="flex: 1"
               />
               
-              <!-- 数字类型 -->
               <ElInputNumber
                 v-else-if="field.fieldType === 'NUMBER'"
                 v-model="fieldValues[field.key]"
@@ -743,7 +740,6 @@
                 controls-position="right"
               />
               
-              <!-- 日期类型 -->
               <ElDatePicker
                 v-else-if="field.fieldType === 'DATE'"
                 v-model="fieldValues[field.key]"
@@ -753,7 +749,6 @@
                 value-format="YYYY-MM-DD"
               />
               
-              <!-- 列表/下拉类型 -->
               <ElSelect
                 v-else-if="field.fieldType === 'LIST'"
                 v-model="fieldValues[field.key]"
@@ -770,7 +765,6 @@
                 />
               </ElSelect>
               
-              <!-- 图片类型 -->
               <div v-else-if="field.fieldType === 'IMAGE'" class="image-upload-field">
                 <ElInput 
                   v-model="fieldValues[field.key]" 
@@ -789,7 +783,6 @@
                 </div>
               </div>
               
-              <!-- 表格类型 -->
               <ElInput
                 v-else-if="field.fieldType === 'TABLE'"
                 v-model="fieldValues[field.key]"
@@ -799,7 +792,6 @@
                 style="flex: 1"
               />
               
-              <!-- 默认文本 -->
               <ElInput 
                 v-else
                 v-model="fieldValues[field.key]" 
@@ -823,7 +815,6 @@
       </template>
     </ElDialog>
 
-    <!-- 上传文件对话框 -->
     <ElDialog
       v-model="uploadVisible"
       title="上传模板文件"
@@ -886,7 +877,6 @@
       </template>
     </ElDialog>
 
-    <!-- 配置模板对话框 -->
     <ElDialog
       v-model="configTemplateDialogVisible"
       title="选择页面配置模板"
@@ -917,7 +907,6 @@
       </template>
     </ElDialog>
 
-    <!-- 导入结果对话框 -->
     <ElDialog v-model="importResultVisible" title="导入结果" width="600px">
       <div v-if="importResult" class="import-result">
         <ElResult
@@ -942,7 +931,6 @@
       </div>
     </ElDialog>
 
-    <!-- 创建/编辑系统字段对话框 -->
     <ElDialog v-model="fieldDialogVisible" :title="fieldDialogTitle" width="800px">
       <ElForm :model="fieldForm" :rules="fieldFormRules" label-width="120px">
         <ElFormItem label="分组名称" prop="groupName">
@@ -966,7 +954,7 @@
           <ElInput v-model="fieldForm.value" placeholder="请输入字段的英文标识" />
           <div class="form-tip">
             字段的唯一标识符，使用驼峰命名法（如 contactPhone）<br>
-            <strong>注意：</strong>创建后不可修改，同一分组下应保持唯一
+            注意：创建后不可修改，同一分组下应保持唯一
           </div>
         </ElFormItem>
 
@@ -987,7 +975,6 @@
       </template>
     </ElDialog>
 
-    <!-- 预览对话框 -->
     <ElDialog
       v-model="previewVisible"
       title="文档模板预览"
@@ -1034,7 +1021,6 @@
       </template>
     </ElDialog>
 
-    <!-- 字段编辑对话框 -->
     <ElDialog
       v-model="templateFieldDialogVisible"
       title="编辑字段"
@@ -1065,7 +1051,6 @@
       </template>
     </ElDialog>
 
-    <!-- 占位符插入对话框 -->
     <ElDialog
       v-model="placeholderDialogVisible"
       title="插入占位符"
@@ -1157,43 +1142,28 @@ import {
 import { excelTemplatesApi } from '#/api/core/excel-templates';
 import * as mammoth from 'mammoth';
 
-// 激活的标签页
 const activeTab = ref('template-management');
-
-// 加载状态
 const loading = ref(false);
 const saving = ref(false);
 const exporting = ref(false);
 const uploading = ref(false);
 const importLoading = ref(false);
 const historyLoading = ref(false);
-
-// 数据列表
 const templates = ref<DocumentTemplate[]>([]);
 const exportHistory = ref<ExportHistory[]>([]);
-
-// 筛选条件
 const filterType = ref<TemplateType | ''>('');
-
-// 统计
 const stats = computed(() => ({
   total: templates.value.length,
   word: templates.value.filter(t => t.templateType === 'WORD').length,
   excel: templates.value.filter(t => t.templateType === 'EXCEL').length,
   default: templates.value.filter(t => t.isDefault).length,
 }));
-
-// 过滤后的模板列表
 const filteredTemplates = computed(() => {
   if (!filterType.value) return templates.value;
   return templates.value.filter(t => t.templateType === filterType.value);
 });
-
-// 当前操作的模板
 const currentTemplate = ref<DocumentTemplate | null>(null);
 const selectedTemplateForDesign = ref<DocumentTemplate | null>(null);
-
-// 对话框显示状态
 const dialogVisible = ref(false);
 const designerVisible = ref(false);
 const exportVisible = ref(false);
@@ -1202,17 +1172,11 @@ const historyVisible = ref(false);
 const configTemplateDialogVisible = ref(false);
 const importResultVisible = ref(false);
 const fieldDialogVisible = ref(false);
-
-// 对话框标题
 const dialogTitle = ref('新建模板');
 const fieldDialogTitle = ref('新建系统字段');
-
-// 表单引用
 const formRef = ref<FormInstance>();
 const designerRef = ref<InstanceType<typeof DocumentFormDesigner> | null>(null);
 const uploadRef = ref<UploadInstance>();
-
-// 表单数据
 const templateForm = ref({
   id: undefined as number | undefined,
   templateName: '',
@@ -1223,17 +1187,11 @@ const templateForm = ref({
   isDefault: false,
   mappings: [] as { excelHeader: string; targetField: string }[],
 });
-
-// 导出表单
 const exportForm = ref({
   fileName: '',
   dataJson: '',
 });
-
-// 导出格式（Word或PDF）
 const exportFormat = ref<'word' | 'pdf'>('word');
-
-// 模板字段列表（从后端获取）
 const templateFields = ref<Array<{
   key: string;
   label: string;
@@ -1242,19 +1200,13 @@ const templateFields = ref<Array<{
   formatPattern?: string;
   imageType?: string;
 }>>([]);
-
-// 字段值映射（用户填写的值）
 const fieldValues = ref<Record<string, any>>({});
-
-// 预览相关状态
 const previewVisible = ref(false);
 const previewLoading = ref(false);
 const previewError = ref('');
 const previewUrl = ref('');
 const previewMode = ref<'word' | 'pdf'>('pdf');
 const previewBlob = ref<Blob | null>(null);
-
-// 模板制作相关状态
 const selectedTemplateForMaker = ref<DocumentTemplate | null>(null);
 const currentTemplateForMaker = ref<DocumentTemplate | null>(null);
 const templateMakerForm = ref({
@@ -1264,8 +1216,6 @@ const templateMakerForm = ref({
   content: '',
   fields: [],
 });
-
-// 富文本编辑器相关
 const editor = ref(null);
 const toolbarConfig = ref({
   excludeKeys: [
@@ -1276,16 +1226,12 @@ const toolbarConfig = ref({
 const editorConfig = ref({
   placeholder: '请输入模板内容，可插入 {{fieldName}} 格式的占位符',
 });
-
 const onEditorCreated = (editorInstance) => {
   editor.value = editorInstance;
 };
-
 const onEditorChange = (editorInstance) => {
   templateMakerForm.value.content = editorInstance.getHtml();
 };
-
-// 模板制作字段编辑对话框
 const templateFieldDialogVisible = ref(false);
 const currentTemplateField = ref<{
   fieldName: string;
@@ -1299,15 +1245,9 @@ const templateFieldForm = ref({
   fieldType: 'TEXT',
   formatPattern: '',
 });
-
-// 占位符插入对话框
 const placeholderDialogVisible = ref(false);
 const selectedPlaceholderField = ref('');
-
-// 上传文件
 const selectedFile = ref<File | null>(null);
-
-// 配置模板对话框
 const configTemplates = ref([
   {
     name: '标准A4文档',
@@ -1395,8 +1335,6 @@ const configTemplates = ref([
     }
   }
 ]);
-
-// 表单验证规则
 const formRules = {
   templateName: [
     { required: true, message: '请输入模板名称', trigger: 'blur' },
@@ -1411,8 +1349,6 @@ const formRules = {
     { required: true, message: '请选择模板类型', trigger: 'change' },
   ],
 };
-
-// 导入导出相关
 const selectedTemplateForDownload = ref('');
 const selectedTemplateForImport = ref('');
 const selectedTemplateForExport = ref('');
@@ -1433,8 +1369,6 @@ const importResult = ref<{
   templateCode: string;
   caseId?: number;
 } | null>(null);
-
-// 系统字段分组（从后端获取）
 const systemFieldGroups = ref<Array<{
   group: string;
   fields: Array<{
@@ -1444,16 +1378,10 @@ const systemFieldGroups = ref<Array<{
     description?: string;
   }>;
 }>>([]);
-
-// 字段名称映射表：系统字段值 -> 中文显示名称（动态生成）
 const fieldNameMapping = ref<Record<string, string>>({});
-
-// 搜索加载状态 - 使用普通对象避免 Vue 响应式问题
 const fieldSearchLoadingState = {
   value: [] as boolean[]
 };
-
-// 过滤后的字段分组（用于字段选择器）
 const fieldSelectorFieldGroupsState = {
   value: [] as Array<Array<{
     group: string;
@@ -1465,12 +1393,8 @@ const fieldSelectorFieldGroupsState = {
     }>;
   }>>
 };
-
-// 计算属性用于模板访问
 const fieldSearchLoadingValue = computed(() => Array.isArray(fieldSearchLoadingState.value) ? fieldSearchLoadingState.value : []);
 const fieldSelectorFieldGroupsValue = computed(() => Array.isArray(fieldSelectorFieldGroupsState.value) ? fieldSelectorFieldGroupsState.value : []);
-
-// 系统字段管理相关状态
 const systemFieldsList = ref<Array<{
   id: number;
   groupName: string;
@@ -1479,8 +1403,6 @@ const systemFieldsList = ref<Array<{
   sortOrder: number;
   description?: string;
 }>>([]);
-
-// 字段表单数据
 const fieldForm = ref({
   id: undefined as number | undefined,
   groupName: '',
@@ -1489,8 +1411,6 @@ const fieldForm = ref({
   sortOrder: 1,
   description: ''
 });
-
-// 字段表单验证规则
 const fieldFormRules = {
   groupName: [
     { required: true, message: '请选择分组名称', trigger: 'blur' }
@@ -1507,11 +1427,7 @@ const fieldFormRules = {
     { type: 'number', message: '排序值必须是数字', trigger: 'blur' }
   ]
 };
-
-// 字段分组列表
 const fieldGroups = ref<string[]>(['基本信息', '债权信息', '联系人信息', '银行信息', '其他信息']);
-
-// 搜索相关状态
 const fieldSearchQuery = ref('');
 const selectedGroup = ref('');
 const filteredSystemFields = ref<Array<{
@@ -1522,8 +1438,6 @@ const filteredSystemFields = ref<Array<{
   sortOrder: number;
   description?: string;
 }>>([]);
-
-// 分页相关状态
 const currentPage = ref(1);
 const pageSize = ref(10);
 const pagedSystemFields = ref<Array<{
@@ -1534,11 +1448,7 @@ const pagedSystemFields = ref<Array<{
   sortOrder: number;
   description?: string;
 }>>([]);
-
-// 可用的分组列表
 const availableGroups = ref<string[]>([]);
-
-// 加载模板列表
 const loadTemplates = async () => {
   loading.value = true;
   try {
@@ -1552,13 +1462,7 @@ const loadTemplates = async () => {
     loading.value = false;
   }
 };
-
-// 筛选变化
-const handleFilterChange = () => {
-  // 筛选已在计算属性中处理
-};
-
-// 显示创建对话框
+const handleFilterChange = () => {};
 const showCreateDialog = () => {
   dialogTitle.value = '新建模板';
   templateForm.value = {
@@ -1573,8 +1477,6 @@ const showCreateDialog = () => {
   };
   dialogVisible.value = true;
 };
-
-// 显示编辑对话框
 const showEditDialog = async (template: DocumentTemplate) => {
   dialogTitle.value = '编辑模板';
   templateForm.value = {
@@ -1587,14 +1489,11 @@ const showEditDialog = async (template: DocumentTemplate) => {
     isDefault: template.isDefault,
     mappings: [],
   };
-
-  // 如果是 Excel 模板，调用详情接口获取已有的映射字段
   if (template.templateType === 'EXCEL') {
     try {
       const response = await documentTemplatesApi.getTemplateDetail(template.id);
       if (response.code === 200 && response.data) {
         const templateDetail = response.data;
-        // 填充映射字段
         if (templateDetail.mappings && Array.isArray(templateDetail.mappings)) {
           templateForm.value.mappings = templateDetail.mappings;
         }
@@ -1603,28 +1502,20 @@ const showEditDialog = async (template: DocumentTemplate) => {
       console.error('获取模板详情失败:', error);
     }
   }
-
   dialogVisible.value = true;
 };
-
-// 显示配置模板对话框
 const showConfigTemplateDialog = () => {
   configTemplateDialogVisible.value = true;
 };
-
-// 选择配置模板
 const selectConfigTemplate = (template: any) => {
   templateForm.value.configJson = JSON.stringify(template.config, null, 2);
   configTemplateDialogVisible.value = false;
   ElMessage.success(`已选择模板: ${template.name}`);
 };
-
-// 保存模板
 const saveTemplate = async () => {
   if (!formRef.value) return;
   await formRef.value.validate(async (valid) => {
     if (!valid) return;
-
     saving.value = true;
     try {
       let response;
@@ -1637,7 +1528,6 @@ const saveTemplate = async () => {
         isDefault: templateForm.value.isDefault,
         mappings: templateForm.value.mappings || [],
       };
-
       if (templateForm.value.id) {
         response = await documentTemplatesApi.updateTemplate(templateForm.value.id, {
           ...data,
@@ -1646,7 +1536,6 @@ const saveTemplate = async () => {
       } else {
         response = await documentTemplatesApi.createTemplate(data);
       }
-
       if (response.code === 200) {
         ElMessage.success(templateForm.value.id ? '更新成功' : '创建成功');
         dialogVisible.value = false;
@@ -1661,12 +1550,9 @@ const saveTemplate = async () => {
     }
   });
 };
-
-// 显示设计器对话框
 const showDesignDialog = async (template: DocumentTemplate) => {
   currentTemplate.value = template;
   designerVisible.value = true;
-
   try {
     const response = await documentTemplatesApi.getTemplateDetail(template.id);
     if (response.code === 200 && designerRef.value) {
@@ -1680,8 +1566,6 @@ const showDesignDialog = async (template: DocumentTemplate) => {
     console.error('加载模板详情失败:', error);
   }
 };
-
-// 获取字段类型标签
 const getFieldTypeLabel = (fieldType: string) => {
   const typeMap: Record<string, string> = {
     TEXT: '文本',
@@ -1693,8 +1577,6 @@ const getFieldTypeLabel = (fieldType: string) => {
   };
   return typeMap[fieldType] || '文本';
 };
-
-// 获取列表选项
 const getListOptions = (formatPattern?: string) => {
   if (!formatPattern) return [];
   try {
@@ -1704,26 +1586,21 @@ const getListOptions = (formatPattern?: string) => {
     return [];
   }
 };
-
-// 处理字段图片上传
 const handleFieldImageUpload = async (fieldKey: string, file: File, imageType?: string) => {
   if (!currentTemplate.value) {
     ElMessage.error('请先选择模板');
     return false;
   }
-
   try {
     const finalImageType = imageType || 
                            fieldKey.includes('签名') ? 'signature' : 
                            fieldKey.includes('印章') ? 'seal' : 
                            fieldKey.includes('盖章') ? 'seal' : 'image';
-    
     const response = await documentTemplatesApi.uploadTemplateImage(
       currentTemplate.value.id,
       file,
       finalImageType
     );
-    
     if (response.code === 200 && response.data) {
       fieldValues.value[fieldKey] = response.data.filePath;
       ElMessage.success('图片上传成功');
@@ -1736,8 +1613,6 @@ const handleFieldImageUpload = async (fieldKey: string, file: File, imageType?: 
   }
   return false;
 };
-
-// 显示表单设计器对话框
 const showFormDesignerDialog = () => {
   if (!selectedTemplateForDesign.value) {
     ElMessage.warning('请先选择要设计的模板');
@@ -1745,11 +1620,8 @@ const showFormDesignerDialog = () => {
   }
   showDesignDialog(selectedTemplateForDesign.value);
 };
-
-// 保存设计器配置
 const saveDesignerConfig = async () => {
   if (!designerRef.value || !currentTemplate.value) return;
-
   saving.value = true;
   try {
     const fields = designerRef.value.getTemplateFields();
@@ -1757,7 +1629,6 @@ const saveDesignerConfig = async () => {
       id: currentTemplate.value.id,
       fields,
     });
-
     if (response.code === 200) {
       ElMessage.success('字段配置保存成功');
       designerVisible.value = false;
@@ -1771,22 +1642,18 @@ const saveDesignerConfig = async () => {
     saving.value = false;
   }
 };
-
-// 显示导出对话框
 const showExportDialog = async (template: DocumentTemplate) => {
   currentTemplate.value = template;
   exportForm.value = {
     fileName: template.templateName,
     dataJson: '',
   };
-  
   try {
     const response = await documentTemplatesApi.getTemplateDetail(template.id);
     if (response.code === 200) {
       const templateDetail = response.data;
       currentTemplate.value = templateDetail;
       const fields = templateDetail.fields || [];
-      
       templateFields.value = fields.map((field: any) => ({
         key: field.fieldName,
         label: field.fieldLabel || field.fieldName,
@@ -1797,7 +1664,6 @@ const showExportDialog = async (template: DocumentTemplate) => {
                    field.fieldName.includes('印章') ? 'seal' : 
                    field.fieldName.includes('盖章') ? 'seal' : 'image'
       }));
-      
       fieldValues.value = {};
       fields.forEach((field: any) => {
         fieldValues.value[field.fieldName] = field.defaultValue || '';
@@ -1808,11 +1674,8 @@ const showExportDialog = async (template: DocumentTemplate) => {
     templateFields.value = [];
     fieldValues.value = {};
   }
-  
   exportVisible.value = true;
 };
-
-// 显示预览对话框
 const showPreviewDialog = async (template: DocumentTemplate) => {
   currentTemplate.value = template;
   previewVisible.value = true;
@@ -1821,19 +1684,14 @@ const showPreviewDialog = async (template: DocumentTemplate) => {
   previewUrl.value = '';
   previewBlob.value = null;
   previewMode.value = 'pdf';
-  
   await loadPreviewContent();
 };
-
 const loadPreviewContent = async () => {
   if (!currentTemplate.value) return;
-  
   previewLoading.value = true;
   previewError.value = '';
-  
   try {
     let blob: Blob;
-    
     if (previewMode.value === 'pdf') {
       console.log('开始PDF预览，模板ID:', currentTemplate.value.id);
       blob = await documentTemplatesApi.previewPdf(currentTemplate.value.id);
@@ -1841,14 +1699,11 @@ const loadPreviewContent = async () => {
       console.log('开始Word预览，模板ID:', currentTemplate.value.id);
       blob = await documentTemplatesApi.previewTemplate(currentTemplate.value.id);
     }
-    
     console.log('预览接口返回Blob数据:', blob);
     console.log('Blob类型:', blob.type);
     console.log('Blob大小:', blob.size);
-    
     if (blob && blob.size > 0) {
       previewBlob.value = blob;
-      
       if (previewMode.value === 'pdf') {
         previewUrl.value = URL.createObjectURL(blob);
       } else {
@@ -1859,28 +1714,11 @@ const loadPreviewContent = async () => {
 <head>
 <meta charset="UTF-8">
 <title>Word文档预览</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-h1 { color: #333; }
-.info { background: #f5f5f5; padding: 15px; margin: 20px 0; }
-.options { text-align: center; margin: 20px 0; }
-.link { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; margin: 0 10px; border-radius: 5px; }
-</style>
 </head>
 <body>
 <h1>Word文档预览</h1>
-<div class="info">
-<h2>${currentTemplate.value.templateName}</h2>
 <p>模板编码: ${currentTemplate.value.templateCode}</p>
-<p>文档类型: Word文档</p>
-<p>文件大小: ${blob.size} bytes</p>
-</div>
-<div class="options">
-<h3>预览选项</h3>
-<p>请选择以下方式查看文档：</p>
-<a href="${wordBlobUrl}" class="link" target="_blank">下载Word文档</a>
-<a href="${wordBlobUrl}" class="link" target="_blank">在新标签页中打开</a>
-</div>
+<a href="${wordBlobUrl}" target="_blank">下载Word文档</a>
 </body>
 </html>
         `;
@@ -1897,10 +1735,8 @@ h1 { color: #333; }
     previewLoading.value = false;
   }
 };
-
 const downloadPreviewFile = () => {
   if (!previewBlob.value || !currentTemplate.value) return;
-  
   const link = document.createElement('a');
   link.href = URL.createObjectURL(previewBlob.value);
   const ext = previewMode.value === 'pdf' ? 'pdf' : 'docx';
@@ -1908,22 +1744,18 @@ const downloadPreviewFile = () => {
   link.click();
   URL.revokeObjectURL(link.href);
 };
-
-// 监听模板选择变化
 const loadTemplateForMaker = async () => {
   if (!selectedTemplateForMaker.value) {
     currentTemplateForMaker.value = null;
     resetTemplateMaker();
     return;
   }
-  
   try {
     const response = await documentTemplatesApi.getTemplateDetail(selectedTemplateForMaker.value.id);
     if (response.code === 200) {
       const templateDetail = response.data;
       currentTemplateForMaker.value = templateDetail;
       const fields = templateDetail.fields || [];
-      
       templateMakerForm.value = {
         templateName: templateDetail.templateName,
         templateCode: templateDetail.templateCode,
@@ -1942,8 +1774,6 @@ const loadTemplateForMaker = async () => {
     ElMessage.error('加载模板详情失败');
   }
 };
-
-// 创建新模板
 const createNewTemplate = () => {
   selectedTemplateForMaker.value = null;
   currentTemplateForMaker.value = {
@@ -1964,11 +1794,7 @@ const createNewTemplate = () => {
     content: '',
     fields: [],
   };
-  console.log('新建模板按钮被点击，currentTemplateForMaker:', currentTemplateForMaker.value);
-  console.log('模板编辑器显示条件:', !!currentTemplateForMaker.value);
 };
-
-// 添加字段
 const addField = () => {
   templateFieldForm.value = {
     fieldName: 'field_' + Date.now(),
@@ -1979,8 +1805,6 @@ const addField = () => {
   currentTemplateField.value = null;
   templateFieldDialogVisible.value = true;
 };
-
-// 编辑字段
 const editField = (field: any) => {
   templateFieldForm.value = {
     fieldName: field.fieldName,
@@ -1991,22 +1815,16 @@ const editField = (field: any) => {
   currentTemplateField.value = field;
   templateFieldDialogVisible.value = true;
 };
-
-// 删除字段
 const removeField = (index: number) => {
   templateMakerForm.value.fields.splice(index, 1);
   ElMessage.success('字段删除成功');
 };
-
-// 保存字段
 const saveTemplateField = () => {
   if (!templateFieldForm.value.fieldName || !templateFieldForm.value.fieldLabel) {
     ElMessage.warning('请填写字段名称和标签');
     return;
   }
-  
   if (currentTemplateField.value) {
-    // 编辑现有字段
     const index = templateMakerForm.value.fields.findIndex(f => f.fieldName === currentTemplateField.value.fieldName);
     if (index !== -1) {
       templateMakerForm.value.fields[index] = {
@@ -2017,7 +1835,6 @@ const saveTemplateField = () => {
       };
     }
   } else {
-    // 添加新字段
     templateMakerForm.value.fields.push({
       fieldName: templateFieldForm.value.fieldName,
       fieldLabel: templateFieldForm.value.fieldLabel,
@@ -2025,12 +1842,9 @@ const saveTemplateField = () => {
       formatPattern: templateFieldForm.value.formatPattern,
     });
   }
-  
   templateFieldDialogVisible.value = false;
   ElMessage.success('字段保存成功');
 };
-
-// 插入占位符
 const insertPlaceholder = () => {
   if (templateMakerForm.value.fields.length === 0) {
     ElMessage.warning('请先添加字段');
@@ -2038,31 +1852,22 @@ const insertPlaceholder = () => {
   }
   placeholderDialogVisible.value = true;
 };
-
-// 确认插入占位符
 const confirmInsertPlaceholder = () => {
   if (!selectedPlaceholderField.value) {
     ElMessage.warning('请选择字段');
     return;
   }
-  
   const placeholder = `{{${selectedPlaceholderField.value}}}`;
   templateMakerForm.value.content += placeholder;
   placeholderDialogVisible.value = false;
   ElMessage.success('占位符插入成功');
 };
-
-// 预览模板内容
 const previewTemplateContent = () => {
   if (!templateMakerForm.value.content) {
     ElMessage.warning('模板内容为空');
     return;
   }
-  
-  // 简单的预览实现
   let previewContent = templateMakerForm.value.content;
-  
-  // 替换占位符为示例值
   templateMakerForm.value.fields.forEach(field => {
     let exampleValue = '';
     switch (field.fieldType) {
@@ -2080,37 +1885,28 @@ const previewTemplateContent = () => {
     }
     previewContent = previewContent.replace(new RegExp(`{{${field.fieldName}}}`, 'g'), exampleValue);
   });
-  
-  // 显示预览
   const previewWindow = window.open('', '_blank');
   if (previewWindow) {
+    const sanitizedContent = sanitizeHtml(previewContent);
     previewWindow.document.write(`
       <html>
         <head>
           <title>模板预览</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #333; }
-            p { line-height: 1.6; }
-          </style>
         </head>
         <body>
           <h1>模板预览</h1>
-          <div>${previewContent}</div>
+          <div>${sanitizedContent}</div>
         </body>
       </html>
     `);
     previewWindow.document.close();
   }
 };
-
-// 保存模板
 const saveTemplateMaker = async () => {
   if (!templateMakerForm.value.templateName || !templateMakerForm.value.templateCode) {
     ElMessage.warning('请填写模板名称和编码');
     return;
   }
-  
   const templateConfig = {
     templateName: templateMakerForm.value.templateName,
     templateCode: templateMakerForm.value.templateCode,
@@ -2119,7 +1915,6 @@ const saveTemplateMaker = async () => {
     content: templateMakerForm.value.content,
     fields: templateMakerForm.value.fields,
   };
-  
   try {
     const data = {
       templateName: templateConfig.templateName,
@@ -2137,19 +1932,15 @@ const saveTemplateMaker = async () => {
         formatPattern: field.formatPattern,
       })),
     };
-    
     let response;
     if (currentTemplateForMaker.value) {
-      // 更新现有模板
       response = await documentTemplatesApi.updateTemplate(currentTemplateForMaker.value.id, {
         id: currentTemplateForMaker.value.id,
         ...data,
       });
     } else {
-      // 创建新模板
       response = await documentTemplatesApi.createTemplate(data);
     }
-    
     if (response.code === 200) {
       ElMessage.success(currentTemplateForMaker.value ? '模板更新成功' : '模板创建成功');
       await loadTemplates();
@@ -2161,8 +1952,6 @@ const saveTemplateMaker = async () => {
     ElMessage.error('保存模板失败');
   }
 };
-
-// 重置模板
 const resetTemplateMaker = () => {
   templateMakerForm.value = {
     templateName: '',
@@ -2172,21 +1961,16 @@ const resetTemplateMaker = () => {
     fields: [],
   };
 };
-
-// 处理模板导出
 const handleTemplateExport = async () => {
   if (!currentTemplate.value) return;
-
   exporting.value = true;
   try {
     const requestData = {
       fileName: exportForm.value.fileName,
       data: fieldValues.value,
     };
-
     let response;
     let fileExt = 'docx';
-    
     if (currentTemplate.value.templateType === 'WORD') {
       if (exportFormat.value === 'pdf') {
         response = await documentTemplatesApi.exportPdf(currentTemplate.value.id, requestData);
@@ -2199,38 +1983,20 @@ const handleTemplateExport = async () => {
       response = await documentTemplatesApi.exportExcel(currentTemplate.value.id, requestData);
       fileExt = 'xlsx';
     }
-
     let blob;
-    
-    console.log('导出响应数据:', response);
-    console.log('响应类型:', typeof response);
-    console.log('响应是否为Blob:', response instanceof Blob);
-    console.log('响应是否包含data字段:', response && 'data' in response);
-    console.log('data字段是否为Blob:', response && response.data instanceof Blob);
-    
     if (response && response.data instanceof Blob) {
       blob = response.data;
-      console.log('使用response.data作为Blob对象');
-      console.log('Blob对象大小:', blob.size);
-      console.log('Blob对象类型:', blob.type);
     } else if (response instanceof Blob) {
       blob = response;
-      console.log('使用响应本身作为Blob对象');
-      console.log('Blob对象大小:', blob.size);
-      console.log('Blob对象类型:', blob.type);
     } else {
-      console.error('无法获取有效的Blob对象');
-      console.error('响应数据:', response);
       ElMessage.error('导出失败：无法获取有效的文件数据');
       return;
     }
-    
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${exportForm.value.fileName}.${fileExt}`;
     link.click();
     URL.revokeObjectURL(link.href);
-
     ElMessage.success('导出成功');
     exportVisible.value = false;
   } catch (error) {
@@ -2240,17 +2006,13 @@ const handleTemplateExport = async () => {
     exporting.value = false;
   }
 };
-
 const getFileNameFromPath = (filePath: string | undefined) => {
   if (!filePath) return '';
   const parts = filePath.replace(/\\/g, '/').split('/');
   return parts[parts.length - 1] || filePath;
 };
-
-// 处理更多命令
 const handleCommand = async (command: string, template: DocumentTemplate) => {
   currentTemplate.value = template;
-
   switch (command) {
     case 'upload':
       try {
@@ -2276,8 +2038,6 @@ const handleCommand = async (command: string, template: DocumentTemplate) => {
       break;
   }
 };
-
-// 设置默认模板
 const handleSetDefault = async (template: DocumentTemplate) => {
   try {
     const response = await documentTemplatesApi.setDefaultTemplate(
@@ -2294,8 +2054,6 @@ const handleSetDefault = async (template: DocumentTemplate) => {
     ElMessage.error('设置失败');
   }
 };
-
-// 删除模板
 const handleDelete = async (template: DocumentTemplate) => {
   try {
     await ElMessageBox.confirm(
@@ -2307,7 +2065,6 @@ const handleDelete = async (template: DocumentTemplate) => {
         type: 'warning',
       },
     );
-
     const response = await documentTemplatesApi.deleteTemplate(template.id);
     if (response.code === 200) {
       ElMessage.success('删除成功');
@@ -2321,8 +2078,6 @@ const handleDelete = async (template: DocumentTemplate) => {
     }
   }
 };
-
-// 状态变化
 const handleStatusChange = async (template: DocumentTemplate, status: string) => {
   try {
     const response = await documentTemplatesApi.updateTemplate(template.id, {
@@ -2340,21 +2095,16 @@ const handleStatusChange = async (template: DocumentTemplate, status: string) =>
     template.status = status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
   }
 };
-
-// 文件上传相关
 const handleFileChange = (uploadFile: UploadFile) => {
   if (uploadFile.raw) {
     selectedFile.value = uploadFile.raw;
   }
 };
-
 const handleFileRemove = () => {
   selectedFile.value = null;
 };
-
 const handleUpload = async () => {
   if (!selectedFile.value || !currentTemplate.value) return;
-
   uploading.value = true;
   try {
     const response = await documentTemplatesApi.uploadTemplateFile(
@@ -2374,8 +2124,6 @@ const handleUpload = async () => {
     uploading.value = false;
   }
 };
-
-// 加载导出历史
 const loadExportHistory = async (templateId: number) => {
   historyLoading.value = true;
   try {
@@ -2389,46 +2137,35 @@ const loadExportHistory = async (templateId: number) => {
     historyLoading.value = false;
   }
 };
-
-// 下载模板
 const handleDownloadTemplate = async () => {
   try {
     const response = await excelTemplatesApi.downloadTemplate(
       selectedTemplateForDownload.value || undefined
     );
-
-    // 创建下载链接
     const blob = new Blob([response as unknown as BlobPart], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-
-    // 设置文件名
     const templateName = selectedTemplateForDownload.value
       ? templates.value.find(t => t.templateCode === selectedTemplateForDownload.value)?.templateName || 'template'
       : 'default_template';
     link.download = `${templateName}.xlsx`;
-
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-
     ElMessage.success('模板下载成功');
   } catch (error) {
     console.error('下载模板失败:', error);
     ElMessage.error('下载模板失败');
   }
 };
-
-// 导入Excel
 const handleImport = async () => {
   if (!selectedFile.value) {
     ElMessage.warning('请先选择Excel文件');
     return;
   }
-
   importLoading.value = true;
   try {
     const response = await excelTemplatesApi.importExcel(
@@ -2437,15 +2174,11 @@ const handleImport = async () => {
       caseIdForImport.value || undefined,
       sheetIndex.value
     );
-
     if (response.code === 200) {
       importResult.value = response.data;
       importResultVisible.value = true;
-
-      // 清空文件选择
       selectedFile.value = null;
       uploadRef.value?.clearFiles();
-
       if (response.data.failCount === 0) {
         ElMessage.success(`成功导入 ${response.data.successCount} 条数据`);
       } else {
@@ -2461,60 +2194,45 @@ const handleImport = async () => {
     importLoading.value = false;
   }
 };
-
-// 导出数据
 const handleExport = async () => {
   if (!selectedTemplateForExport.value) {
     ElMessage.warning('请先选择导出模板');
     return;
   }
-
   try {
     const response = await excelTemplatesApi.exportData(
       selectedTemplateForExport.value,
       caseIdForExport.value || undefined,
       registrationStatusForExport.value || undefined
     );
-
-    // 创建下载链接
     const blob = new Blob([response as unknown as BlobPart], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-
-    // 设置文件名
     const now = new Date();
     const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
     const templateName = templates.value.find(t => t.templateCode === selectedTemplateForExport.value)?.templateCode || 'export';
     link.download = `${templateName}_${timestamp}.xlsx`;
-
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-
     ElMessage.success('数据导出成功');
   } catch (error) {
     console.error('导出数据失败:', error);
     ElMessage.error('导出数据失败');
   }
 };
-
-// 加载系统字段分组（用于字段选择器）
 const loadSystemFields = async () => {
   try {
     const response = await excelTemplatesApi.getSystemFields();
     if (response.code === 200) {
-      // 确保 response.data 是数组
       const data = Array.isArray(response.data) ? response.data : [];
       systemFieldGroups.value = data;
-
-      // 动态生成字段名称映射表
       const mapping: Record<string, string> = {};
       data.forEach((group) => {
         group.fields.forEach((field) => {
-          // 从 label 中提取中文名称（去掉括号内的英文）
           const chineseName = field.label.replace(/\s*\([^)]*\)\s*$/, '').trim();
           mapping[field.value] = chineseName;
         });
@@ -2527,12 +2245,9 @@ const loadSystemFields = async () => {
     ElMessage.error('加载系统字段失败: ' + (error.message || '未知错误'));
   }
 };
-
-// 加载系统字段列表（用于字段管理）
 const loadSystemFieldsList = async () => {
   try {
     const response = await excelTemplatesApi.getSystemFields();
-    
     if (response.code === 200) {
       const fields: Array<{
         id: number;
@@ -2542,7 +2257,6 @@ const loadSystemFieldsList = async () => {
         sortOrder: number;
         description?: string;
       }> = [];
-      
       response.data.forEach((group) => {
         group.fields.forEach((field) => {
           fields.push({
@@ -2555,7 +2269,6 @@ const loadSystemFieldsList = async () => {
           });
         });
       });
-      
       systemFieldsList.value = fields;
       filteredSystemFields.value = fields;
       extractAvailableGroups();
@@ -2567,8 +2280,6 @@ const loadSystemFieldsList = async () => {
     ElMessage.error('加载系统字段列表失败: ' + (error.message || '未知错误'));
   }
 };
-
-// 提取可用的分组列表
 const extractAvailableGroups = () => {
   const groups = new Set<string>();
   systemFieldsList.value.forEach(field => {
@@ -2576,46 +2287,30 @@ const extractAvailableGroups = () => {
   });
   availableGroups.value = Array.from(groups).sort();
 };
-
-// 计算分页数据
 const calculatePagedFields = () => {
   const startIndex = (currentPage.value - 1) * pageSize.value;
   const endIndex = startIndex + pageSize.value;
   pagedSystemFields.value = filteredSystemFields.value.slice(startIndex, endIndex);
 };
-
-// 处理分页大小变化
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
   calculatePagedFields();
 };
-
-// 处理当前页码变化
 const handleCurrentChange = (current: number) => {
   currentPage.value = current;
   calculatePagedFields();
 };
-
-// 处理系统字段搜索
 const handleSystemFieldSearch = () => {
   applyFilters();
 };
-
-// 处理分组变更
 const handleGroupChange = () => {
   applyFilters();
 };
-
-// 应用筛选条件
 const applyFilters = () => {
   let filtered = systemFieldsList.value;
-  
-  // 按分组筛选
   if (selectedGroup.value) {
     filtered = filtered.filter(field => field.groupName === selectedGroup.value);
   }
-  
-  // 按搜索词筛选
   if (fieldSearchQuery.value) {
     const query = fieldSearchQuery.value.toLowerCase();
     filtered = filtered.filter(field => 
@@ -2624,100 +2319,70 @@ const applyFilters = () => {
       field.groupName.toLowerCase().includes(query)
     );
   }
-  
   filteredSystemFields.value = filtered;
-  currentPage.value = 1; // 重置到第一页
+  currentPage.value = 1;
   calculatePagedFields();
 };
-
-// 当选择系统字段时，自动填充Excel表头
 const onFieldSelect = (index: number, fieldValue: string) => {
   const mapping = templateForm.value.mappings[index];
   if (mapping && fieldValue) {
-    // 总是自动填充 Excel 表头（无论之前是否有值）
     mapping.excelHeader = fieldNameMapping.value[fieldValue] || fieldValue;
   }
 };
-
-// 添加字段映射
 const addMapping = () => {
   templateForm.value.mappings.push({
     excelHeader: '',
     targetField: ''
   });
-  // 初始化搜索相关状态
   const newIndex = templateForm.value.mappings.length - 1;
-  
-  // 使用安全的方式初始化和访问数组
   const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
     if (!Array.isArray(arr)) {
       return defaultValue;
     }
     return arr;
   };
-  
-  // 确保 fieldSearchLoading 是数组并足够长
   let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
   while (safeSearchLoading.length <= newIndex) {
     safeSearchLoading.push(false);
   }
   safeSearchLoading[newIndex] = false;
   fieldSearchLoadingState.value = safeSearchLoading;
-  
-  // 确保 fieldSelectorFieldGroups 是数组并足够长
   let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
   while (safeFieldGroups.length <= newIndex) {
     safeFieldGroups.push([]);
   }
-  
-  // 确保 systemFieldGroups.value 是数组
   const systemGroups = getSafeArray(systemFieldGroups.value, []);
   safeFieldGroups[newIndex] = systemGroups;
   fieldSelectorFieldGroupsState.value = safeFieldGroups;
 };
-
-// 移除字段映射
 const removeMapping = (index: number) => {
   templateForm.value.mappings.splice(index, 1);
-  
-  // 使用安全的方式初始化和访问数组
   const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
     if (!Array.isArray(arr)) {
       return defaultValue;
     }
     return arr;
   };
-  
-  // 清理搜索相关状态
   let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
   if (safeSearchLoading.length > index) {
     safeSearchLoading.splice(index, 1);
     fieldSearchLoadingState.value = safeSearchLoading;
   }
-  
   let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
   if (safeFieldGroups.length > index) {
     safeFieldGroups.splice(index, 1);
     fieldSelectorFieldGroupsState.value = safeFieldGroups;
   }
 };
-
-// 字段选择器搜索处理函数
 const handleFieldSelectorSearch = (index: number, query: string) => {
-  // 使用安全的方式初始化和访问数组
   const getSafeArray = <T>(arr: any, defaultValue: T[]): T[] => {
     if (!Array.isArray(arr)) {
       return defaultValue;
     }
     return arr;
   };
-  
-  // 确保 systemFieldGroups.value 是数组
   const fieldGroups = getSafeArray(systemFieldGroups.value, []);
-  
   if (!query.trim()) {
-    // 清空搜索时显示所有字段
-    // 确保数组足够长
     let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
     while (safeFieldGroups.length <= index) {
       safeFieldGroups.push([]);
@@ -2726,43 +2391,30 @@ const handleFieldSelectorSearch = (index: number, query: string) => {
     fieldSelectorFieldGroupsState.value = safeFieldGroups;
     return;
   }
-
-  // 设置搜索加载状态
-  // 确保数组足够长
   let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
   while (safeSearchLoading.length <= index) {
     safeSearchLoading.push(false);
   }
   safeSearchLoading[index] = true;
   fieldSearchLoadingState.value = safeSearchLoading;
-
-  // 模拟异步搜索（实际项目中可以调用后端搜索接口）
   setTimeout(() => {
     const lowercaseQuery = query.toLowerCase();
-    
-    // 过滤字段分组
     const filteredGroups = fieldGroups.map(group => {
       const filteredFields = group.fields.filter(field => {
-        // 搜索条件：匹配字段标签或值
         return field.label.toLowerCase().includes(lowercaseQuery) ||
                field.value.toLowerCase().includes(lowercaseQuery);
       });
-      
       return {
         ...group,
         fields: filteredFields
       };
     }).filter(group => group.fields.length > 0);
-    
-    // 确保数组足够长
     let safeFieldGroups = getSafeArray(fieldSelectorFieldGroupsState.value, []);
     while (safeFieldGroups.length <= index) {
       safeFieldGroups.push([]);
     }
     safeFieldGroups[index] = filteredGroups;
     fieldSelectorFieldGroupsState.value = safeFieldGroups;
-    
-    // 更新搜索加载状态
     let safeSearchLoading = getSafeArray(fieldSearchLoadingState.value, []);
     while (safeSearchLoading.length <= index) {
       safeSearchLoading.push(false);
@@ -2771,8 +2423,6 @@ const handleFieldSelectorSearch = (index: number, query: string) => {
     fieldSearchLoadingState.value = safeSearchLoading;
   }, 300);
 };
-
-// 显示创建字段对话框
 const showCreateFieldDialog = () => {
   fieldDialogTitle.value = '新建系统字段';
   fieldForm.value = {
@@ -2785,8 +2435,6 @@ const showCreateFieldDialog = () => {
   };
   fieldDialogVisible.value = true;
 };
-
-// 显示编辑字段对话框
 const showEditFieldDialog = (field: any) => {
   fieldDialogTitle.value = '编辑系统字段';
   fieldForm.value = {
@@ -2799,8 +2447,6 @@ const showEditFieldDialog = (field: any) => {
   };
   fieldDialogVisible.value = true;
 };
-
-// 保存系统字段
 const saveField = async () => {
   try {
     const request = {
@@ -2810,20 +2456,15 @@ const saveField = async () => {
       sortOrder: fieldForm.value.sortOrder,
       description: fieldForm.value.description
     };
-
     let response;
     if (fieldForm.value.id) {
-      // 更新字段
       response = await excelTemplatesApi.updateSystemField(fieldForm.value.id, request);
     } else {
-      // 创建字段
       response = await excelTemplatesApi.createSystemField(request);
     }
-
     if (response.code === 200) {
       ElMessage.success(fieldForm.value.id ? '更新成功' : '创建成功');
       fieldDialogVisible.value = false;
-      // 重新加载字段数据
       await loadSystemFields();
       await loadSystemFieldsList();
     } else {
@@ -2834,14 +2475,11 @@ const saveField = async () => {
     ElMessage.error('操作失败');
   }
 };
-
-// 删除系统字段
 const deleteField = async (field: any) => {
   try {
     const response = await excelTemplatesApi.deleteSystemField(field.id);
     if (response.code === 200) {
       ElMessage.success('删除成功');
-      // 重新加载字段数据
       await loadSystemFields();
       await loadSystemFieldsList();
     } else {
@@ -2852,8 +2490,6 @@ const deleteField = async (field: any) => {
     ElMessage.error('操作失败');
   }
 };
-
-// 格式化日期
 const formatDate = (dateString: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -2866,8 +2502,6 @@ const formatDate = (dateString: string) => {
     second: '2-digit'
   });
 };
-
-// 组件挂载时加载数据
 onMounted(async () => {
   await loadTemplates();
   await loadSystemFields();
@@ -2876,7 +2510,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 动态字段样式 */
 .dynamic-fields {
   max-height: 400px;
   overflow-y: auto;
@@ -2885,13 +2518,11 @@ onMounted(async () => {
   border-radius: 4px;
   background-color: #f9fafc;
 }
-
 .field-item {
   margin-bottom: 15px;
   display: flex;
   align-items: center;
 }
-
 .field-label {
   width: 120px;
   font-weight: 500;
@@ -2899,113 +2530,87 @@ onMounted(async () => {
   margin-right: 15px;
   flex-shrink: 0;
 }
-
 .required-mark {
   color: #f56c6c;
   margin-left: 4px;
 }
-
 .no-fields {
   margin-top: 10px;
 }
-
-/* 表单提示样式 */
 .form-tip {
   color: #909399;
   font-size: 12px;
   margin-top: 4px;
 }
-
-/* 字段映射样式 */
 .mapping-section {
   margin-top: 15px;
 }
-
 .mapping-header {
   display: flex;
   margin-bottom: 10px;
   font-weight: 500;
   color: #303133;
 }
-
 .header-label {
   width: 220px;
   margin-right: 80px;
 }
-
 .header-label:last-child {
   width: auto;
   margin-right: 0;
 }
-
 .mapping-row {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
 }
-
 .add-mapping-btn {
   margin-top: 10px;
 }
-
-/* 配置输入包装器 */
 .config-input-wrapper {
   display: flex;
   align-items: flex-start;
 }
-
 .config-input-wrapper .el-input {
   flex: 1;
   margin-right: 10px;
 }
-
-/* 统计卡片样式 */
 .stats-cards {
   display: flex;
   gap: 20px;
   margin-bottom: 20px;
 }
-
 .stat-card {
   flex: 1;
   text-align: center;
 }
-
 .stat-value {
   font-size: 24px;
   font-weight: bold;
   color: #303133;
   margin-bottom: 8px;
 }
-
 .stat-label {
   color: #909399;
   font-size: 14px;
 }
-
-/* 卡片头部样式 */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .header-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
-/* 导入导出操作区域样式 */
 .operation-section {
   margin-bottom: 20px;
 }
-
 .section-desc {
   color: #909399;
   margin-bottom: 15px;
 }
-
 .import-options,
 .export-options {
   margin-bottom: 15px;
@@ -3013,40 +2618,31 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
 }
-
 .tip-text {
   color: #909399;
   font-size: 12px;
   margin-top: 10px;
 }
-
-/* 上传组件样式 */
 .upload-inline {
   display: inline-block;
 }
-
-/* 配置模板卡片样式 */
 .config-template-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 15px;
 }
-
 .config-template-card {
   cursor: pointer;
   transition: all 0.3s;
 }
-
 .config-template-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
-
 .template-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .template-config {
   margin-top: 10px;
   background-color: #f9fafc;
@@ -3054,28 +2650,22 @@ onMounted(async () => {
   border-radius: 4px;
   overflow-x: auto;
 }
-
 .template-config pre {
   margin: 0;
   font-size: 12px;
   color: #606266;
 }
-
-/* 分页容器样式 */
 .pagination-container {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }
-
-/* 预览相关样式 */
 .preview-content {
   height: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-
 .preview-header {
   padding: 15px 20px;
   background-color: #f9fafc;
@@ -3083,43 +2673,36 @@ onMounted(async () => {
   margin-bottom: 10px;
   flex-shrink: 0;
 }
-
 .preview-header h3 {
   margin: 0 0 8px 0;
   color: #303133;
   font-size: 18px;
 }
-
 .template-info {
   margin: 0;
   color: #909399;
   font-size: 14px;
 }
-
 .preview-mode-switch {
   padding: 10px 20px;
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
 }
-
 .upload-info {
   margin-bottom: 15px;
 }
-
 .current-file-info {
   margin-top: 15px;
   padding: 15px;
   background-color: #f5f7fa;
   border-radius: 4px;
 }
-
 .current-file-info h4 {
   margin: 0 0 10px 0;
   font-size: 14px;
   color: #303133;
 }
-
 .file-detail {
   display: flex;
   align-items: center;
@@ -3129,34 +2712,28 @@ onMounted(async () => {
   border-radius: 4px;
   border: 1px solid #e4e7ed;
 }
-
 .file-icon {
   font-size: 32px;
   color: #409eff;
 }
-
 .file-meta {
   flex: 1;
 }
-
 .file-name {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
   word-break: break-all;
 }
-
 .file-path {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
   word-break: break-all;
 }
-
 .no-file-info {
   margin-top: 15px;
 }
-
 .image-upload-field {
   flex: 1;
   display: flex;
@@ -3164,7 +2741,6 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
 }
-
 .image-preview-small {
   width: 60px;
   height: 60px;
@@ -3176,19 +2752,16 @@ onMounted(async () => {
   justify-content: center;
   background-color: #f5f7fa;
 }
-
 .image-preview-small img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
 }
-
 .preview-body {
   flex: 1;
   overflow: hidden;
   position: relative;
 }
-
 .preview-loading,
 .preview-error,
 .preview-empty {
@@ -3199,39 +2772,32 @@ onMounted(async () => {
   height: 100%;
   color: #909399;
 }
-
 .loading-icon,
 .error-icon,
 .empty-icon {
   font-size: 48px;
   margin-bottom: 20px;
 }
-
 .loading-icon {
   color: #409eff;
   animation: rotate 1s linear infinite;
 }
-
 .error-icon {
   color: #f56c6c;
 }
-
 .empty-icon {
   color: #909399;
 }
-
 .preview-container {
   height: 100%;
   overflow: hidden;
 }
-
 .preview-iframe {
   width: 100%;
   height: 100%;
   border: none;
   overflow: hidden;
 }
-
 @keyframes rotate {
   from {
     transform: rotate(0deg);
@@ -3240,12 +2806,9 @@ onMounted(async () => {
     transform: rotate(360deg);
   }
 }
-
-/* 模板制作相关样式 */
 .template-maker-content {
   min-height: 600px;
 }
-
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -3254,55 +2817,45 @@ onMounted(async () => {
   height: 400px;
   color: #909399;
 }
-
 .empty-icon {
   font-size: 64px;
   margin-bottom: 20px;
   color: #c0c4cc;
 }
-
 .empty-state h3 {
   margin: 0 0 10px 0;
   color: #606266;
 }
-
 .empty-state p {
   margin: 0;
   color: #909399;
 }
-
 .template-info-form {
   margin-bottom: 30px;
   padding: 20px;
   background-color: #f9fafc;
   border-radius: 4px;
 }
-
 .template-content-editor {
   margin-bottom: 30px;
 }
-
 .template-content-editor h4,
 .template-fields h4 {
   margin: 0 0 15px 0;
   color: #303133;
   font-size: 16px;
 }
-
 .editor-toolbar {
   margin-bottom: 10px;
 }
-
 .editor-container {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
 }
-
 .editor-container .el-textarea {
   border: none;
 }
-
 .editor-container .el-textarea__inner {
   border: none;
   resize: vertical;
@@ -3310,34 +2863,26 @@ onMounted(async () => {
   font-family: 'Courier New', Courier, monospace;
   line-height: 1.6;
 }
-
 .template-fields {
   margin-bottom: 30px;
 }
-
 .template-actions {
   display: flex;
   gap: 10px;
 }
-
-/* 字段编辑对话框样式 */
 .placeholder-dialog {
   padding: 20px 0;
 }
-
 .placeholder-preview {
   margin-top: 20px;
   padding: 15px;
   background-color: #f9fafc;
   border-radius: 4px;
 }
-
 .placeholder-hint {
   color: #909399;
   font-style: italic;
 }
-
-/* 响应式调整 */
 @media (max-width: 768px) {
   .template-info-form {
     padding: 15px;
@@ -3348,3 +2893,8 @@ onMounted(async () => {
   }
 }
 </style>
+
+===========================================================================
+以上为原始模板管理页面完整代码，已注释保留，待功能恢复时启用
+===========================================================================
+-->

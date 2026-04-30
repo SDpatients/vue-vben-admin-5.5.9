@@ -299,8 +299,7 @@ const loadCases = async () => {
     const res = await getCaseList({ pageNum: 1, pageSize: 50 })
     caseList.value = res.data?.list || []
   } catch (error) {
-    console.error('加载案件列表失败:', error)
-  }
+}
 }
 
 const loadBankAccounts = async () => {
@@ -314,8 +313,7 @@ const loadBankAccounts = async () => {
       bankAccount: item.accountNumber || item.bankAccount,
     }))
   } catch (error) {
-    console.error('加载银行账户列表失败:', error)
-    bankList.value = []
+bankList.value = []
   }
 }
 
@@ -408,8 +406,7 @@ const handleChooseFile = () => {
       })
     },
     fail: (err: any) => {
-      console.log('选择文件取消或失败:', err)
-    },
+},
   })
 }
 
@@ -481,18 +478,17 @@ const handleSubmit = async () => {
         reimbursementDate: form.value.reimbursementDate,
         description: form.value.description,
       })
-      
+
       // 上传新附件
       for (const attachment of form.value.attachments) {
         if (attachment.filePath && !attachment.id) {
           try {
             await uploadExpenseAttachment(expenseId.value, attachment.filePath)
           } catch (e) {
-            console.error('上传附件失败:', e)
-          }
+}
         }
       }
-      
+
       uni.showToast({ title: '修改成功', icon: 'success' })
     } else {
       const response = await createExpenseReimbursement({
@@ -502,9 +498,9 @@ const handleSubmit = async () => {
         description: form.value.description,
         items: form.value.items,
       })
-      
+
       const reimbursementId = response.data?.reimbursementId
-      
+
       // 上传附件
       if (reimbursementId && form.value.attachments.length > 0) {
         for (const attachment of form.value.attachments) {
@@ -512,15 +508,15 @@ const handleSubmit = async () => {
             try {
               await uploadExpenseAttachment(reimbursementId, attachment.filePath)
             } catch (e) {
-              console.error('上传附件失败:', e)
-            }
+}
           }
         }
       }
-      
+
       uni.showToast({ title: '创建成功', icon: 'success' })
     }
 
+    uni.$emit('refresh-expense-list')
     setTimeout(() => {
       uni.navigateBack()
     }, 1500)

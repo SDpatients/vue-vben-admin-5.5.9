@@ -1,4 +1,4 @@
-import { requestClient8085 } from '../request';
+import { requestClient8080 } from '../request';
 
 declare namespace ClaimApi {
   interface ClaimQueryParams {
@@ -151,14 +151,14 @@ export async function getClaimsApi(
   if (creditorName) params.creditorName = creditorName;
   if (registrationStatus) params.registrationStatus = registrationStatus;
 
-  return requestClient8085.get<ClaimApi.ClaimListResponse>(
+  return requestClient8080.get<ClaimApi.ClaimListResponse>(
     '/api/web/getClaims',
     { params },
   );
 }
 
 export async function addClaimApi(data: ClaimApi.AddClaimRequest) {
-  return requestClient8085.post<ClaimApi.AddClaimResponse>(
+  return requestClient8080.post<ClaimApi.AddClaimResponse>(
     '/api/web/addClaim',
     data,
     {
@@ -170,7 +170,7 @@ export async function addClaimApi(data: ClaimApi.AddClaimRequest) {
 }
 
 export async function batchImportClaimsApi(formData: FormData) {
-  return requestClient8085.post<ClaimApi.BatchImportResponse>(
+  return requestClient8080.post<ClaimApi.BatchImportResponse>(
     '/api/web/batchImportClaims',
     formData,
     {
@@ -182,13 +182,13 @@ export async function batchImportClaimsApi(formData: FormData) {
 }
 
 export async function exportClaimsApi(caseId: string) {
-  return requestClient8085.get(`/api/web/exportClaims/${caseId}`, {
+  return requestClient8080.get(`/api/web/exportClaims/${caseId}`, {
     responseType: 'blob',
   });
 }
 
 export async function getClaimDetailApi(claimId: number) {
-  return requestClient8085.get<
+  return requestClient8080.get<
     ClaimApi.CommonResponse & {
       data: ClaimApi.ClaimInfo;
     }
@@ -199,7 +199,7 @@ export async function updateClaimApi(
   claimId: number,
   data: ClaimApi.UpdateClaimRequest,
 ) {
-  return requestClient8085.post<ClaimApi.CommonResponse>(
+  return requestClient8080.post<ClaimApi.CommonResponse>(
     `/api/web/updateClaim/${claimId}`,
     data,
     {
@@ -211,7 +211,7 @@ export async function updateClaimApi(
 }
 
 export async function deleteClaimApi(claimId: number) {
-  return requestClient8085.post<ClaimApi.CommonResponse>(
+  return requestClient8080.post<ClaimApi.CommonResponse>(
     `/api/web/deleteClaim/${claimId}`,
     {},
   );

@@ -170,8 +170,7 @@ const loadData = async (isRefresh = false) => {
       hasMore.value = res.data.number + 1 < res.data.totalPages
     }
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+uni.showToast({ title: '加载失败，请重试', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -184,8 +183,7 @@ const loadUnreadCount = async () => {
       unreadCount.value = res.data
     }
   } catch (error) {
-    console.error('[loadUnreadCount] Error:', error)
-  }
+}
 }
 
 const onRefresh = () => {
@@ -223,8 +221,7 @@ const handleMarkAsRead = async (id: number) => {
       loadUnreadCount()
     }
   } catch (error) {
-    console.error('[handleMarkAsRead] Error:', error)
-    uni.showToast({ title: '操作失败', icon: 'none' })
+uni.showToast({ title: '操作失败', icon: 'none' })
   }
 }
 
@@ -242,8 +239,7 @@ const handleMarkAllAsRead = () => {
             loadUnreadCount()
           }
         } catch (error) {
-          console.error('[handleMarkAllAsRead] Error:', error)
-          uni.showToast({ title: '操作失败', icon: 'none' })
+uni.showToast({ title: '操作失败', icon: 'none' })
         }
       }
     },
@@ -262,8 +258,7 @@ const handleDelete = (id: number) => {
           loadData(true)
           loadUnreadCount()
         } catch (error) {
-          console.error('[handleDelete] Error:', error)
-          uni.showToast({ title: '删除失败', icon: 'none' })
+uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
     },

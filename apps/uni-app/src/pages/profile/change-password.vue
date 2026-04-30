@@ -97,8 +97,7 @@ const handleSubmit = async () => {
       uni.reLaunch({ url: '/pages/login/index' })
     }, 1500)
   } catch (error: any) {
-    console.error('修改密码失败:', error)
-  } finally {
+} finally {
     submitting.value = false
   }
 }

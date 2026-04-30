@@ -6,50 +6,76 @@ const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:database',
-      order: 3,
+      order: 2,
       title: $t('page.basicData.title'),
+      roles: ['USER'],
     },
-    name: 'BasicData',
-    path: '/basic-data',
+    name: 'BasicControl',
+    path: '/basic-control',
     children: [
       {
-        name: 'BasicDataCreditorManagement',
-        path: 'creditor-management',
-        component: () =>
-          import('#/views/basic-data/creditor-management/index.vue'),
+        name: 'BasicInfoMaintenance',
+        path: 'info-maintenance',
+        component: () => import('#/views/_core/fallback/building.vue'),
         meta: {
           affixTab: false,
-          icon: 'lucide:users',
-          title: $t('page.basicData.creditorManagement'),
+          icon: 'lucide:settings',
+          title: $t('page.basicData.infoMaintenance'),
         },
       },
-
       {
-        name: 'BasicDataDebtorManagement',
-        path: 'debtor-management',
-        component: () =>
-          import('#/views/basic-data/debtor-management/index.vue'),
+        name: 'DocumentLibrary',
+        path: 'document-library',
+        redirect: '/basic-control/document-library/dashboard',
         meta: {
-          affixTab: false,
-          icon: 'lucide:user-minus',
-          title: $t('page.basicData.debtorManagement'),
+          icon: 'lucide:folder-archive',
+          title: $t('page.documentLibrary.title'),
         },
+        children: [
+          {
+            name: 'DocumentLibraryDashboard',
+            path: 'dashboard',
+            component: () => import('#/views/document-library/dashboard.vue'),
+            meta: {
+              affixTab: false,
+              icon: 'lucide:layout-dashboard',
+              title: $t('page.documentLibrary.dashboard'),
+            },
+          },
+          {
+            name: 'DocumentLibraryManagement',
+            path: 'management',
+            component: () => import('#/views/document-library/index.vue'),
+            meta: {
+              affixTab: false,
+              icon: 'lucide:folder-open',
+              title: $t('page.documentLibrary.management'),
+            },
+          },
+          {
+            name: 'DocumentLibraryFavorites',
+            path: 'favorites',
+            component: () => import('#/views/document-library/favorites.vue'),
+            meta: {
+              affixTab: false,
+              icon: 'lucide:star',
+              title: $t('page.documentLibrary.favorites'),
+            },
+          },
+          {
+            name: 'DocumentLibrarySearch',
+            path: 'search',
+            component: () => import('#/views/document-library/search.vue'),
+            meta: {
+              affixTab: false,
+              icon: 'lucide:search',
+              title: $t('page.documentLibrary.search'),
+            },
+          },
+        ],
       },
-
       {
-        name: 'BasicDataCourtManagement',
-        path: 'court-management',
-        component: () =>
-          import('#/views/basic-data/court-management/index.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:scale',
-          title: $t('page.basicData.courtManagement'),
-        },
-      },
-
-      {
-        name: 'BasicDataBankAccountManagement',
+        name: 'BankAccountManagement',
         path: 'bank-account-management',
         component: () =>
           import('#/views/basic-data/bank-account-management/index.vue'),
@@ -57,44 +83,6 @@ const routes: RouteRecordRaw[] = [
           affixTab: false,
           icon: 'lucide:credit-card',
           title: $t('page.basicData.bankAccountManagement'),
-        },
-      },
-
-      {
-        name: 'BasicDataWorkPlanManagement',
-        path: 'work-plan-management',
-        component: () =>
-          import('#/views/basic-data/work-plan-management/index.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:calendar',
-          title: $t('page.basicData.workPlanManagement'),
-        },
-      },
-
-
-
-      {
-        name: 'BasicDataManagerManagement',
-        path: 'manager-management',
-        component: () =>
-          import('#/views/basic-data/manager-management/index.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:user',
-          title: $t('page.basicData.managerManagement'),
-        },
-      },
-
-      {
-        name: 'BasicDataStaffManagement',
-        path: 'staff-management',
-        component: () =>
-          import('#/views/basic-data/staff-management/index.vue'),
-        meta: {
-          affixTab: false,
-          icon: 'lucide:users',
-          title: $t('page.basicData.staffManagement'),
         },
       },
     ],

@@ -181,8 +181,7 @@ const loadCaseInfo = () => {
       caseInfo.value = cachedCase
     }
   } catch (e) {
-    console.error('[loadCaseInfo] Error:', e)
-  }
+}
 }
 
 const loadData = async (isRefresh = false) => {
@@ -234,8 +233,7 @@ const loadData = async (isRefresh = false) => {
       hasMore.value = false
     }
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+uni.showToast({ title: '加载失败，请重试', icon: 'none' })
 
     if (isRefresh) {
       loadFromCache()
@@ -255,8 +253,7 @@ const loadFromCache = () => {
       uni.showToast({ title: '已加载缓存数据', icon: 'none' })
     }
   } catch (e) {
-    console.error('[loadFromCache] Error:', e)
-  }
+}
 }
 
 const loadMore = () => {

@@ -671,7 +671,13 @@ const handleRenameFile = (file: FileItem | LocalFileItem) => {
   }
   
   currentRenameFile.value = file as FileItem;
-  newFileName.value = file.originalFileName;
+  // 隐藏后缀名
+  const lastDotIndex = file.originalFileName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newFileName.value = file.originalFileName.substring(0, lastDotIndex);
+  } else {
+    newFileName.value = file.originalFileName;
+  }
   showRenameDialog.value = true;
 };
 
@@ -691,7 +697,16 @@ const confirmRenameFile = async () => {
       return;
     }
     
-    const response = await renameFileApi(fileId, newFileName.value.trim());
+    // 保留原后缀
+    const originalName = currentRenameFile.value.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+    
+    const response = await renameFileApi(fileId, finalName);
     if (response.code === 200 && response.data) {
       ElMessage.success('文件重命名成功');
       // 刷新文件列表
@@ -1237,10 +1252,10 @@ onUnmounted(() => {
           <div class="current-file-name text-gray-600">{{ currentRenameFile?.originalFileName }}</div>
         </div>
         <div class="form-item">
-          <label class="form-label block mb-2">新文件名：</label>
+          <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
           <ElInput
             v-model="newFileName"
-            placeholder="请输入新文件名（包含扩展名）"
+            placeholder="请输入新文件名"
             :disabled="renameLoading"
             class="w-full"
           />

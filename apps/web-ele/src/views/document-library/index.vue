@@ -3,7 +3,6 @@ import type { DocumentLibraryApi } from '#/api/core/document-library';
 
 import { computed, onMounted, ref, watch } from 'vue';
 
-import VersionManager from './components/VersionManager.vue';
 import DocumentPreview from './components/DocumentPreview.vue';
 import BatchOperations from './components/BatchOperations.vue';
 
@@ -111,8 +110,7 @@ const editForm = ref({
 });
 const currentEditDocument = ref<DocumentLibraryApi.Document | null>(null);
 
-const versionDialogVisible = ref(false);
-const currentVersionDocument = ref<DocumentLibraryApi.Document | null>(null);
+
 
 const moveDialogVisible = ref(false);
 const moveTargetFolderId = ref<number | null>(null);
@@ -505,10 +503,7 @@ const toggleFavorite = async (doc: DocumentLibraryApi.Document) => {
   }
 };
 
-const openVersionDialog = (doc: DocumentLibraryApi.Document) => {
-  currentVersionDocument.value = doc;
-  versionDialogVisible.value = true;
-};
+
 
 const openPreview = (doc: DocumentLibraryApi.Document) => {
   previewDocumentId.value = doc.id;
@@ -744,12 +739,6 @@ onMounted(() => {
               </template>
             </ElTableColumn>
 
-            <ElTableColumn prop="currentVersion" label="版本" width="80" align="center">
-              <template #default="{ row }">
-                v{{ row.currentVersion }}
-              </template>
-            </ElTableColumn>
-
             <ElTableColumn prop="folderName" label="所属文件夹" width="150" show-overflow-tooltip />
 
             <ElTableColumn prop="createTime" label="创建时间" width="160">
@@ -794,10 +783,6 @@ onMounted(() => {
                             class="mr-2"
                           />
                           {{ row.isFavorited ? '取消收藏' : '收藏' }}
-                        </ElDropdownItem>
-                        <ElDropdownItem @click="openVersionDialog(row)">
-                          <Icon icon="lucide:history" class="mr-2" />
-                          版本管理
                         </ElDropdownItem>
                         <ElDropdownItem divided @click="deleteDocument(row)">
                           <Icon icon="lucide:trash-2" class="mr-2 text-red-500" />
@@ -927,19 +912,6 @@ onMounted(() => {
         <ElButton @click="editDialogVisible = false">取消</ElButton>
         <ElButton type="primary" @click="saveDocument">保存</ElButton>
       </template>
-    </ElDialog>
-
-    <ElDialog
-      v-model="versionDialogVisible"
-      title="版本管理"
-      width="800px"
-      destroy-on-close
-    >
-      <VersionManager
-        v-if="currentVersionDocument"
-        :document-id="currentVersionDocument.id"
-        :document-name="currentVersionDocument.documentName"
-      />
     </ElDialog>
 
     <DocumentPreview

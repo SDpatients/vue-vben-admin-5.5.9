@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 interface TemplateRequest {
   templateName: string;
@@ -88,42 +88,42 @@ export const excelTemplatesApi = {
    * 创建模板
    */
   createTemplate: (data: TemplateRequest) => {
-    return requestClient8085.post<TemplateDetailResponse>('/excel-templates', data);
+    return requestClient8080.post<TemplateDetailResponse>('/excel-templates', data);
   },
 
   /**
    * 更新模板
    */
   updateTemplate: (id: string, data: Partial<TemplateRequest>) => {
-    return requestClient8085.put<TemplateDetailResponse>(`/excel-templates/${id}`, data);
+    return requestClient8080.put<TemplateDetailResponse>(`/excel-templates/${id}`, data);
   },
 
   /**
    * 删除模板
    */
   deleteTemplate: (id: string) => {
-    return requestClient8085.delete<CommonResponse>(`/excel-templates/${id}`);
+    return requestClient8080.delete<CommonResponse>(`/excel-templates/${id}`);
   },
 
   /**
    * 获取所有模板
    */
   getTemplates: () => {
-    return requestClient8085.get<TemplateListResponse>('/excel-templates');
+    return requestClient8080.get<TemplateListResponse>('/excel-templates');
   },
 
   /**
    * 设置默认模板
    */
   setDefaultTemplate: (id: string) => {
-    return requestClient8085.post<CommonResponse>(`/excel-templates/${id}/set-default`);
+    return requestClient8080.post<CommonResponse>(`/excel-templates/${id}/set-default`);
   },
 
   /**
    * 获取模板字段映射
    */
   getTemplateMappings: (code: string) => {
-    return requestClient8085.get<MappingsResponse>(`/excel-templates/${code}/mappings`);
+    return requestClient8080.get<MappingsResponse>(`/excel-templates/${code}/mappings`);
   },
 
   /**
@@ -134,7 +134,7 @@ export const excelTemplatesApi = {
     const url = templateCode
       ? `/excel-templates/template?templateCode=${templateCode}`
       : '/excel-templates/template';
-    return requestClient8085.get<Blob>(url, {
+    return requestClient8080.get<Blob>(url, {
       responseType: 'blob',
     });
   },
@@ -158,7 +158,7 @@ export const excelTemplatesApi = {
     if (sheetIndex !== undefined) {
       formData.append('sheetIndex', sheetIndex.toString());
     }
-    return requestClient8085.post<{
+    return requestClient8080.post<{
       code: number;
       message: string;
       data: {
@@ -196,7 +196,7 @@ export const excelTemplatesApi = {
     if (registrationStatus) {
       params.registrationStatus = registrationStatus;
     }
-    return requestClient8085.get<Blob>('/excel-templates/export', {
+    return requestClient8080.get<Blob>('/excel-templates/export', {
       params,
       responseType: 'blob',
     });
@@ -206,7 +206,7 @@ export const excelTemplatesApi = {
    * 获取系统字段分组列表
    */
   getSystemFields: () => {
-    return requestClient8085.get<SystemFieldsResponse>('/excel-templates/system-fields');
+    return requestClient8080.get<SystemFieldsResponse>('/excel-templates/system-fields');
   },
 
   /**
@@ -214,7 +214,7 @@ export const excelTemplatesApi = {
    * @param groupName 分组名称
    */
   getSystemFieldsByGroup: (groupName: string) => {
-    return requestClient8085.get<SystemFieldListResponse>(`/excel-templates/system-fields/group/${encodeURIComponent(groupName)}`);
+    return requestClient8080.get<SystemFieldListResponse>(`/excel-templates/system-fields/group/${encodeURIComponent(groupName)}`);
   },
 
   /**
@@ -222,7 +222,7 @@ export const excelTemplatesApi = {
    * @param id 系统字段ID
    */
   getSystemFieldById: (id: number) => {
-    return requestClient8085.get<SystemFieldDetailResponse>(`/excel-templates/system-fields/${id}`);
+    return requestClient8080.get<SystemFieldDetailResponse>(`/excel-templates/system-fields/${id}`);
   },
 
   /**
@@ -230,7 +230,7 @@ export const excelTemplatesApi = {
    * @param data 系统字段数据
    */
   createSystemField: (data: Omit<SystemField, 'id'>) => {
-    return requestClient8085.post<CommonResponse>('/excel-templates/system-fields', data);
+    return requestClient8080.post<CommonResponse>('/excel-templates/system-fields', data);
   },
 
   /**
@@ -239,7 +239,7 @@ export const excelTemplatesApi = {
    * @param data 系统字段数据
    */
   updateSystemField: (id: number, data: Partial<SystemField>) => {
-    return requestClient8085.put<CommonResponse>(`/excel-templates/system-fields/${id}`, data);
+    return requestClient8080.put<CommonResponse>(`/excel-templates/system-fields/${id}`, data);
   },
 
   /**
@@ -247,6 +247,6 @@ export const excelTemplatesApi = {
    * @param id 系统字段ID
    */
   deleteSystemField: (id: number) => {
-    return requestClient8085.delete<CommonResponse>(`/excel-templates/system-fields/${id}`);
+    return requestClient8080.delete<CommonResponse>(`/excel-templates/system-fields/${id}`);
   },
 };

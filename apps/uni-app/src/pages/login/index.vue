@@ -134,42 +134,11 @@ const handleLogin = async () => {
   }
 
   loading.value = true
-  
-  console.log('============ LOGIN START ============')
-  console.log('[Login] Username:', form.username)
-  console.log('[Login] Password length:', form.password.length)
-  console.log('[Login] Login params:', { username: form.username, password: '***' })
-  
   try {
     const res = await login(form)
-    
-    console.log('[Login] API response received')
-    console.log('[Login] Full response:', JSON.stringify(res, null, 2))
-    console.log('[Login] Response code:', res.code)
-    console.log('[Login] Response message:', res.message)
-    console.log('[Login] Response data:', res.data)
-    
     if (res.code === 200 && res.data) {
-      console.log('[Login] Login successful!')
-      console.log('[Login] accessToken:', res.data.accessToken)
-      console.log('[Login] accessToken type:', typeof res.data.accessToken)
-      console.log('[Login] accessToken length:', res.data.accessToken?.length)
-      console.log('[Login] refreshToken:', res.data.refreshToken?.substring(0, 20) + '...')
-      console.log('[Login] userId:', res.data.userId)
-      console.log('[Login] username:', res.data.username)
-      console.log('[Login] realName:', res.data.realName)
-      
       // 保存 token
       uni.setStorageSync('token', res.data.accessToken)
-      console.log('[Login] Token saved to storage')
-      
-      // 立即验证存储
-      const savedToken = uni.getStorageSync('token')
-      console.log('[Login] Token verification after save:')
-      console.log('[Login]   Saved token type:', typeof savedToken)
-      console.log('[Login]   Saved token length:', savedToken?.length)
-      console.log('[Login]   Saved token matches:', savedToken === res.data.accessToken)
-      console.log('[Login]   Saved token value:', savedToken?.substring(0, 30) + '...')
       
       // 保存用户信息
       const userInfo = {
@@ -178,34 +147,18 @@ const handleLogin = async () => {
         realName: res.data.realName,
       }
       uni.setStorageSync('userInfo', userInfo)
-      console.log('[Login] User info saved:', userInfo)
-      
-      // 验证用户信息存储
-      const savedUserInfo = uni.getStorageSync('userInfo')
-      console.log('[Login] User info verification:', savedUserInfo)
-      
-      console.log('============ LOGIN SUCCESS ============')
+
       uni.showToast({ title: '登录成功', icon: 'success' })
       setTimeout(() => {
-        console.log('[Login] Navigating to workspace...')
         uni.switchTab({ url: '/pages/workspace/index' })
       }, 1500)
     } else {
-      console.log('[Login] Login failed - code:', res.code)
-      console.log('[Login] Login failed - message:', res.message)
-      console.log('============ LOGIN FAILED ============')
       uni.showToast({ title: res.message || '登录失败', icon: 'none' })
     }
   } catch (error) {
-    console.log('[Login] Login error caught')
-    console.log('[Login] Error type:', typeof error)
-    console.log('[Login] Error:', error)
-    console.log('[Login] Error message:', (error as Error)?.message)
-    console.log('============ LOGIN ERROR ============')
     uni.showToast({ title: '登录失败', icon: 'none' })
   } finally {
     loading.value = false
-    console.log('============ LOGIN END ============')
   }
 }
 </script>

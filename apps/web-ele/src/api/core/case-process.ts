@@ -6,7 +6,7 @@ import {
   uploadFileApi,
 } from '#/api/core/file';
 
-import { requestClient8085 } from '../request';
+import { requestClient8080 } from '../request';
 
 /**
  * 案件阶段数据项
@@ -39,7 +39,7 @@ export namespace CaseProcessApi {
    * @returns 阶段数据列表
    */
   export async function getCaseStageDataApi(caseId: string | number, stageNum: number) {
-    return requestClient8085.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/stage/${stageNum}`);
+    return requestClient8080.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/stage/${stageNum}`);
   }
 
   /**
@@ -48,7 +48,7 @@ export namespace CaseProcessApi {
    * @returns 操作结果
    */
   export async function addCaseStageDataApi(data: Partial<CaseStageItem>) {
-    return requestClient8085.post<boolean>('/api/case-process-stage', data);
+    return requestClient8080.post<boolean>('/api/case-process-stage', data);
   }
 
   /**
@@ -58,7 +58,7 @@ export namespace CaseProcessApi {
    * @returns 操作结果
    */
   export async function updateCaseStageDataApi(id: number, data: Partial<CaseStageItem>) {
-    return requestClient8085.put<boolean>(`/api/case-process-stage/${id}`, data);
+    return requestClient8080.put<boolean>(`/api/case-process-stage/${id}`, data);
   }
 
   /**
@@ -67,7 +67,7 @@ export namespace CaseProcessApi {
    * @returns 操作结果
    */
   export async function deleteCaseStageDataApi(id: number) {
-    return requestClient8085.delete<boolean>(`/api/case-process-stage/${id}`);
+    return requestClient8080.delete<boolean>(`/api/case-process-stage/${id}`);
   }
 
   /**
@@ -77,7 +77,7 @@ export namespace CaseProcessApi {
    * @returns 模块数据列表
    */
   export async function getCaseModuleDataApi(caseId: string | number, moduleCode: string) {
-    return requestClient8085.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/module/${moduleCode}`);
+    return requestClient8080.get<CaseStageItem[]>(`/api/case-process-stage/case/${caseId}/module/${moduleCode}`);
   }
 
   /** 工作团队信息 */
@@ -976,7 +976,7 @@ export const getManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/managementSystem/listByCase/${sepLd}`,
       {
         params: {
@@ -1000,7 +1000,7 @@ export const getAllManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/case/phase1/managementSystem/list',
       {
         params: {
@@ -1025,7 +1025,7 @@ export const getSealManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/accountSeal/listByCase/${sepLd}`,
       {
         params: {
@@ -1049,7 +1049,7 @@ export const getAllSealManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/case/phase1/accountSeal/list', {
+    return await requestClient8080.get('/api/case/phase1/accountSeal/list', {
       params: {
         page,
         size,
@@ -1071,7 +1071,7 @@ export const getLegalProcedureApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/legalProcedure/listByCase/${sepLd}`,
       {
         params: {
@@ -1095,7 +1095,7 @@ export const getAllLegalProcedureApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/case/phase1/legalProcedure/list', {
+    return await requestClient8080.get('/api/case/phase1/legalProcedure/list', {
       params: {
         page,
         size,
@@ -1118,7 +1118,7 @@ export const getAllPropertyReceiptApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/propertyReceipt/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1140,7 +1140,7 @@ export const getAllEmergencyApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/emergency/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1162,7 +1162,7 @@ export const getAllPropertyPlanApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/propertyPlan/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1184,7 +1184,7 @@ export const getAllPersonnelEmpApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/personnelEmp/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1206,7 +1206,7 @@ export const getAllInternalAffairsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/internalAffairs/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1228,7 +1228,7 @@ export const getAllContractManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/contractManagement/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1250,7 +1250,7 @@ export const getAllBManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase2/businessManagement/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -1294,7 +1294,7 @@ export const getAllWorkPlanApi = async (
   };
 }> => {
   try {
-    return await requestClient8085.get('/work-plan/list', {
+    return await requestClient8080.get('/work-plan/list', {
       params: { caseId, pageNum, pageSize, planType, executionStatus, status },
     });
   } catch (error) {
@@ -1348,7 +1348,7 @@ export const unifiedTaskOperationApi = async (data: {
       ...(data.ZHRQ && { ZHRQ: data.ZHRQ }),
     };
 
-    return await requestClient8085.post('/api/case/phase1/update', requestData);
+    return await requestClient8080.post('/api/case/phase1/update', requestData);
   } catch (error) {
     console.error('统一任务操作失败:', error);
     throw error;
@@ -1392,7 +1392,7 @@ export const update1Api = async (data: {
     // 构建更新API路径
     const apiPath = `/api/case/phase1/${moduleName}/update`;
 
-    return await requestClient8085.post(apiPath, {
+    return await requestClient8080.post(apiPath, {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1444,7 +1444,7 @@ export const update2Api = async (data: {
     // 构建更新API路径
     const apiPath = `/api/case/phase2/${moduleName}/update`;
 
-    return await requestClient8085.post(apiPath, {
+    return await requestClient8080.post(apiPath, {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1478,7 +1478,7 @@ export const update3Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/case/phase3/update', {
+    return await requestClient8080.post('/api/case/phase3/update', {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1512,7 +1512,7 @@ export const update6Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/web/update6', {
+    return await requestClient8080.post('/api/web/update6', {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1546,7 +1546,7 @@ export const update4Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/web/update4', {
+    return await requestClient8080.post('/api/web/update4', {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1580,7 +1580,7 @@ export const update5Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/web/update5', {
+    return await requestClient8080.post('/api/web/update5', {
       ...data,
       SEP_EUSER,
       SEP_EDATE,
@@ -1642,7 +1642,7 @@ export const updateTaskStatusApi = async (
 /** 管理制度新增API */
 export const addManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/managementSystem/add',
       data,
     );
@@ -1661,7 +1661,7 @@ export const updateManagementApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/managementSystem/update',
       requestData,
     );
@@ -1674,7 +1674,7 @@ export const updateManagementApi = async (data: any) => {
 /** 管理制度删除API */
 export const deleteManagementApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/managementSystem/delete/${sepId}`,
     );
   } catch (error) {
@@ -1686,7 +1686,7 @@ export const deleteManagementApi = async (sepId: number | string) => {
 /** 根据ID获取管理制度API */
 export const getManagementByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/managementSystem/${sepId}`,
     );
   } catch (error) {
@@ -1698,7 +1698,7 @@ export const getManagementByIdApi = async (sepId: number | string) => {
 /** 账户印章管理新增API */
 export const addSealManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/accountSeal/add',
       data,
     );
@@ -1719,7 +1719,7 @@ export const updateSealManagementApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/accountSeal/update',
       requestData,
     );
@@ -1732,7 +1732,7 @@ export const updateSealManagementApi = async (data: any) => {
 /** 账户印章管理删除API */
 export const deleteSealManagementApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/accountSeal/delete/${sepId}`,
     );
   } catch (error) {
@@ -1744,7 +1744,7 @@ export const deleteSealManagementApi = async (sepId: number | string) => {
 /** 根据ID获取账户印章管理API */
 export const getSealManagementByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/case/phase1/accountSeal/${sepId}`);
+    return await requestClient8080.get(`/api/case/phase1/accountSeal/${sepId}`);
   } catch (error) {
     console.error('获取账户印章管理详情失败:', error);
     throw error;
@@ -1754,7 +1754,7 @@ export const getSealManagementByIdApi = async (sepId: number | string) => {
 /** 法律程序新增API */
 export const addLegalProcedureApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/legalProcedure/add',
       data,
     );
@@ -1775,7 +1775,7 @@ export const updateLegalProcedureApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase1/legalProcedure/update',
       requestData,
     );
@@ -1788,7 +1788,7 @@ export const updateLegalProcedureApi = async (data: any) => {
 /** 法律程序删除API */
 export const deleteLegalProcedureApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/legalProcedure/delete/${sepId}`,
     );
   } catch (error) {
@@ -1800,7 +1800,7 @@ export const deleteLegalProcedureApi = async (sepId: number | string) => {
 /** 根据ID获取法律程序API */
 export const getLegalProcedureByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase1/legalProcedure/${sepId}`,
     );
   } catch (error) {
@@ -1812,7 +1812,7 @@ export const getLegalProcedureByIdApi = async (sepId: number | string) => {
 /** 财产接收新增API */
 export const addPropertyReceiptApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/propertyReceipt/add',
       data,
     );
@@ -1825,7 +1825,7 @@ export const addPropertyReceiptApi = async (data: any) => {
 /** 应急管理新增API */
 export const addEmergencyApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/case/phase2/emergency/add', data);
+    return await requestClient8080.post('/api/case/phase2/emergency/add', data);
   } catch (error) {
     console.error('添加应急管理失败:', error);
     throw error;
@@ -1835,7 +1835,7 @@ export const addEmergencyApi = async (data: any) => {
 /** 财产方案管理新增API */
 export const addPropertyPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/propertyPlan/add',
       data,
     );
@@ -1848,7 +1848,7 @@ export const addPropertyPlanApi = async (data: any) => {
 /** 人员聘用新增API */
 export const addPersonnelEmploymentApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/personnelEmp/add',
       data,
     );
@@ -1861,7 +1861,7 @@ export const addPersonnelEmploymentApi = async (data: any) => {
 /** 内部事务管理新增API */
 export const addInternalAffairsApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/internalAffairs/add',
       data,
     );
@@ -1874,7 +1874,7 @@ export const addInternalAffairsApi = async (data: any) => {
 /** 合同管理新增API */
 export const addContractManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/contractManagement/add',
       data,
     );
@@ -1887,7 +1887,7 @@ export const addContractManagementApi = async (data: any) => {
 /** 营业管理新增API */
 export const addBusinessManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase2/businessManagement/add',
       data,
     );
@@ -1900,7 +1900,7 @@ export const addBusinessManagementApi = async (data: any) => {
 /** 第三阶段新增API */
 export const addPropertyInvestigationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/propertyInvestigation/add',
       data,
     );
@@ -1912,7 +1912,7 @@ export const addPropertyInvestigationApi = async (data: any) => {
 
 export const addBankExpensesApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/bankruptcyExpenses/add',
       data,
     );
@@ -1924,7 +1924,7 @@ export const addBankExpensesApi = async (data: any) => {
 
 export const addRightsClaimApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/rightsClaim/add',
       data,
     );
@@ -1936,7 +1936,7 @@ export const addRightsClaimApi = async (data: any) => {
 
 export const addReclaimReviewApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/reclaimReview/add',
       data,
     );
@@ -1948,7 +1948,7 @@ export const addReclaimReviewApi = async (data: any) => {
 
 export const addLitigationArbitrationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/litigationArbitration/add',
       data,
     );
@@ -1960,7 +1960,7 @@ export const addLitigationArbitrationApi = async (data: any) => {
 
 export const addCreditorClaimApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/creditorClaim/add',
       data,
     );
@@ -1972,7 +1972,7 @@ export const addCreditorClaimApi = async (data: any) => {
 
 export const addSocialSecurtyFeesApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/socialSecurityFees/add',
       data,
     );
@@ -1984,7 +1984,7 @@ export const addSocialSecurtyFeesApi = async (data: any) => {
 
 export const addTaxVerificationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase3/taxVerification/add',
       data,
     );
@@ -1997,7 +1997,7 @@ export const addTaxVerificationApi = async (data: any) => {
 /** 第六阶段新增API */
 export const addBankruptcyDistPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addBankruptcyDistPlan', data);
+    return await requestClient8080.post('/api/web/addBankruptcyDistPlan', data);
   } catch (error) {
     console.error('添加破产财产分配方案失败:', error);
     throw error;
@@ -2006,7 +2006,7 @@ export const addBankruptcyDistPlanApi = async (data: any) => {
 
 export const addEmployeeSettlementPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/addEmployeeSettlementPlan',
       data,
     );
@@ -2018,7 +2018,7 @@ export const addEmployeeSettlementPlanApi = async (data: any) => {
 
 export const addPriorityPaymentApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addPriorityPayment', data);
+    return await requestClient8080.post('/api/web/addPriorityPayment', data);
   } catch (error) {
     console.error('添加优先受偿失败:', error);
     throw error;
@@ -2027,7 +2027,7 @@ export const addPriorityPaymentApi = async (data: any) => {
 
 export const addPropertyDistributionExecutionApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/addPropertyDistributionExecution',
       data,
     );
@@ -2039,7 +2039,7 @@ export const addPropertyDistributionExecutionApi = async (data: any) => {
 
 export const addDepositManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addDepositManagement', data);
+    return await requestClient8080.post('/api/web/addDepositManagement', data);
   } catch (error) {
     console.error('添加提存管理失败:', error);
     throw error;
@@ -2048,7 +2048,7 @@ export const addDepositManagementApi = async (data: any) => {
 
 export const addBankruptcyProcedureTerminationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/addBankruptcyProcedureTermination',
       data,
     );
@@ -2061,7 +2061,7 @@ export const addBankruptcyProcedureTerminationApi = async (data: any) => {
 
 export const addSessionApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/case/phase4/session/add', data);
+    return await requestClient8080.post('/api/case/phase4/session/add', data);
   } catch (error) {
     console.error('添加债权人会议失败:', error);
     throw error;
@@ -2070,7 +2070,7 @@ export const addSessionApi = async (data: any) => {
 
 export const addMeetingDocumentsApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/meetingDocuments/add',
       data,
     );
@@ -2082,7 +2082,7 @@ export const addMeetingDocumentsApi = async (data: any) => {
 
 export const addClaimConfirmationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/claimConfirmation/add',
       data,
     );
@@ -2094,7 +2094,7 @@ export const addClaimConfirmationApi = async (data: any) => {
 
 export const addRemunerationPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/remunerationPlan/add',
       data,
     );
@@ -2106,7 +2106,7 @@ export const addRemunerationPlanApi = async (data: any) => {
 
 export const addImportantActionsApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/importantActions/add',
       data,
     );
@@ -2118,7 +2118,7 @@ export const addImportantActionsApi = async (data: any) => {
 
 export const addSetoffReviewApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/setoffReview/add',
       data,
     );
@@ -2138,7 +2138,7 @@ export const getAllSessionApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/case/phase4/session/list', {
+    return await requestClient8080.get('/api/case/phase4/session/list', {
       params: { page, size },
     });
   } catch (error) {
@@ -2157,7 +2157,7 @@ export const getSessionByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/session/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2171,7 +2171,7 @@ export const getSessionByCaseApi = async (
 
 export const getSessionByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(`/api/case/phase4/session/${id}`);
+    return await requestClient8080.get(`/api/case/phase4/session/${id}`);
   } catch (error) {
     console.error('获取债权人会议详情失败:', error);
     throw error;
@@ -2186,7 +2186,7 @@ export const updateSessionApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/session/update',
       requestData,
     );
@@ -2198,7 +2198,7 @@ export const updateSessionApi = async (data: any) => {
 
 export const deleteSessionApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/session/delete/${sepId}`,
     );
   } catch (error) {
@@ -2217,7 +2217,7 @@ export const getAllMeetingDocumentsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/case/phase4/meetingDocuments/list',
       {
         params: { page, size },
@@ -2239,7 +2239,7 @@ export const getMeetingDocumentsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/meetingDocuments/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2253,7 +2253,7 @@ export const getMeetingDocumentsByCaseApi = async (
 
 export const getMeetingDocumentsByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/meetingDocuments/${id}`,
     );
   } catch (error) {
@@ -2270,7 +2270,7 @@ export const updateMeetingDocumentsApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/meetingDocuments/update',
       requestData,
     );
@@ -2282,7 +2282,7 @@ export const updateMeetingDocumentsApi = async (data: any) => {
 
 export const deleteMeetingDocumentsApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/meetingDocuments/delete/${sepId}`,
     );
   } catch (error) {
@@ -2301,7 +2301,7 @@ export const getAllClaimConfirmationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/case/phase4/claimConfirmation/list',
       {
         params: { page, size },
@@ -2323,7 +2323,7 @@ export const getClaimConfirmationByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/claimConfirmation/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2337,7 +2337,7 @@ export const getClaimConfirmationByCaseApi = async (
 
 export const getClaimConfirmationByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/claimConfirmation/${id}`,
     );
   } catch (error) {
@@ -2354,7 +2354,7 @@ export const updateClaimConfirmationApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/claimConfirmation/update',
       requestData,
     );
@@ -2366,7 +2366,7 @@ export const updateClaimConfirmationApi = async (data: any) => {
 
 export const deleteClaimConfirmationApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/claimConfirmation/delete/${sepId}`,
     );
   } catch (error) {
@@ -2385,7 +2385,7 @@ export const getAllRemunerationPlanApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/case/phase4/remunerationPlan/list',
       {
         params: { page, size },
@@ -2407,7 +2407,7 @@ export const getRemunerationPlanByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/remunerationPlan/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2421,7 +2421,7 @@ export const getRemunerationPlanByCaseApi = async (
 
 export const getRemunerationPlanByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/remunerationPlan/${id}`,
     );
   } catch (error) {
@@ -2438,7 +2438,7 @@ export const updateRemunerationPlanApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/remunerationPlan/update',
       requestData,
     );
@@ -2450,7 +2450,7 @@ export const updateRemunerationPlanApi = async (data: any) => {
 
 export const deleteRemunerationPlanApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/remunerationPlan/delete/${sepId}`,
     );
   } catch (error) {
@@ -2469,7 +2469,7 @@ export const getAllImportantActionsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/case/phase4/importantActions/list',
       {
         params: { page, size },
@@ -2491,7 +2491,7 @@ export const getImportantActionsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/importantActions/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2505,7 +2505,7 @@ export const getImportantActionsByCaseApi = async (
 
 export const getImportantActionsByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/importantActions/${id}`,
     );
   } catch (error) {
@@ -2522,7 +2522,7 @@ export const updateImportantActionsApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/importantActions/update',
       requestData,
     );
@@ -2534,7 +2534,7 @@ export const updateImportantActionsApi = async (data: any) => {
 
 export const deleteImportantActionsApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/importantActions/delete/${sepId}`,
     );
   } catch (error) {
@@ -2553,7 +2553,7 @@ export const getAllSetoffReviewApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/case/phase4/setoffReview/list', {
+    return await requestClient8080.get('/api/case/phase4/setoffReview/list', {
       params: { page, size },
     });
   } catch (error) {
@@ -2572,7 +2572,7 @@ export const getSetoffReviewByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/setoffReview/listByCase/${caseId}`,
       {
         params: { page, size },
@@ -2586,7 +2586,7 @@ export const getSetoffReviewByCaseApi = async (
 
 export const getSetoffReviewByIdApi = async (id: number | string) => {
   try {
-    return await requestClient8085.get(`/api/case/phase4/setoffReview/${id}`);
+    return await requestClient8080.get(`/api/case/phase4/setoffReview/${id}`);
   } catch (error) {
     console.error('获取抵消权审查详情失败:', error);
     throw error;
@@ -2601,7 +2601,7 @@ export const updateSetoffReviewApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/setoffReview/update',
       requestData,
     );
@@ -2613,7 +2613,7 @@ export const updateSetoffReviewApi = async (data: any) => {
 
 export const deleteSetoffReviewApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/setoffReview/delete/${sepId}`,
     );
   } catch (error) {
@@ -2633,7 +2633,7 @@ export const getBankruptcyDistPlanApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllBankruptcyDistPlan', {
+    return await requestClient8080.get('/api/web/getAllBankruptcyDistPlan', {
       params: { SEP_ID, page, size },
     });
   } catch (error) {
@@ -2652,7 +2652,7 @@ export const getEmployeeSPlanApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllEmployeeSPlan', {
+    return await requestClient8080.get('/api/web/getAllEmployeeSPlan', {
       params: { SEP_ID, page, size },
     });
   } catch (error) {
@@ -2671,7 +2671,7 @@ export const getPriorityPaymentApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPriorityPayment', {
+    return await requestClient8080.get('/api/web/getAllPriorityPayment', {
       params: { SEP_ID, page, size },
     });
   } catch (error) {
@@ -2690,7 +2690,7 @@ export const getPropertyDECApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllPropertyDEC', {
+    return await requestClient8080.get('/api/web/getAllPropertyDEC', {
       params: { SEP_ID, page, size },
     });
   } catch (error) {
@@ -2709,7 +2709,7 @@ export const getDepositManagementApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllDepositManagement', {
+    return await requestClient8080.get('/api/web/getAllDepositManagement', {
       params: { SEP_ID, page, size },
     });
   } catch (error) {
@@ -2728,7 +2728,7 @@ export const getPropertyDistributionExecutionApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/web/getAllPropertyDistributionExecution',
       {
         params: { SEP_ID, page, size },
@@ -2750,7 +2750,7 @@ export const getBankruptcyProcedureTerminationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       '/api/web/getAllBankruptcyProcedureTermination',
       {
         params: { SEP_ID, page, size },
@@ -2773,7 +2773,7 @@ export const getClaimConfirmationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/claimConfirmation/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2791,7 +2791,7 @@ export const getAllAuditReportApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/auditReport/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2810,7 +2810,7 @@ export const getAllAssetValuationApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/assetValuation/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2828,7 +2828,7 @@ export const getAllBankruptcyDeclarationApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/bankruptcyDeclaration/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2846,7 +2846,7 @@ export const getAllPropertyVIMApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationImplementation/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2864,7 +2864,7 @@ export const getAllPropertyVPlanApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationPlan/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2882,7 +2882,7 @@ export const getAllAuctionAgencyApi = async (
   size: number = 10,
 ): Promise<CaseProcessApi.TaskResponse<CaseProcessApi.PageResponse<any>>> => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/auctionAgency/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -2897,7 +2897,7 @@ export const getAllAuctionAgencyApi = async (
 /** 第五阶段新增API */
 export const addAuditReportApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/auditReport/add',
       data,
     );
@@ -2915,7 +2915,7 @@ export const updateAuditReportApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/auditReport/update',
       requestData,
     );
@@ -2927,7 +2927,7 @@ export const updateAuditReportApi = async (data: any) => {
 
 export const deleteAuditReportApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/auditReport/delete/${sepId}`,
     );
   } catch (error) {
@@ -2938,7 +2938,7 @@ export const deleteAuditReportApi = async (sepId: number | string) => {
 
 export const getAuditReportByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/case/phase4/auditReport/${sepId}`);
+    return await requestClient8080.get(`/api/case/phase4/auditReport/${sepId}`);
   } catch (error) {
     console.error('获取审计报告详情失败:', error);
     throw error;
@@ -2947,7 +2947,7 @@ export const getAuditReportByIdApi = async (sepId: number | string) => {
 
 export const addAssetValuationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/assetValuation/add',
       data,
     );
@@ -2965,7 +2965,7 @@ export const updateAssetValuationApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/assetValuation/update',
       requestData,
     );
@@ -2977,7 +2977,7 @@ export const updateAssetValuationApi = async (data: any) => {
 
 export const deleteAssetValuationApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/assetValuation/delete/${sepId}`,
     );
   } catch (error) {
@@ -2988,7 +2988,7 @@ export const deleteAssetValuationApi = async (sepId: number | string) => {
 
 export const getAssetValuationByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/assetValuation/${sepId}`,
     );
   } catch (error) {
@@ -2999,7 +2999,7 @@ export const getAssetValuationByIdApi = async (sepId: number | string) => {
 
 export const addPropertyValuationPlanApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/propertyValuationPlan/add',
       data,
     );
@@ -3017,7 +3017,7 @@ export const updatePropertyValuationPlanApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/propertyValuationPlan/update',
       requestData,
     );
@@ -3031,7 +3031,7 @@ export const deletePropertyValuationPlanApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationPlan/delete/${sepId}`,
     );
   } catch (error) {
@@ -3044,7 +3044,7 @@ export const getPropertyValuationPlanByIdApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationPlan/${sepId}`,
     );
   } catch (error) {
@@ -3055,7 +3055,7 @@ export const getPropertyValuationPlanByIdApi = async (
 
 export const addAuctionAgencyApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/auctionAgency/add',
       data,
     );
@@ -3073,7 +3073,7 @@ export const updateAuctionAgencyApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/auctionAgency/update',
       requestData,
     );
@@ -3085,7 +3085,7 @@ export const updateAuctionAgencyApi = async (data: any) => {
 
 export const deleteAuctionAgencyApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/auctionAgency/delete/${sepId}`,
     );
   } catch (error) {
@@ -3096,7 +3096,7 @@ export const deleteAuctionAgencyApi = async (sepId: number | string) => {
 
 export const getAuctionAgencyByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/auctionAgency/${sepId}`,
     );
   } catch (error) {
@@ -3107,7 +3107,7 @@ export const getAuctionAgencyByIdApi = async (sepId: number | string) => {
 
 export const addBankruptcyDeclarationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/bankruptcyDeclaration/add',
       data,
     );
@@ -3125,7 +3125,7 @@ export const updateBankruptcyDeclarationApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/bankruptcyDeclaration/update',
       requestData,
     );
@@ -3139,7 +3139,7 @@ export const deleteBankruptcyDeclarationApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/bankruptcyDeclaration/delete/${sepId}`,
     );
   } catch (error) {
@@ -3152,7 +3152,7 @@ export const getBankruptcyDeclarationByIdApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/bankruptcyDeclaration/${sepId}`,
     );
   } catch (error) {
@@ -3163,7 +3163,7 @@ export const getBankruptcyDeclarationByIdApi = async (
 
 export const addPropertyValuationImplementationApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/propertyValuationImplementation/add',
       data,
     );
@@ -3181,7 +3181,7 @@ export const updatePropertyValuationImplementationApi = async (data: any) => {
         sepId: data.sepId || data.sep_id || data.SEP_ID,
       }),
     };
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/case/phase4/propertyValuationImplementation/update',
       requestData,
     );
@@ -3195,7 +3195,7 @@ export const deletePropertyValuationImplementationApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationImplementation/delete/${sepId}`,
     );
   } catch (error) {
@@ -3208,7 +3208,7 @@ export const getPropertyValuationImplementationByIdApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase4/propertyValuationImplementation/${sepId}`,
     );
   } catch (error) {
@@ -3314,7 +3314,7 @@ export const getAllPropertyInvestigationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/propertyInvestigation/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3336,7 +3336,7 @@ export const getAllBankExpensesApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/bankruptcyExpenses/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3358,7 +3358,7 @@ export const getAllRightsClaimApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/rightsClaim/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3380,7 +3380,7 @@ export const getAllReclaimReviewApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/reclaimReview/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3402,7 +3402,7 @@ export const getAllLitigationArbitrationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/litigationArbitration/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3424,7 +3424,7 @@ export const getAllCreditorClaimApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/creditorClaim/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3446,7 +3446,7 @@ export const getAllSociaSFApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/socialSecurityFees/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3468,7 +3468,7 @@ export const getAllTaxVerificationApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/case/phase3/taxVerification/listByCase/${SEP_ID}`,
       {
         params: { page, size },
@@ -3493,7 +3493,7 @@ export const getAllCancellationRegistrationsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllCancellationRegistrations', {
+    return await requestClient8080.get('/api/web/getAllCancellationRegistrations', {
       params: { page, size },
     });
   } catch (error) {
@@ -3512,7 +3512,7 @@ export const getCancellationRegistrationsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/web/getCancellationRegistrationsByCaseId`,
       {
         params: { sepLd, page, size },
@@ -3526,7 +3526,7 @@ export const getCancellationRegistrationsByCaseApi = async (
 
 export const getCancellationRegistrationByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getCancellationRegistrationById`, {
+    return await requestClient8080.get(`/api/web/getCancellationRegistrationById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -3537,7 +3537,7 @@ export const getCancellationRegistrationByIdApi = async (sepId: number | string)
 
 export const addCancellationRegistrationApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addCancellationRegistration', data);
+    return await requestClient8080.post('/api/web/addCancellationRegistration', data);
   } catch (error) {
     console.error('添加注销登记失败:', error);
     throw error;
@@ -3546,7 +3546,7 @@ export const addCancellationRegistrationApi = async (data: any) => {
 
 export const updateCancellationRegistrationApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateCancellationRegistration', data);
+    return await requestClient8080.post('/api/web/updateCancellationRegistration', data);
   } catch (error) {
     console.error('修改注销登记失败:', error);
     throw error;
@@ -3555,7 +3555,7 @@ export const updateCancellationRegistrationApi = async (data: any) => {
 
 export const updateCancellationRegistrationByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateCancellationRegistrationByCaseId',
       data,
     );
@@ -3567,7 +3567,7 @@ export const updateCancellationRegistrationByCaseApi = async (data: any) => {
 
 export const deleteCancellationRegistrationApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteCancellationRegistration', null, {
+    return await requestClient8080.post('/api/web/deleteCancellationRegistration', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -3589,7 +3589,7 @@ export const getAllTerminationLitigationsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllTerminationLitigations', {
+    return await requestClient8080.get('/api/web/getAllTerminationLitigations', {
       params: { page, size },
     });
   } catch (error) {
@@ -3608,7 +3608,7 @@ export const getTerminationLitigationsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/web/getTerminationLitigationsByCaseId`,
       {
         params: { sepLd, page, size },
@@ -3622,7 +3622,7 @@ export const getTerminationLitigationsByCaseApi = async (
 
 export const getTerminationLitigationByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getTerminationLitigationById`, {
+    return await requestClient8080.get(`/api/web/getTerminationLitigationById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -3633,7 +3633,7 @@ export const getTerminationLitigationByIdApi = async (sepId: number | string) =>
 
 export const addTerminationLitigationApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addTerminationLitigation', data);
+    return await requestClient8080.post('/api/web/addTerminationLitigation', data);
   } catch (error) {
     console.error('添加终结诉讼仲裁失败:', error);
     throw error;
@@ -3642,7 +3642,7 @@ export const addTerminationLitigationApi = async (data: any) => {
 
 export const updateTerminationLitigationApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateTerminationLitigation', data);
+    return await requestClient8080.post('/api/web/updateTerminationLitigation', data);
   } catch (error) {
     console.error('修改终结诉讼仲裁失败:', error);
     throw error;
@@ -3651,7 +3651,7 @@ export const updateTerminationLitigationApi = async (data: any) => {
 
 export const updateTerminationLitigationByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateTerminationLitigationByCaseId',
       data,
     );
@@ -3663,7 +3663,7 @@ export const updateTerminationLitigationByCaseApi = async (data: any) => {
 
 export const deleteTerminationLitigationApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteTerminationLitigation', null, {
+    return await requestClient8080.post('/api/web/deleteTerminationLitigation', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -3685,7 +3685,7 @@ export const getAllAdditionalDistributionsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllAdditionalDistributions', {
+    return await requestClient8080.get('/api/web/getAllAdditionalDistributions', {
       params: { page, size },
     });
   } catch (error) {
@@ -3704,7 +3704,7 @@ export const getAdditionalDistributionsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/web/getAdditionalDistributionsByCaseId`,
       {
         params: { sepLd, page, size },
@@ -3718,7 +3718,7 @@ export const getAdditionalDistributionsByCaseApi = async (
 
 export const getAdditionalDistributionByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getAdditionalDistributionById`, {
+    return await requestClient8080.get(`/api/web/getAdditionalDistributionById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -3729,7 +3729,7 @@ export const getAdditionalDistributionByIdApi = async (sepId: number | string) =
 
 export const addAdditionalDistributionApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addAdditionalDistribution', data);
+    return await requestClient8080.post('/api/web/addAdditionalDistribution', data);
   } catch (error) {
     console.error('添加追加分配失败:', error);
     throw error;
@@ -3738,7 +3738,7 @@ export const addAdditionalDistributionApi = async (data: any) => {
 
 export const updateAdditionalDistributionApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateAdditionalDistribution', data);
+    return await requestClient8080.post('/api/web/updateAdditionalDistribution', data);
   } catch (error) {
     console.error('修改追加分配失败:', error);
     throw error;
@@ -3747,7 +3747,7 @@ export const updateAdditionalDistributionApi = async (data: any) => {
 
 export const updateAdditionalDistributionByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateAdditionalDistributionByCaseId',
       data,
     );
@@ -3759,7 +3759,7 @@ export const updateAdditionalDistributionByCaseApi = async (data: any) => {
 
 export const deleteAdditionalDistributionApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteAdditionalDistribution', null, {
+    return await requestClient8080.post('/api/web/deleteAdditionalDistribution', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -3781,7 +3781,7 @@ export const getAllAccountSealManagementsPhase7Api = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllAccountSealManagements', {
+    return await requestClient8080.get('/api/web/getAllAccountSealManagements', {
       params: { page, size },
     });
   } catch (error) {
@@ -3800,7 +3800,7 @@ export const getAccountSealManagementsPhase7ByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(
+    return await requestClient8080.get(
       `/api/web/getAccountSealManagementsByCaseId`,
       {
         params: { sepLd, page, size },
@@ -3816,7 +3816,7 @@ export const getAccountSealManagementPhase7ByIdApi = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.get(`/api/web/getAccountSealManagementById`, {
+    return await requestClient8080.get(`/api/web/getAccountSealManagementById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -3827,7 +3827,7 @@ export const getAccountSealManagementPhase7ByIdApi = async (
 
 export const addAccountSealManagementPhase7Api = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addAccountSealManagement', data);
+    return await requestClient8080.post('/api/web/addAccountSealManagement', data);
   } catch (error) {
     console.error('添加账户印章管理失败:', error);
     throw error;
@@ -3836,7 +3836,7 @@ export const addAccountSealManagementPhase7Api = async (data: any) => {
 
 export const updateAccountSealManagementPhase7Api = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateAccountSealManagement', data);
+    return await requestClient8080.post('/api/web/updateAccountSealManagement', data);
   } catch (error) {
     console.error('修改账户印章管理失败:', error);
     throw error;
@@ -3845,7 +3845,7 @@ export const updateAccountSealManagementPhase7Api = async (data: any) => {
 
 export const updateAccountSealManagementPhase7ByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateAccountSealManagementByCaseId',
       data,
     );
@@ -3859,7 +3859,7 @@ export const deleteAccountSealManagementPhase7Api = async (
   sepId: number | string,
 ) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/deleteAccountSealManagement',
       null,
       { params: { sepId } },
@@ -3883,7 +3883,7 @@ export const getAllDutyReportsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllDutyReports', {
+    return await requestClient8080.get('/api/web/getAllDutyReports', {
       params: { page, size },
     });
   } catch (error) {
@@ -3902,7 +3902,7 @@ export const getDutyReportsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(`/api/web/getDutyReportsByCaseId`, {
+    return await requestClient8080.get(`/api/web/getDutyReportsByCaseId`, {
       params: { sepLd, page, size },
     });
   } catch (error) {
@@ -3913,7 +3913,7 @@ export const getDutyReportsByCaseApi = async (
 
 export const getDutyReportByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getDutyReportById`, {
+    return await requestClient8080.get(`/api/web/getDutyReportById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -3924,7 +3924,7 @@ export const getDutyReportByIdApi = async (sepId: number | string) => {
 
 export const addDutyReportApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addDutyReport', data);
+    return await requestClient8080.post('/api/web/addDutyReport', data);
   } catch (error) {
     console.error('添加职务报告失败:', error);
     throw error;
@@ -3933,7 +3933,7 @@ export const addDutyReportApi = async (data: any) => {
 
 export const updateDutyReportApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateDutyReport', data);
+    return await requestClient8080.post('/api/web/updateDutyReport', data);
   } catch (error) {
     console.error('修改职务报告失败:', error);
     throw error;
@@ -3942,7 +3942,7 @@ export const updateDutyReportApi = async (data: any) => {
 
 export const updateDutyReportByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateDutyReportByCaseId', data);
+    return await requestClient8080.post('/api/web/updateDutyReportByCaseId', data);
   } catch (error) {
     console.error('根据案件ID更新职务报告失败:', error);
     throw error;
@@ -3951,7 +3951,7 @@ export const updateDutyReportByCaseApi = async (data: any) => {
 
 export const deleteDutyReportApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteDutyReport', null, {
+    return await requestClient8080.post('/api/web/deleteDutyReport', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -3973,7 +3973,7 @@ export const getAllDocumentTransfersApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllDocumentTransfers', {
+    return await requestClient8080.get('/api/web/getAllDocumentTransfers', {
       params: { page, size },
     });
   } catch (error) {
@@ -3992,7 +3992,7 @@ export const getDocumentTransfersByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(`/api/web/getDocumentTransfersByCaseId`, {
+    return await requestClient8080.get(`/api/web/getDocumentTransfersByCaseId`, {
       params: { sepLd, page, size },
     });
   } catch (error) {
@@ -4003,7 +4003,7 @@ export const getDocumentTransfersByCaseApi = async (
 
 export const getDocumentTransferByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getDocumentTransferById`, {
+    return await requestClient8080.get(`/api/web/getDocumentTransferById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -4014,7 +4014,7 @@ export const getDocumentTransferByIdApi = async (sepId: number | string) => {
 
 export const addDocumentTransferApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addDocumentTransfer', data);
+    return await requestClient8080.post('/api/web/addDocumentTransfer', data);
   } catch (error) {
     console.error('添加资料移交失败:', error);
     throw error;
@@ -4023,7 +4023,7 @@ export const addDocumentTransferApi = async (data: any) => {
 
 export const updateDocumentTransferApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateDocumentTransfer', data);
+    return await requestClient8080.post('/api/web/updateDocumentTransfer', data);
   } catch (error) {
     console.error('修改资料移交失败:', error);
     throw error;
@@ -4032,7 +4032,7 @@ export const updateDocumentTransferApi = async (data: any) => {
 
 export const updateDocumentTransferByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateDocumentTransferByCaseId',
       data,
     );
@@ -4044,7 +4044,7 @@ export const updateDocumentTransferByCaseApi = async (data: any) => {
 
 export const deleteDocumentTransferApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteDocumentTransfer', null, {
+    return await requestClient8080.post('/api/web/deleteDocumentTransfer', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -4066,7 +4066,7 @@ export const getAllArchivingManagementsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllArchivingManagements', {
+    return await requestClient8080.get('/api/web/getAllArchivingManagements', {
       params: { page, size },
     });
   } catch (error) {
@@ -4085,7 +4085,7 @@ export const getArchivingManagementsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(`/api/web/getArchivingManagementsByCaseId`, {
+    return await requestClient8080.get(`/api/web/getArchivingManagementsByCaseId`, {
       params: { sepLd, page, size },
     });
   } catch (error) {
@@ -4096,7 +4096,7 @@ export const getArchivingManagementsByCaseApi = async (
 
 export const getArchivingManagementByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getArchivingManagementById`, {
+    return await requestClient8080.get(`/api/web/getArchivingManagementById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -4107,7 +4107,7 @@ export const getArchivingManagementByIdApi = async (sepId: number | string) => {
 
 export const addArchivingManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addArchivingManagement', data);
+    return await requestClient8080.post('/api/web/addArchivingManagement', data);
   } catch (error) {
     console.error('添加归档管理失败:', error);
     throw error;
@@ -4116,7 +4116,7 @@ export const addArchivingManagementApi = async (data: any) => {
 
 export const updateArchivingManagementApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateArchivingManagement', data);
+    return await requestClient8080.post('/api/web/updateArchivingManagement', data);
   } catch (error) {
     console.error('修改归档管理失败:', error);
     throw error;
@@ -4125,7 +4125,7 @@ export const updateArchivingManagementApi = async (data: any) => {
 
 export const updateArchivingManagementByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post(
+    return await requestClient8080.post(
       '/api/web/updateArchivingManagementByCaseId',
       data,
     );
@@ -4137,7 +4137,7 @@ export const updateArchivingManagementByCaseApi = async (data: any) => {
 
 export const deleteArchivingManagementApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteArchivingManagement', null, {
+    return await requestClient8080.post('/api/web/deleteArchivingManagement', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -4159,7 +4159,7 @@ export const getAllSealDestructionsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllSealDestructions', {
+    return await requestClient8080.get('/api/web/getAllSealDestructions', {
       params: { page, size },
     });
   } catch (error) {
@@ -4178,7 +4178,7 @@ export const getSealDestructionsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(`/api/web/getSealDestructionsByCaseId`, {
+    return await requestClient8080.get(`/api/web/getSealDestructionsByCaseId`, {
       params: { sepLd, page, size },
     });
   } catch (error) {
@@ -4189,7 +4189,7 @@ export const getSealDestructionsByCaseApi = async (
 
 export const getSealDestructionByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getSealDestructionById`, {
+    return await requestClient8080.get(`/api/web/getSealDestructionById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -4200,7 +4200,7 @@ export const getSealDestructionByIdApi = async (sepId: number | string) => {
 
 export const addSealDestructionApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addSealDestruction', data);
+    return await requestClient8080.post('/api/web/addSealDestruction', data);
   } catch (error) {
     console.error('添加印章销毁失败:', error);
     throw error;
@@ -4209,7 +4209,7 @@ export const addSealDestructionApi = async (data: any) => {
 
 export const updateSealDestructionApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateSealDestruction', data);
+    return await requestClient8080.post('/api/web/updateSealDestruction', data);
   } catch (error) {
     console.error('修改印章销毁失败:', error);
     throw error;
@@ -4218,7 +4218,7 @@ export const updateSealDestructionApi = async (data: any) => {
 
 export const updateSealDestructionByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateSealDestructionByCaseId', data);
+    return await requestClient8080.post('/api/web/updateSealDestructionByCaseId', data);
   } catch (error) {
     console.error('根据案件ID更新印章销毁失败:', error);
     throw error;
@@ -4227,7 +4227,7 @@ export const updateSealDestructionByCaseApi = async (data: any) => {
 
 export const deleteSealDestructionApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteSealDestruction', null, {
+    return await requestClient8080.post('/api/web/deleteSealDestruction', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -4249,7 +4249,7 @@ export const getAllAccountClosingsApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get('/api/web/getAllAccountClosings', {
+    return await requestClient8080.get('/api/web/getAllAccountClosings', {
       params: { page, size },
     });
   } catch (error) {
@@ -4268,7 +4268,7 @@ export const getAccountClosingsByCaseApi = async (
   >
 > => {
   try {
-    return await requestClient8085.get(`/api/web/getAccountClosingsByCaseId`, {
+    return await requestClient8080.get(`/api/web/getAccountClosingsByCaseId`, {
       params: { sepLd, page, size },
     });
   } catch (error) {
@@ -4279,7 +4279,7 @@ export const getAccountClosingsByCaseApi = async (
 
 export const getAccountClosingByIdApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.get(`/api/web/getAccountClosingById`, {
+    return await requestClient8080.get(`/api/web/getAccountClosingById`, {
       params: { sepId },
     });
   } catch (error) {
@@ -4290,7 +4290,7 @@ export const getAccountClosingByIdApi = async (sepId: number | string) => {
 
 export const addAccountClosingApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/addAccountClosing', data);
+    return await requestClient8080.post('/api/web/addAccountClosing', data);
   } catch (error) {
     console.error('添加账户销户失败:', error);
     throw error;
@@ -4299,7 +4299,7 @@ export const addAccountClosingApi = async (data: any) => {
 
 export const updateAccountClosingApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateAccountClosing', data);
+    return await requestClient8080.post('/api/web/updateAccountClosing', data);
   } catch (error) {
     console.error('修改账户销户失败:', error);
     throw error;
@@ -4308,7 +4308,7 @@ export const updateAccountClosingApi = async (data: any) => {
 
 export const updateAccountClosingByCaseApi = async (data: any) => {
   try {
-    return await requestClient8085.post('/api/web/updateAccountClosingByCaseId', data);
+    return await requestClient8080.post('/api/web/updateAccountClosingByCaseId', data);
   } catch (error) {
     console.error('根据案件ID更新账户销户失败:', error);
     throw error;
@@ -4317,7 +4317,7 @@ export const updateAccountClosingByCaseApi = async (data: any) => {
 
 export const deleteAccountClosingApi = async (sepId: number | string) => {
   try {
-    return await requestClient8085.post('/api/web/deleteAccountClosing', null, {
+    return await requestClient8080.post('/api/web/deleteAccountClosing', null, {
       params: { sepId },
     });
   } catch (error) {
@@ -4352,7 +4352,7 @@ export const update7Api = async (data: {
     }
     const SEP_EDATE = new Date().toISOString();
 
-    return await requestClient8085.post('/api/web/update7', {
+    return await requestClient8080.post('/api/web/update7', {
       ...data,
       SEP_EUSER,
       SEP_EDATE,

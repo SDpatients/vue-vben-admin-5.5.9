@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace CreditorApi {
   /** 债权人查询参数 */
@@ -309,7 +309,7 @@ export namespace CreditorApi {
  * POST /creditor
  */
 export async function createCreditorApi(data: CreditorApi.CreateCreditorRequest) {
-  return requestClient8085.post<CreditorApi.CreateCreditorResponse>('/creditor', data);
+  return requestClient8080.post<CreditorApi.CreateCreditorResponse>('/creditor', data);
 }
 
 /**
@@ -317,7 +317,7 @@ export async function createCreditorApi(data: CreditorApi.CreateCreditorRequest)
  * GET /creditor/{creditorId}
  */
 export async function getCreditorDetailApi(creditorId: number) {
-  return requestClient8085.get<CreditorApi.CreditorDetailResponse>(`/creditor/${creditorId}`);
+  return requestClient8080.get<CreditorApi.CreditorDetailResponse>(`/creditor/${creditorId}`);
 }
 
 /**
@@ -325,7 +325,7 @@ export async function getCreditorDetailApi(creditorId: number) {
  * GET /creditor/list
  */
 export async function getCreditorListApi(params: CreditorApi.CreditorQueryParams = {}) {
-  return requestClient8085.get<CreditorApi.CreditorListResponse>('/creditor/list', { params });
+  return requestClient8080.get<CreditorApi.CreditorListResponse>('/creditor/list', { params });
 }
 
 /**
@@ -333,7 +333,7 @@ export async function getCreditorListApi(params: CreditorApi.CreditorQueryParams
  * PUT /creditor/{creditorId}
  */
 export async function updateCreditorApi(creditorId: number, data: CreditorApi.UpdateCreditorRequest) {
-  return requestClient8085.put<CreditorApi.UpdateCreditorResponse>(`/creditor/${creditorId}`, data);
+  return requestClient8080.put<CreditorApi.UpdateCreditorResponse>(`/creditor/${creditorId}`, data);
 }
 
 /**
@@ -341,7 +341,7 @@ export async function updateCreditorApi(creditorId: number, data: CreditorApi.Up
  * DELETE /creditor/{creditorId}
  */
 export async function deleteCreditorApi(creditorId: number) {
-  return requestClient8085.delete<CreditorApi.DeleteCreditorResponse>(`/creditor/${creditorId}`);
+  return requestClient8080.delete<CreditorApi.DeleteCreditorResponse>(`/creditor/${creditorId}`);
 }
 
 /**
@@ -349,7 +349,7 @@ export async function deleteCreditorApi(creditorId: number) {
  * POST /creditor/batch
  */
 export async function batchAddCreditorsApi(data: CreditorApi.BatchAddCreditorsRequest) {
-  return requestClient8085.post<CreditorApi.BatchAddCreditorsResponse>('/creditor/batch', data);
+  return requestClient8080.post<CreditorApi.BatchAddCreditorsResponse>('/creditor/batch', data);
 }
 
 /**
@@ -357,7 +357,7 @@ export async function batchAddCreditorsApi(data: CreditorApi.BatchAddCreditorsRe
  * GET /creditor/{creditorId}/claim-stages
  */
 export async function getCreditorClaimStagesApi(creditorId: number) {
-  return requestClient8085.get<CreditorApi.CreditorClaimStagesResponse>(`/creditor/${creditorId}/claim-stages`);
+  return requestClient8080.get<CreditorApi.CreditorClaimStagesResponse>(`/creditor/${creditorId}/claim-stages`);
 }
 
 /**
@@ -365,7 +365,7 @@ export async function getCreditorClaimStagesApi(creditorId: number) {
  * GET /creditor/search
  */
 export async function searchCreditorApi(params: CreditorApi.CreditorSearchParams) {
-  return requestClient8085.get<CreditorApi.CreditorSearchResponse>('/creditor/search', { params });
+  return requestClient8080.get<CreditorApi.CreditorSearchResponse>('/creditor/search', { params });
 }
 
 export type { CreditorApi };

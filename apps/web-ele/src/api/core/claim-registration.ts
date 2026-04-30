@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace ClaimRegistrationApi {
   /** 登记状态枚举 */
@@ -343,7 +343,7 @@ export namespace ClaimRegistrationApi {
  * POST /api/v1/claim-registration
  */
 export async function createClaimRegistrationApi(data: ClaimRegistrationApi.CreateClaimRegistrationRequest) {
-  return requestClient8085.post<ClaimRegistrationApi.CreateClaimRegistrationResponse>('/claim-registration', data);
+  return requestClient8080.post<ClaimRegistrationApi.CreateClaimRegistrationResponse>('/claim-registration', data);
 }
 
 /**
@@ -351,7 +351,7 @@ export async function createClaimRegistrationApi(data: ClaimRegistrationApi.Crea
  * GET /api/v1/claim-registration/{claimId}
  */
 export async function getClaimRegistrationDetailApi(claimId: number) {
-  return requestClient8085.get<ClaimRegistrationApi.ClaimRegistrationDetailResponse>(`/claim-registration/${claimId}`);
+  return requestClient8080.get<ClaimRegistrationApi.ClaimRegistrationDetailResponse>(`/claim-registration/${claimId}`);
 }
 
 /**
@@ -359,7 +359,7 @@ export async function getClaimRegistrationDetailApi(claimId: number) {
  * GET /api/v1/claim-registration/{claimId}/basic
  */
 export async function getClaimRegistrationBasicApi(claimId: number) {
-  return requestClient8085.get<ClaimRegistrationApi.ClaimRegistrationDetailResponse>(`/claim-registration/${claimId}/basic`);
+  return requestClient8080.get<ClaimRegistrationApi.ClaimRegistrationDetailResponse>(`/claim-registration/${claimId}/basic`);
 }
 
 /**
@@ -367,7 +367,7 @@ export async function getClaimRegistrationBasicApi(claimId: number) {
  * GET /api/v1/claim-registration/list
  */
 export async function getClaimRegistrationListApi(params: ClaimRegistrationApi.ClaimRegistrationQueryParams = {}) {
-  return requestClient8085.get<ClaimRegistrationApi.ClaimRegistrationListResponse>('/claim-registration/list', { params });
+  return requestClient8080.get<ClaimRegistrationApi.ClaimRegistrationListResponse>('/claim-registration/list', { params });
 }
 
 /**
@@ -375,7 +375,7 @@ export async function getClaimRegistrationListApi(params: ClaimRegistrationApi.C
  * PUT /api/v1/claim-registration/{claimId}
  */
 export async function updateClaimRegistrationApi(claimId: number, data: ClaimRegistrationApi.UpdateClaimRegistrationRequest) {
-  return requestClient8085.put<ClaimRegistrationApi.UpdateClaimRegistrationResponse>(`/claim-registration/${claimId}`, data);
+  return requestClient8080.put<ClaimRegistrationApi.UpdateClaimRegistrationResponse>(`/claim-registration/${claimId}`, data);
 }
 
 /**
@@ -383,7 +383,7 @@ export async function updateClaimRegistrationApi(claimId: number, data: ClaimReg
  * DELETE /api/v1/claim-registration/{claimId}
  */
 export async function deleteClaimRegistrationApi(claimId: number) {
-  return requestClient8085.delete<ClaimRegistrationApi.DeleteClaimRegistrationResponse>(`/claim-registration/${claimId}`);
+  return requestClient8080.delete<ClaimRegistrationApi.DeleteClaimRegistrationResponse>(`/claim-registration/${claimId}`);
 }
 
 /**
@@ -391,7 +391,7 @@ export async function deleteClaimRegistrationApi(claimId: number) {
  * PUT /api/v1/claim-registration/{claimId}/status
  */
 export async function updateClaimRegistrationStatusApi(claimId: number, status: ClaimRegistrationApi.RegistrationStatus) {
-  return requestClient8085.put<ClaimRegistrationApi.CommonResponse>(`/claim-registration/${claimId}/status`, null, {
+  return requestClient8080.put<ClaimRegistrationApi.CommonResponse>(`/claim-registration/${claimId}/status`, null, {
     params: { status },
   });
 }
@@ -401,7 +401,7 @@ export async function updateClaimRegistrationStatusApi(claimId: number, status: 
  * POST /api/v1/claim-registration/{claimId}/material
  */
 export async function receiveClaimMaterialApi(claimId: number, data: ClaimRegistrationApi.ReceiveMaterialRequest) {
-  return requestClient8085.post<ClaimRegistrationApi.ReceiveMaterialResponse>(`/claim-registration/${claimId}/material`, null, {
+  return requestClient8080.post<ClaimRegistrationApi.ReceiveMaterialResponse>(`/claim-registration/${claimId}/material`, null, {
     params: data,
   });
 }
@@ -411,7 +411,7 @@ export async function receiveClaimMaterialApi(claimId: number, data: ClaimRegist
  * POST /api/v1/claim-registration/import
  */
 export async function importClaimRegistrationApi(formData: FormData) {
-  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import', formData, {
+  return requestClient8080.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -423,7 +423,7 @@ export async function importClaimRegistrationApi(formData: FormData) {
  * POST /api/v1/claim-registration/import-easy
  */
 export async function importClaimRegistrationEasyApi(formData: FormData) {
-  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-easy', formData, {
+  return requestClient8080.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-easy', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -435,7 +435,7 @@ export async function importClaimRegistrationEasyApi(formData: FormData) {
  * GET /api/v1/claim-registration/template
  */
 export async function downloadClaimRegistrationTemplateApi() {
-  return requestClient8085.get<Blob>('/claim-registration/template', {
+  return requestClient8080.get<Blob>('/claim-registration/template', {
     responseType: 'blob',
   });
 }
@@ -445,7 +445,7 @@ export async function downloadClaimRegistrationTemplateApi() {
  * GET /api/v1/claim-registration/export
  */
 export async function exportClaimRegistrationApi(params?: { caseId?: number; registrationStatus?: ClaimRegistrationApi.RegistrationStatus }) {
-  return requestClient8085.get<Blob>('/claim-registration/export', {
+  return requestClient8080.get<Blob>('/claim-registration/export', {
     params,
     responseType: 'blob',
   });
@@ -456,7 +456,7 @@ export async function exportClaimRegistrationApi(params?: { caseId?: number; reg
  * POST /api/v1/claim-registration/parse-excel
  */
 export async function parseExcelApi(formData: FormData) {
-  return requestClient8085.post<ClaimRegistrationApi.ParseExcelResponse>('/claim-registration/parse-excel', formData, {
+  return requestClient8080.post<ClaimRegistrationApi.ParseExcelResponse>('/claim-registration/parse-excel', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -468,7 +468,7 @@ export async function parseExcelApi(formData: FormData) {
  * POST /api/v1/claim-registration/import-declared-claims
  */
 export async function importDeclaredClaimsApi(formData: FormData) {
-  return requestClient8085.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-declared-claims', formData, {
+  return requestClient8080.post<ClaimRegistrationApi.ImportResultResponse>('/claim-registration/import-declared-claims', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -480,7 +480,7 @@ export async function importDeclaredClaimsApi(formData: FormData) {
  * PUT /api/v1/claim-registration/{claimId}/reject
  */
 export async function rejectClaimRegistrationApi(claimId: number, rejectReason: string) {
-  return requestClient8085.put<ClaimRegistrationApi.CommonResponse>(`/claim-registration/${claimId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
+  return requestClient8080.put<ClaimRegistrationApi.CommonResponse>(`/claim-registration/${claimId}/reject`, `rejectReason=${encodeURIComponent(rejectReason)}`, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },

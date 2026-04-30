@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace CourtApi {
   /** 法院查询参数 */
@@ -47,7 +47,7 @@ export namespace CourtApi {
  * 获取法院列表
  */
 export async function getCourtListApi(params: CourtApi.CourtQueryParams) {
-  return requestClient8085.get<CourtApi.CourtListResponse>(
+  return requestClient8080.get<CourtApi.CourtListResponse>(
     '/court/list',
     {
       params,
@@ -87,7 +87,7 @@ export interface CourtOperationResponse {
  * 创建法院信息
  */
 export async function addCourtApi(data: CreateCourtRequest) {
-  return requestClient8085.post<CourtOperationResponse>('/court', data, {
+  return requestClient8080.post<CourtOperationResponse>('/court', data, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -98,7 +98,7 @@ export async function addCourtApi(data: CreateCourtRequest) {
  * 更新法院信息
  */
 export async function updateCourtApi(courtId: number | string, data: UpdateCourtRequest) {
-  return requestClient8085.put<CourtOperationResponse>(`/court/${courtId}`, data, {
+  return requestClient8080.put<CourtOperationResponse>(`/court/${courtId}`, data, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -109,5 +109,5 @@ export async function updateCourtApi(courtId: number | string, data: UpdateCourt
  * 删除法院信息
  */
 export async function deleteCourtApi(id: number | string) {
-  return requestClient8085.delete<CourtOperationResponse>(`/court/${id}`);
+  return requestClient8080.delete<CourtOperationResponse>(`/court/${id}`);
 }

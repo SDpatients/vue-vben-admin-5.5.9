@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   getCaseStageDataByStageNum,
@@ -78,6 +78,12 @@ onMounted(() => {
   moduleName.value = decodeURIComponent(currentPage.options?.moduleName || '')
 
   loadTasks()
+
+  uni.$on('refresh-task-list', () => loadTasks())
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-task-list')
 })
 
 onShow(() => {
@@ -88,8 +94,7 @@ onShow(() => {
 
 const loadTasks = async () => {
   if (!caseId.value) {
-    console.warn('caseId is empty, skipping loadTasks')
-    return
+return
   }
   try {
     const res = await getCaseStageDataByStageNum(Number(caseId.value), stageId.value)
@@ -97,8 +102,7 @@ const loadTasks = async () => {
       taskList.value = res.data.filter((item) => item.moduleCode === moduleCode.value)
     }
   } catch (error) {
-    console.error('加载任务失败:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     refreshing.value = false
   }

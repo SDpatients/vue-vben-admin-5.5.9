@@ -112,8 +112,7 @@ const loadDetail = async (id: number) => {
     const res = await getAdministratorDetail(id)
     detail.value = res.data
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
 
@@ -122,8 +121,7 @@ const loadStaff = async (adminId: number) => {
     const res = await getAdministratorStaffList(adminId)
     staffList.value = res.data || []
   } catch (error) {
-    console.error('[loadStaff] Error:', error)
-  }
+}
 }
 
 const getStaffStatusText = (status?: string) => {

@@ -5,6 +5,7 @@
  */
 
 import http, { getBaseUrl } from './request'
+import { API_PREFIX } from '@/config'
 
 const BASE_URL = '/api/lib'
 
@@ -261,8 +262,8 @@ export const createDocument = (data: {
   description?: string
   tags?: string
   isPublic?: boolean
-}) => {
-  return http.post<DocumentDetailResponse>(`${BASE_URL}/documents`, data)
+}, config?: { showLoading?: boolean; showErrorToast?: boolean }) => {
+  return http.post<DocumentDetailResponse>(`${BASE_URL}/documents`, data, config)
 }
 
 export const uploadDocument = (filePath: string, params?: {
@@ -271,13 +272,47 @@ export const uploadDocument = (filePath: string, params?: {
   description?: string
   tags?: string
   isPublic?: boolean
-}) => {
+}, fileObj?: File) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
+  const uploadUrl = `${baseUrl}${API_PREFIX}${BASE_URL}/documents/upload`
 
   return new Promise<DocumentDetailResponse>((resolve, reject) => {
+    // H5环境且提供了File对象：使用XMLHttpRequest上传
+    if (fileObj && typeof window !== 'undefined') {
+      const formData = new FormData()
+      formData.append('file', fileObj)
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, String(value))
+          }
+        })
+      }
+
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', uploadUrl)
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText)
+          if (data.code === 200) {
+            resolve(data)
+          } else {
+            reject(new Error(data.message || '上传失败'))
+          }
+        } catch (e) {
+          reject(new Error('解析响应失败'))
+        }
+      }
+      xhr.onerror = () => reject(new Error('上传请求失败'))
+      xhr.send(formData)
+      return
+    }
+
+    // 小程序/APP环境：使用uni.uploadFile
     uni.uploadFile({
-      url: `${baseUrl}/api/v1${BASE_URL}/documents/upload`,
+      url: uploadUrl,
       filePath,
       name: 'file',
       formData: params || {},
@@ -322,8 +357,8 @@ export const updateDocument = (id: number, data: {
   tags?: string
   isPublic?: boolean
   status?: string
-}) => {
-  return http.put<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`, data)
+}, config?: { showLoading?: boolean; showErrorToast?: boolean }) => {
+  return http.put<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`, data, config)
 }
 
 export const deleteDocument = (id: number) => {

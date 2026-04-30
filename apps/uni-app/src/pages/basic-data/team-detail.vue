@@ -116,8 +116,7 @@ const loadDetail = async (id: number) => {
     const res = await getWorkTeamDetail(id)
     detail.value = res.data
   } catch (error) {
-    console.error('[loadDetail] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
 
@@ -130,8 +129,7 @@ const loadMembers = async (teamId: number) => {
       caseName.value = firstMember.caseName || ''
     }
   } catch (error) {
-    console.error('[loadMembers] Error:', error)
-  }
+}
 }
 
 const getStatusText = (status?: string) => {

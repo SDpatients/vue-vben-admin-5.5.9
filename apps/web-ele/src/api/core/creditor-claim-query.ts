@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace CreditorClaimQueryApi {
   /** 债权申报查询参数 */
@@ -58,7 +58,7 @@ export namespace CreditorClaimQueryApi {
 export async function queryCreditorClaimsApi(
   params: CreditorClaimQueryApi.ClaimQueryParams = {},
 ) {
-  return requestClient8085.post<CreditorClaimQueryApi.ApiResponse<CreditorClaimQueryApi.PagedResponse>>(
+  return requestClient8080.post<CreditorClaimQueryApi.ApiResponse<CreditorClaimQueryApi.PagedResponse>>(
     '/creditor-claim-query/query',
     params,
   );

@@ -3,8 +3,10 @@ import { VbenAvatar } from '@vben-core/shadcn-ui';
 
 interface Props {
   avatar?: string;
-  caseCount?: number;
-  teamCount?: number;
+  pendingCaseCount?: number;
+  completedCaseCount?: number;
+  todoCount?: number;
+  notificationCount?: number;
   realName?: string;
 }
 
@@ -14,12 +16,14 @@ defineOptions({
 
 withDefaults(defineProps<Props>(), {
   avatar: '',
-  caseCount: 0,
-  teamCount: 0,
+  pendingCaseCount: 0,
+  completedCaseCount: 0,
+  todoCount: 0,
+  notificationCount: 0,
   realName: '',
 });
 
-const emit = defineEmits(['logout', 'change-password', 'go-profile']);
+const emit = defineEmits(['logout', 'change-password', 'go-profile', 'click-pending-cases', 'click-completed-cases', 'click-todos', 'click-notifications']);
 
 const handleLogout = () => {
   emit('logout');
@@ -31,6 +35,22 @@ const handleChangePassword = () => {
 
 const handleGoProfile = () => {
   emit('go-profile');
+};
+
+const handleClickPendingCases = () => {
+  emit('click-pending-cases');
+};
+
+const handleClickCompletedCases = () => {
+  emit('click-completed-cases');
+};
+
+const handleClickTodos = () => {
+  emit('click-todos');
+};
+
+const handleClickNotifications = () => {
+  emit('click-notifications');
 };
 </script>
 <template>
@@ -53,13 +73,13 @@ const handleGoProfile = () => {
         <div class="flex items-center justify-between">
           <slot name="title"></slot>
           <div class="flex items-center gap-2">
-            <button 
+            <button
               class="text-primary text-sm hover:underline"
               @click="handleChangePassword"
             >
               [修改密码]
             </button>
-            <button 
+            <button
               class="text-primary text-sm hover:underline"
               @click="handleLogout"
             >
@@ -73,13 +93,21 @@ const handleGoProfile = () => {
       </span>
     </div>
     <div class="mt-4 flex flex-1 justify-end md:mt-0">
-      <div class="mx-12 flex flex-col justify-center text-right md:mx-16">
-        <span class="text-foreground/80"> 案件 </span>
-        <span class="text-2xl">{{ caseCount }}</span>
+      <div class="stat-item mx-6 flex flex-col justify-center text-right md:mx-10 cursor-pointer hover:opacity-80 transition-opacity" @click="handleClickPendingCases">
+        <span class="text-foreground/80"> 待处理案件 </span>
+        <span class="text-2xl">{{ pendingCaseCount }}</span>
       </div>
-      <div class="mr-4 flex flex-col justify-center text-right md:mr-10">
-        <span class="text-foreground/80"> 团队 </span>
-        <span class="text-2xl">{{ teamCount }}</span>
+      <div class="stat-item mx-6 flex flex-col justify-center text-right md:mx-10 cursor-pointer hover:opacity-80 transition-opacity" @click="handleClickCompletedCases">
+        <span class="text-foreground/80"> 已完成案件 </span>
+        <span class="text-2xl">{{ completedCaseCount }}</span>
+      </div>
+      <div class="stat-item mx-6 flex flex-col justify-center text-right md:mx-10 cursor-pointer hover:opacity-80 transition-opacity" @click="handleClickTodos">
+        <span class="text-foreground/80"> 待办事项 </span>
+        <span class="text-2xl">{{ todoCount }}</span>
+      </div>
+      <div class="stat-item mx-6 flex flex-col justify-center text-right md:mx-10 cursor-pointer hover:opacity-80 transition-opacity" @click="handleClickNotifications">
+        <span class="text-foreground/80"> 消息通知 </span>
+        <span class="text-2xl">{{ notificationCount }}</span>
       </div>
     </div>
   </div>

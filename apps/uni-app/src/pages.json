@@ -290,6 +290,18 @@
       }
     },
     {
+      "path": "pages/basic-data/bank-transactions",
+      "style": {
+        "navigationBarTitleText": "账户流水"
+      }
+    },
+    {
+      "path": "pages/basic-data/bank-transaction-form",
+      "style": {
+        "navigationBarTitleText": "流水表单"
+      }
+    },
+    {
       "path": "pages/basic-data/plan-form",
       "style": {
         "navigationBarTitleText": "工作计划表单"

@@ -9,6 +9,7 @@
             v-model="form.documentName"
             class="form-input"
             placeholder="请输入文档名称"
+            maxlength="100"
           />
         </view>
         <view class="form-item">
@@ -16,12 +17,13 @@
           <input
             v-model="form.documentCode"
             class="form-input"
-            placeholder="请输入文档编码"
+            placeholder="系统自动生成"
+            disabled
           />
         </view>
         <view class="form-item">
           <text class="form-label required">文档类型</text>
-          <picker mode="selector" :range="documentTypes" :value="documentTypeIndex" @change="onTypeChange">
+          <picker mode="selector" :range="documentTypes" :value="documentTypeIndex" @change="onTypeChange" :disabled="isEdit">
             <view class="form-picker">
               <text :class="['picker-text', { placeholder: !form.documentType }]">
                 {{ documentTypeMap[form.documentType] || '请选择文档类型' }}
@@ -56,6 +58,7 @@
             v-model="form.tags"
             class="form-input"
             placeholder="多个标签用逗号分隔"
+            maxlength="200"
           />
         </view>
         <view class="form-item switch-item">
@@ -88,11 +91,33 @@
           <text class="file-meta">{{ formatFileSize(documentInfo.fileSize) }} · {{ documentInfo.fileExtension?.toUpperCase() }}</text>
         </view>
       </view>
+      <view class="file-extra-info">
+        <view class="info-row">
+          <text class="info-label">当前版本</text>
+          <text class="info-value">v{{ documentInfo.currentVersion || 1 }}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">下载次数</text>
+          <text class="info-value">{{ documentInfo.downloadCount || 0 }}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">查看次数</text>
+          <text class="info-value">{{ documentInfo.viewCount || 0 }}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">创建时间</text>
+          <text class="info-value">{{ formatDate(documentInfo.createTime) }}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">创建人</text>
+          <text class="info-value">{{ documentInfo.createUserName || '-' }}</text>
+        </view>
+      </view>
     </view>
 
     <!-- 提交按钮 -->
     <view class="submit-section">
-      <button class="submit-btn" @click="handleSubmit">{{ isEdit ? '保存修改' : '创建文档' }}</button>
+      <button class="submit-btn" :loading="submitting" @click="handleSubmit">{{ isEdit ? '保存修改' : '创建文档' }}</button>
       <button v-if="isEdit" class="cancel-btn" @click="handleCancel">取消</button>
     </view>
   </view>
@@ -110,18 +135,18 @@ import {
   type FolderTreeNode,
 } from '@/api/document-library'
 
-const documentTypes = ['合同文件', '报告文件', '法律文件', '财务文件', '其他文件']
-const documentTypeValues = ['CONTRACT', 'REPORT', 'LEGAL', 'FINANCIAL', 'OTHER']
+// 文档类型选项 - 与API文档保持一致: WORD/EXCEL/PDF/OTHER
+const documentTypes = ['Word文档', 'Excel表格', 'PDF文档', '其他文件']
+const documentTypeValues = ['WORD', 'EXCEL', 'PDF', 'OTHER']
 const documentTypeMap: Record<string, string> = {
-  CONTRACT: '合同文件',
-  REPORT: '报告文件',
-  LEGAL: '法律文件',
-  FINANCIAL: '财务文件',
+  WORD: 'Word文档',
+  EXCEL: 'Excel表格',
+  PDF: 'PDF文档',
   OTHER: '其他文件',
 }
 
-const statusOptions = ['正常', '已归档', '已删除']
-const statusValues = ['ACTIVE', 'ARCHIVED', 'DELETED']
+const statusOptions = ['正常', '已归档']
+const statusValues = ['ACTIVE', 'ARCHIVED']
 const statusMap: Record<string, string> = {
   ACTIVE: '正常',
   ARCHIVED: '已归档',
@@ -135,6 +160,8 @@ const folders = ref<FolderItem[]>([])
 const folderNames = ref<string[]>(['根目录'])
 const folderIds = ref<number[]>([])
 const selectedFolderName = ref('')
+const submitting = ref(false)
+const loading = ref(false)
 
 const documentTypeIndex = ref(0)
 const folderIndex = ref(0)
@@ -167,6 +194,7 @@ onMounted(() => {
 
 const loadDocumentDetail = async () => {
   if (!documentId.value) return
+  loading.value = true
   try {
     const res = await getDocumentDetail(documentId.value)
     if (res.code === 200) {
@@ -182,10 +210,16 @@ const loadDocumentDetail = async () => {
         status: res.data.status || 'ACTIVE',
       }
       documentTypeIndex.value = documentTypeValues.indexOf(res.data.documentType)
+      if (documentTypeIndex.value === -1) documentTypeIndex.value = 0
       statusIndex.value = statusValues.indexOf(res.data.status || 'ACTIVE')
+      if (statusIndex.value === -1) statusIndex.value = 0
+    } else {
+      uni.showToast({ title: res.message || '加载文档失败', icon: 'none' })
     }
-  } catch (error) {
-    console.error('[loadDocumentDetail] Error:', error)
+  } catch (error: any) {
+    uni.showToast({ title: error.message || '加载文档失败', icon: 'none' })
+  } finally {
+    loading.value = false
   }
 }
 
@@ -220,8 +254,8 @@ const loadFolders = async () => {
         }
       }
     }
-  } catch (error) {
-    console.error('[loadFolders] Error:', error)
+  } catch (error: any) {
+    console.error('加载文件夹失败:', error)
   }
 }
 
@@ -253,35 +287,63 @@ const onStatusChange = (e: any) => {
   form.value.status = statusValues[index]
 }
 
-const handleSubmit = async () => {
+const validateForm = (): boolean => {
   if (!form.value.documentName.trim()) {
     uni.showToast({ title: '请输入文档名称', icon: 'none' })
-    return
+    return false
   }
-  if (!form.value.documentType) {
+  if (form.value.documentName.trim().length > 100) {
+    uni.showToast({ title: '文档名称不能超过100个字符', icon: 'none' })
+    return false
+  }
+  if (!isEdit.value && !form.value.documentType) {
     uni.showToast({ title: '请选择文档类型', icon: 'none' })
-    return
+    return false
   }
+  if (form.value.description && form.value.description.length > 500) {
+    uni.showToast({ title: '描述不能超过500个字符', icon: 'none' })
+    return false
+  }
+  if (form.value.tags && form.value.tags.length > 200) {
+    uni.showToast({ title: '标签不能超过200个字符', icon: 'none' })
+    return false
+  }
+  return true
+}
 
-  uni.showLoading({ title: '保存中...' })
+const handleSubmit = async () => {
+  if (!validateForm()) return
+  if (submitting.value) return
+
+  submitting.value = true
+  uni.showLoading({ title: '保存中...', mask: true })
+  console.log('[DocumentForm] 开始提交, isEdit:', isEdit.value, 'documentId:', documentId.value)
+  console.log('[DocumentForm] 表单数据:', JSON.stringify(form.value))
+
   try {
     let res
     if (isEdit.value && documentId.value) {
-      res = await updateDocument(documentId.value, {
-        documentName: form.value.documentName,
+      const updateData = {
+        documentName: form.value.documentName.trim(),
         folderId: form.value.folderId,
         description: form.value.description,
         tags: form.value.tags,
         isPublic: form.value.isPublic,
         status: form.value.status,
-      })
+      }
+      console.log('[DocumentForm] 调用updateDocument, id:', documentId.value, 'data:', JSON.stringify(updateData))
+      res = await updateDocument(documentId.value, updateData, { showLoading: false, showErrorToast: false })
+      console.log('[DocumentForm] updateDocument响应:', JSON.stringify(res))
     } else {
       if (!documentInfo.value) {
+        console.log('[DocumentForm] 创建文档时documentInfo为空')
         uni.showToast({ title: '请先选择文件', icon: 'none' })
+        uni.hideLoading()
+        submitting.value = false
         return
       }
-      res = await createDocument({
-        documentName: form.value.documentName,
+      const createData = {
+        documentName: form.value.documentName.trim(),
         documentCode: form.value.documentCode,
         folderId: form.value.folderId,
         documentType: form.value.documentType,
@@ -293,19 +355,29 @@ const handleSubmit = async () => {
         description: form.value.description,
         tags: form.value.tags,
         isPublic: form.value.isPublic,
-      })
+      }
+      console.log('[DocumentForm] 调用createDocument, data:', JSON.stringify(createData))
+      res = await createDocument(createData, { showLoading: false, showErrorToast: false })
+      console.log('[DocumentForm] createDocument响应:', JSON.stringify(res))
     }
 
     if (res.code === 200) {
       uni.showToast({ title: '保存成功', icon: 'success' })
+      uni.$emit('refresh-document-list')
       setTimeout(() => {
         uni.navigateBack()
       }, 1500)
+    } else {
+      console.error('[DocumentForm] 保存失败, 响应码:', res.code, '消息:', res.message)
+      uni.showToast({ title: res.message || '保存失败', icon: 'none' })
     }
-  } catch (error) {
-    uni.showToast({ title: '保存失败', icon: 'none' })
+  } catch (error: any) {
+    console.error('[DocumentForm] 保存异常:', error)
+    uni.showToast({ title: error.message || '保存失败', icon: 'none' })
   } finally {
+    submitting.value = false
     uni.hideLoading()
+    console.log('[DocumentForm] 提交结束')
   }
 }
 
@@ -363,6 +435,18 @@ const formatFileSize = (size?: number) => {
     index++
   }
   return `${fileSize.toFixed(1)} ${units[index]}`
+}
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hour}:${minute}`
 }
 </script>
 
@@ -518,6 +602,35 @@ const formatFileSize = (size?: number) => {
     .file-meta {
       font-size: 24rpx;
       color: #999;
+    }
+  }
+}
+
+.file-extra-info {
+  margin: 16rpx 32rpx 0;
+  background: #fafafa;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12rpx 0;
+    border-bottom: 1rpx solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-size: 26rpx;
+      color: #666;
+    }
+
+    .info-value {
+      font-size: 26rpx;
+      color: #333;
     }
   }
 }

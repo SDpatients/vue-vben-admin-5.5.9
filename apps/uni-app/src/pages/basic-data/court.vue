@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getCourtList, deleteCourt, type CourtItem } from '@/api/basic-data'
 
@@ -131,6 +131,11 @@ const filterCount = computed(() => {
 
 onMounted(() => {
   loadData()
+  uni.$on('refresh-court-list', () => loadData(true))
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-court-list')
 })
 
 const handleSearchInput = () => {
@@ -179,7 +184,6 @@ const loadData = async (isRefresh = false) => {
     }
 
     if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
       params.shortName = searchKeyword.value.trim()
     }
     if (filterParams.value.courtLevel) {
@@ -199,8 +203,7 @@ const loadData = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = courtList.value.length < (res.data?.total || 0)
   } catch (error) {
-    console.error('[loadData] Error:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     uni.stopPullDownRefresh()
@@ -248,8 +251,7 @@ const handleDelete = async (id: number) => {
           uni.showToast({ title: '删除成功', icon: 'success' })
           loadData(true)
         } catch (error) {
-          console.error('[handleDelete] Error:', error)
-          uni.showToast({ title: '删除失败', icon: 'none' })
+uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }
     }

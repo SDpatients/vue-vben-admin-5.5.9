@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace StaffApi {
   export interface StaffInfo {
@@ -45,13 +45,13 @@ export namespace StaffApi {
 }
 
 export async function getStaffListApi(administratorId: number) {
-  return requestClient8085.get<StaffApi.StaffListResponse>(
+  return requestClient8080.get<StaffApi.StaffListResponse>(
     `/administrator/${administratorId}/staff/list`,
   );
 }
 
 export async function getAvailableUsersApi(administratorId: number) {
-  return requestClient8085.get<StaffApi.AvailableUsersResponse>(
+  return requestClient8080.get<StaffApi.AvailableUsersResponse>(
     `/administrator/${administratorId}/staff/available-users`,
   );
 }
@@ -60,7 +60,7 @@ export async function createStaffApi(
   administratorId: number,
   data: StaffApi.CreateStaffRequest,
 ) {
-  return requestClient8085.post<StaffApi.StaffOperationResponse>(
+  return requestClient8080.post<StaffApi.StaffOperationResponse>(
     `/administrator/${administratorId}/staff`,
     data,
     {
@@ -72,7 +72,7 @@ export async function createStaffApi(
 }
 
 export async function deleteStaffApi(administratorId: number, staffId: number) {
-  return requestClient8085.delete<StaffApi.StaffOperationResponse>(
+  return requestClient8080.delete<StaffApi.StaffOperationResponse>(
     `/administrator/${administratorId}/staff/${staffId}`,
   );
 }

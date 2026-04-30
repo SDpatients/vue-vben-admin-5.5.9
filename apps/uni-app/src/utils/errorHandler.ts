@@ -59,25 +59,10 @@ function formatErrorMessage(err: any): string {
 }
 
 // 记录错误
-function logError(error: ErrorInfo) {
-  errorLogs.push(error)
+function logError(_error: ErrorInfo) {
+  errorLogs.push(_error)
   if (errorLogs.length > MAX_LOGS) {
     errorLogs.shift()
-  }
-  
-  // 输出到控制台
-  console.error('=== Error Log ===')
-  console.error('Type:', error.type)
-  console.error('Message:', error.message)
-  console.error('Time:', error.timestamp)
-  if (error.stack) {
-    console.error('Stack:', error.stack)
-  }
-  if (error.component) {
-    console.error('Component:', error.component)
-  }
-  if (error.extra) {
-    console.error('Extra:', error.extra)
   }
 }
 
@@ -211,8 +196,6 @@ export function setupErrorHandler(app: any) {
   setupVueErrorHandler(app)
   setupGlobalErrorHandler()
   setupUniAppErrorHandler()
-  
-  console.log('=== Error Handler Initialized ===')
 }
 
 export default {

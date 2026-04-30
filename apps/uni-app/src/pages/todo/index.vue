@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh } from '@dcloudio/uni-app'
 import { useAuthStore } from '@/stores/auth'
 import { 
@@ -116,10 +116,6 @@ import {
 } from '@/api/todo'
 import dayjs from 'dayjs'
 
-console.log('=== todo/index.vue loaded ===')
-if (typeof window !== 'undefined') {
-  console.log('[DEBUG] Window location:', window.location.href)
-}
 
 const authStore = useAuthStore()
 const todoList = ref<Todo[]>([])
@@ -139,15 +135,15 @@ const filterTabs = [
 ]
 
 onMounted(() => {
-  console.log('[onMounted] todo index - STARTING')
-  console.log('[onMounted] authStore.userInfo:', authStore.userInfo)
-  console.log('[onMounted] authStore.isLoggedIn:', authStore.isLoggedIn)
   loadData()
-  console.log('[onMounted] todo index - loadData called')
+  uni.$on('refresh-todo-list', () => loadData())
+})
+
+onUnmounted(() => {
+  uni.$off('refresh-todo-list')
 })
 
 const handleFilterChange = (value: string) => {
-  console.log('[handleFilterChange] filter:', value)
   currentFilter.value = value
   loadData()
 }
@@ -156,19 +152,15 @@ const loadData = async () => {
   loading.value = true
   try {
     let userId = authStore.userInfo?.userId
-    console.log('[loadData] authStore userId:', userId, 'filter:', currentFilter.value)
-    
     // 如果store中没有，尝试从storage读取
     if (!userId) {
       const savedUserInfo = uni.getStorageSync('userInfo')
-      console.log('[loadData] fallback userInfo from storage:', savedUserInfo)
       if (savedUserInfo?.userId) {
         userId = savedUserInfo.userId
       }
     }
     
     if (!userId) {
-      console.error('[loadData] userId is empty, cannot load data')
       uni.showToast({ title: '用户未登录', icon: 'none' })
       loading.value = false
       return
@@ -176,61 +168,37 @@ const loadData = async () => {
 
     const statusParam = currentFilter.value === 'all' ? undefined : currentFilter.value.toUpperCase()
 
-    // 加载待办列表
-    console.log('[loadData] calling getTodoList with:', { userId, pageNum: 1, pageSize: 100, status: statusParam })
-    const res = await getTodoList({ 
+    // 加载待办列表（Spring Data JPA 分页从 0 开始）
+const res = await getTodoList({
       userId,
-      pageNum: 1,
+      pageNum: 0,
       pageSize: 100,
       status: statusParam,
     })
-    console.log('[loadData] getTodoList raw res:', res)
-    console.log('[loadData] getTodoList res type:', typeof res)
-    console.log('[loadData] getTodoList res.data:', res?.data)
-    console.log('[loadData] getTodoList res.data?.list:', res?.data?.list)
-    console.log('[loadData] getTodoList res.data?.content:', res?.data?.content)
-    console.log('[loadData] Array.isArray(res):', Array.isArray(res))
-    console.log('[loadData] Array.isArray(res?.data):', Array.isArray(res?.data))
-    
+
     // 后端返回的数据格式可能是 data.list 或直接 data 为数组
     if (res?.data?.list && Array.isArray(res.data.list)) {
       todoList.value = res.data.list
-      console.log('[loadData] todoList from res.data.list, count:', todoList.value.length)
     } else if (res?.data?.content && Array.isArray(res.data.content)) {
       todoList.value = res.data.content
-      console.log('[loadData] todoList from res.data.content, count:', todoList.value.length)
     } else if (Array.isArray(res?.data)) {
       todoList.value = res.data
-      console.log('[loadData] todoList from res.data (array), count:', todoList.value.length)
     } else if (Array.isArray(res)) {
       todoList.value = res
-      console.log('[loadData] todoList from res (array), count:', todoList.value.length)
     } else {
-      console.warn('[loadData] unexpected response structure:', res)
       todoList.value = []
     }
     
     // 加载统计数据
-    console.log('[loadData] Calling getTodoMyStats with userId:', userId)
     const statsRes = await getTodoMyStats(userId)
-    console.log('[loadData] getTodoMyStats Response:', statsRes)
-    
     if (statsRes?.data) {
-      console.log('[loadData] Stats data:', statsRes.data)
       stats.value.pending = statsRes.data.inProgressTodos || 0
       stats.value.completed = statsRes.data.completedTodos || 0
       stats.value.overdue = statsRes.data.overdueTodos || 0
-      console.log('[loadData] Final stats:', stats.value)
-    } else {
-      console.warn('[loadData] Stats response has no data, response:', statsRes)
     }
   } catch (error: any) {
-    console.error('[loadData] Error:', error)
-    console.error('[loadData] Error message:', error?.message)
-    console.error('[loadData] Error response:', error?.response)
     uni.showToast({ title: error?.message || '加载失败，请重试', icon: 'none', duration: 3000 })
   } finally {
-    console.log('[loadData] FINALLY - setting loading to false')
     loading.value = false
   }
 }
@@ -258,17 +226,24 @@ const handleCreate = () => {
   uni.navigateTo({ url: '/pages/todo/edit?mode=add' })
 }
 
-const handleComplete = async (id: number) => {
-  try {
-    const res = await completeTodo(id)
-    if (res.code === 200) {
-      uni.showToast({ title: '已完成', icon: 'success' })
-      loadData()
-    }
-  } catch (error) {
-    console.error('[handleComplete] Error:', error)
-    uni.showToast({ title: '操作失败', icon: 'none' })
-  }
+const handleComplete = (id: number) => {
+  uni.showModal({
+    title: '确认完成',
+    content: '确定要完成这个待办事项吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          const completeRes = await completeTodo(id)
+          if (completeRes.code === 200) {
+            uni.showToast({ title: '已完成', icon: 'success' })
+            loadData()
+          }
+        } catch (error) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
+      }
+    },
+  })
 }
 
 const handleDelete = (id: number) => {
@@ -282,7 +257,6 @@ const handleDelete = (id: number) => {
           uni.showToast({ title: '删除成功', icon: 'success' })
           loadData()
         } catch (error) {
-          console.error('[handleDelete] Error:', error)
           uni.showToast({ title: '删除失败', icon: 'none' })
         }
       }

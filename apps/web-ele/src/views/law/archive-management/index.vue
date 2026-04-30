@@ -503,7 +503,14 @@ function handleSelectionChange(selection: ArchiveApi.ArchiveRecord[]) {
 // 打开重命名对话框
 function handleRename(record: ArchiveApi.ArchiveRecord) {
   currentRenameRecord.value = record;
-  newFileName.value = record.file.originalFileName;
+  // 隐藏后缀名
+  const originalName = record.file.originalFileName;
+  const lastDotIndex = originalName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    newFileName.value = originalName.substring(0, lastDotIndex);
+  } else {
+    newFileName.value = originalName;
+  }
   renameDialogVisible.value = true;
 }
 
@@ -516,7 +523,16 @@ async function confirmRename() {
 
   try {
     renameLoading.value = true;
-    const response = await renameFileApi(currentRenameRecord.value.fileId, newFileName.value.trim());
+    // 保留原后缀
+    const originalName = currentRenameRecord.value.file.originalFileName;
+    const lastDotIndex = originalName.lastIndexOf('.');
+    let finalName = newFileName.value.trim();
+    if (lastDotIndex > 0) {
+      const extension = originalName.substring(lastDotIndex);
+      finalName = finalName + extension;
+    }
+
+    const response = await renameFileApi(currentRenameRecord.value.fileId, finalName);
     if (response.code === 200 && response.data) {
       ElMessage.success('文件重命名成功');
       // 刷新文件列表
@@ -888,10 +904,10 @@ onMounted(async () => {
           <div class="current-file-name text-gray-600">{{ currentRenameRecord?.file.originalFileName }}</div>
         </div>
         <div class="form-item">
-          <label class="form-label block mb-2">新文件名：</label>
+          <label class="form-label block mb-2">新文件名（不包含后缀）：</label>
           <ElInput
             v-model="newFileName"
-            placeholder="请输入新文件名（包含扩展名）"
+            placeholder="请输入新文件名"
             :disabled="renameLoading"
             class="w-full"
           />

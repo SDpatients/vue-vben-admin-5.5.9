@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace CreditorClaimApi {
   /** 债权申报审核请求 */
@@ -74,7 +74,7 @@ export namespace CreditorClaimApi {
  * POST /creditor-claim/{claimId}/review
  */
 export async function reviewCreditorClaimApi(claimId: number, data: CreditorClaimApi.ReviewClaimRequest) {
-  return requestClient8085.post<CreditorClaimApi.ReviewClaimResponse>(`/creditor-claim/${claimId}/review`, data);
+  return requestClient8080.post<CreditorClaimApi.ReviewClaimResponse>(`/creditor-claim/${claimId}/review`, data);
 }
 
 /**
@@ -82,7 +82,7 @@ export async function reviewCreditorClaimApi(claimId: number, data: CreditorClai
  * GET /creditor-claim/{claimId}/review-status
  */
 export async function getCreditorClaimReviewStatusApi(claimId: number) {
-  return requestClient8085.get<CreditorClaimApi.ReviewStatusResponse>(`/creditor-claim/${claimId}/review-status`);
+  return requestClient8080.get<CreditorClaimApi.ReviewStatusResponse>(`/creditor-claim/${claimId}/review-status`);
 }
 
 /**
@@ -90,7 +90,7 @@ export async function getCreditorClaimReviewStatusApi(claimId: number) {
  * GET /creditor-claim-statistics
  */
 export async function getCreditorClaimStatisticsApi(params: CreditorClaimApi.ClaimStatisticsQueryParams = {}) {
-  return requestClient8085.get<CreditorClaimApi.ClaimStatisticsResponse>('/creditor-claim-statistics', { params });
+  return requestClient8080.get<CreditorClaimApi.ClaimStatisticsResponse>('/creditor-claim-statistics', { params });
 }
 
 export type { CreditorClaimApi };

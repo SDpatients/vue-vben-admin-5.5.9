@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace BankAccountApi {
   /** 银行账户查询参数 */
@@ -7,27 +7,31 @@ export namespace BankAccountApi {
     pageSize?: number;
     accountType?: string;
     status?: string;
+    keyword?: string;
   }
 
   /** 银行账户信息 */
-export interface BankAccountInfo {
-  id: number; // 银行账户ID
-  accountName: string; // 账户名称
-  accountNumber: string; // 账户号码
-  accountType: string; // 账户类型
-  bankName: string; // 银行名称/开户行
-  currentBalance: number; // 当前余额
-  status: string; // 状态
-  caseId: number;
-  caseNumber: string; // 案号
-  caseName: string; // 案件名称
-  createTime: string; // 创建时间
-  updateTime: string; // 更新时间
-  password?: string; // 密码
-  currency?: string; // 币种
-  openingDate?: string; // 开户日期
-  closingDate?: string | null; // 销户日期
-}
+  export interface BankAccountInfo {
+    id: number; // 银行账户ID
+    accountName: string; // 账户名称
+    accountNumber: string; // 账户号码
+    accountType: string; // 账户类型
+    bankName: string; // 银行名称/开户行
+    currentBalance: number; // 当前余额
+    status: string; // 状态
+    caseId: number;
+    caseNumber: string; // 案号
+    caseName: string; // 案件名称
+    createTime: string; // 创建时间
+    updateTime: string; // 更新时间
+    password?: string; // 密码
+    currency?: string; // 币种
+    openingDate?: string; // 开户日期
+    closingDate?: string | null; // 销户日期
+    accountPurpose?: string; // 账户用途
+    totalInflow?: number; // 总流入（前端计算或懒加载）
+    totalOutflow?: number; // 总流出（前端计算或懒加载）
+  }
 
   /** 银行账户列表响应 */
   export interface BankAccountListResponse {
@@ -118,7 +122,7 @@ export interface BankAccountInfo {
 export async function getBankAccountListApi(
   params: BankAccountApi.BankAccountQueryParams,
 ) {
-  return requestClient8085.get<BankAccountApi.BankAccountListResponse>(
+  return requestClient8080.get<BankAccountApi.BankAccountListResponse>(
     '/bank-account/list',
     {
       params,
@@ -132,7 +136,7 @@ export async function getBankAccountListApi(
 export async function addBankAccountApi(
   data: BankAccountApi.AddBankAccountRequest,
 ) {
-  return requestClient8085.post<BankAccountApi.AddBankAccountResponse>(
+  return requestClient8080.post<BankAccountApi.AddBankAccountResponse>(
     '/bank-account',
     data,
     {
@@ -150,7 +154,7 @@ export async function updateBankAccountApi(
   accountId: number,
   data: BankAccountApi.UpdateBankAccountRequest,
 ) {
-  return requestClient8085.put<BankAccountApi.UpdateBankAccountResponse>(
+  return requestClient8080.put<BankAccountApi.UpdateBankAccountResponse>(
     `/bank-account/${accountId}`,
     data,
     {
@@ -167,7 +171,7 @@ export async function updateBankAccountApi(
 export async function deleteBankAccountApi(
   accountId: number,
 ) {
-  return requestClient8085.delete<BankAccountApi.DeleteBankAccountResponse>(
+  return requestClient8080.delete<BankAccountApi.DeleteBankAccountResponse>(
     `/bank-account/${accountId}`,
     {
       headers: {
@@ -183,7 +187,7 @@ export async function deleteBankAccountApi(
 export async function getAccountTransactionSummaryApi(
   accountId: number,
 ) {
-  return requestClient8085.get<BankAccountApi.AccountTransactionSummaryResponse>(
+  return requestClient8080.get<BankAccountApi.AccountTransactionSummaryResponse>(
     `/bank-account/${accountId}/with-transactions`,
   );
 }

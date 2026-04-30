@@ -6,7 +6,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { ElCard, ElSelect, ElOption, ElEmpty } from 'element-plus';
+import { ElCard, ElSelect, ElOption, ElEmpty, ElTooltip, ElIcon } from 'element-plus';
+import { InfoFilled } from '@element-plus/icons-vue';
 
 import { getLawyerCaseStatistics } from '#/api';
 
@@ -147,7 +148,15 @@ onMounted(() => {
   <ElCard>
     <template #header>
       <div class="flex items-center justify-between">
-        <span class="font-semibold">律师年度案件统计</span>
+        <div class="flex items-center gap-2">
+          <span class="font-semibold">律师年度案件统计</span>
+          <el-tooltip
+            content="统计每位律师在选定年度内参与的案件数量，按负责人(LEADER)和管理人(ADMIN)角色分别统计"
+            placement="top"
+          >
+            <el-icon class="text-gray-400 cursor-help"><InfoFilled /></el-icon>
+          </el-tooltip>
+        </div>
         <ElSelect v-model="selectedYear" size="small" style="width: 100px">
           <ElOption
             v-for="year in yearOptions"
@@ -159,19 +168,27 @@ onMounted(() => {
       </div>
     </template>
 
+    <div class="mb-3 text-sm text-gray-500 leading-relaxed">
+      <p>
+        本图表展示各律师在
+        <strong>{{ selectedYear }}</strong>
+        年度的案件参与情况，数据来源于工作团队成员表。按总案件数降序排列，可直观对比每位律师的工作负荷分布。
+      </p>
+    </div>
+
     <div class="h-[350px] relative">
       <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
         <span class="text-gray-400">加载中...</span>
       </div>
-      
+
       <div v-if="error && !loading" class="absolute inset-0 flex items-center justify-center z-20">
         <ElEmpty :description="error" />
       </div>
-      
+
       <div v-show="!loading && !error && chartData.names.length === 0" class="absolute inset-0 flex items-center justify-center z-20">
         <ElEmpty description="暂无数据" />
       </div>
-      
+
       <div v-show="!loading && !error && chartData.names.length > 0" class="h-full w-full">
         <EchartsUI ref="chartRef" />
       </div>

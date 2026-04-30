@@ -1,4 +1,4 @@
-import { requestClient8085 } from '#/api/request';
+import { requestClient8080 } from '#/api/request';
 
 export namespace DebtorApi {
   /** 债务人查询参数 */
@@ -122,7 +122,7 @@ export namespace DebtorApi {
  * GET /debtor/list
  */
 export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams = {}) {
-  return requestClient8085.get<DebtorApi.DebtorListResponse>('/debtor/list', { params });
+  return requestClient8080.get<DebtorApi.DebtorListResponse>('/debtor/list', { params });
 }
 
 /**
@@ -130,7 +130,7 @@ export async function getDebtorListApi(params: DebtorApi.DebtorQueryParams = {})
  * GET /debtor/{debtorId}
  */
 export async function getDebtorDetailApi(debtorId: number) {
-  return requestClient8085.get<DebtorApi.DebtorDetailResponse>(`/debtor/${debtorId}`);
+  return requestClient8080.get<DebtorApi.DebtorDetailResponse>(`/debtor/${debtorId}`);
 }
 
 /**
@@ -138,7 +138,7 @@ export async function getDebtorDetailApi(debtorId: number) {
  * POST /debtor
  */
 export async function createDebtorApi(data: DebtorApi.CreateDebtorRequest) {
-  return requestClient8085.post<DebtorApi.CreateDebtorResponse>('/debtor', data);
+  return requestClient8080.post<DebtorApi.CreateDebtorResponse>('/debtor', data);
 }
 
 /**
@@ -146,7 +146,7 @@ export async function createDebtorApi(data: DebtorApi.CreateDebtorRequest) {
  * PUT /debtor/{debtorId}
  */
 export async function updateDebtorApi(debtorId: number, data: DebtorApi.UpdateDebtorRequest) {
-  return requestClient8085.put<DebtorApi.UpdateDebtorResponse>(`/debtor/${debtorId}`, data);
+  return requestClient8080.put<DebtorApi.UpdateDebtorResponse>(`/debtor/${debtorId}`, data);
 }
 
 /**
@@ -154,7 +154,7 @@ export async function updateDebtorApi(debtorId: number, data: DebtorApi.UpdateDe
  * DELETE /debtor/{debtorId}
  */
 export async function deleteDebtorApi(debtorId: number) {
-  return requestClient8085.delete<DebtorApi.DeleteDebtorResponse>(`/debtor/${debtorId}`);
+  return requestClient8080.delete<DebtorApi.DeleteDebtorResponse>(`/debtor/${debtorId}`);
 }
 
 export type { DebtorApi };

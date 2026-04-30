@@ -8,6 +8,7 @@ export * from './bank-account';
 export * from './bank-account-transaction';
 export * from './case';
 export * from './case-announcement';
+export * from './case-node';
 export * from './case-process';
 export * from './case-task-submissions';
 export * from './case-tasks';
