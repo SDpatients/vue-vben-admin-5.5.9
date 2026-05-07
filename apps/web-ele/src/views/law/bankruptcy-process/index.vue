@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { UploadFile } from 'element-plus';
 
 import { computed, defineProps, nextTick, onMounted, ref, watch } from 'vue';
@@ -3891,7 +3891,7 @@ const openMobileUploadDialog = async () => {
 
 /* 增强当前阶段的标题样式 */
 .stage-tab-item.initial-stage .stage-tab-title {
-  color: #667eea;
+  color: #475569;
   font-weight: 700;
   font-size: 15px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -3944,7 +3944,7 @@ const openMobileUploadDialog = async () => {
 .current-progress-text {
   font-size: 12px;
   font-weight: 600;
-  color: #667eea;
+  color: #475569;
   text-align: center;
   margin-bottom: 8px;
   letter-spacing: 0.5px;
@@ -4102,15 +4102,15 @@ const openMobileUploadDialog = async () => {
 }
 
 .sidebar-module-item:hover {
-  border-color: #667eea;
+  border-color: #475569;
   background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
   transform: translateX(4px);
 }
 
 .sidebar-module-item.active {
-  border-color: #667eea;
+  border-color: #475569;
   background: linear-gradient(135deg, #eef2ff 0%, #f8f9ff 100%);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.15);
 }
 
 .sidebar-module-content {
@@ -4234,12 +4234,12 @@ const openMobileUploadDialog = async () => {
   display: flex;
   gap: 8px;
   padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow-x: auto;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.15);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -4276,8 +4276,8 @@ const openMobileUploadDialog = async () => {
 
 .data-tab-item.active {
   background: rgba(255, 255, 255, 0.9);
-  color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  color: #475569;
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.3);
   border-color: transparent;
 }
 
@@ -4331,8 +4331,8 @@ const openMobileUploadDialog = async () => {
 
 .attachment-preview-item:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.15);
-  border-color: #667eea;
+  box-shadow: 0 8px 16px rgba(71, 85, 105, 0.15);
+  border-color: #475569;
 }
 
 .image-preview {
@@ -4365,7 +4365,7 @@ const openMobileUploadDialog = async () => {
 
 .file-icon {
   font-size: 48px;
-  color: #667eea;
+  color: #475569;
   margin-bottom: 12px;
 }
 
@@ -4410,11 +4410,11 @@ const openMobileUploadDialog = async () => {
 /* 拖动排序样式 */
 .sortable-ghost {
   opacity: 0.5;
-  background: rgba(102, 126, 234, 0.3);
+  background: rgba(71, 85, 105, 0.3);
 }
 
 .sortable-chosen {
-  box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 0 10px rgba(71, 85, 105, 0.5);
 }
 
 .sortable-drag {
@@ -4448,7 +4448,7 @@ const openMobileUploadDialog = async () => {
   overflow-y: auto;
   padding-right: 8px;
   scrollbar-width: thin;
-  scrollbar-color: #667eea #f1f1f1;
+  scrollbar-color: #475569 #f1f1f1;
 }
 
 .data-content-detail::-webkit-scrollbar {
@@ -4461,13 +4461,13 @@ const openMobileUploadDialog = async () => {
 }
 
 .data-content-detail::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #475569 0%, #64748b 100%);
   border-radius: 3px;
   transition: all 0.3s ease;
 }
 
 .data-content-detail::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #5568d3 0%, #6b4a8f 100%);
+  background: linear-gradient(180deg, #3d4f63 0%, #536275 100%);
 }
 
 .data-tab-actions {
@@ -4544,7 +4544,7 @@ const openMobileUploadDialog = async () => {
   overflow-y: auto;
   padding-right: 8px;
   scrollbar-width: thin;
-  scrollbar-color: #667eea #f1f1f1;
+  scrollbar-color: #475569 #f1f1f1;
 }
 
 .module-data::-webkit-scrollbar {
@@ -4557,13 +4557,13 @@ const openMobileUploadDialog = async () => {
 }
 
 .module-data::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #475569 0%, #64748b 100%);
   border-radius: 3px;
   transition: all 0.3s ease;
 }
 
 .module-data::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #5568d3 0%, #6b4a8f 100%);
+  background: linear-gradient(180deg, #3d4f63 0%, #536275 100%);
 }
 
 .data-item {
@@ -4577,7 +4577,7 @@ const openMobileUploadDialog = async () => {
 
 .data-item:hover {
   background: linear-gradient(135deg, #eef2ff 0%, #f8f9ff 100%);
-  border-color: #667eea;
+  border-color: #475569;
   transform: translateX(2px);
 }
 
@@ -4686,7 +4686,7 @@ const openMobileUploadDialog = async () => {
 
 .upload-icon {
   font-size: 56px;
-  color: #667eea;
+  color: #475569;
   margin-bottom: 20px;
   animation: float 3s ease-in-out infinite;
   display: block;
@@ -4720,7 +4720,7 @@ const openMobileUploadDialog = async () => {
 }
 
 .upload-text em {
-  color: #667eea;
+  color: #475569;
   font-style: normal;
   font-weight: 700;
 }
@@ -4789,13 +4789,13 @@ const openMobileUploadDialog = async () => {
 }
 
 .file-list-item:hover {
-  border-color: #667eea;
+  border-color: #475569;
   background: #f8f9ff;
 }
 
 .file-icon {
   font-size: 18px;
-  color: #667eea;
+  color: #475569;
   flex-shrink: 0;
 }
 
@@ -4825,13 +4825,13 @@ const openMobileUploadDialog = async () => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #475569 0%, #64748b 100%);
   border-radius: 4px;
   transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #5568d3 0%, #6b4a8f 100%);
+  background: linear-gradient(180deg, #3d4f63 0%, #536275 100%);
 }
 
 /* 附件样式 */
@@ -4864,12 +4864,12 @@ const openMobileUploadDialog = async () => {
 
 .attachment-item:hover {
   background: #eef2ff;
-  border-color: #667eea;
+  border-color: #475569;
 }
 
 .attachment-icon {
   font-size: 12px;
-  color: #667eea;
+  color: #475569;
 }
 
 .attachment-name {
@@ -4974,7 +4974,7 @@ const openMobileUploadDialog = async () => {
 .file-item:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  border-color: #667eea;
+  border-color: #475569;
 }
 
 .file-item:active {
@@ -5045,7 +5045,7 @@ const openMobileUploadDialog = async () => {
   align-items: center;
   justify-content: center;
   font-size: 64px;
-  color: #667eea;
+  color: #475569;
 }
 
 .file-info {
@@ -5088,7 +5088,7 @@ const openMobileUploadDialog = async () => {
 }
 
 .file-status.uploading {
-  color: #667eea;
+  color: #475569;
 }
 
 .spin {
@@ -5547,7 +5547,7 @@ const openMobileUploadDialog = async () => {
   color: #374151;
   font-weight: 600;
   border-radius: 6px 6px 0 0;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 2px solid #475569;
 }
 
 .vote-table-cell {
@@ -5577,7 +5577,7 @@ const openMobileUploadDialog = async () => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #667eea;
+  color: #475569;
 }
 
 .loading-spinner .spin {
@@ -5651,13 +5651,13 @@ const openMobileUploadDialog = async () => {
 .video-tag-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  border-color: #667eea;
+  border-color: #475569;
 }
 
 .video-tag-cover {
   position: relative;
   height: 160px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -11,6 +11,7 @@ import CreditorInfo from './CreditorInfo.vue';
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const activeTab = ref('creditorInfo');
@@ -65,7 +66,7 @@ const handleAdd = () => {
             <span class="text-lg font-semibold">债权登记表</span>
           </div>
           <div class="flex space-x-2">
-            <ElButton type="primary" @click="handleAdd">
+            <ElButton v-if="!isCaseArchived" type="primary" @click="handleAdd">
               <Icon icon="lucide:plus" class="mr-1" />
               新增债权
             </ElButton>
@@ -81,7 +82,7 @@ const handleAdd = () => {
               债权人信息
             </div>
           </template>
-          <CreditorInfo ref="creditorInfoRef" :case-id="caseId" />
+          <CreditorInfo ref="creditorInfoRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
         </ElTabPane>
 
         <ElTabPane label="债权申报登记" name="stage1">
@@ -91,7 +92,7 @@ const handleAdd = () => {
               债权申报登记
             </div>
           </template>
-          <ClaimRegistrationStageOne ref="stageOneRef" :case-id="caseId" />
+          <ClaimRegistrationStageOne ref="stageOneRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
         </ElTabPane>
 
         <ElTabPane label="债权审查与确认" name="stage2">
@@ -101,7 +102,7 @@ const handleAdd = () => {
               债权审查与确认
             </div>
           </template>
-          <ClaimRegistrationStageTwo ref="stageTwoRef" :case-id="caseId" />
+          <ClaimRegistrationStageTwo ref="stageTwoRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
         </ElTabPane>
 
         <ElTabPane label="债权复查" name="stage3">
@@ -111,7 +112,7 @@ const handleAdd = () => {
               债权复查
             </div>
           </template>
-          <ClaimRegistrationStageThree ref="stageThreeRef" :case-id="caseId" />
+          <ClaimRegistrationStageThree ref="stageThreeRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
         </ElTabPane>
       </ElTabs>
     </ElCard>

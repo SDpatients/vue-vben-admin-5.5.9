@@ -660,20 +660,6 @@ const cancelDelete = () => {
               </template>
             </ElTableColumn>
 
-            <!-- 审核状态 -->
-            <ElTableColumn
-              prop="审核状态"
-              label="审核状态"
-              min-width="100"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                <ElTag :type="getReviewStatusType(row['审核状态'])" size="small">
-                  {{ row['审核状态'] || '未设置' }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-
             <!-- 案由 -->
             <ElTableColumn
 

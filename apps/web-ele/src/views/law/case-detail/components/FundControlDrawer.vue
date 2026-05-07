@@ -39,6 +39,7 @@ const props = defineProps<{
   caseId: string;
   caseNo: string;
   caseName: string;
+  isCaseArchived?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -541,7 +542,7 @@ onMounted(() => {
             <ElCard shadow="hover" class="search-card">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                  <ElButton type="success" @click="openAddAccountDialog">
+                  <ElButton v-if="!isCaseArchived" type="success" @click="openAddAccountDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     新增账户
                   </ElButton>
@@ -597,6 +598,7 @@ onMounted(() => {
                 <ElTableColumn label="操作" width="250" fixed="right">
                   <template #default="scope">
                     <ElButton
+                      v-if="!isCaseArchived"
                       type="primary"
                       size="small"
                       @click="openEditAccountDialog(scope.row)"
@@ -604,6 +606,7 @@ onMounted(() => {
                       编辑
                     </ElButton>
                     <ElButton
+                      v-if="!isCaseArchived"
                       :type="scope.row.status === 'ACTIVE' ? 'warning' : 'success'"
                       size="small"
                       @click="handleAccountStatusChange(scope.row)"
@@ -634,11 +637,11 @@ onMounted(() => {
           <div class="flow-content">
             <ElCard shadow="hover" class="search-card">
               <div style="display: flex; justify-content: flex-start; gap: 12px;">
-                <ElButton type="success" @click="openAddFlowDialog('INCOME')">
+                <ElButton v-if="!isCaseArchived" type="success" @click="openAddFlowDialog('INCOME')">
                   <Icon icon="lucide:plus" class="mr-1" />
                   资金流入
                 </ElButton>
-                <ElButton type="warning" @click="openAddFlowDialog('EXPENSE')">
+                <ElButton v-if="!isCaseArchived" type="warning" @click="openAddFlowDialog('EXPENSE')">
                   <Icon icon="lucide:minus" class="mr-1" />
                   资金流出
                 </ElButton>

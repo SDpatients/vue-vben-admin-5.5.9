@@ -13,7 +13,6 @@
           :class="['tab-item', { 'tab-active': activeTab === tab.key }]"
           @click="switchTab(tab.key)"
         >
-          <text class="tab-icon">{{ tab.icon }}</text>
           <text class="tab-text">{{ tab.label }}</text>
           <view v-if="tab.key === 'registration' && registrationCount > 0" class="tab-badge">
             <text class="badge-text">{{ registrationCount }}</text>
@@ -32,6 +31,10 @@
     </view>
 
     <view class="content">
+      <view class="readonly-notice">
+        <text class="notice-text">当前手机端仅支持查看，其他操作请前往网页端</text>
+      </view>
+
       <!-- 债权申报登记 -->
       <view v-show="activeTab === 'registration'" class="tab-panel">
         <view class="stats-card">
@@ -97,17 +100,9 @@
                   <text class="row-value">{{ getMaterialCompletenessText(claim.materialCompleteness) }}</text>
                 </view>
               </view>
-              <view v-if="claim.registrationStatus === 'PENDING'" class="claim-actions">
-                <view class="action-btn receive" @click="handleReceiveMaterial(claim)">
-                  <text>接收材料</text>
-                </view>
-              </view>
-              <view class="claim-actions claim-actions-bottom">
-                <view class="action-btn-sm edit" @click="handleEditClaim(claim)">
-                  <text>编辑</text>
-                </view>
-                <view class="action-btn-sm delete" @click="handleDeleteClaim(claim)">
-                  <text>删除</text>
+              <view class="claim-view-action">
+                <view class="view-btn" @click="viewClaimDetail(claim)">
+                  <text>查看详情</text>
                 </view>
               </view>
             </view>
@@ -120,12 +115,9 @@
           </view>
         </scroll-view>
 
-        <view class="fab-btn" @click="handleAddClaim">
-          <text class="fab-icon">+</text>
-        </view>
       </view>
 
-      <!-- 债权审查 -->
+      <!-- 债权审查与确认 -->
       <view v-show="activeTab === 'review'" class="tab-panel">
         <view class="review-stats">
           <view class="review-stat-item">
@@ -187,17 +179,9 @@
                   <text class="section-value">第 {{ item.reviewRound || 1 }} 轮</text>
                 </view>
               </view>
-              <view v-if="item.reviewStatus === 'PENDING' || item.reviewStatus === 'IN_PROGRESS'" class="review-actions">
-                <view class="review-action-btn" @click="handleCompleteReview(item)">
-                  <text>完成审查</text>
-                </view>
-                <view class="review-action-btn reject" @click="handleRejectReview(item)">
-                  <text>驳回</text>
-                </view>
-              </view>
-              <view class="review-actions review-actions-bottom">
-                <view class="action-btn-sm edit" @click="handleEditReview(item)">
-                  <text>编辑</text>
+              <view class="review-view-action">
+                <view class="view-btn" @click="viewReviewDetail(item)">
+                  <text>查看详情</text>
                 </view>
               </view>
             </view>
@@ -213,7 +197,7 @@
 
       </view>
 
-      <!-- 债权确认 -->
+      <!-- 债权复查 -->
       <view v-show="activeTab === 'confirmation'" class="tab-panel">
         <view v-if="confirmationLoading" class="loading-container">
           <text>加载中...</text>
@@ -268,9 +252,9 @@
                   <text class="conf-value">{{ formatDate(item.finalConfirmationDate) }}</text>
                 </view>
               </view>
-              <view class="confirmation-actions">
-                <view class="action-btn-sm edit" @click="handleEditConfirmation(item)">
-                  <text>编辑</text>
+              <view class="confirmation-view-action">
+                <view class="view-btn" @click="viewConfirmationDetail(item)">
+                  <text>查看详情</text>
                 </view>
               </view>
             </view>
@@ -384,7 +368,7 @@
               <view class="creditor-header">
                 <view class="creditor-left">
                   <view class="creditor-type-tag" :class="getcreditorTypeClass(creditor.creditorType)">
-                    {{ creditor.creditorType === 'NATURAL_PERSON' ? '个人' : creditor.creditorType === 'LEGAL_ENTITY' ? '企业' : creditor.creditorType === 'OTHER_ORGANIZATION' ? '机构' : creditor.creditorType }}
+                    {{ convertCreditorType(creditor.creditorType) }}
                   </view>
                   <text class="creditor-name">{{ creditor.creditorName }}</text>
                 </view>
@@ -393,7 +377,7 @@
                 </text>
               </view>
               <view class="creditor-body">
-                <view v-if="creditor.creditorType !== 'NATURAL_PERSON'" class="creditor-row">
+                <view v-if="creditor.creditorType !== '个人' && creditor.creditorType !== 'NATURAL_PERSON' && creditor.creditorType !== 'INDIVIDUAL'" class="creditor-row">
                   <text class="creditor-row-label">法定代表人</text>
                   <text class="creditor-row-value">{{ creditor.legalRepresentative || '-' }}</text>
                 </view>
@@ -409,7 +393,7 @@
                   <text class="creditor-row-label">证件号码</text>
                   <text class="creditor-row-value">{{ creditor.idNumber || '-' }}</text>
                 </view>
-                <view v-if="creditor.creditorType !== 'NATURAL_PERSON'" class="creditor-row">
+                <view v-if="creditor.creditorType !== '个人' && creditor.creditorType !== 'NATURAL_PERSON' && creditor.creditorType !== 'INDIVIDUAL'" class="creditor-row">
                   <text class="creditor-row-label">注册资本</text>
                   <text class="creditor-row-value amount">{{ formatAmount(creditor.registeredCapital) }}</text>
                 </view>
@@ -418,12 +402,9 @@
                   <text class="creditor-row-value address">{{ creditor.address || '-' }}</text>
                 </view>
               </view>
-              <view class="creditor-actions">
-                <view class="creditor-action-btn edit" @click="handleEditCreditor(creditor)">
-                  <text>编辑</text>
-                </view>
-                <view class="creditor-action-btn delete" @click="handleDeleteCreditor(creditor)">
-                  <text>删除</text>
+              <view class="creditor-view-action">
+                <view class="view-btn" @click="viewCreditorDetail(creditor)">
+                  <text>查看详情</text>
                 </view>
               </view>
             </view>
@@ -436,473 +417,380 @@
           </view>
         </scroll-view>
 
-        <view class="fab-btn" @click="handleAddCreditor">
-          <text class="fab-icon">+</text>
-        </view>
       </view>
     </view>
 
-    <!-- 债权人表单弹窗 -->
-    <view v-if="creditorFormVisible" class="form-overlay" @click="closeCreditorForm">
-      <view class="form-modal" @click.stop>
-        <view class="form-header">
-          <text class="form-title">{{ creditorFormData.id ? '编辑债权人' : '新增债权人' }}</text>
-          <view class="form-close" @click="closeCreditorForm">
-            <text class="form-close-icon">×</text>
-          </view>
+    <!-- 债权申报详情弹窗 -->
+    <uni-popup ref="claimDetailPopup" type="center">
+      <view class="detail-popup">
+        <view class="detail-popup-header">
+          <text class="detail-popup-title">债权申报详情</text>
+          <text class="detail-popup-close" @click="claimDetailPopup?.close()">×</text>
         </view>
-        <scroll-view class="form-body" scroll-y>
-          <view class="form-group">
-            <text class="form-label required">债权人类型</text>
-            <view class="form-type-select">
-              <view
-                v-for="t in creditorTypeOptions"
-                :key="t.value"
-                :class="['type-option', { 'type-active': creditorFormData.creditorType === t.value }]"
-                @click="creditorFormData.creditorType = t.value"
-              >
-                <text>{{ t.label }}</text>
+        <scroll-view class="detail-popup-body" scroll-y>
+          <view v-if="currentClaimDetail" class="detail-content">
+            <view class="detail-section">
+              <text class="detail-section-title">基本信息</text>
+              <view class="detail-row">
+                <text class="detail-label">申报编号</text>
+                <text class="detail-value">{{ currentClaimDetail.claimNo || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">债权人</text>
+                <text class="detail-value">{{ currentClaimDetail.creditorName }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">债权人类型</text>
+                <text class="detail-value">{{ convertCreditorType(currentClaimDetail.creditorType) || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">统一社会信用代码</text>
+                <text class="detail-value">{{ currentClaimDetail.creditCode || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">法定代表人</text>
+                <text class="detail-value">{{ currentClaimDetail.legalRepresentative || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">送达地址</text>
+                <text class="detail-value">{{ currentClaimDetail.serviceAddress || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">债务人</text>
+                <text class="detail-value">{{ currentClaimDetail.debtor || '-' }}</text>
               </view>
             </view>
-          </view>
-          <view class="form-group">
-            <text class="form-label required">{{ creditorFormData.creditorType === 'NATURAL_PERSON' ? '姓名' : '名称' }}</text>
-            <input
-              v-model="creditorFormData.creditorName"
-              class="form-input"
-              :placeholder="creditorFormData.creditorType === 'NATURAL_PERSON' ? '请输入姓名' : '请输入名称'"
-            />
-          </view>
-          <view class="form-group">
-            <text class="form-label">{{ creditorFormData.creditorType === 'NATURAL_PERSON' ? '身份证号' : '统一社会信用代码' }}</text>
-            <input
-              v-model="creditorFormData.idNumber"
-              class="form-input"
-              :placeholder="creditorFormData.creditorType === 'NATURAL_PERSON' ? '请输入身份证号' : '请输入统一社会信用代码'"
-            />
-          </view>
-          <view class="form-group">
-            <text class="form-label">联系电话</text>
-            <input
-              v-model="creditorFormData.contactPhone"
-              class="form-input"
-              placeholder="请输入联系电话"
-              type="number"
-            />
-          </view>
-          <view class="form-group">
-            <text class="form-label">电子邮箱</text>
-            <input
-              v-model="creditorFormData.contactEmail"
-              class="form-input"
-              placeholder="请输入电子邮箱"
-            />
-          </view>
-          <view v-if="creditorFormData.creditorType !== 'NATURAL_PERSON'" class="form-group">
-            <text class="form-label">法定代表人</text>
-            <input
-              v-model="creditorFormData.legalRepresentative"
-              class="form-input"
-              placeholder="请输入法定代表人"
-            />
-          </view>
-          <view v-if="creditorFormData.creditorType !== 'NATURAL_PERSON'" class="form-group">
-            <text class="form-label">注册资本</text>
-            <input
-              v-model="creditorFormData.registeredCapital"
-              class="form-input"
-              placeholder="请输入注册资本"
-              type="digit"
-            />
-          </view>
-          <view class="form-group">
-            <text class="form-label">地址</text>
-            <input
-              v-model="creditorFormData.address"
-              class="form-input"
-              placeholder="请输入地址"
-            />
-          </view>
-          <view class="form-group">
-            <text class="form-label">状态</text>
-            <view class="form-type-select">
-              <view
-                v-for="s in statusOptions"
-                :key="s.value"
-                :class="['type-option', { 'type-active': creditorFormData.status === s.value }]"
-                @click="creditorFormData.status = s.value"
-              >
-                <text>{{ s.label }}</text>
+            <view class="detail-section">
+              <text class="detail-section-title">债权信息</text>
+              <view class="detail-row">
+                <text class="detail-label">债权种类</text>
+                <text class="detail-value">{{ currentClaimDetail.claimType || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">债权性质</text>
+                <text class="detail-value">{{ currentClaimDetail.claimNature || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">本金</text>
+                <text class="detail-value amount">{{ formatAmount(currentClaimDetail.principal) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">利息</text>
+                <text class="detail-value amount">{{ formatAmount(currentClaimDetail.interest) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">违约金</text>
+                <text class="detail-value amount">{{ formatAmount(currentClaimDetail.penalty) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">其他损失</text>
+                <text class="detail-value amount">{{ formatAmount(currentClaimDetail.otherLosses) }}</text>
+              </view>
+              <view class="detail-row highlight-row">
+                <text class="detail-label">申报总金额</text>
+                <text class="detail-value amount total">{{ formatAmount(currentClaimDetail.totalAmount) }}</text>
+              </view>
+            </view>
+            <view class="detail-section">
+              <text class="detail-section-title">状态信息</text>
+              <view class="detail-row">
+                <text class="detail-label">登记状态</text>
+                <text :class="['detail-value', getRegistrationStatusClass(currentClaimDetail.registrationStatus)]">{{ getRegistrationStatusText(currentClaimDetail.registrationStatus) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">材料完整性</text>
+                <text class="detail-value">{{ getMaterialCompletenessText(currentClaimDetail.materialCompleteness) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">申报日期</text>
+                <text class="detail-value">{{ formatDate(currentClaimDetail.registrationDate) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">创建时间</text>
+                <text class="detail-value">{{ formatDate(currentClaimDetail.createTime) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">更新时间</text>
+                <text class="detail-value">{{ formatDate(currentClaimDetail.updateTime) }}</text>
               </view>
             </view>
           </view>
         </scroll-view>
-        <view class="form-footer">
-          <view class="form-btn cancel" @click="closeCreditorForm">
-            <text>取消</text>
-          </view>
-          <view class="form-btn confirm" @click="submitCreditorForm">
-            <text>确定</text>
+        <view class="detail-popup-footer">
+          <view class="detail-popup-btn" @click="claimDetailPopup?.close()">
+            <text>关闭</text>
           </view>
         </view>
       </view>
-    </view>
+    </uni-popup>
 
-    <!-- 债权申报表单弹窗 -->
-    <view v-if="claimFormVisible" class="form-overlay" @click="claimFormVisible = false">
-      <view class="form-modal" @click.stop>
-        <view class="form-header">
-          <text class="form-title">{{ claimFormData.id ? '编辑债权申报' : '新增债权申报' }}</text>
-          <view class="form-close" @click="claimFormVisible = false"><text class="form-close-icon">×</text></view>
+    <!-- 债权审查详情弹窗 -->
+    <uni-popup ref="reviewDetailPopup" type="center">
+      <view class="detail-popup">
+        <view class="detail-popup-header">
+          <text class="detail-popup-title">债权审查详情</text>
+          <text class="detail-popup-close" @click="reviewDetailPopup?.close()">×</text>
         </view>
-        <scroll-view class="form-body" scroll-y>
-          <!-- 债权人选择 -->
-          <view class="form-group">
-            <text class="form-label required">债权人姓名或名称</text>
-            <view
-              class="form-input picker-input"
-              :class="{ 'picker-placeholder': !claimFormData.creditorName }"
-              @click="openCreditorPicker"
-            >
-              <text v-if="claimFormData.creditorName">{{ claimFormData.creditorName }}</text>
-              <text v-else class="placeholder-text">请选择债权人</text>
-            </view>
-          </view>
-
-          <!-- 债权人类型 -->
-          <view class="form-group">
-            <text class="form-label required">债权人类型</text>
-            <view class="form-type-select">
-              <view
-                v-for="t in creditorTypeOptionsWeb"
-                :key="t.value"
-                :class="['type-option', { 'type-active': claimFormData.creditorType === t.value }]"
-                @click="claimFormData.creditorType = t.value"
-              >
-                <text>{{ t.label }}</text>
+        <scroll-view class="detail-popup-body" scroll-y>
+          <view v-if="currentReviewDetail" class="detail-content">
+            <view class="detail-section">
+              <text class="detail-section-title">基本信息</text>
+              <view class="detail-row">
+                <text class="detail-label">债权人</text>
+                <text class="detail-value">{{ currentReviewDetail.creditorName }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">审查人</text>
+                <text class="detail-value">{{ currentReviewDetail.reviewer || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">审查轮次</text>
+                <text class="detail-value">第 {{ currentReviewDetail.reviewRound || 1 }} 轮</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">审查日期</text>
+                <text class="detail-value">{{ formatDate(currentReviewDetail.reviewDate) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">审查状态</text>
+                <text :class="['detail-value', getReviewStatusClass(currentReviewDetail.reviewStatus)]">{{ getReviewStatusText(currentReviewDetail.reviewStatus) }}</text>
               </view>
             </view>
-          </view>
-
-          <!-- 统一社会信用代码 -->
-          <view class="form-group">
-            <text class="form-label">统一社会信用代码</text>
-            <input v-model="claimFormData.creditCode" class="form-input" placeholder="请输入统一社会信用代码" />
-          </view>
-
-          <!-- 法定代表人 -->
-          <view class="form-group">
-            <text class="form-label">法定代表人</text>
-            <input v-model="claimFormData.legalRepresentative" class="form-input" placeholder="请输入法定代表人" />
-          </view>
-
-          <!-- 送达地址 -->
-          <view class="form-group">
-            <text class="form-label">送达地址</text>
-            <input v-model="claimFormData.serviceAddress" class="form-input" placeholder="请输入送达地址" />
-          </view>
-
-          <!-- 代理人信息分组 -->
-          <view class="form-section">
-            <text class="form-section-title">代理人信息</text>
-          </view>
-          <view class="form-group">
-            <text class="form-label">代理人姓名</text>
-            <input v-model="claimFormData.agentName" class="form-input" placeholder="请输入代理人姓名" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">代理人电话</text>
-            <input v-model="claimFormData.agentPhone" class="form-input" placeholder="请输入代理人电话" type="number" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">代理人身份证号</text>
-            <input v-model="claimFormData.agentIdCard" class="form-input" placeholder="请输入代理人身份证号" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">代理人地址</text>
-            <input v-model="claimFormData.agentAddress" class="form-input" placeholder="请输入代理人地址" />
-          </view>
-
-          <!-- 银行账户信息分组 -->
-          <view class="form-section">
-            <text class="form-section-title">银行账户信息</text>
-          </view>
-          <view class="form-group">
-            <text class="form-label">账户名称</text>
-            <input v-model="claimFormData.accountName" class="form-input" placeholder="请输入账户名称" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">银行账号</text>
-            <input v-model="claimFormData.bankAccount" class="form-input" placeholder="请输入银行账号" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">开户银行</text>
-            <input v-model="claimFormData.bankName" class="form-input" placeholder="请输入开户银行" />
-          </view>
-
-          <!-- 债权金额分组 -->
-          <view class="form-section">
-            <text class="form-section-title">债权金额</text>
-          </view>
-          <view class="form-row">
-            <view class="form-group form-group-half">
-              <text class="form-label">本金</text>
-              <input v-model="claimFormData.principal" class="form-input" placeholder="0.00" type="digit" />
-            </view>
-            <view class="form-group form-group-half">
-              <text class="form-label">利息</text>
-              <input v-model="claimFormData.interest" class="form-input" placeholder="0.00" type="digit" />
-            </view>
-          </view>
-          <view class="form-row">
-            <view class="form-group form-group-half">
-              <text class="form-label">违约金</text>
-              <input v-model="claimFormData.penalty" class="form-input" placeholder="0.00" type="digit" />
-            </view>
-            <view class="form-group form-group-half">
-              <text class="form-label">其他损失</text>
-              <input v-model="claimFormData.otherLosses" class="form-input" placeholder="0.00" type="digit" />
-            </view>
-          </view>
-          <view class="form-group">
-            <text class="form-label">申报总金额</text>
-            <view class="form-input total-amount">{{ claimTotalAmount }}</view>
-          </view>
-
-          <!-- 债权信息分组 -->
-          <view class="form-section">
-            <text class="form-section-title">债权信息</text>
-          </view>
-          <view class="form-group">
-            <text class="form-label required">债权种类</text>
-            <view class="form-type-select form-type-select-wrap">
-              <view
-                v-for="t in claimTypeOptions"
-                :key="t.value"
-                :class="['type-option', { 'type-active': claimFormData.claimType === t.value }]"
-                @click="claimFormData.claimType = t.value"
-              >
-                <text>{{ t.label }}</text>
+            <view class="detail-section">
+              <text class="detail-section-title">申报金额</text>
+              <view class="detail-row">
+                <text class="detail-label">申报本金</text>
+                <text class="detail-value amount">{{ formatAmount(currentReviewDetail.declaredPrincipal) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">申报利息</text>
+                <text class="detail-value amount">{{ formatAmount(currentReviewDetail.declaredInterest) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">申报违约金</text>
+                <text class="detail-value amount">{{ formatAmount(currentReviewDetail.declaredPenalty) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">申报其他损失</text>
+                <text class="detail-value amount">{{ formatAmount(currentReviewDetail.declaredOtherLosses) }}</text>
+              </view>
+              <view class="detail-row highlight-row">
+                <text class="detail-label">申报总额</text>
+                <text class="detail-value amount total">{{ formatAmount(currentReviewDetail.declaredTotalAmount) }}</text>
               </view>
             </view>
-          </view>
-          <view class="form-group">
-            <text class="form-label">债权性质</text>
-            <input v-model="claimFormData.claimNature" class="form-input" placeholder="请输入债权性质" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">债权标识</text>
-            <input v-model="claimFormData.claimIdentifier" class="form-input" placeholder="请输入债权标识" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">债权事实</text>
-            <textarea v-model="claimFormData.claimFacts" class="form-textarea" placeholder="请输入债权事实" :rows="3" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">备注</text>
-            <textarea v-model="claimFormData.remarks" class="form-textarea" placeholder="请输入备注" :rows="2" />
-          </view>
-
-          <!-- 材料完整性 -->
-          <view class="form-group">
-            <text class="form-label">材料完整性</text>
-            <view class="form-type-select">
-              <view
-                v-for="m in materialOptionsWeb"
-                :key="m.value"
-                :class="['type-option', { 'type-active': claimFormData.materialCompleteness === m.value }]"
-                @click="claimFormData.materialCompleteness = m.value"
-              >
-                <text>{{ m.label }}</text>
+            <view class="detail-section">
+              <text class="detail-section-title">确认金额</text>
+              <view class="detail-row">
+                <text class="detail-label">确认本金</text>
+                <text class="detail-value confirmed">{{ formatAmount(currentReviewDetail.confirmedPrincipal) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">确认利息</text>
+                <text class="detail-value confirmed">{{ formatAmount(currentReviewDetail.confirmedInterest) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">确认违约金</text>
+                <text class="detail-value confirmed">{{ formatAmount(currentReviewDetail.confirmedPenalty) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">确认其他损失</text>
+                <text class="detail-value confirmed">{{ formatAmount(currentReviewDetail.confirmedOtherLosses) }}</text>
+              </view>
+              <view class="detail-row highlight-row green">
+                <text class="detail-label">确认总额</text>
+                <text class="detail-value amount total green">{{ formatAmount(currentReviewDetail.confirmedTotalAmount) }}</text>
               </view>
             </view>
-          </view>
-
-          <!-- 附件上传 -->
-          <view class="form-section">
-            <text class="form-section-title">附件上传</text>
-          </view>
-          <view class="form-group">
-            <view class="attachment-list">
-              <view
-                v-for="(file, index) in claimFormData.evidenceAttachments"
-                :key="index"
-                class="attachment-item"
-              >
-                <image v-if="file.startsWith('http') || file.startsWith('blob')" :src="file" class="attachment-thumb" mode="aspectFill" />
-                <view v-else class="attachment-file">
-                  <text class="attachment-file-icon">📎</text>
-                  <text class="attachment-file-name">图片 {{ index + 1 }}</text>
-                </view>
-                <view class="attachment-remove" @click="removeAttachment(index)">
-                  <text class="attachment-remove-icon">×</text>
-                </view>
+            <view class="detail-section">
+              <text class="detail-section-title">未确认金额</text>
+              <view class="detail-row">
+                <text class="detail-label">未确认本金</text>
+                <text class="detail-value">{{ formatAmount(currentReviewDetail.unconfirmedPrincipal) }}</text>
               </view>
-              <view class="attachment-add" @click="uploadAttachment">
-                <text class="attachment-add-icon">+</text>
-                <text class="attachment-add-text">添加附件</text>
+              <view class="detail-row">
+                <text class="detail-label">未确认利息</text>
+                <text class="detail-value">{{ formatAmount(currentReviewDetail.unconfirmedInterest) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">未确认总额</text>
+                <text class="detail-value">{{ formatAmount(currentReviewDetail.unconfirmedTotalAmount) }}</text>
+              </view>
+            </view>
+            <view class="detail-section" v-if="currentReviewDetail.reviewConclusion || currentReviewDetail.reviewSummary">
+              <text class="detail-section-title">审查结论</text>
+              <view class="detail-row" v-if="currentReviewDetail.reviewConclusion">
+                <text class="detail-label">审查结论</text>
+                <text class="detail-value">{{ currentReviewDetail.reviewConclusion }}</text>
+              </view>
+              <view class="detail-row" v-if="currentReviewDetail.reviewSummary">
+                <text class="detail-label">审查摘要</text>
+                <text class="detail-value">{{ currentReviewDetail.reviewSummary }}</text>
               </view>
             </view>
           </view>
         </scroll-view>
-        <view class="form-footer">
-          <view class="form-btn cancel" @click="claimFormVisible = false"><text>取消</text></view>
-          <view class="form-btn confirm" @click="submitClaimForm"><text>确定</text></view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 债权人选择弹窗 -->
-    <view v-if="creditorPickerVisible" class="form-overlay" @click="creditorPickerVisible = false">
-      <view class="form-modal picker-modal" @click.stop>
-        <view class="form-header">
-          <text class="form-title">选择债权人</text>
-          <view class="form-close" @click="creditorPickerVisible = false">
-            <text class="form-close-icon">×</text>
+        <view class="detail-popup-footer">
+          <view class="detail-popup-btn" @click="reviewDetailPopup?.close()">
+            <text>关闭</text>
           </view>
         </view>
-        <scroll-view class="form-body picker-body" scroll-y>
-          <view
-            v-for="item in creditorPickerList"
-            :key="item.id"
-            class="picker-item"
-            @click="selectCreditor(item)"
-          >
-            <view class="picker-item-info">
-              <text class="picker-item-name">{{ item.creditorName }}</text>
-              <text class="picker-item-type">{{ item.creditorType || '未知类型' }}</text>
+      </view>
+    </uni-popup>
+
+    <!-- 债权确认详情弹窗 -->
+    <uni-popup ref="confirmationDetailPopup" type="center">
+      <view class="detail-popup">
+        <view class="detail-popup-header">
+          <text class="detail-popup-title">债权确认详情</text>
+          <text class="detail-popup-close" @click="confirmationDetailPopup?.close()">×</text>
+        </view>
+        <scroll-view class="detail-popup-body" scroll-y>
+          <view v-if="currentConfirmationDetail" class="detail-content">
+            <view class="detail-section">
+              <text class="detail-section-title">基本信息</text>
+              <view class="detail-row">
+                <text class="detail-label">债权人</text>
+                <text class="detail-value">{{ currentConfirmationDetail.creditorName }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">会议类型</text>
+                <text class="detail-value">{{ getMeetingTypeText(currentConfirmationDetail.meetingType) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">会议日期</text>
+                <text class="detail-value">{{ formatDate(currentConfirmationDetail.meetingDate) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">表决结果</text>
+                <text class="detail-value">{{ currentConfirmationDetail.voteResult || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">确认状态</text>
+                <text :class="['detail-value', getConfirmationStatusClass(currentConfirmationDetail.confirmationStatus)]">{{ getConfirmationStatusText(currentConfirmationDetail.confirmationStatus) }}</text>
+              </view>
             </view>
-            <text class="picker-item-arrow">›</text>
-          </view>
-          <view v-if="creditorPickerList.length === 0" class="empty-state">
-            <text class="empty-text">暂无债权人数据</text>
-          </view>
-        </scroll-view>
-      </view>
-    </view>
-
-    <!-- 债权审查表单弹窗 -->
-    <view v-if="reviewFormVisible" class="form-overlay" @click="reviewFormVisible = false">
-      <view class="form-modal" @click.stop>
-        <view class="form-header">
-          <text class="form-title">{{ reviewFormData.id ? '编辑债权审查' : '新增债权审查' }}</text>
-          <view class="form-close" @click="reviewFormVisible = false"><text class="form-close-icon">×</text></view>
-        </view>
-        <scroll-view class="form-body" scroll-y>
-          <view class="form-group">
-            <text class="form-label">债权人名称</text>
-            <input v-model="reviewFormData.creditorName" class="form-input" placeholder="请输入债权人名称" disabled />
-          </view>
-          <view class="form-group">
-            <text class="form-label">审查人</text>
-            <input v-model="reviewFormData.reviewer" class="form-input" placeholder="请输入审查人" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">审查轮次</text>
-            <input v-model="reviewFormData.reviewRound" class="form-input" placeholder="请输入轮次" type="number" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">申报本金</text>
-            <input v-model="reviewFormData.declaredPrincipal" class="form-input" placeholder="请输入申报本金" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">申报利息</text>
-            <input v-model="reviewFormData.declaredInterest" class="form-input" placeholder="请输入申报利息" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">确认本金</text>
-            <input v-model="reviewFormData.confirmedPrincipal" class="form-input" placeholder="请输入确认本金" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">确认利息</text>
-            <input v-model="reviewFormData.confirmedInterest" class="form-input" placeholder="请输入确认利息" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">未确认本金</text>
-            <input v-model="reviewFormData.unconfirmedPrincipal" class="form-input" placeholder="请输入未确认本金" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">未确认利息</text>
-            <input v-model="reviewFormData.unconfirmedInterest" class="form-input" placeholder="请输入未确认利息" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">审查结论</text>
-            <input v-model="reviewFormData.reviewConclusion" class="form-input" placeholder="请输入审查结论" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">审查状态</text>
-            <view class="form-type-select">
-              <view v-for="s in reviewStatusOptions" :key="s.value" :class="['type-option', { 'type-active': reviewFormData.reviewStatus === s.value }]" @click="reviewFormData.reviewStatus = s.value">
-                <text>{{ s.label }}</text>
+            <view class="detail-section">
+              <text class="detail-section-title">确认金额</text>
+              <view class="detail-row highlight-row green">
+                <text class="detail-label">最终确认金额</text>
+                <text class="detail-value amount total green">{{ formatAmount(currentConfirmationDetail.finalConfirmedAmount) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">确认日期</text>
+                <text class="detail-value">{{ formatDate(currentConfirmationDetail.finalConfirmationDate) }}</text>
+              </view>
+            </view>
+            <view class="detail-section" v-if="currentConfirmationDetail.hasObjection">
+              <text class="detail-section-title">异议信息</text>
+              <view class="detail-row">
+                <text class="detail-label">是否有异议</text>
+                <text class="detail-value objection">是</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">异议理由</text>
+                <text class="detail-value">{{ currentConfirmationDetail.objectionReason || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">异议金额</text>
+                <text class="detail-value amount">{{ formatAmount(currentConfirmationDetail.objectionAmount) }}</text>
+              </view>
+            </view>
+            <view class="detail-section">
+              <text class="detail-section-title">时间信息</text>
+              <view class="detail-row">
+                <text class="detail-label">创建时间</text>
+                <text class="detail-value">{{ formatDate(currentConfirmationDetail.createTime) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">更新时间</text>
+                <text class="detail-value">{{ formatDate(currentConfirmationDetail.updateTime) }}</text>
               </view>
             </view>
           </view>
         </scroll-view>
-        <view class="form-footer">
-          <view class="form-btn cancel" @click="reviewFormVisible = false"><text>取消</text></view>
-          <view class="form-btn confirm" @click="submitReviewForm"><text>确定</text></view>
+        <view class="detail-popup-footer">
+          <view class="detail-popup-btn" @click="confirmationDetailPopup?.close()">
+            <text>关闭</text>
+          </view>
         </view>
       </view>
-    </view>
+    </uni-popup>
 
-    <!-- 债权确认表单弹窗 -->
-    <view v-if="confirmationFormVisible" class="form-overlay" @click="confirmationFormVisible = false">
-      <view class="form-modal" @click.stop>
-        <view class="form-header">
-          <text class="form-title">{{ confirmationFormData.id ? '编辑债权确认' : '新增债权确认' }}</text>
-          <view class="form-close" @click="confirmationFormVisible = false"><text class="form-close-icon">×</text></view>
+    <!-- 债权人详情弹窗 -->
+    <uni-popup ref="creditorDetailPopup" type="center">
+      <view class="detail-popup">
+        <view class="detail-popup-header">
+          <text class="detail-popup-title">债权人详情</text>
+          <text class="detail-popup-close" @click="creditorDetailPopup?.close()">×</text>
         </view>
-        <scroll-view class="form-body" scroll-y>
-          <view class="form-group">
-            <text class="form-label">债权人名称</text>
-            <input v-model="confirmationFormData.creditorName" class="form-input" placeholder="请输入债权人名称" disabled />
-          </view>
-          <view class="form-group">
-            <text class="form-label">会议类型</text>
-            <view class="form-type-select">
-              <view v-for="m in meetingTypeOptions" :key="m.value" :class="['type-option', { 'type-active': confirmationFormData.meetingType === m.value }]" @click="confirmationFormData.meetingType = m.value">
-                <text>{{ m.label }}</text>
+        <scroll-view class="detail-popup-body" scroll-y>
+          <view v-if="currentCreditorDetail" class="detail-content">
+            <view class="detail-section">
+              <text class="detail-section-title">基本信息</text>
+              <view class="detail-row">
+                <text class="detail-label">名称</text>
+                <text class="detail-value">{{ currentCreditorDetail.creditorName }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">类型</text>
+                <text class="detail-value">{{ convertCreditorType(currentCreditorDetail.creditorType) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">状态</text>
+                <text :class="['detail-value', currentCreditorDetail.status === 'ENABLED' ? 'status-enabled' : 'status-disabled']">{{ currentCreditorDetail.status === 'ENABLED' ? '正常' : '停用' }}</text>
               </view>
             </view>
-          </view>
-          <view class="form-group">
-            <text class="form-label">表决结果</text>
-            <input v-model="confirmationFormData.voteResult" class="form-input" placeholder="请输入表决结果" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">是否有异议</text>
-            <view class="form-type-select">
-              <view :class="['type-option', { 'type-active': !confirmationFormData.hasObjection }]" @click="confirmationFormData.hasObjection = false"><text>否</text></view>
-              <view :class="['type-option', { 'type-active': confirmationFormData.hasObjection }]" @click="confirmationFormData.hasObjection = true"><text>是</text></view>
+            <view class="detail-section">
+              <text class="detail-section-title">证件信息</text>
+              <view class="detail-row">
+                <text class="detail-label">证件号码</text>
+                <text class="detail-value">{{ currentCreditorDetail.idNumber || '-' }}</text>
+              </view>
+              <view v-if="currentCreditorDetail.creditorType !== '个人' && currentCreditorDetail.creditorType !== 'NATURAL_PERSON' && currentCreditorDetail.creditorType !== 'INDIVIDUAL'" class="detail-row">
+                <text class="detail-label">法定代表人</text>
+                <text class="detail-value">{{ currentCreditorDetail.legalRepresentative || '-' }}</text>
+              </view>
+              <view v-if="currentCreditorDetail.creditorType !== '个人' && currentCreditorDetail.creditorType !== 'NATURAL_PERSON' && currentCreditorDetail.creditorType !== 'INDIVIDUAL'" class="detail-row">
+                <text class="detail-label">注册资本</text>
+                <text class="detail-value amount">{{ formatAmount(currentCreditorDetail.registeredCapital) }}</text>
+              </view>
             </view>
-          </view>
-          <view v-if="confirmationFormData.hasObjection" class="form-group">
-            <text class="form-label">异议理由</text>
-            <input v-model="confirmationFormData.objectionReason" class="form-input" placeholder="请输入异议理由" />
-          </view>
-          <view v-if="confirmationFormData.hasObjection" class="form-group">
-            <text class="form-label">异议金额</text>
-            <input v-model="confirmationFormData.objectionAmount" class="form-input" placeholder="请输入异议金额" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">最终确认金额</text>
-            <input v-model="confirmationFormData.finalConfirmedAmount" class="form-input" placeholder="请输入最终确认金额" type="digit" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">确认状态</text>
-            <view class="form-type-select">
-              <view v-for="s in confirmationStatusOptions" :key="s.value" :class="['type-option', { 'type-active': confirmationFormData.confirmationStatus === s.value }]" @click="confirmationFormData.confirmationStatus = s.value">
-                <text>{{ s.label }}</text>
+            <view class="detail-section">
+              <text class="detail-section-title">联系方式</text>
+              <view class="detail-row">
+                <text class="detail-label">联系电话</text>
+                <text class="detail-value phone" @click="callPhone(currentCreditorDetail.contactPhone)">{{ currentCreditorDetail.contactPhone || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">电子邮箱</text>
+                <text class="detail-value">{{ currentCreditorDetail.contactEmail || '-' }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">地址</text>
+                <text class="detail-value">{{ currentCreditorDetail.address || '-' }}</text>
+              </view>
+            </view>
+            <view class="detail-section">
+              <text class="detail-section-title">时间信息</text>
+              <view class="detail-row">
+                <text class="detail-label">创建时间</text>
+                <text class="detail-value">{{ formatDate(currentCreditorDetail.createTime) }}</text>
+              </view>
+              <view class="detail-row">
+                <text class="detail-label">更新时间</text>
+                <text class="detail-value">{{ formatDate(currentCreditorDetail.updateTime) }}</text>
               </view>
             </view>
           </view>
         </scroll-view>
-        <view class="form-footer">
-          <view class="form-btn cancel" @click="confirmationFormVisible = false"><text>取消</text></view>
-          <view class="form-btn confirm" @click="submitConfirmationForm"><text>确定</text></view>
+        <view class="detail-popup-footer">
+          <view class="detail-popup-btn" @click="creditorDetailPopup?.close()">
+            <text>关闭</text>
+          </view>
         </view>
       </view>
-    </view>
+    </uni-popup>
   </view>
 </template>
 
@@ -934,11 +822,11 @@ import {
 import dayjs from 'dayjs'
 
 const tabs = ref([
-  { key: 'registration', label: '债权申报', icon: '📋' },
-  { key: 'review', label: '债权审查', icon: '🔍' },
-  { key: 'confirmation', label: '债权确认', icon: '✅' },
-  { key: 'creditor', label: '债权人', icon: '👤' },
-  { key: 'stats', label: '数据统计', icon: '📊' },
+  { key: 'registration', label: '债权申报' },
+  { key: 'review', label: '债权审查与确认' },
+  { key: 'confirmation', label: '债权复查' },
+  { key: 'creditor', label: '债权人' },
+  { key: 'stats', label: '数据统计' },
 ])
 
 const activeTab = ref('registration')
@@ -980,6 +868,42 @@ const creditorPage = ref(1)
 const creditorHasMore = ref(false)
 const creditorTotal = ref(0)
 const creditorTypes = ref({ person: 0, company: 0 })
+
+const claimDetailPopup = ref()
+const reviewDetailPopup = ref()
+const confirmationDetailPopup = ref()
+const creditorDetailPopup = ref()
+
+const currentClaimDetail = ref<ClaimRegistrationItem | null>(null)
+const currentReviewDetail = ref<ClaimReviewItem | null>(null)
+const currentConfirmationDetail = ref<ClaimConfirmationItem | null>(null)
+const currentCreditorDetail = ref<CreditorItem | null>(null)
+
+const viewClaimDetail = (claim: ClaimRegistrationItem) => {
+  currentClaimDetail.value = claim
+  claimDetailPopup.value?.open()
+}
+
+const viewReviewDetail = (item: ClaimReviewItem) => {
+  currentReviewDetail.value = item
+  reviewDetailPopup.value?.open()
+}
+
+const viewConfirmationDetail = (item: ClaimConfirmationItem) => {
+  currentConfirmationDetail.value = item
+  confirmationDetailPopup.value?.open()
+}
+
+const viewCreditorDetail = (creditor: CreditorItem) => {
+  currentCreditorDetail.value = creditor
+  creditorDetailPopup.value?.open()
+}
+
+const callPhone = (phone: string) => {
+  if (phone) {
+    uni.makePhoneCall({ phoneNumber: phone })
+  }
+}
 
 // 债权人选择
 const creditorPickerVisible = ref(false)
@@ -1074,7 +998,7 @@ const creditorFormVisible = ref(false)
 const creditorFormData = ref({
   id: 0,
   creditorName: '',
-  creditorType: 'NATURAL_PERSON',
+  creditorType: '个人',
   idNumber: '',
   contactPhone: '',
   contactEmail: '',
@@ -1084,17 +1008,34 @@ const creditorFormData = ref({
   status: 'ENABLED',
 })
 
+const convertCreditorType = (type: string): string => {
+  const map: Record<string, string> = {
+    NATURAL_PERSON: '个人',
+    LEGAL_ENTITY: '企业',
+    OTHER_ORGANIZATION: '其他',
+    ENTERPRISE: '企业',
+    INDIVIDUAL: '个人',
+    FINANCIAL_INSTITUTION: '金融机构',
+    GOVERNMENT: '政府机构',
+    OTHER: '其他',
+  }
+  return map[type] || type
+}
+
 const creditorTypeOptions = [
-  { label: '个人', value: 'NATURAL_PERSON' },
-  { label: '企业', value: 'LEGAL_ENTITY' },
-  { label: '机构', value: 'OTHER_ORGANIZATION' },
+  { label: '个人', value: '个人' },
+  { label: '企业', value: '企业' },
+  { label: '金融机构', value: '金融机构' },
+  { label: '政府机构', value: '政府机构' },
+  { label: '其他', value: '其他' },
 ]
 
-// 与web-ele前端统一的债权人类型选项
 const creditorTypeOptionsWeb = [
-  { label: '自然人', value: '自然人' },
-  { label: '法人', value: '法人' },
-  { label: '其他组织', value: '其他组织' },
+  { label: '个人', value: '个人' },
+  { label: '企业', value: '企业' },
+  { label: '金融机构', value: '金融机构' },
+  { label: '政府机构', value: '政府机构' },
+  { label: '其他', value: '其他' },
 ]
 
 // 与web-ele前端统一的债权种类选项
@@ -1284,8 +1225,8 @@ const handleReceiveMaterial = async (claim: ClaimRegistrationItem) => {
           await apiUpdateClaimStatus(claim.id, 'REVIEWING')
           uni.showToast({ title: '接收成功', icon: 'success' })
           loadRegistrationList(true)
-        } catch (error) {
-uni.showToast({ title: '操作失败', icon: 'none' })
+        } catch (error: any) {
+          uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
         }
       }
     },
@@ -1347,8 +1288,8 @@ const handleCompleteReview = async (item: ClaimReviewItem) => {
           await apiUpdateClaimStatus(item.claimRegistrationId, 'REVIEW_COMPLETED')
           uni.showToast({ title: '审查完成', icon: 'success' })
           loadReviewList(true)
-        } catch (error) {
-uni.showToast({ title: '操作失败', icon: 'none' })
+        } catch (error: any) {
+          uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
         }
       }
     },
@@ -1368,8 +1309,8 @@ const handleRejectReview = async (item: ClaimReviewItem) => {
           await rejectClaim(item.claimRegistrationId, res.content)
           uni.showToast({ title: '已驳回', icon: 'success' })
           loadReviewList(true)
-        } catch (error) {
-uni.showToast({ title: '操作失败', icon: 'none' })
+        } catch (error: any) {
+          uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
         }
       }
     },
@@ -1446,8 +1387,14 @@ const loadCreditorList = async (reset = false) => {
     creditorHasMore.value = creditorList.value.length < total
     creditorCount.value = total
 
-    creditorTypes.value.person = list.filter(c => c.creditorType === 'NATURAL_PERSON').length
-    creditorTypes.value.company = list.filter(c => c.creditorType === 'LEGAL_ENTITY' || c.creditorType === 'OTHER_ORGANIZATION').length
+    creditorTypes.value.person = list.filter(c => {
+      const t = convertCreditorType(c.creditorType)
+      return t === '个人'
+    }).length
+    creditorTypes.value.company = list.filter(c => {
+      const t = convertCreditorType(c.creditorType)
+      return t === '企业' || t === '金融机构' || t === '政府机构' || t === '其他'
+    }).length
   } catch (error) {
 uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
@@ -1465,7 +1412,7 @@ const onCreditorScrollToLower = () => {
 const handleCreditorDetail = (creditor: CreditorItem) => {
   uni.showModal({
     title: creditor.creditorName,
-    content: `类型：${creditor.creditorType === 'NATURAL_PERSON' ? '个人' : creditor.creditorType === 'LEGAL_ENTITY' ? '企业' : '机构'}
+    content: `类型：${convertCreditorType(creditor.creditorType)}
 电话：${creditor.contactPhone || '-'}
 邮箱：${creditor.contactEmail || '-'}
 证件：${creditor.idNumber || '-'}
@@ -1475,12 +1422,15 @@ const handleCreditorDetail = (creditor: CreditorItem) => {
 }
 
 const getcreditorTypeClass = (creditorType: string) => {
+  const converted = convertCreditorType(creditorType)
   const map: Record<string, string> = {
-    NATURAL_PERSON: 'creditor-type-person',
-    LEGAL_ENTITY: 'creditor-type-company',
-    OTHER_ORGANIZATION: 'creditor-type-other',
+    '个人': 'creditor-type-person',
+    '企业': 'creditor-type-company',
+    '金融机构': 'creditor-type-company',
+    '政府机构': 'creditor-type-other',
+    '其他': 'creditor-type-other',
   }
-  return map[creditorType] || ''
+  return map[converted] || ''
 }
 
 // 债权人 CRUD
@@ -1488,7 +1438,7 @@ const handleAddCreditor = () => {
   creditorFormData.value = {
     id: 0,
     creditorName: '',
-    creditorType: 'NATURAL_PERSON',
+    creditorType: '个人',
     idNumber: '',
     contactPhone: '',
     contactEmail: '',
@@ -1504,7 +1454,7 @@ const handleEditCreditor = (creditor: CreditorItem) => {
   creditorFormData.value = {
     id: creditor.id,
     creditorName: creditor.creditorName || '',
-    creditorType: creditor.creditorType || 'NATURAL_PERSON',
+    creditorType: convertCreditorType(creditor.creditorType || ''),
     idNumber: creditor.idNumber || '',
     contactPhone: creditor.contactPhone || '',
     contactEmail: creditor.contactEmail || '',
@@ -1522,7 +1472,7 @@ const closeCreditorForm = () => {
 
 const submitCreditorForm = async () => {
   const data = creditorFormData.value
-  const isPerson = data.creditorType === 'NATURAL_PERSON'
+  const isPerson = data.creditorType === '个人'
 
   if (!data.creditorName.trim()) {
     uni.showToast({ title: `${isPerson ? '姓名' : '名称'}不能为空`, icon: 'none' })
@@ -1560,8 +1510,8 @@ const submitCreditorForm = async () => {
     }
     creditorFormVisible.value = false
     loadCreditorList(true)
-  } catch (error) {
-uni.showToast({ title: '操作失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
   }
 }
 
@@ -1577,8 +1527,8 @@ const handleDeleteCreditor = (creditor: CreditorItem) => {
           uni.showToast({ title: '删除成功', icon: 'success' })
           loadCreditorList(true)
           loadAllCounts()
-        } catch (error) {
-uni.showToast({ title: '删除失败', icon: 'none' })
+        } catch (error: any) {
+          uni.showToast({ title: error?.message || '删除失败', icon: 'none' })
         }
       }
     },
@@ -1610,7 +1560,7 @@ const openCreditorPicker = async () => {
 
 const selectCreditor = (creditor: CreditorItem) => {
   claimFormData.value.creditorName = creditor.creditorName
-  claimFormData.value.creditorType = creditor.creditorType || ''
+  claimFormData.value.creditorType = convertCreditorType(creditor.creditorType || '')
   claimFormData.value.creditCode = creditor.idNumber || ''
   claimFormData.value.legalRepresentative = creditor.legalRepresentative || ''
   claimFormData.value.serviceAddress = creditor.address || ''
@@ -1681,7 +1631,7 @@ const handleEditClaim = (claim: ClaimRegistrationItem) => {
     id: claim.id,
     claimNo: claim.claimNo || '',
     creditorName: claim.creditorName || '',
-    creditorType: claim.creditorType || '',
+    creditorType: convertCreditorType(claim.creditorType || ''),
     creditCode: claim.creditCode || '',
     legalRepresentative: claim.legalRepresentative || '',
     serviceAddress: claim.serviceAddress || '',
@@ -1712,8 +1662,8 @@ const handleDeleteClaim = (claim: ClaimRegistrationItem) => {
           uni.showToast({ title: '删除成功', icon: 'success' })
           loadRegistrationList(true)
           loadAllCounts()
-        } catch (error) {
-          uni.showToast({ title: '删除失败', icon: 'none' })
+        } catch (error: any) {
+          uni.showToast({ title: error?.message || '删除失败', icon: 'none' })
         }
       }
     },
@@ -1732,8 +1682,21 @@ const submitClaimForm = async () => {
       await updateClaimRegistration(d.id, {
         principal: Number(d.principal) || 0, interest: Number(d.interest) || 0,
         penalty: Number(d.penalty) || 0, otherLosses: Number(d.otherLosses) || 0,
+        totalAmount: total,
         claimNature: d.claimNature, claimType: d.claimType,
+        creditorType: d.creditorType,
         materialCompleteness: d.materialCompleteness,
+        serviceAddress: d.serviceAddress || undefined,
+        agentName: d.agentName || undefined,
+        agentPhone: d.agentPhone || undefined,
+        agentIdCard: d.agentIdCard || undefined,
+        agentAddress: d.agentAddress || undefined,
+        accountName: d.accountName || undefined,
+        creditorBankAccount: d.bankAccount || undefined,
+        bankName: d.bankName || undefined,
+        claimFacts: d.claimFacts || undefined,
+        claimIdentifier: d.claimIdentifier || undefined,
+        remarks: d.remarks || undefined,
       })
       uni.showToast({ title: '更新成功', icon: 'success' })
     } else {
@@ -1742,14 +1705,25 @@ const submitClaimForm = async () => {
         creditorType: d.creditorType, claimType: d.claimType,
         creditCode: d.creditCode || undefined,
         legalRepresentative: d.legalRepresentative || undefined,
+        serviceAddress: d.serviceAddress || undefined,
+        agentName: d.agentName || undefined,
+        agentPhone: d.agentPhone || undefined,
+        agentIdCard: d.agentIdCard || undefined,
+        agentAddress: d.agentAddress || undefined,
+        accountName: d.accountName || undefined,
+        creditorBankAccount: d.bankAccount || undefined,
+        bankName: d.bankName || undefined,
         principal: Number(d.principal) || 0, interest: Number(d.interest) || 0,
         penalty: Number(d.penalty) || 0, otherLosses: Number(d.otherLosses) || 0,
-        claimNature: d.claimNature || '', registrationStatus: 'PENDING',
+        totalAmount: total,
+        claimNature: d.claimNature || undefined,
+        claimFacts: d.claimFacts || undefined,
+        claimIdentifier: d.claimIdentifier || undefined,
         materialCompleteness: d.materialCompleteness,
         registrationDate: dayjs().format('YYYY-MM-DD'),
+        remarks: d.remarks || undefined,
       })
       uni.showToast({ title: '创建成功', icon: 'success' })
-      // 上传附件
       if (d.evidenceAttachments.length > 0 && res.data?.claimId) {
         await uploadFilesToServer(res.data.claimId)
       }
@@ -1757,8 +1731,8 @@ const submitClaimForm = async () => {
     claimFormVisible.value = false
     loadRegistrationList(true)
     loadAllCounts()
-  } catch (error) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
   }
 }
 
@@ -1809,8 +1783,8 @@ const submitReviewForm = async () => {
     reviewFormVisible.value = false
     loadReviewList(true)
     loadAllCounts()
-  } catch (error) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
   }
 }
 
@@ -1860,8 +1834,8 @@ const submitConfirmationForm = async () => {
     confirmationFormVisible.value = false
     loadConfirmationList(true)
     loadAllCounts()
-  } catch (error) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
   }
 }
 
@@ -1991,74 +1965,71 @@ const formatDate = (date?: string) => {
 }
 
 .header {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-  padding: 40rpx;
-  padding-bottom: 30rpx;
+  background: #fff;
+  padding: 30rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
 
   .header-content {
     .title {
-      font-size: 40rpx;
-      font-weight: bold;
-      color: #fff;
+      font-size: 36rpx;
+      font-weight: 600;
+      color: #333;
       display: block;
-      margin-bottom: 12rpx;
+      margin-bottom: 8rpx;
     }
 
     .subtitle {
-      font-size: 26rpx;
-      color: rgba(255, 255, 255, 0.85);
+      font-size: 24rpx;
+      color: #666;
     }
   }
 
   .tabs-wrapper {
     display: flex;
-    margin-top: 30rpx;
-    gap: 16rpx;
+    margin-top: 20rpx;
+    gap: 12rpx;
 
     .tab-item {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8rpx;
-      padding: 16rpx 12rpx;
-      border-radius: 12rpx;
-      background: rgba(255, 255, 255, 0.15);
+      padding: 18rpx 10rpx;
+      border-radius: 8rpx;
+      background: #f5f7fa;
       transition: all 0.3s ease;
       position: relative;
 
-      .tab-icon {
-        font-size: 28rpx;
-      }
-
       .tab-text {
         font-size: 24rpx;
-        color: rgba(255, 255, 255, 0.8);
+        color: #666;
+        white-space: nowrap;
       }
 
       .tab-badge {
         position: absolute;
-        top: -8rpx;
-        right: -8rpx;
-        background: #ff4757;
-        border-radius: 20rpx;
-        padding: 2rpx 10rpx;
-        min-width: 32rpx;
+        top: -6rpx;
+        right: -6rpx;
+        background: #f5222d;
+        border-radius: 16rpx;
+        padding: 2rpx 8rpx;
+        min-width: 28rpx;
         text-align: center;
 
         .badge-text {
-          font-size: 20rpx;
+          font-size: 18rpx;
           color: #fff;
           font-weight: bold;
         }
       }
 
       &.tab-active {
-        background: rgba(255, 255, 255, 0.95);
+        background: #1890ff;
 
         .tab-text {
-          color: #ee5a24;
-          font-weight: bold;
+          color: #fff;
+          font-weight: 600;
         }
       }
     }
@@ -2067,6 +2038,226 @@ const formatDate = (date?: string) => {
 
 .content {
   padding: 20rpx;
+  background: #f5f7fa;
+}
+
+.readonly-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1rpx solid #e8e8e8;
+  border-radius: 8rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 20rpx;
+
+  .notice-text {
+    font-size: 24rpx;
+    color: #666;
+    line-height: 1.5;
+    text-align: center;
+  }
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  background: #1890ff;
+  color: #fff;
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.claim-view-action,
+.review-view-action,
+.confirmation-view-action,
+.creditor-view-action {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+
+.detail-popup {
+  width: 680rpx;
+  max-height: 85vh;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  .detail-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 30rpx;
+    border-bottom: 1rpx solid #f0f0f0;
+    flex-shrink: 0;
+
+    .detail-popup-title {
+      font-size: 30rpx;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .detail-popup-close {
+      font-size: 44rpx;
+      color: #999;
+      line-height: 1;
+      padding: 0 10rpx;
+    }
+  }
+
+  .detail-popup-body {
+    flex: 1;
+    max-height: 65vh;
+  }
+
+  .detail-content {
+    padding: 24rpx 30rpx;
+  }
+
+  .detail-section {
+    margin-bottom: 24rpx;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .detail-section-title {
+      font-size: 28rpx;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 16rpx;
+      padding-left: 16rpx;
+      border-left: 4rpx solid #ee5a24;
+    }
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14rpx 0;
+    border-bottom: 1rpx solid #f8f8f8;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.highlight-row {
+      background: #fff7e6;
+      margin: 12rpx -16rpx;
+      padding: 14rpx 16rpx;
+      border-radius: 8rpx;
+      border-bottom: none;
+
+      &.green {
+        background: #f6ffed;
+      }
+    }
+
+    .detail-label {
+      font-size: 26rpx;
+      color: #999;
+      flex-shrink: 0;
+      margin-right: 20rpx;
+    }
+
+    .detail-value {
+      font-size: 28rpx;
+      color: #333;
+      text-align: right;
+      flex: 1;
+      word-break: break-all;
+
+      &.amount {
+        color: #ff4d4f;
+        font-weight: 500;
+      }
+
+      &.total {
+        font-size: 32rpx;
+        font-weight: bold;
+
+        &.green {
+          color: #52c41a;
+        }
+      }
+
+      &.confirmed {
+        color: #52c41a;
+        font-weight: 500;
+      }
+
+      &.objection {
+        color: #ff4d4f;
+        font-weight: 500;
+      }
+
+      &.phone {
+        color: #1890ff;
+      }
+
+      &.status-enabled {
+        color: #52c41a;
+      }
+
+      &.status-disabled {
+        color: #999;
+      }
+
+      &.status-pending {
+        color: #faad14;
+      }
+
+      &.status-reviewing {
+        color: #1890ff;
+      }
+
+      &.status-completed,
+      &.status-registered {
+        color: #52c41a;
+      }
+
+      &.status-rejected {
+        color: #f5222d;
+      }
+
+      &.status-supplement {
+        color: #fa541c;
+      }
+    }
+  }
+
+  .detail-popup-footer {
+    padding: 20rpx 30rpx;
+    padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+    border-top: 1rpx solid #f0f0f0;
+    flex-shrink: 0;
+
+    .detail-popup-btn {
+      height: 80rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12rpx;
+      background: #f5f5f5;
+      color: #666;
+      font-size: 28rpx;
+
+      &:active {
+        opacity: 0.85;
+      }
+    }
+  }
 }
 
 .tab-panel {
@@ -2075,11 +2266,12 @@ const formatDate = (date?: string) => {
 
 .stats-card {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
+  border-radius: 12rpx;
+  padding: 24rpx;
   margin-bottom: 20rpx;
   display: flex;
   justify-content: space-around;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .stats-item {
     display: flex;
@@ -2087,15 +2279,15 @@ const formatDate = (date?: string) => {
     align-items: center;
 
     .stats-number {
-      font-size: 40rpx;
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 8rpx;
+      font-size: 36rpx;
+      font-weight: 600;
+      color: #1890ff;
+      margin-bottom: 6rpx;
     }
 
     .stats-label {
       font-size: 24rpx;
-      color: #999;
+      color: #666;
     }
   }
 }
@@ -2131,62 +2323,62 @@ const formatDate = (date?: string) => {
 
 .claim-item {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .claim-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 24rpx;
-    padding-bottom: 20rpx;
-    border-bottom: 1rpx solid #f5f5f5;
+    margin-bottom: 20rpx;
+    padding-bottom: 16rpx;
+    border-bottom: 1rpx solid #f0f0f0;
 
     .claim-left {
       flex: 1;
 
       .claim-no {
-        font-size: 26rpx;
-        color: #666;
+        font-size: 24rpx;
+        color: #999;
         display: block;
-        margin-bottom: 8rpx;
+        margin-bottom: 6rpx;
       }
 
       .claim-creditor {
-        font-size: 32rpx;
-        font-weight: bold;
+        font-size: 30rpx;
+        font-weight: 600;
         color: #333;
       }
     }
 
     .claim-status {
       font-size: 22rpx;
-      padding: 6rpx 20rpx;
-      border-radius: 8rpx;
+      padding: 6rpx 16rpx;
+      border-radius: 6rpx;
       flex-shrink: 0;
       margin-left: 16rpx;
 
       &.status-pending {
         color: #faad14;
-        background: rgba(250, 173, 20, 0.1);
+        background: #fffbe6;
       }
 
       &.status-reviewing {
         color: #1890ff;
-        background: rgba(24, 144, 255, 0.1);
+        background: #e6f7ff;
       }
 
       &.status-completed,
       &.status-registered {
         color: #52c41a;
-        background: rgba(82, 196, 26, 0.1);
+        background: #f6ffed;
       }
 
       &.status-rejected {
         color: #f5222d;
-        background: rgba(245, 34, 45, 0.1);
+        background: #fff2f0;
       }
     }
   }
@@ -2196,11 +2388,11 @@ const formatDate = (date?: string) => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12rpx 0;
+      padding: 10rpx 0;
 
       .row-label {
         font-size: 26rpx;
-        color: #999;
+        color: #666;
         min-width: 160rpx;
       }
 
@@ -2211,7 +2403,7 @@ const formatDate = (date?: string) => {
         text-align: right;
 
         &.amount {
-          color: #ff4d4f;
+          color: #f5222d;
           font-weight: 500;
         }
       }
@@ -2280,11 +2472,12 @@ const formatDate = (date?: string) => {
 // 债权审查
 .review-stats {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
+  border-radius: 12rpx;
+  padding: 24rpx;
   margin-bottom: 20rpx;
   display: flex;
   justify-content: space-around;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .review-stat-item {
     display: flex;
@@ -2292,15 +2485,15 @@ const formatDate = (date?: string) => {
     align-items: center;
 
     .review-stat-num {
-      font-size: 36rpx;
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 8rpx;
+      font-size: 34rpx;
+      font-weight: 600;
+      color: #1890ff;
+      margin-bottom: 6rpx;
     }
 
     .review-stat-label {
       font-size: 24rpx;
-      color: #999;
+      color: #666;
     }
   }
 }
@@ -2311,48 +2504,48 @@ const formatDate = (date?: string) => {
 
 .review-item {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .review-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24rpx;
-    padding-bottom: 20rpx;
-    border-bottom: 1rpx solid #f5f5f5;
+    margin-bottom: 20rpx;
+    padding-bottom: 16rpx;
+    border-bottom: 1rpx solid #f0f0f0;
 
     .review-creditor {
-      font-size: 32rpx;
-      font-weight: bold;
+      font-size: 30rpx;
+      font-weight: 600;
       color: #333;
     }
 
     .review-status-tag {
       font-size: 22rpx;
-      padding: 6rpx 20rpx;
-      border-radius: 8rpx;
+      padding: 6rpx 16rpx;
+      border-radius: 6rpx;
 
       &.status-pending {
         color: #faad14;
-        background: rgba(250, 173, 20, 0.1);
+        background: #fffbe6;
       }
 
       &.status-reviewing {
         color: #1890ff;
-        background: rgba(24, 144, 255, 0.1);
+        background: #e6f7ff;
       }
 
       &.status-completed {
         color: #52c41a;
-        background: rgba(82, 196, 26, 0.1);
+        background: #f6ffed;
       }
 
       &.status-supplement {
         color: #fa541c;
-        background: rgba(250, 84, 28, 0.1);
+        background: #fff2f0;
       }
     }
   }
@@ -2362,11 +2555,11 @@ const formatDate = (date?: string) => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12rpx 0;
+      padding: 10rpx 0;
 
       .section-label {
         font-size: 26rpx;
-        color: #999;
+        color: #666;
         min-width: 160rpx;
       }
 
@@ -2377,7 +2570,7 @@ const formatDate = (date?: string) => {
         flex: 1;
 
         &.amount {
-          color: #ff4d4f;
+          color: #f5222d;
           font-weight: 500;
         }
 
@@ -2391,29 +2584,29 @@ const formatDate = (date?: string) => {
         }
       }
     }
-  }
 
-  .review-actions {
-    display: flex;
-    gap: 20rpx;
-    margin-top: 24rpx;
-    padding-top: 20rpx;
-    border-top: 1rpx solid #f5f5f5;
-
-    .review-action-btn {
-      flex: 1;
-      height: 72rpx;
+    .review-actions {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12rpx;
-      font-size: 28rpx;
-      font-weight: 500;
-      background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
-      color: #fff;
+      gap: 20rpx;
+      margin-top: 24rpx;
+      padding-top: 20rpx;
+      border-top: 1rpx solid #f5f5f5;
 
-      &.reject {
-        background: linear-gradient(135deg, #f5222d 0%, #cf1322 100%);
+      .review-action-btn {
+        flex: 1;
+        height: 72rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12rpx;
+        font-size: 28rpx;
+        font-weight: 500;
+        background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+        color: #fff;
+
+        &.reject {
+          background: linear-gradient(135deg, #f5222d 0%, #cf1322 100%);
+        }
       }
     }
   }
@@ -2426,43 +2619,43 @@ const formatDate = (date?: string) => {
 
 .confirmation-item {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .confirmation-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24rpx;
-    padding-bottom: 20rpx;
-    border-bottom: 1rpx solid #f5f5f5;
+    margin-bottom: 20rpx;
+    padding-bottom: 16rpx;
+    border-bottom: 1rpx solid #f0f0f0;
 
     .confirmation-creditor {
-      font-size: 32rpx;
-      font-weight: bold;
+      font-size: 30rpx;
+      font-weight: 600;
       color: #333;
     }
 
     .confirmation-status-tag {
       font-size: 22rpx;
-      padding: 6rpx 20rpx;
-      border-radius: 8rpx;
+      padding: 6rpx 16rpx;
+      border-radius: 6rpx;
 
       &.status-pending {
         color: #faad14;
-        background: rgba(250, 173, 20, 0.1);
+        background: #fffbe6;
       }
 
       &.status-completed {
         color: #52c41a;
-        background: rgba(82, 196, 26, 0.1);
+        background: #f6ffed;
       }
 
       &.status-rejected {
         color: #f5222d;
-        background: rgba(245, 34, 45, 0.1);
+        background: #fff2f0;
       }
     }
   }
@@ -2472,7 +2665,7 @@ const formatDate = (date?: string) => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14rpx 0;
+      padding: 12rpx 0;
       border-bottom: 1rpx dashed #f0f0f0;
 
       &:last-child {
@@ -2481,15 +2674,15 @@ const formatDate = (date?: string) => {
 
       &.highlight {
         background: #f6ffed;
-        margin: 12rpx -16rpx;
-        padding: 14rpx 16rpx;
-        border-radius: 8rpx;
+        margin: 10rpx -12rpx;
+        padding: 12rpx 12rpx;
+        border-radius: 6rpx;
         border-bottom: none;
       }
 
       .conf-label {
         font-size: 26rpx;
-        color: #999;
+        color: #666;
         min-width: 160rpx;
       }
 
@@ -2501,7 +2694,7 @@ const formatDate = (date?: string) => {
 
         &.amount {
           color: #52c41a;
-          font-weight: bold;
+          font-weight: 600;
           font-size: 28rpx;
         }
       }
@@ -2632,28 +2825,28 @@ const formatDate = (date?: string) => {
 
 .creditor-item {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 
   .creditor-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24rpx;
-    padding-bottom: 20rpx;
-    border-bottom: 1rpx solid #f5f5f5;
+    margin-bottom: 20rpx;
+    padding-bottom: 16rpx;
+    border-bottom: 1rpx solid #f0f0f0;
 
     .creditor-left {
       display: flex;
       align-items: center;
-      gap: 16rpx;
+      gap: 12rpx;
       flex: 1;
 
       .creditor-type-tag {
         font-size: 20rpx;
-        padding: 4rpx 14rpx;
+        padding: 4rpx 12rpx;
         border-radius: 6rpx;
         color: #fff;
         flex-shrink: 0;
@@ -2672,26 +2865,26 @@ const formatDate = (date?: string) => {
       }
 
       .creditor-name {
-        font-size: 32rpx;
-        font-weight: bold;
+        font-size: 30rpx;
+        font-weight: 600;
         color: #333;
       }
     }
 
     .creditor-status-tag {
       font-size: 22rpx;
-      padding: 6rpx 20rpx;
-      border-radius: 8rpx;
+      padding: 6rpx 16rpx;
+      border-radius: 6rpx;
       flex-shrink: 0;
 
       &.creditor-status-enabled {
         color: #52c41a;
-        background: rgba(82, 196, 26, 0.1);
+        background: #f6ffed;
       }
 
       &.creditor-status-disabled {
         color: #999;
-        background: rgba(153, 153, 153, 0.1);
+        background: #f5f5f5;
       }
     }
   }
@@ -2701,7 +2894,7 @@ const formatDate = (date?: string) => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12rpx 0;
+      padding: 10rpx 0;
       border-bottom: 1rpx dashed #f0f0f0;
 
       &:last-child {
@@ -2710,7 +2903,7 @@ const formatDate = (date?: string) => {
 
       .creditor-row-label {
         font-size: 26rpx;
-        color: #999;
+        color: #666;
         min-width: 160rpx;
       }
 
@@ -2721,7 +2914,7 @@ const formatDate = (date?: string) => {
         text-align: right;
 
         &.amount {
-          color: #ff4d4f;
+          color: #f5222d;
           font-weight: 500;
         }
 

@@ -76,13 +76,6 @@
             </view>
           </button>
         </view>
-
-        <!-- 底部链接 -->
-        <view class="footer-links" :class="{ 'show': pageLoaded }" :style="{ animationDelay: '0.5s' }">
-          <text class="link">忘记密码?</text>
-          <text class="divider">|</text>
-          <text class="link">联系管理员</text>
-        </view>
       </view>
     </view>
 
@@ -103,8 +96,10 @@
  */
 
 import { reactive, ref, onMounted } from 'vue'
-import { login } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
 import { customerConfig } from '@/customer.config'
+
+const authStore = useAuthStore()
 
 const form = reactive({
   username: '',
@@ -116,8 +111,12 @@ const pageLoaded = ref(false)
 const usernameFocus = ref(false)
 const passwordFocus = ref(false)
 
-// 页面加载动画
-onMounted(() => {
+onMounted(async () => {
+  const restored = await authStore.restoreLoginState()
+  if (restored && authStore.isLoggedIn) {
+    uni.switchTab({ url: '/pages/workspace/index' })
+    return
+  }
   setTimeout(() => {
     pageLoaded.value = true
   }, 100)
@@ -135,28 +134,17 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    const res = await login(form)
-    if (res.code === 200 && res.data) {
-      // 保存 token
-      uni.setStorageSync('token', res.data.accessToken)
-      
-      // 保存用户信息
-      const userInfo = {
-        userId: res.data.userId,
-        username: res.data.username,
-        realName: res.data.realName,
-      }
-      uni.setStorageSync('userInfo', userInfo)
-
+    const res = await authStore.login(form)
+    if (res && res.code === 200 && res.data) {
       uni.showToast({ title: '登录成功', icon: 'success' })
       setTimeout(() => {
         uni.switchTab({ url: '/pages/workspace/index' })
       }, 1500)
     } else {
-      uni.showToast({ title: res.message || '登录失败', icon: 'none' })
+      uni.showToast({ title: res?.message || '登录失败', icon: 'none' })
     }
-  } catch (error) {
-    uni.showToast({ title: '登录失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error?.message || '登录失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -488,34 +476,7 @@ const handleLogin = async () => {
   }
 }
 
-// 底部链接
-.footer-links {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 40rpx;
-  opacity: 0;
-  transition: all 0.5s ease;
 
-  &.show {
-    opacity: 1;
-  }
-
-  .link {
-    font-size: 26rpx;
-    color: #666;
-    transition: all 0.3s ease;
-
-    &:active {
-      color: #1890ff;
-    }
-  }
-
-  .divider {
-    margin: 0 20rpx;
-    color: #ddd;
-  }
-}
 
 // 版本信息
 .version {

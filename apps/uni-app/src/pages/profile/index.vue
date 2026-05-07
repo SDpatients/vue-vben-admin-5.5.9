@@ -69,7 +69,7 @@
 
     <!-- 版本信息 -->
     <view class="version-info">
-      <text>版本 1.0.0</text>
+      <text>版本 {{ customerConfig.app.version }}</text>
     </view>
 
   </view>
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { customerConfig } from '@/customer.config'
 
 const authStore = useAuthStore()
 const userInfo = computed(() => authStore.userInfo)

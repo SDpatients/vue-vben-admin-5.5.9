@@ -190,6 +190,7 @@ import {
 } from '@/api/work-log'
 import { getCaseFileInfo, type FileItem } from '@/api/case'
 import { getBaseUrl, API_PREFIX } from '@/config'
+import { chooseFilePlatform } from '@/utils/chooseFile'
 import type { WorkLogApi } from '@/api/work-log'
 
 const loading = ref(false)
@@ -422,22 +423,19 @@ const handleSaveLog = async () => {
   }
 }
 
-const chooseFileForWorkLog = () => {
-  uni.chooseFile({
-    count: 10,
-    type: 'all',
-    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
-    success: (res: any) => {
-      const files = res.tempFiles || []
-      const filePaths = files.map((f: any) => f.path || f.tempFilePath).filter(Boolean)
-      if (filePaths.length > 0) {
-        uploadFilesWorkLog(filePaths)
-      }
-    },
-    fail: () => {
-      uni.showToast({ title: '选择文件取消', icon: 'none' })
-    },
-  })
+const chooseFileForWorkLog = async () => {
+  try {
+    const files = await chooseFilePlatform({
+      count: 10,
+      extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    })
+    const filePaths = files.map((f) => f.path).filter(Boolean)
+    if (filePaths.length > 0) {
+      uploadFilesWorkLog(filePaths)
+    }
+  } catch (_e) {
+    uni.showToast({ title: '选择文件取消', icon: 'none' })
+  }
 }
 
 const uploadFilesWorkLog = async (filePaths: string[]) => {
@@ -500,44 +498,109 @@ const getAttachmentFiles = async (attachmentIds: string) => {
   return files
 }
 
-const viewAttachment = async (file: FileItem) => {
+const viewAttachment = (file: FileItem) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
-  const ext = file.fileExtension?.toLowerCase()
+  const ext = file.fileExtension?.toLowerCase() || ''
+  const fileUrl = `${baseUrl}${API_PREFIX}/file/preview/${file.id}`
 
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext || '')) {
-    uni.previewImage({
-      urls: [`${baseUrl}${API_PREFIX}/file/preview/${file.id}`],
-      current: `${baseUrl}${API_PREFIX}/file/preview/${file.id}`,
-    })
-  } else if (['pdf'].includes(ext || '')) {
-    if (isH5 && typeof window !== 'undefined') {
-      try {
-        uni.showLoading({ title: '加载中...' })
-        if (typeof fetch === 'undefined') {
-          throw new Error('fetch not available')
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+    uni.showLoading({ title: '加载中...' })
+    uni.downloadFile({
+      url: fileUrl,
+      header: { Authorization: `Bearer ${token}` },
+      success: (downloadRes: UniApp.DownloadSuccessData) => {
+        uni.hideLoading()
+        if (downloadRes.statusCode === 200) {
+          const tempFilePath = downloadRes.tempFilePath
+          uni.previewImage({
+            urls: [tempFilePath],
+            current: tempFilePath,
+            longPressActions: {
+              itemList: ['保存图片到相册'],
+              success: (data: any) => {
+                if (data.tapIndex === 0) {
+                  uni.saveImageToPhotosAlbum({
+                    filePath: tempFilePath,
+                    success: () => {
+                      uni.showToast({ title: '保存成功', icon: 'success' })
+                    },
+                    fail: (err: any) => {
+                      if (err.errMsg?.includes('auth deny')) {
+                        uni.showModal({
+                          title: '提示',
+                          content: '需要您授权保存图片到相册',
+                          confirmText: '去授权',
+                          success: (modalRes) => {
+                            if (modalRes.confirm) {
+                              uni.openSetting({
+                                success: (settingRes: any) => {
+                                  if (settingRes.authSetting['scope.writePhotosAlbum']) {
+                                    uni.saveImageToPhotosAlbum({
+                                      filePath: tempFilePath,
+                                      success: () => {
+                                        uni.showToast({ title: '保存成功', icon: 'success' })
+                                      },
+                                      fail: () => {
+                                        uni.showToast({ title: '保存失败', icon: 'none' })
+                                      },
+                                    })
+                                  }
+                                },
+                              })
+                            }
+                          },
+                        })
+                      } else {
+                        uni.showToast({ title: '保存失败', icon: 'none' })
+                      }
+                    },
+                  })
+                }
+              },
+              fail: () => {},
+            },
+          })
+        } else {
+          uni.showToast({ title: '图片加载失败', icon: 'none' })
         }
-        const response = await fetch(`${baseUrl}${API_PREFIX}/file/preview/${file.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!response.ok) throw new Error('加载失败')
-        const blob = await response.blob()
-        const blobUrl = URL.createObjectURL(blob)
+      },
+      fail: () => {
         uni.hideLoading()
-        window.open(blobUrl, '_blank')
-      } catch (error) {
+        uni.showToast({ title: '图片加载失败', icon: 'none' })
+      },
+    })
+  } else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
+    uni.showLoading({ title: '加载中...' })
+    uni.downloadFile({
+      url: fileUrl,
+      header: { Authorization: `Bearer ${token}` },
+      success: (downloadRes: UniApp.DownloadSuccessData) => {
         uni.hideLoading()
-        uni.showToast({ title: '预览失败', icon: 'none' })
-      }
-    } else {
-      uni.showToast({ title: '请在浏览器中查看', icon: 'none' })
-    }
+        if (downloadRes.statusCode === 200) {
+          uni.openDocument({
+            filePath: downloadRes.tempFilePath,
+            showMenu: true,
+            success: () => {},
+            fail: () => {
+              uni.showToast({ title: '无法打开文件，请下载后查看', icon: 'none' })
+            },
+          })
+        } else {
+          uni.showToast({ title: '文件加载失败', icon: 'none' })
+        }
+      },
+      fail: () => {
+        uni.hideLoading()
+        uni.showToast({ title: '文件加载失败', icon: 'none' })
+      },
+    })
   } else {
     uni.showToast({ title: '暂不支持预览此类型文件', icon: 'none' })
   }
 }
 
-const downloadAttachment = async (file: FileItem) => {
+const downloadAttachment = (file: FileItem) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
   const fileUrl = `${baseUrl}${API_PREFIX}/file/download/${file.id}`
@@ -547,50 +610,50 @@ const downloadAttachment = async (file: FileItem) => {
     content: `确定要下载 ${file.originalFileName || file.fileName} 吗？`,
     success: async (res: UniApp.ShowModalRes) => {
       if (res.confirm) {
-        if (isH5) {
-          try {
-            uni.showLoading({ title: '下载中...' })
-            const response = await fetch(fileUrl, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-            if (!response.ok) throw new Error('下载失败')
-            const blob = await response.blob()
-            const blobUrl = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = blobUrl
-            link.download = file.originalFileName || file.fileName
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            URL.revokeObjectURL(blobUrl)
+        uni.showLoading({ title: '下载中...' })
+        uni.downloadFile({
+          url: fileUrl,
+          header: { Authorization: `Bearer ${token}` },
+          success: (downloadRes: UniApp.DownloadSuccessData) => {
             uni.hideLoading()
-            uni.showToast({ title: '下载成功', icon: 'success' })
-          } catch (error) {
-            uni.hideLoading()
-            uni.showToast({ title: '下载失败', icon: 'none' })
-          }
-        } else {
-          uni.downloadFile({
-            url: fileUrl,
-            header: { Authorization: `Bearer ${token}` },
-            success: (downloadRes: any) => {
-              if (downloadRes.statusCode === 200) {
-                uni.saveFile({
-                  tempFilePath: downloadRes.tempFilePath,
-                  success: () => {
-                    uni.showToast({ title: '下载成功', icon: 'success' })
-                  },
-                  fail: () => {
-                    uni.showToast({ title: '保存失败', icon: 'none' })
+            if (downloadRes.statusCode === 200) {
+              if (isH5 && typeof document !== 'undefined') {
+                const link = document.createElement('a')
+                link.href = downloadRes.tempFilePath
+                link.download = file.originalFileName || file.fileName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                uni.showToast({ title: '下载成功', icon: 'success' })
+              } else {
+                uni.showModal({
+                  title: '下载完成',
+                  content: '文件已准备就绪，是否立即打开？',
+                  success: (openRes) => {
+                    if (openRes.confirm) {
+                      uni.openDocument({
+                        filePath: downloadRes.tempFilePath,
+                        showMenu: true,
+                        success: () => {},
+                        fail: () => {
+                          uni.showToast({ title: '无法打开文件', icon: 'none' })
+                        },
+                      })
+                    } else {
+                      uni.showToast({ title: '文件已保存', icon: 'success' })
+                    }
                   },
                 })
               }
-            },
-            fail: () => {
+            } else {
               uni.showToast({ title: '下载失败', icon: 'none' })
-            },
-          })
-        }
+            }
+          },
+          fail: () => {
+            uni.hideLoading()
+            uni.showToast({ title: '下载失败', icon: 'none' })
+          },
+        })
       }
     },
   })

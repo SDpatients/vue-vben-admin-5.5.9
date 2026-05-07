@@ -36,7 +36,7 @@ const { destroyWatermark, updateWatermark } = useWatermark();
 const menus = computed(() => [
   {
     handler: () => {
-      router.push('/dashboard/profile');
+      router.push('/expense-system/user-profile');
     },
     icon: UserRoundPen,
     text: $t('page.user.profile'),

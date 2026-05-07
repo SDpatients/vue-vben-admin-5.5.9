@@ -1,61 +1,59 @@
 import type { RouteRecordRaw } from 'vue-router';
 
+import { $t } from '#/locales';
+
 const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:clipboard-check',
-      order: 11,
-      title: '批审管理',
-      hideInMenu: true,
+      order: 4,
+      title: $t('page.approval.title'),
       authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
     },
-    name: 'ApprovalManagementLegacy',
+    name: 'ApprovalManagement',
     path: '/approval',
+    redirect: '/approval/document',
     children: [
       {
-        name: 'DocumentApprovalLegacy',
-        path: '/approval/document',
+        name: 'DocumentApproval',
+        path: 'document',
         component: () => import('#/views/approval/document/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:file-check',
-          title: '文书审批',
-          hideInMenu: true,
+          title: $t('page.approval.documentApproval'),
           authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
         },
       },
       {
-        name: 'CaseApprovalLegacy',
-        path: '/approval/case',
+        name: 'CaseApproval',
+        path: 'case',
         component: () => import('#/views/approval/case/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:briefcase',
-          title: '案件审批',
-          hideInMenu: true,
+          title: $t('page.approval.caseApproval'),
           authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
         },
       },
       {
-        name: 'ExpenseApprovalLegacy',
-        path: '/approval/expense',
+        name: 'ExpenseApproval',
+        path: 'expense',
         component: () => import('#/views/approval/expense/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:receipt',
-          title: '报销批审',
-          hideInMenu: true,
+          title: $t('page.approval.expenseApproval'),
           authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
         },
       },
       {
-        name: 'ApprovalDetailLegacy',
-        path: '/approval/detail/:approvalId',
+        name: 'ApprovalDetail',
+        path: 'detail/:approvalId',
         component: () => import('#/views/approval/detail-view.vue'),
         meta: {
           affixTab: false,
           hideInMenu: true,
-          hideInTab: true,
           icon: 'lucide:file-text',
           title: '审批详情',
           authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],

@@ -91,6 +91,12 @@
       }
     },
     {
+      "path": "pages/cases/debtor",
+      "style": {
+        "navigationBarTitleText": "债务人管理"
+      }
+    },
+    {
       "path": "pages/cases/work-log",
       "style": {
         "navigationBarTitleText": "工作日志"

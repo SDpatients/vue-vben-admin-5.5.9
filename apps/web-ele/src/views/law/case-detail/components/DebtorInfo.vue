@@ -31,6 +31,7 @@ import {
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const loading = ref(false);
@@ -338,7 +339,7 @@ onMounted(() => {
             <span class="text-lg font-semibold">债务人信息</span>
           </div>
           <div class="flex space-x-2">
-            <ElButton type="primary" @click="openAddDialog">
+            <ElButton v-if="!isCaseArchived" type="primary" @click="openAddDialog">
               <Icon icon="lucide:plus" class="mr-1" />
               新增债务人
             </ElButton>
@@ -408,6 +409,7 @@ onMounted(() => {
           <ElTableColumn label="操作" width="180" fixed="right">
             <template #default="scope">
               <ElButton
+                v-if="!isCaseArchived"
                 size="small"
                 type="primary"
                 @click="openEditDialog(scope.row)"
@@ -417,6 +419,7 @@ onMounted(() => {
                 编辑
               </ElButton>
               <ElPopconfirm
+                v-if="!isCaseArchived"
                 title="确定要删除该债务人吗？"
                 @confirm="handleDelete(scope.row)"
               >

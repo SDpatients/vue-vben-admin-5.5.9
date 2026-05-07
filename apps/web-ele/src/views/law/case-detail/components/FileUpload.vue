@@ -1041,7 +1041,7 @@ onUnmounted(() => {
       </div>
     </template>
 
-    <div class="upload-section mb-4">
+    <div v-if="!disabled" class="upload-section mb-4">
       <ElUpload
         :disabled="disabled || uploading"
         :auto-upload="false"

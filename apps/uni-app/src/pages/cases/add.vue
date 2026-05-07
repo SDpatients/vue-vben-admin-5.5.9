@@ -563,7 +563,7 @@ const onDebtClaimDeadlineChange = (e: any) => {
 // 是否简化审选择
 const onSimplifiedTrialChange = (e: any) => {
   simplifiedTrialIndex.value = e.detail.value
-  formData.isSimplifiedTrial = e.detail.value === '0' ? 0 : 1
+  formData.isSimplifiedTrial = e.detail.value === 2 ? 1 : 0
 }
 
 // 案件进度选择
@@ -663,32 +663,79 @@ const searchUsers = () => {
 
 // 选择文件 - 统一使用 uni.chooseFile
 const handleSelectFile = () => {
+  // #ifdef H5
   uni.chooseFile({
     count: 10,
     type: 'all',
     extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     success: (res: any) => {
-const files = res.tempFiles || []
-const validFiles = files.filter((file: any) => {
-// 验证文件大小（10MB）
+      const files = res.tempFiles || []
+      const validFiles = files.filter((file: any) => {
         if (file.size > 10 * 1024 * 1024) {
           uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
           return false
         }
         return true
       })
-      
-      // 确保文件路径正确 - 小程序/APP环境使用 path 或 tempFilePath
       const processedFiles = validFiles.map((file: any) => ({
         path: file.path || file.tempFilePath,
         name: file.name || file.path?.split('/').pop() || '未知文件',
         size: file.size || 0
       }))
-selectedFiles.value.push(...processedFiles)
+      selectedFiles.value.push(...processedFiles)
     },
-    fail: (err: any) => {
-},
+    fail: (_err: any) => {
+    },
   })
+  // #endif
+  // #ifdef MP-WEIXIN
+  uni.chooseMessageFile({
+    count: 10,
+    type: 'all',
+    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    success: (res: any) => {
+      const files = res.tempFiles || []
+      const validFiles = files.filter((file: any) => {
+        if (file.size > 10 * 1024 * 1024) {
+          uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
+          return false
+        }
+        return true
+      })
+      const processedFiles = validFiles.map((file: any) => ({
+        path: file.path,
+        name: file.name || file.path?.split('/').pop() || '未知文件',
+        size: file.size || 0
+      }))
+      selectedFiles.value.push(...processedFiles)
+    },
+    fail: (_err: any) => {
+    },
+  })
+  // #endif
+  // #ifdef APP-PLUS
+  plus.io.chooseFile({
+    multiple: true,
+    maximum: 10,
+    filter: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    onChoose: (files: any[]) => {
+      const validFiles = files.filter((file: any) => {
+        if (file.size > 10 * 1024 * 1024) {
+          uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
+          return false
+        }
+        return true
+      })
+      const processedFiles = validFiles.map((file: any) => ({
+        path: file.path,
+        name: file.name || file.path?.split('/').pop() || '未知文件',
+        size: file.size || 0
+      }))
+      selectedFiles.value.push(...processedFiles)
+    },
+  }, (_err: any) => {
+  })
+  // #endif
 }
 
 // 移除文件

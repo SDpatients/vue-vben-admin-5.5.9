@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { CaseApproval as ApiCaseApproval } from '#/api/core/approval';
 
 import { onMounted, ref } from 'vue';
@@ -1283,7 +1283,7 @@ document.head.appendChild(style);
       color: #212529;
       margin-bottom: 16px;
       padding-bottom: 12px;
-      border-bottom: 2px solid #667eea;
+      border-bottom: 2px solid #475569;
     }
   }
 }
@@ -1329,7 +1329,7 @@ document.head.appendChild(style);
         color: #212529;
         margin-bottom: 16px;
         padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #475569;
       }
 
       .task-info-content {
@@ -1374,7 +1374,7 @@ document.head.appendChild(style);
         color: #212529;
         margin-bottom: 16px;
         padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #475569;
       }
 
       .submissions-list {
@@ -1399,7 +1399,7 @@ document.head.appendChild(style);
 
           .submission-index {
             font-weight: 600;
-            color: #667eea;
+            color: #475569;
             font-size: 14px;
           }
 
@@ -1474,7 +1474,7 @@ document.head.appendChild(style);
 
             .file-icon {
               font-size: 20px;
-              color: #667eea;
+              color: #475569;
               flex-shrink: 0;
             }
 
@@ -1519,7 +1519,7 @@ document.head.appendChild(style);
         color: #212529;
         margin-bottom: 16px;
         padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #475569;
       }
 
       .content-box {
@@ -1545,7 +1545,7 @@ document.head.appendChild(style);
         color: #212529;
         margin-bottom: 16px;
         padding-bottom: 12px;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #475569;
       }
 
       .attachment-content {
@@ -1578,9 +1578,9 @@ document.head.appendChild(style);
           transition: all 0.3s ease;
 
           &:hover {
-            border-color: #667eea;
+            border-color: #475569;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            box-shadow: 0 4px 12px rgba(71, 85, 105, 0.15);
           }
         }
 
@@ -1594,7 +1594,7 @@ document.head.appendChild(style);
 
         .attachment-icon {
           font-size: 24px;
-          color: #667eea;
+          color: #475569;
           width: 36px;
           text-align: center;
           flex-shrink: 0;
@@ -1738,9 +1738,9 @@ document.head.appendChild(style);
       }
 
       .image-item:hover {
-        border-color: #667eea;
+        border-color: #475569;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        box-shadow: 0 4px 12px rgba(71, 85, 105, 0.15);
       }
 
       .image-container {
@@ -1790,7 +1790,7 @@ document.head.appendChild(style);
       .loading-spinner {
         width: 20px;
         height: 20px;
-        border: 2px solid #667eea;
+        border: 2px solid #475569;
         border-top-color: transparent;
         border-radius: 50%;
         animation: spin 1s linear infinite;
@@ -1841,7 +1841,7 @@ document.head.appendChild(style);
 
       .file-icon {
         font-size: 20px;
-        color: #667eea;
+        color: #475569;
       }
 
       .file-details {
@@ -1883,7 +1883,7 @@ document.head.appendChild(style);
           color: #212529;
           margin-bottom: 16px;
           padding-bottom: 12px;
-          border-bottom: 2px solid #667eea;
+          border-bottom: 2px solid #475569;
         }
 
         .approval-form-item {

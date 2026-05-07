@@ -333,22 +333,33 @@ export const getClaimRegistrationDetail = (claimId: number) => {
 
 export const createClaimRegistration = (data: {
   caseId: number
-  claimNo?: string
   caseName?: string
   debtor?: string
   creditorName: string
   creditorType: string
   creditCode?: string
   legalRepresentative?: string
-  principal: number
-  interest: number
-  penalty: number
-  otherLosses: number
-  claimNature: string
+  serviceAddress?: string
+  agentName?: string
+  agentPhone?: string
+  agentIdCard?: string
+  agentAddress?: string
+  accountName?: string
+  creditorBankAccount?: string
+  bankName?: string
+  principal?: number
+  interest?: number
+  penalty?: number
+  otherLosses?: number
+  totalAmount?: number
+  claimNature?: string
   claimType: string
-  registrationStatus: string
-  materialCompleteness: string
-  registrationDate: string
+  claimFacts?: string
+  claimIdentifier?: string
+  evidenceAttachments?: any[] | null
+  registrationDate?: string | null
+  materialCompleteness?: string
+  remarks?: string
 }) => {
   return http.post<{ code: number; message: string; data: { claimId: number } }>('/claim-registration', data)
 }
@@ -358,9 +369,22 @@ export const updateClaimRegistration = (claimId: number, data: {
   interest?: number
   penalty?: number
   otherLosses?: number
+  totalAmount?: number
   claimNature?: string
   claimType?: string
+  creditorType?: string
   materialCompleteness?: string
+  serviceAddress?: string
+  agentName?: string
+  agentPhone?: string
+  agentIdCard?: string
+  agentAddress?: string
+  accountName?: string
+  creditorBankAccount?: string
+  bankName?: string
+  claimFacts?: string
+  claimIdentifier?: string
+  remarks?: string
 }) => {
   return http.put<{ code: number; message: string; data: null }>(`/claim-registration/${claimId}`, data)
 }

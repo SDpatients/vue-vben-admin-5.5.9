@@ -143,6 +143,10 @@
           <text class="feature-text">债权管理</text>
           <text class="arrow">›</text>
         </view>
+        <view class="feature-item" @click="handleDebtor">
+          <text class="feature-text">债务人管理</text>
+          <text class="arrow">›</text>
+        </view>
         <view class="feature-item" @click="handleWorkLog">
           <text class="feature-text">工作日志</text>
           <text class="arrow">›</text>
@@ -266,6 +270,10 @@ const handleWorkTeam = () => {
 
 const handleClaimManage = () => {
   uni.navigateTo({ url: `/pages/cases/claim-manage?id=${caseId.value}` })
+}
+
+const handleDebtor = () => {
+  uni.navigateTo({ url: `/pages/cases/debtor?id=${caseId.value}` })
 }
 
 const handleWorkLog = () => {

@@ -32,6 +32,7 @@ import {
   formatFileSize,
   getDocumentTypeIcon,
   getDocumentTypeColor,
+  normalizeDocumentType,
 } from '#/api/core/document-library';
 
 const loading = ref(false);
@@ -122,9 +123,9 @@ const typeChartData = computed(() => {
 
   const stats: Record<string, number> = { WORD: 0, EXCEL: 0, PDF: 0, OTHER: 0 };
   documents.value.forEach((doc) => {
-    const type = doc.documentType || 'OTHER';
-    if (stats[type] !== undefined) {
-      stats[type]++;
+    const normalized = normalizeDocumentType(doc.documentType || '');
+    if (stats[normalized] !== undefined) {
+      stats[normalized]++;
     }
   });
   const typeNames: Record<string, string> = {
@@ -159,9 +160,9 @@ const sizeChartData = computed(() => {
 
   const stats: Record<string, number> = { WORD: 0, EXCEL: 0, PDF: 0, OTHER: 0 };
   documents.value.forEach((doc) => {
-    const type = doc.documentType || 'OTHER';
-    if (stats[type] !== undefined) {
-      stats[type] += doc.fileSize || 0;
+    const normalized = normalizeDocumentType(doc.documentType || '');
+    if (stats[normalized] !== undefined) {
+      stats[normalized] += doc.fileSize || 0;
     }
   });
   const typeNames: Record<string, string> = {
@@ -459,13 +460,14 @@ const renderSizeChartFunc = () => {
 };
 
 const getDocumentTypeTag = (type: string) => {
+  const normalized = normalizeDocumentType(type);
   const typeMap: Record<string, { label: string; type: string }> = {
     WORD: { label: 'Word', type: 'primary' },
     EXCEL: { label: 'Excel', type: 'success' },
     PDF: { label: 'PDF', type: 'danger' },
     OTHER: { label: '其他', type: 'info' },
   };
-  return typeMap[type] || typeMap.OTHER;
+  return typeMap[normalized] || typeMap.OTHER;
 };
 
 const formatDate = (dateStr: string) => {

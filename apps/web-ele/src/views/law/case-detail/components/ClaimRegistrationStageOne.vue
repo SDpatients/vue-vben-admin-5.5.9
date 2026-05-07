@@ -54,6 +54,7 @@ import { parseExcelApi } from '#/api/core/claim-registration';
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -1335,7 +1336,7 @@ onMounted(() => {
               <ElOption label="已登记" value="REGISTERED" />
               <ElOption label="已驳回" value="REJECTED" />
             </ElSelect>
-            <ElButton type="primary" @click="openAddDialog">
+            <ElButton v-if="!isCaseArchived" type="primary" @click="openAddDialog">
               <Icon icon="lucide:plus" class="mr-1" />
               新增债权
             </ElButton>
@@ -1466,6 +1467,7 @@ onMounted(() => {
                 驳回
               </ElButton>
               <ElPopconfirm
+                v-if="!isCaseArchived"
                 title="确定要删除这条债权登记吗？"
                 @confirm="handleDeleteClaim(scope.row)"
               >
@@ -1522,19 +1524,19 @@ onMounted(() => {
             {{ currentClaim.creditCode }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报本金">
-            {{ currentClaim.principal }}
+            <span class="amount-highlight">{{ currentClaim.principal }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报利息">
-            {{ currentClaim.interest }}
+            <span class="amount-highlight">{{ currentClaim.interest }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报罚金">
-            {{ currentClaim.penalty }}
+            <span class="amount-highlight">{{ currentClaim.penalty }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报其他损失">
-            {{ currentClaim.otherLosses }}
+            <span class="amount-highlight">{{ currentClaim.otherLosses }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="申报总金额">
-            {{ currentClaim.totalAmount }}
+            <span class="amount-highlight amount-total">{{ currentClaim.totalAmount }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="债权类型">
             {{ currentClaim.claimType }}
@@ -2517,6 +2519,20 @@ onMounted(() => {
   background-color: #f0f9eb;
 }
 
+.amount-highlight {
+  color: #f5222d;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.amount-total {
+  font-size: 18px;
+  background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #ffa39e;
+}
+
 .gap-2 {
   display: flex;
   align-items: center;
@@ -2569,7 +2585,7 @@ onMounted(() => {
 }
 
 :deep(.el-collapse-item__arrow) {
-  color: #667eea;
+  color: #475569;
   font-weight: bold;
 }
 
@@ -2606,8 +2622,8 @@ onMounted(() => {
 
 :deep(.el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active) {
   background: white;
-  color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  color: #475569;
+  box-shadow: 0 2px 8px rgba(71, 85, 105, 0.15);
 }
 
 :deep(.el-tabs--border-card > .el-tabs__content) {
@@ -2648,7 +2664,7 @@ onMounted(() => {
 }
 
 :deep(.el-dialog__header) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
   color: white;
   padding: 20px 24px;
   margin: 0;

@@ -204,6 +204,7 @@ import {
 import { getCaseList } from '@/api/case'
 import { getBankAccountList } from '@/api/basic-data'
 import dayjs from 'dayjs'
+import { chooseFilePlatform } from '@/utils/chooseFile'
 
 const isEdit = ref(false)
 const expenseId = ref('')
@@ -387,27 +388,22 @@ const handleRemoveItem = (index: number) => {
   })
 }
 
-const handleChooseFile = () => {
-  uni.chooseFile({
-    count: 5,
-    extension: ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx'],
-    success: (res: UniApp.ChooseFileSuccessCallbackResult) => {
-      const paths = Array.isArray(res.tempFilePaths) ? res.tempFilePaths : [res.tempFilePaths]
-      const files = Array.isArray(res.tempFiles) ? res.tempFiles : res.tempFiles ? [res.tempFiles] : []
-      
-      paths.forEach((path: string, index: number) => {
-        const file = files[index] as any
-        form.value.attachments.push({
-          fileName: file?.name || path.split('/').pop() || '未知文件',
-          fileSize: file?.size || 0,
-          fileType: file?.type || getFileTypeFromPath(path),
-          filePath: path,
-        })
+const handleChooseFile = async () => {
+  try {
+    const files = await chooseFilePlatform({
+      count: 5,
+      extension: ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx'],
+    })
+    files.forEach((file) => {
+      form.value.attachments.push({
+        fileName: file.name || file.path.split('/').pop() || '未知文件',
+        fileSize: file.size || 0,
+        fileType: getFileTypeFromPath(file.path),
+        filePath: file.path,
       })
-    },
-    fail: (err: any) => {
-},
-  })
+    })
+  } catch (_e) {
+  }
 }
 
 const getFileTypeFromPath = (path: string): string => {

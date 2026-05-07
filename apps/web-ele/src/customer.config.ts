@@ -51,7 +51,7 @@ export const customerConfig = {
    * ============================================
    */
   logo: {
-    path: '/original-logo.jpg',
+    path: '/logo.png',
     iconPath: '/logo.ico',
     fit: 'contain' as const,
   },

@@ -87,7 +87,9 @@
         <text>没有更多了</text>
       </view>
       <view class="empty" v-else-if="caseList.length === 0">
-        <image src="/static/empty.png" mode="aspectFit" />
+        <view class="empty-icon">
+          <text class="empty-emoji">📋</text>
+        </view>
         <text>暂无案件数据</text>
       </view>
     </view>
@@ -359,9 +361,13 @@ const handleCreate = () => {
 const getStatusText = (status?: string) => {
   const map: Record<string, string> = {
     ONGOING: '进行中',
+    IN_PROGRESS: '进行中',
     CLOSED: '已结案',
-    PENDING: '待受理',
+    COMPLETED: '已完成',
+    PENDING: '待处理',
+    AWAITING: '报结中',
     ARCHIVED: '已归档',
+    TERMINATED: '已终结',
   }
   return map[status || ''] || status || '未知'
 }
@@ -369,9 +375,13 @@ const getStatusText = (status?: string) => {
 const getStatusClass = (status?: string) => {
   const map: Record<string, string> = {
     ONGOING: 'status-processing',
+    IN_PROGRESS: 'status-processing',
     CLOSED: 'status-completed',
+    COMPLETED: 'status-completed',
     PENDING: 'status-pending',
+    AWAITING: 'status-processing',
     ARCHIVED: 'status-archived',
+    TERMINATED: 'status-terminated',
   }
   return map[status || ''] || ''
 }

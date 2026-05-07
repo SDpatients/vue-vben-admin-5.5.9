@@ -71,23 +71,30 @@ export namespace DocumentLibraryApi {
     documentCode: string;
     folderId: number;
     folderName: string;
-    documentType: 'WORD' | 'EXCEL' | 'PDF' | 'OTHER';
+    folderPath: string;
+    documentType: string;
     fileName: string;
+    filePath: string;
     fileSize: number;
     fileExtension: string;
+    mimeType: string;
     currentVersion: number;
     isPublic: boolean;
     isLocked: boolean;
-    lockedBy?: number;
-    lockedByName?: string;
+    lockedBy?: number | null;
+    lockedByName?: string | null;
+    lockedTime?: string | null;
     downloadCount: number;
     viewCount: number;
     status: string;
     createTime: string;
     updateTime: string;
+    createUserId: number;
+    createUserName: string;
     description?: string;
     tags?: string;
     isFavorited: boolean;
+    hasPermission: boolean;
   }
 
   export interface UploadDocumentRequest {
@@ -112,6 +119,7 @@ export namespace DocumentLibraryApi {
     status?: string;
     keyword?: string;
     isPublic?: boolean;
+    createUserId?: number;
     page?: number;
     size?: number;
     sortBy?: string;
@@ -396,13 +404,16 @@ export interface DownloadResult {
 
 export async function downloadDocumentApi(id: number): Promise<DownloadResult> {
   const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
-  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}${BASE_URL}/documents/${id}/download`, {
+  const downloadUrl = getDocumentDownloadUrl(id);
+  console.log('[downloadDocumentApi] 开始下载', { id, downloadUrl, tokenExists: !!token, tokenLength: token.length });
+  const response = await fetch(downloadUrl, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
-  
+  console.log('[downloadDocumentApi] 响应状态', { status: response.status, statusText: response.statusText, ok: response.ok });
+
   if (!response.ok) {
     throw new Error(`下载失败: ${response.status}`);
   }
@@ -653,8 +664,12 @@ export async function getOfficePreviewConfigApi(documentId: number): Promise<Doc
   return requestClient.get(`${BASE_URL}/documents/${documentId}/office-config`);
 }
 
-export async function getDocumentPreviewUrl(documentId: number): string {
+export function getDocumentPreviewUrl(documentId: number): string {
   return `${BASE_URL}/documents/${documentId}/preview`;
+}
+
+export function getDocumentDownloadUrl(documentId: number): string {
+  return `${BASE_URL}/documents/${documentId}/download`;
 }
 
 export function formatFileSize(bytes: number): string {
@@ -665,22 +680,32 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+export function normalizeDocumentType(type: string): string {
+  const lower = (type || '').toLowerCase();
+  if (['doc', 'docx'].includes(lower)) return 'WORD';
+  if (['xls', 'xlsx'].includes(lower)) return 'EXCEL';
+  if (lower === 'pdf') return 'PDF';
+  return 'OTHER';
+}
+
 export function getDocumentTypeIcon(type: string): string {
+  const normalized = normalizeDocumentType(type);
   const iconMap: Record<string, string> = {
     WORD: 'vscode-icons:file-type-word',
     EXCEL: 'vscode-icons:file-type-excel',
     PDF: 'vscode-icons:file-type-pdf2',
     OTHER: 'vscode-icons:default-file',
   };
-  return iconMap[type] || iconMap.OTHER;
+  return iconMap[normalized] || iconMap.OTHER;
 }
 
 export function getDocumentTypeColor(type: string): string {
+  const normalized = normalizeDocumentType(type);
   const colorMap: Record<string, string> = {
     WORD: '#2b579a',
     EXCEL: '#217346',
     PDF: '#f40f02',
     OTHER: '#666666',
   };
-  return colorMap[type] || colorMap.OTHER;
+  return colorMap[normalized] || colorMap.OTHER;
 }

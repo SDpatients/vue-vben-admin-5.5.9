@@ -110,6 +110,36 @@ const currentAnnouncement = ref<Announcement | null>(null);
 const detailLoading = ref(false);
 const showPreviewDialog = ref(false);
 const previewUrl = ref('');
+const previewIsImage = ref(false);
+const previewIsPdf = ref(false);
+const previewFileName = ref('');
+
+const announcementImageUrls = ref<Record<number, string>>({});
+
+const loadAnnouncementImage = async (fileId: number) => {
+  if (announcementImageUrls.value[fileId]) return;
+  try {
+    const blob = await fileUploadRequestClient.get<Blob>(
+      `/api/v1/file/preview/${fileId}`,
+      { responseType: 'blob' },
+    );
+    announcementImageUrls.value[fileId] = URL.createObjectURL(blob);
+  } catch {
+    // ignore
+  }
+};
+
+const getAnnouncementImageUrl = (fileId: number): string => {
+  return announcementImageUrls.value[fileId] || '';
+};
+
+const isImageAttachment = (attachment: { file_name?: string; name?: string; type?: string }) => {
+  const fileName = attachment.file_name || attachment.name || '';
+  const mimeType = attachment.type || '';
+  if (mimeType && mimeType.startsWith('image/')) return true;
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
+};
 
 // 发布公告相关
 const showPublishDialog = ref(false);
@@ -233,6 +263,14 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
       }
 
       currentAnnouncement.value = data;
+
+      if (data.attachments && data.attachments.length > 0) {
+        for (const attach of data.attachments) {
+          if (isImageAttachment(attach) && attach.file_id) {
+            loadAnnouncementImage(Number(attach.file_id));
+          }
+        }
+      }
     }
   } catch (error) {
     console.error('获取公告详情失败:', error);
@@ -303,6 +341,8 @@ const downloadFile = async (attachment: {
 const previewFile = async (attachment: {
   file_id: string;
   file_name: string;
+  name?: string;
+  type?: string;
 }) => {
   if (!attachment.file_id) {
     ElMessage.error('无效的文件ID');
@@ -314,6 +354,16 @@ const previewFile = async (attachment: {
     ElMessage.error('文件ID必须是数字');
     return;
   }
+
+  const fileName = attachment.file_name || attachment.name || '';
+  const mimeType = attachment.type || '';
+
+  previewIsImage.value = false;
+  previewIsPdf.value = false;
+  previewFileName.value = fileName;
+
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'];
 
   try {
     ElMessage.info('正在加载文件...');
@@ -334,6 +384,13 @@ const previewFile = async (attachment: {
     }
 
     previewUrl.value = window.URL.createObjectURL(blob);
+
+    if (imageExts.includes(ext) || (mimeType && mimeType.startsWith('image/')) || (blob.type && blob.type.startsWith('image/'))) {
+      previewIsImage.value = true;
+    } else if (ext === 'pdf' || mimeType === 'application/pdf' || blob.type === 'application/pdf') {
+      previewIsPdf.value = true;
+    }
+
     showPreviewDialog.value = true;
     ElMessage.success('文件加载成功');
   } catch (error) {
@@ -350,6 +407,9 @@ const closePreviewDialog = () => {
     window.URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = '';
   }
+  previewIsImage.value = false;
+  previewIsPdf.value = false;
+  previewFileName.value = '';
   showPreviewDialog.value = false;
 };
 
@@ -926,6 +986,21 @@ onMounted(() => {
                       attachment.file_name || attachment.name || '附件'
                     }}</span>
                   </div>
+                  <div
+                    v-if="isImageAttachment(attachment)"
+                    class="attachment-image-preview"
+                  >
+                    <img
+                      v-if="getAnnouncementImageUrl(Number(attachment.file_id))"
+                      :src="getAnnouncementImageUrl(Number(attachment.file_id))"
+                      :alt="attachment.file_name || attachment.name"
+                      class="inline-preview-image"
+                      @click="previewFile(attachment)"
+                    />
+                    <div v-else class="inline-preview-loading" @click="previewFile(attachment)">
+                      <Icon icon="lucide:image" style="font-size: 24px; color: #999" />
+                    </div>
+                  </div>
                   <div class="attachment-actions">
                     <ElButton
                       type="primary"
@@ -953,18 +1028,25 @@ onMounted(() => {
       <ElDialog
         v-model="showPreviewDialog"
         title="文件预览"
-        width="80%"
-        height="80%"
+        width="95%"
         destroy-on-close
+        :fullscreen="previewIsPdf"
         @close="closePreviewDialog"
       >
         <div class="preview-container">
+          <div v-if="previewIsImage" class="preview-image-wrapper">
+            <img :src="previewUrl" :alt="previewFileName" class="preview-image" />
+          </div>
           <iframe
-            v-if="previewUrl"
+            v-else-if="previewIsPdf"
             :src="previewUrl"
             class="preview-iframe"
             frameborder="0"
           ></iframe>
+          <div v-else class="preview-unsupported">
+            <Icon icon="lucide:file-question" style="font-size: 48px; color: #9ca3af;" />
+            <p style="margin-top: 16px; color: #6b7280;">该文件类型不支持在线预览，建议下载后查看</p>
+          </div>
         </div>
       </ElDialog>
 
@@ -1244,6 +1326,8 @@ onMounted(() => {
   background: #f9fafb;
   border-radius: 6px;
   transition: all 0.2s;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .attachment-item:hover {
@@ -1255,6 +1339,8 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .attachment-icon {
@@ -1269,6 +1355,47 @@ onMounted(() => {
   font-size: 14px;
   color: #333;
   white-space: nowrap;
+}
+
+.attachment-image-preview {
+  width: 100%;
+  margin: 4px 0;
+}
+
+.inline-preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+}
+
+.inline-preview-image:hover {
+  transform: scale(1.02);
+  border-color: #3b82f6;
+}
+
+.preview-image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
 }
 
 .attachment-actions {
@@ -1527,7 +1654,7 @@ onMounted(() => {
 
 .preview-container {
   width: 100%;
-  height: 70vh;
+  height: 85vh;
 }
 
 .preview-iframe {

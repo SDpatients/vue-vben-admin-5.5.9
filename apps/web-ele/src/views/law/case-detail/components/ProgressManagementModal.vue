@@ -20,6 +20,7 @@ interface StageOption {
 const props = defineProps<{
   caseId?: number | string;
   visible: boolean;
+  isCaseArchived?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -188,6 +189,7 @@ const closeDialog = () => {
             class="stage-selector"
             size="large"
             style="width: 100%; margin-top: 16px"
+            :disabled="isCaseArchived"
           >
             <ElOption
               v-for="stage in progressStages"
@@ -207,7 +209,7 @@ const closeDialog = () => {
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="updateProgress" type="primary" :loading="loading">
+        <ElButton @click="updateProgress" type="primary" :loading="loading" :disabled="isCaseArchived">
           <Icon icon="lucide:arrow-right" class="mr-1" />
           更新进度
         </ElButton>

@@ -63,7 +63,7 @@ const getUserInfoFromLocal = () => {
       return JSON.parse(chatUserInfoStr);
     }
   } catch (error) {
-    logger.warn('解析本地存储的用户信息失败:', error);
+    logger.warn('解析本地存储的用户信息失败', error);
   }
   return null;
 };
@@ -229,7 +229,7 @@ const loadUserCaseCount = async () => {
   }
 };
 
-// 加载待处理和已完成案件数量
+// 加载待处理和已完成案件数据
 const loadCaseStatusCounts = async () => {
   try {
     const chatUserId = localStorage.getItem('chat_user_id');
@@ -307,7 +307,6 @@ const calculateAcceptDays = (filingDate?: string, closingDate?: string, caseStat
   
   // 北京时间使用 Asia/Shanghai 时区
   const beijingTimeOffset = 8 * 60 * 60 * 1000; // 北京时间偏移量（毫秒）
-  
   // 获取立案日期的北京时间
   const filingDateObj = new Date(filingDate);
   const beijingFilingTime = filingDateObj.getTime() + beijingTimeOffset;
@@ -392,11 +391,11 @@ const formatSearchTime = (timeStr: string) => {
   return date.toLocaleDateString('zh-CN');
 };
 
-// 案件状态映射（精简为5个状态）
+// 案件状态映射（精简5个状态）
 const caseStatusMap: Record<string, string> = {
   PENDING: '待处理',
   ONGOING: '进行中',
-  AWAITING: '报结中',
+  AWAITING: '报结案',
   COMPLETED: '已结案',
   ARCHIVED: '已归档',
 };
@@ -799,7 +798,7 @@ const getMatter = async () => {
   }
 };
 
-// 动态插入事项数据(新增事项)
+// 动态插入事项数据（新增事项）
 const addMatter = () => {
   showTodoDialog.value = true;
 };
@@ -1121,7 +1120,7 @@ const downloadAttachment = async (attachment: any) => {
 
 const loadTodoItems = async () => {
   try {
-    // 从本地存储获取用户 ID
+    // 从本地存储获取用户ID
     const chatUserId = localStorage.getItem('chat_user_id');
     const userId = Number(chatUserId) || 0;
     
@@ -1148,7 +1147,7 @@ const loadTodoItems = async () => {
     
     // 加载待办事项列表
     const res = await todoApi.getTodoList(undefined, 0, 5);
-    // 新 API 响应格式中，待办事项在 content 字段中
+    // 在 API 响应格式中，待办事项的 content 字段
     const todos: Todo[] = res.data?.content || [];
     todoItems.value = todos.map((item: Todo) => ({
       title: item.title,
@@ -1179,11 +1178,11 @@ const isLawyer = computed(() => {
 const loadCaseList = async () => {
   loading.value = true;
   try {
-    // 映射案件状态到后端需要的英文状态（精简为5个状态）
+    // 映射案件状态到后端需要的英文状态（精简5个状态）
     const statusMap: Record<string, string> = {
       待处理: 'PENDING',
       进行中: 'ONGOING',
-      报结中: 'AWAITING',
+      报结案: 'AWAITING',
       已结案: 'COMPLETED',
       已归档: 'ARCHIVED',
     };
@@ -1427,7 +1426,7 @@ const handleLogout = async () => {
 
 // 跳转到个人中心
 const handleGoProfile = () => {
-  router.push('/dashboard/profile');
+  router.push('/expense-system/user-profile');
 };
 
 // 点击统计卡片跳转
@@ -1475,7 +1474,7 @@ const handleMonthChange = async (value: any) => {
 
 onMounted(async () => {
   loadUserCaseCount(); // 加载案件数量
-  loadCaseStatusCounts(); // 加载待处理和已完成案件数量
+  loadCaseStatusCounts(); // 加载待处理和已完成案件数据
   loadCaseList();
   loadAnnouncements();
   loadTeamCount();
@@ -1529,7 +1528,7 @@ onUnmounted(() => {
         <template #description>
           {{ location ? location : '未知位置' }}，今日{{
             weather.condition
-          }}，{{ weather.tempMin }} ~ {{ weather.tempMax }}！
+          }}，{{ weather.tempMin }} ~ {{ weather.tempMax }}
         </template>
       </WorkbenchHeader>
 
@@ -1579,7 +1578,7 @@ onUnmounted(() => {
             <div class="case-header mb-4">
               <div class="case-tabs flex">
                 <button
-                  v-for="status in ['待处理', '进行中', '报结中', '已结案', '已归档']"
+                  v-for="status in ['待处理', '进行中', '报结案', '已结案', '已归档']"
                   :key="status"
                   class="case-tab-btn mr-2 rounded-full px-3 py-1 text-sm"
                   :class="{
@@ -1595,7 +1594,7 @@ onUnmounted(() => {
                 <input
                   v-model="searchKeyword"
                   type="link"
-                  placeholder="请输入案号"
+                  placeholder="请输入案件名称或案号"
                   class="case-search-input focus:ring-primary rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2"
                   @keyup.enter="searchCases"
                 />
@@ -1970,7 +1969,7 @@ onUnmounted(() => {
                     </div>
                     <span class="function-nav-text text-sm font-medium">债权人</span>
                   </router-link>
-                  
+
                   <!-- 债务人管理 -->
                   <router-link to="/basic-data/debtor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-orange-500">
@@ -2072,7 +2071,7 @@ onUnmounted(() => {
               </div>
               <div class="meta-row">
                 <span class="label">案号：</span>
-                <span>{{ announcementDetail.caseNumber || '无' }}</span>
+                <span>{{ announcementDetail.caseNumber || '-' }}</span>
               </div>
               <div class="meta-row">
                 <span class="label">浏览次数：</span>
@@ -2348,7 +2347,7 @@ onUnmounted(() => {
         </div>
         <div class="detail-item">
           <div class="label">截止时间</div>
-          <div class="value text-sm">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '无' }}</div>
+          <div class="value text-sm">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '-' }}</div>
         </div>
         <div v-if="selectedTodo.description" class="detail-item">
           <div class="label">描述</div>
@@ -3226,7 +3225,7 @@ onUnmounted(() => {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   cursor: pointer;
   z-index: 9999;

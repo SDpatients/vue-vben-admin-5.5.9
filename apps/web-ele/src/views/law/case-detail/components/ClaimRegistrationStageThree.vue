@@ -41,6 +41,7 @@ import { confirmationFormRules } from './utils/claimFormRules';
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const loading = ref(false);
@@ -733,7 +734,7 @@ defineExpose({
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="确认总金额">
-            {{ currentClaim.reviewInfo.confirmedTotalAmount || 0 }}
+            <span class="amount-confirmed amount-total-green">{{ currentClaim.reviewInfo.confirmedTotalAmount || 0 }}</span>
           </ElDescriptionsItem>
         </ElDescriptions>
 
@@ -766,7 +767,7 @@ defineExpose({
             {{ currentClaim.confirmationInfo.objectionReason || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="异议金额">
-            {{ currentClaim.confirmationInfo.objectionAmount || '-' }}
+            <span class="amount-highlight">{{ currentClaim.confirmationInfo.objectionAmount || '-' }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="异议日期">
             {{ currentClaim.confirmationInfo.objectionDate || '-' }}
@@ -787,7 +788,7 @@ defineExpose({
             {{ currentClaim.confirmationInfo.courtRulingResult || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="裁定金额">
-            {{ currentClaim.confirmationInfo.courtRulingAmount || '-' }}
+            <span class="amount-highlight">{{ currentClaim.confirmationInfo.courtRulingAmount || '-' }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="是否有诉讼">
             {{ currentClaim.confirmationInfo.hasLawsuit ? '是' : '否' }}
@@ -796,7 +797,7 @@ defineExpose({
             {{ currentClaim.confirmationInfo.lawsuitCaseNo || '-' }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="最终确认金额">
-            {{ currentClaim.confirmationInfo.finalConfirmedAmount || 0 }}
+            <span class="amount-confirmed amount-total-green amount-total-lg">{{ currentClaim.confirmationInfo.finalConfirmedAmount || 0 }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="最终确认日期">
             {{ currentClaim.confirmationInfo.finalConfirmationDate || '-' }}
@@ -868,7 +869,7 @@ defineExpose({
               </ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem label="确认金额">
-              {{ currentClaim.reviewInfo?.confirmedTotalAmount || currentClaim.confirmedTotalAmount || 0 }}
+              <span class="amount-confirmed amount-total-green">{{ currentClaim.reviewInfo?.confirmedTotalAmount || currentClaim.confirmedTotalAmount || 0 }}</span>
             </ElDescriptionsItem>
           </ElDescriptions>
         </div>
@@ -913,9 +914,9 @@ defineExpose({
             </ElTableColumn>
             <ElTableColumn label="合计" width="120" align="right" fixed="right">
               <template #default>
-                <div style="font-weight: 600">{{ (currentClaim.declaredTotalAmount || 0).toFixed(2) }}</div>
-                <div style="font-weight: 600; color: #409EFF">{{ (currentClaim.confirmedTotalAmount || 0).toFixed(2) }}</div>
-                <div style="font-weight: 600; color: #F56C6C">{{ (currentClaim.unconfirmedTotalAmount || 0).toFixed(2) }}</div>
+                <div class="amount-row-declared">{{ (currentClaim.declaredTotalAmount || 0).toFixed(2) }}</div>
+                <div class="amount-row-confirmed">{{ (currentClaim.confirmedTotalAmount || 0).toFixed(2) }}</div>
+                <div class="amount-row-unconfirmed">{{ (currentClaim.unconfirmedTotalAmount || 0).toFixed(2) }}</div>
               </template>
             </ElTableColumn>
           </ElTable>
@@ -1329,5 +1330,67 @@ defineExpose({
 
 .amount-detail-section .el-table .cell {
   padding: 8px 0;
+}
+
+.amount-highlight {
+  color: #f5222d;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.amount-total {
+  font-size: 18px;
+  background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #ffa39e;
+}
+
+.amount-confirmed {
+  color: #52c41a;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.amount-total-green {
+  font-size: 18px;
+  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #b7eb8f;
+}
+
+.amount-total-lg {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.amount-row-declared {
+  font-weight: 700;
+  font-size: 14px;
+  color: #333;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.amount-row-confirmed {
+  font-weight: 700;
+  font-size: 14px;
+  color: #52c41a;
+  background: #f6ffed;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #b7eb8f;
+}
+
+.amount-row-unconfirmed {
+  font-weight: 700;
+  font-size: 14px;
+  color: #f5222d;
+  background: #fff1f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #ffa39e;
 }
 </style>

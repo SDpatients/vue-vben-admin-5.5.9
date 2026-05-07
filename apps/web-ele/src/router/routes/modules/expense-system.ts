@@ -59,63 +59,6 @@ const routes: RouteRecordRaw[] = [
         ],
       },
       {
-        name: 'ApprovalManagement',
-        path: 'approval',
-        redirect: '/expense-system/approval/document',
-        meta: {
-          icon: 'lucide:clipboard-check',
-          title: $t('page.expenseSystem.approvalManagement'),
-          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
-        },
-        children: [
-          {
-            name: 'DocumentApproval',
-            path: 'document',
-            component: () => import('#/views/approval/document/index.vue'),
-            meta: {
-              affixTab: false,
-              icon: 'lucide:file-check',
-              title: $t('page.expenseSystem.documentApproval'),
-              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
-            },
-          },
-          {
-            name: 'CaseApproval',
-            path: 'case',
-            component: () => import('#/views/approval/case/index.vue'),
-            meta: {
-              affixTab: false,
-              icon: 'lucide:briefcase',
-              title: $t('page.expenseSystem.caseApproval'),
-              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
-            },
-          },
-          {
-            name: 'ExpenseApproval',
-            path: 'expense',
-            component: () => import('#/views/approval/expense/index.vue'),
-            meta: {
-              affixTab: false,
-              icon: 'lucide:receipt',
-              title: $t('page.expenseSystem.expenseApproval'),
-              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
-            },
-          },
-          {
-            name: 'ApprovalDetail',
-            path: 'detail/:approvalId',
-            component: () => import('#/views/approval/detail-view.vue'),
-            meta: {
-              affixTab: false,
-              hideInMenu: true,
-              icon: 'lucide:file-text',
-              title: '审批详情',
-              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
-            },
-          },
-        ],
-      },
-      {
         name: 'TemplateManagement',
         path: 'template-management',
         component: () => import('#/views/dashboard/template-management/index.vue'),

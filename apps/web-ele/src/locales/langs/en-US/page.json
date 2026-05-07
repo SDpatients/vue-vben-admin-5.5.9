@@ -141,11 +141,13 @@
     "expenseManagement": "Expense Management",
     "expenseReimbursement": "Expense Reimbursement",
     "reimbursementList": "Reimbursement List",
-    "approvalManagement": "Approval Management",
-    "documentApproval": "Document Approval",
-    "caseApproval": "Case Approval",
-    "expenseApproval": "Expense Approval",
     "templateManagement": "Template Management",
     "userProfile": "User Profile"
+  },
+  "approval": {
+    "title": "Approval Management",
+    "documentApproval": "Document Approval",
+    "caseApproval": "Case Approval",
+    "expenseApproval": "Expense Approval"
   }
 }

@@ -38,7 +38,6 @@ import {
   getAnnouncementAttachmentsApi,
   getAnnouncementDetailApi,
   getAnnouncementListApi,
-  getAnnouncementViewsApi,
   publishAnnouncementApi,
   topAnnouncementApi,
   unTopAnnouncementApi,
@@ -566,14 +565,6 @@ const getWorkTypeLabel = (type: string) => {
   return option ? option.label : type;
 };
 
-// 判断文件是否为图片
-const isImageFile = (fileName: string): boolean => {
-  if (!fileName) return false;
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext);
-};
-
-
 
 const fetchWorkLogs = async () => {
   try {
@@ -993,6 +984,10 @@ const downloadWorkLogFile = async (file: any) => {
 
 // 打开工作日志附件重命名对话框
 const handleWorkLogRename = (file: any) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   currentWorkLogRenameFile.value = file;
   const lastDotIndex = file.originalFileName.lastIndexOf('.');
   if (lastDotIndex > 0) {
@@ -1012,6 +1007,10 @@ const cancelWorkLogRename = () => {
 
 // 确认工作日志附件重命名
 const confirmWorkLogRename = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   if (!currentWorkLogRenameFile.value || !newWorkLogFileName.value.trim()) {
     ElMessage.warning('请输入新文件名');
     return;
@@ -1054,18 +1053,14 @@ const confirmWorkLogRename = async () => {
 };
 
 const previewWorkLogFile = async (file: any) => {
-  console.log('[previewWorkLogFile] 开始预览文件:', file);
   try {
     if (!file.id) {
-      console.error('[previewWorkLogFile] 无效的文件ID');
       ElMessage.error('无效的文件ID');
       return;
     }
 
     const fileId = Number(file.id);
-    console.log('[previewWorkLogFile] fileId:', fileId);
     if (isNaN(fileId)) {
-      console.error('[previewWorkLogFile] 文件ID必须是数字');
       ElMessage.error('文件ID必须是数字');
       return;
     }
@@ -1073,40 +1068,57 @@ const previewWorkLogFile = async (file: any) => {
     previewLoading.value = true;
     previewAttachment.value = file;
 
+    const fileName = file.originalFileName || file.file_name || file.name || '';
+    const mimeType = file.mimeType || file.type || '';
+
+    isImage.value = false;
+    isPdf.value = false;
+    isText.value = false;
+    textContent.value = '';
+
     try {
       ElMessage.info('正在加载文件...');
 
-      const previewUrlStr = `/api/v1/file/preview/${fileId}`;
-      console.log('[previewWorkLogFile] 请求预览URL:', previewUrlStr);
       const response = await fileUploadRequestClient.get(
-        previewUrlStr,
+        `/api/v1/file/preview/${fileId}`,
         {
           responseType: 'blob',
         },
       );
-      console.log('[previewWorkLogFile] 预览响应:', response);
 
       const blob = new Blob([response], {
         type: response.type || 'application/octet-stream',
       });
-      console.log('[previewWorkLogFile] blob类型:', blob.type, '大小:', blob.size);
 
       if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl.value);
       }
 
       previewUrl.value = URL.createObjectURL(blob);
+
+      if (isImageFile(fileName, mimeType || blob.type)) {
+        isImage.value = true;
+      } else if (isPdfFile(fileName, mimeType || blob.type)) {
+        isPdf.value = true;
+      } else if (isTextFile(fileName, mimeType || blob.type)) {
+        isText.value = true;
+        try {
+          textContent.value = await blob.text();
+        } catch {
+          textContent.value = '无法读取文本内容';
+        }
+      }
+
       showPreviewDialog.value = true;
-      console.log('[previewWorkLogFile] 预览成功，URL:', previewUrl.value);
       ElMessage.success('文件加载成功');
     } catch (error) {
-      console.error('[previewWorkLogFile] 预览附件失败:', error);
+      console.error('预览附件失败:', error);
       ElMessage.error('文件预览失败，请检查文件是否存在或权限是否足够');
     } finally {
       previewLoading.value = false;
     }
   } catch (error) {
-    console.error('[previewWorkLogFile] 预览附件失败:', error);
+    console.error('预览附件失败:', error);
     ElMessage.error('文件预览失败');
     previewLoading.value = false;
   }
@@ -1186,13 +1198,6 @@ const currentAnnouncementRenameFile = ref<any>(null);
 const newAnnouncementFileName = ref('');
 const announcementRenameLoading = ref(false);
 
-const showViewsDialog = ref(false);
-const viewsList = ref<any[]>([]);
-const viewsTotal = ref(0);
-const viewsCurrentPage = ref(1);
-const viewsPageSize = ref(10);
-const viewsLoading = ref(false);
-
 // 文件预览相关
 const showPreviewDialog = ref(false);
 const previewAttachment = ref<any>(null);
@@ -1203,6 +1208,42 @@ const isPdf = ref(false);
 const isText = ref(false);
 const textContent = ref('');
 const previewLoading = ref(false);
+
+const imageBlobUrlCache = new Map<number, string>();
+
+const getAuthenticatedImageUrl = (fileId: number): string => {
+  if (imageBlobUrlCache.has(fileId)) {
+    return imageBlobUrlCache.get(fileId)!;
+  }
+  fileUploadRequestClient
+    .get<Blob>(`/api/v1/file/preview/${fileId}`, { responseType: 'blob' })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      imageBlobUrlCache.set(fileId, url);
+    })
+    .catch(() => {});
+  return '';
+};
+
+const authenticatedImageUrls = ref<Record<number, string>>({});
+
+const loadAuthenticatedImage = async (fileId: number) => {
+  if (authenticatedImageUrls.value[fileId]) return;
+  try {
+    const blob = await fileUploadRequestClient.get<Blob>(
+      `/api/v1/file/preview/${fileId}`,
+      { responseType: 'blob' },
+    );
+    const url = URL.createObjectURL(blob);
+    authenticatedImageUrls.value[fileId] = url;
+  } catch {
+    // ignore
+  }
+};
+
+const getAnnouncementImageUrl = (fileId: number): string => {
+  return authenticatedImageUrls.value[fileId] || '';
+};
 
 const fundControlDrawerRef = ref<InstanceType<typeof FundControlDrawer> | null>(
   null,
@@ -1222,22 +1263,25 @@ const showReviewDialog = ref(false);
 const reviewForm = reactive({
   reviewType: 'CASE_REVIEW',
   reviewers: [],
-  // 备注
   remark: '',
-  // 流程审批相关字段
   stageId: '',
   taskId: '',
 });
 
-const reviewTypeOptions = [
-  { label: '案件审批', value: 'CASE_REVIEW' },
-  { label: '流程审批', value: 'PROCESS_REVIEW' },
-];
+const showProcessReviewDialog = ref(false);
+const processReviewForm = reactive({
+  reviewType: 'PROCESS_REVIEW',
+  reviewers: [],
+  remark: '',
+  stageId: '',
+  taskId: '',
+});
 
 // 阶段选项
 const stageOptions = ref<any[]>([]);
 // 任务选项
 const taskOptions = ref<any[]>([]);
+const processTaskOptions = ref<any[]>([]);
 // 是否加载阶段数据
 const loadingStages = ref(false);
 // 是否加载任务数据
@@ -1275,12 +1319,10 @@ const fetchStages = async () => {
 
 // 监听阶段选择变化，获取对应任务列表
 const handleStageChange = (stageId: string) => {
-  // 清空任务选择
   reviewForm.taskId = '';
   taskOptions.value = [];
 
   if (stageId) {
-    // 根据阶段ID获取对应的任务列表
     const selectedStage = stageOptions.value.find(
       (stage) => stage.value === stageId,
     );
@@ -1293,21 +1335,44 @@ const handleStageChange = (stageId: string) => {
   }
 };
 
-// 打开审批弹窗时加载数据
-const openReviewDialog = async (forceCaseReview = false) => {
-  // 如果强制案件审批，则重置审批类型
-  if (forceCaseReview) {
-    reviewForm.reviewType = 'CASE_REVIEW';
+const handleProcessStageChange = (stageId: string) => {
+  processReviewForm.taskId = '';
+  processTaskOptions.value = [];
+
+  if (stageId) {
+    const selectedStage = stageOptions.value.find(
+      (stage) => stage.value === stageId,
+    );
+    if (selectedStage && selectedStage.modules) {
+      processTaskOptions.value = selectedStage.modules.map((module: any) => ({
+        label: module.name,
+        value: module.code,
+      }));
+    }
   }
-  // 如果是流程审批，加载阶段列表
-  if (reviewForm.reviewType === 'PROCESS_REVIEW') {
-    fetchStages();
-  }
-  // 加载当前审批进度
+};
+
+// 打开报结弹窗
+const openReviewDialog = async () => {
+  reviewForm.reviewType = 'CASE_REVIEW';
+  reviewForm.remark = '';
+  reviewForm.stageId = '';
+  reviewForm.taskId = '';
   await fetchCurrentApproval();
-  // 加载审批历史记录
   await fetchReviewHistory();
   showReviewDialog.value = true;
+};
+
+// 打开流程审批弹窗
+const openProcessReviewDialog = async () => {
+  processReviewForm.reviewType = 'PROCESS_REVIEW';
+  processReviewForm.remark = '';
+  processReviewForm.stageId = '';
+  processReviewForm.taskId = '';
+  fetchStages();
+  await fetchCurrentApproval();
+  await fetchReviewHistory();
+  showProcessReviewDialog.value = true;
 };
 
 const archiveLoading = ref(false);
@@ -1456,211 +1521,147 @@ const mapApprovalType = (type: string) => {
 const submitReview = async () => {
   submittingReview.value = true;
   try {
-    // 根据审批类型执行不同的逻辑
-    switch (reviewForm.reviewType) {
-    case 'CASE_REVIEW': {
-      // 案件审批，调用新增案件审批API
-      // 审批人不需要前端选择，默认为空
+    const approvalParams = {
+      caseId: Number(caseId.value),
+      approvalType: 'CASE_SUBMIT',
+      approvalTitle: `案件审批 - ${caseDetail.value?.案件名称 || ''}`,
+      approvalContent: `案号：${caseDetail.value?.案号 || ''}\n案件名称：${caseDetail.value?.案件名称 || ''}\n受理法院：${caseDetail.value?.受理法院 || ''}\n案由：${caseDetail.value?.案由 || ''}`,
+      approvalAttachment: '',
+      remark: reviewForm.remark || '',
+    };
 
-      // 设置审批参数
-      const approvalParams = {
-        caseId: Number(caseId.value),
-        approvalType: 'CASE_SUBMIT', // 案件提交
-        approvalTitle: `案件审批 - ${caseDetail.value?.案件名称 || ''}`,
-        approvalContent: `案号：${caseDetail.value?.案号 || ''}\n案件名称：${caseDetail.value?.案件名称 || ''}\n受理法院：${caseDetail.value?.受理法院 || ''}\n案由：${caseDetail.value?.案由 || ''}`,
-        approvalAttachment: '', // 暂时为空，实际项目中应该获取案件的附件
-        remark: reviewForm.remark || '',
-      };
-
-      // 调用新增案件审批API
-      const response = await createApprovalApi(approvalParams);
-      if (response.code === 200) {
-        ElMessage.success('案件审批已提交');
-        // 关闭审批弹窗
-        showReviewDialog.value = false;
-        // 切换到案件基本信息标签页
-        activeTab.value = 'caseInfo';
-        // 刷新案件详情，更新审核状态
-        const caseResponse = await getCaseDetailApi(Number(caseId.value));
-        if (caseResponse.code === 200 && caseResponse.data) {
-          const caseData = caseResponse.data;
-          caseDetail.value = {
-            ...caseDetail.value,
-            审核状态: mapReviewStatus(caseData.reviewStatus),
-            审核时间: caseData.reviewTime,
-            审核意见: caseData.reviewOpinion,
-            审核次数: caseData.reviewCount,
-          };
-        }
-      } else {
-        ElMessage.error(response.message || '提交案件审批失败');
-      }
-
-    break;
-    }
-    case 'DOCUMENT_REVIEW': {
-      // 文书审批，引导用户前往文书送达页面
-      ElMessage.info('请前往"文书送达"页面上传文书');
-      // 关闭审批弹窗
+    const response = await createApprovalApi(approvalParams);
+    if (response.code === 200) {
+      ElMessage.success('报结审批已提交');
       showReviewDialog.value = false;
-      // 切换到文书送达标签页
-      activeTab.value = 'documentService';
-    
-    break;
-    }
-    case 'PROCESS_REVIEW': {
-      // 流程审批，调用新增案件审批API
-      // 验证阶段和任务是否已选择
-      if (!reviewForm.stageId || !reviewForm.taskId) {
-        ElMessage.error('请选择阶段和任务');
-        return;
+      const caseResponse = await getCaseDetailApi(Number(caseId.value));
+      if (caseResponse.code === 200 && caseResponse.data) {
+        const caseData = caseResponse.data;
+        caseDetail.value = {
+          ...caseDetail.value,
+          审核状态: mapReviewStatus(caseData.reviewStatus),
+          审核时间: caseData.reviewTime,
+          审核意见: caseData.reviewOpinion,
+          审核次数: caseData.reviewCount,
+        };
       }
-
-      // 第三阶段不允许提交批审
-      if (reviewForm.stageId === '3') {
-        ElMessage.error('当前第三阶段无法提交审批。请在"债权登记表"内部完成流程。');
-        return;
-      }
-
-      // 审批人不需要前端选择，默认为空
-
-      // 获取阶段和任务名称
-      const selectedStage = stageOptions.value.find(
-        (stage) => stage.value === reviewForm.stageId,
-      );
-      const selectedTask = taskOptions.value.find(
-        (task) => task.value === reviewForm.taskId,
-      );
-
-      // 附件由后端处理，不需要前端获取
-      let approvalAttachment = '';
-      let approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
-
-      console.log('===== DEBUG: 提交审批 =====');
-      console.log('reviewForm.taskId:', reviewForm.taskId);
-      console.log('caseId.value:', caseId.value);
-      console.log('reviewForm.taskId startsWith TASK_:', reviewForm.taskId?.startsWith('TASK_'));
-
-      // 如果审批类型是 TASK_ 前缀，需要获取任务提交的文件和信息
-      if (reviewForm.taskId && reviewForm.taskId.startsWith('TASK_')) {
-        try {
-          // 1. 获取案件下的所有任务，找到对应的任务
-          console.log('===== DEBUG: 开始获取任务 =====');
-          const taskResponse = await CaseTaskApi.getCaseTasks({
-            caseId: Number(caseId.value),
-            taskCode: reviewForm.taskId,
-            page: 1,
-            size: 10,
-          });
-
-          console.log('===== DEBUG: taskResponse =====', taskResponse);
-
-          if (taskResponse.code === 200 && taskResponse.data?.content?.length > 0) {
-            const task = taskResponse.data.content[0];
-            console.log('===== DEBUG: 找到任务 =====', task);
-            const caseTaskIds = [task.id];
-
-            // 2. 批量获取任务提交记录
-            console.log('===== DEBUG: 获取提交记录, caseTaskIds =====', caseTaskIds);
-            const submissionsBatchResponse = await CaseTaskSubmissionApi.getLatestSubmissionsBatch({
-              caseTaskIds,
-            });
-
-            console.log('===== DEBUG: submissionsBatchResponse =====', submissionsBatchResponse);
-            console.log('===== DEBUG: submissionsBatchResponse.data =====', submissionsBatchResponse.data);
-
-            if (submissionsBatchResponse.code === 200 && submissionsBatchResponse.data) {
-              // 3. 收集所有提交的内容，构建 approvalContent
-              const allSubmissions: any[] = Object.values(submissionsBatchResponse.data).flat();
-              console.log('===== DEBUG: allSubmissions =====', allSubmissions);
-
-              if (allSubmissions.length > 0) {
-                // 构建 approvalContent：每个任务的 submissionTitle + submissionContent
-                const contentParts = allSubmissions.map((sub: any) =>
-                  `【${sub.submissionTitle}】\n${sub.submissionContent}`
-                );
-                approvalContent = contentParts.join('\n\n---\n\n');
-                console.log('===== DEBUG: approvalContent =====', approvalContent);
-
-                // 4. 批量获取提交的文件
-                const submissionIds = allSubmissions.map((sub: any) => sub.id);
-                console.log('===== DEBUG: 获取文件, submissionIds =====', submissionIds);
-                const filesBatchResponse = await CaseTaskSubmissionApi.getSubmissionFilesBatch({
-                  submissionIds,
-                });
-
-                console.log('===== DEBUG: filesBatchResponse =====', filesBatchResponse);
-
-                // 5. 将文件信息存入 approvalAttachment
-                if (filesBatchResponse.code === 200 && filesBatchResponse.data) {
-                  const allFiles = Object.values(filesBatchResponse.data).flat();
-                  approvalAttachment = JSON.stringify({ files: allFiles });
-                  console.log('===== DEBUG: approvalAttachment =====', approvalAttachment);
-                }
-              } else {
-                console.log('===== DEBUG: 没有提交记录 =====');
-                ElMessage.warning(`任务 "${selectedTask?.label}" 暂无提交记录，请先在破产流程中填写并提交任务内容`);
-                return;
-              }
-            }
-          } else {
-            console.log('===== DEBUG: 没有找到对应任务 =====');
-          }
-        } catch (error) {
-          console.error('===== DEBUG: 获取任务提交信息失败 =====:', error);
-          // 出错时使用默认的 approvalContent
-          approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
-        }
-      } else {
-        console.log('===== DEBUG: 不是TASK_前缀，不获取任务提交 =====');
-      }
-
-      // 设置审批参数
-      console.log('===== DEBUG: 最终提交的 approvalParams =====', {
-        caseId: Number(caseId.value),
-        approvalType: reviewForm.taskId,
-        approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
-        approvalContent: approvalContent,
-        approvalAttachment,
-        remark: reviewForm.remark || '',
-      });
-
-      const approvalParams = {
-        caseId: Number(caseId.value),
-        approvalType: reviewForm.taskId, // 直接使用目标任务的task_code
-        approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
-        approvalContent: approvalContent,
-        approvalAttachment,
-        remark: reviewForm.remark || '',
-      };
-
-      // 调用新增案件审批API
-      const response = await createApprovalApi(approvalParams);
-      if (response.code === 200) {
-        ElMessage.success('流程审批已提交');
-      } else {
-        ElMessage.error(response.message || '提交流程审批失败');
-      }
-    
-    break;
+    } else {
+      ElMessage.error(response.message || '提交报结审批失败');
     }
-    default: {
-      // 其他类型的审批逻辑，可以根据需要扩展
-      ElMessage.success('审批已提交');
-    }
-    }
-    // 重置表单
-  reviewForm.reviewType = 'CASE_REVIEW';
-  reviewForm.reviewers = [];
-  reviewForm.remark = '';
-  reviewForm.stageId = '';
-  reviewForm.taskId = '';
-  showReviewDialog.value = false;
+
+    reviewForm.reviewType = 'CASE_REVIEW';
+    reviewForm.reviewers = [];
+    reviewForm.remark = '';
+    reviewForm.stageId = '';
+    reviewForm.taskId = '';
+    showReviewDialog.value = false;
   } catch (error) {
     console.error('提交审批失败:', error);
     ElMessage.error('提交审批失败，请稍后重试');
   } finally {
     submittingReview.value = false;
+  }
+};
+
+const submittingProcessReview = ref(false);
+
+const submitProcessReview = async () => {
+  submittingProcessReview.value = true;
+  try {
+    if (!processReviewForm.stageId || !processReviewForm.taskId) {
+      ElMessage.error('请选择阶段和任务');
+      return;
+    }
+
+    if (processReviewForm.stageId === '3') {
+      ElMessage.error('当前第三阶段无法提交审批。请在"债权登记表"内部完成流程。');
+      return;
+    }
+
+    const selectedStage = stageOptions.value.find(
+      (stage) => stage.value === processReviewForm.stageId,
+    );
+    const selectedTask = processTaskOptions.value.find(
+      (task) => task.value === processReviewForm.taskId,
+    );
+
+    let approvalAttachment = '';
+    let approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
+
+    if (processReviewForm.taskId && processReviewForm.taskId.startsWith('TASK_')) {
+      try {
+        const taskResponse = await CaseTaskApi.getCaseTasks({
+          caseId: Number(caseId.value),
+          taskCode: processReviewForm.taskId,
+          page: 1,
+          size: 10,
+        });
+
+        if (taskResponse.code === 200 && taskResponse.data?.content?.length > 0) {
+          const task = taskResponse.data.content[0];
+          const caseTaskIds = [task.id];
+
+          const submissionsBatchResponse = await CaseTaskSubmissionApi.getLatestSubmissionsBatch({
+            caseTaskIds,
+          });
+
+          if (submissionsBatchResponse.code === 200 && submissionsBatchResponse.data) {
+            const allSubmissions: any[] = Object.values(submissionsBatchResponse.data).flat();
+
+            if (allSubmissions.length > 0) {
+              const contentParts = allSubmissions.map((sub: any) =>
+                `【${sub.submissionTitle}】\n${sub.submissionContent}`
+              );
+              approvalContent = contentParts.join('\n\n---\n\n');
+
+              const submissionIds = allSubmissions.map((sub: any) => sub.id);
+              const filesBatchResponse = await CaseTaskSubmissionApi.getSubmissionFilesBatch({
+                submissionIds,
+              });
+
+              if (filesBatchResponse.code === 200 && filesBatchResponse.data) {
+                const allFiles = Object.values(filesBatchResponse.data).flat();
+                approvalAttachment = JSON.stringify({ files: allFiles });
+              }
+            } else {
+              ElMessage.warning(`任务 "${selectedTask?.label}" 暂无提交记录，请先在破产流程中填写并提交任务内容`);
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('获取任务提交信息失败:', error);
+        approvalContent = `阶段：${selectedStage?.label}\n任务：${selectedTask?.label}`;
+      }
+    }
+
+    const approvalParams = {
+      caseId: Number(caseId.value),
+      approvalType: processReviewForm.taskId,
+      approvalTitle: `流程审批 - ${selectedStage?.label} - ${selectedTask?.label}`,
+      approvalContent: approvalContent,
+      approvalAttachment,
+      remark: processReviewForm.remark || '',
+    };
+
+    const response = await createApprovalApi(approvalParams);
+    if (response.code === 200) {
+      ElMessage.success('流程审批已提交');
+    } else {
+      ElMessage.error(response.message || '提交流程审批失败');
+    }
+
+    processReviewForm.reviewType = 'PROCESS_REVIEW';
+    processReviewForm.reviewers = [];
+    processReviewForm.remark = '';
+    processReviewForm.stageId = '';
+    processReviewForm.taskId = '';
+    showProcessReviewDialog.value = false;
+  } catch (error) {
+    console.error('提交流程审批失败:', error);
+    ElMessage.error('提交流程审批失败，请稍后重试');
+  } finally {
+    submittingProcessReview.value = false;
   }
 };
 
@@ -1856,7 +1857,10 @@ const openAddDocumentDialog = async () => {
 
 // 打开文书上传弹窗（直接上传，无需审批）
 const openDirectUploadDialog = async () => {
-  // 重置表单
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   resetDirectUploadForm();
   // 设置案件ID、案号和名称
   directUploadForm.caseId = caseId.value;
@@ -1878,7 +1882,10 @@ const openDirectUploadDialog = async () => {
 
 // 打开文书审批弹窗（需要审批流程）
 const openApprovalSubmitDialog = async () => {
-  // 重置表单
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   resetApprovalSubmitForm();
   // 设置案件ID、案号和名称
   approvalSubmitForm.caseId = caseId.value;
@@ -2040,7 +2047,10 @@ const resetDirectUploadForm = () => {
 
 // 提交文书上传（直接上传，无需审批）
 const submitDirectUploadForm = async () => {
-  // 表单验证
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   if (!directUploadForm.documentName || !directUploadForm.recipient) {
     ElMessage.error('请填写必填项');
     return;
@@ -2162,7 +2172,10 @@ const submitDirectUploadForm = async () => {
 
 // 提交文书审批（需要审批流程）
 const submitApprovalForm = async () => {
-  // 表单验证
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   if (!approvalSubmitForm.documentName || !approvalSubmitForm.recipient || !approvalSubmitForm.approvalTitle) {
     ElMessage.error('请填写必填项');
     return;
@@ -2313,7 +2326,10 @@ const closeAddDocumentDialog = () => {
 
 // 提交文书表单
 const submitDocumentForm = async () => {
-  // 表单验证
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   if (!documentForm.documentName || !documentForm.recipient) {
     ElMessage.error('请填写必填项');
     return;
@@ -3016,8 +3032,11 @@ const confirmDocumentRename = async () => {
 
 // 发送文书
 const sendDocument = async (documentId: number) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
-    const response = await updateDocumentSendStatusApi(documentId, 'SENT');
     if (response.code === 200) {
       ElMessage.success('文书发送成功');
       // 刷新列表
@@ -3073,15 +3092,30 @@ const handleDocumentPageSizeChange = (size: number) => {
 };
 
 // 预览附件
+const isImageFile = (fileName: string, mimeType?: string) => {
+  if (mimeType && mimeType.startsWith('image/')) return true;
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext);
+};
+
+const isPdfFile = (fileName: string, mimeType?: string) => {
+  if (mimeType === 'application/pdf') return true;
+  return fileName.toLowerCase().endsWith('.pdf');
+};
+
+const isTextFile = (fileName: string, mimeType?: string) => {
+  if (mimeType && (mimeType.startsWith('text/') || mimeType === 'application/json')) return true;
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  return ['txt', 'log', 'json', 'xml', 'csv', 'md', 'yaml', 'yml', 'ini', 'conf', 'cfg'].includes(ext);
+};
+
 const viewAttachment = async (attachment: any) => {
   try {
-    // 检查file_id是否存在且有效
     if (!attachment.file_id) {
       ElMessage.error('无效的文件ID');
       return;
     }
 
-    // 确保file_id是数字
     const fileId = Number(attachment.file_id);
     if (isNaN(fileId)) {
       ElMessage.error('文件ID必须是数字');
@@ -3090,6 +3124,14 @@ const viewAttachment = async (attachment: any) => {
 
     previewLoading.value = true;
     previewAttachment.value = attachment;
+
+    const fileName = attachment.file_name || attachment.name || '';
+    const mimeType = attachment.type || attachment.mimeType || '';
+
+    isImage.value = false;
+    isPdf.value = false;
+    isText.value = false;
+    textContent.value = '';
 
     try {
       ElMessage.info('正在加载文件...');
@@ -3110,6 +3152,20 @@ const viewAttachment = async (attachment: any) => {
       }
 
       previewUrl.value = URL.createObjectURL(blob);
+
+      if (isImageFile(fileName, mimeType || blob.type)) {
+        isImage.value = true;
+      } else if (isPdfFile(fileName, mimeType || blob.type)) {
+        isPdf.value = true;
+      } else if (isTextFile(fileName, mimeType || blob.type)) {
+        isText.value = true;
+        try {
+          textContent.value = await blob.text();
+        } catch {
+          textContent.value = '无法读取文本内容';
+        }
+      }
+
       showPreviewDialog.value = true;
       ElMessage.success('文件加载成功');
     } catch (error) {
@@ -3223,8 +3279,11 @@ const fetchAnnouncements = async () => {
 
 // 保存公告
 const saveAnnouncement = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
-    let response;
     let announcementId: number;
 
     const requestData = {
@@ -3360,6 +3419,10 @@ const publishAnnouncement = async (
   announcementId: string,
   topExpireTime?: string,
 ) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await publishAnnouncementApi(Number(announcementId), {
       topExpireTime,
@@ -3374,6 +3437,10 @@ const publishAnnouncement = async (
 
 // 撤销公告（将已发布改为草稿）
 const revokeAnnouncement = async (announcementId: string) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   currentRevokeAnnouncementId.value = announcementId;
   revokeReason.value = '';
   showRevokeDialog.value = true;
@@ -3381,7 +3448,10 @@ const revokeAnnouncement = async (announcementId: string) => {
 
 const confirmRevokeAnnouncement = async () => {
   if (!currentRevokeAnnouncementId.value) return;
-
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await updateAnnouncementApi(
       Number(currentRevokeAnnouncementId.value),
@@ -3399,6 +3469,10 @@ const confirmRevokeAnnouncement = async () => {
 };
 
 const topAnnouncement = (announcementId: string) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   currentTopAnnouncementId.value = announcementId;
   topExpireTime.value = '';
   showTopDialog.value = true;
@@ -3406,7 +3480,10 @@ const topAnnouncement = (announcementId: string) => {
 
 const confirmTopAnnouncement = async () => {
   if (!currentTopAnnouncementId.value) return;
-
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await topAnnouncementApi(
       Number(currentTopAnnouncementId.value),
@@ -3425,6 +3502,10 @@ const confirmTopAnnouncement = async () => {
 
 // 取消置顶公告
 const unTopAnnouncement = async (announcementId: string) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
     const response = await unTopAnnouncementApi(Number(announcementId));
     ElMessage.success('公告取消置顶成功');
@@ -3651,6 +3732,15 @@ const viewAnnouncementDetail = async (announcement: any) => {
     }
 
     currentAnnouncementDetail.value = detail;
+
+    if (detail.attachments && detail.attachments.length > 0) {
+      for (const attach of detail.attachments) {
+        if (isImageFile(attach.file_name || '', attach.type) && attach.file_id) {
+          loadAuthenticatedImage(Number(attach.file_id));
+        }
+      }
+    }
+
     ElMessage.success('公告详情加载成功');
   } catch (error) {
     console.error('获取公告详情失败:', error);
@@ -3984,74 +4074,6 @@ const confirmAnnouncementRename = async () => {
   } finally {
     announcementRenameLoading.value = false;
   }
-};
-
-const viewAnnouncementViews = async (announcement: any) => {
-  viewsLoading.value = true;
-  showViewsDialog.value = true;
-  viewsCurrentPage.value = 1;
-
-  try {
-    const announcementId =
-      announcement.id ||
-      announcement.announcement_id ||
-      announcement.announcementId;
-
-    if (!announcementId) {
-      ElMessage.error('无效的公告ID');
-      viewsLoading.value = false;
-      return;
-    }
-
-    const response = await getAnnouncementViewsApi(
-      announcementId,
-      viewsCurrentPage.value,
-      viewsPageSize.value,
-    );
-
-    // 处理浏览记录数据，将驼峰命名转换为下划线命名，以匹配表格组件的预期
-    let records = response.data || [];
-
-    // 确保records是数组
-    if (!Array.isArray(records)) {
-      console.error('浏览记录数据格式错误，预期是数组:', records);
-      records = [];
-    }
-
-    records = records.map((record: any) => {
-      // 将驼峰命名转换为下划线命名
-      return {
-        id: record.id,
-        viewer_name: record.viewerName || record.viewer_name || '',
-        view_time: record.viewTime || record.view_time || '',
-        ip_address: record.ipAddress || record.ip_address || '',
-        // 保留原始字段，确保数据完整性
-        ...record,
-      };
-    });
-
-    viewsList.value = records;
-    // API文档没有返回总数，这里使用列表长度
-    viewsTotal.value = records.length;
-  } catch (error) {
-    console.error('获取浏览记录失败:', error);
-    ElMessage.error('获取浏览记录失败');
-    viewsList.value = [];
-    viewsTotal.value = 0;
-  } finally {
-    viewsLoading.value = false;
-  }
-};
-
-const handleViewsPageChange = (page: number) => {
-  viewsCurrentPage.value = page;
-  viewAnnouncementViews(currentAnnouncementDetail.value);
-};
-
-const handleViewsPageSizeChange = (size: number) => {
-  viewsPageSize.value = size;
-  viewsCurrentPage.value = 1;
-  viewAnnouncementViews(currentAnnouncementDetail.value);
 };
 
 // 监听分页变化
@@ -4700,6 +4722,10 @@ const fetchTeamLeaders = async () => {
 
 // 创建工作团队
 const handleCreateWorkTeam = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   if (!addTeamForm.value.teamName || !addTeamForm.value.teamLeaderId) {
     ElMessage.warning('请填写完整的团队信息');
     return;
@@ -4772,6 +4798,10 @@ const handleSearchLeader = async (keyword: string) => {
 
 // 打开添加工作团队对话框
 const openAddTeamDialog = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   addTeamForm.value = {
     teamName: '',
     teamLeaderId: null,
@@ -4997,6 +5027,10 @@ const getTeamStatusLabel = (status: string) => {
 
 // 编辑成员
 const handleEditMember = async (row: any) => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   memberDialogTitle.value = '编辑成员';
 
   selectedTeamId.value = row.teamId;
@@ -5039,8 +5073,11 @@ const handleEditMember = async (row: any) => {
 
 // 保存成员
 const handleSaveMember = async () => {
+  if (isCaseArchived.value) {
+    ElMessage.warning('已归档案件无法进行修改操作');
+    return;
+  }
   try {
-    // 编辑模式下只需要检查团队角色，新增模式需要检查更多信息
     const isNewMode = !memberForm.value.id;
     
     if (!selectedTeamId.value || !memberForm.value.teamRole) {
@@ -5625,7 +5662,7 @@ onUnmounted(() => {
             <div class="title-wrapper">
               <h1 class="page-title">{{ caseDetail?.案号 || '' }}</h1>
               <ElButton
-                v-if="canDeleteCase"
+                v-if="canDeleteCase && !isCaseArchived"
                 type="danger"
                 size="small"
                 @click="showDeleteDialog"
@@ -5653,18 +5690,10 @@ onUnmounted(() => {
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
               </ElButton>
-              <ElButton
-                    v-if="!isCaseArchived"
-                    type="primary"
-                    @click="openReviewDialog"
-                  >
-                    <Icon icon="lucide:check-square" class="mr-2" />
-                    提交批审
-                  </ElButton>
                   <ElButton
                     v-if="!isCaseCompleted && !isCaseArchived"
                     type="warning"
-                    @click="() => openReviewDialog(true)"
+                    @click="openReviewDialog"
                   >
                     <Icon icon="lucide:flag" class="mr-2" />
                     报结
@@ -6296,13 +6325,27 @@ onUnmounted(() => {
             </div>
           </ElCard>
 
-          <DebtorInfo :case-id="caseId" />
+          <DebtorInfo :case-id="caseId" :is-case-archived="isCaseArchived" />
 
-          <AttachmentList :case-id="caseId" />
+          <AttachmentList :case-id="caseId" :is-case-archived="isCaseArchived" />
         </div>
 
         <!-- 流程处理 -->
         <div v-if="activeTab === 'process'">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <Icon icon="lucide:workflow" class="text-primary mr-2" />
+              <span class="text-lg font-semibold">流程处理</span>
+            </div>
+            <ElButton
+              v-if="!isCaseArchived"
+              type="primary"
+              @click="openProcessReviewDialog"
+            >
+              <Icon icon="lucide:check-square" class="mr-2" />
+              提交批审
+            </ElButton>
+          </div>
           <BankruptcyProcess
             :case-id="caseId"
             :initial-stage="getInitialStageIndex()"
@@ -6312,7 +6355,7 @@ onUnmounted(() => {
 
         <!-- 债权登记表 -->
         <div v-if="activeTab === 'claimRegistration'">
-          <ClaimRegistrationTabs ref="claimRegistrationTabsRef" :case-id="caseId" />
+          <ClaimRegistrationTabs ref="claimRegistrationTabsRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
         </div>
 
         <!-- 文书送达 -->
@@ -6325,11 +6368,11 @@ onUnmounted(() => {
                   <span class="text-lg font-semibold">文书送达</span>
                 </div>
                 <div class="flex space-x-2">
-                  <ElButton type="primary" @click="openDirectUploadDialog">
+                  <ElButton v-if="!isCaseArchived" type="primary" @click="openDirectUploadDialog">
                     <Icon icon="lucide:upload" class="mr-1" />
                     文书上传
                   </ElButton>
-                  <ElButton type="success" @click="openApprovalSubmitDialog">
+                  <ElButton v-if="!isCaseArchived" type="success" @click="openApprovalSubmitDialog">
                     <Icon icon="lucide:check-circle" class="mr-1" />
                     文书审批
                   </ElButton>
@@ -6457,7 +6500,7 @@ onUnmounted(() => {
                       </ElButton>
 
                       <!-- 待送达状态：修改、发送 -->
-                      <template v-if="scope.row.sendStatus === 'PENDING'">
+                      <template v-if="scope.row.sendStatus === 'PENDING' && !isCaseArchived">
                         <ElButton
                           link
                           :style="{ color: '#C29D59', textDecoration: 'none' }"
@@ -6480,6 +6523,7 @@ onUnmounted(() => {
 
                       <!-- 所有状态都显示删除按钮 -->
                       <ElPopconfirm
+                        v-if="!isCaseArchived"
                         title="确定要删除该文书送达记录吗？"
                         @confirm="deleteDocument(scope.row.id)"
                       >
@@ -6528,7 +6572,7 @@ onUnmounted(() => {
                   <span class="text-lg font-semibold">公告管理</span>
                 </div>
                 <div class="flex space-x-2">
-                  <ElButton type="primary" @click="openNewAnnouncementDialog">
+                  <ElButton v-if="!isCaseArchived" type="primary" @click="openNewAnnouncementDialog">
                     <Icon icon="lucide:plus" class="mr-1" />
                     发布新公告
                   </ElButton>
@@ -6622,7 +6666,7 @@ onUnmounted(() => {
                   <ElTableColumn label="操作" width="350" fixed="right">
                     <template #default="scope">
                       <ElButton
-                        v-if="scope.row.status === 'DRAFT'"
+                        v-if="scope.row.status === 'DRAFT' && !isCaseArchived"
                         type="success"
                         link
                         size="small"
@@ -6631,7 +6675,7 @@ onUnmounted(() => {
                         发布
                       </ElButton>
                       <ElButton
-                        v-if="scope.row.is_top === 0"
+                        v-if="scope.row.is_top === 0 && !isCaseArchived"
                         type="warning"
                         link
                         size="small"
@@ -6640,7 +6684,7 @@ onUnmounted(() => {
                         置顶
                       </ElButton>
                       <ElButton
-                        v-if="scope.row.is_top === 1"
+                        v-if="scope.row.is_top === 1 && !isCaseArchived"
                         type="warning"
                         link
                         size="small"
@@ -6657,6 +6701,7 @@ onUnmounted(() => {
                         详情
                       </ElButton>
                       <ElPopconfirm
+                        v-if="!isCaseArchived"
                         title="确定要删除该公告吗？"
                         @confirm="deleteAnnouncement(scope.row.id)"
                         confirm-button-text="确定"
@@ -6744,7 +6789,7 @@ onUnmounted(() => {
                   <ElButton
                     type="primary"
                     @click="openAddTeamDialog"
-                    v-if="isCreator || isAdmin || isSuperAdmin || isTeamLeader"
+                    v-if="!isCaseArchived && (isCreator || isAdmin || isSuperAdmin || isTeamLeader)"
                   >
                     <Icon icon="lucide:plus" class="mr-1" />
                     添加工作团队
@@ -6940,7 +6985,7 @@ onUnmounted(() => {
                         label="操作"
                         width="150"
                         fixed="right"
-                        v-if="isCreator || isAdmin || isSuperAdmin || isTeamLeader"
+                        v-if="!isCaseArchived && (isCreator || isAdmin || isSuperAdmin || isTeamLeader)"
                       >
                         <template #default="{ row }">
                           <div style="display: flex; align-items: center;">
@@ -7070,6 +7115,7 @@ onUnmounted(() => {
                 </div>
                 <div style="display: flex; gap: 10px">
                   <ElButton
+                    v-if="!isCaseArchived"
                     type="primary"
                     @click="openAddWorkLogDialog"
                     style="color: #4caf50; background: white; border: 1px solid #4caf50"
@@ -7169,6 +7215,7 @@ onUnmounted(() => {
                         查看
                       </ElButton>
                       <ElButton
+                        v-if="!isCaseArchived"
                         type="primary"
                         size="small"
                         @click="editWorkLog(log)"
@@ -7178,6 +7225,7 @@ onUnmounted(() => {
                         编辑
                       </ElButton>
                       <ElPopconfirm
+                        v-if="!isCaseArchived"
                         title="确定要删除这条日志吗？"
                         @confirm="deleteWorkLog(log.id)"
                       >
@@ -7293,6 +7341,7 @@ onUnmounted(() => {
                               <Icon icon="lucide:download" />
                             </ElButton>
                             <ElButton
+                              v-if="!isCaseArchived"
                               link
                               size="small"
                               @click.stop="handleWorkLogRename(file)"
@@ -7373,6 +7422,7 @@ onUnmounted(() => {
                             <Icon icon="lucide:download" />
                           </ElButton>
                           <ElButton
+                            v-if="!isCaseArchived"
                             link
                             size="small"
                             @click="handleWorkLogRename(file)"
@@ -7409,6 +7459,7 @@ onUnmounted(() => {
                 />
                 <p>暂无工作日志</p>
                 <ElButton
+                  v-if="!isCaseArchived"
                   type="primary"
                   @click="openAddWorkLogDialog"
                   style="margin-top: 16px"
@@ -7503,8 +7554,8 @@ onUnmounted(() => {
                 :max-size="50 * 1024 * 1024"
                 :multiple="true"
                 title="工作日志附件"
-                :disabled="isViewingWorkLog"
-                :local-mode="!isViewingWorkLog"
+                :disabled="isViewingWorkLog || isCaseArchived"
+                :local-mode="!isViewingWorkLog && !isCaseArchived"
                 :existing-files="isViewingWorkLog ? workLogForm.files : []"
                 @local-files-change="(files) => { console.log('工作日志文件变化:', files); workLogForm.files = files; }"
               />
@@ -7545,10 +7596,11 @@ onUnmounted(() => {
           :case-id="caseId"
           :case-no="caseDetail?.案号 || ''"
           :case-name="caseDetail?.案件名称 || ''"
+          :is-case-archived="isCaseArchived"
         />
 
         <!-- 工作计划抽屉 -->
-        <WorkPlanDrawer ref="workPlanDrawerRef" :case-id="caseId" />
+        <WorkPlanDrawer ref="workPlanDrawerRef" :case-id="caseId" :is-case-archived="isCaseArchived" />
 
         <!-- 资金管理组件 - 保留但不再使用 -->
         <ElDialog
@@ -7560,6 +7612,7 @@ onUnmounted(() => {
           <AssetManagement
             :case-id="caseId"
             :case-name="caseDetail?.案件名称 || ''"
+            :is-case-archived="isCaseArchived"
           />
         </ElDialog>
 
@@ -7712,15 +7765,6 @@ onUnmounted(() => {
                   <div class="meta-row">
                     <span class="label">查看次数：</span>
                     <span>{{ currentAnnouncementDetail.view_count || 0 }}</span>
-                    <ElButton
-                      link
-                      type="primary"
-                      size="small"
-                      @click="viewAnnouncementViews(currentAnnouncementDetail)"
-                      style="margin-left: 12px"
-                    >
-                      查看浏览记录
-                    </ElButton>
                   </div>
                 </div>
 
@@ -7748,35 +7792,49 @@ onUnmounted(() => {
                       :key="index"
                       class="attachment-item"
                     >
-                      <Icon icon="lucide:paperclip" class="attachment-icon" />
-                      <span class="attachment-name">{{
-                        attachment.file_name
-                      }}</span>
-                      <ElButton
-                        link
-                        type="primary"
-                        size="small"
-                        @click="viewAttachment(attachment)"
-                        style="margin-right: 8px"
+
+                      <div
+                        v-if="isImageFile(attachment.file_name || '', attachment.type)"
+                        class="attachment-image-preview"
                       >
-                        查看
-                      </ElButton>
-                      <ElButton
-                        link
-                        type="primary"
-                        size="small"
-                        @click="downloadAttachment(attachment)"
-                      >
-                        下载
-                      </ElButton>
-                      <ElButton
-                        link
-                        type="primary"
-                        size="small"
-                        @click="handleAnnouncementRename(attachment)"
-                      >
-                        重命名
-                      </ElButton>
+                        <img
+                          v-if="getAnnouncementImageUrl(Number(attachment.file_id))"
+                          :src="getAnnouncementImageUrl(Number(attachment.file_id))"
+                          :alt="attachment.file_name"
+                          class="inline-preview-image"
+                          @click="viewAttachment(attachment)"
+                        />
+                        <div v-else class="inline-preview-loading" @click="viewAttachment(attachment)">
+                          <Icon icon="lucide:image" style="font-size: 24px; color: #999" />
+                        </div>
+                      </div>
+                      <div class="attachment-actions">
+                        <ElButton
+                          link
+                          type="primary"
+                          size="small"
+                          @click="viewAttachment(attachment)"
+                          style="margin-right: 8px"
+                        >
+                          查看
+                        </ElButton>
+                        <ElButton
+                          link
+                          type="primary"
+                          size="small"
+                          @click="downloadAttachment(attachment)"
+                        >
+                          下载
+                        </ElButton>
+                        <ElButton
+                          link
+                          type="primary"
+                          size="small"
+                          @click="handleAnnouncementRename(attachment)"
+                        >
+                          重命名
+                        </ElButton>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -7857,8 +7915,9 @@ onUnmounted(() => {
         <ElDialog
           v-model="showPreviewDialog"
           :title="previewAttachment?.file_name || '文件预览'"
-          width="90%"
+          width="95%"
           destroy-on-close
+          :fullscreen="isPdf"
         >
           <div class="file-preview-container">
             <div v-loading="previewLoading" class="preview-content">
@@ -8185,45 +8244,6 @@ onUnmounted(() => {
               </ElButton>
             </div>
           </template>
-        </ElDialog>
-
-        <!-- 浏览记录对话框 -->
-        <ElDialog
-          v-model="showViewsDialog"
-          title="浏览记录"
-          width="70%"
-          destroy-on-close
-        >
-          <div v-loading="viewsLoading" class="views-container">
-            <!-- 表格内容始终渲染，即使数据为空 -->
-            <ElTable :data="viewsList" border stripe style="width: 100%">
-              <ElTableColumn prop="viewer_name" label="浏览人" width="150" />
-              <ElTableColumn prop="view_time" label="浏览时间" width="180">
-                <template #default="scope">
-                  {{ formatDate(scope.row.view_time) }}
-                </template>
-              </ElTableColumn>
-              <ElTableColumn prop="ip_address" label="IP地址" width="150" />
-            </ElTable>
-
-            <!-- 分页始终渲染，v-if 只控制是否显示 -->
-            <div v-if="viewsTotal > 0" class="pagination-container">
-              <ElPagination
-                v-model:current-page="viewsCurrentPage"
-                v-model:page-size="viewsPageSize"
-                :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next"
-                :total="viewsTotal"
-                @size-change="handleViewsPageSizeChange"
-                @current-change="handleViewsPageChange"
-              />
-            </div>
-
-            <!-- 空状态：无论加载状态如何，当列表为空时显示 -->
-            <div v-if="viewsList.length === 0" class="empty-state">
-              <ElEmpty description="暂无浏览记录" />
-            </div>
-          </div>
         </ElDialog>
 
         <!-- 新增文书送达弹窗 -->
@@ -9173,46 +9193,29 @@ onUnmounted(() => {
         </ElDialog>
       </ElCard>
 
-      <!-- 批审对话框 -->
+      <!-- 报结对话框 -->
       <ElDialog
         v-model="showReviewDialog"
-        title="提交批审"
+        title="报结"
         width="80%"
         destroy-on-close
       >
         <div class="review-dialog-content">
-          <!-- 批审表单 -->
           <ElCard class="review-form-card" shadow="hover">
             <template #header>
               <div class="card-header">
-                <span class="text-lg font-semibold">批审信息</span>
+                <span class="text-lg font-semibold">报结信息</span>
               </div>
             </template>
 
             <ElRow :gutter="20">
               <ElCol :xs="24" :sm="12">
                 <ElFormItem label="审批类型">
-                  <ElSelect
-                    v-model="reviewForm.reviewType"
-                    placeholder="请选择审批类型"
+                  <ElInput
+                    value="案件审批"
+                    readonly
                     style="width: 100%"
-                    :disabled="reviewForm.reviewType === 'CASE_REVIEW' && reviewTypeOptions.length === 2"
-                    @change="
-                      (value) => {
-                        // 当选择流程审批时，加载阶段列表
-                        if (value === 'PROCESS_REVIEW') {
-                          fetchStages();
-                        }
-                      }
-                    "
-                  >
-                    <ElOption
-                      v-for="option in reviewTypeOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </ElSelect>
+                  />
                 </ElFormItem>
               </ElCol>
               <ElCol :xs="24" :sm="12">
@@ -9225,7 +9228,6 @@ onUnmounted(() => {
                 </ElFormItem>
               </ElCol>
 
-              <!-- 备注字段 -->
               <ElCol :xs="24">
                 <ElFormItem label="备注">
                   <ElInput
@@ -9237,72 +9239,9 @@ onUnmounted(() => {
                   />
                 </ElFormItem>
               </ElCol>
-
-              <!-- 流程审批特有字段 -->
-              <template v-if="reviewForm.reviewType === 'PROCESS_REVIEW'">
-                <ElCol :xs="24" :sm="12">
-                  <ElFormItem label="指定阶段">
-                    <ElSelect
-                      v-model="reviewForm.stageId"
-                      placeholder="请选择阶段"
-                      style="width: 100%"
-                      :loading="loadingStages"
-                      @change="handleStageChange"
-                    >
-                      <ElOption
-                        v-for="option in stageOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-                <ElCol :xs="24" :sm="12">
-                  <ElFormItem label="指定任务">
-                    <ElSelect
-                      v-model="reviewForm.taskId"
-                      placeholder="请选择任务"
-                      style="width: 100%"
-                      :disabled="!reviewForm.stageId"
-                    >
-                      <ElOption
-                        v-for="option in taskOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </ElSelect>
-                  </ElFormItem>
-                </ElCol>
-                <!-- 第三阶段提示信息 -->
-                <ElCol :xs="24">
-                  <div v-if="reviewForm.stageId === '3'" class="third-stage-tip">
-                    <ElAlert
-                      type="warning"
-                      :closable="false"
-                      show-icon
-                    >
-                      <div>
-                        <span class="font-bold">当前第三阶段无法提交审批。</span>
-                        <span>请在</span>
-                        <ElButton 
-                          type="primary" 
-                          link 
-                          @click="activeTab = 'claimRegistration'; showReviewDialog = false"
-                        >
-                          债权登记表
-                        </ElButton>
-                        <span>中完成流程。</span>
-                      </div>
-                    </ElAlert>
-                  </div>
-                </ElCol>
-              </template>
             </ElRow>
           </ElCard>
 
-          <!-- 审批历史 -->
           <ElCard
             class="review-history-card"
             shadow="hover"
@@ -9396,6 +9335,212 @@ onUnmounted(() => {
               @click="submitReview"
               :loading="submittingReview"
             >
+              提交报结
+            </ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
+      <!-- 提交批审对话框（流程审批） -->
+      <ElDialog
+        v-model="showProcessReviewDialog"
+        title="提交批审"
+        width="80%"
+        destroy-on-close
+      >
+        <div class="review-dialog-content">
+          <ElCard class="review-form-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="text-lg font-semibold">批审信息</span>
+              </div>
+            </template>
+
+            <ElRow :gutter="20">
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="审批类型">
+                  <ElInput
+                    value="流程审批"
+                    readonly
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="审批人">
+                  <ElInput
+                    value="管理人负责人"
+                    readonly
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+
+              <ElCol :xs="24">
+                <ElFormItem label="备注">
+                  <ElInput
+                    v-model="processReviewForm.remark"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请输入备注信息"
+                    style="width: 100%"
+                  />
+                </ElFormItem>
+              </ElCol>
+
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="指定阶段">
+                  <ElSelect
+                    v-model="processReviewForm.stageId"
+                    placeholder="请选择阶段"
+                    style="width: 100%"
+                    :loading="loadingStages"
+                    @change="handleProcessStageChange"
+                  >
+                    <ElOption
+                      v-for="option in stageOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24" :sm="12">
+                <ElFormItem label="指定任务">
+                  <ElSelect
+                    v-model="processReviewForm.taskId"
+                    placeholder="请选择任务"
+                    style="width: 100%"
+                    :disabled="!processReviewForm.stageId"
+                  >
+                    <ElOption
+                      v-for="option in processTaskOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </ElCol>
+              <ElCol :xs="24">
+                <div v-if="processReviewForm.stageId === '3'" class="third-stage-tip">
+                  <ElAlert
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                  >
+                    <div>
+                      <span class="font-bold">当前第三阶段无法提交审批。</span>
+                      <span>请在</span>
+                      <ElButton 
+                        type="primary" 
+                        link 
+                        @click="activeTab = 'claimRegistration'; showProcessReviewDialog = false"
+                      >
+                        债权登记表
+                      </ElButton>
+                      <span>中完成流程。</span>
+                    </div>
+                  </ElAlert>
+                </div>
+              </ElCol>
+            </ElRow>
+          </ElCard>
+
+          <ElCard
+            class="review-history-card"
+            shadow="hover"
+            style="margin-top: 20px"
+          >
+            <template #header>
+              <div class="card-header">
+                <span class="text-lg font-semibold">当前审批</span>
+              </div>
+            </template>
+
+            <ElTable 
+              :data="currentApproval" 
+              stripe 
+              style="width: 100%"
+              v-loading="loadingCurrentApproval"
+            >
+              <ElTableColumn prop="approvalType" label="审批类型" width="120">
+                <template #default="scope">
+                  {{ mapApprovalType(scope.row.approvalType) }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approvalTitle" label="审批标题" width="200" />
+              <ElTableColumn prop="approvalStatus" label="审批状态" width="120">
+                <template #default="scope">
+                  <ElTag
+                    :type="scope.row.approvalStatus === 'APPROVED' ? 'success' : 
+                          scope.row.approvalStatus === 'PENDING' ? 'warning' : 'danger'"
+                  >
+                    {{ mapApprovalStatus(scope.row.approvalStatus) }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approverId" label="审批人" width="120">
+                <template #default="scope">
+                  {{ scope.row.approverId ? '管理人负责人' : '待分配' }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="approvalDate" label="审批时间" width="200">
+                <template #default="scope">
+                  {{ formatDate(scope.row.approvalDate) }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="remark" label="备注" />
+            </ElTable>
+          </ElCard>
+
+          <ElCard
+            class="review-history-card"
+            shadow="hover"
+            style="margin-top: 20px"
+          >
+            <template #header>
+              <div class="card-header">
+                <span class="text-lg font-semibold">审批历史</span>
+              </div>
+            </template>
+
+            <ElTable 
+              :data="reviewHistory" 
+              stripe 
+              style="width: 100%"
+              v-loading="loadingReviewHistory"
+            >
+              <ElTableColumn prop="reviewer" label="审批人" width="120" />
+              <ElTableColumn prop="approvalTitle" label="审批标题" width="200" />
+              <ElTableColumn prop="reviewDate" label="审批时间" width="200">
+                <template #default="scope">
+                  {{ formatDate(scope.row.reviewDate) }}
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="status" label="审批状态" width="120">
+                <template #default="scope">
+                  <ElTag
+                    :type="scope.row.status === '已通过' ? 'success' : 'danger'"
+                  >
+                    {{ scope.row.status }}
+                  </ElTag>
+                </template>
+              </ElTableColumn>
+              <ElTableColumn prop="comment" label="审批意见" />
+          </ElTable>
+</ElCard>
+        </div>
+
+        <template #footer>
+          <div class="dialog-footer">
+            <ElButton @click="showProcessReviewDialog = false">取消</ElButton>
+            <ElButton
+              type="primary"
+              @click="submitProcessReview"
+              :loading="submittingProcessReview"
+            >
               提交批审
             </ElButton>
           </div>
@@ -9405,6 +9550,7 @@ onUnmounted(() => {
       <ProgressManagementModal
         v-model:visible="showProgressManagement"
         :case-id="caseId"
+        :is-case-archived="isCaseArchived"
         @progress-updated="handleProgressUpdated"
       />
       
@@ -10391,12 +10537,47 @@ onUnmounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.3s ease;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .attachment-item:hover {
   border-color: #3b82f6;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
   transform: translateY(-1px);
+}
+
+.attachment-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.attachment-image-preview {
+  width: 100%;
+  margin: 4px 0;
+}
+
+.inline-preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+}
+
+.inline-preview-image:hover {
+  transform: scale(1.02);
+  border-color: #3b82f6;
 }
 
 .attachment-icon {
@@ -10457,41 +10638,21 @@ onUnmounted(() => {
   display: none;
 }
 
-/* 浏览记录样式 */
-.views-container {
-  padding: 20px;
-  background-color: white;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.views-container .empty-state {
-  padding: 40px 0;
-}
-
-.views-container {
-  padding: 10px 0;
-}
-
-.empty-state {
-  padding: 60px 0;
-}
-
 /* 文件预览对话框样式 */
 .file-preview-container {
-  max-height: 700px;
+  max-height: 85vh;
   padding: 20px;
 }
 
 .image-preview img {
   max-width: 100%;
-  max-height: 600px;
+  max-height: 75vh;
   object-fit: contain;
 }
 
 .pdf-preview iframe {
   width: 100%;
-  height: 600px;
+  height: 80vh;
 }
 
 .text-preview pre {
@@ -10607,7 +10768,7 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.attachment-item {
+.attachments-list .attachment-item {
   display: flex;
   align-items: center;
   padding: 16px;
@@ -10615,9 +10776,11 @@ onUnmounted(() => {
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   transition: all 0.2s;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.attachment-item:hover {
+.attachments-list .attachment-item:hover {
   background-color: #f3f4f6;
   border-color: #d1d5db;
 }
@@ -10783,12 +10946,12 @@ onUnmounted(() => {
 
 :deep(.el-select .el-input__wrapper:hover) {
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
-  border-color: #8b5cf6;
+  border-color: #475569;
 }
 
 :deep(.el-select .el-input__wrapper.is-focus) {
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
-  border-color: #8b5cf6;
+  border-color: #475569;
   transform: scale(1.02);
 }
 

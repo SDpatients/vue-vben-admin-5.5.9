@@ -158,6 +158,11 @@ export namespace ClaimConfirmationApi {
     confirmationAttachments?: string;
     confirmationStatus?: ConfirmationStatus;
     remarks?: string;
+    confirmedPrincipal?: number;
+    confirmedInterest?: number;
+    confirmedPenalty?: number;
+    confirmedOtherLosses?: number;
+    confirmedTotalAmount?: number;
   }
 
   /** 更新债权确认响应 */

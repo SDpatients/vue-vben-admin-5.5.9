@@ -29,6 +29,7 @@ import {
 interface Props {
   caseId: string;
   caseName: string;
+  isCaseArchived?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -356,7 +357,7 @@ const handleAdd = () => {
             />
             {{ tabs.find((t) => t.key === activeTab)?.label }}
           </div>
-          <ElButton type="primary" @click="handleAdd">
+          <ElButton v-if="!isCaseArchived" type="primary" @click="handleAdd">
             <Icon icon="lucide:plus" class="mr-1" />
             新增
           </ElButton>
@@ -569,6 +570,7 @@ const handleAdd = () => {
                 查看
               </ElButton>
               <ElButton
+                v-if="!isCaseArchived"
                 type="primary"
                 link
                 size="small"
@@ -577,6 +579,7 @@ const handleAdd = () => {
                 编辑
               </ElButton>
               <ElPopconfirm
+                v-if="!isCaseArchived"
                 title="确定要删除这条记录吗？"
                 @confirm="handleDelete(row)"
               >

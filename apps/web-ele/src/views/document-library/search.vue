@@ -26,6 +26,7 @@ import {
   getDocumentTypeIcon,
   getDocumentTypeColor,
   formatFileSize,
+  normalizeDocumentType,
 } from '#/api/core/document-library';
 
 const loading = ref(false);
@@ -118,13 +119,14 @@ const toggleFavorite = async (doc: DocumentLibraryApi.Document) => {
 };
 
 const getDocumentTypeTag = (type: string) => {
+  const normalized = normalizeDocumentType(type);
   const typeMap: Record<string, { label: string; type: string }> = {
     WORD: { label: 'Word', type: 'primary' },
     EXCEL: { label: 'Excel', type: 'success' },
     PDF: { label: 'PDF', type: 'danger' },
     OTHER: { label: '其他', type: 'info' },
   };
-  return typeMap[type] || typeMap.OTHER;
+  return typeMap[normalized] || typeMap.OTHER;
 };
 
 const formatDate = (dateStr: string) => {

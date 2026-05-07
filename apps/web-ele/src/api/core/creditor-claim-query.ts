@@ -14,25 +14,37 @@ export namespace CreditorClaimQueryApi {
 
   /** 债权申报信息 */
   export interface ClaimInfo {
+    creditorId: number;
+    caseId: number;
     creditorName: string;
     creditorType: string;
-    creditorStatus: string;
-    claimType: string;
-    accountName: string;
-    creditorBankAccount: string;
-    bankName: string;
-    declaredPrincipal: number;
-    declaredInterest: number;
-    declaredPenalty: number;
-    declaredOtherLosses: number;
-    declaredTotalAmount: number;
-    remarks: string;
-    confirmedPrincipal: number;
-    confirmedInterest: number;
-    confirmedPenalty: number;
-    confirmedOtherLosses: number;
-    confirmedTotalAmount: number;
-    reductionAmount: number;
+    creditorStatus: string | null;
+    contactPhone: string | null;
+    contactEmail: string | null;
+    address: string | null;
+    idNumber: string | null;
+    legalRepresentative: string | null;
+    registeredCapital: number | null;
+    caseNumber: string | null;
+    caseName: string | null;
+    createTime: string | null;
+    updateTime: string | null;
+    claimType: string | null;
+    accountName: string | null;
+    creditorBankAccount: string | null;
+    bankName: string | null;
+    declaredPrincipal: number | null;
+    declaredInterest: number | null;
+    declaredPenalty: number | null;
+    declaredOtherLosses: number | null;
+    declaredTotalAmount: number | null;
+    remarks: string | null;
+    confirmedPrincipal: number | null;
+    confirmedInterest: number | null;
+    confirmedPenalty: number | null;
+    confirmedOtherLosses: number | null;
+    confirmedTotalAmount: number | null;
+    reductionAmount: number | null;
   }
 
   /** 分页响应数据类型 */

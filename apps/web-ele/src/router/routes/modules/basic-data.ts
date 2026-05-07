@@ -16,11 +16,12 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'BasicInfoMaintenance',
         path: 'info-maintenance',
-        component: () => import('#/views/_core/fallback/building.vue'),
+        component: () => import('#/views/basic-data/info-maintenance/index.vue'),
         meta: {
           affixTab: false,
           icon: 'lucide:settings',
           title: $t('page.basicData.infoMaintenance'),
+          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
         },
       },
       {

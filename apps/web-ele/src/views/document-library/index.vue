@@ -27,9 +27,7 @@ import {
   ElOption,
   ElForm,
   ElFormItem,
-  ElDatePicker,
   ElMessageBox,
-  ElProgress,
   ElTooltip,
 } from 'element-plus';
 import { Icon } from '@iconify/vue';
@@ -41,6 +39,7 @@ import {
   getFolderDocumentsApi,
   getFolderPathApi,
   getMyDocumentsApi,
+  getDocumentListApi,
   createFolderApi,
   updateFolderApi,
   deleteFolderApi,
@@ -50,12 +49,16 @@ import {
   downloadDocumentApi,
   lockDocumentApi,
   unlockDocumentApi,
+  moveDocumentApi,
   addFavoriteApi,
   removeFavoriteApi,
   formatFileSize,
   getDocumentTypeIcon,
   getDocumentTypeColor,
+  normalizeDocumentType,
 } from '#/api/core/document-library';
+
+type ViewMode = 'all' | 'my' | 'folder';
 
 const loading = ref(false);
 const folderTree = ref<DocumentLibraryApi.FolderTreeNode | null>(null);
@@ -65,7 +68,7 @@ const currentFolder = ref<DocumentLibraryApi.Folder | null>(null);
 const subFolders = ref<DocumentLibraryApi.Folder[]>([]);
 const breadcrumb = ref<DocumentLibraryApi.FolderBreadcrumb[]>([]);
 const searchKeyword = ref('');
-const showMyOnly = ref(false);
+const viewMode = ref<ViewMode>('all');
 
 const pagination = ref({
   page: 1,
@@ -75,6 +78,7 @@ const pagination = ref({
 
 const documentTypeFilter = ref<string>('');
 const statusFilter = ref<string>('');
+const isPublicFilter = ref<boolean | string>('');
 
 const folderDialogVisible = ref(false);
 const folderForm = ref({
@@ -110,8 +114,6 @@ const editForm = ref({
 });
 const currentEditDocument = ref<DocumentLibraryApi.Document | null>(null);
 
-
-
 const moveDialogVisible = ref(false);
 const moveTargetFolderId = ref<number | null>(null);
 const currentMoveDocument = ref<DocumentLibraryApi.Document | null>(null);
@@ -131,16 +133,42 @@ const safeDocumentList = computed(() => {
 
 const folderTreeData = computed(() => {
   if (!folderTree.value) return [];
-  return [folderTree.value];
+  const allDocsNode: DocumentLibraryApi.FolderTreeNode = {
+    id: -1,
+    name: '全部文档',
+    type: 'root',
+    parentId: null,
+    path: null,
+    folderLevel: null,
+    sortOrder: null,
+    icon: 'lucide:database',
+    color: '#1890ff',
+  };
+  const myDocsNode: DocumentLibraryApi.FolderTreeNode = {
+    id: -2,
+    name: '我的文档',
+    type: 'root',
+    parentId: null,
+    path: null,
+    folderLevel: null,
+    sortOrder: null,
+    icon: 'lucide:user',
+    color: '#52c41a',
+  };
+  return [allDocsNode, myDocsNode, folderTree.value];
+});
+
+const viewModeTitle = computed(() => {
+  if (viewMode.value === 'my') return '我的文档';
+  if (viewMode.value === 'folder' && currentFolder.value) return currentFolder.value.folderName;
+  return '全部文档';
 });
 
 const fetchFolderTree = async () => {
   try {
     const response = await getFolderTreeApi();
-    console.log('📁 文件夹树 API 响应:', response);
     if (response) {
       folderTree.value = response;
-      console.log('📁 folderTree.value:', folderTree.value);
     }
   } catch (error) {
     console.error('获取文件夹树失败:', error);
@@ -148,16 +176,9 @@ const fetchFolderTree = async () => {
 };
 
 const fetchDocumentList = async () => {
-  if (!currentFolderId.value && !showMyOnly.value) {
-    documentList.value = [];
-    subFolders.value = [];
-    breadcrumb.value = [];
-    return;
-  }
-
   loading.value = true;
   try {
-    if (showMyOnly.value) {
+    if (viewMode.value === 'my') {
       const myDocsRes = await getMyDocumentsApi(pagination.value.page, pagination.value.size);
       if (myDocsRes) {
         documentList.value = myDocsRes.documents || [];
@@ -173,41 +194,64 @@ const fetchDocumentList = async () => {
       return;
     }
 
-    const [folderRes, childrenRes, documentsRes, pathRes] = await Promise.all([
-      getFolderDetailApi(currentFolderId.value!),
-      getFolderChildrenApi(currentFolderId.value!),
-      getFolderDocumentsApi(currentFolderId.value!, pagination.value.page, pagination.value.size),
-      getFolderPathApi(currentFolderId.value!),
-    ]);
+    if (viewMode.value === 'folder' && currentFolderId.value) {
+      const [folderRes, childrenRes, documentsRes, pathRes] = await Promise.all([
+        getFolderDetailApi(currentFolderId.value),
+        getFolderChildrenApi(currentFolderId.value),
+        getFolderDocumentsApi(currentFolderId.value, pagination.value.page, pagination.value.size),
+        getFolderPathApi(currentFolderId.value),
+      ]);
 
-    if (folderRes) {
-      currentFolder.value = folderRes;
+      if (folderRes) currentFolder.value = folderRes;
+      subFolders.value = childrenRes ? (Array.isArray(childrenRes) ? childrenRes : []) : [];
+      if (documentsRes) {
+        documentList.value = documentsRes.documents || [];
+        pagination.value.total = documentsRes.total || 0;
+        pagination.value.page = documentsRes.page || 1;
+        pagination.value.size = documentsRes.size || 10;
+      } else {
+        documentList.value = [];
+        pagination.value.total = 0;
+      }
+      breadcrumb.value = pathRes ? (Array.isArray(pathRes) ? pathRes : []) : [];
+      return;
     }
 
-    if (childrenRes) {
-      subFolders.value = Array.isArray(childrenRes) ? childrenRes : [];
-    } else {
-      subFolders.value = [];
+    const params: DocumentLibraryApi.DocumentListQueryParams = {
+      page: pagination.value.page,
+      size: pagination.value.size,
+      sortBy: 'createTime',
+      sortOrder: 'desc',
+    };
+
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim();
+    }
+    if (documentTypeFilter.value) {
+      params.documentType = documentTypeFilter.value;
+    }
+    if (statusFilter.value) {
+      params.status = statusFilter.value;
+    }
+    if (isPublicFilter.value !== '' && isPublicFilter.value !== null) {
+      params.isPublic = isPublicFilter.value as boolean;
     }
 
-    if (documentsRes) {
-      documentList.value = documentsRes.documents || [];
-      pagination.value.total = documentsRes.total || 0;
-      pagination.value.page = documentsRes.page || 1;
-      pagination.value.size = documentsRes.size || 10;
+    const listRes = await getDocumentListApi(params);
+    if (listRes) {
+      documentList.value = listRes.documents || [];
+      pagination.value.total = listRes.total || 0;
+      pagination.value.page = listRes.page || 1;
+      pagination.value.size = listRes.size || 10;
     } else {
       documentList.value = [];
       pagination.value.total = 0;
     }
-
-    if (pathRes) {
-      breadcrumb.value = Array.isArray(pathRes) ? pathRes : [];
-    } else {
-      breadcrumb.value = [];
-    }
+    subFolders.value = [];
+    breadcrumb.value = [];
   } catch (error) {
-    console.error('获取文件夹内容失败:', error);
-    ElMessage.error('获取文件夹内容失败');
+    console.error('获取文档列表失败:', error);
+    ElMessage.error('获取文档列表失败');
     documentList.value = [];
     subFolders.value = [];
     pagination.value.total = 0;
@@ -217,7 +261,24 @@ const fetchDocumentList = async () => {
 };
 
 const handleNodeClick = (data: DocumentLibraryApi.FolderTreeNode) => {
+  if (data.id === -1) {
+    viewMode.value = 'all';
+    currentFolderId.value = null;
+    currentFolder.value = null;
+    pagination.value.page = 1;
+    fetchDocumentList();
+    return;
+  }
+  if (data.id === -2) {
+    viewMode.value = 'my';
+    currentFolderId.value = null;
+    currentFolder.value = null;
+    pagination.value.page = 1;
+    fetchDocumentList();
+    return;
+  }
   if (data.type === 'folder') {
+    viewMode.value = 'folder';
     currentFolderId.value = data.id;
     pagination.value.page = 1;
     fetchDocumentList();
@@ -226,6 +287,11 @@ const handleNodeClick = (data: DocumentLibraryApi.FolderTreeNode) => {
 
 const handleSearch = () => {
   pagination.value.page = 1;
+  if (viewMode.value === 'folder') {
+    viewMode.value = 'all';
+    currentFolderId.value = null;
+    currentFolder.value = null;
+  }
   fetchDocumentList();
 };
 
@@ -331,6 +397,7 @@ const deleteFolder = async () => {
     await deleteFolderApi(currentFolderId.value!);
     ElMessage.success('删除成功');
     currentFolderId.value = null;
+    viewMode.value = 'all';
     await fetchFolderTree();
     await fetchDocumentList();
   } catch (error: any) {
@@ -503,7 +570,28 @@ const toggleFavorite = async (doc: DocumentLibraryApi.Document) => {
   }
 };
 
+const openMoveDialog = (doc: DocumentLibraryApi.Document) => {
+  currentMoveDocument.value = doc;
+  moveTargetFolderId.value = null;
+  moveDialogVisible.value = true;
+};
 
+const moveDocument = async () => {
+  if (!currentMoveDocument.value || !moveTargetFolderId.value) {
+    ElMessage.warning('请选择目标文件夹');
+    return;
+  }
+
+  try {
+    await moveDocumentApi(currentMoveDocument.value.id, moveTargetFolderId.value);
+    ElMessage.success('移动成功');
+    moveDialogVisible.value = false;
+    await fetchDocumentList();
+  } catch (error) {
+    console.error('移动文档失败:', error);
+    ElMessage.error('移动失败');
+  }
+};
 
 const openPreview = (doc: DocumentLibraryApi.Document) => {
   previewDocumentId.value = doc.id;
@@ -519,13 +607,19 @@ const clearSelection = () => {
 };
 
 const getDocumentTypeTag = (type: string) => {
+  const normalized = normalizeDocumentType(type);
   const typeMap: Record<string, { label: string; type: string }> = {
     WORD: { label: 'Word', type: 'primary' },
     EXCEL: { label: 'Excel', type: 'success' },
     PDF: { label: 'PDF', type: 'danger' },
     OTHER: { label: '其他', type: 'info' },
   };
-  return typeMap[type] || typeMap.OTHER;
+  return typeMap[normalized] || typeMap.OTHER;
+};
+
+const canOnlinePreview = (doc: DocumentLibraryApi.Document) => {
+  const ext = doc.fileExtension?.toLowerCase();
+  return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext || '');
 };
 
 const formatDate = (dateStr: string) => {
@@ -533,9 +627,8 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('zh-CN');
 };
 
-watch(showMyOnly, () => {
+watch(viewMode, () => {
   pagination.value.page = 1;
-  fetchDocumentList();
 });
 
 onMounted(() => {
@@ -552,12 +645,7 @@ onMounted(() => {
           <div class="flex items-center gap-3">
             <Icon icon="lucide:folder-archive" class="text-2xl text-primary" />
             <span class="text-xl font-semibold">文档库</span>
-            <ElSwitch
-              v-model="showMyOnly"
-              active-text="仅看我的"
-              inactive-text=""
-              class="ml-4"
-            />
+            <ElTag type="info" size="small" class="ml-2">{{ viewModeTitle }}</ElTag>
           </div>
           <div class="flex items-center gap-2">
             <BatchOperations
@@ -601,9 +689,9 @@ onMounted(() => {
           </div>
 
           <div class="mb-2 flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-600">文件夹</span>
+            <span class="text-sm font-medium text-gray-600">文档视图</span>
             <ElButton
-              v-if="currentFolderId"
+              v-if="viewMode === 'folder' && currentFolderId"
               type="primary"
               link
               size="small"
@@ -623,8 +711,8 @@ onMounted(() => {
             class="folder-tree"
           >
             <template #default="{ node, data }">
-              <ElTooltip 
-                placement="right" 
+              <ElTooltip
+                placement="right"
                 :disabled="!data.createUserName && !data.createTime"
               >
                 <template #content>
@@ -653,7 +741,7 @@ onMounted(() => {
             </template>
           </ElTree>
 
-          <div v-if="currentFolderId" class="mt-4 pt-4 border-t">
+          <div v-if="viewMode === 'folder' && currentFolderId" class="mt-4 pt-4 border-t">
             <ElButton type="danger" link size="small" @click="deleteFolder">
               <Icon icon="lucide:trash-2" class="mr-1" />
               删除当前文件夹
@@ -662,18 +750,17 @@ onMounted(() => {
         </div>
 
         <div class="flex-1 flex flex-col min-w-0">
-          <div class="mb-4 flex items-center gap-4">
+          <div class="mb-4 flex items-center gap-4 flex-wrap">
             <ElSelect
               v-model="documentTypeFilter"
               placeholder="文档类型"
               clearable
-              style="width: 120px"
+              style="width: 130px"
               @change="handleSearch"
             >
-              <ElOption label="Word" value="WORD" />
-              <ElOption label="Excel" value="EXCEL" />
-              <ElOption label="PDF" value="PDF" />
-              <ElOption label="其他" value="OTHER" />
+              <ElOption label="Word" value="docx" />
+              <ElOption label="Excel" value="xlsx" />
+              <ElOption label="PDF" value="pdf" />
             </ElSelect>
 
             <ElSelect
@@ -686,6 +773,36 @@ onMounted(() => {
               <ElOption label="正常" value="ACTIVE" />
               <ElOption label="已归档" value="ARCHIVED" />
             </ElSelect>
+
+            <ElSelect
+              v-model="isPublicFilter"
+              placeholder="公开状态"
+              clearable
+              style="width: 120px"
+              @change="handleSearch"
+            >
+              <ElOption label="公开" :value="true" />
+              <ElOption label="私有" :value="false" />
+            </ElSelect>
+
+            <div class="flex items-center gap-1 text-xs text-orange-500">
+              <Icon icon="lucide:info" class="text-sm" />
+              <span>仅 PDF 和图片格式支持在线预览，其他文件请下载后查看</span>
+            </div>
+          </div>
+
+          <div v-if="viewMode === 'folder' && breadcrumb.length > 0" class="mb-3 flex items-center gap-1 text-sm">
+            <Icon icon="lucide:folder" class="text-primary" />
+            <template v-for="(item, index) in breadcrumb" :key="item.id">
+              <span v-if="index > 0" class="text-gray-400">/</span>
+              <span
+                class="cursor-pointer hover:text-primary"
+                :class="{ 'text-primary font-medium': index === breadcrumb.length - 1 }"
+                @click="index < breadcrumb.length - 1 && handleNodeClick({ id: item.id, name: item.name, type: 'folder' as const, parentId: null, path: item.path, folderLevel: item.folderLevel })"
+              >
+                {{ item.name }}
+              </span>
+            </template>
           </div>
 
           <ElTable
@@ -699,7 +816,7 @@ onMounted(() => {
             @selection-change="handleSelectionChange"
           >
             <template #empty>
-              <ElEmpty description="暂无文档" />
+              <ElEmpty :description="viewMode === 'my' ? '您还没有上传过文档' : '暂无文档'" />
             </template>
 
             <ElTableColumn type="selection" width="55" />
@@ -741,23 +858,34 @@ onMounted(() => {
 
             <ElTableColumn prop="folderName" label="所属文件夹" width="150" show-overflow-tooltip />
 
+            <ElTableColumn prop="createUserName" label="上传者" width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.createUserName || '-' }}
+              </template>
+            </ElTableColumn>
+
             <ElTableColumn prop="createTime" label="创建时间" width="160">
               <template #default="{ row }">
                 {{ formatDate(row.createTime) }}
               </template>
             </ElTableColumn>
 
-            <ElTableColumn prop="downloadCount" label="下载次数" width="100" align="center" />
+            <ElTableColumn prop="downloadCount" label="下载" width="70" align="center" />
+            <ElTableColumn prop="viewCount" label="查看" width="70" align="center" />
 
-            <ElTableColumn prop="viewCount" label="查看次数" width="100" align="center" />
-
-            <ElTableColumn label="操作" width="320" fixed="right">
+            <ElTableColumn label="操作" width="300" fixed="right">
               <template #default="{ row }">
                 <div class="flex flex-wrap gap-1">
-                  <ElButton type="primary" size="small" @click="openPreview(row)">
+                  <ElButton v-if="canOnlinePreview(row)" type="primary" size="small" @click="openPreview(row)">
                     <Icon icon="lucide:eye" class="mr-1" />
                     预览
                   </ElButton>
+                  <ElTooltip v-else content="此文件类型不支持在线预览，请下载后查看" placement="top">
+                    <ElButton type="warning" size="small" @click="downloadDocument(row)">
+                      <Icon icon="lucide:download" class="mr-1" />
+                      下载查看
+                    </ElButton>
+                  </ElTooltip>
                   <ElButton size="small" @click="downloadDocument(row)">
                     <Icon icon="lucide:download" class="mr-1" />
                     下载
@@ -772,6 +900,10 @@ onMounted(() => {
                         <ElDropdownItem @click="openEditDialog(row)">
                           <Icon icon="lucide:edit" class="mr-2" />
                           编辑
+                        </ElDropdownItem>
+                        <ElDropdownItem @click="openMoveDialog(row)">
+                          <Icon icon="lucide:folder-input" class="mr-2" />
+                          移动
                         </ElDropdownItem>
                         <ElDropdownItem @click="toggleLock(row)">
                           <Icon :icon="row.isLocked ? 'lucide:unlock' : 'lucide:lock'" class="mr-2" />
@@ -914,6 +1046,45 @@ onMounted(() => {
       </template>
     </ElDialog>
 
+    <ElDialog v-model="moveDialogVisible" title="移动文档" width="500px">
+      <ElForm label-width="100px">
+        <ElFormItem label="当前文档">
+          <span>{{ currentMoveDocument?.documentName }}</span>
+        </ElFormItem>
+        <ElFormItem label="当前文件夹">
+          <span>{{ currentMoveDocument?.folderName || '根目录' }}</span>
+        </ElFormItem>
+        <ElFormItem label="目标文件夹" required>
+          <ElTree
+            :data="folderTreeData"
+            :props="treeProps"
+            node-key="id"
+            highlight-current
+            default-expand-all
+            @node-click="(data: DocumentLibraryApi.FolderTreeNode) => { if (data.type === 'folder') moveTargetFolderId = data.id }"
+            class="move-folder-tree"
+          >
+            <template #default="{ data }">
+              <div class="flex items-center gap-2" :class="{ 'text-primary font-medium': moveTargetFolderId === data.id }">
+                <Icon
+                  :icon="data.icon || (data.type === 'root' ? 'lucide:database' : 'lucide:folder')"
+                  class="text-lg"
+                  :style="{ color: data.color || '#f5c542' }"
+                />
+                <span>{{ data.name }}</span>
+              </div>
+            </template>
+          </ElTree>
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="moveDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" :disabled="!moveTargetFolderId" @click="moveDocument">
+          确定移动
+        </ElButton>
+      </template>
+    </ElDialog>
+
     <DocumentPreview
       v-if="previewDocumentId"
       :document-id="previewDocumentId"
@@ -976,6 +1147,14 @@ onMounted(() => {
 .folder-node:deep(.el-tag--info) {
   opacity: 0.8;
   font-size: 11px;
+}
+
+.move-folder-tree {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 8px;
 }
 
 @media (max-width: 768px) {

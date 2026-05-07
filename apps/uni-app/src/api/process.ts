@@ -1,4 +1,4 @@
-import http from './request'
+import { http8080, getBaseUrl8080 } from './request'
 import { API_PREFIX } from '@/config'
 
 export interface CaseTask {
@@ -48,20 +48,20 @@ export const getCaseTasks = (params: {
   page?: number
   size?: number
 }) => {
-  return http.get<{ code: number; message: string; data: PageResponse<CaseTask> }>(
+  return http8080.get<{ code: number; message: string; data: PageResponse<CaseTask> }>(
     '/api/case-tasks',
     params
   )
 }
 
 export const getCaseTaskById = (id: number) => {
-  return http.get<{ code: number; message: string; data: CaseTaskDetail }>(
+  return http8080.get<{ code: number; message: string; data: CaseTaskDetail }>(
     `/api/case-tasks/${id}`
   )
 }
 
 export const addCaseTask = (data: Partial<CaseTask>) => {
-  return http.post<{ code: number; message: string; data: CaseTask }>(
+  return http8080.post<{ code: number; message: string; data: CaseTask }>(
     '/api/case-tasks',
     data
   )
@@ -71,20 +71,20 @@ export const updateCaseTask = (id: number, data: {
   taskDescription?: string
   status?: string
 }) => {
-  return http.patch<{ code: number; message: string; data: CaseTask }>(
+  return http8080.patch<{ code: number; message: string; data: CaseTask }>(
     `/api/case-tasks/${id}`,
     data
   )
 }
 
 export const deleteCaseTask = (id: number) => {
-  return http.delete<{ code: number; message: string; data: null }>(
+  return http8080.delete<{ code: number; message: string; data: null }>(
     `/api/case-tasks/${id}`
   )
 }
 
 export const getTaskFiles = (taskId: number) => {
-  return http.get<{ code: number; message: string; data: TaskFile[] }>(
+  return http8080.get<{ code: number; message: string; data: TaskFile[] }>(
     `/api/case-tasks/${taskId}/files`
   )
 }
@@ -92,7 +92,7 @@ export const getTaskFiles = (taskId: number) => {
 export const uploadTaskFile = (taskId: number, filePath: string, fileName: string, description?: string) => {
   return new Promise<{ code: number; message: string; data: TaskFile }>((resolve, reject) => {
     uni.uploadFile({
-      url: `${API_PREFIX}/api/case-tasks/${taskId}/files`,
+      url: `${getBaseUrl8080()}${API_PREFIX}/api/case-tasks/${taskId}/files`,
       filePath,
       name: 'file',
       formData: description ? { description } : undefined,
@@ -117,13 +117,13 @@ export const uploadTaskFile = (taskId: number, filePath: string, fileName: strin
 }
 
 export const deleteTaskFile = (taskId: number, fileId: number) => {
-  return http.delete<{ code: number; message: string; data: null }>(
+  return http8080.delete<{ code: number; message: string; data: null }>(
     `/api/case-tasks/${taskId}/files/${fileId}`
   )
 }
 
 export const getFilePreviewUrl = (fileId: number) => {
-  return `${API_PREFIX}/api/case-tasks/files/preview/${fileId}`
+  return `${getBaseUrl8080()}${API_PREFIX}/api/case-tasks/files/preview/${fileId}`
 }
 
 // ==================== 案件提交记录 API ====================
@@ -142,13 +142,13 @@ export interface SubmissionData {
 }
 
 export const getCaseTaskSubmissions = (taskId: number) => {
-  return http.get<{ code: number; message: string; data: SubmissionData[] }>(
+  return http8080.get<{ code: number; message: string; data: SubmissionData[] }>(
     `/api/case-task-submissions/task/${taskId}`
   )
 }
 
 export const getSubmissionById = (id: number) => {
-  return http.get<{ code: number; message: string; data: SubmissionData }>(
+  return http8080.get<{ code: number; message: string; data: SubmissionData }>(
     `/api/case-task-submissions/${id}`
   )
 }
@@ -160,21 +160,21 @@ export const createSubmission = (data: {
   submissionType: string
   createTime?: string
 }) => {
-  return http.post<{ code: number; message: string; data: { submissionId: number } }>(
+  return http8080.post<{ code: number; message: string; data: { submissionId: number } }>(
     '/api/case-task-submissions',
     data
   )
 }
 
 export const updateSubmission = (id: number, data: Partial<SubmissionData>) => {
-  return http.put<{ code: number; message: string; data: SubmissionData }>(
+  return http8080.put<{ code: number; message: string; data: SubmissionData }>(
     `/api/case-task-submissions/${id}`,
     data
   )
 }
 
 export const deleteSubmission = (id: number) => {
-  return http.delete<{ code: number; message: string; data: null }>(
+  return http8080.delete<{ code: number; message: string; data: null }>(
     `/api/case-task-submissions/${id}`
   )
 }
@@ -182,7 +182,7 @@ export const deleteSubmission = (id: number) => {
 // ==================== 提交文件 API ====================
 
 export const getSubmissionFiles = (submissionId: number) => {
-  return http.get<{ code: number; message: string; data: TaskFile[] }>(
+  return http8080.get<{ code: number; message: string; data: TaskFile[] }>(
     `/api/case-task-submissions/${submissionId}/files`
   )
 }
@@ -199,7 +199,7 @@ export const uploadSubmissionFile = (
     if (sortOrder !== undefined) formData.sortOrder = String(sortOrder)
 
     uni.uploadFile({
-      url: `${API_PREFIX}/api/case-task-submissions/${submissionId}/files`,
+      url: `${getBaseUrl8080()}${API_PREFIX}/api/case-task-submissions/${submissionId}/files`,
       filePath,
       name: 'file',
       formData,
@@ -224,7 +224,7 @@ export const uploadSubmissionFile = (
 }
 
 export const deleteSubmissionFile = (submissionId: number, fileId: number) => {
-  return http.delete<{ code: number; message: string; data: null }>(
+  return http8080.delete<{ code: number; message: string; data: null }>(
     `/api/case-task-submissions/${submissionId}/files/${fileId}`
   )
 }
@@ -234,14 +234,14 @@ export const deleteSubmissionFile = (submissionId: number, fileId: number) => {
 export const createSubmissionBatch = (data: {
   caseTaskIds: number[]
 }) => {
-  return http.post<{ code: number; message: string; data: Record<number, SubmissionData[]> }>(
+  return http8080.post<{ code: number; message: string; data: Record<number, SubmissionData[]> }>(
     '/api/case-task-submissions/latest/batch',
     data
   )
 }
 
 export const getSubmissionFilesBatch = (submissionIds: number[]) => {
-  return http.post<{ code: number; message: string; data: Record<number, TaskFile[]> }>(
+  return http8080.post<{ code: number; message: string; data: Record<number, TaskFile[]> }>(
     '/api/case-task-submissions/files/batch',
     { submissionIds }
   )
@@ -250,7 +250,7 @@ export const getSubmissionFilesBatch = (submissionIds: number[]) => {
 // ==================== 任务状态更新 ====================
 
 export const updateTaskStatus = (taskId: number, status: string) => {
-  return http.patch<{ code: number; message: string; data: CaseTask }>(
+  return http8080.patch<{ code: number; message: string; data: CaseTask }>(
     `/api/case-tasks/${taskId}`,
     { status }
   )
@@ -271,25 +271,16 @@ export const taskStatusMap: Record<string, { text: string; type: 'success' | 'wa
 
 // ==================== 阶段配置 ====================
 
-// 阶段任务映射（根据API文档）
 export const stageTaskMap: Record<number, string[]> = {
-  // 阶段1：申请与受理 - TASK_001 至 TASK_002
   1: ['TASK_001', 'TASK_002'],
-  // 阶段2：管理人接管 - TASK_003 至 TASK_007
   2: ['TASK_003', 'TASK_004', 'TASK_005', 'TASK_006', 'TASK_007'],
-  // 阶段3：债权申报与审查 - TASK_008 至 TASK_011
   3: ['TASK_008', 'TASK_009', 'TASK_010', 'TASK_011'],
-  // 阶段4：债权人会议 - TASK_012 至 TASK_013
   4: ['TASK_012', 'TASK_013'],
-  // 阶段5：重整和解及破产宣告 - TASK_014 至 TASK_016
   5: ['TASK_014', 'TASK_015', 'TASK_016'],
-  // 阶段6：财产变价与分配 - TASK_017 至 TASK_019
   6: ['TASK_017', 'TASK_018', 'TASK_019'],
-  // 阶段7：程序终结 - TASK_020 至 TASK_023
   7: ['TASK_020', 'TASK_021', 'TASK_022', 'TASK_023'],
 }
 
-// 任务编码与名称映射
 export const taskCodeNameMap: Record<string, string> = {
   'TASK_001': '提交破产申请材料',
   'TASK_002': '裁定受理并公告',

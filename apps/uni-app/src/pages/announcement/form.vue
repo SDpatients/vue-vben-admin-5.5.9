@@ -142,6 +142,7 @@ import {
 } from '@/api/announcement'
 import { getCaseList } from '@/api/case'
 import { getBaseUrl } from '@/config'
+import { chooseFilePlatform } from '@/utils/chooseFile'
 
 interface CaseOption {
   id: number
@@ -225,30 +226,26 @@ const handleSelectCase = (caseItem: CaseOption) => {
   showCasePicker.value = false
 }
 
-const handleChooseFile = () => {
-  uni.chooseFile({
-    count: 5,
-    type: 'all',
-    extension: ['.doc', '.docx', '.pdf', '.jpg', '.jpeg', '.png', '.txt'],
-    success: (res: any) => {
-      const files = res.tempFiles || []
-      files.forEach((file: any) => {
-        if (fileList.value.length >= 5) {
-          uni.showToast({ title: '最多上传5个文件', icon: 'none' })
-          return
-        }
-        fileList.value.push({
-          name: file.name,
-          size: file.size,
-          path: file.path,
-          file: file,
-        })
+const handleChooseFile = async () => {
+  try {
+    const files = await chooseFilePlatform({
+      count: 5,
+      extension: ['.doc', '.docx', '.pdf', '.jpg', '.jpeg', '.png', '.txt'],
+    })
+    files.forEach((file) => {
+      if (fileList.value.length >= 5) {
+        uni.showToast({ title: '最多上传5个文件', icon: 'none' })
+        return
+      }
+      fileList.value.push({
+        name: file.name,
+        size: file.size,
+        path: file.path,
       })
-    },
-    fail: () => {
-      uni.showToast({ title: '选择文件失败', icon: 'none' })
-    },
-  })
+    })
+  } catch (_e) {
+    uni.showToast({ title: '选择文件失败', icon: 'none' })
+  }
 }
 
 const handleRemoveFile = (index: number) => {

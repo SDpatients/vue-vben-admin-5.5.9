@@ -228,6 +228,7 @@ import {
   type FileStatisticsResponse
 } from '@/api/case'
 import { getBaseUrl } from '@/config'
+import { chooseFilePlatform } from '@/utils/chooseFile'
 import dayjs from 'dayjs'
 
 const caseId = ref('')
@@ -680,22 +681,19 @@ const handleBatchDelete = () => {
   })
 }
 
-const handleUpload = () => {
-  uni.chooseFile({
-    count: 10,
-    type: 'all',
-    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
-    success: (res: any) => {
-      const files = res.tempFiles || []
-      const filePaths = files.map((f: any) => f.path || f.tempFilePath).filter(Boolean)
-      if (filePaths.length > 0) {
-        uploadFiles(filePaths)
-      }
-    },
-    fail: () => {
-      uni.showToast({ title: '选择文件取消', icon: 'none' })
-    },
-  })
+const handleUpload = async () => {
+  try {
+    const files = await chooseFilePlatform({
+      count: 10,
+      extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    })
+    const filePaths = files.map((f) => f.path).filter(Boolean)
+    if (filePaths.length > 0) {
+      uploadFiles(filePaths)
+    }
+  } catch (_e) {
+    uni.showToast({ title: '选择文件取消', icon: 'none' })
+  }
 }
 
 const uploadFiles = (filePaths: string[]) => {

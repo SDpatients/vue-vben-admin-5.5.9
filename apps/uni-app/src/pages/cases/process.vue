@@ -257,14 +257,22 @@
               v-for="file in selectedDataItem.files" 
               :key="file.id"
               class="file-card"
-              @click="previewFile(file)"
             >
               <u-icon name="file-text" size="20" color="#0068E2"></u-icon>
               <view class="file-info">
                 <text class="file-name">{{ file.fileName || file.originalFileName }}</text>
                 <text class="file-size">{{ formatFileSize(file.fileSize) }}</text>
               </view>
-              <u-icon name="eye" size="16" color="#999"></u-icon>
+              <view class="file-actions">
+                <view class="action-btn" @click.stop="previewFile(file)">
+                  <u-icon name="eye" size="18" color="#0068E2"></u-icon>
+                  <text>查看</text>
+                </view>
+                <view class="action-btn" @click.stop="downloadFile(file)">
+                  <u-icon name="download" size="18" color="#52c41a"></u-icon>
+                  <text>下载</text>
+                </view>
+              </view>
             </view>
           </view>
         </scroll-view>
@@ -795,6 +803,7 @@ const onDateChange = (e: any) => {
 
 // 选择文件
 const chooseFile = () => {
+  // #ifdef H5
   uni.chooseFile({
     count: 10,
     success: (res) => {
@@ -804,6 +813,29 @@ const chooseFile = () => {
       uni.showToast({ title: '选择文件失败', icon: 'none' })
     }
   })
+  // #endif
+  // #ifdef MP-WEIXIN
+  uni.chooseMessageFile({
+    count: 10,
+    success: (res) => {
+      uploadFiles.value = [...uploadFiles.value, ...res.tempFiles]
+    },
+    fail: () => {
+      uni.showToast({ title: '选择文件失败', icon: 'none' })
+    }
+  })
+  // #endif
+  // #ifdef APP-PLUS
+  plus.io.chooseFile({
+    multiple: true,
+    maximum: 10,
+    onChoose: (files: any[]) => {
+      uploadFiles.value = [...uploadFiles.value, ...files]
+    },
+  }, () => {
+    uni.showToast({ title: '选择文件失败', icon: 'none' })
+  })
+  // #endif
 }
 
 // 移除文件
@@ -937,6 +969,38 @@ const previewFile = (file: any) => {
     },
     fail: () => {
       uni.showToast({ title: '预览失败', icon: 'none' })
+    }
+  })
+}
+
+// 下载文件
+const downloadFile = (file: any) => {
+  if (!file.id) {
+    uni.showToast({ title: '文件ID不存在', icon: 'none' })
+    return
+  }
+
+  uni.showLoading({ title: '下载中...', mask: true })
+
+  const token = uni.getStorageSync('token')
+  const baseUrl = getBaseUrl()
+  const url = `${baseUrl}${API_PREFIX}/file/download/${file.id}`
+
+  uni.downloadFile({
+    url,
+    header: { Authorization: `Bearer ${token}` },
+    success: (res) => {
+      if (res.statusCode === 200) {
+        uni.hideLoading()
+        uni.showToast({ title: '下载成功', icon: 'success' })
+      } else {
+        uni.hideLoading()
+        uni.showToast({ title: '下载失败', icon: 'none' })
+      }
+    },
+    fail: () => {
+      uni.hideLoading()
+      uni.showToast({ title: '下载失败', icon: 'none' })
     }
   })
 }
@@ -1666,6 +1730,32 @@ const handleBack = () => {
       .file-size {
         font-size: 22rpx;
         color: #999;
+      }
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 16rpx;
+      flex-shrink: 0;
+
+      .action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 8rpx 16rpx;
+        background: #fff;
+        border-radius: 8rpx;
+        min-width: 80rpx;
+
+        &:active {
+          background: #f0f0f0;
+        }
+
+        text {
+          font-size: 20rpx;
+          margin-top: 4rpx;
+        }
       }
     }
   }

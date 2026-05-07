@@ -6,7 +6,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
-import { login as loginApi, getUserInfo as getUserInfoApi, refreshToken as refreshTokenApi, type LoginParams, type LoginResult } from '@/api/auth'
+import { login as loginApi, getUserInfo as getUserInfoApi, refreshToken as refreshTokenApi, logout as logoutApi, type LoginParams, type LoginResult } from '@/api/auth'
 
 interface UserInfo {
   userId: number
@@ -130,12 +130,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = async () => {
-    token.value = ''
-    refreshTokenValue.value = ''
-    userInfo.value = null
-    uni.removeStorageSync('token')
-    uni.removeStorageSync('refreshToken')
-    uni.removeStorageSync('userInfo')
+    try {
+      if (token.value) {
+        await logoutApi()
+      }
+    } catch (_error) {
+    } finally {
+      token.value = ''
+      refreshTokenValue.value = ''
+      userInfo.value = null
+      uni.removeStorageSync('token')
+      uni.removeStorageSync('refreshToken')
+      uni.removeStorageSync('userInfo')
+    }
   }
 
   const fetchUserInfo = async () => {

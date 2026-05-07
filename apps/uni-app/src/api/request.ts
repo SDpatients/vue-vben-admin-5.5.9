@@ -6,6 +6,8 @@
 
 import { getBaseUrl, API_PREFIX } from '@/config'
 
+let isRedirectingToLogin = false
+
 function getBaseUrl8080(): string {
   const baseUrl = getBaseUrl()
   return baseUrl.replace(/:\d+/, ':8080')
@@ -71,8 +73,16 @@ const responseInterceptor = <T>(response: any, showErrorToast: boolean = true): 
         reject(data)
       }
     } else if (statusCode === 401) {
-      uni.removeStorageSync('token')
-      uni.navigateTo({ url: '/pages/login/index' })
+      if (!isRedirectingToLogin) {
+        isRedirectingToLogin = true
+        uni.removeStorageSync('token')
+        uni.navigateTo({
+          url: '/pages/login/index',
+          complete: () => {
+            isRedirectingToLogin = false
+          }
+        })
+      }
       reject(new Error('登录已过期'))
     } else {
       if (showErrorToast) {

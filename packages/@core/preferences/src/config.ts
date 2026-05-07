@@ -26,7 +26,7 @@ const defaultPreferences: Preferences = {
     layout: 'sidebar-nav',
     locale: 'zh-CN',
     loginExpiredMode: 'page',
-    name: '破产管理系统',
+    name: '律师破产案件全流程管理系统',
     preferencesButtonPosition: 'auto',
     watermark: false,
     zIndex: 200,
@@ -63,7 +63,7 @@ const defaultPreferences: Preferences = {
   logo: {
     enable: true,
     fit: 'contain',
-    source: 'https://unpkg.com/@vbenjs/static-source@0.1.7/source/logo-v1.webp',
+    source: '/logo.png',
   },
   navigation: {
     accordion: true,

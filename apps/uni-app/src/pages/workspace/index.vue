@@ -37,7 +37,7 @@
     </view>
 
     <!-- 管理员模块 -->
-    <view class="admin-section">
+    <view v-if="isAdmin" class="admin-section">
       <view class="section-header">
         <text class="title">管理员模块</text>
       </view>
@@ -122,6 +122,7 @@ import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMyCaseStats, getRecentSearches, removeRecentSearch } from '@/api/case'
 import { getPendingCount, getCompletedCount, getOverdueCount } from '@/api/todo'
+import { getUnreadCount } from '@/api/notification'
 import { checkAdmin } from '@/api/auth'
 
 const quickActions = ref([
@@ -179,17 +180,16 @@ const loadStats = async () => {
     const info = uni.getStorageSync('userInfo')
     const userId = info?.userId
     
-    const [caseStatsRes, pendingRes, completedRes, overdueRes] = await Promise.all([
+    const [caseStatsRes, pendingRes, unreadRes] = await Promise.all([
       getMyCaseStats(),
       getPendingCount(userId || 0),
-      getCompletedCount(userId || 0),
-      getOverdueCount(userId || 0),
+      getUnreadCount(),
     ])
 
     stats.value.pendingCases = caseStatsRes?.data?.pendingCases || 0
     stats.value.completedCases = caseStatsRes?.data?.completedCases || 0
     stats.value.pendingTodos = pendingRes?.data || 0
-    stats.value.notifications = (completedRes?.data || 0) + (overdueRes?.data || 0)
+    stats.value.notifications = unreadRes?.data || 0
   } catch (error) {
 }
 }

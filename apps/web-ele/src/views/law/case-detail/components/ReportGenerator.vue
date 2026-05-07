@@ -28,13 +28,31 @@ import { documentTemplatesApi } from '#/api/core/document-templates';
 
 interface Creditor {
   id: number;
+  creditorId: number;
   creditorName: string;
   creditorType: string;
-  claimType: string;
-  declaredAmount: number;
-  confirmedAmount: number;
-  unconfirmedAmount: number;
-  registrationStatus: string;
+  creditorStatus: string | null;
+  contactPhone: string | null;
+  idNumber: string | null;
+  caseNumber: string | null;
+  caseName: string | null;
+  claimType: string | null;
+  accountName: string | null;
+  creditorBankAccount: string | null;
+  bankName: string | null;
+  declaredPrincipal: number | null;
+  declaredInterest: number | null;
+  declaredPenalty: number | null;
+  declaredOtherLosses: number | null;
+  declaredTotalAmount: number | null;
+  confirmedPrincipal: number | null;
+  confirmedInterest: number | null;
+  confirmedPenalty: number | null;
+  confirmedOtherLosses: number | null;
+  confirmedTotalAmount: number | null;
+  reductionAmount: number | null;
+  remarks: string | null;
+  createTime: string | null;
 }
 
 interface ReportTemplate {
@@ -144,53 +162,143 @@ const averageConfirmationRate = computed(() => {
 const mockCreditors: Creditor[] = [
   {
     id: 1,
+    creditorId: 1,
     creditorName: '某某银行',
-    creditorType: '金融机构',
-    claimType: '有担保债权',
-    declaredAmount: 5000000,
-    confirmedAmount: 4800000,
-    unconfirmedAmount: 200000,
-    registrationStatus: 'CONFIRMED',
+    creditorType: 'FINANCIAL_INSTITUTION',
+    creditorStatus: 'CONFIRMED',
+    contactPhone: '13800138001',
+    idNumber: '91110000MA01XXXXXX',
+    caseNumber: 'CASE-2026-001',
+    caseName: '某某破产案',
+    claimType: '担保债权',
+    accountName: '某某银行',
+    creditorBankAccount: '6222000000001',
+    bankName: '中国银行',
+    declaredPrincipal: 4000000,
+    declaredInterest: 500000,
+    declaredPenalty: 250000,
+    declaredOtherLosses: 250000,
+    declaredTotalAmount: 5000000,
+    confirmedPrincipal: 3840000,
+    confirmedInterest: 480000,
+    confirmedPenalty: 240000,
+    confirmedOtherLosses: 240000,
+    confirmedTotalAmount: 4800000,
+    reductionAmount: 200000,
+    remarks: null,
+    createTime: '2026-05-01T10:00:00',
   },
   {
     id: 2,
+    creditorId: 2,
     creditorName: '张三',
-    creditorType: '个人',
+    creditorType: 'NATURAL_PERSON',
+    creditorStatus: 'CONFIRMED',
+    contactPhone: '13800138002',
+    idNumber: '110101199001011234',
+    caseNumber: 'CASE-2026-001',
+    caseName: '某某破产案',
     claimType: '普通债权',
-    declaredAmount: 100000,
-    confirmedAmount: 100000,
-    unconfirmedAmount: 0,
-    registrationStatus: 'CONFIRMED',
+    accountName: '张三',
+    creditorBankAccount: '6222000000002',
+    bankName: '工商银行',
+    declaredPrincipal: 80000,
+    declaredInterest: 10000,
+    declaredPenalty: 5000,
+    declaredOtherLosses: 5000,
+    declaredTotalAmount: 100000,
+    confirmedPrincipal: 80000,
+    confirmedInterest: 10000,
+    confirmedPenalty: 5000,
+    confirmedOtherLosses: 5000,
+    confirmedTotalAmount: 100000,
+    reductionAmount: 0,
+    remarks: null,
+    createTime: '2026-05-02T10:00:00',
   },
   {
     id: 3,
+    creditorId: 3,
     creditorName: '李四',
-    creditorType: '个人',
+    creditorType: 'NATURAL_PERSON',
+    creditorStatus: 'KNOWN',
+    contactPhone: '13800138003',
+    idNumber: '110101199202021234',
+    caseNumber: 'CASE-2026-001',
+    caseName: '某某破产案',
     claimType: '普通债权',
-    declaredAmount: 150000,
-    confirmedAmount: 120000,
-    unconfirmedAmount: 30000,
-    registrationStatus: 'CONFIRMING',
+    accountName: '李四',
+    creditorBankAccount: '6222000000003',
+    bankName: '建设银行',
+    declaredPrincipal: 120000,
+    declaredInterest: 15000,
+    declaredPenalty: 7500,
+    declaredOtherLosses: 7500,
+    declaredTotalAmount: 150000,
+    confirmedPrincipal: 96000,
+    confirmedInterest: 12000,
+    confirmedPenalty: 6000,
+    confirmedOtherLosses: 6000,
+    confirmedTotalAmount: 120000,
+    reductionAmount: 30000,
+    remarks: null,
+    createTime: '2026-05-03T10:00:00',
   },
   {
     id: 4,
+    creditorId: 4,
     creditorName: '某某供应商',
-    creditorType: '企业',
+    creditorType: 'LEGAL_PERSON',
+    creditorStatus: 'KNOWN',
+    contactPhone: '13800138004',
+    idNumber: '91110000MA02XXXXXX',
+    caseNumber: 'CASE-2026-001',
+    caseName: '某某破产案',
     claimType: '普通债权',
-    declaredAmount: 300000,
-    confirmedAmount: 0,
-    unconfirmedAmount: 300000,
-    registrationStatus: 'REVIEWING',
+    accountName: '某某供应商',
+    creditorBankAccount: '6222000000004',
+    bankName: '农业银行',
+    declaredPrincipal: 240000,
+    declaredInterest: 30000,
+    declaredPenalty: 15000,
+    declaredOtherLosses: 15000,
+    declaredTotalAmount: 300000,
+    confirmedPrincipal: 0,
+    confirmedInterest: 0,
+    confirmedPenalty: 0,
+    confirmedOtherLosses: 0,
+    confirmedTotalAmount: 0,
+    reductionAmount: 0,
+    remarks: '待审查',
+    createTime: '2026-05-04T10:00:00',
   },
   {
     id: 5,
+    creditorId: 5,
     creditorName: '王五',
-    creditorType: '个人',
+    creditorType: 'NATURAL_PERSON',
+    creditorStatus: 'CONFIRMED',
+    contactPhone: '13800138005',
+    idNumber: '110101199503031234',
+    caseNumber: 'CASE-2026-001',
+    caseName: '某某破产案',
     claimType: '职工债权',
-    declaredAmount: 50000,
-    confirmedAmount: 50000,
-    unconfirmedAmount: 0,
-    registrationStatus: 'CONFIRMED',
+    accountName: '王五',
+    creditorBankAccount: '6222000000005',
+    bankName: '招商银行',
+    declaredPrincipal: 40000,
+    declaredInterest: 5000,
+    declaredPenalty: 2500,
+    declaredOtherLosses: 2500,
+    declaredTotalAmount: 50000,
+    confirmedPrincipal: 40000,
+    confirmedInterest: 5000,
+    confirmedPenalty: 2500,
+    confirmedOtherLosses: 2500,
+    confirmedTotalAmount: 50000,
+    reductionAmount: 0,
+    remarks: null,
+    createTime: '2026-05-05T10:00:00',
   },
 ];
 
@@ -222,16 +330,34 @@ const fetchCreditors = async (searchParams?: {
     }
 
     const response = await queryCreditorClaimsApi(params);
-    if (response.code === 200 && response.data && Array.isArray(response.data)) {
-      creditors.value = response.data.map((item, index) => ({
-        id: index + 1, // 生成临时 ID
+    if (response.code === 200 && response.data && response.data.list) {
+      creditors.value = response.data.list.map((item: any) => ({
+        id: item.creditorId,
+        creditorId: item.creditorId,
         creditorName: item.creditorName,
         creditorType: item.creditorType,
+        creditorStatus: item.creditorStatus,
+        contactPhone: item.contactPhone,
+        idNumber: item.idNumber,
+        caseNumber: item.caseNumber,
+        caseName: item.caseName,
         claimType: item.claimType,
-        declaredAmount: item.declaredAmount,
-        confirmedAmount: item.confirmedAmount,
-        unconfirmedAmount: item.unconfirmedAmount,
-        registrationStatus: item.registrationStatus,
+        accountName: item.accountName,
+        creditorBankAccount: item.creditorBankAccount,
+        bankName: item.bankName,
+        declaredPrincipal: item.declaredPrincipal,
+        declaredInterest: item.declaredInterest,
+        declaredPenalty: item.declaredPenalty,
+        declaredOtherLosses: item.declaredOtherLosses,
+        declaredTotalAmount: item.declaredTotalAmount,
+        confirmedPrincipal: item.confirmedPrincipal,
+        confirmedInterest: item.confirmedInterest,
+        confirmedPenalty: item.confirmedPenalty,
+        confirmedOtherLosses: item.confirmedOtherLosses,
+        confirmedTotalAmount: item.confirmedTotalAmount,
+        reductionAmount: item.reductionAmount,
+        remarks: item.remarks,
+        createTime: item.createTime,
       }));
     } else {
       ElMessage.warning('未获取到债权人数据，使用模拟数据');
@@ -350,36 +476,28 @@ const generateReportData = () => {
   );
 
   reportData.value = selectedCreditorList.map((creditor) => {
-    // 模拟详细的债权数据（实际应从 API 获取）
-    const declaredPrincipal = creditor.declaredAmount * 0.8;
-    const declaredInterest = creditor.declaredAmount * 0.1;
-    const declaredPenalty = creditor.declaredAmount * 0.05;
-    const declaredOtherLosses = creditor.declaredAmount * 0.05;
-    
-    const confirmedPrincipal = creditor.confirmedAmount * 0.8;
-    const confirmedInterest = creditor.confirmedAmount * 0.1;
-    const confirmedPenalty = creditor.confirmedAmount * 0.05;
-    const confirmedOtherLosses = creditor.confirmedAmount * 0.05;
-    
-    const confirmationRate = creditor.declaredAmount > 0
-      ? (creditor.confirmedAmount / creditor.declaredAmount) * 100
+    const declaredTotalAmount = creditor.declaredTotalAmount || 0;
+    const confirmedTotalAmount = creditor.confirmedTotalAmount || 0;
+    const unconfirmedAmount = declaredTotalAmount - confirmedTotalAmount;
+    const confirmationRate = declaredTotalAmount > 0
+      ? (confirmedTotalAmount / declaredTotalAmount) * 100
       : 0;
 
     return {
       creditorName: creditor.creditorName,
       creditorType: creditor.creditorType,
       claimType: creditor.claimType,
-      declaredPrincipal,
-      declaredInterest,
-      declaredPenalty,
-      declaredOtherLosses,
-      declaredTotalAmount: creditor.declaredAmount,
-      confirmedPrincipal,
-      confirmedInterest,
-      confirmedPenalty,
-      confirmedOtherLosses,
-      confirmedTotalAmount: creditor.confirmedAmount,
-      unconfirmedAmount: creditor.unconfirmedAmount,
+      declaredPrincipal: creditor.declaredPrincipal || 0,
+      declaredInterest: creditor.declaredInterest || 0,
+      declaredPenalty: creditor.declaredPenalty || 0,
+      declaredOtherLosses: creditor.declaredOtherLosses || 0,
+      declaredTotalAmount,
+      confirmedPrincipal: creditor.confirmedPrincipal || 0,
+      confirmedInterest: creditor.confirmedInterest || 0,
+      confirmedPenalty: creditor.confirmedPenalty || 0,
+      confirmedOtherLosses: creditor.confirmedOtherLosses || 0,
+      confirmedTotalAmount,
+      unconfirmedAmount,
       confirmationRate,
     };
   });
@@ -443,7 +561,7 @@ const exportReport = async () => {
         fileName: `${template.name}_${new Date().getTime()}`,
         dataList: reportData.value.map(item => ({
           creditorName: item.creditorName,
-          creditorType: item.creditorType,
+          creditorType: creditorTypeLabelMap[item.creditorType] || item.creditorType,
           claimType: item.claimType,
           declaredPrincipal: item.declaredPrincipal,
           declaredInterest: item.declaredInterest,
@@ -540,6 +658,14 @@ const handleToggleSelection = (selection: any[], row: Creditor) => {
   } else {
     selectedCreditors.value.push(row.id);
   }
+};
+
+// 债权人类型映射
+const creditorTypeLabelMap: Record<string, string> = {
+  NATURAL_PERSON: '自然人',
+  LEGAL_PERSON: '法人',
+  FINANCIAL_INSTITUTION: '金融机构',
+  OTHER: '其他',
 };
 
 // 获取状态标签类型
@@ -702,40 +828,41 @@ watch(
             <ElTableColumn prop="creditorName" label="债权人名称" min-width="150" />
             <ElTableColumn prop="creditorType" label="债权人类型" width="120">
               <template #default="{ row }">
-                <ElTag size="small">{{ row.creditorType }}</ElTag>
+                <ElTag size="small">{{ creditorTypeLabelMap[row.creditorType] || row.creditorType }}</ElTag>
               </template>
             </ElTableColumn>
             <ElTableColumn prop="claimType" label="债权类型" width="120">
               <template #default="{ row }">
-                <ElTag size="small" type="info">{{ row.claimType }}</ElTag>
+                <ElTag size="small" type="info">{{ row.claimType || '-' }}</ElTag>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="declaredAmount" label="申报金额" width="140" align="right">
+            <ElTableColumn prop="declaredTotalAmount" label="申报金额" width="140" align="right">
               <template #default="{ row }">
                 <span class="text-orange-600 font-semibold">
-                  {{ formatAmount(row.declaredAmount) }}
+                  {{ formatAmount(row.declaredTotalAmount || 0) }}
                 </span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="confirmedAmount" label="确认金额" width="140" align="right">
+            <ElTableColumn prop="confirmedTotalAmount" label="确认金额" width="140" align="right">
               <template #default="{ row }">
                 <span class="text-green-600 font-semibold">
-                  {{ formatAmount(row.confirmedAmount) }}
+                  {{ formatAmount(row.confirmedTotalAmount || 0) }}
                 </span>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="unconfirmedAmount" label="未确认金额" width="140" align="right">
+            <ElTableColumn label="未确认金额" width="140" align="right">
               <template #default="{ row }">
                 <span class="text-red-600 font-semibold">
-                  {{ formatAmount(row.unconfirmedAmount) }}
+                  {{ formatAmount((row.declaredTotalAmount || 0) - (row.confirmedTotalAmount || 0)) }}
                 </span>
               </template>
             </ElTableColumn>
             <ElTableColumn label="状态" width="100">
               <template #default="{ row }">
-                <ElTag :type="getStatusTagType(row.registrationStatus)" size="small">
-                  {{ getStatusText(row.registrationStatus) }}
+                <ElTag v-if="row.creditorStatus" :type="getStatusTagType(row.creditorStatus)" size="small">
+                  {{ getStatusText(row.creditorStatus) }}
                 </ElTag>
+                <span v-else class="text-gray-400">-</span>
               </template>
             </ElTableColumn>
           </ElTable>
@@ -849,7 +976,11 @@ watch(
           >
             <ElTableColumn type="index" label="序号" width="60" fixed />
             <ElTableColumn prop="creditorName" label="债权人名称" min-width="150" fixed />
-            <ElTableColumn prop="creditorType" label="债权人类型" width="120" />
+            <ElTableColumn prop="creditorType" label="债权人类型" width="120">
+              <template #default="{ row }">
+                {{ creditorTypeLabelMap[row.creditorType] || row.creditorType }}
+              </template>
+            </ElTableColumn>
             <ElTableColumn prop="claimType" label="债权类型" width="120" />
             
             <ElTableColumn label="申报金额明细" align="center">

@@ -142,11 +142,13 @@
     "expenseManagement": "费用管理",
     "expenseReimbursement": "费用报销",
     "reimbursementList": "报销单列表",
-    "approvalManagement": "审批管理",
-    "documentApproval": "文书审批",
-    "caseApproval": "案件审批",
-    "expenseApproval": "报销批审",
     "templateManagement": "模板管理",
     "userProfile": "个人中心"
+  },
+  "approval": {
+    "title": "审批管理",
+    "documentApproval": "文书审批",
+    "caseApproval": "案件审批",
+    "expenseApproval": "报销批审"
   }
 }

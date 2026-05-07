@@ -79,7 +79,6 @@
       >
         完成
       </button>
-      <button class="edit-btn" @click="handleEdit">编辑</button>
     </view>
   </view>
 </template>

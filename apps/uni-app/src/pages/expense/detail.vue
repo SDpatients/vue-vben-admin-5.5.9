@@ -238,6 +238,7 @@ import {
   type ExpenseReimbursement,
 } from '@/api/expense-reimbursement'
 import dayjs from 'dayjs'
+import { chooseFilePlatform } from '@/utils/chooseFile'
 
 const expenseDetail = ref<ExpenseReimbursement | null>(null)
 const expenseId = ref('')
@@ -375,13 +376,13 @@ const handleDeleteItem = (itemId?: number) => {
   })
 }
 
-const handleUploadAttachment = () => {
-  uni.chooseFile({
-    count: 1,
-    success: async (res: UniApp.ChooseFileSuccessCallbackResult) => {
+const handleUploadAttachment = async () => {
+  try {
+    const files = await chooseFilePlatform({ count: 1 })
+    if (files.length > 0) {
       uni.showLoading({ title: '上传中...' })
       try {
-        await uploadExpenseAttachment(expenseId.value, res.tempFilePaths[0])
+        await uploadExpenseAttachment(expenseId.value, files[0].path)
         uni.showToast({ title: '上传成功', icon: 'success' })
         await loadDetail()
       } catch (error) {
@@ -389,11 +390,10 @@ const handleUploadAttachment = () => {
       } finally {
         uni.hideLoading()
       }
-    },
-    fail: () => {
-      uni.showToast({ title: '选择文件取消', icon: 'none' })
-    },
-  })
+    }
+  } catch (_e) {
+    uni.showToast({ title: '选择文件取消', icon: 'none' })
+  }
 }
 
 const handleDeleteAttachment = (attachmentId: number) => {

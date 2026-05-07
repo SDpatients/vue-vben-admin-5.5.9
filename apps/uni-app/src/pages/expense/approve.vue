@@ -152,6 +152,10 @@ const loadData = async (isRefresh = false) => {
       size: pageSize,
     }
 
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim()
+    }
+
     const res = await getExpenseReimbursementList(params)
 
     const rawList = res.data?.list || []

@@ -256,6 +256,10 @@ const loadData = async (isRefresh = false) => {
       size: pageSize,
     }
 
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim()
+    }
+
     if (filterParams.value.approvalStatus) {
       params.approvalStatus = filterParams.value.approvalStatus
     }

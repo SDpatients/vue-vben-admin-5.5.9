@@ -26,6 +26,8 @@ import {
   formatFileSize,
   getDocumentTypeIcon,
   getDocumentTypeColor,
+  normalizeDocumentType,
+  getDocumentDownloadUrl,
 } from '#/api/core/document-library';
 
 const props = defineProps<{
@@ -48,6 +50,7 @@ const officePreviewMode = ref<'office' | 'download'>('office');
 const officeConfig = ref<DocumentLibraryApi.OfficePreviewConfig | null>(null);
 const officeEditorRef = ref<HTMLElement | null>(null);
 let officeEditor: any = null;
+let blobUrl = ref('');
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -57,29 +60,29 @@ const dialogVisible = computed({
 const canPreview = computed(() => {
   if (!document.value) return false;
   const ext = document.value.fileExtension?.toLowerCase();
-  return ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext || '');
+  return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext || '');
 });
 
 const canOfficePreview = computed(() => {
-  if (!document.value) return false;
-  const ext = document.value.fileExtension?.toLowerCase();
-  return ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext || '');
+  return false;
 });
 
 const fetchDocumentDetail = async () => {
+  console.log('[fetchDocumentDetail] 开始获取文档详情', { documentId: props.documentId });
   if (!props.documentId) return;
 
   loading.value = true;
   try {
     const response = await getDocumentDetailApi(props.documentId);
+    console.log('[fetchDocumentDetail] 文档详情响应', { response });
     if (response) {
       document.value = response;
-      determinePreviewType();
+      await determinePreviewType();
     } else {
       ElMessage.error('获取文档详情失败');
     }
   } catch (error) {
-    console.error('获取文档详情失败:', error);
+    console.error('[fetchDocumentDetail] 获取文档详情失败:', error);
     ElMessage.error('获取文档详情失败');
   } finally {
     loading.value = false;
@@ -159,26 +162,45 @@ const destroyOfficeEditor = () => {
   }
 };
 
-const determinePreviewType = () => {
+const loadPreviewBlob = async (id: number) => {
+  console.log('[loadPreviewBlob] 开始加载预览 Blob', { id });
+  try {
+    const result = await downloadDocumentApi(id);
+    console.log('[loadPreviewBlob] downloadDocumentApi 返回', { blobSize: result.blob?.size, blobType: result.blob?.type, filename: result.filename });
+    if (blobUrl.value) {
+      URL.revokeObjectURL(blobUrl.value);
+    }
+    blobUrl.value = URL.createObjectURL(result.blob);
+    console.log('[loadPreviewBlob] Blob URL 已生成', { blobUrl: blobUrl.value });
+    return blobUrl.value;
+  } catch (error) {
+    console.error('[loadPreviewBlob] 加载预览内容失败:', error);
+    ElMessage.error('加载预览内容失败');
+    return '';
+  }
+};
+
+const determinePreviewType = async () => {
+  console.log('[determinePreviewType] 开始判断预览类型', { documentId: document.value?.id, fileExtension: document.value?.fileExtension });
   if (!document.value) {
     previewType.value = 'unsupported';
     return;
   }
 
   const ext = document.value.fileExtension?.toLowerCase();
+  console.log('[determinePreviewType] 文件扩展名', { ext });
 
   if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext || '')) {
     previewType.value = 'image';
-    previewUrl.value = `/api/lib/documents/${document.value.id}/download`;
+    previewUrl.value = await loadPreviewBlob(document.value.id);
+    console.log('[determinePreviewType] 图片预览 URL', { previewUrl: previewUrl.value });
   } else if (ext === 'pdf') {
     previewType.value = 'iframe';
-    previewUrl.value = `/api/lib/documents/${document.value.id}/download`;
-  } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext || '')) {
-    previewType.value = 'iframe';
-    const fileUrl = encodeURIComponent(`${window.location.origin}/api/lib/documents/${document.value.id}/download`);
-    previewUrl.value = `https://view.officeapps.live.com/op/embed.aspx?src=${fileUrl}`;
+    previewUrl.value = await loadPreviewBlob(document.value.id);
+    console.log('[determinePreviewType] PDF 预览 URL', { previewUrl: previewUrl.value });
   } else {
     previewType.value = 'unsupported';
+    console.log('[determinePreviewType] 不支持预览');
   }
 };
 
@@ -203,7 +225,9 @@ const handleDownload = async () => {
 };
 
 const openInNewTab = () => {
-  if (previewUrl.value) {
+  if (blobUrl.value) {
+    window.open(blobUrl.value, '_blank');
+  } else if (previewUrl.value) {
     window.open(previewUrl.value, '_blank');
   }
 };
@@ -214,13 +238,14 @@ const formatDate = (dateStr: string) => {
 };
 
 const getDocumentTypeTag = (type: string) => {
+  const normalized = normalizeDocumentType(type);
   const typeMap: Record<string, { label: string; type: string }> = {
     WORD: { label: 'Word', type: 'primary' },
     EXCEL: { label: 'Excel', type: 'success' },
     PDF: { label: 'PDF', type: 'danger' },
     OTHER: { label: '其他', type: 'info' },
   };
-  return typeMap[type] || typeMap.OTHER;
+  return typeMap[normalized] || typeMap.OTHER;
 };
 
 watch(
@@ -232,6 +257,11 @@ watch(
       destroyOfficeEditor();
       officeConfig.value = null;
       officePreviewMode.value = 'office';
+      if (blobUrl.value) {
+        URL.revokeObjectURL(blobUrl.value);
+        blobUrl.value = '';
+      }
+      previewUrl.value = '';
     }
   },
   { immediate: true }
@@ -267,6 +297,10 @@ watch(activeTab, (newVal) => {
 
 onUnmounted(() => {
   destroyOfficeEditor();
+  if (blobUrl.value) {
+    URL.revokeObjectURL(blobUrl.value);
+    blobUrl.value = '';
+  }
   previewUrl.value = '';
 });
 </script>
@@ -341,9 +375,12 @@ onUnmounted(() => {
               <template v-else>
                 <div class="unsupported-preview">
                   <Icon icon="lucide:file-x" class="text-6xl text-gray-400 mb-4" />
-                  <p class="text-lg text-gray-600 mb-2">暂不支持预览此类型文档</p>
-                  <p class="text-sm text-gray-400 mb-4">
+                  <p class="text-lg text-gray-600 mb-2">此文件类型不支持在线预览</p>
+                  <p class="text-sm text-gray-400 mb-2">
                     文件类型: {{ document.fileExtension?.toUpperCase() || '未知' }}
+                  </p>
+                  <p class="text-sm text-orange-500 mb-4">
+                    仅支持 PDF 和图片格式（PNG、JPG、GIF 等）在线预览，其他文件请下载后查看
                   </p>
                   <ElButton type="primary" @click="handleDownload">
                     <Icon icon="lucide:download" class="mr-1" />

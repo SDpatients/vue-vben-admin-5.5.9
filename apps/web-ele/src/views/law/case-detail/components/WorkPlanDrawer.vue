@@ -52,6 +52,7 @@ interface WorkPlanInfo {
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -343,7 +344,7 @@ defineExpose({
               <span class="title">工作计划管理</span>
             </div>
             <div class="header-right">
-              <ElButton type="primary" @click="handleAddWorkPlan">
+              <ElButton v-if="!isCaseArchived" type="primary" @click="handleAddWorkPlan">
                 <Icon icon="lucide:plus" class="mr-1" />
                 新增工作计划
               </ElButton>
@@ -483,6 +484,7 @@ defineExpose({
                     查看详情
                   </ElButton>
                   <ElButton
+                    v-if="!isCaseArchived"
                     type="danger"
                     size="small"
                     @click.stop="handleDeleteWorkPlan(row)"

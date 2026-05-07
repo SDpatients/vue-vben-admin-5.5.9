@@ -44,6 +44,7 @@ import {
 
 const props = defineProps<{
   caseId: string;
+  isCaseArchived?: boolean;
 }>();
 
 const loading = ref(false);
@@ -593,11 +594,12 @@ onUnmounted(() => {
           </ElTag>
         </div>
         <div class="flex space-x-2">
-          <ElButton type="success" @click="openMobileUploadDialog">
+          <ElButton v-if="!isCaseArchived" type="success" @click="openMobileUploadDialog">
             <Icon icon="lucide:smartphone" class="mr-1" />
             手机上传
           </ElButton>
           <ElUpload
+            v-if="!isCaseArchived"
             :show-file-list="false"
             :before-upload="handleUpload"
             :disabled="uploadLoading"
@@ -683,6 +685,7 @@ onUnmounted(() => {
             下载
           </ElButton>
           <ElButton
+            v-if="!isCaseArchived"
             link
             type="primary"
             size="small"
@@ -692,6 +695,7 @@ onUnmounted(() => {
             重命名
           </ElButton>
           <ElPopconfirm
+            v-if="!isCaseArchived"
             title="确定要删除该附件吗？"
             @confirm="handleDelete(scope.row.id)"
           >
