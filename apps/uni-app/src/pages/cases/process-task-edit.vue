@@ -104,6 +104,7 @@ import {
   type CaseTask,
   type CaseTaskDetail 
 } from '@/api/process'
+import { getPageParam } from '@/utils/pageParam'
 const caseId = ref('')
 const taskId = ref('')
 const mode = ref<'add' | 'edit' | 'view'>('add')
@@ -131,14 +132,11 @@ const pageTitle = computed(() => {
 })
 
 onMounted(() => {
-const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const options = currentPage.options || {}
-  
-  caseId.value = options.caseId || ''
-  taskId.value = options.taskId || ''
-  mode.value = options.mode || 'add'
-if (mode.value !== 'add' && taskId.value) {
+  caseId.value = getPageParam('caseId')
+  taskId.value = getPageParam('taskId')
+  const modeParam = getPageParam('mode')
+  mode.value = (modeParam as 'add' | 'edit' | 'view') || 'add'
+  if (mode.value !== 'add' && taskId.value) {
     loadTaskDetail()
   }
 })

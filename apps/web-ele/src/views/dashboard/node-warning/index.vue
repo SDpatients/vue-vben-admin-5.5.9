@@ -547,6 +547,21 @@ onMounted(() => {
     </div>
 
     <ElAlert
+      title="测试提示"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="mb-4"
+    >
+      <template #default>
+        <div class="testing-alert-content">
+          <Icon icon="lucide:flask-conical" :size="16" class="testing-alert-icon" />
+          <strong>该功能尚在测试中，仅供预览请勿使用</strong>
+        </div>
+      </template>
+    </ElAlert>
+
+    <ElAlert
       title="预警说明"
       type="info"
       :closable="false"
@@ -1087,6 +1102,26 @@ onMounted(() => {
 
 .mb-4 {
   margin-bottom: 20px;
+}
+
+.testing-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6a23c;
+}
+
+.testing-alert-icon {
+  animation: testingAlertPulse 2s ease-in-out infinite;
+}
+
+@keyframes testingAlertPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .alert-content {

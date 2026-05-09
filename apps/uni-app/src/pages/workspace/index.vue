@@ -124,7 +124,6 @@ import { getMyCaseStats, getRecentSearches, removeRecentSearch } from '@/api/cas
 import { getPendingCount, getCompletedCount, getOverdueCount } from '@/api/todo'
 import { getUnreadCount } from '@/api/notification'
 import { checkAdmin } from '@/api/auth'
-
 const quickActions = ref([
   { id: 'todo', icon: '📋', label: '待办事项', action: 'todo', iconClass: 'todo' },
   { id: 'cases', icon: '📁', label: '案件管理', action: 'cases', iconClass: 'case' },
@@ -164,22 +163,32 @@ onShow(() => {
   loadRecentSearches()
 })
 
-const loadUserInfo = () => {
+const loadUserInfo = async () => {
   const info = uni.getStorageSync('userInfo')
   if (info) {
     userInfo.value = info
-    // 检查是否为管理员
     const roles = info.roles || []
     isAdmin.value = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')
+  }
+  try {
+    const adminRes = await checkAdmin()
+    if (adminRes?.data) {
+      isAdmin.value = adminRes.data.isAdmin || adminRes.data.isSuperAdmin || false
+      userInfo.value = {
+        ...userInfo.value,
+        roles: adminRes.data.roles || [],
+        isAdmin: adminRes.data.isAdmin,
+      }
+    }
+  } catch (_error) {
   }
 }
 
 const loadStats = async () => {
   try {
-    // 获取当前登录用户信息
     const info = uni.getStorageSync('userInfo')
     const userId = info?.userId
-    
+
     const [caseStatsRes, pendingRes, unreadRes] = await Promise.all([
       getMyCaseStats(),
       getPendingCount(userId || 0),
@@ -190,8 +199,8 @@ const loadStats = async () => {
     stats.value.completedCases = caseStatsRes?.data?.completedCases || 0
     stats.value.pendingTodos = pendingRes?.data || 0
     stats.value.notifications = unreadRes?.data || 0
-  } catch (error) {
-}
+  } catch (_error) {
+  }
 }
 
 const getGreeting = () => {

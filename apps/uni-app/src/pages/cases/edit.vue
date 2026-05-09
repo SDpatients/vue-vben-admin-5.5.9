@@ -151,6 +151,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { getCaseDetail, updateCase, type UpdateCaseParams } from '@/api/case'
+import { getPageParam } from '@/utils/pageParam'
 
 const caseId = ref('')
 const submitting = ref(false)
@@ -191,9 +192,7 @@ const getProgressLabel = (value?: string) => {
 }
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
 
   if (caseId.value) {
     loadCaseDetail()

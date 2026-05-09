@@ -31,10 +31,12 @@ vi.mock('element-plus', () => ({
   ElMessage: { success: vi.fn(), warning: vi.fn(), error: vi.fn() },
 }));
 
-// Mock Icon 组件
-vi.mock('@iconify/vue', () => ({
-  Icon: { name: 'Icon', template: '<span class="icon"><slot /></span>' },
-}));
+// Mock Icon 组件 - Icon 既可以是组件，也可以作为函数调用
+vi.mock('@iconify/vue', () => {
+  const iconFn = () => ({});
+  (iconFn as any).template = '<span class="icon"><slot /></span>';
+  return { Icon: iconFn };
+});
 
 // Mock ApprovalCard 组件
 vi.mock('#/components/ApprovalCard.vue', () => ({
@@ -195,6 +197,10 @@ describe('ApprovalList', () => {
         plugins: [pinia],
       },
     });
+
+    // 等待 onMounted 中的 loadApprovals 完成后再设置初始数据
+    await wrapper.vm.$nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // 设置初始数据
     wrapper.vm.approvals = [

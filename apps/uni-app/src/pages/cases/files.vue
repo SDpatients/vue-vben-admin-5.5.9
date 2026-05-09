@@ -227,8 +227,11 @@ import {
   type FileItem,
   type FileStatisticsResponse
 } from '@/api/case'
+import { getPageParam } from '@/utils/pageParam'
 import { getBaseUrl } from '@/config'
+
 import { chooseFilePlatform } from '@/utils/chooseFile'
+
 import dayjs from 'dayjs'
 
 const caseId = ref('')
@@ -301,9 +304,7 @@ watch(statusFilter, () => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
 
   if (caseId.value) {
     loadFiles()

@@ -92,11 +92,6 @@
         <text>附件 ({{ attachments.length }})</text>
       </view>
       
-      <!-- 调试信息：显示附件数据 -->
-      <view style="padding: 10rpx; background: #f0f0f0; font-size: 20rpx; color: #666;">
-        <text>调试: attachments={{ attachments.length }}, image={{ imageAttachments.length }}, nonImage={{ nonImageAttachments.length }}</text>
-      </view>
-      
       <!-- 图片附件网格显示 -->
       <view class="image-grid" v-if="imageAttachments.length > 0">
         <view
@@ -122,7 +117,6 @@
           v-for="(file, index) in nonImageAttachments"
           :key="`file_${file.id || index}`"
           class="attachment-item"
-          @click="handlePreviewFile(file)"
         >
           <view class="file-icon">
             <text class="file-ext">{{ file.fileExtension?.toUpperCase() || 'FILE' }}</text>
@@ -131,8 +125,13 @@
             <text class="file-name">{{ file.originalFileName || '未知文件' }}</text>
             <text class="file-size">{{ formatFileSize(file.fileSize) }}</text>
           </view>
-          <view class="file-action">
-            <text class="action-text">查看</text>
+          <view class="file-actions">
+            <view class="action-btn view" @click="handlePreviewFile(file)">
+              <text class="action-text">查看</text>
+            </view>
+            <view class="action-btn download" @click="handleDownloadFile(file)">
+              <text class="action-text">下载</text>
+            </view>
           </view>
         </view>
       </view>
@@ -190,7 +189,9 @@ import {
   getAnnouncementStatusColor,
   formatFileSize,
 } from '@/api/announcement'
+import { getPageParam } from '@/utils/pageParam'
 import { getBaseUrl } from '@/config'
+
 import dayjs from 'dayjs'
 
 const announcement = ref<Announcement | null>(null)
@@ -210,7 +211,6 @@ const imageAttachments = computed(() => {
     const ext = f.fileExtension?.toLowerCase()
     return ext && imageExts.includes(ext)
   })
-  console.log('[imageAttachments] 计算属性触发, 总数:', attachments.value.length, '图片附件:', result.length, result)
   return result
 })
 
@@ -221,7 +221,6 @@ const nonImageAttachments = computed(() => {
     const ext = f.fileExtension?.toLowerCase()
     return !ext || !imageExts.includes(ext)
   })
-  console.log('[nonImageAttachments] 计算属性触发, 非图片附件:', result.length, result)
   return result
 })
 
@@ -241,10 +240,8 @@ const actionSheetActions = computed(() => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  announcementId.value = currentPage.options?.announcementId || ''
-  caseId.value = currentPage.options?.caseId || ''
+  announcementId.value = getPageParam('announcementId')
+  caseId.value = getPageParam('caseId') || ''
 
   if (announcementId.value) {
     loadDetail()
@@ -256,57 +253,38 @@ onMounted(() => {
 const loadDetail = async () => {
   loading.value = true
   try {
-    console.log('[loadDetail] 开始加载公告详情, announcementId:', announcementId.value)
-    
     const [detailRes, attachmentRes] = await Promise.all([
       getAnnouncementDetail(Number(announcementId.value)),
-      getAnnouncementAttachments(Number(announcementId.value)).catch((err) => {
-        console.error('[loadDetail] getAnnouncementAttachments 请求失败:', err)
-        return null
-      }),
+      getAnnouncementAttachments(Number(announcementId.value)).catch(() => null),
     ])
-
-    console.log('[loadDetail] detailRes:', detailRes)
-    console.log('[loadDetail] attachmentRes:', attachmentRes)
 
     if (detailRes.code === 200 && detailRes.data) {
       announcement.value = detailRes.data
-      console.log('[loadDetail] announcement 设置成功, attachments 字段:', announcement.value?.attachments)
       uni.setStorageSync(getCacheKey(announcementId.value), {
         data: detailRes.data,
         timestamp: Date.now(),
       })
       recordView()
     } else {
-      console.warn('[loadDetail] detailRes 响应异常，尝试加载缓存')
       loadFromCache()
     }
 
-    // 解析附件数据：优先使用公告attachments字段中的文件ID
     let attachmentList: AnnouncementAttachment[] = []
     
-    // 方式1: 尝试从附件列表API获取
     if (attachmentRes && attachmentRes.code === 200 && Array.isArray(attachmentRes.data) && attachmentRes.data.length > 0) {
-      console.log('[loadDetail] 使用附件列表API返回的数据')
       attachmentList = attachmentRes.data
     }
     
-    // 方式2: 如果API没有返回数据，从公告的attachments字段解析文件ID
     if (attachmentList.length === 0 && announcement.value?.attachments) {
-      console.log('[loadDetail] 附件列表API无数据，尝试从公告的attachments字段解析')
       try {
         const parsed = typeof announcement.value.attachments === 'string' 
           ? JSON.parse(announcement.value.attachments)
           : announcement.value.attachments
         
-        console.log('[loadDetail] JSON.parse 结果:', parsed)
-        
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // 获取文件详情
           const fileDetails: AnnouncementAttachment[] = []
           for (const fileId of parsed) {
             try {
-              console.log('[loadDetail] 获取文件详情, fileId:', fileId)
               const baseUrl = getBaseUrl()
               const token = uni.getStorageSync('token')
               const fileInfo = await new Promise<any>((resolve, reject) => {
@@ -316,52 +294,39 @@ const loadDetail = async () => {
                     Authorization: `Bearer ${token}`,
                   },
                   success: (res) => {
-                    console.log('[loadDetail] 文件详情请求成功, res:', res.data)
                     resolve(res.data)
                   },
                   fail: (err) => {
-                    console.error('[loadDetail] 文件详情请求失败:', err)
                     reject(err)
                   },
                 })
               })
               if (fileInfo.code === 200 && fileInfo.data) {
-                console.log('[loadDetail] 文件详情获取成功:', fileInfo.data)
                 fileDetails.push(fileInfo.data)
               }
-            } catch (e) {
-              console.error('[loadDetail] 获取文件详情异常:', e)
+            } catch (_e) {
             }
           }
-          console.log('[loadDetail] 最终解析的附件列表:', fileDetails)
           attachmentList = fileDetails
-        } else {
-          console.log('[loadDetail] parsed 不是有效数组')
         }
-      } catch (e) {
-        console.error('[loadDetail] 解析附件字段异常:', e)
+      } catch (_e) {
       }
     }
     
-    console.log('[loadDetail] 最终 attachmentList:', attachmentList)
     attachments.value = attachmentList
     
-    // 下载图片附件
     if (attachmentList.length > 0) {
       await loadImageUrls(attachmentList)
     }
-  } catch (error) {
-    console.error('[loadDetail] 加载详情异常:', error)
+  } catch (_error) {
     loadFromCache()
   } finally {
     loading.value = false
-    console.log('[loadDetail] 加载完成')
   }
 }
 
 // 下载图片附件（使用 uni.downloadFile 携带 Authorization 请求头）
 const loadImageUrls = async (files: AnnouncementAttachment[]) => {
-  console.log('[loadImageUrls] 开始下载图片, 数量:', files.length)
   const token = uni.getStorageSync('token')
   const baseUrl = getBaseUrl()
   
@@ -371,14 +336,11 @@ const loadImageUrls = async (files: AnnouncementAttachment[]) => {
     return ext && imageExts.includes(ext)
   })
   
-  console.log('[loadImageUrls] 图片文件:', imageFiles)
-  
   for (const file of imageFiles) {
     if (!file.id) continue
     
     try {
       const previewUrl = `${baseUrl}/api/v1/file/preview/${file.id}`
-      console.log('[loadImageUrls] 下载图片, fileId:', file.id, 'url:', previewUrl)
       
       const downloadRes = await new Promise<UniApp.DownloadSuccessCallbackResult>((resolve, reject) => {
         uni.downloadFile({
@@ -387,11 +349,9 @@ const loadImageUrls = async (files: AnnouncementAttachment[]) => {
             Authorization: `Bearer ${token}`,
           },
           success: (res) => {
-            console.log('[loadImageUrls] 下载成功, statusCode:', res.statusCode, 'tempFilePath:', res.tempFilePath)
             resolve(res)
           },
           fail: (err) => {
-            console.error('[loadImageUrls] 下载失败:', err)
             reject(err)
           },
         })
@@ -399,14 +359,10 @@ const loadImageUrls = async (files: AnnouncementAttachment[]) => {
       
       if (downloadRes.statusCode === 200) {
         imageUrls.value[file.id] = downloadRes.tempFilePath
-        console.log('[loadImageUrls] 图片URL设置成功, fileId:', file.id, 'url:', downloadRes.tempFilePath)
       }
-    } catch (error) {
-      console.error('[loadImageUrls] 下载图片异常:', error)
+    } catch (_error) {
     }
   }
-  
-  console.log('[loadImageUrls] 所有图片下载完成, imageUrls:', imageUrls.value)
 }
 
 const loadFromCache = () => {
@@ -529,33 +485,147 @@ const handleBack = () => {
 
 // 获取图片预览URL（使用下载后的本地临时路径）
 const getImagePreviewUrl = (file: AnnouncementAttachment): string => {
-  console.log('[getImagePreviewUrl] fileId:', file.id, 'localUrl:', imageUrls.value[file.id])
-  
   if (!file.id) {
-    console.warn('[getImagePreviewUrl] 文件ID不存在')
     return ''
   }
   
-  // 优先使用已下载的本地临时路径
   const localUrl = imageUrls.value[file.id]
   if (localUrl) {
-    console.log('[getImagePreviewUrl] 使用本地临时路径:', localUrl)
     return localUrl
   }
   
-  // 如果还没有下载，返回空（等待 loadImageUrls 完成后再显示）
-  console.log('[getImagePreviewUrl] 图片尚未下载，返回空')
   return ''
 }
 
-// 图片加载成功处理
-const handleImageLoad = (fileId: number) => {
-  console.log('[handleImageLoad] 图片加载成功, fileId:', fileId)
+const handleImageLoad = (_fileId: number) => {
 }
 
-// 图片加载失败处理
-const handleImageError = (fileId: number, e: any) => {
-  console.error('[handleImageError] 图片加载失败, fileId:', fileId, 'error:', e)
+const handleImageError = (_fileId: number, _e: any) => {
+}
+
+// 下载文件
+const handleDownloadFile = async (file: AnnouncementAttachment) => {
+  if (!file.id && !file.filePath) {
+    uni.showToast({ title: '文件信息不存在', icon: 'none' })
+    return
+  }
+
+  const baseUrl = getBaseUrl()
+  const token = uni.getStorageSync('token')
+
+  // 构建下载URL：优先使用fileId，其次使用filePath
+  let downloadUrl = ''
+  if (file.id) {
+    downloadUrl = `${baseUrl}/api/v1/file/download/${file.id}`
+  } else if (file.filePath) {
+    const encodedFilePath = encodeURIComponent(file.filePath)
+    downloadUrl = `${baseUrl}/api/v1/file/download-by-path?filePath=${encodedFilePath}`
+  }
+
+  if (!downloadUrl) {
+    uni.showToast({ title: '下载链接无效', icon: 'none' })
+    return
+  }
+
+  uni.showLoading({ title: '下载中...', mask: true })
+
+  try {
+    const downloadRes = await new Promise<UniApp.DownloadSuccessCallbackResult>((resolve, reject) => {
+      uni.downloadFile({
+        url: downloadUrl,
+        header: {
+          Authorization: `Bearer ${token}`,
+        },
+        success: (res) => {
+          resolve(res)
+        },
+        fail: (err) => {
+          reject(err)
+        },
+      })
+    })
+
+    if (downloadRes.statusCode === 200) {
+      const tempFilePath = downloadRes.tempFilePath
+      const fileName = file.originalFileName || `文件_${Date.now()}`
+
+      // #ifdef H5
+      // H5端：创建a标签触发下载
+      const link = document.createElement('a')
+      link.href = tempFilePath
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      uni.showToast({ title: '下载成功', icon: 'success' })
+      // #endif
+
+      // #ifndef H5
+      // 非H5端（小程序、APP）：保存到本地
+      const fileExt = file.fileExtension?.toLowerCase() || ''
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+
+      if (imageExts.includes(fileExt)) {
+        // 图片文件保存到相册
+        uni.saveImageToPhotosAlbum({
+          filePath: tempFilePath,
+          success: () => {
+            uni.showToast({ title: '已保存到相册', icon: 'success' })
+          },
+          fail: (err: any) => {
+            if (err.errMsg?.includes('auth deny')) {
+              uni.showModal({
+                title: '提示',
+                content: '需要您授权保存图片到相册',
+                confirmText: '去授权',
+                success: (modalRes) => {
+                  if (modalRes.confirm) {
+                    uni.openSetting({
+                      success: (settingRes: any) => {
+                        if (settingRes.authSetting['scope.writePhotosAlbum']) {
+                          uni.saveImageToPhotosAlbum({
+                            filePath: tempFilePath,
+                            success: () => {
+                              uni.showToast({ title: '已保存到相册', icon: 'success' })
+                            },
+                            fail: () => {
+                              uni.showToast({ title: '保存失败', icon: 'none' })
+                            },
+                          })
+                        }
+                      },
+                    })
+                  }
+                },
+              })
+            } else {
+              uni.showToast({ title: '保存失败', icon: 'none' })
+            }
+          },
+        })
+      } else {
+        // 非图片文件：使用 uni.openDocument 打开，用户可自行保存
+        uni.openDocument({
+          filePath: tempFilePath,
+          showMenu: true,
+          fileType: fileExt as any,
+          success: () => {
+            uni.showToast({ title: '文件已打开，可点击右上角保存', icon: 'none' })
+          },
+          fail: (err: any) => {
+            uni.showToast({ title: '文件打开失败', icon: 'none' })
+          },
+        })
+      }
+      // #endif
+    } else {
+      uni.showToast({ title: '文件下载失败', icon: 'none' })
+    }
+  } catch (error) {
+    uni.showToast({ title: '下载失败，请重试', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 const handlePreviewFile = (file: AnnouncementAttachment) => {
@@ -967,16 +1037,40 @@ const formatDateTime = (date?: string) => {
         }
       }
 
-      .file-action {
+      .file-actions {
+        display: flex;
         flex-shrink: 0;
         margin-left: 16rpx;
+        gap: 12rpx;
 
-        .action-text {
-          font-size: 26rpx;
-          color: #0068E2;
+        .action-btn {
           padding: 8rpx 20rpx;
-          border: 1rpx solid #0068E2;
           border-radius: 8rpx;
+
+          &.view {
+            border: 1rpx solid #0068E2;
+
+            .action-text {
+              color: #0068E2;
+            }
+          }
+
+          &.download {
+            background: #0068E2;
+            border: 1rpx solid #0068E2;
+
+            .action-text {
+              color: #fff;
+            }
+          }
+
+          &:active {
+            opacity: 0.7;
+          }
+
+          .action-text {
+            font-size: 26rpx;
+          }
         }
       }
     }

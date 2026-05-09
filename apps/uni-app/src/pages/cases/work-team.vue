@@ -200,7 +200,9 @@ import {
   updateTeamMemberApi,
   removeTeamMemberApi,
 } from '@/api/work-team'
+import { getPageParam } from '@/utils/pageParam'
 import type { WorkTeamApi } from '@/api/work-team'
+
 import { getUserList } from '@/api/case'
 
 const loading = ref(false)
@@ -266,9 +268,7 @@ const selectedPermissionName = computed(() => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
   if (caseId.value) {
     loadData()
   }

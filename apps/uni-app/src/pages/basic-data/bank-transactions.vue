@@ -202,6 +202,7 @@
 import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import dayjs from 'dayjs'
 import { getBankAccountDetail, getBankAccountTransactions, deleteBankTransaction, type BankTransactionItem } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 
 const accountId = ref<number>(0)
 const accountInfo = ref<any>({})
@@ -281,9 +282,7 @@ const filteredOutflow = computed(() => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   if (id) {
     accountId.value = parseInt(id)

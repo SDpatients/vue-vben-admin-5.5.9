@@ -1,4 +1,4 @@
-import { http8080, getBaseUrl8080 } from './request'
+import http, { getBaseUrl } from './request'
 import { API_PREFIX } from '@/config'
 
 export interface CaseTask {
@@ -48,21 +48,21 @@ export const getCaseTasks = (params: {
   page?: number
   size?: number
 }) => {
-  return http8080.get<{ code: number; message: string; data: PageResponse<CaseTask> }>(
-    '/api/case-tasks',
+  return http.get<{ code: number; message: string; data: PageResponse<CaseTask> }>(
+    '/case-tasks',
     params
   )
 }
 
 export const getCaseTaskById = (id: number) => {
-  return http8080.get<{ code: number; message: string; data: CaseTaskDetail }>(
-    `/api/case-tasks/${id}`
+  return http.get<{ code: number; message: string; data: CaseTaskDetail }>(
+    `/case-tasks/${id}`
   )
 }
 
 export const addCaseTask = (data: Partial<CaseTask>) => {
-  return http8080.post<{ code: number; message: string; data: CaseTask }>(
-    '/api/case-tasks',
+  return http.post<{ code: number; message: string; data: CaseTask }>(
+    '/case-tasks',
     data
   )
 }
@@ -71,28 +71,28 @@ export const updateCaseTask = (id: number, data: {
   taskDescription?: string
   status?: string
 }) => {
-  return http8080.patch<{ code: number; message: string; data: CaseTask }>(
-    `/api/case-tasks/${id}`,
+  return http.patch<{ code: number; message: string; data: CaseTask }>(
+    `/case-tasks/${id}`,
     data
   )
 }
 
 export const deleteCaseTask = (id: number) => {
-  return http8080.delete<{ code: number; message: string; data: null }>(
-    `/api/case-tasks/${id}`
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/case-tasks/${id}`
   )
 }
 
 export const getTaskFiles = (taskId: number) => {
-  return http8080.get<{ code: number; message: string; data: TaskFile[] }>(
-    `/api/case-tasks/${taskId}/files`
+  return http.get<{ code: number; message: string; data: TaskFile[] }>(
+    `/case-tasks/${taskId}/files`
   )
 }
 
 export const uploadTaskFile = (taskId: number, filePath: string, fileName: string, description?: string) => {
   return new Promise<{ code: number; message: string; data: TaskFile }>((resolve, reject) => {
     uni.uploadFile({
-      url: `${getBaseUrl8080()}${API_PREFIX}/api/case-tasks/${taskId}/files`,
+      url: `${getBaseUrl()}${API_PREFIX}/case-tasks/${taskId}/files`,
       filePath,
       name: 'file',
       formData: description ? { description } : undefined,
@@ -117,13 +117,13 @@ export const uploadTaskFile = (taskId: number, filePath: string, fileName: strin
 }
 
 export const deleteTaskFile = (taskId: number, fileId: number) => {
-  return http8080.delete<{ code: number; message: string; data: null }>(
-    `/api/case-tasks/${taskId}/files/${fileId}`
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/case-tasks/${taskId}/files/${fileId}`
   )
 }
 
 export const getFilePreviewUrl = (fileId: number) => {
-  return `${getBaseUrl8080()}${API_PREFIX}/api/case-tasks/files/preview/${fileId}`
+  return `${getBaseUrl()}${API_PREFIX}/case-tasks/files/preview/${fileId}`
 }
 
 // ==================== 案件提交记录 API ====================
@@ -142,14 +142,14 @@ export interface SubmissionData {
 }
 
 export const getCaseTaskSubmissions = (taskId: number) => {
-  return http8080.get<{ code: number; message: string; data: SubmissionData[] }>(
-    `/api/case-task-submissions/task/${taskId}`
+  return http.get<{ code: number; message: string; data: SubmissionData[] }>(
+    `/case-task-submissions/task/${taskId}`
   )
 }
 
 export const getSubmissionById = (id: number) => {
-  return http8080.get<{ code: number; message: string; data: SubmissionData }>(
-    `/api/case-task-submissions/${id}`
+  return http.get<{ code: number; message: string; data: SubmissionData }>(
+    `/case-task-submissions/${id}`
   )
 }
 
@@ -160,30 +160,30 @@ export const createSubmission = (data: {
   submissionType: string
   createTime?: string
 }) => {
-  return http8080.post<{ code: number; message: string; data: { submissionId: number } }>(
-    '/api/case-task-submissions',
+  return http.post<{ code: number; message: string; data: { submissionId: number } }>(
+    '/case-task-submissions',
     data
   )
 }
 
 export const updateSubmission = (id: number, data: Partial<SubmissionData>) => {
-  return http8080.put<{ code: number; message: string; data: SubmissionData }>(
-    `/api/case-task-submissions/${id}`,
+  return http.put<{ code: number; message: string; data: SubmissionData }>(
+    `/case-task-submissions/${id}`,
     data
   )
 }
 
 export const deleteSubmission = (id: number) => {
-  return http8080.delete<{ code: number; message: string; data: null }>(
-    `/api/case-task-submissions/${id}`
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/case-task-submissions/${id}`
   )
 }
 
 // ==================== 提交文件 API ====================
 
 export const getSubmissionFiles = (submissionId: number) => {
-  return http8080.get<{ code: number; message: string; data: TaskFile[] }>(
-    `/api/case-task-submissions/${submissionId}/files`
+  return http.get<{ code: number; message: string; data: TaskFile[] }>(
+    `/case-task-submissions/${submissionId}/files`
   )
 }
 
@@ -199,7 +199,7 @@ export const uploadSubmissionFile = (
     if (sortOrder !== undefined) formData.sortOrder = String(sortOrder)
 
     uni.uploadFile({
-      url: `${getBaseUrl8080()}${API_PREFIX}/api/case-task-submissions/${submissionId}/files`,
+      url: `${getBaseUrl()}${API_PREFIX}/case-task-submissions/${submissionId}/files`,
       filePath,
       name: 'file',
       formData,
@@ -224,8 +224,8 @@ export const uploadSubmissionFile = (
 }
 
 export const deleteSubmissionFile = (submissionId: number, fileId: number) => {
-  return http8080.delete<{ code: number; message: string; data: null }>(
-    `/api/case-task-submissions/${submissionId}/files/${fileId}`
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/case-task-submissions/${submissionId}/files/${fileId}`
   )
 }
 
@@ -234,15 +234,15 @@ export const deleteSubmissionFile = (submissionId: number, fileId: number) => {
 export const createSubmissionBatch = (data: {
   caseTaskIds: number[]
 }) => {
-  return http8080.post<{ code: number; message: string; data: Record<number, SubmissionData[]> }>(
-    '/api/case-task-submissions/latest/batch',
+  return http.post<{ code: number; message: string; data: Record<number, SubmissionData[]> }>(
+    '/case-task-submissions/latest/batch',
     data
   )
 }
 
 export const getSubmissionFilesBatch = (submissionIds: number[]) => {
-  return http8080.post<{ code: number; message: string; data: Record<number, TaskFile[]> }>(
-    '/api/case-task-submissions/files/batch',
+  return http.post<{ code: number; message: string; data: Record<number, TaskFile[]> }>(
+    '/case-task-submissions/files/batch',
     { submissionIds }
   )
 }
@@ -250,8 +250,8 @@ export const getSubmissionFilesBatch = (submissionIds: number[]) => {
 // ==================== 任务状态更新 ====================
 
 export const updateTaskStatus = (taskId: number, status: string) => {
-  return http8080.patch<{ code: number; message: string; data: CaseTask }>(
-    `/api/case-tasks/${taskId}`,
+  return http.patch<{ code: number; message: string; data: CaseTask }>(
+    `/case-tasks/${taskId}`,
     { status }
   )
 }

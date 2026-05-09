@@ -212,6 +212,7 @@ import {
   deleteDebtor,
   type DebtorItem,
 } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -263,9 +264,7 @@ const industryOptions = [
 ]
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
   if (caseId.value) {
     loadData()
   }

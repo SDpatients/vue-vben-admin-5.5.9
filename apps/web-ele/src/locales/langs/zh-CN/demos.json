@@ -5,6 +5,8 @@
   "vben": {
     "title": "项目",
     "about": "关于",
+    "aboutUs": "关于我们",
+    "productIntro": "产品介绍",
     "document": "文档",
     "antdv": "Ant Design Vue 版本",
     "naive-ui": "Naive UI 版本",

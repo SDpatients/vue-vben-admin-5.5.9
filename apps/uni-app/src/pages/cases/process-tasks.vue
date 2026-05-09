@@ -60,6 +60,7 @@ import {
   deleteCaseStageData,
   type ProcessStageData,
 } from '@/api/process-stage'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const caseId = ref('')
@@ -70,12 +71,10 @@ const taskList = ref<ProcessStageData[]>([])
 const refreshing = ref(false)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.caseId || ''
-  stageId.value = Number(currentPage.options?.stageId) || 1
-  moduleCode.value = currentPage.options?.moduleCode || ''
-  moduleName.value = decodeURIComponent(currentPage.options?.moduleName || '')
+  caseId.value = getPageParam('caseId')
+  stageId.value = Number(getPageParam('stageId')) || 1
+  moduleCode.value = getPageParam('moduleCode') || ''
+  moduleName.value = decodeURIComponent(getPageParam('moduleName') || '')
 
   loadTasks()
 

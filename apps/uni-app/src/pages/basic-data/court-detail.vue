@@ -73,14 +73,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getCourtDetail, type CourtItem } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const detail = ref<CourtItem | null>(null)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   if (id) {
     loadDetail(id)

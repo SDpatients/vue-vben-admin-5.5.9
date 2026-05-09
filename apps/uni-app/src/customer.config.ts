@@ -82,8 +82,19 @@ export const customerConfig = {
    * ============================================
    * API 配置
    * ============================================
+   * 
+   * baseUrl: 后端 API 基础地址
+   *   - H5 开发环境使用相对路径 ''，通过 Vite 代理转发
+   *   - 小程序/APP 环境需要配置完整的后端地址
+   *   - 部署到不同环境时，请修改此配置
+   * 
+   * 示例：
+   *   开发环境：http://192.168.0.151:8080
+   *   测试环境：http://test.example.com:8080
+   *   生产环境：https://api.example.com
    */
   api: {
+    baseUrl: 'http://192.168.0.151:8080',
     prefix: '/api/v1',
     timeout: 30000,
     retryTimes: 3,

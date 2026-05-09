@@ -11,16 +11,18 @@ const mockMarkConversationAsRead = vi.fn();
 const mockRecallMessage = vi.fn();
 const mockDeleteMessage = vi.fn();
 
+const mockStore = {
+  currentMessages: [] as any[],
+  typingStatus: {} as any,
+  sendMessage: mockSendMessage,
+  fetchChatMessages: mockFetchChatMessages,
+  markConversationAsRead: mockMarkConversationAsRead,
+  recallMessage: mockRecallMessage,
+  deleteMessage: mockDeleteMessage,
+};
+
 vi.mock('../stores/chat', () => ({
-  useChatStore: vi.fn(() => ({
-    currentMessages: [],
-    typingStatus: {},
-    sendMessage: mockSendMessage,
-    fetchChatMessages: mockFetchChatMessages,
-    markConversationAsRead: mockMarkConversationAsRead,
-    recallMessage: mockRecallMessage,
-    deleteMessage: mockDeleteMessage,
-  })),
+  useChatStore: vi.fn(() => mockStore),
 }));
 
 // Mock Element Plus
@@ -57,6 +59,10 @@ describe('ChatWindow', () => {
     pinia = createPinia();
     setActivePinia(pinia);
     vi.clearAllMocks();
+    
+    // Reset mock store state
+    mockStore.currentMessages = [];
+    mockStore.typingStatus = {};
 
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {

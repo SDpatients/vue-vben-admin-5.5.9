@@ -4,10 +4,13 @@
  * Copyright (c) 2024-present, Vben.
  */
 
-import http, { getBaseUrl } from './request'
+import http, { getBaseUrl, http8080 } from './request'
 import { API_PREFIX } from '@/config'
 
-const BASE_URL = '/api/lib'
+// 文档库模块的基础路径
+// 注意：使用 http8080 客户端，自动添加 /api/v1/api 双前缀
+// 最终路径会是 /api/v1/api/lib/xxx
+const BASE_URL = '/lib'
 
 // ================= 类型定义 =================
 
@@ -263,7 +266,7 @@ export const createDocument = (data: {
   tags?: string
   isPublic?: boolean
 }, config?: { showLoading?: boolean; showErrorToast?: boolean }) => {
-  return http.post<DocumentDetailResponse>(`${BASE_URL}/documents`, data, config)
+  return http8080.post<DocumentDetailResponse>(`${BASE_URL}/documents`, data, config)
 }
 
 export const uploadDocument = (filePath: string, params?: {
@@ -275,7 +278,7 @@ export const uploadDocument = (filePath: string, params?: {
 }, fileObj?: File) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
-  const uploadUrl = `${baseUrl}${API_PREFIX}${BASE_URL}/documents/upload`
+  const uploadUrl = `${baseUrl}/api/v1/api${BASE_URL}/documents/upload`
 
   return new Promise<DocumentDetailResponse>((resolve, reject) => {
     // H5环境且提供了File对象：使用XMLHttpRequest上传
@@ -339,15 +342,15 @@ export const uploadDocument = (filePath: string, params?: {
 }
 
 export const getDocumentList = (params?: DocumentListParams) => {
-  return http.post<DocumentListResponse>(`${BASE_URL}/documents/list`, params)
+  return http8080.post<DocumentListResponse>(`${BASE_URL}/documents/list`, params)
 }
 
 export const getDocumentDetail = (id: number) => {
-  return http.get<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`)
+  return http8080.get<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`)
 }
 
 export const getDocumentByCode = (code: string) => {
-  return http.get<DocumentDetailResponse>(`${BASE_URL}/documents/code/${code}`)
+  return http8080.get<DocumentDetailResponse>(`${BASE_URL}/documents/code/${code}`)
 }
 
 export const updateDocument = (id: number, data: {
@@ -358,33 +361,33 @@ export const updateDocument = (id: number, data: {
   isPublic?: boolean
   status?: string
 }, config?: { showLoading?: boolean; showErrorToast?: boolean }) => {
-  return http.put<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`, data, config)
+  return http8080.put<DocumentDetailResponse>(`${BASE_URL}/documents/${id}`, data, config)
 }
 
 export const deleteDocument = (id: number) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/documents/${id}`)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/documents/${id}`)
 }
 
 export const searchDocuments = (keyword: string, page: number = 1, size: number = 10) => {
-  return http.get<DocumentListResponse>(`${BASE_URL}/documents/search`, { keyword, page, size })
+  return http8080.get<DocumentListResponse>(`${BASE_URL}/documents/search`, { keyword, page, size })
 }
 
 export const getDocumentsByFolder = (folderId: number, page: number = 1, size: number = 10) => {
-  return http.get<DocumentListResponse>(`${BASE_URL}/documents/folder/${folderId}`, { page, size })
+  return http8080.get<DocumentListResponse>(`${BASE_URL}/documents/folder/${folderId}`, { page, size })
 }
 
 export const getMyDocuments = (page: number = 1, size: number = 10) => {
-  return http.get<DocumentListResponse>(`${BASE_URL}/documents/my`, { page, size })
+  return http8080.get<DocumentListResponse>(`${BASE_URL}/documents/my`, { page, size })
 }
 
 export const downloadDocument = (id: number) => {
   const baseUrl = getBaseUrl()
-  return `${baseUrl}/api/v1${BASE_URL}/documents/${id}/download`
+  return `${baseUrl}/api/v1/api${BASE_URL}/documents/${id}/download`
 }
 
 export const previewDocument = (id: number) => {
   const baseUrl = getBaseUrl()
-  return `${baseUrl}/api/v1${BASE_URL}/documents/${id}/preview`
+  return `${baseUrl}/api/v1/api${BASE_URL}/documents/${id}/preview`
 }
 
 export const downloadDocumentWithAuth = (id: number): Promise<string> => {
@@ -441,31 +444,31 @@ export const saveDocumentWithAuth = async (id: number): Promise<string> => {
 }
 
 export const getOfficeConfig = (id: number) => {
-  return http.get<ApiResponse<any>>(`${BASE_URL}/documents/${id}/office-config`)
+  return http8080.get<ApiResponse<any>>(`${BASE_URL}/documents/${id}/office-config`)
 }
 
 export const lockDocument = (id: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/documents/${id}/lock`)
+  return http8080.post<ApiResponse>(`${BASE_URL}/documents/${id}/lock`)
 }
 
 export const unlockDocument = (id: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/documents/${id}/unlock`)
+  return http8080.post<ApiResponse>(`${BASE_URL}/documents/${id}/unlock`)
 }
 
 export const moveDocument = (id: number, targetFolderId: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/documents/${id}/move`, null, { params: { targetFolderId } })
+  return http8080.post<ApiResponse>(`${BASE_URL}/documents/${id}/move`, null, { params: { targetFolderId } })
 }
 
 export const copyDocument = (id: number, targetFolderId?: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/documents/${id}/copy`, null, { params: { targetFolderId } })
+  return http8080.post<ApiResponse>(`${BASE_URL}/documents/${id}/copy`, null, { params: { targetFolderId } })
 }
 
 export const getRecentDocuments = (page: number = 1, size: number = 10) => {
-  return http.get<DocumentListResponse>(`${BASE_URL}/documents/recent`, { page, size })
+  return http8080.get<DocumentListResponse>(`${BASE_URL}/documents/recent`, { page, size })
 }
 
 export const getPopularDocuments = (page: number = 1, size: number = 10, timeRange: string = 'all') => {
-  return http.get<DocumentListResponse>(`${BASE_URL}/documents/popular`, { page, size, timeRange })
+  return http8080.get<DocumentListResponse>(`${BASE_URL}/documents/popular`, { page, size, timeRange })
 }
 
 // ================= 文件夹管理 API =================
@@ -479,11 +482,11 @@ export const createFolder = (data: {
   isPublic?: boolean
   sortOrder?: number
 }) => {
-  return http.post<ApiResponse<FolderItem>>(`${BASE_URL}/folders`, data)
+  return http8080.post<ApiResponse<FolderItem>>(`${BASE_URL}/folders`, data)
 }
 
 export const getFolderDetail = (id: number) => {
-  return http.get<ApiResponse<FolderItem>>(`${BASE_URL}/folders/${id}`)
+  return http8080.get<ApiResponse<FolderItem>>(`${BASE_URL}/folders/${id}`)
 }
 
 export const updateFolder = (id: number, data: {
@@ -495,57 +498,57 @@ export const updateFolder = (id: number, data: {
   sortOrder?: number
   parentId?: number
 }) => {
-  return http.put<ApiResponse<FolderItem>>(`${BASE_URL}/folders/${id}`, data)
+  return http8080.put<ApiResponse<FolderItem>>(`${BASE_URL}/folders/${id}`, data)
 }
 
 export const deleteFolder = (id: number) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/folders/${id}`)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/folders/${id}`)
 }
 
 export const getFolderTree = () => {
-  return http.get<FolderTreeResponse>(`${BASE_URL}/folders/tree`)
+  return http8080.get<FolderTreeResponse>(`${BASE_URL}/folders/tree`)
 }
 
 export const getFolderChildren = (id: number) => {
-  return http.get<ApiResponse<FolderItem[]>>(`${BASE_URL}/folders/${id}/children`)
+  return http8080.get<ApiResponse<FolderItem[]>>(`${BASE_URL}/folders/${id}/children`)
 }
 
 export const getRootFolders = () => {
-  return http.get<FolderListResponse>(`${BASE_URL}/folders/root`)
+  return http8080.get<FolderListResponse>(`${BASE_URL}/folders/root`)
 }
 
 export const moveFolder = (id: number, targetFolderId?: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/folders/${id}/move`, null, { params: { targetFolderId } })
+  return http8080.post<ApiResponse>(`${BASE_URL}/folders/${id}/move`, null, { params: { targetFolderId } })
 }
 
 export const getFolderPath = (id: number) => {
-  return http.get<ApiResponse<FolderBreadcrumb[]>>(`${BASE_URL}/folders/${id}/path`)
+  return http8080.get<ApiResponse<FolderBreadcrumb[]>>(`${BASE_URL}/folders/${id}/path`)
 }
 
 export const getFolderDescendants = (id: number) => {
-  return http.get<ApiResponse<number[]>>(`${BASE_URL}/folders/${id}/descendants`)
+  return http8080.get<ApiResponse<number[]>>(`${BASE_URL}/folders/${id}/descendants`)
 }
 
 export const getFoldersByLevel = (level: number) => {
-  return http.get<ApiResponse<FolderItem[]>>(`${BASE_URL}/folders/level/${level}`)
+  return http8080.get<ApiResponse<FolderItem[]>>(`${BASE_URL}/folders/level/${level}`)
 }
 
 export const updateFolderSort = (id: number, sortOrder: number) => {
-  return http.put<ApiResponse>(`${BASE_URL}/folders/${id}/sort`, null, { params: { sortOrder } })
+  return http8080.put<ApiResponse>(`${BASE_URL}/folders/${id}/sort`, null, { params: { sortOrder } })
 }
 
 // ================= 权限管理 API =================
 
 export const getPermissions = () => {
-  return http.get<PermissionListResponse>(`${BASE_URL}/permissions`)
+  return http8080.get<PermissionListResponse>(`${BASE_URL}/permissions`)
 }
 
 export const getPermissionDetail = (id: number) => {
-  return http.get<ApiResponse<PermissionItem>>(`${BASE_URL}/permissions/${id}`)
+  return http8080.get<ApiResponse<PermissionItem>>(`${BASE_URL}/permissions/${id}`)
 }
 
 export const getPermissionByCode = (code: string) => {
-  return http.get<ApiResponse<PermissionItem>>(`${BASE_URL}/permissions/code/${code}`)
+  return http8080.get<ApiResponse<PermissionItem>>(`${BASE_URL}/permissions/code/${code}`)
 }
 
 export const grantFolderPermission = (folderId: number, data: {
@@ -554,18 +557,18 @@ export const grantFolderPermission = (folderId: number, data: {
   targetId: number
   isInherit?: boolean
 }) => {
-  return http.post<ApiResponse>(`${BASE_URL}/folders/${folderId}/permissions`, data)
+  return http8080.post<ApiResponse>(`${BASE_URL}/folders/${folderId}/permissions`, data)
 }
 
 export const revokeFolderPermission = (folderId: number, permissionId: number, params: {
   targetType: string
   targetId: number
 }) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/folders/${folderId}/permissions/${permissionId}`, params)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/folders/${folderId}/permissions/${permissionId}`, params)
 }
 
 export const getFolderPermissions = (folderId: number) => {
-  return http.get<PermissionConfigListResponse>(`${BASE_URL}/folders/${folderId}/permissions`)
+  return http8080.get<PermissionConfigListResponse>(`${BASE_URL}/folders/${folderId}/permissions`)
 }
 
 export const grantDocumentPermission = (documentId: number, data: {
@@ -574,26 +577,26 @@ export const grantDocumentPermission = (documentId: number, data: {
   targetId: number
   isInherit?: boolean
 }) => {
-  return http.post<ApiResponse>(`${BASE_URL}/documents/${documentId}/permissions`, data)
+  return http8080.post<ApiResponse>(`${BASE_URL}/documents/${documentId}/permissions`, data)
 }
 
 export const revokeDocumentPermission = (documentId: number, permissionId: number, params: {
   targetType: string
   targetId: number
 }) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/documents/${documentId}/permissions/${permissionId}`, params)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/documents/${documentId}/permissions/${permissionId}`, params)
 }
 
 export const getDocumentPermissions = (documentId: number) => {
-  return http.get<PermissionConfigListResponse>(`${BASE_URL}/documents/${documentId}/permissions`)
+  return http8080.get<PermissionConfigListResponse>(`${BASE_URL}/documents/${documentId}/permissions`)
 }
 
 export const getAccessibleFolders = (permissionType: string) => {
-  return http.get<ApiResponse<number[]>>(`${BASE_URL}/permissions/accessible-folders`, { permissionType })
+  return http8080.get<ApiResponse<number[]>>(`${BASE_URL}/permissions/accessible-folders`, { permissionType })
 }
 
 export const getAccessibleDocuments = (permissionType: string) => {
-  return http.get<ApiResponse<number[]>>(`${BASE_URL}/permissions/accessible-documents`, { permissionType })
+  return http8080.get<ApiResponse<number[]>>(`${BASE_URL}/permissions/accessible-documents`, { permissionType })
 }
 
 // ================= 分享管理 API =================
@@ -605,24 +608,24 @@ export const createShare = (data: {
   expireTime?: string
   maxAccessCount?: number
 }) => {
-  return http.post<ShareResponse>(`${BASE_URL}/shares`, data)
+  return http8080.post<ShareResponse>(`${BASE_URL}/shares`, data)
 }
 
 export const getShareByCode = (shareCode: string) => {
-  return http.get<ShareResponse>(`${BASE_URL}/shares/code/${shareCode}`)
+  return http8080.get<ShareResponse>(`${BASE_URL}/shares/code/${shareCode}`)
 }
 
 export const getShareDetail = (id: number) => {
-  return http.get<ShareResponse>(`${BASE_URL}/shares/${id}`)
+  return http8080.get<ShareResponse>(`${BASE_URL}/shares/${id}`)
 }
 
 export const accessShare = (shareCode: string, password?: string) => {
-  return http.get<DocumentDetailResponse>(`${BASE_URL}/shares/${shareCode}/access`, { password })
+  return http8080.get<DocumentDetailResponse>(`${BASE_URL}/shares/${shareCode}/access`, { password })
 }
 
 export const downloadShare = (shareCode: string, password?: string) => {
   const baseUrl = getBaseUrl()
-  let url = `${baseUrl}/api/v1${BASE_URL}/shares/${shareCode}/download`
+  let url = `${baseUrl}/api/v1/api${BASE_URL}/shares/${shareCode}/download`
   if (password) {
     url += `?password=${encodeURIComponent(password)}`
   }
@@ -630,59 +633,59 @@ export const downloadShare = (shareCode: string, password?: string) => {
 }
 
 export const deleteShare = (id: number) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/shares/${id}`)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/shares/${id}`)
 }
 
 export const disableShare = (id: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/shares/${id}/disable`)
+  return http8080.post<ApiResponse>(`${BASE_URL}/shares/${id}/disable`)
 }
 
 export const enableShare = (id: number) => {
-  return http.post<ApiResponse>(`${BASE_URL}/shares/${id}/enable`)
+  return http8080.post<ApiResponse>(`${BASE_URL}/shares/${id}/enable`)
 }
 
 export const checkShareValid = (shareCode: string) => {
-  return http.get<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/valid`)
+  return http8080.get<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/valid`)
 }
 
 export const checkSharePassword = (shareCode: string, password?: string) => {
-  return http.post<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/check-password`, null, { params: { password } })
+  return http8080.post<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/check-password`, null, { params: { password } })
 }
 
 // ================= 收藏管理 API =================
 
 export const addFavorite = (documentId: number, folderName?: string) => {
-  return http.post<ApiResponse<FavoriteItem>>(`${BASE_URL}/favorites/${documentId}`, null, { params: { folderName } })
+  return http8080.post<ApiResponse<FavoriteItem>>(`${BASE_URL}/favorites/${documentId}`, null, { params: { folderName } })
 }
 
 export const removeFavorite = (documentId: number) => {
-  return http.delete<ApiResponse>(`${BASE_URL}/favorites/${documentId}`)
+  return http8080.delete<ApiResponse>(`${BASE_URL}/favorites/${documentId}`)
 }
 
 export const getFavorites = (page: number = 1, size: number = 10) => {
-  return http.get<FavoriteListResponse>(`${BASE_URL}/favorites`, { page, size })
+  return http8080.get<FavoriteListResponse>(`${BASE_URL}/favorites`, { page, size })
 }
 
 export const getFavoriteFolders = () => {
-  return http.get<ApiResponse<string[]>>(`${BASE_URL}/favorites/folders`)
+  return http8080.get<ApiResponse<string[]>>(`${BASE_URL}/favorites/folders`)
 }
 
 export const getFavoritesByFolder = (folderName: string, page: number = 1, size: number = 10) => {
-  return http.get<FavoriteListResponse>(`${BASE_URL}/favorites/folder/${folderName}`, { page, size })
+  return http8080.get<FavoriteListResponse>(`${BASE_URL}/favorites/folder/${folderName}`, { page, size })
 }
 
 export const checkFavorite = (documentId: number) => {
-  return http.get<ApiResponse<boolean>>(`${BASE_URL}/favorites/${documentId}/check`)
+  return http8080.get<ApiResponse<boolean>>(`${BASE_URL}/favorites/${documentId}/check`)
 }
 
 export const moveFavorite = (documentId: number, folderName: string) => {
-  return http.post<ApiResponse>(`${BASE_URL}/favorites/${documentId}/move`, null, { params: { folderName } })
+  return http8080.post<ApiResponse>(`${BASE_URL}/favorites/${documentId}/move`, null, { params: { folderName } })
 }
 
 // ================= 统计管理 API =================
 
 export const getDashboardStats = () => {
-  return http.get<DashboardStatsResponse>(`${BASE_URL}/statistics/dashboard`)
+  return http8080.get<DashboardStatsResponse>(`${BASE_URL}/statistics/dashboard`)
 }
 
 // ================= 工具函数 =================

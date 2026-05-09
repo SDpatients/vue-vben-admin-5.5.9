@@ -201,8 +201,11 @@ import {
   uploadExpenseAttachment,
   expenseTypeOptions,
 } from '@/api/expense-reimbursement'
+import { getPageParam } from '@/utils/pageParam'
 import { getCaseList } from '@/api/case'
+
 import { getBankAccountList } from '@/api/basic-data'
+
 import dayjs from 'dayjs'
 import { chooseFilePlatform } from '@/utils/chooseFile'
 
@@ -251,9 +254,7 @@ const totalAmount = computed(() => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  expenseId.value = currentPage.options?.id || ''
+  expenseId.value = getPageParam('id')
 
   if (expenseId.value) {
     isEdit.value = true

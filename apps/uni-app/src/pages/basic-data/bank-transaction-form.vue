@@ -126,6 +126,7 @@ import {
   updateBankTransaction,
   type BankTransactionItem
 } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 
 const accountId = ref<number>(0)
 const transactionId = ref<number | null>(null)
@@ -161,10 +162,8 @@ const businessTypeOptions = [
 ]
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const aId = currentPage.options?.accountId
-  const tId = currentPage.options?.transactionId
+  const aId = getPageParam('accountId')
+  const tId = getPageParam('transactionId')
 
   if (aId) {
     accountId.value = parseInt(aId)

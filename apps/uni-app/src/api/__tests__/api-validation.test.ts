@@ -33,9 +33,10 @@ describe('双端口支持验证', () => {
   })
 
   it('不同端口不应混用', () => {
-    const baseUrl8080 = 'http://192.168.0.151:8080'
-    const baseUrl8080 = getBaseUrl8080(baseUrl8080)
-    expect(baseUrl8080).not.toBe(baseUrl8080)
+    const baseUrl1 = 'http://192.168.0.151:8080';
+    const baseUrl2 = getBaseUrl8080(baseUrl1);
+    // getBaseUrl8080 returns the same URL since it already has :8080
+    expect(baseUrl2).toBe('http://192.168.0.151:8080');
   })
 })
 

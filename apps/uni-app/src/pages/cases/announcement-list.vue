@@ -118,6 +118,7 @@ import {
   getAnnouncementStatusText,
   getAnnouncementStatusColor,
 } from '@/api/announcement'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const props = defineProps<{
@@ -156,9 +157,7 @@ const actionSheetActions = computed(() => {
 const getCacheKey = (id: string) => `announcement_list_${id}`
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.caseId || props.caseId || ''
+  caseId.value = getPageParam('caseId') || props.caseId || ''
 
   if (caseId.value) {
     loadCaseInfo()

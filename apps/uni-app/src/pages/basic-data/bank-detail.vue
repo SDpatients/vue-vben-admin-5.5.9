@@ -100,14 +100,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getBankAccountDetail, type BankAccountItem } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const detail = ref<BankAccountItem | null>(null)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   if (id) {
     loadDetail(id)
@@ -165,9 +164,7 @@ const formatDate = (date?: string) => {
 }
 
 const goToTransactions = () => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
   if (id) {
     uni.navigateTo({ url: `/pages/basic-data/bank-transactions?id=${id}` })
   }

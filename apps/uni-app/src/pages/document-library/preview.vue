@@ -117,6 +117,7 @@ import {
   saveDocumentWithAuth,
   type DocumentItem,
 } from '@/api/document-library'
+import { getPageParam } from '@/utils/pageParam'
 
 const documentId = ref<number>()
 const documentName = ref('')
@@ -162,19 +163,19 @@ const fileTypeLabel = computed(() => {
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = currentPage.options || currentPage.$route?.query || {}
+  const id = getPageParam('id')
+  const name = getPageParam('name')
+  const ext = getPageParam('ext')
 
-  if (options.id) {
-    documentId.value = Number(options.id)
+  if (id) {
+    documentId.value = Number(id)
     loadDocument()
   }
-  if (options.name) {
-    documentName.value = decodeURIComponent(options.name)
+  if (name) {
+    documentName.value = decodeURIComponent(name)
   }
-  if (options.ext) {
-    fileExtension.value = options.ext
+  if (ext) {
+    fileExtension.value = ext
   }
 })
 

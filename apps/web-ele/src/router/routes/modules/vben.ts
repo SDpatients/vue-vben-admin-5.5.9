@@ -68,14 +68,33 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    name: 'VbenAbout',
-    path: '/vben-admin/about',
-    component: () => import('#/views/_core/about/index.vue'),
     meta: {
-      icon: 'lucide:copyright',
-      title: $t('demos.vben.about'),
+      icon: 'lucide:info',
       order: 9999,
+      title: $t('demos.vben.aboutUs'),
     },
+    name: 'VbenAboutUs',
+    path: '/about-us',
+    children: [
+      {
+        name: 'VbenAbout',
+        path: '/about-us/about',
+        component: () => import('#/views/_core/about/index.vue'),
+        meta: {
+          icon: 'lucide:copyright',
+          title: $t('demos.vben.about'),
+        },
+      },
+      {
+        name: 'VbenProductIntro',
+        path: '/about-us/product-intro',
+        component: () => import('#/views/_core/about/product-intro.vue'),
+        meta: {
+          icon: 'lucide:book-open',
+          title: $t('demos.vben.productIntro'),
+        },
+      },
+    ],
   },
 ];
 

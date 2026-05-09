@@ -140,8 +140,11 @@ import {
   createAnnouncement,
   createAnnouncementWithFiles,
 } from '@/api/announcement'
+import { getPageParam } from '@/utils/pageParam'
 import { getCaseList } from '@/api/case'
+
 import { getBaseUrl } from '@/config'
+
 import { chooseFilePlatform } from '@/utils/chooseFile'
 
 interface CaseOption {
@@ -186,9 +189,7 @@ const announcementTypes = [
 ]
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.caseId || props.caseId || ''
+  caseId.value = getPageParam('caseId') || props.caseId || ''
 
   if (caseId.value) {
     form.value.caseId = Number(caseId.value)

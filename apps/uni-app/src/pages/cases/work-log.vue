@@ -188,9 +188,13 @@ import {
   deleteWorkLogApi,
   workTypeMap,
 } from '@/api/work-log'
+import { getPageParam } from '@/utils/pageParam'
 import { getCaseFileInfo, type FileItem } from '@/api/case'
+
 import { getBaseUrl, API_PREFIX } from '@/config'
+
 import { chooseFilePlatform } from '@/utils/chooseFile'
+
 import type { WorkLogApi } from '@/api/work-log'
 
 const loading = ref(false)
@@ -244,9 +248,7 @@ const addLogForm = ref({
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
   if (caseId.value) {
     loadData()
   }

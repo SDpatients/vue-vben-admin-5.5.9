@@ -10,23 +10,23 @@ import { customerConfig } from '../customer.config';
 
 const env = import.meta.env
 
-// Log environment info once
 // API 基础地址配置
-// H5 端使用相对路径 '/api'，通过 Vite 代理转发到后端
-// 小程序和 APP 端需要在环境变量中配置完整地址
+// H5 端使用相对路径 ''，通过 Vite 代理转发到后端
+// 小程序和 APP 端使用 customer.config.ts 中配置的完整地址
 export const getBaseUrl = () => {
   // 浏览器环境使用代理
   if (typeof window !== 'undefined') {
-    return ''  // 使用相对路径，让代理处理
+    return ''
   }
-  // 非浏览器环境（小程序、APP）使用环境变量
-  const baseUrl = env.VITE_API_BASE_URL || 'http://192.168.0.151:8080'
+  // 非浏览器环境（小程序、APP）使用配置文件中的地址
+  // 优先读取环境变量，否则使用 customer.config.ts 中的配置
+  const baseUrl = env.VITE_API_BASE_URL || customerConfig.api.baseUrl
   return baseUrl
 }
 
 // API 统一前缀配置
 // 与网页端保持一致，所有API请求都会自动添加这个前缀
-export const API_PREFIX = '/api/v1'
+export const API_PREFIX = customerConfig.api.prefix
 
 // 文件相关API路径
 export const FILE_API = {

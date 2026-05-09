@@ -194,7 +194,6 @@
           </view>
         </scroll-view>
 
-
       </view>
 
       <!-- 债权复查 -->
@@ -266,7 +265,6 @@
             <text>已加载全部</text>
           </view>
         </scroll-view>
-
 
       </view>
 
@@ -798,6 +796,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import http from '@/api/request'
+import { getPageParam } from '@/utils/pageParam'
 import {
   getClaimRegistrationList,
   getClaimReviewList,
@@ -819,6 +818,7 @@ import {
   type ClaimConfirmationItem,
   type CreditorItem,
 } from '@/api/case'
+
 import dayjs from 'dayjs'
 
 const tabs = ref([
@@ -1095,9 +1095,7 @@ const claimStats = ref({
 const statsLoading = ref(false)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
 
   if (caseId.value) {
     loadCaseNo()

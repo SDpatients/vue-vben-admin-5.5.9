@@ -23,6 +23,9 @@ onHide(() => {
 })
 </script>
 
+<template>
+</template>
+
 <style lang="scss">
 /* 引入全局动画 */
 @import '@/styles/animations.scss';

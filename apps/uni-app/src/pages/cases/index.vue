@@ -278,8 +278,8 @@ filterParams.value = { ...tempFilterParams.value }
 }
 
 const loadData = async (isRefresh = false) => {
-if (loading.value) {
-return
+  if (loading.value) {
+    return
   }
   loading.value = true
 
@@ -288,7 +288,7 @@ return
       pageNum: isRefresh ? 1 : page.value,
       pageSize,
     }
-    
+
     if (searchKeyword.value.trim()) {
       params.keyword = searchKeyword.value.trim()
     }
@@ -300,17 +300,19 @@ return
     if (filterParams.value.caseProgress) {
       params.caseProgress = filterParams.value.caseProgress
     }
-let res
-    const hasSearchOrFilter = searchKeyword.value.trim() || 
-                               filterParams.value.caseStatus || 
+
+    let res
+    const hasSearchOrFilter = searchKeyword.value.trim() ||
+                               filterParams.value.caseStatus ||
                                filterParams.value.caseProgress
 
     if (hasSearchOrFilter) {
-res = await advancedCaseSearch(params)
+      res = await advancedCaseSearch(params)
     } else {
-res = await getCaseList(params)
+      res = await getCaseList(params)
     }
-const rawList = res.data?.list || []
+
+    const rawList = res.data?.list || []
     const listData = Array.isArray(rawList) ? rawList.map(item => ({ ...item })) : []
 
     if (isRefresh) {
@@ -322,8 +324,8 @@ const rawList = res.data?.list || []
 
     total.value = res.data?.total || 0
     hasMore.value = caseList.value.length < (res.data?.total || 0)
-} catch (error) {
-uni.showToast({ title: '加载失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
     refreshing.value = false
@@ -416,8 +418,7 @@ const loadStats = async () => {
       statsCompleted.value = data?.completedCases || 0
       statsArchived.value = data?.archivedCases || 0
     }
-  } catch (error) {
-    console.error('加载统计数据失败', error)
+  } catch (_error) {
   }
 }
 

@@ -1,4 +1,4 @@
-import { http8085 } from './request'
+import http from './request'
 
 export interface ProcessStageData {
   id: number
@@ -18,25 +18,25 @@ export interface ProcessStageData {
 }
 
 export const getCaseStageDataList = (caseId: number) => {
-  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
-    `/api/case-process-stage/case/${caseId}`
+  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+    `/case-process-stage/case/${caseId}`
   )
 }
 
 export const getCaseStageDataByStageNum = (caseId: number, stageNum: number) => {
-  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
-    `/api/case-process-stage/case/${caseId}/stage/${stageNum}`
+  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+    `/case-process-stage/case/${caseId}/stage/${stageNum}`
   )
 }
 
 export const getCaseStageDataByModule = (caseId: number, moduleCode: string) => {
-  return http8085.get<{ code: number; message: string; data: ProcessStageData[] }>(
-    `/api/case-process-stage/case/${caseId}/module/${moduleCode}`
+  return http.get<{ code: number; message: string; data: ProcessStageData[] }>(
+    `/case-process-stage/case/${caseId}/module/${moduleCode}`
   )
 }
 
 export const deleteCaseStageData = (id: number) => {
-  return http8085.delete<{ code: number; message: string; data: null }>(
-    `/api/case-process-stage/${id}`
+  return http.delete<{ code: number; message: string; data: null }>(
+    `/case-process-stage/${id}`
   )
 }

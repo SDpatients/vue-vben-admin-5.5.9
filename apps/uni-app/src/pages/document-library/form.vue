@@ -125,6 +125,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { getPageParam } from '@/utils/pageParam'
 import {
   createDocument,
   updateDocument,
@@ -179,13 +180,12 @@ const form = ref({
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = currentPage.options || currentPage.$route?.query || {}
+  const mode = getPageParam('mode')
+  const id = getPageParam('id')
 
-  if (options.mode === 'edit' && options.id) {
+  if (mode === 'edit' && id) {
     isEdit.value = true
-    documentId.value = Number(options.id)
+    documentId.value = Number(id)
     loadDocumentDetail()
   }
 
@@ -254,8 +254,7 @@ const loadFolders = async () => {
         }
       }
     }
-  } catch (error: any) {
-    console.error('加载文件夹失败:', error)
+  } catch (_error) {
   }
 }
 
@@ -317,8 +316,6 @@ const handleSubmit = async () => {
 
   submitting.value = true
   uni.showLoading({ title: '保存中...', mask: true })
-  console.log('[DocumentForm] 开始提交, isEdit:', isEdit.value, 'documentId:', documentId.value)
-  console.log('[DocumentForm] 表单数据:', JSON.stringify(form.value))
 
   try {
     let res
@@ -331,12 +328,9 @@ const handleSubmit = async () => {
         isPublic: form.value.isPublic,
         status: form.value.status,
       }
-      console.log('[DocumentForm] 调用updateDocument, id:', documentId.value, 'data:', JSON.stringify(updateData))
       res = await updateDocument(documentId.value, updateData, { showLoading: false, showErrorToast: false })
-      console.log('[DocumentForm] updateDocument响应:', JSON.stringify(res))
     } else {
       if (!documentInfo.value) {
-        console.log('[DocumentForm] 创建文档时documentInfo为空')
         uni.showToast({ title: '请先选择文件', icon: 'none' })
         uni.hideLoading()
         submitting.value = false
@@ -356,9 +350,7 @@ const handleSubmit = async () => {
         tags: form.value.tags,
         isPublic: form.value.isPublic,
       }
-      console.log('[DocumentForm] 调用createDocument, data:', JSON.stringify(createData))
       res = await createDocument(createData, { showLoading: false, showErrorToast: false })
-      console.log('[DocumentForm] createDocument响应:', JSON.stringify(res))
     }
 
     if (res.code === 200) {
@@ -368,16 +360,13 @@ const handleSubmit = async () => {
         uni.navigateBack()
       }, 1500)
     } else {
-      console.error('[DocumentForm] 保存失败, 响应码:', res.code, '消息:', res.message)
       uni.showToast({ title: res.message || '保存失败', icon: 'none' })
     }
   } catch (error: any) {
-    console.error('[DocumentForm] 保存异常:', error)
     uni.showToast({ title: error.message || '保存失败', icon: 'none' })
   } finally {
     submitting.value = false
     uni.hideLoading()
-    console.log('[DocumentForm] 提交结束')
   }
 }
 

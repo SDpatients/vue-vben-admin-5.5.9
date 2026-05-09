@@ -91,15 +91,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getAdministratorDetail, getAdministratorStaffList, type AdministratorItem, type StaffItem } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const detail = ref<AdministratorItem | null>(null)
 const staffList = ref<StaffItem[]>([])
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   if (id) {
     loadDetail(id)

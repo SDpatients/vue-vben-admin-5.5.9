@@ -78,7 +78,7 @@ describe('后端API文档路径验证', () => {
     { module: '文档库文件夹', controller: '/api/lib/folders', expected: '/api/v1/api/lib/folders' },
     { module: '会议投票', controller: '/api/vote-items', expected: '/api/v1/api/vote-items' },
     { module: 'Word模板', controller: '/api/template', expected: '/api/v1/api/template' },
-    { module: 'OnlyOffice', controller: '/api/v1/onlyoffice', expected: '/api/v1/api/v1/onlyoffice' },
+    { module: 'OnlyOffice', controller: '/api/v1/onlyoffice', expected: '/api/v1/onlyoffice' },
   ]
 
   testCases.forEach(({ module, controller, expected }) => {

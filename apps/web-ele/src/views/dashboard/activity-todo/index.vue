@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import {
-  todoApi,
-  parseApiResponse,
-  type Todo,
-  type TodoDTO,
-  type TodoUpdateRequest,
-  type MyTodoStatisticsResponse,
-} from '#/api/core/todo';
+import { todoApi, parseApiResponse, type Todo, type TodoDTO, type TodoUpdateRequest, type MyTodoStatisticsResponse } from '#/api/core/todo';
 import { getUsersApi } from '#/api/core/user';
+import { getCaseDetailApi } from '#/api/core/case';
 import { Icon } from '@iconify/vue';
 import {
   ElButton,
@@ -89,6 +83,7 @@ const assignFormRef = ref<FormInstance>();
 
 // 当前选中的待办
 const currentTodo = ref<Todo | null>(null);
+const detailCaseNumber = ref<string>('');
 
 // 表单数据
 const createForm = ref<TodoDTO>({
@@ -498,9 +493,21 @@ const showDetailModal = async (todo: Todo) => {
   try {
     const res = await todoApi.getTodoDetail(todo.id);
     currentTodo.value = res;
+    detailCaseNumber.value = '';
+    if (res.relatedId) {
+      try {
+        const caseRes = await getCaseDetailApi(res.relatedId);
+        if (caseRes && caseRes.data && caseRes.data.caseNumber) {
+          detailCaseNumber.value = caseRes.data.caseNumber;
+        }
+      } catch (error) {
+        console.error('获取案号失败:', error);
+      }
+    }
     detailDialogVisible.value = true;
   } catch (error) {
     currentTodo.value = todo;
+    detailCaseNumber.value = '';
     detailDialogVisible.value = true;
   }
 };
@@ -1203,7 +1210,8 @@ onMounted(() => {
         <div v-if="currentTodo.relatedId" class="detail-item">
           <span class="detail-label">关联信息：</span>
           <span class="detail-value">
-            {{ currentTodo.relatedType }} - ID: {{ currentTodo.relatedId }}
+            <span v-if="detailCaseNumber">案号: {{ detailCaseNumber }}</span>
+            <span v-else>{{ currentTodo.relatedType }} - ID: {{ currentTodo.relatedId }}</span>
           </span>
         </div>
       </div>

@@ -168,7 +168,7 @@
       v-model="selectedDate"
       mode="datetime"
       @confirm="onDateConfirm"
-      @cancel="showDatePicker = false"
+      @cancel="showDatePicker = true"
     ></u-datetime-picker>
   </view>
 </template>
@@ -176,6 +176,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { getPageParam } from '@/utils/pageParam'
 import {
   createTodoWithCase,
   updateTodoWithCase,
@@ -184,6 +185,7 @@ import {
   type Todo,
   type SimpleCaseInfo
 } from '@/api/todo'
+
 import dayjs from 'dayjs'
 
 const authStore = useAuthStore()
@@ -246,12 +248,8 @@ const rules = {
 const pageTitle = computed(() => mode.value === 'add' ? '新建待办' : '编辑待办')
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const options = currentPage.options || {}
-
-  mode.value = options.mode || 'add'
-  todoId.value = options.id || ''
+  mode.value = (getPageParam('mode') as 'add' | 'edit') || 'add'
+  todoId.value = getPageParam('id') || ''
   if (mode.value === 'edit' && todoId.value) {
     loadTodoDetail()
   }
@@ -416,7 +414,7 @@ const searchCase = async (page: number = 1) => {
         searchResults.value = []
       }
       hasMore.value = false
-    }
+  }
   } catch (error) {
     if (page === 1) {
       searchResults.value = []
@@ -443,7 +441,7 @@ const selectCase = (caseItem: SimpleCaseInfo) => {
   todoForm.value.relatedType = 'CASE'
   showSearchResults.value = false
   showHistory.value = false
-}
+  }
 
 // 清除案件选择
 const clearCase = () => {
@@ -468,7 +466,7 @@ const highlightKeyword = (text: string, keyword: string) => {
 const onDateConfirm = (e: any) => {
   todoForm.value.deadline = dayjs(e.value).format('YYYY-MM-DD HH:mm')
   showDatePicker.value = false
-}
+  }
 
 const handleSubmit = async () => {
   const valid = await todoFormRef.value?.validate()

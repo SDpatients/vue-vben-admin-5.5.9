@@ -383,7 +383,7 @@ describe('DocumentFormDesigner', () => {
       props: defaultProps,
     });
 
-    expect(wrapper.vm.getFieldTypeTag('TEXT')).toBe('');
+    expect(wrapper.vm.getFieldTypeTag('TEXT')).toBe('info');
     expect(wrapper.vm.getFieldTypeTag('NUMBER')).toBe('success');
     expect(wrapper.vm.getFieldTypeTag('DATE')).toBe('warning');
     expect(wrapper.vm.getFieldTypeTag('LIST')).toBe('info');

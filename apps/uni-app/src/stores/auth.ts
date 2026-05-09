@@ -15,6 +15,8 @@ interface UserInfo {
   accessToken: string
   refreshToken: string
   avatar?: string
+  roles?: string[]
+  isAdmin?: boolean
 }
 
 const TOKEN_EXPIRY_KEY = 'tokenExpiry'

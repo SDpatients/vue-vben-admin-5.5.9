@@ -114,14 +114,19 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
   }
 
   const config = requestInterceptor(options)
-  
+
   // 自动添加API前缀（除非明确指定跳过）
   let requestUrl = config.url
   if (!skipPrefix && !requestUrl.startsWith(API_PREFIX)) {
-    requestUrl = `${API_PREFIX}${requestUrl}`
+    // 避免双前缀：如果 URL 已经以 /api/ 开头（但不是 /api/v1），也不添加前缀
+    // 这是为了兼容 http8080 客户端使用的 /api/xxx 路径
+    if (!requestUrl.startsWith('/api/')) {
+      requestUrl = `${API_PREFIX}${requestUrl}`
+    }
   }
-  
-  let finalUrl = `${options._baseUrlOverride || getBaseUrl()}${requestUrl}`
+
+  const baseUrl = options._baseUrlOverride || getBaseUrl()
+  let finalUrl = `${baseUrl}${requestUrl}`
 
   // 对于GET请求，将params拼接到URL中
   let requestData = config.data
@@ -141,7 +146,7 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
       success: (res: UniApp.RequestSuccessCallbackResult) => {
         responseInterceptor<T>(res, showErrorToast)
           .then((data) => resolve(data as T))
-          .catch(reject)
+          .catch((err) => reject(err))
       },
       fail: (err: UniApp.GeneralCallbackResult) => {
         if (showLoading) {
@@ -186,13 +191,13 @@ export { getBaseUrl, getBaseUrl8080 }
  */
 export const http8080 = {
   get: <T = any>(url: string, params?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'GET', params, ...config, _baseUrlOverride: getBaseUrl8080() }),
+    request<T>({ url: `${API_PREFIX}/api${url}`, method: 'GET', params, ...config, _baseUrlOverride: getBaseUrl8080(), skipPrefix: true }),
   post: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'POST', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+    request<T>({ url: `${API_PREFIX}/api${url}`, method: 'POST', data, ...config, _baseUrlOverride: getBaseUrl8080(), skipPrefix: true }),
   put: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'PUT', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+    request<T>({ url: `${API_PREFIX}/api${url}`, method: 'PUT', data, ...config, _baseUrlOverride: getBaseUrl8080(), skipPrefix: true }),
   delete: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'DELETE', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+    request<T>({ url: `${API_PREFIX}/api${url}`, method: 'DELETE', data, ...config, _baseUrlOverride: getBaseUrl8080(), skipPrefix: true }),
   patch: <T = any>(url: string, data?: any, config?: Partial<RequestOptions>) =>
-    request<T>({ url, method: 'PATCH', data, ...config, _baseUrlOverride: getBaseUrl8080() }),
+    request<T>({ url: `${API_PREFIX}/api${url}`, method: 'PATCH', data, ...config, _baseUrlOverride: getBaseUrl8080(), skipPrefix: true }),
 }

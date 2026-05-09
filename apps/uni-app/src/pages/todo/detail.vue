@@ -87,15 +87,14 @@
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getTodoById, completeTodo, type Todo } from '@/api/todo'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const todoId = ref('')
 const todoData = ref<Todo | null>(null)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  todoId.value = currentPage.options?.id || ''
+  todoId.value = getPageParam('id')
 
   if (todoId.value) {
     loadDetail()

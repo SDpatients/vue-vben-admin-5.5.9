@@ -5,6 +5,8 @@
   "vben": {
     "title": "Project",
     "about": "About",
+    "aboutUs": "About Us",
+    "productIntro": "Product Introduction",
     "document": "Document",
     "antdv": "Ant Design Vue Version",
     "naive-ui": "Naive UI Version",

@@ -118,6 +118,7 @@ import {
   notificationPriorityMap,
   notificationStatusMap
 } from '@/api/notification'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const notificationId = ref('')
@@ -125,9 +126,7 @@ const notificationData = ref<Notification | null>(null)
 const loading = ref(true)
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  notificationId.value = currentPage.options?.id || ''
+  notificationId.value = getPageParam('id')
 
   if (notificationId.value) {
     loadDetail()

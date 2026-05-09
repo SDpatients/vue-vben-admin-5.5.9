@@ -480,24 +480,23 @@ describe('FileUpload Component', () => {
         bizType: 'case',
         bizId: '1',
       });
-      expect(result).toEqual([10]);
+      expect(result).toEqual(mockTransferredFiles);
     });
 
-    it('should cancel token on dialog close', async () => {
-      vi.mocked(cancelTempUploadToken).mockResolvedValue({
+    it('should close dialog and clear polling on close', async () => {
+      vi.mocked(transferTempFiles).mockResolvedValue({
         code: 200,
         message: 'success',
-        data: null,
+        data: [],
       });
 
       const wrapper = createWrapper();
       const vm = wrapper.vm as any;
 
-      vm.currentTempToken = 'test-token';
+      vm.tempFilePolling = 123;
       await vm.closeQrCodeDialog();
 
-      expect(cancelTempUploadToken).toHaveBeenCalledWith('test-token');
-      expect(vm.currentTempToken).toBe('');
+      expect(vm.tempFilePolling).toBeNull();
     });
 
     it('should start polling when opening mobile upload dialog', async () => {
@@ -694,13 +693,12 @@ describe('FileUpload Component', () => {
       const vm = wrapper.vm as any;
 
       // Set up some state
-      vm.currentTempToken = 'test-token';
-      vm.tempFilePolling = setInterval(() => {}, 1000);
+      vm.tempFilePolling = 123;
 
       wrapper.unmount();
 
-      // Should attempt to cancel token
-      expect(cancelTempUploadToken).toHaveBeenCalledWith('test-token');
+      // Should clear polling on unmount
+      expect(vm.tempFilePolling).toBeNull();
     });
   });
 });

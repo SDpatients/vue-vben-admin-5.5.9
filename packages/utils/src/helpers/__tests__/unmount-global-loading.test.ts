@@ -30,20 +30,21 @@ describe('unmountGlobalLoading', () => {
     expect(loadingElement.classList.contains('hidden')).toBe(true);
   });
 
-  it('removes loading element after transition', async () => {
+  it('removes loading element after transitionend event', async () => {
     const loadingElement = document.createElement('div');
     loadingElement.id = '__app-loading__';
     document.body.appendChild(loadingElement);
 
     unmountGlobalLoading();
 
-    // 等待 transitionend 事件
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Dispatch transitionend event to trigger removal
+    const event = new Event('transitionend');
+    loadingElement.dispatchEvent(event);
 
     expect(document.querySelector('#__app-loading__')).toBeNull();
   });
 
-  it('removes injected loading elements', async () => {
+  it('removes injected loading elements after transitionend', async () => {
     const loadingElement = document.createElement('div');
     loadingElement.id = '__app-loading__';
     document.body.appendChild(loadingElement);
@@ -58,8 +59,9 @@ describe('unmountGlobalLoading', () => {
 
     unmountGlobalLoading();
 
-    // 等待 transitionend 事件
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Dispatch transitionend event to trigger removal
+    const event = new Event('transitionend');
+    loadingElement.dispatchEvent(event);
 
     expect(document.querySelector('[data-app-loading^="inject"]')).toBeNull();
   });
@@ -75,8 +77,9 @@ describe('unmountGlobalLoading', () => {
 
     unmountGlobalLoading();
 
-    // 等待 transitionend 事件
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Dispatch transitionend event to trigger removal
+    const event = new Event('transitionend');
+    loadingElement.dispatchEvent(event);
 
     expect(document.querySelector('#__app-loading__')).toBeNull();
     expect(document.querySelector('#other-element')).not.toBeNull();

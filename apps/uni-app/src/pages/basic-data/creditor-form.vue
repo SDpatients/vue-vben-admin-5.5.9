@@ -160,6 +160,7 @@ import {
   updateCreditor,
   type CreditorItem
 } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 import { getCaseList, type CaseItem } from '@/api/case'
 
 const creditorId = ref<number | null>(null)
@@ -193,9 +194,7 @@ const statusOptions = [
 ]
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   loadCaseList()
 
@@ -221,7 +220,7 @@ const selectCase = (item: CaseItem) => {
   selectedCase.value = item
   formData.value.caseId = item.id
   showCaseSelector.value = false
-}
+  }
 
 const loadDetail = async (id: number) => {
   try {

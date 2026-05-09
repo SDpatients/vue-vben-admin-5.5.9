@@ -51,6 +51,23 @@
       </scroll-view>
     </view>
 
+    <!-- 筛选栏 -->
+    <view v-if="!searchKeyword && currentTab === 'all'" class="filter-section">
+      <scroll-view scroll-x class="filter-scroll" show-scrollbar="false">
+        <view class="filter-list">
+          <view
+            v-for="filter in documentTypeFilters"
+            :key="filter.value"
+            class="filter-item"
+            :class="{ active: currentTypeFilter === filter.value }"
+            @click="handleTypeFilterChange(filter.value)"
+          >
+            <text>{{ filter.label }}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
     <!-- 文件夹列表 -->
     <view v-if="currentTab === 'all' && !searchKeyword && folderList.length > 0" class="folder-section">
       <view class="section-header">
@@ -211,8 +228,6 @@ import {
   deleteDocument,
   addFavorite,
   removeFavorite,
-  downloadDocument,
-  previewDocument,
   saveDocumentWithAuth,
   getRootFolders,
   getFolderChildren,
@@ -231,14 +246,26 @@ const tabs = [
 ]
 
 const documentTypeMap: Record<string, string> = {
+  WORD: 'Word',
+  EXCEL: 'Excel',
+  PDF: 'PDF',
+  OTHER: '其他',
   CONTRACT: '合同',
   REPORT: '报告',
   LEGAL: '法律',
   FINANCIAL: '财务',
-  OTHER: '其他',
 }
 
+const documentTypeFilters = [
+  { label: '全部', value: '' },
+  { label: 'Word', value: 'WORD' },
+  { label: 'Excel', value: 'EXCEL' },
+  { label: 'PDF', value: 'PDF' },
+  { label: '其他', value: 'OTHER' },
+]
+
 const currentTab = ref('all')
+const currentTypeFilter = ref('')
 const searchKeyword = ref('')
 const documentList = ref<DocumentItem[]>([])
 const folderList = ref<FolderItem[]>([])
@@ -259,10 +286,19 @@ onMounted(() => {
   loadData()
   calculateScrollHeight()
   uni.$on('refresh-document-list', () => loadData())
+  uni.$on('enter-folder', (folderId: number) => {
+    currentFolderId.value = folderId
+    currentTab.value = 'all'
+    searchKeyword.value = ''
+    currentTypeFilter.value = ''
+    page.value = 1
+    loadData()
+  })
 })
 
 onUnmounted(() => {
   uni.$off('refresh-document-list')
+  uni.$off('enter-folder')
 })
 
 onShow(() => {
@@ -299,7 +335,17 @@ const loadDocuments = async () => {
           res = await getPopularDocuments(page.value, size)
           break
         default:
-          res = await getDocumentList({ page: page.value, size })
+          // 使用 getDocumentList 进行筛选查询
+          const params: any = {
+            page: page.value,
+            size,
+            sortBy: 'createTime',
+            sortOrder: 'desc',
+          }
+          if (currentTypeFilter.value) {
+            params.documentType = currentTypeFilter.value
+          }
+          res = await getDocumentList(params)
       }
     }
 
@@ -314,7 +360,8 @@ const loadDocuments = async () => {
       total.value = totalCount
     }
   } catch (error) {
-} finally {
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
     loading.value = false
   }
 }
@@ -336,16 +383,18 @@ const loadFolders = async () => {
         }))
       }
     } catch (error) {
-}
+      // silent fail
+    }
   } else {
     try {
       const res = await getRootFolders()
       if (res.code === 200) {
-        folderList.value = res.data.list || []
+        folderList.value = res.data.folders || []
       }
       folderPath.value = []
     } catch (error) {
-}
+      // silent fail
+    }
   }
 }
 
@@ -353,8 +402,15 @@ const switchTab = (tab: string) => {
   currentTab.value = tab
   currentFolderId.value = undefined
   searchKeyword.value = ''
+  currentTypeFilter.value = ''
   page.value = 1
   loadData()
+}
+
+const handleTypeFilterChange = (type: string) => {
+  currentTypeFilter.value = type
+  page.value = 1
+  loadDocuments()
 }
 
 const handleSearch = () => {
@@ -434,7 +490,6 @@ const chooseFile = () => {
   closeUploadOptions()
 
   // #ifdef H5
-  // H5环境：创建隐藏的input元素选择文件
   const input = document.createElement('input')
   input.type = 'file'
   input.style.display = 'none'
@@ -453,7 +508,6 @@ const chooseFile = () => {
   // #endif
 
   // #ifndef H5
-  // 小程序/APP环境使用uni.chooseMessageFile
   uni.chooseMessageFile({
     count: 1,
     type: 'file',
@@ -513,9 +567,9 @@ const createFolder = () => {
 
 const handleDownload = async () => {
   if (!currentDoc.value) return
-  
+
   uni.showLoading({ title: '下载中...' })
-  
+
   try {
     const savedFilePath = await saveDocumentWithAuth(currentDoc.value.id)
     uni.hideLoading()
@@ -844,6 +898,35 @@ const formatTime = (time?: string) => {
     .tab-text {
       font-size: 28rpx;
       color: #666;
+    }
+  }
+}
+
+.filter-section {
+  background: #fff;
+  padding: 16rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+
+  .filter-scroll {
+    white-space: nowrap;
+  }
+
+  .filter-list {
+    display: inline-flex;
+    gap: 16rpx;
+  }
+
+  .filter-item {
+    padding: 10rpx 24rpx;
+    border-radius: 32rpx;
+    background: #f5f7fa;
+    font-size: 24rpx;
+    color: #666;
+    transition: all 0.2s;
+
+    &.active {
+      background: #1890ff;
+      color: #fff;
     }
   }
 }

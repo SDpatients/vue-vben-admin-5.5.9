@@ -68,6 +68,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { createShare, type ShareItem } from '@/api/document-library'
+import { getPageParam } from '@/utils/pageParam'
 
 const permissionOptions = ['查看', '编辑']
 const permissionValues = ['READ', 'WRITE']
@@ -85,13 +86,12 @@ const shareForm = ref({
 })
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = currentPage.options || currentPage.$route?.query || {}
+  const docId = getPageParam('documentId')
+  const docName = getPageParam('documentName')
 
-  if (options.documentId) {
-    documentId.value = Number(options.documentId)
-    documentName.value = decodeURIComponent(options.documentName || '')
+  if (docId) {
+    documentId.value = Number(docId)
+    documentName.value = decodeURIComponent(docName || '')
   }
 })
 

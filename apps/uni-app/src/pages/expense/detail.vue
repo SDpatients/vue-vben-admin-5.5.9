@@ -75,7 +75,6 @@
     <view class="info-section">
       <view class="section-header">
         <text class="section-title">报销明细</text>
-        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="showAddItem = true">+ 添加</text>
       </view>
       <view class="item-list">
         <view class="item-card" v-for="(item, index) in expenseDetail.items" :key="item.id">
@@ -86,7 +85,6 @@
           <view class="item-desc" v-if="item.itemDescription">{{ item.itemDescription }}</view>
           <view class="item-footer">
             <text class="item-index">明细 {{ index + 1 }}</text>
-            <text class="item-delete" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin && expenseDetail.items.length > 1" @click="handleDeleteItem(item.id)">删除</text>
           </view>
         </view>
         <view class="empty-items" v-if="!expenseDetail.items || expenseDetail.items.length === 0">
@@ -99,7 +97,6 @@
     <view class="info-section">
       <view class="section-header">
         <text class="section-title">附件</text>
-        <text class="section-action" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleUploadAttachment">+ 上传</text>
       </view>
       <view class="attachment-list">
         <view class="attachment-card" v-for="file in expenseDetail.attachments" :key="file.id">
@@ -110,7 +107,6 @@
           <view class="file-actions">
             <text class="action-btn" v-if="isImageFile(file.fileType)" @click="previewImage(file)">预览</text>
             <text class="action-btn" @click="downloadFile(file)">下载</text>
-            <text class="action-btn delete" v-if="expenseDetail.approvalStatus === 'PENDING' && !isAdmin" @click="handleDeleteAttachment(file.id)">删除</text>
           </view>
         </view>
         <view class="empty-attachments" v-if="!expenseDetail.attachments || expenseDetail.attachments.length === 0">
@@ -139,79 +135,9 @@
       <view class="action-btn" @click="handleBack">
         <text>返回</text>
       </view>
-      <view class="action-btn danger" @click="handleDelete">
-        <text>删除</text>
-      </view>
-      <view class="action-btn primary" v-if="expenseDetail.approvalStatus === 'PENDING' && isAdmin" @click="showApprove = true">
-        <text>审批</text>
-      </view>
     </view>
 
-    <!-- 添加明细弹窗 -->
-    <uni-popup ref="addItemPopup" type="center" v-if="showAddItem">
-      <view class="dialog-container">
-        <view class="dialog-header">
-          <text class="dialog-title">添加报销明细</text>
-          <text class="dialog-close" @click="showAddItem = false">×</text>
-        </view>
-        <view class="dialog-content">
-          <view class="form-item">
-            <text class="label">费用名称 <text class="required">*</text></text>
-            <picker mode="selector" :range="expenseTypeOptions" range-key="label" @change="onItemTypeChange">
-              <view class="picker-value">
-                <text>{{ itemForm.itemName || '请选择费用类型' }}</text>
-                <text class="picker-arrow">▼</text>
-              </view>
-            </picker>
-          </view>
-          <view class="form-item">
-            <text class="label">费用金额 <text class="required">*</text></text>
-            <input class="input" v-model="itemForm.itemAmount" type="digit" placeholder="请输入金额" />
-          </view>
-          <view class="form-item">
-            <text class="label">费用说明</text>
-            <textarea class="textarea" v-model="itemForm.itemDescription" placeholder="请输入费用说明（选填）" :maxlength="500" />
-          </view>
-        </view>
-        <view class="dialog-footer">
-          <button class="dialog-btn cancel" @click="showAddItem = false">取消</button>
-          <button class="dialog-btn confirm" @click="handleSaveItem" :loading="savingItem">保存</button>
-        </view>
-      </view>
-    </uni-popup>
 
-    <!-- 审批弹窗 -->
-    <uni-popup ref="approvePopup" type="center" v-if="showApprove">
-      <view class="dialog-container">
-        <view class="dialog-header">
-          <text class="dialog-title">审批报销单</text>
-          <text class="dialog-close" @click="showApprove = false">×</text>
-        </view>
-        <view class="dialog-content">
-          <view class="form-item">
-            <text class="label">审批结果 <text class="required">*</text></text>
-            <view class="radio-group">
-              <view class="radio-item" :class="{ active: approveForm.approvalStatus === 'APPROVED' }" @click="approveForm.approvalStatus = 'APPROVED'">
-                <text class="radio-icon">✓</text>
-                <text>通过</text>
-              </view>
-              <view class="radio-item" :class="{ active: approveForm.approvalStatus === 'REJECTED' }" @click="approveForm.approvalStatus = 'REJECTED'">
-                <text class="radio-icon">✗</text>
-                <text>拒绝</text>
-              </view>
-            </view>
-          </view>
-          <view class="form-item">
-            <text class="label">审批意见</text>
-            <textarea class="textarea" v-model="approveForm.approvalOpinion" placeholder="请输入审批意见（选填）" :maxlength="500" />
-          </view>
-        </view>
-        <view class="dialog-footer">
-          <button class="dialog-btn cancel" @click="showApprove = false">取消</button>
-          <button class="dialog-btn confirm" @click="handleSubmitApprove" :loading="approving">确定</button>
-        </view>
-      </view>
-    </uni-popup>
   </view>
 
   <view class="loading-container" v-else>
@@ -224,51 +150,20 @@ import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import {
   getExpenseReimbursementDetail,
-  deleteExpenseReimbursement,
-  addExpenseItem,
-  deleteExpenseItem,
-  deleteExpenseAttachment,
-  approveExpenseReimbursement,
-  uploadExpenseAttachment,
   downloadAndPreviewAttachment,
   downloadAttachmentFile,
   getApprovalStatusText,
   getApprovalStatusClass,
-  expenseTypeOptions,
   type ExpenseReimbursement,
 } from '@/api/expense-reimbursement'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
-import { chooseFilePlatform } from '@/utils/chooseFile'
 
 const expenseDetail = ref<ExpenseReimbursement | null>(null)
 const expenseId = ref('')
-const isAdmin = ref(false)
-
-const showAddItem = ref(false)
-const showApprove = ref(false)
-const savingItem = ref(false)
-const approving = ref(false)
-
-const itemForm = ref({
-  itemName: '',
-  itemAmount: '',
-  itemDescription: '',
-})
-
-const approveForm = ref({
-  approvalStatus: 'APPROVED' as 'APPROVED' | 'REJECTED',
-  approvalOpinion: '',
-})
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  expenseId.value = currentPage.options?.id || ''
-
-  // 检查是否是管理员
-  const userInfo = uni.getStorageSync('userInfo')
-  isAdmin.value = userInfo?.roles?.some((role: string) => role === 'ADMIN' || role === 'SUPER_ADMIN') || false
-
+  expenseId.value = getPageParam('id')
   if (expenseId.value) {
     loadDetail()
   }
@@ -292,127 +187,6 @@ const loadDetail = async () => {
 
 const handleBack = () => {
   uni.navigateBack()
-}
-
-const handleEdit = () => {
-  uni.navigateTo({ url: `/pages/expense/form?id=${expenseId.value}` })
-}
-
-const handleDelete = () => {
-  uni.showModal({
-    title: '确认删除',
-    content: '确定要删除这条报销单吗？删除后不可恢复。',
-    confirmColor: '#ff4d4f',
-    success: async (res: UniApp.ShowModalRes) => {
-      if (res.confirm) {
-        try {
-          await deleteExpenseReimbursement(expenseId.value)
-          uni.showToast({ title: '删除成功', icon: 'success' })
-          uni.$emit('refresh-expense-list')
-          setTimeout(() => {
-            uni.navigateBack()
-          }, 1500)
-        } catch (error) {
-          uni.showToast({ title: '删除失败', icon: 'none' })
-        }
-      }
-    },
-  })
-}
-
-const onItemTypeChange = (e: any) => {
-  const index = Number(e.detail.value)
-  const option = expenseTypeOptions[index]
-  if (option) {
-    itemForm.value.itemName = option.value
-  }
-}
-
-const handleSaveItem = async () => {
-  if (!itemForm.value.itemName) {
-    uni.showToast({ title: '请选择费用名称', icon: 'none' })
-    return
-  }
-  if (!itemForm.value.itemAmount || Number(itemForm.value.itemAmount) <= 0) {
-    uni.showToast({ title: '请输入有效的金额', icon: 'none' })
-    return
-  }
-
-  savingItem.value = true
-  try {
-    await addExpenseItem(expenseId.value, {
-      itemName: itemForm.value.itemName,
-      itemAmount: Number(itemForm.value.itemAmount),
-      itemDescription: itemForm.value.itemDescription,
-    })
-    uni.showToast({ title: '添加成功', icon: 'success' })
-    showAddItem.value = false
-    itemForm.value = { itemName: '', itemAmount: '', itemDescription: '' }
-    await loadDetail()
-  } catch (error) {
-    uni.showToast({ title: '添加失败', icon: 'none' })
-  } finally {
-    savingItem.value = false
-  }
-}
-
-const handleDeleteItem = (itemId?: number) => {
-  if (!itemId) return
-  uni.showModal({
-    title: '确认删除',
-    content: '确定要删除这条明细吗？',
-    confirmColor: '#ff4d4f',
-    success: async (res: UniApp.ShowModalRes) => {
-      if (res.confirm) {
-        try {
-          await deleteExpenseItem(expenseId.value, itemId)
-          uni.showToast({ title: '删除成功', icon: 'success' })
-          await loadDetail()
-        } catch (error) {
-          uni.showToast({ title: '删除失败', icon: 'none' })
-        }
-      }
-    },
-  })
-}
-
-const handleUploadAttachment = async () => {
-  try {
-    const files = await chooseFilePlatform({ count: 1 })
-    if (files.length > 0) {
-      uni.showLoading({ title: '上传中...' })
-      try {
-        await uploadExpenseAttachment(expenseId.value, files[0].path)
-        uni.showToast({ title: '上传成功', icon: 'success' })
-        await loadDetail()
-      } catch (error) {
-        uni.showToast({ title: '上传失败', icon: 'none' })
-      } finally {
-        uni.hideLoading()
-      }
-    }
-  } catch (_e) {
-    uni.showToast({ title: '选择文件取消', icon: 'none' })
-  }
-}
-
-const handleDeleteAttachment = (attachmentId: number) => {
-  uni.showModal({
-    title: '确认删除',
-    content: '确定要删除这个附件吗？',
-    confirmColor: '#ff4d4f',
-    success: async (res: UniApp.ShowModalRes) => {
-      if (res.confirm) {
-        try {
-          await deleteExpenseAttachment(expenseId.value, attachmentId)
-          uni.showToast({ title: '删除成功', icon: 'success' })
-          await loadDetail()
-        } catch (error) {
-          uni.showToast({ title: '删除失败', icon: 'none' })
-        }
-      }
-    },
-  })
 }
 
 const isImageFile = (fileType?: string): boolean => {
@@ -455,28 +229,6 @@ const downloadFile = async (file: any) => {
     } else {
       uni.showToast({ title: error?.message || '下载失败', icon: 'none' })
     }
-  }
-}
-
-const handleSubmitApprove = async () => {
-  if (!approveForm.value.approvalStatus) {
-    uni.showToast({ title: '请选择审批结果', icon: 'none' })
-    return
-  }
-
-  approving.value = true
-  try {
-    await approveExpenseReimbursement(expenseId.value, {
-      approvalStatus: approveForm.value.approvalStatus,
-      approvalOpinion: approveForm.value.approvalOpinion,
-    })
-    uni.showToast({ title: '审批成功', icon: 'success' })
-    showApprove.value = false
-    await loadDetail()
-  } catch (error) {
-    uni.showToast({ title: '审批失败', icon: 'none' })
-  } finally {
-    approving.value = false
   }
 }
 

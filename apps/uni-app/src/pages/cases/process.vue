@@ -392,6 +392,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { getCaseDetail, type CaseItem } from '@/api/case'
+import { getPageParam } from '@/utils/pageParam'
 import { 
   getCaseTasks, 
   getCaseTaskSubmissions,
@@ -406,8 +407,11 @@ import {
   getSubmissionFilesBatch,
   type SubmissionData,
 } from '@/api/process'
+
 import { getBaseUrl, API_PREFIX } from '@/config'
+
 import http from '@/api/request'
+
 import dayjs from 'dayjs'
 const caseId = ref('')
 const caseInfo = ref<CaseItem | null>(null)
@@ -546,9 +550,7 @@ const taskStatusMap: Record<string, { text: string; type: string }> = {
 }
 
 onMounted(() => {
-const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
 if (caseId.value) {
     initPage()
   }

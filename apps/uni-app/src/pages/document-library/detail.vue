@@ -108,6 +108,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { getPageParam } from '@/utils/pageParam'
 import {
   getDocumentDetail,
   addFavorite,
@@ -134,9 +135,7 @@ const documentTypeMap: Record<string, string> = {
 }
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const id = currentPage.options?.id || currentPage.$route?.query?.id
+  const id = getPageParam('id')
   if (id) {
     documentId.value = Number(id)
     loadDetail()

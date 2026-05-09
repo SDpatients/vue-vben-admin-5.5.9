@@ -81,6 +81,7 @@ import {
   updateCourt,
   type CourtItem
 } from '@/api/basic-data'
+import { getPageParam } from '@/utils/pageParam'
 
 const courtId = ref<number | null>(null)
 const isEdit = computed(() => courtId.value !== null)
@@ -103,9 +104,7 @@ const courtLevelOptions = [
 ]
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const id = currentPage.options?.id
+  const id = getPageParam('id')
 
   if (id) {
     courtId.value = parseInt(id)

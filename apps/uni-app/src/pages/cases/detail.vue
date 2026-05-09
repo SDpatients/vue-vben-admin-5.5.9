@@ -168,15 +168,14 @@
 import { ref, shallowRef, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCaseDetail, type CaseDetail } from '@/api/case'
+import { getPageParam } from '@/utils/pageParam'
 import dayjs from 'dayjs'
 
 const caseDetail = shallowRef<CaseDetail | null>(null)
 const caseId = ref('')
 
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  caseId.value = currentPage.options?.id || ''
+  caseId.value = getPageParam('id')
 
   if (caseId.value) {
     loadDetail()
@@ -194,7 +193,7 @@ const loadDetail = async () => {
     const res = await getCaseDetail(caseId.value)
     const rawData = res.data
     caseDetail.value = rawData ? { ...rawData } : null
-  } catch (error) {
+  } catch (error: any) {
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
 }
