@@ -174,9 +174,6 @@
           <view class="action-item-popup" @click="handleToggleFavorite">
             <text class="action-text">{{ currentDoc?.isFavorited ? '取消收藏' : '收藏' }}</text>
           </view>
-          <view class="action-item-popup" @click="handleShare">
-            <text class="action-text">分享</text>
-          </view>
           <view class="action-item-popup" @click="handleEdit">
             <text class="action-text">编辑</text>
           </view>
@@ -218,6 +215,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import dayjs from 'dayjs'
 import {
   getDocumentList,
   getDocumentsByFolder,
@@ -488,6 +486,7 @@ const closeUploadOptions = () => {
 
 const chooseFile = () => {
   closeUploadOptions()
+  console.log('[document-library] 开始选择文件...')
 
   // #ifdef H5
   const input = document.createElement('input')
@@ -498,6 +497,7 @@ const chooseFile = () => {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
     if (file) {
+      console.log('[document-library][H5] DOM input file selected:', file.name, file.size)
       const filePath = URL.createObjectURL(file)
       handleUpload(filePath, file.name, file)
     }
@@ -508,17 +508,90 @@ const chooseFile = () => {
   // #endif
 
   // #ifndef H5
+  // #ifdef MP-WEIXIN
   uni.chooseMessageFile({
     count: 1,
     type: 'file',
     success: (res: UniApp.ChooseMessageFileSuccessCallbackResult) => {
       const file = res.tempFiles[0]
+      console.log('[document-library][MP-WEIXIN] uni.chooseMessageFile success:', file.name)
       handleUpload(file.path, file.name)
     },
-    fail: () => {
+    fail: (err) => {
+      console.error('[document-library][MP-WEIXIN] uni.chooseMessageFile fail:', JSON.stringify(err))
       uni.showToast({ title: '选择文件失败', icon: 'none' })
     },
   })
+  // #endif
+  // #ifdef APP-PLUS
+  // APP-PLUS 文件选择：先检测 uni.chooseFile 是否可用
+  try {
+    if (typeof uni.chooseFile === 'function') {
+      uni.chooseFile({
+        count: 1,
+        success: (res: any) => {
+          const file = (res.tempFiles || [])[0]
+          if (file) {
+            console.log('[document-library][APP-PLUS] uni.chooseFile success:', file.name)
+            handleUpload(file.path || file.tempFilePath, file.name || '未知文件')
+          }
+        },
+        fail: (err: any) => {
+          console.error('[document-library][APP-PLUS] uni.chooseFile fail:', JSON.stringify(err))
+          uni.showToast({ title: '选择文件失败', icon: 'none' })
+        }
+      })
+    } else {
+      console.log('[document-library][APP-PLUS] uni.chooseFile 不可用, 使用 plus.io.chooseFile 回退方案')
+      usePlusIoChooseFile()
+    }
+  } catch (e) {
+    console.error('[document-library][APP-PLUS] uni.chooseFile 调用异常, 使用 plus.io.chooseFile 回退:', e)
+    usePlusIoChooseFile()
+  }
+
+  // plus.io.chooseFile 回退方案 - 兼容不同 HBuilderX 版本的 API 签名
+  function usePlusIoChooseFile() {
+    let resolved = false
+    const handleResult = (data: any, source: string) => {
+      if (resolved) return
+      console.log('[document-library][APP-PLUS] plus.io 回调(' + source + '):', JSON.stringify(data))
+      
+      // 成功: {files: [...]} 对象
+      if (data && data.files && Array.isArray(data.files) && data.files.length > 0) {
+        resolved = true
+        data.files.forEach((path: string) => {
+          const fileName = path?.split('/').pop() || path?.split('\\').pop() || '未知文件'
+          handleUpload(path, fileName)
+        })
+        return
+      }
+      // 成功: 字符串路径
+      if (typeof data === 'string' && data.includes('/')) {
+        resolved = true
+        const fileName = data?.split('/').pop() || data?.split('\\').pop() || '未知文件'
+        handleUpload(data, fileName)
+        return
+      }
+    }
+    
+    try {
+      plus.io.chooseFile(
+        (result1: any) => handleResult(result1, 'cb1'),
+        (result2: any) => {
+          handleResult(result2, 'cb2')
+          if (!resolved) {
+            resolved = true
+            uni.showToast({ title: '选择文件失败', icon: 'none' })
+          }
+        }
+      )
+    } catch (e) {
+      console.error('[document-library][APP-PLUS] plus.io.chooseFile 执行异常:', e)
+      uni.showToast({ title: '选择文件失败', icon: 'none' })
+    }
+  }
+  // #endif
   // #endif
 }
 
@@ -627,14 +700,6 @@ const handleToggleFavorite = async () => {
   } catch (error) {
     uni.showToast({ title: '操作失败', icon: 'none' })
   }
-  closeDocActions()
-}
-
-const handleShare = () => {
-  if (!currentDoc.value) return
-  uni.navigateTo({
-    url: `/pages/document-library/share?documentId=${currentDoc.value.id}&documentName=${encodeURIComponent(currentDoc.value.documentName)}`,
-  })
   closeDocActions()
 }
 
@@ -769,7 +834,7 @@ const formatTime = (time?: string) => {
   if (diffMins < 60) return `${diffMins}分钟前`
   if (diffHours < 24) return `${diffHours}小时前`
   if (diffDays < 7) return `${diffDays}天前`
-  return date.toLocaleDateString('zh-CN')
+  return dayjs(date).format('YYYY/M/D')
 }
 </script>
 

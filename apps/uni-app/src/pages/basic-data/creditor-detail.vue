@@ -19,7 +19,10 @@
         </view>
         <view class="info-item" v-if="detail.idNumber">
           <text class="label">身份证号/统一社会信用代码</text>
-          <text class="value">{{ detail.idNumber }}</text>
+          <view class="value-wrapper" @click="onViewSensitive('CREDITOR_ID_NUMBER', detail.id, '身份证号', detail.idNumber)">
+            <text :class="['value', { masked: isMaskedData(detail.idNumber) }]">{{ detail.idNumber }}</text>
+            <text class="view-icon" v-if="isMaskedData(detail.idNumber)">👁</text>
+          </view>
         </view>
         <view class="info-item" v-if="detail.legalRepresentative">
           <text class="label">法定代表人</text>
@@ -37,7 +40,10 @@
       <view class="info-list">
         <view class="info-item" v-if="detail.contactPhone">
           <text class="label">联系电话</text>
-          <text class="value">{{ detail.contactPhone }}</text>
+          <view class="value-wrapper" @click="onViewSensitive('CREDITOR_CONTACT_PHONE', detail.id, '联系电话', detail.contactPhone)">
+            <text :class="['value', { masked: isMaskedData(detail.contactPhone) }]">{{ detail.contactPhone }}</text>
+            <text class="view-icon" v-if="isMaskedData(detail.contactPhone)">👁</text>
+          </view>
         </view>
         <view class="info-item" v-if="detail.contactEmail">
           <text class="label">联系邮箱</text>
@@ -92,7 +98,11 @@
 import { ref, onMounted } from 'vue'
 import { getCreditorDetail, type CreditorItem } from '@/api/basic-data'
 import { getPageParam } from '@/utils/pageParam'
+import { checkLicenseExpiry, isMasked, SensitiveDataType } from '@/utils/sensitiveData'
+import { useSensitiveDataView } from '@/composables/useSensitiveDataView'
 import dayjs from 'dayjs'
+
+const { viewMaskedData } = useSensitiveDataView()
 
 const detail = ref<CreditorItem | null>(null)
 
@@ -108,9 +118,17 @@ const loadDetail = async (id: number) => {
   try {
     const res = await getCreditorDetail(id)
     detail.value = res.data
+    checkLicenseExpiry(res.data)
   } catch (error) {
-uni.showToast({ title: '加载失败', icon: 'none' })
+    uni.showToast({ title: '加载失败', icon: 'none' })
   }
+}
+
+const isMaskedData = (value?: string | null) => isMasked(value)
+
+const onViewSensitive = (dataType: string, id: number, label: string, currentValue?: string | null) => {
+  if (!isMasked(currentValue)) return
+  viewMaskedData(dataType as SensitiveDataType, id, label)
 }
 
 const getStatusText = (status?: string) => {
@@ -242,6 +260,25 @@ const formatMoney = (money?: number) => {
           color: #1890ff;
           font-weight: 500;
         }
+
+        &.masked {
+          color: #1890ff;
+          text-decoration: underline;
+          text-underline-offset: 4rpx;
+        }
+      }
+
+      .value-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 1;
+        gap: 8rpx;
+      }
+
+      .view-icon {
+        font-size: 32rpx;
+        flex-shrink: 0;
       }
     }
   }

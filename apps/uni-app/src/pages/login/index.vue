@@ -28,7 +28,7 @@
           :style="{ animationDelay: '0.2s' }"
         >
           <view class="input-wrapper">
-            <text class="input-icon">👤</text>
+            <u-icon name="account" size="18" color="#999" custom-style="margin-right: 20rpx"></u-icon>
             <input
               v-model="form.username"
               class="input"
@@ -47,7 +47,7 @@
           :style="{ animationDelay: '0.3s' }"
         >
           <view class="input-wrapper">
-            <text class="input-icon">🔒</text>
+            <u-icon name="lock" size="18" color="#999" custom-style="margin-right: 20rpx"></u-icon>
             <input
               v-model="form.password"
               class="input"
@@ -79,6 +79,68 @@
       </view>
     </view>
 
+    <!-- 协议同意弹窗 -->
+    <view class="agreement-overlay" v-if="showAgreementModal" @click.stop>
+      <view class="agreement-modal">
+        <view class="agreement-header">
+          <text class="agreement-title">用户协议与隐私政策</text>
+          <text class="agreement-desc">请阅读并同意以下协议后继续使用</text>
+        </view>
+
+        <view class="agreement-list">
+          <view
+            v-for="type in ['PRIVACY_POLICY', 'USER_AGREEMENT']"
+            :key="type"
+            class="agreement-item"
+          >
+            <view class="agreement-item-header">
+              <view class="agreement-item-icon">
+                <u-icon :name="agreementAgreedTypes.has(type) ? 'checkmark-circle' : 'file-text'" :color="agreementAgreedTypes.has(type) ? '#52c41a' : '#1890ff'" size="22" />
+              </view>
+              <text class="agreement-item-title">{{ agreementTypeLabels[type] }}</text>
+              <view
+                v-if="agreementAgreedTypes.has(type)"
+                class="agreed-badge"
+              >
+                <text>已同意</text>
+              </view>
+            </view>
+            <view class="agreement-item-content">
+              <text>{{ agreementTypeContents[type] }}</text>
+            </view>
+            <view class="agreement-item-actions">
+              <view class="view-detail-link" @click="viewAgreementDetail(type)">
+                <text>查看全文</text>
+                <u-icon name="arrow-right" size="12" color="#1890ff" />
+              </view>
+              <button
+                v-if="!agreementAgreedTypes.has(type)"
+                class="agree-single-btn"
+                :class="{ loading: agreementLoading }"
+                :disabled="agreementLoading"
+                @click="handleAgreeSingle(type)"
+              >
+                <text>同意{{ agreementTypeLabels[type] }}</text>
+              </button>
+            </view>
+          </view>
+        </view>
+
+        <view class="agreement-footer">
+          <button
+            class="agree-all-btn"
+            :class="{ loading: agreementLoading, disabled: !allLocalAgreed || agreementProcessing }"
+            :disabled="agreementLoading || agreementProcessing || !allLocalAgreed"
+            @click="handleAgreeAll"
+          >
+            <text v-if="agreementLoading || agreementProcessing">提交中...</text>
+            <text v-else-if="allLocalAgreed">同意并进入系统</text>
+            <text v-else>请先分别同意以上协议</text>
+          </button>
+        </view>
+      </view>
+    </view>
+
     <!-- 版本信息 -->
     <view class="version" :class="{ 'show': pageLoaded }" :style="{ animationDelay: '0.6s' }">
       <text class="version-text">V {{ customerConfig.app.version }}</text>
@@ -95,9 +157,15 @@
  * Copyright (c) 2024-present, Vben.
  */
 
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { customerConfig } from '@/customer.config'
+import {
+  checkAllAgreements,
+  agreeAgreement,
+  AGREEMENT_TYPES,
+  type AgreementCheckResult,
+} from '@/api/agreement'
 
 const authStore = useAuthStore()
 
@@ -110,6 +178,43 @@ const loading = ref(false)
 const pageLoaded = ref(false)
 const usernameFocus = ref(false)
 const passwordFocus = ref(false)
+const redirectTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
+// 协议弹窗相关状态
+const showAgreementModal = ref(false)
+const agreementCheckResult = ref<AgreementCheckResult | null>(null)
+const agreementLoading = ref(false)
+const agreementProcessing = ref(false)
+const agreementAgreedTypes = ref<Set<string>>(new Set())
+
+const unAgreedTypes = computed(() => {
+  if (!agreementCheckResult.value) return []
+  return Object.entries(agreementCheckResult.value.agreements)
+    .filter(([, agreed]) => !agreed)
+    .map(([type]) => type)
+})
+
+const allLocalAgreed = computed(() => {
+  const allTypes = ['PRIVACY_POLICY', 'USER_AGREEMENT']
+  return allTypes.every((type) => agreementAgreedTypes.value.has(type))
+})
+
+const agreementTypeLabels: Record<string, string> = {
+  PRIVACY_POLICY: '隐私政策',
+  USER_AGREEMENT: '用户协议',
+}
+
+const agreementTypeContents: Record<string, string> = {
+  PRIVACY_POLICY: `${customerConfig.company.name}（以下简称"本公司"）非常重视用户的隐私保护。本隐私政策旨在向您说明我们在您使用${customerConfig.app.fullName}时如何收集、使用、存储和保护您的个人信息。`,
+  USER_AGREEMENT: `本协议是您（以下简称"用户"）与${customerConfig.company.name}（以下简称"本公司"）之间关于使用本公司提供的${customerConfig.app.fullName}所订立的协议。`,
+}
+
+onUnmounted(() => {
+  if (redirectTimer.value) {
+    clearTimeout(redirectTimer.value)
+    redirectTimer.value = null
+  }
+})
 
 onMounted(async () => {
   const restored = await authStore.restoreLoginState()
@@ -121,6 +226,85 @@ onMounted(async () => {
     pageLoaded.value = true
   }, 100)
 })
+
+const redirectToWorkspace = () => {
+  redirectTimer.value = setTimeout(() => {
+    uni.switchTab({ url: '/pages/workspace/index' })
+  }, 800)
+}
+
+const checkAgreementsAfterLogin = async () => {
+  try {
+    const result = await checkAllAgreements()
+    agreementCheckResult.value = result
+    if (result.allAgreed) {
+      redirectToWorkspace()
+    } else {
+      showAgreementModal.value = true
+    }
+  } catch (_error) {
+    redirectToWorkspace()
+  }
+}
+
+const handleAgreeSingle = async (agreementType: string) => {
+  agreementLoading.value = true
+  try {
+    await agreeAgreement({
+      agreementType,
+      agreementVersion: '1.0.0',
+      agreed: true,
+      agreementContent: agreementTypeContents[agreementType] || '',
+    })
+    agreementAgreedTypes.value = new Set([...agreementAgreedTypes.value, agreementType])
+    uni.showToast({ title: `${agreementTypeLabels[agreementType]}已同意`, icon: 'success' })
+  } catch (_error) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    agreementLoading.value = false
+  }
+}
+
+const handleAgreeAll = async () => {
+  if (agreementProcessing.value || agreementLoading.value) {
+    return
+  }
+  
+  agreementProcessing.value = true
+  agreementLoading.value = true
+  
+  try {
+    // 先计算出所有需要同意的协议类型
+    const allTypes = ['PRIVACY_POLICY', 'USER_AGREEMENT']
+    const typesToAgree = allTypes.filter(type => !agreementAgreedTypes.value.has(type))
+    
+    for (const type of typesToAgree) {
+      await agreeAgreement({
+        agreementType: type,
+        agreementVersion: '1.0.0',
+        agreed: true,
+        agreementContent: agreementTypeContents[type] || '',
+      })
+      agreementAgreedTypes.value = new Set([...agreementAgreedTypes.value, type])
+    }
+    uni.showToast({ title: '同意成功', icon: 'success' })
+    showAgreementModal.value = false
+    redirectToWorkspace()
+  } catch (_error) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    agreementLoading.value = false
+    agreementProcessing.value = false
+  }
+}
+
+const viewAgreementDetail = (type: string) => {
+  if (type === AGREEMENT_TYPES.PRIVACY_POLICY) {
+    uni.navigateTo({ url: '/pages/about/privacy' })
+  } else if (type === AGREEMENT_TYPES.USER_AGREEMENT) {
+    uni.navigateTo({ url: '/pages/about/terms' })
+  }
+}
 
 const handleLogin = async () => {
   if (!form.username.trim()) {
@@ -137,9 +321,7 @@ const handleLogin = async () => {
     const res = await authStore.login(form)
     if (res && res.code === 200 && res.data) {
       uni.showToast({ title: '登录成功', icon: 'success' })
-      setTimeout(() => {
-        uni.switchTab({ url: '/pages/workspace/index' })
-      }, 1500)
+      checkAgreementsAfterLogin()
     } else {
       uni.showToast({ title: res?.message || '登录失败', icon: 'none' })
     }
@@ -509,6 +691,165 @@ const handleLogin = async () => {
   .copyright-sub {
     font-size: 20rpx;
     color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+// 协议弹窗样式
+.agreement-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40rpx;
+}
+
+.agreement-modal {
+  width: 100%;
+  max-width: 640rpx;
+  max-height: 85vh;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 30rpx 30rpx;
+  overflow-y: auto;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.2);
+}
+
+.agreement-header {
+  text-align: center;
+  margin-bottom: 30rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+
+  .agreement-title {
+    display: block;
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 12rpx;
+  }
+
+  .agreement-desc {
+    font-size: 26rpx;
+    color: #999;
+  }
+}
+
+.agreement-list {
+  .agreement-item {
+    background: #fafafa;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 24rpx;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .agreement-item-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16rpx;
+
+    .agreement-item-icon {
+      margin-right: 12rpx;
+    }
+
+    .agreement-item-title {
+      font-size: 30rpx;
+      font-weight: 600;
+      color: #333;
+      flex: 1;
+    }
+
+    .agreed-badge {
+      background: #f6ffed;
+      border: 1rpx solid #b7eb8f;
+      border-radius: 8rpx;
+      padding: 4rpx 16rpx;
+
+      text {
+        font-size: 22rpx;
+        color: #52c41a;
+      }
+    }
+  }
+
+  .agreement-item-content {
+    background: #fff;
+    border-radius: 12rpx;
+    padding: 20rpx;
+    margin-bottom: 16rpx;
+
+    text {
+      font-size: 24rpx;
+      color: #666;
+      line-height: 1.6;
+    }
+  }
+
+  .agreement-item-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .view-detail-link {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+
+      text {
+        font-size: 24rpx;
+        color: #1890ff;
+      }
+    }
+
+    .agree-single-btn {
+      background: #1890ff;
+      color: #fff;
+      border-radius: 32rpx;
+      font-size: 24rpx;
+      padding: 12rpx 32rpx;
+      border: none;
+
+      &.loading {
+        opacity: 0.6;
+      }
+    }
+  }
+}
+
+.agreement-footer {
+  margin-top: 30rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+
+  .agree-all-btn {
+    width: 100%;
+    height: 88rpx;
+    border-radius: 44rpx;
+    font-size: 30rpx;
+    font-weight: bold;
+    border: none;
+    background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+    color: #fff;
+    box-shadow: 0 8rpx 24rpx rgba(24, 144, 255, 0.3);
+
+    &.disabled {
+      background: #e0e0e0;
+      color: #999;
+      box-shadow: none;
+    }
+
+    &.loading {
+      opacity: 0.7;
+    }
   }
 }
 </style>

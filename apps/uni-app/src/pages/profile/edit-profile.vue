@@ -50,12 +50,6 @@
           maxlength="11"
           type="number"
         />
-        <input 
-          v-model="mobileForm.smsCode" 
-          placeholder="请输入短信验证码（可选）"
-          class="dialog-input"
-          maxlength="6"
-        />
         <view class="dialog-buttons">
           <u-button plain size="small" text="取消" @click="showMobileDialog = false"></u-button>
           <u-button type="primary" size="small" text="确定" :loading="submittingMobile" @click="handleUpdateMobile"></u-button>
@@ -93,7 +87,7 @@ const showMobileDialog = ref(false)
 const showEmailDialog = ref(false)
 
 const realNameForm = reactive({ realName: '' })
-const mobileForm = reactive({ mobile: '', smsCode: '' })
+const mobileForm = reactive({ mobile: '' })
 const emailForm = reactive({ email: '' })
 
 const submittingRealName = ref(false)
@@ -107,7 +101,7 @@ onMounted(async () => {
       await authStore.fetchUserInfo()
       userInfo.value = authStore.userInfo
     } catch (error) {
-}
+    }
   }
 })
 
@@ -130,7 +124,7 @@ const handleUpdateRealName = async () => {
     realNameForm.realName = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-} finally {
+  } finally {
     submittingRealName.value = false
   }
 }
@@ -149,16 +143,14 @@ const handleUpdateMobile = async () => {
   try {
     const res = await profileApi.updateMobile({
       mobile: mobileForm.mobile,
-      smsCode: mobileForm.smsCode,
     })
     uni.showToast({ title: '修改成功', icon: 'success' })
     userInfo.value = res.data
     showMobileDialog.value = false
     mobileForm.mobile = ''
-    mobileForm.smsCode = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-} finally {
+  } finally {
     submittingMobile.value = false
   }
 }
@@ -182,7 +174,7 @@ const handleUpdateEmail = async () => {
     emailForm.email = ''
     authStore.userInfo = res.data
   } catch (error: any) {
-} finally {
+  } finally {
     submittingEmail.value = false
   }
 }

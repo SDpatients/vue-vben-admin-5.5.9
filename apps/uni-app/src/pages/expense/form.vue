@@ -391,10 +391,12 @@ const handleRemoveItem = (index: number) => {
 
 const handleChooseFile = async () => {
   try {
+    console.log('[expense-form] 开始选择文件...')
     const files = await chooseFilePlatform({
       count: 5,
       extension: ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx'],
     })
+    console.log('[expense-form] 文件选择成功, 文件数量:', files.length, JSON.stringify(files.map(f => ({ name: f.name, size: f.size }))))
     files.forEach((file) => {
       form.value.attachments.push({
         fileName: file.name || file.path.split('/').pop() || '未知文件',
@@ -402,8 +404,10 @@ const handleChooseFile = async () => {
         fileType: getFileTypeFromPath(file.path),
         filePath: file.path,
       })
+      console.log('[expense-form] 附件已添加:', file.name)
     })
-  } catch (_e) {
+  } catch (e) {
+    console.error('[expense-form] 选择文件失败:', e)
   }
 }
 
@@ -781,6 +785,8 @@ const getFileIcon = (fileType?: string) => {
   position: fixed;
   bottom: 0;
   left: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
   right: 0;
   padding: 20rpx;
   background: #fff;

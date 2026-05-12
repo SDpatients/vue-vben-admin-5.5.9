@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 import { VbenAvatar } from '../avatar';
 
 interface Props {
@@ -36,7 +37,7 @@ defineOptions({
   name: 'VbenLogo',
 });
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   collapsed: false,
   href: 'javascript:void 0',
   logoSize: 32,
@@ -44,6 +45,7 @@ withDefaults(defineProps<Props>(), {
   theme: 'light',
   fit: 'cover',
 });
+
 </script>
 
 <template>

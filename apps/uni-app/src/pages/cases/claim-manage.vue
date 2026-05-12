@@ -381,7 +381,10 @@
                 </view>
                 <view class="creditor-row">
                   <text class="creditor-row-label">联系电话</text>
-                  <text class="creditor-row-value">{{ creditor.contactPhone || '-' }}</text>
+                  <view class="creditor-row-value-wrapper" @click="onViewSensitiveInPopup('CREDITOR_CONTACT_PHONE', creditor.id, '联系电话', creditor.contactPhone)">
+                    <text :class="['creditor-row-value', { masked: isMaskedData(creditor.contactPhone) }]">{{ creditor.contactPhone || '-' }}</text>
+                    <text class="view-icon" v-if="isMaskedData(creditor.contactPhone)">👁</text>
+                  </view>
                 </view>
                 <view class="creditor-row">
                   <text class="creditor-row-label">电子邮箱</text>
@@ -389,7 +392,10 @@
                 </view>
                 <view class="creditor-row">
                   <text class="creditor-row-label">证件号码</text>
-                  <text class="creditor-row-value">{{ creditor.idNumber || '-' }}</text>
+                  <view class="creditor-row-value-wrapper" @click="onViewSensitiveInPopup('CREDITOR_ID_NUMBER', creditor.id, '身份证号', creditor.idNumber)">
+                    <text :class="['creditor-row-value', { masked: isMaskedData(creditor.idNumber) }]">{{ creditor.idNumber || '-' }}</text>
+                    <text class="view-icon" v-if="isMaskedData(creditor.idNumber)">👁</text>
+                  </view>
                 </view>
                 <view v-if="creditor.creditorType !== '个人' && creditor.creditorType !== 'NATURAL_PERSON' && creditor.creditorType !== 'INDIVIDUAL'" class="creditor-row">
                   <text class="creditor-row-label">注册资本</text>
@@ -743,7 +749,10 @@
               <text class="detail-section-title">证件信息</text>
               <view class="detail-row">
                 <text class="detail-label">证件号码</text>
-                <text class="detail-value">{{ currentCreditorDetail.idNumber || '-' }}</text>
+                <view class="value-wrapper" @click="onViewSensitiveInPopup('CREDITOR_ID_NUMBER', currentCreditorDetail.id, '身份证号', currentCreditorDetail.idNumber)">
+                  <text :class="['detail-value', { masked: isMaskedData(currentCreditorDetail.idNumber) }]">{{ currentCreditorDetail.idNumber || '-' }}</text>
+                  <text class="view-icon" v-if="isMaskedData(currentCreditorDetail.idNumber)">👁</text>
+                </view>
               </view>
               <view v-if="currentCreditorDetail.creditorType !== '个人' && currentCreditorDetail.creditorType !== 'NATURAL_PERSON' && currentCreditorDetail.creditorType !== 'INDIVIDUAL'" class="detail-row">
                 <text class="detail-label">法定代表人</text>
@@ -758,7 +767,10 @@
               <text class="detail-section-title">联系方式</text>
               <view class="detail-row">
                 <text class="detail-label">联系电话</text>
-                <text class="detail-value phone" @click="callPhone(currentCreditorDetail.contactPhone)">{{ currentCreditorDetail.contactPhone || '-' }}</text>
+                <view class="value-wrapper">
+                  <text :class="['detail-value', 'phone', { masked: isMaskedData(currentCreditorDetail.contactPhone) }]" @click="handlePhoneClick(currentCreditorDetail.contactPhone)">{{ currentCreditorDetail.contactPhone || '-' }}</text>
+                  <text class="view-icon" v-if="isMaskedData(currentCreditorDetail.contactPhone)" @click="onViewSensitiveInPopup('CREDITOR_CONTACT_PHONE', currentCreditorDetail.id, '联系电话', currentCreditorDetail.contactPhone)">👁</text>
+                </view>
               </view>
               <view class="detail-row">
                 <text class="detail-label">电子邮箱</text>
@@ -797,6 +809,8 @@ import { ref, onMounted, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import http from '@/api/request'
 import { getPageParam } from '@/utils/pageParam'
+import { checkLicenseExpiry, isMasked, SensitiveDataType } from '@/utils/sensitiveData'
+import { useSensitiveDataView } from '@/composables/useSensitiveDataView'
 import {
   getClaimRegistrationList,
   getClaimReviewList,
@@ -820,6 +834,8 @@ import {
 } from '@/api/case'
 
 import dayjs from 'dayjs'
+
+const { viewMaskedData } = useSensitiveDataView()
 
 const tabs = ref([
   { key: 'registration', label: '债权申报' },
@@ -896,12 +912,32 @@ const viewConfirmationDetail = (item: ClaimConfirmationItem) => {
 
 const viewCreditorDetail = (creditor: CreditorItem) => {
   currentCreditorDetail.value = creditor
+  checkLicenseExpiry(creditor)
   creditorDetailPopup.value?.open()
 }
 
 const callPhone = (phone: string) => {
-  if (phone) {
-    uni.makePhoneCall({ phoneNumber: phone })
+  if (!phone || phone.includes('*')) {
+    uni.showToast({ title: '号码已脱敏，无法拨号', icon: 'none' })
+    return
+  }
+  uni.makePhoneCall({ phoneNumber: phone })
+}
+
+const isMaskedData = (value?: string | null) => isMasked(value)
+
+const onViewSensitiveInPopup = (dataType: string, id: number, label: string, currentValue?: string | null) => {
+  if (!isMasked(currentValue)) return
+  viewMaskedData(dataType as SensitiveDataType, id, label)
+}
+
+const handlePhoneClick = (phone: string) => {
+  if (isMasked(phone)) {
+    if (currentCreditorDetail.value) {
+      onViewSensitiveInPopup('CREDITOR_CONTACT_PHONE', currentCreditorDetail.value.id, '联系电话', phone)
+    }
+  } else {
+    callPhone(phone)
   }
 }
 
@@ -2204,6 +2240,12 @@ const formatDate = (date?: string) => {
         color: #1890ff;
       }
 
+      &.masked {
+        color: #1890ff;
+        text-decoration: underline;
+        text-underline-offset: 4rpx;
+      }
+
       &.status-enabled {
         color: #52c41a;
       }
@@ -2232,6 +2274,19 @@ const formatDate = (date?: string) => {
       &.status-supplement {
         color: #fa541c;
       }
+    }
+
+    .value-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex: 1;
+      gap: 8rpx;
+    }
+
+    .view-icon {
+      font-size: 32rpx;
+      flex-shrink: 0;
     }
   }
 
@@ -2920,6 +2975,25 @@ const formatDate = (date?: string) => {
           max-width: 50%;
           text-align: right;
           word-break: break-all;
+        }
+
+        &.masked {
+          color: #1890ff;
+          text-decoration: underline;
+          text-underline-offset: 4rpx;
+        }
+      }
+
+      .creditor-row-value-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 1;
+        gap: 8rpx;
+
+        .view-icon {
+          font-size: 28rpx;
+          flex-shrink: 0;
         }
       }
     }

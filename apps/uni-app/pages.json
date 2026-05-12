@@ -1,11 +1,14 @@
 {
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u--(.*)": "uview-plus/components/u-$1/u-$1.vue",
+      "^up-(.*)": "uview-plus/components/u-$1/u-$1.vue",
+      "^u-(.+)": "uview-plus/components/u-$1/u-$1.vue",
+      "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+    }
+  },
   "pages": [
-    {
-      "path": "pages/index/index",
-      "style": {
-        "navigationBarTitleText": "首页"
-      }
-    },
     {
       "path": "pages/login/index",
       "style": {
@@ -20,24 +23,267 @@
       }
     },
     {
-      "path": "pages/cases/index",
-      "style": {
-        "navigationBarTitleText": "案件管理"
-      }
-    },
-    {
-      "path": "pages/cases/detail",
-      "style": {
-        "navigationBarTitleText": "案件详情"
-      }
-    },
-    {
       "path": "pages/profile/index",
       "style": {
         "navigationBarTitleText": "我的"
       }
     }
   ],
+  "subPackages": [
+    {
+      "root": "pages/cases",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "案件管理",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        {
+          "path": "detail",
+          "style": { "navigationBarTitleText": "案件详情" }
+        },
+        {
+          "path": "add",
+          "style": { "navigationBarTitleText": "新增案件" }
+        },
+        {
+          "path": "edit",
+          "style": { "navigationBarTitleText": "编辑案件" }
+        },
+        {
+          "path": "files",
+          "style": { "navigationBarTitleText": "案件文件" }
+        },
+        {
+          "path": "process",
+          "style": { "navigationBarTitleText": "流程管理" }
+        },
+        {
+          "path": "process-stage",
+          "style": { "navigationBarTitleText": "阶段详情" }
+        },
+        {
+          "path": "process-tasks",
+          "style": { "navigationBarTitleText": "任务列表" }
+        },
+        {
+          "path": "process-task-edit",
+          "style": { "navigationBarTitleText": "任务详情" }
+        },
+        {
+          "path": "work-team",
+          "style": { "navigationBarTitleText": "工作团队" }
+        },
+        {
+          "path": "claim-manage",
+          "style": { "navigationBarTitleText": "债权管理" }
+        },
+        {
+          "path": "debtor",
+          "style": { "navigationBarTitleText": "债务人管理" }
+        },
+        {
+          "path": "work-log",
+          "style": { "navigationBarTitleText": "工作日志" }
+        },
+        {
+          "path": "announcement-list",
+          "style": {
+            "navigationBarTitleText": "案件公告",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        {
+          "path": "announcement-detail",
+          "style": {
+            "navigationBarTitleText": "公告详情",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/todo",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "待办事项",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "待办详情",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "edit",
+          "style": {
+            "navigationBarTitleText": "编辑待办",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/announcement",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "公告总览",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        {
+          "path": "form",
+          "style": {
+            "navigationBarTitleText": "公告表单",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/notification",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "消息通知",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "通知详情",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/basic-data",
+      "pages": [
+        { "path": "index", "style": { "navigationBarTitleText": "基础资料" } },
+        { "path": "creditor", "style": { "navigationBarTitleText": "债权人管理" } },
+        { "path": "creditor-detail", "style": { "navigationBarTitleText": "债权人详情" } },
+        { "path": "creditor-form", "style": { "navigationBarTitleText": "债权人表单" } },
+        { "path": "debtor", "style": { "navigationBarTitleText": "债务人管理" } },
+        { "path": "debtor-detail", "style": { "navigationBarTitleText": "债务人详情" } },
+        { "path": "debtor-form", "style": { "navigationBarTitleText": "债务人表单" } },
+        { "path": "court", "style": { "navigationBarTitleText": "法院管理" } },
+        { "path": "court-detail", "style": { "navigationBarTitleText": "法院详情" } },
+        { "path": "court-form", "style": { "navigationBarTitleText": "法院表单" } },
+        { "path": "bank", "style": { "navigationBarTitleText": "银行账户" } },
+        { "path": "bank-detail", "style": { "navigationBarTitleText": "账户详情" } },
+        { "path": "bank-form", "style": { "navigationBarTitleText": "银行账户表单" } },
+        { "path": "bank-transactions", "style": { "navigationBarTitleText": "账户流水" } },
+        { "path": "bank-transaction-form", "style": { "navigationBarTitleText": "流水表单" } },
+        { "path": "plan", "style": { "navigationBarTitleText": "工作计划" } },
+        { "path": "plan-detail", "style": { "navigationBarTitleText": "计划详情" } },
+        { "path": "plan-form", "style": { "navigationBarTitleText": "工作计划表单" } },
+        { "path": "team", "style": { "navigationBarTitleText": "工作团队" } },
+        { "path": "team-detail", "style": { "navigationBarTitleText": "团队详情" } },
+        { "path": "team-form", "style": { "navigationBarTitleText": "工作团队表单" } },
+        { "path": "admin", "style": { "navigationBarTitleText": "管理人管理" } },
+        { "path": "admin-detail", "style": { "navigationBarTitleText": "管理人详情" } },
+        { "path": "admin-form", "style": { "navigationBarTitleText": "管理人表单" } }
+      ]
+    },
+    {
+      "root": "pages/expense",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "费用报销",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        { "path": "detail", "style": { "navigationBarTitleText": "报销单详情" } },
+        { "path": "form", "style": { "navigationBarTitleText": "报销单表单" } },
+        {
+          "path": "approve",
+          "style": {
+            "navigationBarTitleText": "审核报销单",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/document-library",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationBarTitleText": "文档库",
+            "enablePullDownRefresh": true,
+            "onReachBottomDistance": 50
+          }
+        },
+        { "path": "detail", "style": { "navigationBarTitleText": "文档详情" } },
+        { "path": "form", "style": { "navigationBarTitleText": "编辑文档" } },
+        { "path": "folder", "style": { "navigationBarTitleText": "文件夹管理" } },
+        {
+          "path": "favorites",
+          "style": {
+            "navigationBarTitleText": "我的收藏",
+            "enablePullDownRefresh": true
+          }
+        },
+        { "path": "share", "style": { "navigationBarTitleText": "分享文档" } },
+        {
+          "path": "preview",
+          "style": {
+            "navigationBarTitleText": "文档预览",
+            "navigationStyle": "custom"
+          }
+        },
+        { "path": "statistics", "style": { "navigationBarTitleText": "文档统计" } }
+      ]
+    },
+    {
+      "root": "pages/profile",
+      "pages": [
+        { "path": "change-password", "style": { "navigationBarTitleText": "修改密码" } },
+        { "path": "edit-profile", "style": { "navigationBarTitleText": "修改个人资料" } },
+        { "path": "settings", "style": { "navigationBarTitleText": "设置" } }
+      ]
+    },
+    {
+      "root": "pages/about",
+      "pages": [
+        { "path": "index", "style": { "navigationBarTitleText": "关于" } },
+        { "path": "terms", "style": { "navigationBarTitleText": "用户协议" } },
+        { "path": "privacy", "style": { "navigationBarTitleText": "隐私政策" } }
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/workspace/index": {
+      "network": "all",
+      "packages": ["pages/cases", "pages/todo"]
+    },
+    "pages/cases/index": {
+      "network": "all",
+      "packages": ["pages/cases"]
+    }
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "破管通",
@@ -45,30 +291,28 @@
     "backgroundColor": "#F8F8F8"
   },
   "tabBar": {
-    "color": "#7A7E83",
-    "selectedColor": "#3B82F6",
-    "borderStyle": "black",
+    "color": "#999999",
+    "selectedColor": "#1890ff",
     "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "position": "bottom",
     "list": [
       {
         "pagePath": "pages/workspace/index",
-        "iconPath": "static/tabbar/workspace.png",
-        "selectedIconPath": "static/tabbar/workspace-active.png",
         "text": "工作台"
       },
       {
         "pagePath": "pages/cases/index",
-        "iconPath": "static/tabbar/cases.png",
-        "selectedIconPath": "static/tabbar/cases-active.png",
         "text": "案件"
       },
       {
+        "pagePath": "pages/todo/index",
+        "text": "待办"
+      },
+      {
         "pagePath": "pages/profile/index",
-        "iconPath": "static/tabbar/profile.png",
-        "selectedIconPath": "static/tabbar/profile-active.png",
         "text": "我的"
       }
     ]
-  },
-  "condition": {}
+  }
 }

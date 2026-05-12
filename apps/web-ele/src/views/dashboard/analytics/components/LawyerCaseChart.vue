@@ -48,12 +48,12 @@ const chartData = computed(() => {
   };
 });
 
-const renderChart = () => {
+const renderChart = async () => {
   if (!chartData.value.names.length) {
     return;
   }
 
-  renderEcharts({
+  await renderEcharts({
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -118,7 +118,7 @@ const renderChart = () => {
 const fetchData = async () => {
   loading.value = true;
   error.value = null;
-  
+
   try {
     const response = await getLawyerCaseStatistics({ year: selectedYear.value });
     data.value = response || [];
@@ -129,9 +129,7 @@ const fetchData = async () => {
   } finally {
     loading.value = false;
     await nextTick();
-    nextTick(() => {
-      renderChart();
-    });
+    await renderChart();
   }
 };
 
@@ -177,19 +175,19 @@ onMounted(() => {
     </div>
 
     <div class="h-[350px] relative">
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+      <div v-show="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
         <span class="text-gray-400">加载中...</span>
       </div>
 
-      <div v-if="error && !loading" class="absolute inset-0 flex items-center justify-center z-20">
+      <div v-if="error" class="absolute inset-0 flex items-center justify-center z-20">
         <ElEmpty :description="error" />
       </div>
 
-      <div v-show="!loading && !error && chartData.names.length === 0" class="absolute inset-0 flex items-center justify-center z-20">
+      <div v-else-if="chartData.names.length === 0" class="absolute inset-0 flex items-center justify-center z-20">
         <ElEmpty description="暂无数据" />
       </div>
 
-      <div v-show="!loading && !error && chartData.names.length > 0" class="h-full w-full">
+      <div v-else class="h-full w-full">
         <EchartsUI ref="chartRef" />
       </div>
     </div>

@@ -94,6 +94,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('demos.vben.productIntro'),
         },
       },
+      {
+        name: 'VbenChangelog',
+        path: '/about-us/changelog',
+        component: () => import('#/views/_core/about/changelog.vue'),
+        meta: {
+          icon: 'lucide:scroll-text',
+          title: $t('demos.vben.changelog'),
+        },
+      },
     ],
   },
 ];

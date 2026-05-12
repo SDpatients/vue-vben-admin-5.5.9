@@ -17,6 +17,7 @@ import { preferences } from '@vben/preferences';
 import { ElMessage } from 'element-plus';
 
 import { useRouter } from 'vue-router';
+import { AGREEMENT_CURRENT_VERSION } from '#/api';
 import { customerConfig } from '#/customer.config';
 import { useAuthStore } from '#/store';
 

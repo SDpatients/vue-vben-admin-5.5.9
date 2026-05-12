@@ -62,11 +62,7 @@ import {
   getStaffListApi,
 } from '#/api/core/staff';
 import {
-  addSystemParamApi,
-  deleteSystemParamApi,
   getSystemParamListApi,
-  updateSystemParamApi,
-  updateSystemParamStatusApi,
 } from '#/api/core/system-param';
 
 const activeTab = ref('court');
@@ -660,134 +656,36 @@ const handleDeleteDictItem = async (row: DictionaryApi.DictionaryItem) => {
 };
 
 // ==================== 系统参数 ====================
-const systemParamList = ref<SystemParamApi.SystemParam[]>([]);
-const systemParamLoading = ref(false);
-const systemParamSearchForm = reactive({ configGroup: '', status: '' });
-const systemParamPagination = reactive({ page: 1, pageSize: 10, itemCount: 0 });
-const paramGroupOptions = [
-  { label: '基础配置', value: 'BASIC' },
-  { label: '案件管理', value: 'CASE' },
-  { label: '费用管理', value: 'EXPENSE' },
-  { label: '审批流程', value: 'APPROVAL' },
-  { label: '文档管理', value: 'DOCUMENT' },
-  { label: '系统通用', value: 'SYSTEM' },
+// 可变参数白名单（configKey）—— 只有这些参数允许在前端展示
+const editableParamKeys = [
+  'notification.system.enabled',
+  'notification.sms.enabled',
+  'notification.email.enabled',
+  'notification.draft.remind_days',
+  'case.claim_deadline_days',
+  'case.node_alert_before_days',
+  'case.auto_archive_days',
 ];
 
-const getGroupLabel = (group: string) => {
-  const found = paramGroupOptions.find(o => o.value === group);
-  return found ? found.label : group;
-};
+const systemParamList = ref<SystemParamApi.SystemParam[]>([]);
+const systemParamLoading = ref(false);
 
 const fetchSystemParamList = async () => {
   systemParamLoading.value = true;
   try {
-    const params: SystemParamApi.SystemParamQueryParams = {
-      pageNum: systemParamPagination.page,
-      pageSize: systemParamPagination.pageSize,
-    };
-    if (systemParamSearchForm.configGroup) params.configGroup = systemParamSearchForm.configGroup;
-    if (systemParamSearchForm.status) params.status = systemParamSearchForm.status;
-
-    const response = await getSystemParamListApi(params);
+    const response = await getSystemParamListApi({ pageNum: 1, pageSize: 200 });
     if (response.code === 200 && response.data) {
-      systemParamList.value = response.data.list || [];
-      systemParamPagination.itemCount = response.data.total || 0;
+      const allList = response.data.list || [];
+      systemParamList.value = allList.filter((item: SystemParamApi.SystemParam) =>
+        editableParamKeys.includes(item.configKey),
+      );
     } else {
       systemParamList.value = [];
-      systemParamPagination.itemCount = 0;
     }
   } catch {
     systemParamList.value = [];
-    systemParamPagination.itemCount = 0;
   } finally {
     systemParamLoading.value = false;
-  }
-};
-
-const handleToggleParamStatus = async (row: SystemParamApi.SystemParam) => {
-  const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-  try {
-    const res = await updateSystemParamStatusApi(row.id, { status: newStatus });
-    if (res.code === 200) {
-      ElMessage.success(newStatus === 'ACTIVE' ? '已启用' : '已停用');
-      fetchSystemParamList();
-    } else {
-      ElMessage.error(res.message || '操作失败');
-    }
-  } catch {
-    ElMessage.error('操作失败');
-  }
-};
-
-const systemParamDialogVisible = ref(false);
-const systemParamFormRef = ref<FormInstance>();
-const systemParamFormLoading = ref(false);
-const editingSystemParam = ref<SystemParamApi.SystemParam | null>(null);
-const systemParamFormData = reactive({
-  configKey: '',
-  configValue: '',
-  configDesc: '',
-  configGroup: '',
-  sortOrder: 0,
-  status: 'ACTIVE',
-});
-const systemParamRules: FormRules = {
-  configKey: [{ required: true, message: '请输入参数键', trigger: 'blur' }],
-  configValue: [{ required: true, message: '请输入参数值', trigger: 'blur' }],
-  configGroup: [{ required: true, message: '请选择参数分组', trigger: 'change' }],
-};
-
-const handleAddSystemParam = () => {
-  editingSystemParam.value = null;
-  Object.assign(systemParamFormData, { configKey: '', configValue: '', configDesc: '', configGroup: '', sortOrder: 0, status: 'ACTIVE' });
-  systemParamDialogVisible.value = true;
-};
-
-const handleEditSystemParam = (row: SystemParamApi.SystemParam) => {
-  editingSystemParam.value = row;
-  Object.assign(systemParamFormData, {
-    configKey: row.configKey || '',
-    configValue: row.configValue || '',
-    configDesc: row.configDesc || '',
-    configGroup: row.configGroup || '',
-    sortOrder: row.sortOrder || 0,
-    status: row.status || 'ACTIVE',
-  });
-  systemParamDialogVisible.value = true;
-};
-
-const handleSystemParamSubmit = async () => {
-  if (!systemParamFormRef.value) return;
-  try {
-    await systemParamFormRef.value.validate();
-    systemParamFormLoading.value = true;
-    const data = { ...systemParamFormData };
-
-    if (editingSystemParam.value) {
-      const res = await updateSystemParamApi(editingSystemParam.value.configKey, data);
-      if (res.code === 200) { ElMessage.success('参数更新成功'); systemParamDialogVisible.value = false; fetchSystemParamList(); }
-      else { ElMessage.error(res.message || '更新失败'); }
-    } else {
-      const res = await addSystemParamApi(data);
-      if (res.code === 200) { ElMessage.success('参数添加成功'); systemParamDialogVisible.value = false; fetchSystemParamList(); }
-      else { ElMessage.error(res.message || '添加失败'); }
-    }
-  } catch (error: any) {
-    if (error.name === 'ElValidationError') return;
-    ElMessage.error('操作失败');
-  } finally {
-    systemParamFormLoading.value = false;
-  }
-};
-
-const handleDeleteSystemParam = async (row: SystemParamApi.SystemParam) => {
-  try {
-    await ElMessageBox.confirm('确定要删除该参数吗？', '删除确认', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
-    const res = await deleteSystemParamApi(row.id);
-    if (res.code === 200) { ElMessage.success('删除成功'); fetchSystemParamList(); }
-    else { ElMessage.error(res.message || '删除失败'); }
-  } catch (error: any) {
-    if (error.name !== 'ElMessageBoxCancel') ElMessage.error('删除失败');
   }
 };
 
@@ -950,7 +848,6 @@ onMounted(() => {
             <ElCol :span="8">
               <div class="mb-2 flex items-center justify-between">
                 <span class="font-semibold">字典分类</span>
-                <ElButton type="primary" size="small" @click="handleAddDictCategory"><i class="i-lucide-plus mr-1"></i>新增分类</ElButton>
               </div>
               <div class="mb-3 flex gap-2">
                 <ElInput v-model="dictCategorySearchForm.keyword" placeholder="搜索关键词" clearable size="small" @keyup.enter="dictCategoryPagination.page = 1; fetchDictCategoryList()" />
@@ -975,14 +872,10 @@ onMounted(() => {
                     <ElTag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</ElTag>
                   </template>
                 </ElTableColumn>
-                <ElTableColumn label="操作" width="200" align="center">
+                <ElTableColumn label="操作" width="80" align="center">
                   <template #default="{ row }">
                     <div class="flex items-center justify-center gap-2">
-                      <ElSwitch :model-value="row.status === 'ACTIVE'" size="small" @change="handleToggleCategoryStatus(row)" />
-                      <ElButton size="small" text type="primary" @click.stop="handleEditDictCategory(row)"><i class="i-lucide-edit"></i>编辑</ElButton>
-                      <ElButton size="small" text type="danger" @click.stop="handleDeleteDictCategory(row)"><i class="i-lucide-trash-2"></i>删除</ElButton>
-                      <!-- DEBUG: Check if buttons render -->
-                      <span style="color: red; font-size: 12px;">DEBUG: {{ row.categoryName }}</span>
+                      <span class="text-gray-400">-</span>
                     </div>
                   </template>
                 </ElTableColumn>
@@ -994,7 +887,7 @@ onMounted(() => {
             <ElCol :span="16">
               <div class="mb-2 flex items-center justify-between">
                 <span class="font-semibold">{{ dictSelectedCategory ? `${dictSelectedCategory.categoryName} - 字典项` : '字典项列表' }}</span>
-                <ElButton type="primary" size="small" :disabled="!dictSelectedCategory" @click="handleAddDictItem"><i class="i-lucide-plus mr-1"></i>新增字典项</ElButton>
+                <ElButton type="info" size="small" :disabled="true"><i class="i-lucide-plus mr-1"></i>新增字典项</ElButton>
               </div>
               <div v-if="!dictSelectedCategory" class="flex items-center justify-center text-gray-400" style="height: 400px">请在左侧选择字典分类</div>
               <template v-else>
@@ -1009,11 +902,9 @@ onMounted(() => {
                       <ElTag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</ElTag>
                     </template>
                   </ElTableColumn>
-                  <ElTableColumn label="操作" width="180" align="center" fixed="right">
+                  <ElTableColumn label="操作" width="60" align="center" fixed="right">
                     <template #default="{ row }">
-                      <ElSwitch :model-value="row.status === 'ACTIVE'" size="small" @change="handleToggleItemStatus(row)" />
-                      <ElButton size="small" text type="primary" @click="handleEditDictItem(row)"><i class="i-lucide-edit"></i></ElButton>
-                      <ElButton size="small" text type="danger" @click="handleDeleteDictItem(row)"><i class="i-lucide-trash-2"></i></ElButton>
+                      <span class="text-gray-400">-</span>
                     </template>
                   </ElTableColumn>
                 </ElTable>
@@ -1027,60 +918,15 @@ onMounted(() => {
 
         <!-- ==================== 系统参数 ==================== -->
         <ElTabPane label="系统参数" name="systemParam">
-          <div class="mb-4 flex items-center justify-between">
-            <div class="flex flex-wrap gap-3">
-              <ElSelect v-model="systemParamSearchForm.configGroup" placeholder="参数分组" clearable style="width: 180px" @change="systemParamPagination.page = 1; fetchSystemParamList()">
-                <ElOption v-for="opt in paramGroupOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-              </ElSelect>
-              <ElSelect v-model="systemParamSearchForm.status" placeholder="状态" clearable style="width: 120px" @change="systemParamPagination.page = 1; fetchSystemParamList()">
-                <ElOption label="启用" value="ACTIVE" />
-                <ElOption label="停用" value="INACTIVE" />
-              </ElSelect>
-              <ElButton type="primary" @click="systemParamPagination.page = 1; fetchSystemParamList()"><i class="i-lucide-search mr-1"></i>搜索</ElButton>
-              <ElButton @click="systemParamSearchForm.configGroup = ''; systemParamSearchForm.status = ''; systemParamPagination.page = 1; fetchSystemParamList()"><i class="i-lucide-refresh-cw mr-1"></i>重置</ElButton>
-            </div>
-            <div class="flex gap-2">
-              <ElButton type="primary" @click="handleAddSystemParam"><i class="i-lucide-plus mr-1"></i>新增参数</ElButton>
-              <ElButton @click="systemParamPagination.page = 1; fetchSystemParamList()"><i class="i-lucide-refresh-cw mr-1"></i>刷新</ElButton>
+          <div v-loading="systemParamLoading" class="param-card-grid">
+            <div v-for="item in systemParamList" :key="item.id" class="param-card">
+              <div class="param-card-label">{{ item.configDesc || item.configKey }}</div>
+              <div class="param-card-value">{{ item.configValue }}</div>
             </div>
           </div>
 
-          <ElTable v-loading="systemParamLoading" :data="systemParamList" :border="true" :stripe="true" style="width: 100%">
-            <ElTableColumn type="index" label="序号" width="60" align="center" />
-            <ElTableColumn prop="configKey" label="参数键" min-width="180" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="param-key">{{ row.configKey }}</span>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="configValue" label="参数值" min-width="150" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="param-value">{{ row.configValue }}</span>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="configDesc" label="说明" min-width="160" show-overflow-tooltip />
-            <ElTableColumn prop="configGroup" label="参数分组" width="120" align="center">
-              <template #default="{ row }">
-                <ElTag size="small" :type="row.configGroup === 'BASIC' ? 'primary' : row.configGroup === 'SYSTEM' ? 'info' : row.configGroup === 'CASE' ? 'warning' : 'success'">{{ getGroupLabel(row.configGroup) }}</ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="sortOrder" label="排序" width="70" align="center" />
-            <ElTableColumn prop="status" label="状态" width="100" align="center">
-              <template #default="{ row }">
-                <ElSwitch :model-value="row.status === 'ACTIVE'" size="small" @change="handleToggleParamStatus(row)" />
-              </template>
-            </ElTableColumn>
-            <ElTableColumn prop="updateTime" label="更新时间" width="160" align="center">
-              <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-            </ElTableColumn>
-            <ElTableColumn label="操作" width="150" align="center" fixed="right">
-              <template #default="{ row }">
-                <ElButton size="small" text class="text-primary" @click="handleEditSystemParam(row)"><i class="i-lucide-edit mr-1"></i>编辑</ElButton>
-                <ElButton size="small" text class="text-danger" @click="handleDeleteSystemParam(row)"><i class="i-lucide-trash-2 mr-1"></i>删除</ElButton>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-          <div class="mt-4 flex justify-end">
-            <ElPagination v-model:current-page="systemParamPagination.page" v-model:page-size="systemParamPagination.pageSize" :page-sizes="[10, 20, 50, 100]" :total="systemParamPagination.itemCount" layout="total, sizes, prev, pager, next, jumper" @size-change="(s: number) => { systemParamPagination.pageSize = s; systemParamPagination.page = 1; fetchSystemParamList(); }" @current-change="(p: number) => { systemParamPagination.page = p; fetchSystemParamList(); }" />
+          <div v-if="systemParamList.length === 0 && !systemParamLoading" class="flex items-center justify-center py-20 text-gray-400">
+            暂无系统参数数据
           </div>
         </ElTabPane>
       </ElTabs>
@@ -1214,38 +1060,7 @@ onMounted(() => {
       </template>
     </ElDialog>
 
-    <!-- ==================== 系统参数新增/编辑弹窗 ==================== -->
-    <ElDialog v-model="systemParamDialogVisible" :title="editingSystemParam ? '编辑系统参数' : '新增系统参数'" width="550px" destroy-on-close>
-      <ElForm ref="systemParamFormRef" :model="systemParamFormData" :rules="systemParamRules" label-width="100px">
-        <ElFormItem label="参数键" prop="configKey">
-          <ElInput v-model="systemParamFormData.configKey" placeholder="请输入参数键（如 system.name）" :disabled="!!editingSystemParam" />
-        </ElFormItem>
-        <ElFormItem label="参数值" prop="configValue">
-          <ElInput v-model="systemParamFormData.configValue" placeholder="请输入参数值" />
-        </ElFormItem>
-        <ElFormItem label="参数分组" prop="configGroup">
-          <ElSelect v-model="systemParamFormData.configGroup" placeholder="请选择参数分组" style="width: 100%">
-            <ElOption v-for="opt in paramGroupOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </ElSelect>
-        </ElFormItem>
-        <ElFormItem label="说明">
-          <ElInput v-model="systemParamFormData.configDesc" type="textarea" :rows="3" placeholder="请输入参数说明" />
-        </ElFormItem>
-        <ElFormItem label="排序号">
-          <ElInput v-model.number="systemParamFormData.sortOrder" type="number" placeholder="请输入排序号" />
-        </ElFormItem>
-        <ElFormItem label="状态">
-          <ElSelect v-model="systemParamFormData.status" style="width: 100%">
-            <ElOption label="启用" value="ACTIVE" />
-            <ElOption label="停用" value="INACTIVE" />
-          </ElSelect>
-        </ElFormItem>
-      </ElForm>
-      <template #footer>
-        <ElButton @click="systemParamDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" :loading="systemParamFormLoading" @click="handleSystemParamSubmit">确定</ElButton>
-      </template>
-    </ElDialog>
+
   </div>
 </template>
 
@@ -1258,21 +1073,44 @@ onMounted(() => {
   color: var(--el-color-danger);
 }
 
-.param-key {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 13px;
-  color: #c41d7f;
-  background: #fff0f6;
-  padding: 2px 6px;
-  border-radius: 4px;
+.param-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-.param-value {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 13px;
-  color: #0969da;
-  background: #ddf4ff;
-  padding: 2px 6px;
-  border-radius: 4px;
+.param-card {
+  background: #fff;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  padding: 20px 24px;
+  transition: all 0.2s ease;
+}
+
+.param-card:hover {
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.param-card-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #606266;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.param-card-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.param-card-meta {
+  font-size: 12px;
+  color: #c0c4cc;
 }
 </style>

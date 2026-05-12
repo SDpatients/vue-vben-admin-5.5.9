@@ -3,7 +3,7 @@
     <!-- 搜索栏 -->
     <view class="search-bar">
       <view class="search-input">
-        <text class="icon">🔍</text>
+        <text class="icon">搜索</text>
         <input
           v-model="searchKeyword"
           type="text"
@@ -87,9 +87,7 @@
         <text>没有更多了</text>
       </view>
       <view class="empty" v-else-if="caseList.length === 0">
-        <view class="empty-icon">
-          <text class="empty-emoji">📋</text>
-        </view>
+        <u-icon name="file-text" size="48" color="#ccc"></u-icon>
         <text>暂无案件数据</text>
       </view>
     </view>
@@ -236,16 +234,20 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  uni.$off('refresh-case-list')
-})
+    uni.$off('refresh-case-list')
+    if (searchTimer.value) {
+      clearTimeout(searchTimer.value)
+      searchTimer.value = null
+    }
+  })
 
-let searchTimer: ReturnType<typeof setTimeout> | null = null
+const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const handleSearchInput = () => {
-  if (searchTimer) {
-    clearTimeout(searchTimer)
+  if (searchTimer.value) {
+    clearTimeout(searchTimer.value)
   }
-  searchTimer = setTimeout(() => {
+  searchTimer.value = setTimeout(() => {
 loadData(true)
   }, 500)
 }

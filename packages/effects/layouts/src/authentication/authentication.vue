@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 import type { ToolbarType } from './types';
 
 import { preferences, usePreferences } from '@vben/preferences';
@@ -20,7 +21,7 @@ interface Props {
   clickLogo?: () => void;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   appName: '',
   copyright: true,
   logo: '',
@@ -34,6 +35,7 @@ withDefaults(defineProps<Props>(), {
 
 const { authPanelCenter, authPanelLeft, authPanelRight, isDark } =
   usePreferences();
+
 </script>
 
 <template>

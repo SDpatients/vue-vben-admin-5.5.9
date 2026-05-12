@@ -25,6 +25,8 @@ const chartType1 = ref('line');
 const chartType2 = ref('pie');
 const chartType3 = ref('bar');
 
+const activeCollapseNames = ref<string[]>([]);
+
 const chartRef1 = ref<EchartsUIType>();
 const chartRef2 = ref<EchartsUIType>();
 const chartRef3 = ref<EchartsUIType>();
@@ -518,7 +520,7 @@ onMounted(() => {
 
 <template>
   <div class="p-5">
-    <ElCollapse v-if="isAdminUser" class="mb-5">
+    <ElCollapse v-if="isAdminUser" v-model="activeCollapseNames" class="mb-5">
       <ElCollapseItem title="年度统计" name="yearly">
         <template #title>
           <span class="text-lg font-semibold">年度统计</span>

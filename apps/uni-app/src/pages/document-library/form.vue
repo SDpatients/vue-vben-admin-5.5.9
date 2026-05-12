@@ -84,7 +84,7 @@
       <view class="section-title">文件信息</view>
       <view class="file-info-card">
         <view class="file-icon" :class="getFileIconClass(documentInfo.fileExtension)">
-          <text class="icon-text">{{ getFileIcon(documentInfo.fileExtension) }}</text>
+          <u-icon :name="getFileIconName(documentInfo.fileExtension)" size="22" :color="getFileIconColor(documentInfo.fileExtension)"></u-icon>
         </view>
         <view class="file-details">
           <text class="file-name">{{ documentInfo.fileName }}</text>
@@ -376,22 +376,22 @@ const handleCancel = () => {
 
 const getFileIcon = (ext?: string) => {
   const iconMap: Record<string, string> = {
-    pdf: '📕',
-    doc: '📘',
-    docx: '📘',
-    xls: '📗',
-    xlsx: '📗',
-    ppt: '📙',
-    pptx: '📙',
-    txt: '📄',
-    jpg: '🖼️',
-    jpeg: '🖼️',
-    png: '🖼️',
-    gif: '🖼️',
-    zip: '📦',
-    rar: '📦',
+    pdf: 'PDF',
+    doc: 'DOC',
+    docx: 'DOC',
+    xls: 'XLS',
+    xlsx: 'XLS',
+    ppt: 'PPT',
+    pptx: 'PPT',
+    txt: 'TXT',
+    jpg: 'IMG',
+    jpeg: 'IMG',
+    png: 'IMG',
+    gif: 'IMG',
+    zip: 'ZIP',
+    rar: 'ZIP',
   }
-  return iconMap[ext?.toLowerCase() || ''] || '📄'
+  return iconMap[ext?.toLowerCase() || ''] || 'FILE'
 }
 
 const getFileIconClass = (ext?: string) => {
@@ -412,6 +412,46 @@ const getFileIconClass = (ext?: string) => {
     rar: 'zip',
   }
   return classMap[ext?.toLowerCase() || ''] || 'default'
+}
+
+const getFileIconName = (ext?: string) => {
+  const nameMap: Record<string, string> = {
+    pdf: 'file-text',
+    doc: 'file-text',
+    docx: 'file-text',
+    xls: 'file-text',
+    xlsx: 'file-text',
+    ppt: 'file-text',
+    pptx: 'file-text',
+    txt: 'file-text',
+    jpg: 'camera',
+    jpeg: 'camera',
+    png: 'camera',
+    gif: 'camera',
+    zip: 'folder',
+    rar: 'folder',
+  }
+  return nameMap[ext?.toLowerCase() || ''] || 'file-text'
+}
+
+const getFileIconColor = (ext?: string) => {
+  const colorMap: Record<string, string> = {
+    pdf: '#f40f02',
+    doc: '#2b579a',
+    docx: '#2b579a',
+    xls: '#217346',
+    xlsx: '#217346',
+    ppt: '#d24726',
+    pptx: '#d24726',
+    txt: '#999',
+    jpg: '#722ed1',
+    jpeg: '#722ed1',
+    png: '#722ed1',
+    gif: '#722ed1',
+    zip: '#fa8c16',
+    rar: '#fa8c16',
+  }
+  return colorMap[ext?.toLowerCase() || ''] || '#999'
 }
 
 const formatFileSize = (size?: number) => {

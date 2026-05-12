@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import {
   ElButton,
@@ -10,6 +10,7 @@ import {
   ElInput,
   ElMessage,
   ElPagination,
+  ElProgress,
   ElSelect,
   ElOption,
   ElTable,
@@ -19,6 +20,15 @@ import {
 } from 'element-plus';
 
 import { userApi } from '#/api/user';
+import { SensitiveDataApi } from '#/api/core/sensitive-data';
+import SensitiveDataDialog from '#/components/SensitiveDataDialog.vue';
+import {
+  getPasswordStrength,
+  getPasswordStrengthColor,
+  getPasswordStrengthText,
+  isMaskedDisplayValue,
+  validatePasswordComplexity,
+} from '#/utils/password-validator';
 
 interface User {
   id: number;
@@ -63,6 +73,26 @@ const form = reactive<UserForm>({
 });
 
 const editingUser = ref<User | null>(null);
+
+const sensitiveDialogVisible = ref(false);
+const sensitiveDataType = ref('');
+const sensitiveId = ref(0);
+const sensitiveLabel = ref('');
+
+const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+  sensitiveDataType.value = dataType;
+  sensitiveId.value = id;
+  sensitiveLabel.value = label;
+  sensitiveDialogVisible.value = true;
+};
+
+const passwordStrength = computed(() => getPasswordStrength(form.password || ''));
+const passwordStrengthText = computed(() => getPasswordStrengthText(passwordStrength.value));
+const passwordStrengthColor = computed(() => getPasswordStrengthColor(passwordStrength.value));
+const passwordStrengthPercent = computed(() => {
+  const levelMap: Record<string, number> = { 'weak': 25, 'medium': 50, 'strong': 75, 'very-strong': 100 };
+  return levelMap[passwordStrength.value] || 0;
+});
 
 // 表单验证规则
 const rules = {
@@ -141,6 +171,16 @@ const openEditDialog = (user: User) => {
 const saveUser = async () => {
   try {
     loading.value = true;
+
+    if (!editingUser.value && form.password) {
+      const complexityResult = validatePasswordComplexity(form.password);
+      if (!complexityResult.valid) {
+        ElMessage.warning(complexityResult.message);
+        loading.value = false;
+        return;
+      }
+    }
+
     let response;
     if (editingUser.value) {
       // 修改用户
@@ -217,7 +257,21 @@ onMounted(() => {
         <ElTableColumn type="index" label="序号" width="80" />
         <ElTableColumn prop="username" label="用户名" width="120" />
         <ElTableColumn prop="realName" label="姓名" width="120" />
-        <ElTableColumn prop="mobile" label="电话" width="120" />
+        <ElTableColumn prop="mobile" label="电话" width="200">
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.mobile }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(row.mobile)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('USER_MOBILE', row.id, SensitiveDataApi.DataTypeLabels.USER_MOBILE)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
         <ElTableColumn prop="email" label="邮箱" width="150" />
         <ElTableColumn prop="status" label="状态" width="80">
           <template #default="{ row }">
@@ -255,9 +309,21 @@ onMounted(() => {
           <ElInput
             v-model="form.password"
             type="password"
-            placeholder="请输入密码"
+            placeholder="请输入密码（至少6位，需包含大写字母、小写字母、数字、特殊符号中的至少3种）"
             autocomplete="off"
+            maxlength="20"
           />
+          <div v-if="form.password" class="password-strength mt-2">
+            <ElProgress
+              :percentage="passwordStrengthPercent"
+              :color="passwordStrengthColor"
+              :stroke-width="6"
+              :show-text="false"
+            />
+            <span :style="{ color: passwordStrengthColor, fontSize: '12px' }">
+              {{ passwordStrengthText }}
+            </span>
+          </div>
         </ElFormItem>
         <ElFormItem label="姓名" required>
           <ElInput v-model="form.realName" placeholder="请输入姓名" />
@@ -283,6 +349,13 @@ onMounted(() => {
         </div>
       </template>
     </ElDialog>
+  <!-- 查看敏感数据弹窗 -->
+    <SensitiveDataDialog
+      v-model:visible="sensitiveDialogVisible"
+      :data-type="sensitiveDataType"
+      :id="sensitiveId"
+      :label="sensitiveLabel"
+    />
   </div>
 </template>
 
@@ -306,5 +379,19 @@ onMounted(() => {
 
 .box-card {
   margin-bottom: 20px;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-strength :deep(.el-progress-bar__outer) {
+  width: 120px;
+}
+
+.mono-text {
+  font-family: monospace;
 }
 </style>

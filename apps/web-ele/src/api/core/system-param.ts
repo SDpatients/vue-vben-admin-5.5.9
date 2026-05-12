@@ -114,7 +114,8 @@ export async function updateSystemParamStatusApi(
 ) {
   return requestClient8080.put<SystemParamApi.SystemParamOperationResponse>(
     `/system-param/${configId}/status`,
-    data,
+    null,
+    { params: { status: data.status } },
   );
 }
 

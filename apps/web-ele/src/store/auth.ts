@@ -16,7 +16,7 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { ElNotification } from 'element-plus';
 import { defineStore } from 'pinia';
 
-import { getCurrentUserApi, loginApi, logoutApi } from '#/api';
+import { agreeAgreementApi, AGREEMENT_CURRENT_VERSION, checkAllAgreementsApi, getCurrentUserApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
 import { webSocketService } from '#/services/websocket';
 
@@ -69,6 +69,28 @@ export const useAuthStore = defineStore('auth', () => {
         
         console.log('Token stored in localStorage:', backendUserInfo.accessToken.substring(0, 30) + '...');
         console.log('Refresh token stored in localStorage:', backendUserInfo.refreshToken.substring(0, 30) + '...');
+
+        // 处理协议同意：登录后检查并记录协议同意状态
+        if (params.agreeTerms) {
+          try {
+            const checkResult = await checkAllAgreementsApi();
+            if (checkResult && checkResult.code === 200 && checkResult.data) {
+              const { agreements, allAgreed } = checkResult.data;
+              const agreementTypes: Array<'PRIVACY_POLICY' | 'USER_AGREEMENT'> = ['PRIVACY_POLICY', 'USER_AGREEMENT'];
+              for (const type of agreementTypes) {
+                if (!allAgreed || !agreements[type]) {
+                  await agreeAgreementApi({
+                    agreementType: type,
+                    agreementVersion: AGREEMENT_CURRENT_VERSION,
+                    agreed: true,
+                  });
+                }
+              }
+            }
+          } catch {
+            // 协议记录失败不阻断登录流程
+          }
+        }
 
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);

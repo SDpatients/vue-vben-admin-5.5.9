@@ -68,6 +68,52 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'BackupManagement',
+        path: 'backup-management',
+        component: () => import('#/views/backup-management/index.vue'),
+        meta: {
+          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+          icon: 'lucide:database-backup',
+          title: $t('page.expenseSystem.backupManagement'),
+        },
+      },
+      {
+        name: 'UserManagement',
+        path: 'user-management',
+        redirect: '/expense-system/user-management/list',
+        meta: {
+          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+          icon: 'lucide:user-cog',
+          title: $t('page.expenseSystem.userManagement'),
+        },
+        children: [
+          {
+            name: 'UserManagementList',
+            path: 'list',
+            component: () => import('#/views/user-management/index.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:users',
+              title: $t('page.expenseSystem.userList'),
+            },
+          },
+          {
+            name: 'UserManagementAdd',
+            path: 'add',
+            component: () => import('#/views/user-management/form.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:user-plus',
+              title: $t('page.expenseSystem.userAdd'),
+              hideInMenu: true,
+              hideInTab: true,
+            },
+          },
+        ],
+      },
+      {
         name: 'UserProfile',
         path: 'user-profile',
         component: () => import('#/views/user/profile/index.vue'),

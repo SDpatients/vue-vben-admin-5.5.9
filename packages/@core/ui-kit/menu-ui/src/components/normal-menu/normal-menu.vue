@@ -6,7 +6,10 @@ import type { NormalMenuProps } from './normal-menu';
 import { useNamespace } from '@vben-core/composables';
 import { VbenIcon } from '@vben-core/shadcn-ui';
 
-interface Props extends NormalMenuProps {}
+interface Props extends NormalMenuProps {
+  logoSource?: string;
+  logoFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+}
 
 defineOptions({
   name: 'NormalMenu',
@@ -15,6 +18,8 @@ defineOptions({
 const props = withDefaults(defineProps<Props>(), {
   activePath: '',
   collapse: false,
+  logoFit: 'contain',
+  logoSource: '',
   menus: () => [],
   theme: 'dark',
 });
@@ -30,6 +35,11 @@ function menuIcon(menu: MenuRecordRaw) {
   return props.activePath === menu.path
     ? menu.activeIcon || menu.icon
     : menu.icon;
+}
+
+function isProjectMenu(menu: MenuRecordRaw) {
+  // 通过名称判断是否是"项目"菜单项
+  return menu.name === '项目';
 }
 </script>
 
@@ -50,7 +60,21 @@ function menuIcon(menu: MenuRecordRaw) {
         @click="() => emit('select', menu)"
         @mouseenter="() => emit('enter', menu)"
       >
-        <VbenIcon :class="e('icon')" :icon="menuIcon(menu)" fallback />
+        <!-- 项目菜单项：显示 Logo 图标 -->
+        <img
+          v-if="isProjectMenu(menu) && logoSource"
+          :src="logoSource"
+          :alt="menu.name"
+          :class="[e('icon'), 'project-logo-icon']"
+          :style="{ objectFit: logoFit || 'contain' }"
+        />
+        <!-- 其他菜单项：显示默认图标 -->
+        <VbenIcon
+          v-else
+          :class="e('icon')"
+          :icon="menuIcon(menu)"
+          fallback
+        />
 
         <span :class="e('name')" class="truncate"> {{ menu.name }}</span>
       </li>
@@ -148,6 +172,12 @@ $namespace: vben;
     max-height: 20px;
     font-size: 20px;
     transition: all 0.25s ease;
+  }
+
+  .project-logo-icon {
+    max-height: 30px !important;
+    width: 40px !important;
+    height: 30px !important;
   }
 
   &__name {

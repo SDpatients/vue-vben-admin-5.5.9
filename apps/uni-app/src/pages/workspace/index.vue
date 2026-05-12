@@ -29,7 +29,10 @@
           @click="handleAction(item.action)"
         >
           <view :class="['icon-wrapper', item.iconClass]">
-            <text class="icon">{{ item.icon }}</text>
+            <text
+              class="action-icon"
+              :style="{ fontFamily: 'uicon-iconfont', fontSize: '44rpx', color: item.iconColor }"
+            >{{ item.iconChar }}</text>
           </view>
           <text class="label">{{ item.label }}</text>
         </view>
@@ -50,7 +53,10 @@
           @click="handleAdminAction(item.action)"
         >
           <view :class="['icon-wrapper', item.iconClass]">
-            <text class="icon">{{ item.icon }}</text>
+            <text
+              class="action-icon"
+              :style="{ fontFamily: 'uicon-iconfont', fontSize: '44rpx', color: item.iconColor }"
+            >{{ item.iconChar }}</text>
           </view>
           <text class="label">{{ item.label }}</text>
         </view>
@@ -71,9 +77,12 @@
           @click="goToCaseDetail(item.caseId)"
         >
           <view class="search-item-content">
-            <view class="search-item-icon">
-              <text class="icon-text">📁</text>
-            </view>
+            <view :class="['search-item-icon', `search-item-icon--${item.caseStatus?.toLowerCase() || 'default'}`]">
+            <text
+              class="icon-text"
+              :style="{ fontFamily: 'uicon-iconfont', color: getStatusIconColor(item.caseStatus) }"
+            >{{ getStatusIcon(item.caseStatus) }}</text>
+          </view>
             <view class="search-item-info">
               <text class="search-item-title">{{ item.caseNumber }}</text>
               <view class="search-item-meta">
@@ -82,7 +91,7 @@
               </view>
             </view>
           </view>
-          <view class="search-item-action" @click.stop="handleRemoveRecentSearch(item.caseId, $event)">
+          <view class="search-item-action" @click.stop="handleRemoveRecentSearch(item.caseId)">
             <text class="action-text">✕</text>
           </view>
         </view>
@@ -95,23 +104,28 @@
         <text class="title">数据统计</text>
       </view>
       <view class="stats-grid">
-        <view class="stat-item">
+        <view class="stat-item" @click="handleStatClick('pendingCases')">
           <text class="num">{{ stats.pendingCases }}</text>
           <text class="label">待处理案件</text>
         </view>
-        <view class="stat-item">
+        <view class="stat-item" @click="handleStatClick('completedCases')">
           <text class="num">{{ stats.completedCases }}</text>
           <text class="label">已完成案件</text>
         </view>
-        <view class="stat-item">
+        <view class="stat-item" @click="handleStatClick('pendingTodos')">
           <text class="num">{{ stats.pendingTodos }}</text>
           <text class="label">待办事项</text>
         </view>
-        <view class="stat-item">
+        <view class="stat-item" @click="handleStatClick('notifications')">
           <text class="num">{{ stats.notifications }}</text>
           <text class="label">消息通知</text>
         </view>
       </view>
+    </view>
+
+    <view class="copyright-footer">
+      <text class="copyright-text">© {{ customerConfig.copyright.year }} {{ customerConfig.copyright.company }}</text>
+      <text class="version-text">V {{ customerConfig.app.version }}</text>
     </view>
 
   </view>
@@ -120,22 +134,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import dayjs from 'dayjs'
 import { getMyCaseStats, getRecentSearches, removeRecentSearch } from '@/api/case'
 import { getPendingCount, getCompletedCount, getOverdueCount } from '@/api/todo'
 import { getUnreadCount } from '@/api/notification'
 import { checkAdmin } from '@/api/auth'
+import { customerConfig } from '@/customer.config'
 const quickActions = ref([
-  { id: 'todo', icon: '📋', label: '待办事项', action: 'todo', iconClass: 'todo' },
-  { id: 'cases', icon: '📁', label: '案件管理', action: 'cases', iconClass: 'case' },
-  { id: 'documentLib', icon: '📄', label: '文档库', action: 'documentLib', iconClass: 'document' },
-  { id: 'expense', icon: '💰', label: '费用报销', action: 'expense', iconClass: 'expense' },
-  { id: 'announcement', icon: '📢', label: '公告', action: 'announcement', iconClass: 'announcement' },
-  { id: 'basicData', icon: '📚', label: '基础资料', action: 'basicData', iconClass: 'basic' },
+  { id: 'todo', icon: 'checkmark-circle', iconChar: '\ue63d', iconColor: '#1890ff', label: '待办事项', action: 'todo', iconClass: 'todo' },
+  { id: 'cases', icon: 'file-text', iconChar: '\ue663', iconColor: '#52c41a', label: '案件管理', action: 'cases', iconClass: 'case' },
+  { id: 'documentLib', icon: 'folder', iconChar: '\ue7f5', iconColor: '#13c2c2', label: '文档库', action: 'documentLib', iconClass: 'document' },
+  { id: 'expense', icon: 'red-packet', iconChar: '\ue691', iconColor: '#52c41a', label: '费用报销', action: 'expense', iconClass: 'expense' },
+  { id: 'announcement', icon: 'bell', iconChar: '\ue609', iconColor: '#ff4d4f', label: '公告', action: 'announcement', iconClass: 'announcement' },
+  { id: 'basicData', icon: 'list', iconChar: '\ue650', iconColor: '#fa8c16', label: '基础资料', action: 'basicData', iconClass: 'basic' },
 ])
 
 // 管理员功能按钮（仅管理员可见）
 const adminActions = ref([
-  { id: 'approveExpense', icon: '✅', label: '审核报销', action: 'approveExpense', iconClass: 'approve' },
+  { id: 'approveExpense', icon: 'checkmark-circle', iconChar: '\ue63d', iconColor: '#1890ff', label: '审核报销', action: 'approveExpense', iconClass: 'approve' },
+  { id: 'approvalManage', icon: 'list', iconChar: '\ue650', iconColor: '#722ed1', label: '审批管理', action: 'approvalManage', iconClass: 'approval-manage' },
 ])
 
 const userInfo = ref<any>(null)
@@ -250,6 +267,8 @@ const handleAdminAction = async (action: string) => {
         confirmText: '知道了',
       })
     }
+  } else if (action === 'approvalManage') {
+    uni.navigateTo({ url: '/pages/approval/index' })
   }
 }
 
@@ -269,18 +288,36 @@ const handleReport = () => {
   uni.showToast({ title: '报表功能开发中', icon: 'none' })
 }
 
+// 统计卡片点击跳转
+const handleStatClick = (type: string) => {
+  const routes: Record<string, string> = {
+    pendingCases: '/pages/cases/index',
+    completedCases: '/pages/cases/index',
+    pendingTodos: '/pages/todo/index',
+    notifications: '/pages/notification/index',
+  }
+  const url = routes[type]
+  if (url) {
+    if (url.startsWith('/pages/todo') || url.startsWith('/pages/cases')) {
+      uni.switchTab({ url })
+    } else {
+      uni.navigateTo({ url })
+    }
+  }
+}
+
 // 加载最近查询案件列表
 const loadRecentSearches = async () => {
   recentSearchesLoading.value = true
   try {
     const res = await getRecentSearches(3)
-    if (res.code === 'success' || res.code === '200' || res.code === 200) {
+    if (res.code === 200) {
       recentSearches.value = res.data || []
     } else {
       recentSearches.value = []
     }
   } catch (error) {
-recentSearches.value = []
+    recentSearches.value = []
   } finally {
     recentSearchesLoading.value = false
   }
@@ -292,13 +329,13 @@ const goToCaseDetail = (caseId: number) => {
 }
 
 // 移除单条最近查询记录
-const handleRemoveRecentSearch = async (caseId: number, event: any) => {
-  event.stopPropagation()
+const handleRemoveRecentSearch = async (caseId: number) => {
   try {
     await removeRecentSearch(caseId)
     uni.showToast({ title: '已移除', icon: 'success' })
     await loadRecentSearches()
   } catch (error) {
+    console.error('[workspace] 移除最近搜索失败:', error)
     uni.showToast({ title: '移除失败', icon: 'none' })
   }
 }
@@ -317,7 +354,27 @@ const formatSearchTime = (timeStr: string) => {
   if (diffMins < 60) return `${diffMins}分钟前`
   if (diffHours < 24) return `${diffHours}小时前`
   if (diffDays < 7) return `${diffDays}天前`
-  return date.toLocaleDateString('zh-CN')
+  return dayjs(date).format('YYYY/M/D')
+}
+
+// 获取案件状态图标
+const getStatusIcon = (status: string) => {
+  const iconMap: Record<string, string> = {
+    ONGOING: '\ue663',
+    AWAITING: '\ue609',
+    COMPLETED: '\ue63d',
+  }
+  return iconMap[status] || '\ue663'
+}
+
+// 获取案件状态图标颜色
+const getStatusIconColor = (status: string) => {
+  const colorMap: Record<string, string> = {
+    ONGOING: '#1890ff',
+    AWAITING: '#fa8c16',
+    COMPLETED: '#52c41a',
+  }
+  return colorMap[status] || '#1890ff'
 }
 
 // 案件状态映射
@@ -330,6 +387,12 @@ const caseStatusMap: Record<string, string> = {
 </script>
 
 <style lang="scss" scoped>
+// 引入 uview-plus 内置图标字体，确保 icon font 在当前页面可用
+@font-face {
+  font-family: 'uicon-iconfont';
+  src: url('https://at.alicdn.com/t/font_2225171_8kdcwk4po24.ttf') format('truetype');
+}
+
 .workspace-container {
   min-height: 100vh;
   background: #f5f7fa;
@@ -442,6 +505,10 @@ const caseStatusMap: Record<string, string> = {
         background: #e6f7ff;
       }
 
+      &.approval-manage {
+        background: #f9f0ff;
+      }
+
       .icon {
         font-size: 40rpx;
       }
@@ -547,6 +614,18 @@ const caseStatusMap: Record<string, string> = {
           justify-content: center;
           flex-shrink: 0;
 
+          &.search-item-icon--ongoing {
+            background: #e6f7ff;
+          }
+
+          &.search-item-icon--awaiting {
+            background: #fff7e6;
+          }
+
+          &.search-item-icon--completed {
+            background: #f6ffed;
+          }
+
           .icon-text {
             font-size: 36rpx;
           }
@@ -647,6 +726,12 @@ const caseStatusMap: Record<string, string> = {
       border-radius: 12rpx;
       padding: 24rpx;
       text-align: center;
+      transition: all 0.2s;
+
+      &:active {
+        background: #e6f2ff;
+        transform: scale(0.96);
+      }
 
       .num {
         display: block;
@@ -661,6 +746,25 @@ const caseStatusMap: Record<string, string> = {
         color: #999;
       }
     }
+  }
+}
+
+.copyright-footer {
+  text-align: center;
+  padding: 30rpx 0 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+
+  .copyright-text {
+    font-size: 22rpx;
+    color: #bbb;
+  }
+
+  .version-text {
+    font-size: 20rpx;
+    color: #ccc;
   }
 }
 </style>

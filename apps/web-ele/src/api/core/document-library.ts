@@ -681,7 +681,12 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function normalizeDocumentType(type: string): string {
-  const lower = (type || '').toLowerCase();
+  if (!type) return 'OTHER';
+  const upper = type.toUpperCase();
+  if (upper === 'WORD' || ['DOC', 'DOCX'].includes(upper)) return 'WORD';
+  if (upper === 'EXCEL' || ['XLS', 'XLSX'].includes(upper)) return 'EXCEL';
+  if (upper === 'PDF' || ['PDF'].includes(upper)) return 'PDF';
+  const lower = type.toLowerCase();
   if (['doc', 'docx'].includes(lower)) return 'WORD';
   if (['xls', 'xlsx'].includes(lower)) return 'EXCEL';
   if (lower === 'pdf') return 'PDF';

@@ -179,7 +179,8 @@ export async function updateDictionaryCategoryStatusApi(
 ) {
   return requestClient8080.put<DictionaryApi.DictionaryOperationResponse>(
     `/dictionary/category/${id}/status`,
-    data,
+    null,
+    { params: { status: data.status } },
   );
 }
 
@@ -242,7 +243,8 @@ export async function updateDictionaryItemStatusApi(
 ) {
   return requestClient8080.put<DictionaryApi.DictionaryOperationResponse>(
     `/dictionary/category/items/${id}/status`,
-    data,
+    null,
+    { params: { status: data.status } },
   );
 }
 

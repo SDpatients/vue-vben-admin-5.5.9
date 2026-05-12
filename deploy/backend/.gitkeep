@@ -1,0 +1,4 @@
+# 将编译好的 Spring Boot JAR 包放置在此目录
+# 默认文件名为 app.jar，可在 .env 中通过 BACKEND_JAR 变量自定义
+
+# application.yml 配置文件也需要放置在此目录

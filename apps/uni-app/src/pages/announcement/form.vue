@@ -138,12 +138,11 @@
 import { ref, onMounted } from 'vue'
 import {
   createAnnouncement,
-  createAnnouncementWithFiles,
 } from '@/api/announcement'
 import { getPageParam } from '@/utils/pageParam'
 import { getCaseList } from '@/api/case'
 
-import { getBaseUrl } from '@/config'
+import { getBaseUrl, FILE_API } from '@/config'
 
 import { chooseFilePlatform } from '@/utils/chooseFile'
 
@@ -229,10 +228,12 @@ const handleSelectCase = (caseItem: CaseOption) => {
 
 const handleChooseFile = async () => {
   try {
+    console.log('[announcement-form] 开始选择文件...')
     const files = await chooseFilePlatform({
       count: 5,
       extension: ['.doc', '.docx', '.pdf', '.jpg', '.jpeg', '.png', '.txt'],
     })
+    console.log('[announcement-form] 文件选择成功, 文件数量:', files.length, JSON.stringify(files.map(f => ({ name: f.name, size: f.size, path: f.path }))))
     files.forEach((file) => {
       if (fileList.value.length >= 5) {
         uni.showToast({ title: '最多上传5个文件', icon: 'none' })
@@ -243,8 +244,10 @@ const handleChooseFile = async () => {
         size: file.size,
         path: file.path,
       })
+      console.log('[announcement-form] 文件已添加到列表:', file.name)
     })
-  } catch (_e) {
+  } catch (e) {
+    console.error('[announcement-form] 选择文件失败, 错误详情:', e)
     uni.showToast({ title: '选择文件失败', icon: 'none' })
   }
 }
@@ -281,17 +284,26 @@ const validateForm = (): boolean => {
 const uploadAnnouncementFiles = async (): Promise<boolean> => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
+  const uploadUrl = `${baseUrl}${FILE_API.UPLOAD}`
+
+  console.log('[announcement-form][upload] 开始上传文件, baseUrl:', baseUrl, 'uploadUrl:', uploadUrl, 'token存在:', !!token)
+  console.log('[announcement-form][upload] 待上传文件列表:', JSON.stringify(fileList.value.map(f => ({ name: f.name, size: f.size, path: f.path }))))
   
-  // 先上传所有文件
   const uploadedFileIds: number[] = []
   
-  for (const fileInfo of fileList.value) {
-    if (!fileInfo.path) continue
+  for (let i = 0; i < fileList.value.length; i++) {
+    const fileInfo = fileList.value[i]
+    if (!fileInfo.path) {
+      console.warn('[announcement-form][upload] 跳过无路径的文件:', fileInfo.name)
+      continue
+    }
+    
+    console.log(`[announcement-form][upload] 正在上传第${i + 1}个文件:`, fileInfo.name, '路径:', fileInfo.path)
     
     try {
       const uploadRes = await new Promise<any>((resolve, reject) => {
         uni.uploadFile({
-          url: `${baseUrl}/api/v1/file/upload`,
+          url: uploadUrl,
           filePath: fileInfo.path,
           name: 'file',
           formData: {
@@ -301,21 +313,33 @@ const uploadAnnouncementFiles = async (): Promise<boolean> => {
           header: {
             Authorization: `Bearer ${token}`,
           },
-          success: (res) => resolve(res),
-          fail: (err) => reject(err),
+          success: (res) => {
+            console.log(`[announcement-form][upload] 文件${i + 1}上传响应 statusCode:`, res.statusCode, 'data:', res.data?.substring(0, 200))
+            resolve(res)
+          },
+          fail: (err) => {
+            console.error(`[announcement-form][upload] 文件${i + 1}上传失败:`, JSON.stringify(err))
+            reject(err)
+          },
         })
       })
       
       const result = JSON.parse(uploadRes.data)
+      console.log(`[announcement-form][upload] 文件${i + 1}解析结果:`, JSON.stringify(result))
       if (result.code === 200 && result.data?.id) {
         uploadedFileIds.push(result.data.id)
+        console.log(`[announcement-form][upload] 文件${i + 1}上传成功, fileId:`, result.data.id)
+      } else {
+        console.error(`[announcement-form][upload] 文件${i + 1}上传返回异常:`, JSON.stringify(result))
       }
     } catch (error) {
-throw error
+      console.error(`[announcement-form][upload] 文件${i + 1}上传异常:`, error)
+      throw error
     }
   }
   
-  // 创建公告，关联已上传的文件
+  console.log('[announcement-form][upload] 所有文件上传完成, uploadedFileIds:', JSON.stringify(uploadedFileIds))
+  
   const res = await createAnnouncement({
     caseId: form.value.caseId,
     caseNumber: form.value.caseNumber,
@@ -326,16 +350,20 @@ throw error
     attachments: uploadedFileIds.length > 0 ? JSON.stringify(uploadedFileIds) : undefined,
   } as any)
   
+  console.log('[announcement-form][upload] 创建公告响应:', JSON.stringify(res))
   return res.code === 200
 }
 
 const handleSubmit = async () => {
   if (!validateForm()) return
 
+  console.log('[announcement-form][submit] 开始提交, 表单数据:', JSON.stringify(form.value))
+  console.log('[announcement-form][submit] 文件数量:', fileList.value.length)
+
   submitting.value = true
   try {
     if (fileList.value.length > 0) {
-      // 有文件时，先上传文件再创建公告
+      console.log('[announcement-form][submit] 有文件，先上传文件再创建公告')
       const success = await uploadAnnouncementFiles()
       if (success) {
         uni.showToast({ title: '发布成功', icon: 'success' })
@@ -345,7 +373,7 @@ const handleSubmit = async () => {
         }, 1500)
       }
     } else {
-      // 无文件时，直接创建公告
+      console.log('[announcement-form][submit] 无文件，直接创建公告')
       const res = await createAnnouncement({
         caseId: form.value.caseId,
         caseNumber: form.value.caseNumber,
@@ -354,6 +382,7 @@ const handleSubmit = async () => {
         content: form.value.content,
         announcementType: form.value.announcementType,
       })
+      console.log('[announcement-form][submit] 创建公告响应:', JSON.stringify(res))
       if (res.code === 200) {
         uni.showToast({ title: '发布成功', icon: 'success' })
         uni.$emit('refresh-announcement-list', caseId.value)
@@ -363,7 +392,8 @@ const handleSubmit = async () => {
       }
     }
   } catch (error) {
-uni.showToast({ title: '发布失败', icon: 'none' })
+    console.error('[announcement-form][submit] 发布失败, 错误详情:', error)
+    uni.showToast({ title: '发布失败', icon: 'none' })
   } finally {
     submitting.value = false
   }
@@ -618,6 +648,8 @@ const handleBack = () => {
   position: fixed;
   bottom: 0;
   left: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
   right: 0;
   display: flex;
   padding: 20rpx;

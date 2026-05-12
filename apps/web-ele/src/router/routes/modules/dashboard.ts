@@ -53,6 +53,7 @@ const routes: RouteRecordRaw[] = [
           affixTab: false,
           icon: 'lucide:alert-triangle',
           title: $t('page.dashboard.warning'),
+          hideInMenu: true,
         },
       },
     ],

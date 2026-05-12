@@ -398,7 +398,7 @@ import {
   type ManagerInfo,
   type UserInfo,
 } from '@/api/case'
-import { getBaseUrl } from '@/config'
+import { getBaseUrl, FILE_API } from '@/config'
 
 // 判断是否 H5 环境
 const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
@@ -663,28 +663,36 @@ const searchUsers = () => {
 
 // 选择文件 - 统一使用 uni.chooseFile
 const handleSelectFile = () => {
+  console.log('[add-case] 开始选择文件...')
+  const extensions = ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx']
+  const processFiles = (files: any[]) => {
+    const validFiles = files.filter((file: any) => {
+      if (file.size > 10 * 1024 * 1024) {
+        uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
+        return false
+      }
+      return true
+    })
+    const processed = validFiles.map((file: any) => ({
+      path: file.path || file.tempFilePath,
+      name: file.name || file.path?.split('/').pop() || '未知文件',
+      size: file.size || 0
+    }))
+    console.log('[add-case] 处理后的文件:', JSON.stringify(processed.map(f => ({ name: f.name, size: f.size }))))
+    selectedFiles.value.push(...processed)
+  }
+
   // #ifdef H5
   uni.chooseFile({
     count: 10,
     type: 'all',
-    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    extension: extensions,
     success: (res: any) => {
-      const files = res.tempFiles || []
-      const validFiles = files.filter((file: any) => {
-        if (file.size > 10 * 1024 * 1024) {
-          uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
-          return false
-        }
-        return true
-      })
-      const processedFiles = validFiles.map((file: any) => ({
-        path: file.path || file.tempFilePath,
-        name: file.name || file.path?.split('/').pop() || '未知文件',
-        size: file.size || 0
-      }))
-      selectedFiles.value.push(...processedFiles)
+      console.log('[add-case][H5] uni.chooseFile success, tempFiles:', res.tempFiles?.length)
+      processFiles(res.tempFiles || [])
     },
-    fail: (_err: any) => {
+    fail: (err: any) => {
+      console.error('[add-case][H5] uni.chooseFile fail:', JSON.stringify(err))
     },
   })
   // #endif
@@ -692,49 +700,82 @@ const handleSelectFile = () => {
   uni.chooseMessageFile({
     count: 10,
     type: 'all',
-    extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
+    extension: extensions,
     success: (res: any) => {
-      const files = res.tempFiles || []
-      const validFiles = files.filter((file: any) => {
-        if (file.size > 10 * 1024 * 1024) {
-          uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
-          return false
-        }
-        return true
-      })
-      const processedFiles = validFiles.map((file: any) => ({
-        path: file.path,
-        name: file.name || file.path?.split('/').pop() || '未知文件',
-        size: file.size || 0
-      }))
-      selectedFiles.value.push(...processedFiles)
+      console.log('[add-case][MP-WEIXIN] uni.chooseMessageFile success, tempFiles:', res.tempFiles?.length)
+      processFiles(res.tempFiles || [])
     },
-    fail: (_err: any) => {
+    fail: (err: any) => {
+      console.error('[add-case][MP-WEIXIN] uni.chooseMessageFile fail:', JSON.stringify(err))
     },
   })
   // #endif
   // #ifdef APP-PLUS
-  plus.io.chooseFile({
-    multiple: true,
-    maximum: 10,
-    filter: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
-    onChoose: (files: any[]) => {
-      const validFiles = files.filter((file: any) => {
-        if (file.size > 10 * 1024 * 1024) {
-          uni.showToast({ title: `${file.name} 超过10MB`, icon: 'none' })
-          return false
+  // APP-PLUS 文件选择：先检测 uni.chooseFile 是否可用
+  try {
+    if (typeof uni.chooseFile === 'function') {
+      uni.chooseFile({
+        count: 10,
+        type: 'all',
+        extension: extensions,
+        success: (res: any) => {
+          console.log('[add-case][APP-PLUS] uni.chooseFile success, tempFiles:', res.tempFiles?.length)
+          processFiles(res.tempFiles || [])
+        },
+        fail: (err: any) => {
+          console.error('[add-case][APP-PLUS] uni.chooseFile fail:', JSON.stringify(err))
         }
-        return true
       })
-      const processedFiles = validFiles.map((file: any) => ({
-        path: file.path,
-        name: file.name || file.path?.split('/').pop() || '未知文件',
-        size: file.size || 0
-      }))
-      selectedFiles.value.push(...processedFiles)
-    },
-  }, (_err: any) => {
-  })
+    } else {
+      console.log('[add-case][APP-PLUS] uni.chooseFile 不可用, 使用 plus.io.chooseFile 回退方案')
+      usePlusIoChooseFile()
+    }
+  } catch (e) {
+    console.error('[add-case][APP-PLUS] uni.chooseFile 调用异常, 使用 plus.io.chooseFile 回退:', e)
+    usePlusIoChooseFile()
+  }
+
+  // plus.io.chooseFile 回退方案 - 兼容不同 HBuilderX 版本的 API 签名
+  function usePlusIoChooseFile() {
+    let resolved = false
+    const handleResult = (data: any, source: string) => {
+      if (resolved) return
+      console.log('[add-case][APP-PLUS] plus.io 回调(' + source + '):', JSON.stringify(data))
+      
+      // 成功: {files: [...]} 对象
+      if (data && data.files && Array.isArray(data.files) && data.files.length > 0) {
+        resolved = true
+        const processed = data.files.map((path: string) => ({
+          path: path,
+          name: path?.split('/').pop() || path?.split('\\').pop() || '未知文件',
+          size: 0
+        }))
+        processFiles(processed)
+        return
+      }
+      // 成功: 字符串路径
+      if (typeof data === 'string' && data.includes('/')) {
+        resolved = true
+        const fileName = data?.split('/').pop() || data?.split('\\').pop() || '未知文件'
+        processFiles([{ path: data, name: fileName, size: 0 }])
+        return
+      }
+    }
+    
+    try {
+      plus.io.chooseFile(
+        (result1: any) => handleResult(result1, 'cb1'),
+        (result2: any) => {
+          handleResult(result2, 'cb2')
+          if (!resolved) {
+            resolved = true
+          }
+        }
+      )
+    } catch (e) {
+      console.error('[add-case][APP-PLUS] plus.io.chooseFile 执行异常:', e)
+    }
+  }
   // #endif
 }
 
@@ -766,14 +807,21 @@ const getFileName = (path: string) => {
 const uploadFilesUniApp = async (caseId: number) => {
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
-const files = selectedFiles.value.filter(f => f.path)
-let uploadedCount = 0
+  const uploadUrl = `${baseUrl}${FILE_API.UPLOAD}`
+  const files = selectedFiles.value.filter(f => f.path)
+
+  console.log('[add-case][upload] 开始上传文件, uploadUrl:', uploadUrl, '文件数量:', files.length, 'token存在:', !!token)
+  console.log('[add-case][upload] 待上传文件:', JSON.stringify(files.map(f => ({ name: f.name, size: f.size, path: f.path }))))
+
+  let uploadedCount = 0
   
-  for (const fileInfo of files) {
-try {
+  for (let i = 0; i < files.length; i++) {
+    const fileInfo = files[i]
+    console.log(`[add-case][upload] 正在上传第${i + 1}个文件:`, fileInfo.name)
+    try {
       const uploadRes = await new Promise<any>((resolve, reject) => {
         uni.uploadFile({
-          url: `${baseUrl}/api/v1/file/upload`,
+          url: uploadUrl,
           filePath: fileInfo.path,
           name: 'file',
           formData: {
@@ -783,8 +831,14 @@ try {
           header: {
             Authorization: `Bearer ${token}`,
           },
-          success: (res) => resolve(res),
-          fail: (err) => reject(err),
+          success: (res) => {
+            console.log(`[add-case][upload] 文件${i + 1}上传响应 statusCode:`, res.statusCode, 'data:', res.data?.substring(0, 200))
+            resolve(res)
+          },
+          fail: (err) => {
+            console.error(`[add-case][upload] 文件${i + 1}上传失败:`, JSON.stringify(err))
+            reject(err)
+          },
         })
       })
       

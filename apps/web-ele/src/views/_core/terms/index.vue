@@ -10,6 +10,7 @@ import { useRouter } from 'vue-router';
 
 import { Card, Page } from '@vben/common-ui';
 
+import { AGREEMENT_CURRENT_VERSION } from '#/api';
 import { customerConfig } from '#/customer.config';
 
 defineOptions({ name: 'TermsPage' });
@@ -248,7 +249,7 @@ onUnmounted(() => {
           <div class="prose prose-lg max-w-none">
             <h1 class="text-3xl font-bold text-center text-gray-900 mb-2">用户服务协议</h1>
             <p class="text-right text-sm text-gray-500 mb-10 pb-6 border-b border-gray-200">
-              版本日期：{{ customerConfig.copyright.year }}年1月1日
+              版本日期：{{ customerConfig.copyright.year }}年1月1日（{{ AGREEMENT_CURRENT_VERSION }}）
             </p>
 
             <section id="section-1" class="mb-10 pb-6 border-b border-gray-100 scroll-mt-24">

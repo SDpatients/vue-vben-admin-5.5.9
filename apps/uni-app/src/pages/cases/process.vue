@@ -102,7 +102,7 @@
               <text>该模块需在债权管理中处理</text>
             </view>
             <view class="special-module-actions">
-              <u-button size="small" @click="goToClaimManage">前往债权管理</u-button>
+              <u-button size="small" text="前往债权管理" @click="goToClaimManage"></u-button>
             </view>
           </view>
 
@@ -113,7 +113,7 @@
               <text>债权人会议管理</text>
             </view>
             <view class="special-module-actions">
-              <u-button size="small" @click="openMeetingData">会议数据</u-button>
+              <u-button size="small" text="会议数据" @click="openMeetingData"></u-button>
             </view>
           </view>
 
@@ -216,8 +216,12 @@
         </view>
 
         <view class="dialog-footer">
-          <u-button @click="closeAddDialog">取消</u-button>
-          <u-button type="primary" :loading="submitting" @click="handleSubmit">保存</u-button>
+          <view class="native-btn native-btn-cancel" @click="closeAddDialog">
+            <text class="native-btn-text">取消</text>
+          </view>
+          <view class="native-btn native-btn-primary" :class="{ 'native-btn-loading': submitting }" @click="handleSubmit">
+            <text class="native-btn-text">{{ submitting ? '提交中...' : (isEditMode ? '确认修改' : '确认') }}</text>
+          </view>
         </view>
       </view>
     </uni-popup>
@@ -278,8 +282,12 @@
         </scroll-view>
 
         <view class="dialog-footer">
-          <u-button @click="handleEdit">编辑</u-button>
-          <u-button type="error" @click="handleDelete">删除</u-button>
+          <view class="native-btn native-btn-edit" @click="handleEdit">
+            <text class="native-btn-text">编辑</text>
+          </view>
+          <view class="native-btn native-btn-danger" @click="handleDelete">
+            <text class="native-btn-text">删除</text>
+          </view>
         </view>
       </view>
     </uni-popup>
@@ -359,25 +367,30 @@
     <uni-popup ref="stageInfoPopup" type="center">
       <view class="stage-info-dialog">
         <view class="dialog-header">
-          <text class="dialog-title">阶段说明</text>
+          <text class="dialog-title">破产案件流程说明</text>
           <u-icon name="close" @click="showStageInfo = false"></u-icon>
         </view>
         <scroll-view scroll-y class="dialog-body">
-          <view v-for="(stage, index) in stages" :key="index" class="stage-info-item">
+          <view v-for="(item, index) in stageDescriptions" :key="index" class="stage-info-item">
             <view class="stage-info-header">
-              <view class="stage-icon-small" :style="{ backgroundColor: stage.color }">
-                {{ index + 1 }}
-              </view>
-              <text class="stage-info-title">{{ stage.title }}</text>
+              <view class="stage-icon-small" :style="{ backgroundColor: item.color }">{{ index + 1 }}</view>
+              <text class="stage-info-title">{{ item.title }}</text>
+            </view>
+            <view class="stage-info-section">
+              <text class="info-label">法律依据</text>
+              <text class="info-text">{{ item.legalBasis }}</text>
+            </view>
+            <view class="stage-info-section">
+              <text class="info-label">核心任务</text>
+              <text class="info-text">{{ item.purpose }}</text>
+            </view>
+            <view class="stage-info-section">
+              <text class="info-label">操作指南</text>
+              <text class="info-text">{{ item.guide }}</text>
             </view>
             <view class="stage-info-modules">
-              <text 
-                v-for="mod in stage.modules" 
-                :key="mod.id"
-                class="module-tag"
-              >
-                {{ mod.title }}
-              </text>
+              <text class="modules-label">包含模块：</text>
+              <text v-for="mod in item.modules" :key="mod" class="module-tag">{{ mod }}</text>
             </view>
           </view>
         </scroll-view>
@@ -533,6 +546,66 @@ const stages = ref([
   },
 ])
 
+// 阶段说明（固定数据，面向破产律师的业务指南）
+const stageDescriptions = [
+  {
+    title: '一、破产申请与受理',
+    color: '#409EFF',
+    legalBasis: '《企业破产法》第7-13条。债权人、债务人或清算责任人可向有管辖权的人民法院提出破产申请。',
+    purpose: '启动破产程序，法院审查申请材料后裁定是否受理，受理后指定管理人并发布公告，标志着破产案件正式进入司法程序。',
+    guide: '①准备并提交破产申请书、债权债务清册、财产状况说明等材料；②跟进法院审查进度，及时补充材料；③法院裁定受理后，第一时间获取裁定书并录入系统；④关注法院公告发布时间和平台。',
+    modules: ['提交破产申请材料', '裁定受理并公告'],
+  },
+  {
+    title: '二、接管与调查',
+    color: '#67C23A',
+    legalBasis: '《企业破产法》第15、25、111条。管理人应当接管债务人的财产、印章和账簿、文书等资料，并调查债务人财产状况。',
+    purpose: '管理人全面接管债务人企业，掌握其资产、负债和经营全貌，追回应收账款和其他财产，为后续债权审查和财产分配奠定基础。',
+    guide: '①开展现场接管，清点并封存资产、账簿、印章；②向银行、不动产登记中心、车管所等部门发送协查通知；③聘请审计、评估机构对债务人财务状况进行专项审计和资产评估；④对未履行完毕的合同逐份审查，做出继续履行或解除决定。',
+    modules: ['全面接管债务人', '管理人印章', '调查财产及经营状况', '追收债务人财产', '决定合同继续履行或解除'],
+  },
+  {
+    title: '三、债权申报与核查',
+    color: '#E6A23C',
+    legalBasis: '《企业破产法》第44-58条。债权人应当在法院确定的债权申报期限内向管理人申报债权，管理人应当对申报的债权进行审查并编制债权表。',
+    purpose: '确认全体债权人的债权金额和性质（有财产担保债权、职工债权、税款债权、普通债权），明确清偿顺序和比例，是破产分配的核心依据。',
+    guide: '①在法院公告中明确债权申报期限（30日至3个月）；②通知已知债权人并送达申报材料模板；③逐笔登记申报材料并分类编号；④按"形式审查+实质审查"原则逐一核查债权真实性、合法性、金额准确性；⑤编制债权表并提交第一次债权人会议核查；⑥对异议债权进行复核并书面答复。',
+    modules: ['通知已知债权人并公告', '接收/登记债权申报', '审查申报债权并编制债权表', '债权审查结果通知'],
+  },
+  {
+    title: '四、债权人会议',
+    color: '#F56C6C',
+    legalBasis: '《企业破产法》第59-69条。债权人会议是债权人行使权利的组织形式，对重大事项进行讨论和表决。',
+    purpose: '组织债权人对破产程序中的重大事项（财产管理方案、变价方案、分配方案、重整计划等）进行审议表决，保障债权人集体意志的表达和权益的实现。',
+    guide: '①提前15天书面通知各债权人会议时间、地点和议程；②准备会议材料（债权表、财产状况报告、审计评估报告等）；③会议当天核验出席人员身份和代理权限；④就表决事项逐一说明并组织投票；⑤形成会议决议并报法院备案；⑥会后制作会议记录并送达全体债权人。',
+    modules: ['会议资料', '表决事项和表决结果'],
+  },
+  {
+    title: '五、破产宣告',
+    color: '#909399',
+    legalBasis: '《企业破产法》第78-80、95-97条。符合法定条件时，法院裁定宣告债务人破产，或裁定重整/和解。',
+    purpose: '法院依法作出破产宣告裁定或批准重整计划/和解协议，明确企业最终走向（清算、重整或和解），进入下一阶段程序执行。',
+    guide: '①整理破产条件审查清单（资不抵债、不能清偿到期债务等）；②撰写破产宣告审查意见书报送法院；③如符合条件的，跟进法院裁定进度；④获取裁定书后在规定平台公告；⑤如涉及重整，同步准备重整计划草案。',
+    modules: ['审查宣告破产条件', '裁定宣告债务人破产', '宣告重整与和解'],
+  },
+  {
+    title: '六、财产变价与分配',
+    color: '#FF6B6B',
+    legalBasis: '《企业破产法》第111-119条。管理人应当及时拟订破产财产变价方案和分配方案，经债权人会议通过后执行。',
+    purpose: '将债务人财产通过拍卖、变卖等方式变现，按照法定清偿顺序将变现所得分配给全体债权人。',
+    guide: '①拟订财产变价方案（含变价方式、评估基准、时间安排等）；②提交债权人会议表决通过并报法院裁定认可；③通过拍卖平台或产权交易机构对资产进行公开处置；④核实破产费用和共益债务并优先支付；⑤按顺序分配：职工债权→税款债权→有财产担保债权→普通债权；⑥分配完毕后制作分配报告。',
+    modules: ['拟定并执行财产变价方案', '破产费用与共益债务', '执行破产财产分配'],
+  },
+  {
+    title: '七、程序终结与注销',
+    color: '#4CAF50',
+    legalBasis: '《企业破产法》第120-124条。破产财产分配完毕后，管理人提请法院终结破产程序，办理企业注销登记。',
+    purpose: '完成破产程序的收尾工作，包括申请终结裁定、办理工商注销、税务注销、银行账户销户、档案归档等，实现破产案件的依法终结。',
+    guide: '①确认财产分配已全部执行完毕，无遗留资产；②向法院提交终结破产程序申请书及分配报告；③获取法院终结裁定书并公告；④持裁定书到市场监管局办理企业注销登记；⑤办理税务注销、银行账户销户；⑥将全部案卷材料整理归档（保存期限不少于10年）；⑦管理人职务终止。',
+    modules: ['提请终结破产程序', '法院裁定并公告', '办理企业注销登记', '管理人终止执行职务并归档'],
+  },
+]
+
 // 当前阶段
 const currentStage = computed(() => stages.value[activeStage.value])
 
@@ -551,39 +624,52 @@ const taskStatusMap: Record<string, { text: string; type: string }> = {
 
 onMounted(() => {
   caseId.value = getPageParam('id')
-if (caseId.value) {
+  console.log('[process] onMounted, caseId=', caseId.value)
+  if (caseId.value) {
     initPage()
+  } else {
+    console.error('[process] caseId为空，无法初始化页面')
+    uni.showToast({ title: '案件ID缺失', icon: 'none' })
   }
 })
 
 // 初始化页面
 const initPage = async () => {
+  console.log('[process] initPage start, caseId=', caseId.value)
   loading.value = true
   try {
     // 1. 加载案件详情
+    console.log('[process] 开始加载案件详情...')
     await loadCaseInfo()
-    
+    console.log('[process] 案件详情加载完成, caseInfo=', caseInfo.value)
+
     // 2. 加载所有阶段数据
+    console.log('[process] 开始加载阶段数据...')
     await loadAllStageData()
-    
+    console.log('[process] 阶段数据加载完成')
+
     // 3. 初始化动画进度
     initAnimatedProgress()
-    
+
     // 4. 默认展开第一个模块
     if (stages.value[0].modules.length > 0) {
       expandedModules.value[stages.value[0].modules[0].id] = true
     }
-  } catch (error) {
-uni.showToast({ title: '加载失败', icon: 'none' })
+  } catch (error: any) {
+    console.error('[process] initPage 异常:', error)
+    uni.showToast({ title: error.message || '加载失败', icon: 'none' })
   } finally {
     loading.value = false
+    console.log('[process] initPage end')
   }
 }
 
 // 加载案件详情
 const loadCaseInfo = async () => {
   try {
+    console.log('[process] loadCaseInfo, caseId=', caseId.value)
     const res = await getCaseDetail(caseId.value)
+    console.log('[process] loadCaseInfo response:', res)
     if (res.data) {
       caseInfo.value = res.data
       // 根据案件进度设置当前阶段
@@ -596,22 +682,35 @@ const loadCaseInfo = async () => {
         activeStage.value = progressMap[progress]
       }
     }
-  } catch (error) {
-}
+  } catch (error: any) {
+    console.error('[process] loadCaseInfo 异常:', error)
+    throw error
+  }
 }
 
 // 加载所有阶段数据
 const loadAllStageData = async () => {
+  console.log('[process] loadAllStageData start, caseId=', caseId.value)
   try {
+    const numericCaseId = Number(caseId.value)
+    console.log('[process] numericCaseId=', numericCaseId, 'isNaN=', isNaN(numericCaseId))
+    if (isNaN(numericCaseId) || numericCaseId <= 0) {
+      console.error('[process] caseId无效:', caseId.value)
+      throw new Error('案件ID无效')
+    }
+
     // 1. 获取所有任务
+    console.log('[process] 开始调用 getCaseTasks, caseId=', numericCaseId)
     const taskRes = await getCaseTasks({
-      caseId: Number(caseId.value),
+      caseId: numericCaseId,
       page: 1,
       size: 100,
     })
+    console.log('[process] getCaseTasks response:', taskRes)
 
     if (taskRes.code === 200 && taskRes.data?.content) {
       const tasks = taskRes.data.content
+      console.log('[process] 获取到任务数量:', tasks.length)
 
       // 清空所有模块数据
       stages.value.forEach(stage => {
@@ -623,30 +722,39 @@ const loadAllStageData = async () => {
 
       // 2. 批量获取提交记录
       const taskIds = tasks.map((t: any) => t.id)
+      console.log('[process] taskIds=', taskIds)
       let submissionsMap: Record<number, SubmissionData[]> = {}
       let filesMap: Record<number, any[]> = {}
 
       if (taskIds.length > 0) {
         try {
           // 先获取所有任务的最新提交记录
+          console.log('[process] 开始调用 createSubmissionBatch, taskIds=', taskIds)
           const submissionsRes = await createSubmissionBatch({ caseTaskIds: taskIds })
+          console.log('[process] createSubmissionBatch response:', submissionsRes)
           if (submissionsRes.code === 200 && submissionsRes.data) {
             submissionsMap = submissionsRes.data
+          } else {
+            console.warn('[process] createSubmissionBatch 返回非200或空数据:', submissionsRes)
           }
 
           // 收集所有提交ID，用于批量获取文件
           const allSubmissions = Object.values(submissionsMap).flat()
           const submissionIds = allSubmissions.map((sub: SubmissionData) => sub.id)
+          console.log('[process] submissionIds=', submissionIds)
 
           if (submissionIds.length > 0) {
             // 批量获取所有提交的文件
+            console.log('[process] 开始调用 getSubmissionFilesBatch')
             const filesRes = await getSubmissionFilesBatch(submissionIds)
+            console.log('[process] getSubmissionFilesBatch response:', filesRes)
             if (filesRes.code === 200 && filesRes.data) {
               filesMap = filesRes.data
             }
           }
-        } catch (e) {
-}
+        } catch (e: any) {
+          console.error('[process] 批量获取提交记录或文件失败:', e)
+        }
       }
 
       // 3. 分配任务到对应模块
@@ -654,7 +762,7 @@ const loadAllStageData = async () => {
         for (const stage of stages.value) {
           // 匹配任务到模块
           const module = stage.modules.find(
-            m => m.title === task.taskName || 
+            m => m.title === task.taskName ||
                  task.taskName?.includes(m.title) ||
                  m.title.includes(task.taskName || '')
           )
@@ -683,9 +791,14 @@ const loadAllStageData = async () => {
           }
         }
       })
+    } else {
+      console.warn('[process] getCaseTasks 返回异常:', taskRes)
     }
-  } catch (error) {
-}
+  } catch (error: any) {
+    console.error('[process] loadAllStageData 异常:', error)
+    throw error
+  }
+  console.log('[process] loadAllStageData end')
 }
 
 // 初始化动画进度
@@ -723,6 +836,7 @@ const toggleModule = (moduleId: string) => {
 
 // 切换模块完成状态
 const toggleModuleComplete = async (moduleId: string) => {
+  console.log('[process] toggleModuleComplete, moduleId=', moduleId)
   // 找到对应的模块
   let targetModule: any = null
   for (const stage of stages.value) {
@@ -734,22 +848,25 @@ const toggleModuleComplete = async (moduleId: string) => {
   }
 
   if (!targetModule?.task) {
+    console.warn('[process] 任务不存在, moduleId=', moduleId, 'targetModule=', targetModule)
     uni.showToast({ title: '任务不存在，无法标记完成状态', icon: 'none' })
     return
   }
 
   const newStatus = completedModules.value[moduleId] ? 'IN_PROGRESS' : 'COMPLETED'
+  console.log('[process] 更新任务状态, taskId=', targetModule.task.id, 'newStatus=', newStatus)
 
   uni.showLoading({ title: '更新中...', mask: true })
   try {
     const response = await updateTaskStatus(targetModule.task.id, newStatus)
+    console.log('[process] updateTaskStatus response:', response)
 
     if (response.code === 200) {
       completedModules.value[moduleId] = !completedModules.value[moduleId]
       // 更新模块的任务状态，确保界面立即反映变化
       targetModule.task.status = newStatus
       initAnimatedProgress()
-      
+
       uni.hideLoading()
       uni.showToast({
         title: completedModules.value[moduleId] ? '已标记为完成' : '已取消完成标记',
@@ -757,11 +874,13 @@ const toggleModuleComplete = async (moduleId: string) => {
       })
     } else {
       uni.hideLoading()
+      console.error('[process] updateTaskStatus 返回非200:', response)
       uni.showToast({ title: response.message || '更新任务状态失败', icon: 'none' })
     }
-  } catch (error) {
-uni.hideLoading()
-    uni.showToast({ title: '更新任务状态失败', icon: 'none' })
+  } catch (error: any) {
+    uni.hideLoading()
+    console.error('[process] updateTaskStatus 异常:', error)
+    uni.showToast({ title: error.message || '更新任务状态失败', icon: 'none' })
   }
 }
 
@@ -781,6 +900,7 @@ const getModuleStatusText = (module: any): string => {
 
 // 打开添加弹窗
 const openAddDialog = (module: any) => {
+  console.log('[process] openAddDialog, moduleId=', module?.id, 'moduleTitle=', module?.title)
   isEditMode.value = false
   currentModule.value = module
   currentItem.value = null
@@ -791,10 +911,12 @@ const openAddDialog = (module: any) => {
   }
   uploadFiles.value = []
   addDialogPopup.value?.open()
+  console.log('[process] openAddDialog 完成, isEditMode=', isEditMode.value, 'submitting=', submitting.value)
 }
 
 // 关闭添加弹窗
 const closeAddDialog = () => {
+  console.log('[process] closeAddDialog')
   addDialogPopup.value?.close()
 }
 
@@ -805,13 +927,16 @@ const onDateChange = (e: any) => {
 
 // 选择文件
 const chooseFile = () => {
+  console.log('[process] 开始选择文件...')
   // #ifdef H5
   uni.chooseFile({
     count: 10,
     success: (res) => {
+      console.log('[process][H5] uni.chooseFile success, tempFiles:', res.tempFiles?.length)
       uploadFiles.value = [...uploadFiles.value, ...res.tempFiles]
     },
-    fail: () => {
+    fail: (err) => {
+      console.error('[process][H5] uni.chooseFile fail:', JSON.stringify(err))
       uni.showToast({ title: '选择文件失败', icon: 'none' })
     }
   })
@@ -820,29 +945,116 @@ const chooseFile = () => {
   uni.chooseMessageFile({
     count: 10,
     success: (res) => {
+      console.log('[process][MP-WEIXIN] uni.chooseMessageFile success, tempFiles:', res.tempFiles?.length)
       uploadFiles.value = [...uploadFiles.value, ...res.tempFiles]
     },
-    fail: () => {
+    fail: (err) => {
+      console.error('[process][MP-WEIXIN] uni.chooseMessageFile fail:', JSON.stringify(err))
       uni.showToast({ title: '选择文件失败', icon: 'none' })
     }
   })
   // #endif
   // #ifdef APP-PLUS
-  plus.io.chooseFile({
-    multiple: true,
-    maximum: 10,
-    onChoose: (files: any[]) => {
-      uploadFiles.value = [...uploadFiles.value, ...files]
-    },
-  }, () => {
-    uni.showToast({ title: '选择文件失败', icon: 'none' })
-  })
+  // APP-PLUS 文件选择：先检测 uni.chooseFile 是否可用
+  try {
+    if (typeof uni.chooseFile === 'function') {
+      uni.chooseFile({
+        count: 10,
+        success: (res) => {
+          console.log('[process][APP-PLUS] uni.chooseFile success, tempFiles:', res.tempFiles?.length)
+          uploadFiles.value = [...uploadFiles.value, ...res.tempFiles]
+        },
+        fail: (err) => {
+          console.error('[process][APP-PLUS] uni.chooseFile fail:', JSON.stringify(err))
+          uni.showToast({ title: '选择文件失败', icon: 'none' })
+        }
+      })
+    } else {
+      console.log('[process][APP-PLUS] uni.chooseFile 不可用, 使用 plus.io.chooseFile 回退方案')
+      usePlusIoChooseFile()
+    }
+  } catch (e) {
+    console.error('[process][APP-PLUS] uni.chooseFile 调用异常, 使用 plus.io.chooseFile 回退:', e)
+    usePlusIoChooseFile()
+  }
+
+  // plus.io.chooseFile 回退方案 - 兼容不同 HBuilderX 版本的 API 签名
+  function usePlusIoChooseFile() {
+    let resolved = false
+    const handleResult = (data: any, source: string) => {
+      if (resolved) return
+      console.log('[process][APP-PLUS] plus.io 回调(' + source + '):', JSON.stringify(data))
+      
+      // 成功: {files: [...]} 对象
+      if (data && data.files && Array.isArray(data.files) && data.files.length > 0) {
+        resolved = true
+        data.files.forEach((path: string) => {
+          const fileName = path?.split('/').pop() || path?.split('\\').pop() || '未知文件'
+          uploadFiles.value = [...uploadFiles.value, { path, name: fileName, size: 0 }]
+        })
+        return
+      }
+      // 成功: 字符串路径
+      if (typeof data === 'string' && data.includes('/')) {
+        resolved = true
+        const fileName = data?.split('/').pop() || data?.split('\\').pop() || '未知文件'
+        uploadFiles.value = [...uploadFiles.value, { path: data, name: fileName, size: 0 }]
+        return
+      }
+    }
+    
+    try {
+      plus.io.chooseFile(
+        (result1: any) => handleResult(result1, 'cb1'),
+        (result2: any) => {
+          handleResult(result2, 'cb2')
+          if (!resolved) {
+            resolved = true
+            uni.showToast({ title: '选择文件失败', icon: 'none' })
+          }
+        }
+      )
+    } catch (e) {
+      console.error('[process][APP-PLUS] plus.io.chooseFile 执行异常:', e)
+      uni.showToast({ title: '选择文件失败', icon: 'none' })
+    }
+  }
   // #endif
 }
 
 // 移除文件
 const removeFile = (index: number) => {
   uploadFiles.value.splice(index, 1)
+}
+
+// 数据状态映射
+const submissionStatusMap: Record<string, string> = {
+  DRAFT: '草稿',
+  SUBMITTED: '已提交',
+  APPROVED: '已通过',
+  REJECTED: '已驳回',
+  PENDING: '待审核',
+  NORMAL: '正常',
+  COMPLETED: '已完成',
+  IN_PROGRESS: '进行中',
+}
+
+const getStatusText = (status: string) => {
+  return submissionStatusMap[status] || status
+}
+
+const getStatusClass = (status: string) => {
+  const map: Record<string, string> = {
+    DRAFT: 'status-draft',
+    SUBMITTED: 'status-info',
+    APPROVED: 'status-success',
+    REJECTED: 'status-danger',
+    PENDING: 'status-warning',
+    NORMAL: 'status-default',
+    COMPLETED: 'status-success',
+    IN_PROGRESS: 'status-info',
+  }
+  return map[status] || 'status-default'
 }
 
 // 格式化文件大小
@@ -856,12 +1068,14 @@ const formatFileSize = (size?: number): string => {
 
 // 提交数据（新增或编辑）
 const handleSubmit = async () => {
+  console.log('[process] handleSubmit start, isEditMode=', isEditMode.value)
   if (!formData.value.title.trim()) {
     uni.showToast({ title: '请输入标题', icon: 'none' })
     return
   }
 
   if (!currentModule.value?.task) {
+    console.warn('[process] 该模块暂无任务, currentModule=', currentModule.value)
     uni.showToast({ title: '该模块暂无任务，请先创建任务', icon: 'none' })
     return
   }
@@ -873,15 +1087,18 @@ const handleSubmit = async () => {
     if (isEditMode.value && currentItem.value) {
       // 编辑模式：更新提交记录
       submissionId = currentItem.value.id
+      console.log('[process] 编辑模式, submissionId=', submissionId)
       const updateRes = await updateSubmission(submissionId, {
         submissionContent: formData.value.content,
       })
+      console.log('[process] updateSubmission response:', updateRes)
 
       if (updateRes.code !== 200) {
         throw new Error(updateRes.message || '更新失败')
       }
     } else {
       // 新增模式：创建新提交记录
+      console.log('[process] 新增模式, caseTaskId=', currentModule.value.task.id)
       const createRes = await createSubmission({
         caseTaskId: currentModule.value.task.id,
         submissionTitle: formData.value.title,
@@ -889,18 +1106,22 @@ const handleSubmit = async () => {
         submissionType: 'NORMAL',
         createTime: formData.value.date,
       })
+      console.log('[process] createSubmission response:', createRes)
 
       if (createRes.code !== 200) {
         throw new Error(createRes.message || '创建失败')
       }
 
       submissionId = createRes.data.submissionId
+      console.log('[process] 新submissionId=', submissionId)
     }
 
     // 上传文件（只上传新选择的文件）
+    console.log('[process] 开始上传文件, 数量=', uploadFiles.value.length)
     for (let i = 0; i < uploadFiles.value.length; i++) {
       const file = uploadFiles.value[i]
       if (file.path) {
+        console.log('[process] 上传文件', i, ':', file.name)
         await uploadSubmissionFile(
           submissionId,
           file.path,
@@ -917,22 +1138,27 @@ const handleSubmit = async () => {
     await loadAllStageData()
     initAnimatedProgress()
   } catch (error: any) {
-uni.showToast({ title: error.message || '保存失败', icon: 'none' })
+    console.error('[process] handleSubmit 异常:', error)
+    uni.showToast({ title: error.message || '保存失败', icon: 'none' })
   } finally {
     submitting.value = false
+    console.log('[process] handleSubmit end')
   }
 }
 
 // 数据项点击
 const handleDataItemClick = (item: any, module: any) => {
+  console.log('[process] handleDataItemClick, item=', item?.title, 'moduleId=', module?.id)
   selectedDataItem.value = item
   currentModule.value = module
   currentItem.value = item
   detailDialogPopup.value?.open()
+  console.log('[process] detailDialog 已打开')
 }
 
 // 关闭详情弹窗
 const closeDetailDialog = () => {
+  console.log('[process] closeDetailDialog')
   detailDialogPopup.value?.close()
 }
 
@@ -1009,6 +1235,7 @@ const downloadFile = (file: any) => {
 
 // 编辑数据
 const handleEdit = () => {
+  console.log('[process] handleEdit, currentItem=', currentItem.value?.title)
   closeDetailDialog()
   isEditMode.value = true
   currentModule.value = currentModule.value
@@ -1019,11 +1246,14 @@ const handleEdit = () => {
     date: currentItem.value.date,
   }
   uploadFiles.value = []
+  console.log('[process] 切换到编辑模式, isEditMode=', isEditMode.value, 'formData=', formData.value)
   addDialogPopup.value?.open()
+  console.log('[process] addDialog (edit模式) 已打开')
 }
 
 // 删除数据
 const handleDelete = () => {
+  console.log('[process] handleDelete, currentItem=', currentItem.value)
   uni.showModal({
     title: '确认删除',
     content: '确定要删除这条记录吗？删除后不可恢复！',
@@ -1031,16 +1261,19 @@ const handleDelete = () => {
       if (res.confirm) {
         uni.showLoading({ title: '删除中...', mask: true })
         try {
-          await deleteSubmission(currentItem.value.id)
+          console.log('[process] 开始删除 submissionId=', currentItem.value.id)
+          const deleteRes = await deleteSubmission(currentItem.value.id)
+          console.log('[process] deleteSubmission response:', deleteRes)
           uni.hideLoading()
           uni.showToast({ title: '删除成功', icon: 'success' })
           closeDetailDialog()
           // 强制刷新数据
           await loadAllStageData()
           initAnimatedProgress()
-        } catch (error) {
+        } catch (error: any) {
           uni.hideLoading()
-          uni.showToast({ title: '删除失败', icon: 'none' })
+          console.error('[process] deleteSubmission 异常:', error)
+          uni.showToast({ title: error.message || '删除失败', icon: 'none' })
         }
       }
     }
@@ -1593,8 +1826,48 @@ const handleBack = () => {
     padding: 20rpx 24rpx;
     border-top: 1rpx solid #f0f0f0;
 
-    :deep(.u-button) {
+    .native-btn {
       flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 88rpx;
+      border-radius: 44rpx;
+      border: none;
+
+      .native-btn-text {
+        font-size: 30rpx;
+        font-weight: 500;
+      }
+    }
+
+    .native-btn-cancel {
+      background: #f5f7fa;
+      .native-btn-text { color: #606266; }
+    }
+
+    .native-btn-primary {
+      background: linear-gradient(135deg, #0068E2 0%, #0050b3 100%);
+      box-shadow: 0 8rpx 20rpx rgba(0, 104, 226, 0.35);
+      .native-btn-text { color: #fff; }
+    }
+
+    .native-btn-loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .native-btn-edit {
+      background: #f0f5ff;
+      border: 1rpx solid #adc6ff;
+      border-radius: 44rpx;
+      .native-btn-text { color: #0068E2; }
+    }
+
+    .native-btn-danger {
+      background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%);
+      box-shadow: 0 8rpx 20rpx rgba(255, 77, 79, 0.35);
+      .native-btn-text { color: #fff; }
     }
   }
 }
@@ -1887,7 +2160,7 @@ const handleBack = () => {
   }
 
   .stage-info-item {
-    padding: 20rpx 0;
+    padding: 24rpx 0;
     border-bottom: 1rpx solid #f0f0f0;
 
     &:last-child {
@@ -1897,32 +2170,58 @@ const handleBack = () => {
     .stage-info-header {
       display: flex;
       align-items: center;
-      margin-bottom: 12rpx;
+      margin-bottom: 20rpx;
 
       .stage-icon-small {
-        width: 36rpx;
-        height: 36rpx;
+        width: 40rpx;
+        height: 40rpx;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
-        font-size: 20rpx;
+        font-size: 22rpx;
         font-weight: bold;
-        margin-right: 12rpx;
+        margin-right: 14rpx;
+        flex-shrink: 0;
       }
 
       .stage-info-title {
-        font-size: 28rpx;
+        font-size: 30rpx;
         font-weight: bold;
         color: #333;
+      }
+    }
+
+    .stage-info-section {
+      margin-bottom: 16rpx;
+
+      .info-label {
+        display: block;
+        font-size: 24rpx;
+        color: #0068E2;
+        font-weight: 600;
+        margin-bottom: 8rpx;
+      }
+
+      .info-text {
+        font-size: 26rpx;
+        color: #555;
+        line-height: 1.7;
       }
     }
 
     .stage-info-modules {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 8rpx;
+      margin-top: 8rpx;
+
+      .modules-label {
+        font-size: 22rpx;
+        color: #999;
+      }
 
       .module-tag {
         font-size: 22rpx;

@@ -412,6 +412,8 @@ const handleAnnouncement = () => {
   position: fixed;
   bottom: 0;
   left: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
   right: 0;
   display: flex;
   padding: 20rpx;

@@ -142,6 +142,10 @@
     "expenseReimbursement": "Expense Reimbursement",
     "reimbursementList": "Reimbursement List",
     "templateManagement": "Template Management",
+    "backupManagement": "Backup Management",
+    "userManagement": "User Management",
+    "userList": "User List",
+    "userAdd": "Add User",
     "userProfile": "User Profile"
   },
   "approval": {

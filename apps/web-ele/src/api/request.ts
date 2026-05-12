@@ -281,4 +281,17 @@ if (typeof window !== 'undefined') {
       logger.warn('API跟踪拦截器加载失败:', error);
     }
   }, 0);
+
+  setTimeout(async () => {
+    try {
+      const { createLicenseCheckInterceptor } = await import('#/utils/license-check-interceptor');
+      const licenseInterceptor = createLicenseCheckInterceptor();
+
+      for (const client of trackedClients) {
+        client.addResponseInterceptor(licenseInterceptor);
+      }
+    } catch (error) {
+      logger.warn('许可证检测拦截器加载失败:', error);
+    }
+  }, 100);
 }

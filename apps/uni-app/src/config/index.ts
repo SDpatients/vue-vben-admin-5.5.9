@@ -14,14 +14,13 @@ const env = import.meta.env
 // H5 端使用相对路径 ''，通过 Vite 代理转发到后端
 // 小程序和 APP 端使用 customer.config.ts 中配置的完整地址
 export const getBaseUrl = () => {
-  // 浏览器环境使用代理
-  if (typeof window !== 'undefined') {
-    return ''
-  }
-  // 非浏览器环境（小程序、APP）使用配置文件中的地址
-  // 优先读取环境变量，否则使用 customer.config.ts 中的配置
+  // #ifdef H5
+  return ''
+  // #endif
+  // #ifndef H5
   const baseUrl = env.VITE_API_BASE_URL || customerConfig.api.baseUrl
   return baseUrl
+  // #endif
 }
 
 // API 统一前缀配置

@@ -236,6 +236,7 @@ export const createAnnouncement = (data: CreateAnnouncementParams) => {
  * 创建案件公告（带文件上传）
  * POST /case-announcement/with-files
  */
+// #ifdef H5
 export const createAnnouncementWithFiles = (data: FormData) => {
   return http.post<AnnouncementWithFilesResponse>('/case-announcement/with-files', data)
 }
@@ -308,6 +309,7 @@ export const getAnnouncementAttachments = (announcementId: number) => {
  * 上传公告附件
  * POST /case-announcement/{announcementId}/attachments/upload
  */
+// #ifdef H5
 export const uploadAnnouncementAttachments = (announcementId: number, formData: FormData) => {
   return http.post<AttachmentListResponse>(`/case-announcement/${announcementId}/attachments/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

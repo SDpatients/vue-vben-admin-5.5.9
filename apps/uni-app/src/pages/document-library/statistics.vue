@@ -61,7 +61,7 @@
             >
               <view class="type-header">
                 <view class="type-left">
-                  <text class="type-icon">{{ getDocumentTypeIcon(type) }}</text>
+                  <u-icon :name="getDocumentTypeIcon(type)" size="20" :color="getDocumentTypeColor(type)"></u-icon>
                   <text class="type-name">{{ getDocumentTypeName(type) }}</text>
                 </view>
                 <view class="type-right">
@@ -98,7 +98,7 @@
               class="size-item"
             >
               <view class="size-left">
-                <text class="size-icon">{{ getDocumentTypeIcon(type) }}</text>
+                <u-icon :name="getDocumentTypeIcon(type)" size="20" :color="getDocumentTypeColor(type)"></u-icon>
                 <text class="size-name">{{ getDocumentTypeName(type) }}</text>
               </view>
               <view class="size-right">
@@ -274,16 +274,16 @@ const formatMonth = (month: string) => {
 
 const getDocumentTypeIcon = (type: string) => {
   const iconMap: Record<string, string> = {
-    WORD: '📘',
-    EXCEL: '📗',
-    PDF: '📕',
-    PPT: '📙',
-    IMAGE: '🖼️',
-    VIDEO: '🎬',
-    AUDIO: '🎵',
-    OTHER: '📄',
+    WORD: 'file-text',
+    EXCEL: 'file-text',
+    PDF: 'file-text',
+    PPT: 'file-text',
+    IMAGE: 'camera',
+    VIDEO: 'play-circle',
+    AUDIO: 'volume',
+    OTHER: 'file-text',
   }
-  return iconMap[type] || '📄'
+  return iconMap[type] || 'file-text'
 }
 
 const getDocumentTypeName = (type: string) => {

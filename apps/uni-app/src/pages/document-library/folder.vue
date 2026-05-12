@@ -133,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import dayjs from 'dayjs'
 import {
   getFolderTree,
   getRootFolders,
@@ -312,7 +313,7 @@ const handleViewFiles = () => {
   if (!currentFolder.value) return
   // 返回到文档库首页并进入该文件夹
   uni.$emit('enter-folder', currentFolder.value.id)
-  uni.switchTab({ url: '/pages/document-library/index' })
+  uni.navigateBack()
   closeFolderActions()
 }
 
@@ -420,7 +421,7 @@ const handleDeleteFolder = () => {
 const formatTime = (time?: string) => {
   if (!time) return ''
   const date = new Date(time)
-  return date.toLocaleDateString('zh-CN')
+  return dayjs(date).format('YYYY/M/D')
 }
 </script>
 

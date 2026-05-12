@@ -69,7 +69,8 @@
 
     <!-- 版本信息 -->
     <view class="version-info">
-      <text>版本 {{ customerConfig.app.version }}</text>
+      <text class="copyright-text">© {{ customerConfig.copyright.year }} {{ customerConfig.copyright.company }}</text>
+      <text class="version-text">V {{ customerConfig.app.version }}</text>
     </view>
 
   </view>
@@ -192,9 +193,21 @@ const handleLogout = () => {
 
 .version-info {
   text-align: center;
-  color: #999;
-  font-size: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
   margin-bottom: 120rpx;
+
+  .copyright-text {
+    font-size: 24rpx;
+    color: #999;
+  }
+
+  .version-text {
+    font-size: 22rpx;
+    color: #bbb;
+  }
 }
 
 

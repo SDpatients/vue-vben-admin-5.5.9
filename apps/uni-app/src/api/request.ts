@@ -56,44 +56,36 @@ const requestInterceptor = (options: RequestOptions) => {
   return options
 }
 
-const responseInterceptor = <T>(response: any, showErrorToast: boolean = true): Promise<ApiResponse<T>> => {
-  return new Promise((resolve, reject) => {
-    const { statusCode, data } = response
+const responseInterceptor = <T>(response: any, showErrorToast: boolean = true): ApiResponse<T> => {
+  const { statusCode, data } = response
 
-    if (statusCode === 200) {
-      if (data.code === 0 || data.code === 200) {
-        resolve(data)
-      } else {
-        if (showErrorToast) {
-          uni.showToast({
-            title: data.message || '请求失败',
-            icon: 'none',
-          })
+  if (statusCode === 200 && (data.code === 0 || data.code === 200)) {
+    return data
+  }
+
+  if (statusCode === 401) {
+    if (!isRedirectingToLogin) {
+      isRedirectingToLogin = true
+      uni.removeStorageSync('token')
+      uni.removeStorageSync('refreshToken')
+      uni.removeStorageSync('userInfo')
+      uni.redirectTo({
+        url: '/pages/login/index',
+        complete: () => {
+          isRedirectingToLogin = false
         }
-        reject(data)
-      }
-    } else if (statusCode === 401) {
-      if (!isRedirectingToLogin) {
-        isRedirectingToLogin = true
-        uni.removeStorageSync('token')
-        uni.navigateTo({
-          url: '/pages/login/index',
-          complete: () => {
-            isRedirectingToLogin = false
-          }
-        })
-      }
-      reject(new Error('登录已过期'))
-    } else {
-      if (showErrorToast) {
-        uni.showToast({
-          title: '网络错误',
-          icon: 'none',
-        })
-      }
-      reject(new Error('网络错误'))
+      })
     }
-  })
+    throw new Error('登录已过期')
+  }
+
+  if (showErrorToast) {
+    uni.showToast({
+      title: data?.message || '请求失败',
+      icon: 'none',
+    })
+  }
+  throw new Error(data?.message || '请求失败')
 }
 
 const buildQueryString = (params: Record<string, any>): string => {
@@ -144,9 +136,12 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
       data: requestData,
       header: config.headers,
       success: (res: UniApp.RequestSuccessCallbackResult) => {
-        responseInterceptor<T>(res, showErrorToast)
-          .then((data) => resolve(data as T))
-          .catch((err) => reject(err))
+        try {
+          const data = responseInterceptor<T>(res, showErrorToast)
+          resolve(data as T)
+        } catch (err: any) {
+          reject(err)
+        }
       },
       fail: (err: UniApp.GeneralCallbackResult) => {
         if (showLoading) {

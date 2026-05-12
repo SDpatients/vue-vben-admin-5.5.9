@@ -9,7 +9,7 @@
   "dashboard": {
     "title": "案件总览",
     "overview": "案件概览",
-    "analytics": "仪表盘",
+    "analytics": "工作台",
     "workspace": "工作台",
     "todo": "待办事项",
     "warning": "节点预警"
@@ -143,6 +143,10 @@
     "expenseReimbursement": "费用报销",
     "reimbursementList": "报销单列表",
     "templateManagement": "模板管理",
+    "backupManagement": "备份管理",
+    "userManagement": "用户管理",
+    "userList": "用户列表",
+    "userAdd": "新增用户",
     "userProfile": "个人中心"
   },
   "approval": {

@@ -42,7 +42,10 @@ import {
   updateTransactionApi,
 } from '#/api/core/bank-account-transaction';
 import { getCaseSimpleListApi } from '#/api/core/case';
+import { SensitiveDataApi } from '#/api/core/sensitive-data';
 import { exportToExcel } from '#/utils/export-excel';
+import { isMaskedDisplayValue } from '#/utils/password-validator';
+import SensitiveDataDialog from '#/components/SensitiveDataDialog.vue';
 import TemplateExportDialog from '#/components/TemplateExportDialog.vue';
 
 // ==================== 响应式数据 ====================
@@ -69,6 +72,18 @@ const searchKeyword = ref('');
 // 模板导出相关
 const templateExportVisible = ref(false);
 const selectedBankAccountIds = ref<number[]>([]);
+
+const sensitiveDialogVisible = ref(false);
+const sensitiveDataType = ref('');
+const sensitiveId = ref(0);
+const sensitiveLabel = ref('');
+
+const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+  sensitiveDataType.value = dataType;
+  sensitiveId.value = id;
+  sensitiveLabel.value = label;
+  sensitiveDialogVisible.value = true;
+};
 
 // 银行账户字段与模板字段的映射
 const bankAccountFieldMapping: Record<string, string> = {
@@ -368,7 +383,6 @@ const handleEditBankAccount = (row: BankAccountApi.BankAccountInfo) => {
   editFormData.status = row.status;
   editFormData.accountPurpose = row.accountPurpose || '';
   editDialogVisible.value = true;
-  getCaseList();
 };
 
 const handleCloseEditDialog = () => {
@@ -377,8 +391,6 @@ const handleCloseEditDialog = () => {
   if (editFormRef.value) {
     editFormRef.value.resetFields();
   }
-  editFormData.caseId = 0;
-  editFormData.caseNumber = '';
 };
 
 const handleEditSubmit = async () => {
@@ -1180,7 +1192,7 @@ const accountPurposeOptions = [
           <ElCol :span="6">
             <ElInput
               v-model="searchKeyword"
-              placeholder="搜索账户名称/账号/案号"
+              placeholder="搜索账户名称/账号"
               clearable
               @keyup.enter="handleSearch"
             >
@@ -1242,9 +1254,23 @@ const accountPurposeOptions = [
           v-if="isColumnVisible('账户号码')"
           prop="accountNumber"
           label="账户号码"
-          width="180"
+          width="250"
           show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.accountNumber }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(row.accountNumber)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('BANK_ACCOUNT_NUMBER', row.id, SensitiveDataApi.DataTypeLabels.BANK_ACCOUNT_NUMBER)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
 
         <!-- 账户类型列 -->
         <ElTableColumn
@@ -1401,9 +1427,23 @@ const accountPurposeOptions = [
         <ElTableColumn
           prop="accountNumber"
           label="账户号码"
-          width="180"
+          width="250"
           show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.accountNumber }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(row.accountNumber)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('BANK_ACCOUNT_NUMBER', row.accountId, SensitiveDataApi.DataTypeLabels.BANK_ACCOUNT_NUMBER)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
 
         <ElTableColumn
           prop="bankName"
@@ -1753,39 +1793,6 @@ const accountPurposeOptions = [
           class="bank-account-form"
         >
           <ElRow :gutter="30">
-            <ElCol :span="12">
-              <ElFormItem label="案号" prop="caseNumber">
-                <ElSelect
-                  v-model="editFormData.caseNumber"
-                  placeholder="请选择或搜索案号"
-                  filterable
-                  remote
-                  reserve-keyword
-                  :remote-method="getCaseList"
-                  :loading="caseLoading"
-                  @change="
-                    (value: string) => {
-                      editFormData.caseNumber = value;
-                      const selectedCase = caseList.find(
-                        (item) => item.caseNumber === value,
-                      );
-                      if (selectedCase) {
-                        editFormData.caseId = selectedCase.id;
-                      }
-                    }
-                  "
-                  style="width: 100%"
-                  size="large"
-                >
-                  <ElOption
-                    v-for="item in caseList"
-                    :key="item.id"
-                    :label="item.caseNumber"
-                    :value="item.caseNumber"
-                  />
-                </ElSelect>
-              </ElFormItem>
-            </ElCol>
             <ElCol :span="12">
               <ElFormItem label="账户名称" prop="accountName">
                 <ElInput
@@ -2522,6 +2529,14 @@ const accountPurposeOptions = [
         default-file-name="银行账户批量数据"
         default-sheet-name="银行账户列表"
       />
+
+      <!-- 查看敏感数据弹窗 -->
+      <SensitiveDataDialog
+        v-model:visible="sensitiveDialogVisible"
+        :data-type="sensitiveDataType"
+        :id="sensitiveId"
+        :label="sensitiveLabel"
+      />
     </ElCard>
   </div>
 </template>
@@ -2546,5 +2561,9 @@ const accountPurposeOptions = [
 
 .text-danger {
   color: var(--el-color-danger);
+}
+
+.mono-text {
+  font-family: monospace;
 }
 </style>

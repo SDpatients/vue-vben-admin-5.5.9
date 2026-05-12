@@ -7,9 +7,22 @@ import { computed, h, ref } from 'vue';
 import { AuthenticationRegister, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
+import { useRouter } from 'vue-router';
+
 defineOptions({ name: 'Register' });
 
+const router = useRouter();
 const loading = ref(false);
+
+const navigateToTerms = () => {
+  router.push('/terms');
+};
+
+const navigateToPrivacy = () => {
+  router.push('/privacy');
+};
+
+const passwordComplexityMessage = '密码必须包含大写字母、小写字母、数字、特殊符号中的至少3种';
 
 const formSchema = computed((): VbenFormSchema[] => {
   return [
@@ -35,7 +48,21 @@ const formSchema = computed((): VbenFormSchema[] => {
           strengthText: () => $t('authentication.passwordStrength'),
         };
       },
-      rules: z.string().min(1, { message: $t('authentication.passwordTip') }),
+      rules: z
+        .string()
+        .min(6, { message: '密码长度至少6位' })
+        .refine(
+          (value) => {
+            const checks = [
+              /[A-Z]/.test(value),
+              /[a-z]/.test(value),
+              /[0-9]/.test(value),
+              /[^A-Za-z0-9]/.test(value),
+            ];
+            return checks.filter(Boolean).length >= 3;
+          },
+          { message: passwordComplexityMessage },
+        ),
     },
     {
       component: 'VbenInputPassword',
@@ -67,10 +94,27 @@ const formSchema = computed((): VbenFormSchema[] => {
             h(
               'a',
               {
-                class: 'vben-link ml-1 ',
-                href: '',
+                class: 'vben-link ml-1',
+                href: 'javascript:void(0)',
+                onClick: (e: Event) => {
+                  e.preventDefault();
+                  navigateToPrivacy();
+                },
               },
-              `${$t('authentication.privacyPolicy')} & ${$t('authentication.terms')}`,
+              $t('authentication.privacyPolicy'),
+            ),
+            ' & ',
+            h(
+              'a',
+              {
+                class: 'vben-link',
+                href: 'javascript:void(0)',
+                onClick: (e: Event) => {
+                  e.preventDefault();
+                  navigateToTerms();
+                },
+              },
+              $t('authentication.terms'),
             ),
           ]),
       }),

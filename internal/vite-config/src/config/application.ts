@@ -58,6 +58,7 @@ function defineApplicationConfig(userConfigPromise?: DefineApplicationOptions) {
     const applicationConfig: UserConfig = {
       base,
       build: {
+        minify: isBuild ? 'terser' : false,
         rollupOptions: {
           output: {
             assetFileNames: '[ext]/[name]-[hash].[ext]',
@@ -66,12 +67,28 @@ function defineApplicationConfig(userConfigPromise?: DefineApplicationOptions) {
           },
         },
         target: 'es2015',
+        terserOptions: isBuild
+          ? {
+              compress: {
+                drop_console: true,
+                drop_debugger: true,
+                pure_funcs: ['console.log', 'console.info', 'console.debug'],
+              },
+              mangle: {
+                toplevel: true,
+                safari10: true,
+              },
+              format: {
+                comments: false,
+              },
+            }
+          : undefined,
       },
       css: createCssOptions(injectGlobalScss),
       esbuild: {
         drop: isBuild
           ? [
-              // 'console',
+              'console',
               'debugger',
             ]
           : [],

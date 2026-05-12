@@ -37,6 +37,7 @@ import {
   ElEmpty,
   ElForm,
   ElFormItem,
+  ElIcon,
   ElImage,
   ElInput,
   ElInputNumber,
@@ -133,6 +134,7 @@ async function bootstrap(namespace: string) {
   app.component('ElSelect', ElSelect);
   app.component('ElForm', ElForm);
   app.component('ElFormItem', ElFormItem);
+  app.component('ElIcon', ElIcon);
   app.component('ElTag', ElTag);
   app.component('ElBadge', ElBadge);
   app.component('ElAvatar', ElAvatar);

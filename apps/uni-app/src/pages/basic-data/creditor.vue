@@ -98,7 +98,10 @@
             <view class="avatar-mini">{{ item.creditorName?.substring(0, 1) || '?' }}</view>
             <view class="name-info">
               <text class="name">{{ item.creditorName }}</text>
-              <text class="phone" v-if="item.contactPhone">{{ item.contactPhone }}</text>
+              <view class="phone-wrapper" @click.stop="onViewPhoneInList(item)">
+                <text :class="['phone', { masked: isMaskedPhone(item.contactPhone) }]">{{ item.contactPhone }}</text>
+                <text class="view-icon" v-if="item.contactPhone && isMaskedPhone(item.contactPhone)">👁</text>
+              </view>
             </view>
           </view>
         </view>
@@ -170,6 +173,10 @@ import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getCreditorList, deleteCreditor, type CreditorItem } from '@/api/basic-data'
 import { getCaseList, type CaseItem } from '@/api/case'
+import { isMasked, SensitiveDataType } from '@/utils/sensitiveData'
+import { useSensitiveDataView } from '@/composables/useSensitiveDataView'
+
+const { viewMaskedData } = useSensitiveDataView()
 
 const searchKeyword = ref('')
 const creditorList = shallowRef<CreditorItem[]>([])
@@ -394,6 +401,13 @@ uni.showToast({ title: '删除失败', icon: 'none' })
       }
     }
   })
+}
+
+const isMaskedPhone = (value?: string | null) => isMasked(value)
+
+const onViewPhoneInList = (item: CreditorItem) => {
+  if (!isMasked(item.contactPhone)) return
+  viewMaskedData(SensitiveDataType.CREDITOR_CONTACT_PHONE, item.id, '联系电话')
 }
 
 const getStatusText = (status?: string) => {
@@ -735,9 +749,26 @@ const getStatusClass = (status?: string) => {
             margin-bottom: 4rpx;
           }
 
-          .phone {
-            font-size: 22rpx;
-            color: #999;
+          .phone-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6rpx;
+
+            .phone {
+              font-size: 22rpx;
+              color: #999;
+
+              &.masked {
+                color: #1890ff;
+                text-decoration: underline;
+                text-underline-offset: 3rpx;
+              }
+            }
+
+            .view-icon {
+              font-size: 22rpx;
+              flex-shrink: 0;
+            }
           }
         }
       }

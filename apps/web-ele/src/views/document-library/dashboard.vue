@@ -575,31 +575,12 @@ onMounted(async () => {
 
     <ElRow :gutter="20" class="mb-6">
       <ElCol :span="24">
-        <ElCard shadow="hover">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="font-semibold">上传与查看趋势</span>
-              <ElRadioGroup v-model="chartType2" size="small">
-                <ElRadio value="line">折线图</ElRadio>
-                <ElRadio value="bar">柱状图</ElRadio>
-              </ElRadioGroup>
-            </div>
-          </template>
-          <div class="h-[300px]">
-            <EchartsUI ref="chartRef2" />
-          </div>
-        </ElCard>
-      </ElCol>
-    </ElRow>
-
-    <ElRow :gutter="20" class="mb-6">
-      <ElCol :span="24">
         <div class="section-header">
           <div class="flex justify-center items-center gap-2 mb-1">
             <Icon icon="lucide:clock" class="text-primary" />
             <h3 class="section-title">最近上传的文档</h3>
           </div>
-          <p class="section-subtitle">最新上传到文档库的文件</p>
+          <p class="section-subtitle">最新上传到文档库的公开文件</p>
         </div>
       </ElCol>
     </ElRow>
@@ -657,7 +638,7 @@ onMounted(async () => {
             <Icon icon="lucide:fire" class="text-red-500" />
             <h3 class="section-title">热门文档</h3>
           </div>
-          <p class="section-subtitle">查看次数最多的文档</p>
+          <p class="section-subtitle">查看次数最多的公开文档</p>
         </div>
       </ElCol>
     </ElRow>
@@ -710,6 +691,25 @@ onMounted(async () => {
     </div>
 
     <ElEmpty v-if="recentViewedDocuments.length === 0" description="暂无数据" :image-size="80" />
+
+    <ElRow :gutter="20" class="mb-6">
+      <ElCol :span="24">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-semibold">上传与查看趋势</span>
+              <ElRadioGroup v-model="chartType2" size="small">
+                <ElRadio value="line">折线图</ElRadio>
+                <ElRadio value="bar">柱状图</ElRadio>
+              </ElRadioGroup>
+            </div>
+          </template>
+          <div class="h-[300px]">
+            <EchartsUI ref="chartRef2" />
+          </div>
+        </ElCard>
+      </ElCol>
+    </ElRow>
 
     <ElRow :gutter="20" class="mb-6">
       <ElCol :xs="24" :md="12">

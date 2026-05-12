@@ -8,12 +8,27 @@ import {
   updateFundAccountApi,
   updateFundAccountStatusApi,
 } from '#/api/core/fund';
+import { SensitiveDataApi } from '#/api/core/sensitive-data';
+import { isMaskedDisplayValue } from '#/utils/password-validator';
+import SensitiveDataDialog from '#/components/SensitiveDataDialog.vue';
 
 // 状态管理
 const loading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
+
+const sensitiveDialogVisible = ref(false);
+const sensitiveDataType = ref('');
+const sensitiveId = ref(0);
+const sensitiveLabel = ref('');
+
+const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+  sensitiveDataType.value = dataType;
+  sensitiveId.value = id;
+  sensitiveLabel.value = label;
+  sensitiveDialogVisible.value = true;
+};
 
 // 账户列表数据
 const fundAccounts = ref<any[]>([]);
@@ -340,7 +355,21 @@ onMounted(() => {
             </template>
           </el-table-column>
           <el-table-column prop="bankName" label="银行" width="150" />
-          <el-table-column prop="bankAccount" label="银行账号" width="200" />
+          <el-table-column prop="bankAccount" label="银行账号" width="280">
+            <template #default="scope">
+              <span class="mono-text">{{ scope.row.bankAccount }}</span>
+              <el-button
+                v-if="isMaskedDisplayValue(scope.row.bankAccount)"
+                size="small"
+                text
+                type="primary"
+                class="ml-1"
+                @click="openSensitiveDialog('BANK_ACCOUNT_NUMBER', scope.row.id, SensitiveDataApi.DataTypeLabels.BANK_ACCOUNT_NUMBER)"
+              >
+                查看
+              </el-button>
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" width="100">
             <template #default="scope">
               <el-tag
@@ -541,6 +570,14 @@ onMounted(() => {
         <el-button type="primary" @click="saveAccount">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 查看敏感数据弹窗 -->
+    <SensitiveDataDialog
+      v-model:visible="sensitiveDialogVisible"
+      :data-type="sensitiveDataType"
+      :id="sensitiveId"
+      :label="sensitiveLabel"
+    />
   </div>
 </template>
 
@@ -587,5 +624,9 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+.mono-text {
+  font-family: monospace;
 }
 </style>

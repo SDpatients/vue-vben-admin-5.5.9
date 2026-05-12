@@ -41,6 +41,9 @@ import { getCaseReviewStatusApi } from '#/api/core/case';
 import { getCreditorClaimStagesApi, getCreditorListApi, searchCreditorApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
 import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
+import { SensitiveDataApi } from '#/api/core/sensitive-data';
+import SensitiveDataDialog from '#/components/SensitiveDataDialog.vue';
+import { isMaskedDisplayValue } from '#/utils/password-validator';
 
 import { useClaimForm } from './composables/useClaimForm';
 import { useClaimPagination } from './composables/useClaimPagination';
@@ -69,6 +72,18 @@ const showDetailDialog = ref(false);
 const showMaterialDialog = ref(false);
 const showImportDialog = ref(false);
 const showEditDialog = ref(false);
+
+const sensitiveDialogVisible = ref(false);
+const sensitiveDataType = ref('');
+const sensitiveId = ref(0);
+const sensitiveLabel = ref('');
+
+const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+  sensitiveDataType.value = dataType;
+  sensitiveId.value = id;
+  sensitiveLabel.value = label;
+  sensitiveDialogVisible.value = true;
+};
 const addCollapseActive = ref<string[]>([]);
 const editCollapseActive = ref<string[]>([]);
 
@@ -1605,10 +1620,30 @@ onMounted(() => {
             {{ currentClaim.agentName }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentPhone)" label="代理人电话">
-            {{ currentClaim.agentPhone }}
+            <span class="mono-text">{{ currentClaim.agentPhone }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(currentClaim.agentPhone)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('AGENT_PHONE', currentClaim.id, SensitiveDataApi.DataTypeLabels.AGENT_PHONE)"
+            >
+              查看
+            </ElButton>
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentIdCard)" label="代理人身份证">
-            {{ currentClaim.agentIdCard }}
+            <span class="mono-text">{{ currentClaim.agentIdCard }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(currentClaim.agentIdCard)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('AGENT_ID_CARD', currentClaim.id, SensitiveDataApi.DataTypeLabels.AGENT_ID_CARD)"
+            >
+              查看
+            </ElButton>
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.agentAddress)" label="代理人地址">
             {{ currentClaim.agentAddress }}
@@ -1623,7 +1658,17 @@ onMounted(() => {
             {{ currentClaim.accountName }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.creditorBankAccount)" label="银行账户">
-            {{ currentClaim.creditorBankAccount }}
+            <span class="mono-text">{{ currentClaim.creditorBankAccount }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(currentClaim.creditorBankAccount)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click="openSensitiveDialog('CREDITOR_BANK_ACCOUNT', currentClaim.id, SensitiveDataApi.DataTypeLabels.CREDITOR_BANK_ACCOUNT)"
+            >
+              查看
+            </ElButton>
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.bankName)" label="开户银行">
             {{ currentClaim.bankName }}
@@ -2469,6 +2514,14 @@ onMounted(() => {
         </span>
       </template>
     </ElDialog>
+
+    <!-- 查看敏感数据弹窗 -->
+    <SensitiveDataDialog
+      v-model:visible="sensitiveDialogVisible"
+      :data-type="sensitiveDataType"
+      :id="sensitiveId"
+      :label="sensitiveLabel"
+    />
   </div>
 </template>
 
@@ -2703,5 +2756,9 @@ onMounted(() => {
 :deep(.el-empty__description) {
   color: #909399;
   font-size: 14px;
+}
+
+.mono-text {
+  font-family: monospace;
 }
 </style>

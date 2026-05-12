@@ -65,16 +65,36 @@ class PreferenceManager {
     }
     // 初始化存储管理器
     this.cache = new StorageManager({ prefix: namespace });
-    // 合并初始偏好设置
+    // 合并初始偏好设置（overrides 优先，defaultPreferences 填补空缺）
     this.initialPreferences = merge({}, overrides, defaultPreferences);
 
     // 加载并合并当前存储的偏好设置
     const mergedPreference = merge(
       {},
-      // overrides,
       this.loadCachedPreferences() || {},
       this.initialPreferences,
     );
+
+    // 确保 overrides 始终生效 - 使用 shallow merge 逐个覆盖顶层级字段
+    // defu 只在 key 不存在时填充，无法覆盖已存在的空字符串等 falsy 值
+    if (overrides) {
+      for (const key of Object.keys(overrides) as (keyof Preferences)[]) {
+        if (
+          typeof overrides[key] === 'object' &&
+          overrides[key] !== null &&
+          !Array.isArray(overrides[key]) &&
+          typeof mergedPreference[key] === 'object' &&
+          mergedPreference[key] !== null
+        ) {
+          mergedPreference[key] = {
+            ...mergedPreference[key],
+            ...overrides[key],
+          };
+        } else {
+          mergedPreference[key] = overrides[key] as any;
+        }
+      }
+    }
 
     // 更新偏好设置
     this.updatePreferences(mergedPreference);

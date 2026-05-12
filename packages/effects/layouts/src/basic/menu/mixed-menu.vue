@@ -10,9 +10,15 @@ import { findMenuByPath } from '@vben/utils';
 
 import { NormalMenu } from '@vben-core/menu-ui';
 
-interface Props extends NormalMenuProps {}
+interface Props extends NormalMenuProps {
+  logoSource?: string;
+  logoFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+}
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  logoFit: 'contain',
+  logoSource: '',
+});
 
 const emit = defineEmits<{
   defaultSelect: [MenuRecordRaw, MenuRecordRaw?];
@@ -37,6 +43,8 @@ onBeforeMount(() => {
   <NormalMenu
     :active-path="activePath"
     :collapse="collapse"
+    :logo-fit="logoFit"
+    :logo-source="logoSource"
     :menus="menus"
     :rounded="rounded"
     :theme="theme"

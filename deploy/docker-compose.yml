@@ -1,0 +1,147 @@
+version: '3.8'
+
+# ============================================
+# 法律破产管理系统 Docker Compose 配置
+# 对应后端配置：D:\Ai\lawbackend2\src\main\resources\application.yml
+# 对应前端配置：d:\Ai\vue-vben-admin-2\vue-vben-admin-5.5.9\apps\web-ele
+# ============================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: law-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-law}
+      MYSQL_USER: ${MYSQL_USER:-law_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-law_user_2024}
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+      - --max_allowed_packet=512M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - law-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: law-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123456}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      TZ: Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123456}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - law-network
+
+  backend:
+    image: openjdk:17-slim
+    container_name: law-backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-law}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-law_user}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-law_user_2024}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      APP_FILE_UPLOAD_PATH: /app/uploads
+      FILE_UPLOAD_PATH: /app/uploads
+      BACKUP_PATH: /app/backup
+      TZ: Asia/Shanghai
+    volumes:
+      - ./backend/${BACKEND_JAR:-app.jar}:/app/app.jar:ro
+      - ./backend/application-prod.yml:/app/config/application-prod.yml:ro
+      - backend-logs:/app/logs
+      - backend-uploads:/app/uploads
+      - backend-backup:/app/backup
+    working_dir: /app
+    command:
+      - java
+      - -Xms512m
+      - -Xmx1024m
+      - -XX:+UseG1GC
+      - -Djava.security.egd=file:/dev/./urandom
+      - -jar
+      - app.jar
+      - --spring.config.location=classpath:application.yml,/app/config/application-prod.yml
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - law-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: law-nginx
+    restart: always
+    depends_on:
+      - backend
+    volumes:
+      - ../apps/web-ele/dist:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-logs:/var/log/nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - law-network
+
+volumes:
+  mysql-data:
+    driver: local
+    name: law-mysql-data
+  redis-data:
+    driver: local
+    name: law-redis-data
+  backend-logs:
+    driver: local
+    name: law-backend-logs
+  backend-uploads:
+    driver: local
+    name: law-backend-uploads
+  backend-backup:
+    driver: local
+    name: law-backend-backup
+  nginx-logs:
+    driver: local
+    name: law-nginx-logs
+
+networks:
+  law-network:
+    driver: bridge
+    name: law-network

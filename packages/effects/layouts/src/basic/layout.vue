@@ -46,6 +46,7 @@ const {
   isSideMixedNav,
   isHeaderMixedNav,
   isHeaderSidebarNav,
+  isSideMode,
   layout,
   preferencesButtonPosition,
   sidebarCollapsed,
@@ -323,6 +324,8 @@ const headerSlots = computed(() => {
     <template #mixed-menu>
       <LayoutMixedMenu
         :active-path="extraActiveMenu"
+        :logo-fit="preferences.logo.fit"
+        :logo-source="preferences.logo.source"
         :menus="wrapperMenus(mixHeaderMenus, false)"
         :rounded="isMenuRounded"
         :theme="sidebarTheme"
@@ -345,6 +348,7 @@ const headerSlots = computed(() => {
       <VbenLogo
         v-if="preferences.logo.enable"
         :fit="preferences.logo.fit"
+        :src="preferences.logo.source"
         :text="preferences.app.name"
         :theme="theme"
       >

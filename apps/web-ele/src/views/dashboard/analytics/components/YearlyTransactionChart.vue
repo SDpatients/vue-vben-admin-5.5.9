@@ -48,12 +48,12 @@ const chartData = computed(() => {
   };
 });
 
-const renderChart = () => {
+const renderChart = async () => {
   if (!chartData.value.months.length) {
     return;
   }
 
-  renderEcharts({
+  await renderEcharts({
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -121,7 +121,7 @@ const renderChart = () => {
 const fetchData = async () => {
   loading.value = true;
   error.value = null;
-  
+
   try {
     const response = await getYearlyTransactionStatistics({ year: selectedYear.value });
     data.value = response;
@@ -132,9 +132,7 @@ const fetchData = async () => {
   } finally {
     loading.value = false;
     await nextTick();
-    nextTick(() => {
-      renderChart();
-    });
+    await renderChart();
   }
 };
 
@@ -180,19 +178,19 @@ onMounted(() => {
     </div>
 
     <div class="relative">
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10 min-h-[400px]">
+      <div v-show="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10 min-h-[400px]">
         <span class="text-gray-400">加载中...</span>
       </div>
 
-      <div v-if="error && !loading" class="min-h-[400px] flex items-center justify-center">
+      <div v-if="error" class="min-h-[400px] flex items-center justify-center">
         <ElEmpty :description="error" />
       </div>
 
-      <div v-else-if="!loading && !data" class="min-h-[400px] flex items-center justify-center">
+      <div v-else-if="!data" class="min-h-[400px] flex items-center justify-center">
         <ElEmpty description="暂无数据" />
       </div>
 
-      <template v-else-if="data">
+      <template v-else>
         <ElRow :gutter="20" class="mb-4">
           <ElCol :span="6">
             <ElStatistic title="总流入金额" :value="data.totalIncomeAmount" :precision="2">

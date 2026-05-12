@@ -80,6 +80,7 @@
             placeholder="请输入身份证号或信用代码"
             class="form-input"
           />
+          <text class="field-hint">请输入完整号码进行查询</text>
         </view>
 
         <view class="form-group" v-if="formData.creditorType === '企业'">
@@ -390,6 +391,14 @@ const handleCancel = () => {
     padding: 0 24rpx;
     font-size: 28rpx;
     color: #333;
+  }
+
+  .field-hint {
+    display: block;
+    font-size: 22rpx;
+    color: #faad14;
+    margin-top: 8rpx;
+    padding-left: 4rpx;
   }
 
   .radio-group {

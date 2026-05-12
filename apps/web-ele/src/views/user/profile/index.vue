@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import {
   ElButton,
@@ -11,6 +11,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElProgress,
   ElTag,
 } from 'element-plus';
 
@@ -21,6 +22,12 @@ import {
   updateEmailApi,
   updateRealNameApi,
 } from '#/api/core/auth';
+import {
+  getPasswordStrength,
+  getPasswordStrengthColor,
+  getPasswordStrengthText,
+  validatePasswordComplexity,
+} from '#/utils/password-validator';
 
 interface CurrentUser {
   id: number;
@@ -59,6 +66,14 @@ const editForm = reactive<EditForm>({
   confirmPassword: '',
 });
 const editLoading = ref(false);
+
+const passwordStrength = computed(() => getPasswordStrength(editForm.newPassword || ''));
+const passwordStrengthText = computed(() => getPasswordStrengthText(passwordStrength.value));
+const passwordStrengthColor = computed(() => getPasswordStrengthColor(passwordStrength.value));
+const passwordStrengthPercent = computed(() => {
+  const levelMap: Record<string, number> = { 'weak': 25, 'medium': 50, 'strong': 75, 'very-strong': 100 };
+  return levelMap[passwordStrength.value] || 0;
+});
 
 const fetchCurrentUser = async () => {
   try {
@@ -138,8 +153,9 @@ const saveEdit = async () => {
       ElMessage.warning('密码长度应为 6-20 位');
       return;
     }
-    if (!/^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{6,20}$/.test(editForm.newPassword)) {
-      ElMessage.warning('新密码必须包含字母和数字');
+    const complexityResult = validatePasswordComplexity(editForm.newPassword);
+    if (!complexityResult.valid) {
+      ElMessage.warning(complexityResult.message);
       return;
     }
     if (editForm.oldPassword === editForm.newPassword) {
@@ -322,10 +338,21 @@ onMounted(() => {
           <ElInput
             v-model="editForm.newPassword"
             type="password"
-            placeholder="请输入新密码（6-20 位）"
+            placeholder="请输入新密码（6-20 位，需包含大写字母、小写字母、数字、特殊符号中的至少3种）"
             show-password
             maxlength="20"
           />
+          <div v-if="editForm.newPassword" class="password-strength mt-2">
+            <ElProgress
+              :percentage="passwordStrengthPercent"
+              :color="passwordStrengthColor"
+              :stroke-width="6"
+              :show-text="false"
+            />
+            <span :style="{ color: passwordStrengthColor, fontSize: '12px' }">
+              {{ passwordStrengthText }}
+            </span>
+          </div>
         </ElFormItem>
         <ElFormItem
           v-if="editType === 'password'"
@@ -420,5 +447,15 @@ onMounted(() => {
   padding: 80px 0;
   color: #999;
   font-size: 16px;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-strength :deep(.el-progress-bar__outer) {
+  width: 120px;
 }
 </style>

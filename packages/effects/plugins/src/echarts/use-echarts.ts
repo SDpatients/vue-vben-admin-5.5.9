@@ -84,7 +84,10 @@ function useEcharts(chartRef: Ref<EchartsUIType>) {
         useTimeoutFn(() => {
           if (!chartInstance) {
             const instance = initCharts();
-            if (!instance) return;
+            if (!instance) {
+              resolve(renderEcharts(currentOptions));
+              return;
+            }
           }
           clear && chartInstance?.clear();
           chartInstance?.setOption(currentOptions);

@@ -282,7 +282,6 @@ const caseList = ref<any[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(3); // 每页显示3个数据
 const totalCases = ref(0);
-const searchKeyword = ref('');
 const caseStatus = ref('进行中');
 
 // 计算办理天数
@@ -1216,12 +1215,6 @@ const loadCaseList = async () => {
   }
 };
 
-// 搜索案件
-const searchCases = () => {
-  currentPage.value = 1;
-  loadCaseList();
-};
-
 // 切换案件状态
 const changeCaseStatus = (status: string) => {
   caseStatus.value = status;
@@ -1590,31 +1583,6 @@ onUnmounted(() => {
                   {{ status }}
                 </button>
               </div>
-              <div class="case-search flex items-center">
-                <input
-                  v-model="searchKeyword"
-                  type="link"
-                  placeholder="请输入案件名称或案号"
-                  class="case-search-input focus:ring-primary rounded-full border border-gray-300 px-3 py-1 focus:outline-none focus:ring-2"
-                  @keyup.enter="searchCases"
-                />
-                <button class="ml-2 text-gray-500" @click="searchCases">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </button>
-              </div>
             </div>
 
             <div v-loading="loading" class="case-list">
@@ -1628,8 +1596,11 @@ onUnmounted(() => {
                   class="case-card cursor-pointer rounded-lg bg-white p-3 shadow transition-shadow hover:shadow-md"
                   @click="goToCaseDetail(item.id)"
                 >
-                  <div class="case-title mb-2 text-base font-semibold">
+                  <div class="case-title mb-1 text-base font-semibold">
                     {{ item.caseNumber }}
+                  </div>
+                  <div class="case-name mb-1 text-sm text-gray-600">
+                    {{ item.caseName }}
                   </div>
 
                   <!-- 承办法院 -->
@@ -1940,7 +1911,7 @@ onUnmounted(() => {
               <div class="module-content">
                 <div class="grid grid-cols-4 gap-3">
                   <!-- 案件管理相关 -->
-                  <router-link to="/law/case-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/case-list" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-blue-500">
                       <Icon icon="lucide:file-text" class="h-6 w-6" />
                     </div>
@@ -1963,7 +1934,7 @@ onUnmounted(() => {
                   </router-link>
                   
                   <!-- 债权人管理 -->
-                  <router-link to="/basic-data/creditor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/creditor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-indigo-500">
                       <Icon icon="lucide:users" class="h-6 w-6" />
                     </div>
@@ -1971,7 +1942,7 @@ onUnmounted(() => {
                   </router-link>
 
                   <!-- 债务人管理 -->
-                  <router-link to="/basic-data/debtor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/debtor-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-orange-500">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1981,7 +1952,7 @@ onUnmounted(() => {
                   </router-link>
                   
                   <!-- 法院管理 -->
-                  <router-link to="/basic-data/court-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/court-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-red-500">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -1991,7 +1962,7 @@ onUnmounted(() => {
                   </router-link>
                   
                   <!-- 银行账户管理 -->
-                  <router-link to="/basic-data/bank-account-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/basic-control/bank-account-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-green-500">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -2001,7 +1972,7 @@ onUnmounted(() => {
                   </router-link>
                   
                   <!-- 工作计划管理 -->
-                  <router-link to="/basic-data/work-plan-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/work-plan-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-blue-500">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -2011,7 +1982,7 @@ onUnmounted(() => {
                   </router-link>
                   
                   <!-- 管理人信息 -->
-                  <router-link to="/basic-data/manager-management" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
+                  <router-link to="/law/manager-info" class="function-nav-item aspect-square flex flex-col items-center justify-center p-3 rounded-2xl bg-white shadow hover:shadow-md transition-all">
                     <div class="function-nav-icon mb-1 flex items-center justify-center text-purple-500">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

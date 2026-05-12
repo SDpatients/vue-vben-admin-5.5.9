@@ -107,60 +107,59 @@ export function setupVueErrorHandler(app: any) {
   }
 }
 
-// 设置全局错误处理（H5 平台）
+// 设置全局错误处理（H5 平台 + APP 端 WebView）
 export function setupGlobalErrorHandler() {
-  // @ts-ignore
-  if (typeof window !== 'undefined') {
-    // Promise 未捕获错误
-    window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+  // #ifdef H5
+  // Promise 未捕获错误
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    const errorInfo: ErrorInfo = {
+      type: 'Unhandled Promise Rejection',
+      message: formatErrorMessage(event.reason),
+      stack: event.reason?.stack,
+      timestamp: new Date().toISOString(),
+      extra: {
+        rawReason: event.reason,
+      },
+    }
+    
+    logError(errorInfo)
+    event.preventDefault()
+  })
+
+  // 全局错误
+  window.addEventListener('error', (event: ErrorEvent) => {
+    const errorInfo: ErrorInfo = {
+      type: 'Global Error',
+      message: event.message,
+      stack: event.error?.stack,
+      timestamp: new Date().toISOString(),
+      extra: {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      },
+    }
+    
+    logError(errorInfo)
+  })
+
+  // 资源加载错误
+  window.addEventListener('error', (event: Event) => {
+    const target = event.target as HTMLElement
+    if (target && (target.tagName === 'IMG' || target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
       const errorInfo: ErrorInfo = {
-        type: 'Unhandled Promise Rejection',
-        message: formatErrorMessage(event.reason),
-        stack: event.reason?.stack,
+        type: 'Resource Load Error',
+        message: `Failed to load resource: ${(target as any).src || (target as any).href}`,
         timestamp: new Date().toISOString(),
         extra: {
-          rawReason: event.reason,
+          tagName: target.tagName,
         },
       }
       
       logError(errorInfo)
-      event.preventDefault()
-    })
-
-    // 全局错误
-    window.addEventListener('error', (event: ErrorEvent) => {
-      const errorInfo: ErrorInfo = {
-        type: 'Global Error',
-        message: event.message,
-        stack: event.error?.stack,
-        timestamp: new Date().toISOString(),
-        extra: {
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-        },
-      }
-      
-      logError(errorInfo)
-    })
-
-    // 资源加载错误
-    window.addEventListener('error', (event: Event) => {
-      const target = event.target as HTMLElement
-      if (target && (target.tagName === 'IMG' || target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-        const errorInfo: ErrorInfo = {
-          type: 'Resource Load Error',
-          message: `Failed to load resource: ${(target as any).src || (target as any).href}`,
-          timestamp: new Date().toISOString(),
-          extra: {
-            tagName: target.tagName,
-          },
-        }
-        
-        logError(errorInfo)
-      }
-    }, true)
-  }
+    }
+  }, true)
+  // #endif
 }
 
 // 设置 UniApp 错误处理

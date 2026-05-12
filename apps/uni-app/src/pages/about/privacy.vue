@@ -78,6 +78,24 @@
         </view>
       </view>
     </view>
+
+    <!-- 底部同意按钮 -->
+    <view class="agree-footer">
+      <view v-if="alreadyAgreed" class="agreed-info">
+        <u-icon name="checkmark-circle" color="#52c41a" size="20" />
+        <text>您已同意本隐私政策</text>
+      </view>
+      <button
+        v-if="!alreadyAgreed"
+        class="agree-btn"
+        :class="{ loading: agreeing }"
+        :disabled="agreeing"
+        @click="handleAgree"
+      >
+        <text v-if="agreeing">提交中...</text>
+        <text v-else>我已阅读并同意隐私政策</text>
+      </button>
+    </view>
   </view>
 </template>
 
@@ -88,7 +106,46 @@
  * Copyright (c) 2024-present, Vben.
  */
 
+import { onMounted, ref } from 'vue';
 import { customerConfig } from '@/customer.config';
+import {
+  checkAgreement,
+  agreeAgreement,
+  AGREEMENT_TYPES,
+} from '@/api/agreement';
+
+const alreadyAgreed = ref(false);
+const agreeing = ref(false);
+
+const checkAgreementStatus = async () => {
+  try {
+    const result = await checkAgreement(AGREEMENT_TYPES.PRIVACY_POLICY);
+    alreadyAgreed.value = !!result;
+  } catch (_error) {
+    alreadyAgreed.value = false;
+  }
+};
+
+const handleAgree = async () => {
+  agreeing.value = true;
+  try {
+    await agreeAgreement({
+      agreementType: AGREEMENT_TYPES.PRIVACY_POLICY,
+      agreementVersion: '1.0.0',
+      agreed: true,
+    });
+    alreadyAgreed.value = true;
+    uni.showToast({ title: '同意隐私政策成功', icon: 'success' });
+  } catch (_error) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' });
+  } finally {
+    agreeing.value = false;
+  }
+};
+
+onMounted(() => {
+  checkAgreementStatus();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -96,6 +153,7 @@ import { customerConfig } from '@/customer.config';
   min-height: 100vh;
   background: #fff;
   padding: 30rpx;
+  padding-bottom: 140rpx;
 }
 
 .privacy-content {
@@ -134,6 +192,46 @@ import { customerConfig } from '@/customer.config';
         color: #666;
         line-height: 1.6;
       }
+    }
+  }
+}
+
+// 底部同意按钮
+.agree-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20rpx 30rpx;
+  background: #fff;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+
+  .agree-btn {
+    width: 100%;
+    height: 88rpx;
+    background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+    color: #fff;
+    border-radius: 44rpx;
+    font-size: 30rpx;
+    font-weight: bold;
+    border: none;
+    box-shadow: 0 8rpx 24rpx rgba(24, 144, 255, 0.3);
+
+    &.loading {
+      opacity: 0.7;
+    }
+  }
+
+  .agreed-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+    padding: 16rpx 0;
+
+    text {
+      font-size: 26rpx;
+      color: #52c41a;
     }
   }
 }

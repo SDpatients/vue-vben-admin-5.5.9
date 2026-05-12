@@ -427,15 +427,18 @@ const handleSaveLog = async () => {
 
 const chooseFileForWorkLog = async () => {
   try {
+    console.log('[work-log] 开始选择文件...')
     const files = await chooseFilePlatform({
       count: 10,
       extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     })
     const filePaths = files.map((f) => f.path).filter(Boolean)
+    console.log('[work-log] 文件选择成功, 文件数量:', filePaths.length, JSON.stringify(filePaths))
     if (filePaths.length > 0) {
       uploadFilesWorkLog(filePaths)
     }
-  } catch (_e) {
+  } catch (e) {
+    console.error('[work-log] 选择文件失败:', e)
     uni.showToast({ title: '选择文件取消', icon: 'none' })
   }
 }
@@ -446,12 +449,16 @@ const uploadFilesWorkLog = async (filePaths: string[]) => {
 
   const baseUrl = getBaseUrl()
   const token = uni.getStorageSync('token')
+  const uploadUrl = `${baseUrl}${API_PREFIX}/file/upload`
+  console.log('[work-log][upload] 开始上传, uploadUrl:', uploadUrl, '文件数量:', filePaths.length, 'token存在:', !!token)
 
-  for (const filePath of filePaths) {
+  for (let i = 0; i < filePaths.length; i++) {
+    const filePath = filePaths[i]
+    console.log(`[work-log][upload] 正在上传第${i + 1}个文件:`, filePath)
     try {
       const uploadRes = await new Promise<any>((resolve, reject) => {
         uni.uploadFile({
-          url: `${baseUrl}${API_PREFIX}/file/upload`,
+          url: uploadUrl,
           filePath: filePath,
           name: 'file',
           formData: {
@@ -461,17 +468,26 @@ const uploadFilesWorkLog = async (filePaths: string[]) => {
           header: {
             Authorization: `Bearer ${token}`,
           },
-          success: (res) => resolve(res),
-          fail: (err) => reject(err),
+          success: (res) => {
+            console.log(`[work-log][upload] 文件${i + 1}上传响应 statusCode:`, res.statusCode, 'data:', res.data?.substring(0, 200))
+            resolve(res)
+          },
+          fail: (err) => {
+            console.error(`[work-log][upload] 文件${i + 1}上传失败:`, JSON.stringify(err))
+            reject(err)
+          },
         })
       })
 
       const result = JSON.parse(uploadRes.data)
+      console.log(`[work-log][upload] 文件${i + 1}解析结果:`, JSON.stringify(result))
       if (result.code === 200 || result.code === 0) {
         uploadedFiles.value.push(result.data)
+        console.log(`[work-log][upload] 文件${i + 1}上传成功`)
       }
     } catch (error) {
-uni.showToast({ title: '上传失败', icon: 'none' })
+      console.error(`[work-log][upload] 文件${i + 1}上传异常:`, error)
+      uni.showToast({ title: '上传失败', icon: 'none' })
     }
   }
 

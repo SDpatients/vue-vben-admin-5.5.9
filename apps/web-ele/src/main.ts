@@ -4,7 +4,7 @@
  * Copyright (c) 2024-present, Vben.
  */
 
-import { initPreferences } from '@vben/preferences';
+import { initPreferences, preferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
 
 import { overridesPreferences } from './preferences';

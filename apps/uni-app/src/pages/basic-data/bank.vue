@@ -84,7 +84,13 @@
             <view class="avatar-mini">💳</view>
             <view class="name-info">
               <text class="name">{{ item.accountName }}</text>
-              <text class="account">{{ item.bankName }} {{ item.accountNumber }}</text>
+              <view class="account-wrapper">
+                <text class="bank-name" v-if="item.bankName">{{ item.bankName }}</text>
+                <view class="account-number-wrapper" @click.stop="onViewAccountInList(item)">
+                  <text :class="['account-number', { masked: isMaskedAccount(item.accountNumber) }]">{{ item.accountNumber }}</text>
+                  <text class="view-icon" v-if="isMaskedAccount(item.accountNumber)">👁</text>
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -117,6 +123,10 @@
 import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getBankAccountList, deleteBankAccount, type BankAccountItem } from '@/api/basic-data'
+import { isMasked, SensitiveDataType } from '@/utils/sensitiveData'
+import { useSensitiveDataView } from '@/composables/useSensitiveDataView'
+
+const { viewMaskedData } = useSensitiveDataView()
 
 const searchKeyword = ref('')
 const bankList = shallowRef<BankAccountItem[]>([])
@@ -288,6 +298,13 @@ const handleDelete = async (id: number) => {
       }
     }
   })
+}
+
+const isMaskedAccount = (value?: string | null) => isMasked(value)
+
+const onViewAccountInList = (item: BankAccountItem) => {
+  if (!isMasked(item.accountNumber)) return
+  viewMaskedData(SensitiveDataType.BANK_ACCOUNT_NUMBER, item.id, '银行账号')
 }
 
 const getStatusText = (status?: string) => {
@@ -570,9 +587,38 @@ const formatMoney = (money?: number) => {
             margin-bottom: 4rpx;
           }
 
-          .account {
-            font-size: 22rpx;
-            color: #999;
+          .account-wrapper {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8rpx;
+
+            .bank-name {
+              font-size: 22rpx;
+              color: #999;
+            }
+
+            .account-number-wrapper {
+              display: flex;
+              align-items: center;
+              gap: 4rpx;
+
+              .account-number {
+                font-size: 22rpx;
+                color: #999;
+
+                &.masked {
+                  color: #1890ff;
+                  text-decoration: underline;
+                  text-underline-offset: 3rpx;
+                }
+              }
+
+              .view-icon {
+                font-size: 22rpx;
+                flex-shrink: 0;
+              }
+            }
           }
         }
       }

@@ -97,25 +97,6 @@ export interface FolderBreadcrumb {
   folderLevel: number
 }
 
-export interface ShareItem {
-  id: number
-  documentId: number
-  documentName?: string
-  shareCode: string
-  shareUrl?: string
-  sharePassword?: string
-  permissionType?: string
-  expireTime?: string
-  maxAccessCount?: number
-  accessCount?: number
-  isEnabled?: boolean
-  isExpired?: boolean
-  status?: string
-  createTime?: string
-  createUserId?: number
-  createUserName?: string
-}
-
 export interface FavoriteItem {
   id: number
   documentId: number
@@ -218,12 +199,6 @@ export interface FavoriteListResponse {
     total: number
     favorites: FavoriteItem[]
   }
-}
-
-export interface ShareResponse {
-  code: number
-  message: string
-  data: ShareItem
 }
 
 export interface PermissionListResponse {
@@ -599,59 +574,6 @@ export const getAccessibleDocuments = (permissionType: string) => {
   return http8080.get<ApiResponse<number[]>>(`${BASE_URL}/permissions/accessible-documents`, { permissionType })
 }
 
-// ================= 分享管理 API =================
-
-export const createShare = (data: {
-  documentId: number
-  sharePassword?: string
-  permissionType?: string
-  expireTime?: string
-  maxAccessCount?: number
-}) => {
-  return http8080.post<ShareResponse>(`${BASE_URL}/shares`, data)
-}
-
-export const getShareByCode = (shareCode: string) => {
-  return http8080.get<ShareResponse>(`${BASE_URL}/shares/code/${shareCode}`)
-}
-
-export const getShareDetail = (id: number) => {
-  return http8080.get<ShareResponse>(`${BASE_URL}/shares/${id}`)
-}
-
-export const accessShare = (shareCode: string, password?: string) => {
-  return http8080.get<DocumentDetailResponse>(`${BASE_URL}/shares/${shareCode}/access`, { password })
-}
-
-export const downloadShare = (shareCode: string, password?: string) => {
-  const baseUrl = getBaseUrl()
-  let url = `${baseUrl}/api/v1/api${BASE_URL}/shares/${shareCode}/download`
-  if (password) {
-    url += `?password=${encodeURIComponent(password)}`
-  }
-  return url
-}
-
-export const deleteShare = (id: number) => {
-  return http8080.delete<ApiResponse>(`${BASE_URL}/shares/${id}`)
-}
-
-export const disableShare = (id: number) => {
-  return http8080.post<ApiResponse>(`${BASE_URL}/shares/${id}/disable`)
-}
-
-export const enableShare = (id: number) => {
-  return http8080.post<ApiResponse>(`${BASE_URL}/shares/${id}/enable`)
-}
-
-export const checkShareValid = (shareCode: string) => {
-  return http8080.get<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/valid`)
-}
-
-export const checkSharePassword = (shareCode: string, password?: string) => {
-  return http8080.post<ApiResponse<boolean>>(`${BASE_URL}/shares/${shareCode}/check-password`, null, { params: { password } })
-}
-
 // ================= 收藏管理 API =================
 
 export const addFavorite = (documentId: number, folderName?: string) => {
@@ -700,10 +622,10 @@ export function formatFileSize(bytes: number): string {
 
 export function getDocumentTypeIcon(type: string): string {
   const iconMap: Record<string, string> = {
-    WORD: '📘',
-    EXCEL: '📗',
-    PDF: '📕',
-    OTHER: '📄',
+    WORD: 'DOC',
+    EXCEL: 'XLS',
+    PDF: 'PDF',
+    OTHER: 'FILE',
   }
   return iconMap[type] || iconMap.OTHER
 }

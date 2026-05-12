@@ -15,7 +15,10 @@
       <view class="info-list">
         <view class="info-item">
           <text class="label">账号</text>
-          <text class="value">{{ detail.accountNumber || '-' }}</text>
+          <view class="value-wrapper" @click="onViewSensitive('BANK_ACCOUNT_NUMBER', detail.id, '银行账号', detail.accountNumber)">
+            <text :class="['value', { masked: isMaskedData(detail.accountNumber) }]">{{ detail.accountNumber || '-' }}</text>
+            <text class="view-icon" v-if="isMaskedData(detail.accountNumber)">👁</text>
+          </view>
         </view>
         <view class="info-item">
           <text class="label">账户类型</text>
@@ -101,7 +104,11 @@
 import { ref, onMounted } from 'vue'
 import { getBankAccountDetail, type BankAccountItem } from '@/api/basic-data'
 import { getPageParam } from '@/utils/pageParam'
+import { checkLicenseExpiry, isMasked, SensitiveDataType } from '@/utils/sensitiveData'
+import { useSensitiveDataView } from '@/composables/useSensitiveDataView'
 import dayjs from 'dayjs'
+
+const { viewMaskedData } = useSensitiveDataView()
 
 const detail = ref<BankAccountItem | null>(null)
 
@@ -117,9 +124,17 @@ const loadDetail = async (id: number) => {
   try {
     const res = await getBankAccountDetail(id)
     detail.value = res.data
+    checkLicenseExpiry(res.data)
   } catch (error) {
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
+}
+
+const isMaskedData = (value?: string | null) => isMasked(value)
+
+const onViewSensitive = (dataType: string, id: number, label: string, currentValue?: string | null) => {
+  if (!isMasked(currentValue)) return
+  viewMaskedData(dataType as SensitiveDataType, id, label)
 }
 
 const getStatusText = (status?: string) => {
@@ -276,6 +291,25 @@ const goToTransactions = () => {
           color: #1890ff;
           font-weight: 500;
         }
+
+        &.masked {
+          color: #1890ff;
+          text-decoration: underline;
+          text-underline-offset: 4rpx;
+        }
+      }
+
+      .value-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex: 1;
+        gap: 8rpx;
+      }
+
+      .view-icon {
+        font-size: 32rpx;
+        flex-shrink: 0;
       }
     }
   }

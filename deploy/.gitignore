@@ -1,0 +1,12 @@
+# 环境变量配置文件（不纳入版本控制）
+.env
+
+# 后端 JAR 包（不纳入版本控制）
+backend/*.jar
+!backend/.gitkeep
+
+# 后端日志
+backend/logs/
+
+# 上传文件目录
+backend/uploads/

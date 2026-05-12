@@ -18,10 +18,21 @@ async function viteLicensePlugin(
   root = process.cwd(),
 ): Promise<PluginOption | undefined> {
   const {
+    author,
     description = '',
     homepage = '',
     version = '',
   } = await readPackageJSON(root);
+
+  const authorName = typeof author === 'string' ? author : author?.name || '';
+  const authorEmail = typeof author === 'string' ? '' : author?.email || '';
+
+  const appTitle =
+    (typeof process !== 'undefined' &&
+      process.env?.VITE_APP_TITLE) ||
+    '破管通';
+
+  const copyrightYear = new Date().getFullYear();
 
   return {
     apply: 'build',
@@ -30,26 +41,27 @@ async function viteLicensePlugin(
       handler: (_options: NormalizedOutputOptions, bundle: OutputBundle) => {
         const date = dateUtil().format('YYYY-MM-DD ');
         const copyrightText = `/*!
-  * Vben Admin
+  * ${appTitle}
   * Version: ${version}
-  * Author: vben
-  * Copyright (C) 2024 Vben
+  * Copyright (C) ${copyrightYear} ${authorName}
+  *
+  * Based on Vue Vben Admin (MIT License)
+  * Copyright (c) 2024-present, Vben
+  *
   * License: MIT License
-  * Description: ${description}
+  * Description: ${description || appTitle}
   * Date Created: ${date}
   * Homepage: ${homepage}
-  * Contact: ann.vben@gmail.com
+  * Contact: ${authorEmail}
 */
               `.trim();
 
         for (const [, fileContent] of Object.entries(bundle)) {
           if (fileContent.type === 'chunk' && fileContent.isEntry) {
             const chunkContent = fileContent as OutputChunk;
-            // 插入版权信息
             const content = chunkContent.code;
             const updatedContent = `${copyrightText}${EOL}${content}`;
 
-            // 更新bundle
             (fileContent as OutputChunk).code = updatedContent;
           }
         }

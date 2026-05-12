@@ -41,6 +41,9 @@ import {
 import { documentTemplatesApi } from '#/api/core/document-templates';
 import type { DocumentTemplate } from '#/api/core/document-templates';
 import { exportToExcel } from '#/utils/export-excel';
+import { isMaskedDisplayValue } from '#/utils/password-validator';
+import { SensitiveDataApi } from '#/api/core/sensitive-data';
+import SensitiveDataDialog from '#/components/SensitiveDataDialog.vue';
 import { UploadFilled } from '@element-plus/icons-vue';
 import type { UploadFile, UploadInstance } from 'element-plus';
 
@@ -64,6 +67,18 @@ const currentCreditor = ref<CreditorApi.CreditorInfo | null>(null);
 
 // 债权人债权详情对话框
 const showCreditorDetailDialog = ref(false);
+
+const sensitiveDialogVisible = ref(false);
+const sensitiveDataType = ref('');
+const sensitiveId = ref(0);
+const sensitiveLabel = ref('');
+
+const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+  sensitiveDataType.value = dataType;
+  sensitiveId.value = id;
+  sensitiveLabel.value = label;
+  sensitiveDialogVisible.value = true;
+};
 const creditorDetailLoading = ref(false);
 const creditorDetailData = ref<any>(null);
 const activeTab = ref('registration');
@@ -1132,9 +1147,23 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         <ElTableColumn
           prop="idNumber"
           label="证件号码"
-          width="150"
+          width="210"
           show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.idNumber }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(row.idNumber)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click.stop="openSensitiveDialog('CREDITOR_ID_NUMBER', row.id, SensitiveDataApi.DataTypeLabels.CREDITOR_ID_NUMBER)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
         <ElTableColumn
           prop="legalRepresentative"
           label="法定代表人"
@@ -1150,9 +1179,23 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         <ElTableColumn
           prop="contactPhone"
           label="联系电话"
-          width="150"
+          width="210"
           show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.contactPhone }}</span>
+            <ElButton
+              v-if="isMaskedDisplayValue(row.contactPhone)"
+              size="small"
+              text
+              type="primary"
+              class="ml-1"
+              @click.stop="openSensitiveDialog('CREDITOR_CONTACT_PHONE', row.id, SensitiveDataApi.DataTypeLabels.CREDITOR_CONTACT_PHONE)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
         <ElTableColumn
           prop="contactEmail"
           label="邮箱"
@@ -2059,6 +2102,13 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
         </template>
       </ElDialog>
     </ElCard>
+  <!-- 查看敏感数据弹窗 -->
+    <SensitiveDataDialog
+      v-model:visible="sensitiveDialogVisible"
+      :data-type="sensitiveDataType"
+      :id="sensitiveId"
+      :label="sensitiveLabel"
+    />
   </div>
 </template>
 
@@ -2338,5 +2388,9 @@ const openCreditorDetailDialog = async (row: CreditorApi.CreditorInfo) => {
   :deep(.el-descriptions :is(.el-descriptions__label, .el-descriptions__content)) {
     font-size: 14px;
   }
+}
+
+.mono-text {
+  font-family: monospace;
 }
 </style>

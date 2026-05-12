@@ -1,5 +1,11 @@
 <template>
   <view class="files-container">
+    <!-- 调试信息条 -->
+    <view class="debug-bar" v-if="showDebug">
+      <text class="debug-text">H5:{{ isH5 }} URL:{{ typeof URL !== 'undefined' ? 'Y' : 'N' }} Img:{{ fileList.filter(f => isImageFile(f.fileExtension)).length }} Loaded:{{ fileList.filter(f => f._blobUrl && f._blobUrl.length > 0).length }}</text>
+      <text class="debug-close" @click="showDebug = false">✕</text>
+    </view>
+    
     <view class="header">
       <text class="title">案件文件</text>
       <text class="count">共 {{ total }} 个文件</text>
@@ -54,7 +60,6 @@
         <!-- PDF预览 -->
         <view v-else-if="isPdfFile(item.fileExtension)" class="file-preview pdf-preview">
           <view class="pdf-icon-wrapper">
-            <text class="pdf-icon">📕</text>
             <text class="pdf-label">PDF</text>
           </view>
           <text class="file-name-overlay">{{ truncateFileName(item.originalFileName || item.fileName, 15) }}</text>
@@ -62,8 +67,8 @@
         
         <!-- 其他文件类型 -->
         <view v-else class="file-preview other-preview">
-          <text class="file-type-icon">{{ getFileIcon(item.fileExtension) }}</text>
-          <text class="file-type-text">{{ item.fileExtension?.toUpperCase() || 'FILE' }}</text>
+          <u-icon :name="getFileIconName(item.fileExtension)" size="28" :color="getFileIconColor(item.fileExtension)"></u-icon>
+          <text class="file-type-text">{{ getFileIcon(item.fileExtension) }}</text>
         </view>
         
         <!-- 文件信息 -->
@@ -85,7 +90,6 @@
         <text>没有更多了</text>
       </view>
       <view class="empty" v-else-if="fileList.length === 0 && !loading">
-        <text class="empty-icon">📁</text>
         <text class="empty-text">暂无文件</text>
         <text class="empty-tip">点击右下角按钮上传文件</text>
       </view>
@@ -163,16 +167,16 @@
           <text>{{ currentActionFile?.originalFileName || currentActionFile?.fileName }}</text>
         </view>
         <view class="menu-item" @click="handleActionPreview">
-          <text>👁️ 预览</text>
+          <text>预览</text>
         </view>
         <view class="menu-item" @click="handleActionDownload">
-          <text>📥 下载</text>
+          <text>下载</text>
         </view>
         <view class="menu-item" @click="handleActionRename">
-          <text>✏️ 重命名</text>
+          <text>重命名</text>
         </view>
         <view class="menu-item danger" @click="handleActionDelete">
-          <text>🗑️ 删除</text>
+          <text>删除</text>
         </view>
         <view class="menu-item cancel" @click="showActionMenu = false">
           <text>取消</text>
@@ -228,7 +232,7 @@ import {
   type FileStatisticsResponse
 } from '@/api/case'
 import { getPageParam } from '@/utils/pageParam'
-import { getBaseUrl } from '@/config'
+import { getBaseUrl, FILE_API } from '@/config'
 
 import { chooseFilePlatform } from '@/utils/chooseFile'
 
@@ -247,6 +251,8 @@ const selectedIds = ref<number[]>([])
 
 const isH5 = typeof window !== 'undefined' && typeof document !== 'undefined'
 
+const showDebug = ref(true)
+
 const showRenameModal = ref(false)
 const newFileName = ref('')
 const renamingFile = ref<FileItem | null>(null)
@@ -262,7 +268,6 @@ const showActionMenu = ref(false)
 const currentActionFile = ref<FileItem | null>(null)
 
 const baseUrl = getBaseUrl()
-const token = uni.getStorageSync('token')
 
 const isImageFile = (extension?: string) => {
   if (!extension) return false
@@ -280,15 +285,40 @@ const getPreviewUrl = (fileId: number) => {
 }
 
 const fetchFileBlob = async (fileId: number) => {
-  // 仅在 H5 环境使用 fetch
+  // #ifdef H5
+  const token = uni.getStorageSync('token')
+  const url = `${baseUrl}/api/v1/file/preview/${fileId}`
+  console.log('[files.vue] fetchFileBlob 请求URL:', url, 'token存在:', !!token)
+  
   if (typeof fetch === 'undefined') {
+    console.error('[files.vue] fetchFileBlob fetch API 不可用')
     throw new Error('文件预览仅在 H5 环境支持')
   }
-  const response = await fetch(`${baseUrl}/api/v1/file/preview/${fileId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!response.ok) throw new Error('加载失败')
-  return response.blob()
+  
+  try {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    console.log('[files.vue] fetchFileBlob 响应状态:', response.status, 'ok:', response.ok, 'contentType:', response.headers.get('content-type'))
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '无法读取错误响应')
+      console.error('[files.vue] fetchFileBlob 响应失败:', response.status, errorText)
+      throw new Error(`加载失败: HTTP ${response.status}`)
+    }
+    
+    const blob = await response.blob()
+    console.log('[files.vue] fetchFileBlob blob大小:', blob.size, '类型:', blob.type)
+    return blob
+  } catch (error: any) {
+    console.error('[files.vue] fetchFileBlob 异常:', error?.message || error)
+    throw error
+  }
+  // #endif
+  // #ifndef H5
+  console.error('[files.vue] fetchFileBlob 非H5平台，不支持')
+  throw new Error('文件预览仅在 H5 环境支持')
+  // #endif
 }
 
 const truncateFileName = (name: string, maxLen: number) => {
@@ -306,15 +336,29 @@ watch(statusFilter, () => {
 onMounted(() => {
   caseId.value = getPageParam('id')
 
+  console.log('[files.vue] onMounted 初始化', {
+    caseId: caseId.value,
+    isH5,
+    typeofWindow: typeof window,
+    typeofDocument: typeof document,
+    typeofURL: typeof URL,
+    typeofCreateObjectURL: typeof URL !== 'undefined' ? typeof URL.createObjectURL : 'undefined',
+    baseUrl,
+  })
+
   if (caseId.value) {
     loadFiles()
     loadStatistics()
+  } else {
+    console.error('[files.vue] onMounted caseId为空!')
   }
 })
 
 const loadFiles = async (isRefresh = false) => {
   if (loading.value) return
   loading.value = true
+
+  console.log('[files.vue] loadFiles 开始, isRefresh:', isRefresh, 'caseId:', caseId.value)
 
   try {
     const params: any = {
@@ -328,6 +372,15 @@ const loadFiles = async (isRefresh = false) => {
     const res = await getCaseFiles(Number(caseId.value), params)
     const rawList = res.data?.list || []
     const listData = Array.isArray(rawList) ? rawList.map(item => ({ ...item, _loaded: false, _blobUrl: '' })) : []
+
+    console.log('[files.vue] loadFiles 获取到文件数量:', listData.length, '总数:', res.data?.total)
+    console.log('[files.vue] 文件列表:', listData.map(f => ({
+      id: f.id,
+      fileName: f.originalFileName || f.fileName,
+      fileExtension: f.fileExtension,
+      isImage: isImageFile(f.fileExtension),
+      _blobUrl: f._blobUrl,
+    })))
 
     if (isRefresh) {
       fileList.value.forEach(f => {
@@ -348,10 +401,16 @@ const loadFiles = async (isRefresh = false) => {
     total.value = res.data?.total || 0
     hasMore.value = fileList.value.length < (res.data?.total || 0)
     
+    console.log('[files.vue] loadFiles isH5:', isH5, 'typeof URL:', typeof URL, 'URL.createObjectURL:', typeof URL !== 'undefined' ? typeof URL.createObjectURL : 'undefined')
     if (isH5) {
+      console.log('[files.vue] loadFiles 调用 preloadImages() (H5平台)')
       preloadImages()
+    } else {
+      console.log('[files.vue] loadFiles 调用 preloadThumbnailsNonH5() (非H5平台)')
+      preloadThumbnailsNonH5()
     }
   } catch (error) {
+    console.error('[files.vue] loadFiles 加载失败:', error)
 uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
@@ -359,21 +418,88 @@ uni.showToast({ title: '加载失败', icon: 'none' })
 }
 
 const preloadImages = async () => {
-  // 仅在 H5 环境预加载图片 blob
+  console.log('[files.vue] preloadImages 开始 (H5平台)')
   if (!isH5 || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    console.warn('[files.vue] preloadImages 跳过: isH5=', isH5, 'URL=', typeof URL, 'createObjectURL=', typeof URL !== 'undefined' ? typeof URL.createObjectURL : 'undefined')
     return
   }
   
-  for (const item of fileList.value) {
-    if (isImageFile(item.fileExtension) && !item._blobUrl) {
+  const imageItems = fileList.value.filter(item => isImageFile(item.fileExtension))
+  console.log('[files.vue] preloadImages 需要预加载的图片数量:', imageItems.length)
+  
+  for (const item of imageItems) {
+    if (!item._blobUrl) {
       try {
+        console.log('[files.vue] preloadImages 开始加载图片:', item.id, item.originalFileName || item.fileName)
         const blob = await fetchFileBlob(item.id)
-        item._blobUrl = URL.createObjectURL(blob)
+        const blobUrl = URL.createObjectURL(blob)
+        item._blobUrl = blobUrl
         item._loaded = true
-      } catch (error) {
-}
+        console.log('[files.vue] preloadImages 图片加载成功:', item.id, 'blobUrl:', blobUrl.substring(0, 50) + '...')
+      } catch (error: any) {
+        console.error('[files.vue] preloadImages 图片加载失败:', item.id, item.originalFileName || item.fileName, '错误:', error?.message || error)
+      }
+    } else {
+      console.log('[files.vue] preloadImages 图片已有_blobUrl，跳过:', item.id)
     }
   }
+  
+  console.log('[files.vue] preloadImages 完成')
+}
+
+const preloadThumbnailsNonH5 = async () => {
+  console.log('[files.vue] preloadThumbnailsNonH5 开始 (非H5平台)')
+  
+  const imageItems = fileList.value.filter(item => isImageFile(item.fileExtension))
+  console.log('[files.vue] preloadThumbnailsNonH5 需要预加载的图片数量:', imageItems.length)
+  
+  if (imageItems.length === 0) {
+    console.log('[files.vue] preloadThumbnailsNonH5 没有需要预加载的图片，跳过')
+    return
+  }
+  
+  for (const item of imageItems) {
+    if (item._blobUrl && !item._blobUrl.startsWith('blob:') && item._blobUrl.length > 0) {
+      console.log('[files.vue] preloadThumbnailsNonH5 图片已有有效路径，跳过:', item.id, item._blobUrl)
+      continue
+    }
+    
+    try {
+      console.log('[files.vue] preloadThumbnailsNonH5 开始下载缩略图:', item.id, item.originalFileName || item.fileName)
+      const token = uni.getStorageSync('token')
+      if (!token) {
+        console.error('[files.vue] preloadThumbnailsNonH5 未找到token，跳过:', item.id)
+        continue
+      }
+      
+      const tempFilePath = await new Promise<string>((resolve, reject) => {
+        uni.downloadFile({
+          url: `${baseUrl}/api/v1/file/preview/${item.id}`,
+          header: { Authorization: `Bearer ${token}` },
+          success: (downloadRes: any) => {
+            console.log('[files.vue] preloadThumbnailsNonH5 downloadFile success:', item.id, 'statusCode:', downloadRes.statusCode)
+            if (downloadRes.statusCode === 200 && downloadRes.tempFilePath) {
+              resolve(downloadRes.tempFilePath)
+            } else {
+              reject(new Error(`下载失败, statusCode: ${downloadRes.statusCode}`))
+            }
+          },
+          fail: (err: any) => {
+            console.error('[files.vue] preloadThumbnailsNonH5 downloadFile fail:', item.id, err)
+            reject(new Error(err.errMsg || '下载失败'))
+          },
+        })
+      })
+      
+      item._blobUrl = tempFilePath
+      item._loaded = true
+      console.log('[files.vue] preloadThumbnailsNonH5 缩略图下载成功:', item.id, 'tempFilePath:', tempFilePath)
+    } catch (error: any) {
+      console.error('[files.vue] preloadThumbnailsNonH5 缩略图下载失败:', item.id, item.originalFileName || item.fileName, '错误:', error?.message || error)
+    }
+  }
+  
+  console.log('[files.vue] preloadThumbnailsNonH5 完成')
 }
 
 const loadStatistics = async () => {
@@ -386,21 +512,55 @@ const loadStatistics = async () => {
 }
 }
 
-const handleImageError = (item: FileItem) => {
+const handleImageError = (item: FileItem & { _blobUrl?: string }) => {
+  console.error('[files.vue] handleImageError 图片加载失败:', {
+    id: item.id,
+    fileName: item.originalFileName || item.fileName,
+    _blobUrl: item._blobUrl,
+    blobUrlType: item._blobUrl ? (item._blobUrl.startsWith('blob:') ? 'blob' : item._blobUrl.startsWith('http') ? 'http' : 'local') : 'empty',
+  })
 }
 
 const getFileIcon = (extension?: string) => {
-  if (!extension) return '📄'
+  if (!extension) return 'FILE'
   const ext = extension.toLowerCase()
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return '🖼️'
-  if (['pdf'].includes(ext)) return '📕'
-  if (['doc', 'docx'].includes(ext)) return '📘'
-  if (['xls', 'xlsx'].includes(ext)) return '📗'
-  if (['ppt', 'pptx'].includes(ext)) return '📙'
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦'
-  if (['mp4', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) return '🎬'
-  if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return '🎵'
-  return '📄'
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return 'IMG'
+  if (['pdf'].includes(ext)) return 'PDF'
+  if (['doc', 'docx'].includes(ext)) return 'DOC'
+  if (['xls', 'xlsx'].includes(ext)) return 'XLS'
+  if (['ppt', 'pptx'].includes(ext)) return 'PPT'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'ZIP'
+  if (['mp4', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) return 'VID'
+  if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return 'AUD'
+  return 'FILE'
+}
+
+const getFileIconName = (extension?: string) => {
+  if (!extension) return 'file-text'
+  const ext = extension.toLowerCase()
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return 'camera'
+  if (['pdf'].includes(ext)) return 'file-text'
+  if (['doc', 'docx'].includes(ext)) return 'file-text'
+  if (['xls', 'xlsx'].includes(ext)) return 'file-text'
+  if (['ppt', 'pptx'].includes(ext)) return 'file-text'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'folder'
+  if (['mp4', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) return 'play-circle'
+  if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return 'volume'
+  return 'file-text'
+}
+
+const getFileIconColor = (extension?: string) => {
+  if (!extension) return '#999'
+  const ext = extension.toLowerCase()
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return '#722ed1'
+  if (['pdf'].includes(ext)) return '#f40f02'
+  if (['doc', 'docx'].includes(ext)) return '#2b579a'
+  if (['xls', 'xlsx'].includes(ext)) return '#217346'
+  if (['ppt', 'pptx'].includes(ext)) return '#d24726'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '#fa8c16'
+  if (['mp4', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) return '#1890ff'
+  if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return '#13c2c2'
+  return '#999'
 }
 
 const formatFileSize = (bytes?: number) => {
@@ -416,6 +576,16 @@ const formatFileSize = (bytes?: number) => {
 }
 
 const handlePreview = async (item: FileItem) => {
+  console.log('[files.vue] handlePreview 点击文件:', {
+    id: item.id,
+    fileName: item.originalFileName || item.fileName,
+    fileExtension: item.fileExtension,
+    isImage: isImageFile(item.fileExtension),
+    isPdf: isPdfFile(item.fileExtension),
+    isH5,
+    _blobUrl: (item as any)._blobUrl,
+  })
+  
   currentPreviewFile.value = item
   
   if (isImageFile(item.fileExtension)) {
@@ -429,30 +599,58 @@ const handlePreview = async (item: FileItem) => {
 }
 
 const openImagePreview = async (item: FileItem & { _blobUrl?: string }) => {
-  // 非 H5 环境直接使用 uni.previewImage
+  console.log('[files.vue] openImagePreview 开始, isH5:', isH5, 'item._blobUrl:', item._blobUrl)
+  
+  // 非 H5 环境：先下载文件（带 token），再本地预览
   if (!isH5) {
-    uni.previewImage({
-      urls: [`${baseUrl}/api/v1/file/preview/${item.id}`],
-      current: `${baseUrl}/api/v1/file/preview/${item.id}`,
+    console.log('[files.vue] openImagePreview 非H5路径: 使用uni.downloadFile')
+    const token = uni.getStorageSync('token')
+    uni.showLoading({ title: '加载中...' })
+    uni.downloadFile({
+      url: `${baseUrl}/api/v1/file/preview/${item.id}`,
+      header: { Authorization: `Bearer ${token}` },
+      success: (downloadRes: any) => {
+        console.log('[files.vue] openImagePreview downloadFile success, statusCode:', downloadRes.statusCode, 'tempFilePath:', downloadRes.tempFilePath)
+        uni.hideLoading()
+        if (downloadRes.statusCode === 200) {
+          uni.previewImage({
+            urls: [downloadRes.tempFilePath],
+            current: downloadRes.tempFilePath,
+          })
+        } else {
+          console.error('[files.vue] openImagePreview downloadFile statusCode异常:', downloadRes.statusCode)
+          uni.showToast({ title: '预览失败', icon: 'none' })
+        }
+      },
+      fail: (err: any) => {
+        console.error('[files.vue] openImagePreview downloadFile fail:', err)
+        uni.hideLoading()
+        uni.showToast({ title: '预览失败', icon: 'none' })
+      },
     })
     return
   }
 
   // H5 环境使用 blob URL 预览
+  console.log('[files.vue] openImagePreview H5路径: 使用fetch + blob')
   try {
     if (item._blobUrl) {
+      console.log('[files.vue] openImagePreview 使用已有的_blobUrl:', item._blobUrl.substring(0, 50) + '...')
       currentPreviewUrl.value = item._blobUrl
       showImagePreview.value = true
     } else {
+      console.log('[files.vue] openImagePreview _blobUrl不存在，重新fetch')
       uni.showLoading({ title: '加载中...' })
       const blob = await fetchFileBlob(item.id)
       if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
         currentPreviewUrl.value = URL.createObjectURL(blob)
+        console.log('[files.vue] openImagePreview 新建blobUrl:', currentPreviewUrl.value.substring(0, 50) + '...')
       }
       uni.hideLoading()
       showImagePreview.value = true
     }
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[files.vue] openImagePreview 失败:', error?.message || error)
     uni.hideLoading()
     uni.showToast({ title: '预览失败', icon: 'none' })
   }
@@ -545,6 +743,7 @@ const handleDownloadFromPreview = async () => {
 }
 
 const downloadFile = async (item: FileItem) => {
+  const token = uni.getStorageSync('token')
   if (isH5) {
     try {
       uni.showLoading({ title: '下载中...' })
@@ -573,10 +772,11 @@ const downloadFile = async (item: FileItem) => {
       header: { Authorization: `Bearer ${token}` },
       success: (downloadRes: any) => {
         if (downloadRes.statusCode === 200) {
-          uni.saveFile({
-            tempFilePath: downloadRes.tempFilePath,
+          uni.openDocument({
+            filePath: downloadRes.tempFilePath,
+            showMenu: true,
             success: () => uni.showToast({ title: '下载成功', icon: 'success' }),
-            fail: () => uni.showToast({ title: '保存失败', icon: 'none' }),
+            fail: () => uni.showToast({ title: '打开失败', icon: 'none' }),
           })
         }
       },
@@ -684,27 +884,34 @@ const handleBatchDelete = () => {
 
 const handleUpload = async () => {
   try {
+    console.log('[cases-files] 开始选择文件...')
     const files = await chooseFilePlatform({
       count: 10,
       extension: ['.doc', '.docx', '.pdf', '.jpg', '.png', '.txt', '.xls', '.xlsx'],
     })
     const filePaths = files.map((f) => f.path).filter(Boolean)
+    console.log('[cases-files] 文件选择成功, 文件数量:', filePaths.length, JSON.stringify(filePaths))
     if (filePaths.length > 0) {
       uploadFiles(filePaths)
     }
-  } catch (_e) {
+  } catch (e) {
+    console.error('[cases-files] 选择文件失败:', e)
     uni.showToast({ title: '选择文件取消', icon: 'none' })
   }
 }
 
 const uploadFiles = (filePaths: string[]) => {
+  const token = uni.getStorageSync('token')
+  const uploadUrl = `${baseUrl}${FILE_API.UPLOAD}`
+  console.log('[cases-files][upload] 开始上传, uploadUrl:', uploadUrl, '文件数量:', filePaths.length, 'token存在:', !!token)
   uni.showLoading({ title: '上传中...' })
   let uploadedCount = 0
   const totalFiles = filePaths.length
 
-  filePaths.forEach((filePath) => {
+  filePaths.forEach((filePath, index) => {
+    console.log(`[cases-files][upload] 正在上传第${index + 1}个文件:`, filePath)
     uni.uploadFile({
-      url: `${baseUrl}/api/v1/file/upload`,
+      url: uploadUrl,
       filePath: filePath,
       name: 'file',
       formData: {
@@ -714,7 +921,8 @@ const uploadFiles = (filePaths: string[]) => {
       header: {
         Authorization: `Bearer ${token}`,
       },
-      success: () => {
+      success: (res) => {
+        console.log(`[cases-files][upload] 文件${index + 1}上传成功, statusCode:`, res.statusCode)
         uploadedCount++
         if (uploadedCount === totalFiles) {
           uni.hideLoading()
@@ -723,7 +931,8 @@ const uploadFiles = (filePaths: string[]) => {
           loadStatistics()
         }
       },
-      fail: () => {
+      fail: (err) => {
+        console.error(`[cases-files][upload] 文件${index + 1}上传失败:`, JSON.stringify(err))
         uni.showToast({ title: '上传失败', icon: 'none' })
       },
     })
@@ -736,6 +945,29 @@ const uploadFiles = (filePaths: string[]) => {
   min-height: 100vh;
   background: #f5f7fa;
   padding-bottom: 120rpx;
+}
+
+.debug-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff3cd;
+  padding: 8rpx 20rpx;
+  border-bottom: 1rpx solid #ffc107;
+
+  .debug-text {
+    font-size: 20rpx;
+    color: #856404;
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .debug-close {
+    font-size: 24rpx;
+    color: #856404;
+    padding: 4rpx 12rpx;
+    margin-left: 10rpx;
+  }
 }
 
 .header {

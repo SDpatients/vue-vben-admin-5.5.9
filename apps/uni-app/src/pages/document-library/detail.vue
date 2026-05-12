@@ -87,9 +87,6 @@
         <view class="action-btn" :class="{ active: isFavorited }" @click="handleToggleFavorite">
           <text class="btn-text">{{ isFavorited ? '已收藏' : '收藏' }}</text>
         </view>
-        <view class="action-btn" @click="handleShare">
-          <text class="btn-text">分享</text>
-        </view>
         <view class="action-btn" @click="handleEdit">
           <text class="btn-text">编辑</text>
         </view>
@@ -108,6 +105,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import dayjs from 'dayjs'
 import { getPageParam } from '@/utils/pageParam'
 import {
   getDocumentDetail,
@@ -224,13 +222,6 @@ const handleToggleFavorite = async () => {
   } catch (error) {
     uni.showToast({ title: '操作失败', icon: 'none' })
   }
-}
-
-const handleShare = () => {
-  if (!document.value) return
-  uni.navigateTo({
-    url: `/pages/document-library/share?documentId=${document.value.id}&documentName=${encodeURIComponent(document.value.documentName)}`,
-  })
 }
 
 const handleEdit = () => {
@@ -359,7 +350,7 @@ const formatTime = (time?: string) => {
   if (diffMins < 60) return `${diffMins}分钟前`
   if (diffHours < 24) return `${diffHours}小时前`
   if (diffDays < 7) return `${diffDays}天前`
-  return date.toLocaleDateString('zh-CN')
+  return dayjs(date).format('YYYY/M/D')
 }
 </script>
 
