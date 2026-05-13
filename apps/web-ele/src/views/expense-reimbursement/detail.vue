@@ -366,7 +366,7 @@ onMounted(() => {
           <el-descriptions-item label="创建时间">
             {{
               detail.createTime
-                ? new Date(detail.createTime).toLocaleString('zh-CN')
+                ? new Date(detail.createTime).toLocaleDateString('zh-CN')
                 : '-'
             }}
           </el-descriptions-item>
@@ -379,7 +379,7 @@ onMounted(() => {
           <el-descriptions-item label="审批时间" :span="1">
             {{
               detail.approvalTime
-                ? new Date(detail.approvalTime).toLocaleString('zh-CN')
+                ? new Date(detail.approvalTime).toLocaleDateString('zh-CN')
                 : '-'
             }}
           </el-descriptions-item>
@@ -442,7 +442,7 @@ onMounted(() => {
             <template #default="scope">
               {{
                 scope.row.uploadTime
-                  ? new Date(scope.row.uploadTime).toLocaleString('zh-CN')
+                  ? new Date(scope.row.uploadTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </template>

@@ -226,13 +226,6 @@ export function useReviewForm() {
       reviewForm.unconfirmedInterest = unconfirmedInterest;
       reviewForm.unconfirmedPenalty = unconfirmedPenalty;
       reviewForm.unconfirmedOtherLosses = unconfirmedOtherLosses;
-      
-      // 自动判断确认类型
-      if (unconfirmedPrincipal === 0 && unconfirmedInterest === 0 && unconfirmedPenalty === 0 && unconfirmedOtherLosses === 0) {
-        reviewForm.reviewConclusion = 'CONFIRMED';
-      } else {
-        reviewForm.reviewConclusion = 'PARTIAL_CONFIRMED';
-      }
     },
     { immediate: true },
   );
@@ -295,87 +288,27 @@ export function useReviewForm() {
 
 export function useConfirmationForm() {
   const confirmationForm = reactive({
-    meetingType: 'FIRST' as 'FIRST' | 'SECOND' | 'TEMPORARY',
-    meetingDate: '',
-    meetingLocation: '',
     voteResult: 'AGREE' as 'AGREE' | 'DISAGREE' | 'ABSTAIN',
     voteNotes: '',
-    hasObjection: false,
-    objector: '',
-    objectionReason: '',
-    objectionAmount: 0,
-    objectionDate: '',
-    negotiationResult: '',
-    negotiationDate: '',
-    negotiationParticipants: '',
-    courtRulingNo: '',
-    courtRulingResult: 'CONFIRMED' as 'CONFIRMED' | 'PARTIAL_CONFIRMED' | 'UNCONFIRMED',
-    courtRulingAmount: 0,
-    courtRulingDate: '',
-    courtRulingNotes: '',
-    hasLawsuit: false,
-    lawsuitCaseNo: '',
-    lawsuitStatus: 'PENDING' as 'PENDING' | 'TRIALING' | 'JUDGED' | 'EXECUTING' | 'COMPLETED',
-    lawsuitResult: 'WIN' as 'WIN' | 'LOSE' | 'PARTIAL' | 'SETTLED',
-    lawsuitAmount: 0,
-    lawsuitNotes: '',
     finalConfirmedAmount: 0,
     finalConfirmationDate: '',
-    finalConfirmationBasis: 'MEETING' as 'MEETING' | 'COURT' | 'SETTLEMENT' | 'OTHER',
+    finalConfirmationBasis: '',
     confirmationAttachments: [] as number[],
-    confirmationStatus: 'PENDING' as 'PENDING' | 'CONFIRMED' | 'OBJECTION' | 'COURT' | 'LAWSUIT',
     remarks: '',
   });
 
   const finalConfirmedAmount = computed(() => {
-    if (
-      confirmationForm.finalConfirmationBasis === 'COURT' &&
-      confirmationForm.courtRulingAmount
-    ) {
-      return confirmationForm.courtRulingAmount.toFixed(2);
-    } else if (confirmationForm.hasLawsuit && confirmationForm.lawsuitAmount) {
-      return confirmationForm.lawsuitAmount.toFixed(2);
-    } else if (
-      confirmationForm.hasObjection &&
-      confirmationForm.objectionAmount
-    ) {
-      return confirmationForm.objectionAmount.toFixed(2);
-    } else {
-      return Number(confirmationForm.finalConfirmedAmount).toFixed(2);
-    }
+    return Number(confirmationForm.finalConfirmedAmount).toFixed(2);
   });
 
   const resetConfirmationForm = () => {
     Object.assign(confirmationForm, {
-      meetingType: 'FIRST',
-      meetingDate: '',
-      meetingLocation: '',
       voteResult: 'AGREE',
       voteNotes: '',
-      hasObjection: false,
-      objector: '',
-      objectionReason: '',
-      objectionAmount: 0,
-      objectionDate: '',
-      negotiationResult: '',
-      negotiationDate: '',
-      negotiationParticipants: '',
-      courtRulingNo: '',
-      courtRulingResult: 'CONFIRMED',
-      courtRulingAmount: 0,
-      courtRulingDate: '',
-      courtRulingNotes: '',
-      hasLawsuit: false,
-      lawsuitCaseNo: '',
-      lawsuitStatus: 'PENDING',
-      lawsuitResult: 'WIN',
-      lawsuitAmount: 0,
-      lawsuitNotes: '',
       finalConfirmedAmount: 0,
       finalConfirmationDate: '',
-      finalConfirmationBasis: 'MEETING',
+      finalConfirmationBasis: '',
       confirmationAttachments: [] as number[],
-      confirmationStatus: 'PENDING',
       remarks: '',
     });
   };

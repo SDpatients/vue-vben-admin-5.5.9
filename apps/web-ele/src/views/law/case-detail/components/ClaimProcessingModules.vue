@@ -573,7 +573,7 @@ watch(() => props.moduleType, () => {
         >
           <ElTableColumn
             prop="creditor_name"
-            label="债权人姓名或名称"
+            label="债权人名称"
             min-width="180"
           />
           <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
@@ -685,7 +685,7 @@ watch(() => props.moduleType, () => {
         >
           <ElTableColumn
             prop="creditorName"
-            label="债权人姓名或名称"
+            label="债权人名称"
             min-width="180"
           />
           <ElTableColumn prop="declaredPrincipal" label="申报本金" width="120" />
@@ -870,10 +870,10 @@ watch(() => props.moduleType, () => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权人姓名或名称" required>
+              <ElFormItem label="债权人名称" required>
                 <ElInput
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
+                  placeholder="请输入债权人名称"
                 />
               </ElFormItem>
             </ElCol>

@@ -151,7 +151,7 @@ const getTypeText = (type?: string) => {
 
 const formatDateTime = (datetime?: string) => {
   if (!datetime) return ''
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm')
+  return dayjs(datetime).format('YYYY-MM-DD')
 }
 
 const isOverdue = (deadline: string) => {

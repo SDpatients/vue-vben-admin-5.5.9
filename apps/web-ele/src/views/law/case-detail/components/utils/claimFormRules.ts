@@ -1,6 +1,6 @@
 export const claimFormRules = {
   creditorName: [
-    { required: true, message: '请输入债权人姓名或名称', trigger: 'blur' },
+    { required: true, message: '请输入债权人名称', trigger: 'blur' },
   ],
   creditorType: [
     { required: true, message: '请选择债权人类型', trigger: 'change' },

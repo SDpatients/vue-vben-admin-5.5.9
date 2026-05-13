@@ -480,7 +480,7 @@ const getTimelineDotClass = (index: number) => {
 
 const formatDateTime = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 </script>
 

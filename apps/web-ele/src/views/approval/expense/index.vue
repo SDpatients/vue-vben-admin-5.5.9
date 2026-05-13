@@ -472,7 +472,7 @@ onMounted(() => {
             <template #default="scope">
               {{
                 scope.row.approvalTime
-                  ? new Date(scope.row.approvalTime).toLocaleString('zh-CN')
+                  ? new Date(scope.row.approvalTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </template>
@@ -481,7 +481,7 @@ onMounted(() => {
             <template #default="scope">
               {{
                 scope.row.createTime
-                  ? new Date(scope.row.createTime).toLocaleString('zh-CN')
+                  ? new Date(scope.row.createTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </template>
@@ -554,7 +554,7 @@ onMounted(() => {
             <el-descriptions-item label="创建时间">
               {{
                 currentDetail.createTime
-                  ? new Date(currentDetail.createTime).toLocaleString('zh-CN')
+                  ? new Date(currentDetail.createTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </el-descriptions-item>
@@ -567,7 +567,7 @@ onMounted(() => {
             <el-descriptions-item label="审批时间" :span="1">
               {{
                 currentDetail.approvalTime
-                  ? new Date(currentDetail.approvalTime).toLocaleString('zh-CN')
+                  ? new Date(currentDetail.approvalTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </el-descriptions-item>
@@ -630,7 +630,7 @@ onMounted(() => {
               <template #default="scope">
                 {{
                   scope.row.uploadTime
-                    ? new Date(scope.row.uploadTime).toLocaleString('zh-CN')
+                    ? new Date(scope.row.uploadTime).toLocaleDateString('zh-CN')
                     : '-'
                 }}
               </template>

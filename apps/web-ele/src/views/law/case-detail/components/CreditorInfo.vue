@@ -27,6 +27,7 @@ import {
   queryCreditorClaimsApi,
 } from '#/api/core/creditor-claim-query';
 import { createCreditorApi, getCreditorClaimStagesApi } from '#/api/core/creditor';
+import { getSensitiveDataViewApi } from '#/api/core/sensitive-data';
 
 const props = defineProps<{
   caseId: string;
@@ -184,6 +185,88 @@ const showDetailDialog = ref(false);
 const detailLoading = ref(false);
 const creditorDetailData = ref<any>(null);
 
+const showPasswordDialog = ref(false);
+const passwordLoading = ref(false);
+const passwordForm = ref({
+  password: '',
+});
+const currentSensitiveField = ref<{
+  dataType: string;
+  id: number;
+  rowKey: string;
+} | null>(null);
+const revealedDataMap = ref<Record<string, string>>({});
+
+const sensitiveFieldConfig = [
+  { prop: 'contactPhone', dataType: 'CREDITOR_CONTACT_PHONE', label: '联系电话' },
+  { prop: 'idNumber', dataType: 'CREDITOR_ID_NUMBER', label: '证件号码' },
+  { prop: 'creditorBankAccount', dataType: 'CREDITOR_BANK_ACCOUNT', label: '银行账号' },
+];
+
+function maskSensitiveValue(value: string | undefined | null): string {
+  if (!value) return '-';
+  const str = String(value);
+  if (str.length <= 2) return str;
+  if (str.length <= 4) return str[0] + '*'.repeat(str.length - 1);
+  return str.substring(0, 2) + '*'.repeat(str.length - 4) + str.substring(str.length - 2);
+}
+
+function getDisplayValue(row: any, prop: string, dataType: string): string {
+  const rowKey = `${row.creditorId}-${dataType}`;
+  if (revealedDataMap.value[rowKey]) {
+    return revealedDataMap.value[rowKey];
+  }
+  return maskSensitiveValue(row[prop]);
+}
+
+function isRevealed(row: any, dataType: string): boolean {
+  const rowKey = `${row.creditorId}-${dataType}`;
+  return !!revealedDataMap.value[rowKey];
+}
+
+function openPasswordDialog(row: any, dataType: string) {
+  currentSensitiveField.value = {
+    dataType,
+    id: row.creditorId,
+    rowKey: `${row.creditorId}-${dataType}`,
+  };
+  passwordForm.value.password = '';
+  showPasswordDialog.value = true;
+}
+
+async function handlePasswordConfirm() {
+  if (!passwordForm.value.password) {
+    ElMessage.warning('请输入密码');
+    return;
+  }
+  if (!currentSensitiveField.value) return;
+
+  passwordLoading.value = true;
+  try {
+    const response = await getSensitiveDataViewApi({
+      dataType: currentSensitiveField.value.dataType,
+      id: currentSensitiveField.value.id,
+      password: passwordForm.value.password,
+    });
+    if (response.code === 200 && response.data) {
+      revealedDataMap.value[currentSensitiveField.value.rowKey] = response.data.plainTextValue;
+      ElMessage.success('验证通过');
+      showPasswordDialog.value = false;
+    } else {
+      ElMessage.error(response.message || '密码验证失败');
+    }
+  } catch (error) {
+    ElMessage.error('密码验证失败');
+  } finally {
+    passwordLoading.value = false;
+  }
+}
+
+function closePasswordDialog() {
+  showPasswordDialog.value = false;
+  currentSensitiveField.value = null;
+}
+
 const openAddDialog = () => {
   addForm.value = {
     creditorName: '',
@@ -268,13 +351,10 @@ const formatDateTime = (dateStr: string | undefined | null) => {
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '-';
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch (error) {
     return '-';
   }
@@ -421,13 +501,58 @@ defineExpose({
               <span v-else class="text-gray-400">-</span>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="contactPhone" label="联系电话" width="130" />
-          <ElTableColumn prop="idNumber" label="证件号码" width="160" show-overflow-tooltip />
+          <ElTableColumn prop="contactPhone" label="联系电话" width="180">
+            <template #default="scope">
+              <div class="sensitive-field-cell">
+                <span>{{ getDisplayValue(scope.row, 'contactPhone', 'CREDITOR_CONTACT_PHONE') }}</span>
+                <ElButton
+                  v-if="!isRevealed(scope.row, 'CREDITOR_CONTACT_PHONE')"
+                  link
+                  type="primary"
+                  size="small"
+                  @click.stop="openPasswordDialog(scope.row, 'CREDITOR_CONTACT_PHONE')"
+                >
+                  查看全部
+                </ElButton>
+              </div>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn prop="idNumber" label="证件号码" width="200" show-overflow-tooltip>
+            <template #default="scope">
+              <div class="sensitive-field-cell">
+                <span>{{ getDisplayValue(scope.row, 'idNumber', 'CREDITOR_ID_NUMBER') }}</span>
+                <ElButton
+                  v-if="!isRevealed(scope.row, 'CREDITOR_ID_NUMBER')"
+                  link
+                  type="primary"
+                  size="small"
+                  @click.stop="openPasswordDialog(scope.row, 'CREDITOR_ID_NUMBER')"
+                >
+                  查看全部
+                </ElButton>
+              </div>
+            </template>
+          </ElTableColumn>
           <ElTableColumn prop="caseNumber" label="案件编号" width="130" show-overflow-tooltip />
           <ElTableColumn prop="caseName" label="案件名称" min-width="130" show-overflow-tooltip />
           <ElTableColumn prop="claimType" label="债权类型" width="120" />
           <ElTableColumn prop="accountName" label="账户名称" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="creditorBankAccount" label="银行账号" width="180" />
+          <ElTableColumn prop="creditorBankAccount" label="银行账号" width="210">
+            <template #default="scope">
+              <div class="sensitive-field-cell">
+                <span>{{ getDisplayValue(scope.row, 'creditorBankAccount', 'CREDITOR_BANK_ACCOUNT') }}</span>
+                <ElButton
+                  v-if="!isRevealed(scope.row, 'CREDITOR_BANK_ACCOUNT')"
+                  link
+                  type="primary"
+                  size="small"
+                  @click.stop="openPasswordDialog(scope.row, 'CREDITOR_BANK_ACCOUNT')"
+                >
+                  查看全部
+                </ElButton>
+              </div>
+            </template>
+          </ElTableColumn>
           <ElTableColumn prop="bankName" label="开户银行" min-width="150" show-overflow-tooltip />
           <ElTableColumn prop="declaredPrincipal" label="申报本金" width="120" align="right">
             <template #default="scope">
@@ -719,8 +844,8 @@ defineExpose({
                   <ElDescriptionsItem label="未确认总金额">{{ formatCurrency(review.unconfirmedTotalAmount) }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="确认债权性质">{{ review.confirmedClaimNature || '-' }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="证据真实性">
-                    <ElTag :type="review.evidenceAuthenticity === 'VALID' ? 'success' : 'danger'" size="small">
-                      {{ review.evidenceAuthenticity === 'VALID' ? '有效' : '无效' }}
+                    <ElTag :type="review.evidenceAuthenticity === 'AUTHENTIC' ? 'success' : review.evidenceAuthenticity === 'FAKE' ? 'danger' : 'warning'" size="small">
+                      {{ review.evidenceAuthenticity === 'AUTHENTIC' ? '真实' : review.evidenceAuthenticity === 'FAKE' ? '伪造' : '存疑' }}
                     </ElTag>
                   </ElDescriptionsItem>
                   <ElDescriptionsItem label="证据相关性">
@@ -819,6 +944,45 @@ defineExpose({
     <template #footer>
       <span class="dialog-footer">
         <ElButton @click="closeDetailDialog">关闭</ElButton>
+      </span>
+    </template>
+  </ElDialog>
+
+  <!-- 密码验证对话框 -->
+  <ElDialog
+    v-model="showPasswordDialog"
+    title="身份验证"
+    width="420px"
+    destroy-on-close
+    @close="closePasswordDialog"
+  >
+    <div class="password-verify-content">
+      <div class="mb-4 text-sm text-gray-500">
+        <Icon icon="lucide:shield-alert" class="mr-1 inline-block text-warning" />
+        此操作需要验证您的身份，请输入当前登录密码
+      </div>
+      <ElForm label-width="0" :model="passwordForm">
+        <ElFormItem>
+          <ElInput
+            v-model="passwordForm.password"
+            type="password"
+            placeholder="请输入您的登录密码"
+            show-password
+            @keyup.enter="handlePasswordConfirm"
+          />
+        </ElFormItem>
+      </ElForm>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <ElButton @click="closePasswordDialog">取消</ElButton>
+        <ElButton
+          type="primary"
+          :loading="passwordLoading"
+          @click="handlePasswordConfirm"
+        >
+          确认
+        </ElButton>
       </span>
     </template>
   </ElDialog>
@@ -929,5 +1093,15 @@ defineExpose({
   :deep(.el-descriptions :is(.el-descriptions__label, .el-descriptions__content)) {
     font-size: 14px;
   }
+}
+
+.sensitive-field-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.password-verify-content {
+  padding: 8px 0;
 }
 </style>

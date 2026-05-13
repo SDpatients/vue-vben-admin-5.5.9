@@ -139,7 +139,11 @@ const getActionText = (action: string) => {
 
 const formatTime = (time: string) => {
   if (!time) return '';
-  return new Date(time).toLocaleString('zh-CN');
+  const d = new Date(time);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 </script>
 

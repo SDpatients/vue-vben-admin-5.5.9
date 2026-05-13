@@ -239,7 +239,7 @@ const formatDate = (date?: string) => {
 
 const formatDateTime = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('MM-DD HH:mm')
+  return dayjs(date).format('MM-DD')
 }
 
 const formatAmount = (amount?: number) => {

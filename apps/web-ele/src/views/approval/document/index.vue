@@ -124,11 +124,8 @@ const formatDateTime = (dateString: string | undefined): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
 
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  return `${year}-${month}-${day}`;
 };
 
 // 预览文件
@@ -476,12 +473,16 @@ const handleReset = () => {
 const handleViewDetail = async (row: DocumentApproval) => {
   currentDocument.value = row;
   dialogVisible.value = true;
+  await loadDocumentAttachments(row.id);
+};
 
-  // 获取附件列表
+// 加载文档附件列表
+const loadDocumentAttachments = async (documentId: number | undefined) => {
+  if (!documentId) return;
+  
   try {
-    const response = await getDocumentAttachmentsApi(row.id);
+    const response = await getDocumentAttachmentsApi(documentId);
     if (response && response.data) {
-      const token = localStorage.getItem('token');
       const attachments: DocumentAttachment[] = [];
       
       // 处理每个附件记录
@@ -563,7 +564,9 @@ const handleViewDetail = async (row: DocumentApproval) => {
         }
       }
       
-      currentDocument.value.attachments = attachments;
+      if (currentDocument.value) {
+        currentDocument.value.attachments = attachments;
+      }
     }
   } catch (error) {
     console.error('获取附件列表失败:', error);
@@ -571,22 +574,24 @@ const handleViewDetail = async (row: DocumentApproval) => {
   }
 };
 
-const handleApprove = (row: DocumentApproval) => {
+const handleApprove = async (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
     status: 'APPROVED',
   };
   dialogVisible.value = true;
+  await loadDocumentAttachments(row.id);
 };
 
-const handleReject = (row: DocumentApproval) => {
+const handleReject = async (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
     status: 'REJECTED',
   };
   dialogVisible.value = true;
+  await loadDocumentAttachments(row.id);
 };
 
 const handleConfirmApproval = async () => {

@@ -494,11 +494,11 @@ const calendarOptions = ref({
     
     if (eventType === 'workplan') {
       if (event.end) {
-        tooltipContent += `<br/>截止时间：${new Date(event.end).toLocaleString('zh-CN')}`;
+        tooltipContent += `<br/>截止时间：${new Date(event.end).toLocaleDateString('zh-CN')}`;
       }
     } else {
       if (event.start) {
-        tooltipContent += `<br/>截止时间：${new Date(event.start).toLocaleString('zh-CN')}`;
+        tooltipContent += `<br/>截止时间：${new Date(event.start).toLocaleDateString('zh-CN')}`;
       }
     }
     
@@ -892,13 +892,10 @@ const announcementTypeMap: Record<string, { label: string; type: string }> = {
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // 加载公告列表
@@ -2318,7 +2315,7 @@ onUnmounted(() => {
         </div>
         <div class="detail-item">
           <div class="label">截止时间</div>
-          <div class="value text-sm">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleString('zh-CN') : '-' }}</div>
+          <div class="value text-sm">{{ selectedTodo.start ? new Date(selectedTodo.start).toLocaleDateString('zh-CN') : '-' }}</div>
         </div>
         <div v-if="selectedTodo.description" class="detail-item">
           <div class="label">描述</div>

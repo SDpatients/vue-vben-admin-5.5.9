@@ -72,7 +72,10 @@ const formatDateTime = (timestamp: number | string | undefined) => {
   try {
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('zh-CN');
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch {
     return '-';
   }

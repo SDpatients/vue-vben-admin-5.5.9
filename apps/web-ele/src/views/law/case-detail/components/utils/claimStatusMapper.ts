@@ -38,6 +38,7 @@ export const getReviewStatusTag = (status: string) => {
     COMPLETED: { type: 'success', text: '已完成' },
     SUPPLEMENT: { type: 'danger', text: '待补充' },
     CONFIRMING: { type: 'info', text: '确认中' },
+    REJECTED: { type: 'danger', text: '已驳回' },
   };
   return statusMap[status] || { type: 'info', text: status };
 };

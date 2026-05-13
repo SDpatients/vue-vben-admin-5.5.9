@@ -334,7 +334,7 @@ const formatFileSize = (size?: number) => {
 const formatDateTime = (time?: string) => {
   if (!time) return '-'
   const date = new Date(time)
-  return date.toLocaleString('zh-CN')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 
 const formatTime = (time?: string) => {

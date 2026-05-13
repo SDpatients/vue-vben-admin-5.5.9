@@ -480,7 +480,7 @@ onMounted(() => {
             <template #default="scope">
               {{
                 scope.row.transactionDate
-                  ? new Date(scope.row.transactionDate).toLocaleString('zh-CN')
+                  ? new Date(scope.row.transactionDate).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </template>
@@ -495,7 +495,7 @@ onMounted(() => {
             <template #default="scope">
               {{
                 scope.row.operationTime
-                  ? new Date(scope.row.operationTime).toLocaleString('zh-CN')
+                  ? new Date(scope.row.operationTime).toLocaleDateString('zh-CN')
                   : '-'
               }}
             </template>

@@ -190,7 +190,7 @@ const getStatusClass = (status?: string) => {
 
 const formatDateTime = (datetime?: string) => {
   if (!datetime) return ''
-  return dayjs(datetime).format('YYYY-MM-DD HH:mm:ss')
+  return dayjs(datetime).format('YYYY-MM-DD')
 }
 
 const isExpired = (expireTime: string) => {

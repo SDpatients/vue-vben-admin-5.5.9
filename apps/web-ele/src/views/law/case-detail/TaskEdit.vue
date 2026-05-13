@@ -2182,6 +2182,15 @@ const handleRevoke = async () => {
   }
 };
 
+const formatDate = (dateStr: string | Date) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const formRules = computed(() => {
   const rules: any = {};
   const fields = currentConfig.value.fields || [];
@@ -2275,9 +2284,7 @@ const formRules = computed(() => {
                   MB</span
                 >
                 <span class="file-uploader">上传者: {{ file.uploadUser }}</span>
-                <span class="file-date">{{
-                  new Date(file.uploadDate).toLocaleString('zh-CN')
-                }}</span>
+                <span class="file-date">{{ formatDate(file.uploadDate) }}</span>
                 <ElTag size="small" type="success" v-if="file.version > 1">
                   V{{ file.version }}
                 </ElTag>

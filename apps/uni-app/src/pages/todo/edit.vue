@@ -309,7 +309,7 @@ const loadTodoDetail = async () => {
     if (res.data) {
       todoForm.value = {
         ...res.data,
-        deadline: res.data.deadline ? dayjs(res.data.deadline).format('YYYY-MM-DD HH:mm') : '',
+        deadline: res.data.deadline ? dayjs(res.data.deadline).format('YYYY-MM-DD') : '',
       }
 
       // 如果有案号，显示已选案件
@@ -464,7 +464,7 @@ const highlightKeyword = (text: string, keyword: string) => {
 }
 
 const onDateConfirm = (e: any) => {
-  todoForm.value.deadline = dayjs(e.value).format('YYYY-MM-DD HH:mm')
+  todoForm.value.deadline = dayjs(e.value).format('YYYY-MM-DD')
   showDatePicker.value = false
   }
 
@@ -488,7 +488,7 @@ const handleSubmit = async () => {
     let res
     const submitData = {
       ...todoForm.value,
-      deadline: todoForm.value.deadline ? dayjs(todoForm.value.deadline).format('YYYY-MM-DD HH:mm:ss') : undefined,
+      deadline: todoForm.value.deadline ? dayjs(todoForm.value.deadline).format('YYYY-MM-DD') : undefined,
     }
 
     if (mode.value === 'add') {

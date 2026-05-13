@@ -766,3 +766,32 @@ export async function clearRecentSearchesApi() {
 export async function removeRecentSearchApi(caseId: number) {
   return requestClient8080.delete<CaseApi.CommonResponse>(`/case/recent-searches/${caseId}`);
 }
+
+export namespace CaseAccessibleUserApi {
+  export interface AccessibleUser {
+    userId: number;
+    username: string;
+    realName: string;
+    email: string;
+    phone: string;
+    accessType: string;
+    accessRole: string;
+    accessTime: string;
+  }
+
+  export interface AccessibleUsersResponse {
+    code: number;
+    message: string;
+    data: AccessibleUser[];
+  }
+}
+
+/**
+ * 获取案件可访问用户列表（创建者和团队成员）
+ * GET /case/{caseId}/accessible-users
+ */
+export async function getCaseAccessibleUsersApi(caseId: number) {
+  return requestClient8080.get<CaseAccessibleUserApi.AccessibleUsersResponse>(
+    `/case/${caseId}/accessible-users`,
+  );
+}

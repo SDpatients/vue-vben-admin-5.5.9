@@ -315,7 +315,7 @@ const onWorkTypeChange = (e: any) => {
 
 const formatDate = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('MM-DD HH:mm')
+  return dayjs(date).format('MM-DD')
 }
 
 const formatWorkDate = (date?: string) => {
@@ -325,7 +325,7 @@ const formatWorkDate = (date?: string) => {
 
 const formatDateTime = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 
 const getWorkTypeText = (type?: string) => {

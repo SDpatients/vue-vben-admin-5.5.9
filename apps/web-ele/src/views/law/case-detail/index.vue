@@ -3037,6 +3037,7 @@ const sendDocument = async (documentId: number) => {
     return;
   }
   try {
+    const response = await updateDocumentSendStatusApi(documentId, 'SENT');
     if (response.code === 200) {
       ElMessage.success('文书发送成功');
       // 刷新列表
@@ -3198,13 +3199,10 @@ const closePreviewDialog = () => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const getDocumentAttachmentUrl = (attachmentPath: string) => {
@@ -5203,13 +5201,10 @@ const formatDateTime = (dateTime: null | string | undefined) => {
   if (!dateTime) return '-';
   try {
     const date = new Date(dateTime);
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch (error) {
     console.error('日期格式化失败:', error);
     return dateTime;

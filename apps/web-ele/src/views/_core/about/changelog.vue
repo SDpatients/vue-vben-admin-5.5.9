@@ -5,265 +5,360 @@
  * Copyright (c) 2024-present, Vben.
  */
 
+import { computed, ref } from 'vue';
+
 import { Card, Page } from '@vben/common-ui';
 
-import { ElTag, ElTimeline, ElTimelineItem } from 'element-plus';
+import { ElButton, ElTag, ElTimeline, ElTimelineItem } from 'element-plus';
 
 import { customerConfig } from '#/customer.config';
 
 defineOptions({ name: 'ChangelogPage' });
 
+type Platform = 'web' | 'uni-app' | 'all';
+
+interface ChangelogItem {
+  text: string;
+  platform: Platform;
+}
+
 interface ChangelogEntry {
   date: string;
-  features: string[];
-  fixes: string[];
-  improvements: string[];
+  features: ChangelogItem[];
+  fixes: ChangelogItem[];
+  improvements: ChangelogItem[];
   version: string;
 }
 
+const activePlatform = ref<'web' | 'uni-app'>('web');
+
+const platformOptions = [
+  { key: 'web' as const, label: '网页端', icon: '🖥️' },
+  { key: 'uni-app' as const, label: '移动端', icon: '📱' },
+];
+
 const changelogs: ChangelogEntry[] = [
+  {
+    date: '2026-05-12',
+    features: [
+      { text: '可以在后台统一管理所有使用人员的账号、角色和启用状态了', platform: 'web' },
+      { text: '系统数据现在支持定期自动备份，发生意外时能快速恢复', platform: 'web' },
+      { text: '查看敏感信息（身份证号、联系方式等）需要额外授权确认，信息更安全', platform: 'web' },
+      { text: '用户协议和隐私政策可以在后台随时更新，无需等待技术人员处理', platform: 'web' },
+      { text: '设置密码时系统会提示安全强度，帮助您使用更可靠的密码', platform: 'all' },
+      { text: '系统授权到期前会自动提醒续期，不影响正常办公', platform: 'web' },
+      { text: '手机上也能随时查看和处理审批事项了，出差在外也不耽误', platform: 'uni-app' },
+      { text: '首次使用手机端会展示用户协议与隐私政策，保障您的知情权', platform: 'uni-app' },
+      { text: '手机上查看敏感信息也需要权限验证，外出办公数据也安全', platform: 'uni-app' },
+      { text: '系统安装部署更简单了，无需专业技术人员即可完成环境搭建', platform: 'web' },
+    ],
+    fixes: [
+      { text: '手机端登录更加流畅稳定，不会再出现页面卡顿或闪退', platform: 'uni-app' },
+      { text: '管理人、法院、银行等基础信息页面数据展示更加准确完整', platform: 'all' },
+      { text: '文件上传更稳定了，按分类查找文档也更加准确', platform: 'all' },
+    ],
+    improvements: [
+      { text: '手机端登录页面全新改版，操作更顺手，视觉更清爽', platform: 'uni-app' },
+      { text: '案件各阶段的切换更流畅，案件进度和关键信息一眼就能看清', platform: 'uni-app' },
+      { text: '手机上查找和管理文档更加方便快捷', platform: 'uni-app' },
+      { text: '费用报销的审批规则设置更灵活，报销流程更加清晰顺畅', platform: 'web' },
+      { text: '工作台的图表和数据展示更加直观，关键指标一目了然', platform: 'web' },
+      { text: '填写债权申报信息时，系统会智能提醒漏填或填写有误的地方', platform: 'all' },
+      { text: '文档统计信息更加直观，文档数量和分类占比一眼看清', platform: 'web' },
+      { text: '左侧功能菜单布局更合理，常用功能更容易找到', platform: 'web' },
+      { text: '遇到操作问题时系统提示更清晰明了，方便快速定位和解决', platform: 'all' },
+      { text: '登录和注册页面更好看了，操作流程更自然顺畅', platform: 'all' },
+    ],
+    version: 'V5.6.1',
+  },
   {
     date: '2026-05-09',
     features: [
-      '新增产品介绍页面，涵盖系统架构与功能模块全景展示',
-      '新增数据字典管理 API，支持动态数据字典与系统参数查询',
-      'uni-app 端新增基础数据信息维护功能，支持管理人、法院等多类信息管理',
-      'uni-app 端新增案件债务人信息页面，完善案件全链条信息覆盖',
-      '新增 uni-app 页面参数传递工具(pageParam)，统一跨页面数据交互',
+      { text: '新增产品介绍页面，可以全面了解系统的功能布局和使用场景', platform: 'web' },
+      { text: '系统中常用的下拉选项（案件类型、费用类别等）可以在后台自行配置了', platform: 'all' },
+      { text: '手机上现在可以查看和维护管理人、法院等基础信息了', platform: 'uni-app' },
+      { text: '手机上可以查看案件对应的债务人信息，信息查询更全面', platform: 'uni-app' },
+      { text: '手机端不同页面之间传递数据更加稳定，不会出现信息丢失', platform: 'uni-app' },
     ],
     fixes: [
-      '修复债权申报阶段二、阶段三多项数据校验与字段回填问题',
-      '修复文档预览组件在特定场景下的渲染兼容性问题',
-      '修复案件详情页多处交互 Bug 与状态不一致问题',
-      '修复即时通讯窗口消息推送偶发丢失的缺陷',
+      { text: '债权申报第二阶段和第三阶段填写校验更准确，数据保存更可靠', platform: 'all' },
+      { text: '在线预览文件更加稳定，不会再出现部分文件打不开的情况', platform: 'all' },
+      { text: '案件详情页面操作更稳定，不会出现页面显示与实际数据不符', platform: 'all' },
+      { text: '即时通讯的消息接收更及时了，不会再漏掉重要消息', platform: 'all' },
     ],
     improvements: [
-      'uni-app 移动端全面适配优化，涵盖案件管理、文档库、费用报销等核心模块',
-      '重构 uni-app 文档库模块，优化文件夹浏览、文件上传与预览体验',
-      '重构案件详情页面，优化操作流程、信息展示与多 Tab 联动',
-      '增强债权申报全流程功能完整性，完善三阶段数据协同',
-      '扩展文书生成器功能，支持更丰富的模板预览与在线编辑',
-      '完善文档库 Dashboard、收藏夹、全局搜索等多视图功能',
-      '优化案件审批与费用报销审批流程交互',
-      '全面清理项目冗余文档与旧版 API 文档，精简项目结构',
-      '更新应用 Logo 与品牌视觉标识',
+      { text: '手机端案件管理、文档查阅、费用报销等核心功能全面优化，用起来更顺手', platform: 'uni-app' },
+      { text: '手机上浏览文件夹层次更清晰，上传和预览文件更流畅', platform: 'uni-app' },
+      { text: '案件详情页面重新设计，信息展示更有条理，各功能切换更自然', platform: 'all' },
+      { text: '债权申报三个阶段的流程衔接更紧密，数据协同更顺畅', platform: 'all' },
+      { text: '文书生成器支持更多模板样式，在线预览和编辑更方便', platform: 'all' },
+      { text: '文档库新增多种浏览方式，查找和管理文件更高效', platform: 'all' },
+      { text: '案件审批和费用报销审批流程更简洁高效', platform: 'all' },
+      { text: '对系统进行了全面清理和瘦身，整体运行更加流畅', platform: 'all' },
+      { text: '品牌标识全新升级，系统界面视觉更加统一专业', platform: 'all' },
     ],
     version: 'V5.6.0',
   },
   {
     date: '2026-04-30',
     features: [
-      '新增 FileUploader 通用文件上传组件，统一 Web 端文件上传交互',
-      '新增前端日志工具(logger)，支持分级日志输出与问题追踪',
-      '新增 HTML 内容安全过滤工具(htmlSanitizer)，增强 XSS 防护能力',
-      '新增费用制度管理路由模块，完善费用管控体系',
-      '新增 Dashboard 节点预警看板，实时监控各案件阶段节点状态',
-      '新增案件详情工作日志图片查看组件，支持图片预览与检索',
+      { text: '系统中上传文件的操作方式统一了，无论在哪里上传都简单一致', platform: 'web' },
+      { text: '系统运行问题更容易被追踪和定位，故障处理更高效', platform: 'all' },
+      { text: '网页内容安全防护升级，有效防止恶意内容注入', platform: 'all' },
+      { text: '费用相关的管理规则可以在后台更灵活地配置了', platform: 'web' },
+      { text: '新增案件节点预警看板，可以实时看到哪些案件的哪个阶段即将到期', platform: 'web' },
+      { text: '工作日志中的现场照片可以点击放大查看细节了', platform: 'web' },
     ],
     fixes: [
-      '修复待办事项模块多项 API 接口规范与类型定义问题',
-      '修复多个业务 API 模块的请求参数与响应类型不匹配问题',
-      '修复案件管理列表部分筛选条件下数据加载异常',
+      { text: '待办事项的显示数量更加准确，和实际情况完全一致', platform: 'all' },
+      { text: '各业务模块之间的数据交互更加稳定，不会再出现数据对不上的情况', platform: 'all' },
+      { text: '案件列表在特定筛选条件下数据可以正常加载了', platform: 'all' },
     ],
     improvements: [
-      '大幅重构 Dashboard 活动待办看板，优化数据展示与交互逻辑',
-      '重构案件详情页面结构，优化模块化组织与代码可维护性',
-      '优化案件管理列表页面性能，提升大数据量场景下的加载速度',
-      '完善即时通讯窗口消息推送机制与在线状态管理',
-      '优化用户登录页面交互体验与表单验证逻辑',
-      '统一 API 请求拦截器处理逻辑，增强超时重试与异常处理',
-      '更新 ECharts 图表组件版本与渲染配置',
+      { text: '工作台的待办看板全新升级，信息展示更清晰，操作更顺手', platform: 'web' },
+      { text: '案件详情页面结构优化，加载更快，操作更流畅', platform: 'all' },
+      { text: '案件列表在数据量很多时打开速度明显提升', platform: 'all' },
+      { text: '即时通讯的消息交流和在线状态显示更加稳定可靠', platform: 'all' },
+      { text: '登录页面的信息填写和验证更加顺畅友好', platform: 'all' },
+      { text: '网络不稳定时系统会自动重试，减少因网络波动导致的操作中断', platform: 'all' },
+      { text: '统计图表效果升级，数据展示更加直观美观', platform: 'web' },
     ],
     version: 'V5.5.10',
   },
   {
     date: '2026-04-28',
     features: [
-      '新增移动端文件拍照上传功能，支持案卷材料现场采集',
-      '新增案件操作记录审计日志，完整追溯所有关键操作',
+      { text: '手机上可以直接拍照上传案卷材料了，现场采集证据更加方便快捷', platform: 'uni-app' },
+      { text: '案件的所有关键操作都有记录可查，谁在什么时候做了什么一目了然', platform: 'all' },
     ],
     fixes: [
-      '修复债权审查阶段金额计算精度丢失问题',
-      '修复 Safari 浏览器下文件预览兼容性问题',
-      '修复资金流水导出 Excel 时日期格式异常',
+      { text: '债权审查中涉及金额的计算更加精确，不会出现小数点偏差', platform: 'all' },
+      { text: '使用 Safari 浏览器预览文件时不会再出现显示异常', platform: 'all' },
+      { text: '资金流水导出到 Excel 时日期格式显示正常了', platform: 'all' },
     ],
     improvements: [
-      '优化案件列表大数据量下的加载性能，支持虚拟滚动',
-      '优化即时通讯消息推送稳定性，增加断线重连机制',
-      '完善系统监控看板，新增 JVM 内存与数据库连接池监控',
+      { text: '案件数量很多时列表浏览依然流畅，不会卡顿', platform: 'all' },
+      { text: '即时通讯掉线后会自动重连，同事之间交流不掉线', platform: 'all' },
+      { text: '系统运行状态监控更加全面，可以及时发现和处理潜在问题', platform: 'all' },
     ],
     version: 'V5.5.9',
   },
   {
     date: '2026-04-15',
     features: [
-      '新增费用报销多级审批流程配置功能',
-      '新增文书模板在线编辑器，支持变量占位符可视化插入',
+      { text: '费用报销可以设置多级审批了，报销流程更加规范严谨', platform: 'all' },
+      { text: '编辑文书模板时可以直观地插入变量占位符，模板制作效率更高', platform: 'all' },
     ],
     fixes: [
-      '修复工作日志图片预览在某些场景下无法加载的问题',
-      '修复案件任务截止日期提醒通知延迟发送的缺陷',
+      { text: '工作日志中的图片预览在绝大多数情况下都能正常显示了', platform: 'all' },
+      { text: '案件任务到期的提醒通知按时送达，不再延迟', platform: 'all' },
     ],
     improvements: [
-      '优化债权申报表单交互体验，支持草稿自动保存',
-      '升级 Element Plus 至 2.7.x，享受最新组件特性',
-      '重构通知中心标记已读逻辑，支持批量操作',
+      { text: '填写债权申报表单时会自动保存草稿，不怕中途退出丢失数据', platform: 'all' },
+      { text: '系统底层组件升级，整体界面交互更加流畅稳定', platform: 'web' },
+      { text: '通知消息可以一键全部标记为已读，处理效率大幅提升', platform: 'all' },
     ],
     version: 'V5.5.8',
   },
   {
     date: '2026-03-28',
     features: [
-      '新增破产案件财产变价方案在线编辑与审批功能',
-      '新增管理人银行账户余额实时查询与预警',
+      { text: '破产案件的财产变价方案可以在线编辑并提交审批了', platform: 'all' },
+      { text: '管理人名下银行账户余额可以实时查看，余额不足时自动预警', platform: 'all' },
     ],
     fixes: [
-      '修复资金流水报表按月份筛选时数据不准确的问题',
-      '修复债权人信息批量导入时手机号校验规则过严的缺陷',
-      '修复部分情况下待办事项计数与实际不符的 Bug',
+      { text: '资金流水报表按月份筛选时数据完全准确了', platform: 'all' },
+      { text: '批量导入债权人信息时，手机号校验不再过于严格导致无法导入', platform: 'all' },
+      { text: '待办事项的计数显示和实际数量完全一致', platform: 'all' },
     ],
     improvements: [
-      '优化案件流程阶段切换动画，提升视觉体验',
-      '重构文档库权限管理模块，支持文件夹级权限继承',
-      '改进系统参数配置界面，增加配置项搜索功能',
+      { text: '案件各阶段的切换动画更加流畅自然，操作体验更好', platform: 'all' },
+      { text: '文档库的权限设置更灵活，可以按文件夹分别设置不同人的访问权限', platform: 'all' },
+      { text: '系统参数配置页面增加了搜索功能，快速找到需要修改的配置项', platform: 'all' },
     ],
     version: 'V5.5.7',
   },
   {
     date: '2026-03-12',
     features: [
-      '新增工作团队管理功能，支持多团队协作与任务分配',
-      '新增 OnlyOffice 模板在线预览与编辑集成',
+      { text: '支持按工作团队分组协作，任务分配更加清晰高效', platform: 'all' },
+      { text: '可以在线预览和编辑 Office 文档模板了', platform: 'all' },
     ],
     fixes: [
-      '修复案件详情页债权列表分页切换后筛选条件丢失问题',
-      '修复 Firefox 浏览器下部分日期选择器样式错乱',
+      { text: '案件详情中切换债权列表分页后，之前设置的筛选条件不会丢失', platform: 'all' },
+      { text: 'Firefox 浏览器下日期选择器的显示完全正常了', platform: 'all' },
     ],
     improvements: [
-      '优化案件搜索功能，支持按案号、当事人、法院等多维度检索',
-      '重构文件上传组件，支持断点续传与秒传',
-      '改进 Dashboard 图表数据加载方式，减少首屏等待时间',
+      { text: '案件搜索功能更强大，可以按案号、当事人名、法院名等多条件组合搜索', platform: 'all' },
+      { text: '上传大文件时如果网络中断，恢复后可以从断点继续上传，不用重新来', platform: 'all' },
+      { text: '打开系统后首页图表加载更快，等待时间明显缩短', platform: 'all' },
     ],
     version: 'V5.5.6',
   },
   {
     date: '2026-02-20',
     features: [
-      '新增破产费用与共益债务专项管理模块',
-      '新增公告模板管理功能，支持常用公告一键生成',
+      { text: '破产费用和共益债务可以单独列项管理了，账目更加清晰', platform: 'all' },
+      { text: '常用公告可以一键生成模板，不用每次手动从头编写', platform: 'all' },
     ],
     fixes: [
-      '修复债权确认阶段金额汇总统计偏差问题',
-      '修复移动端 H5 页面在 iOS 15 以下版本的兼容性问题',
+      { text: '债权确认环节的金额汇总统计完全准确了', platform: 'all' },
+      { text: '在 iOS 15 以下版本的手机上使用不会再出现兼容性问题', platform: 'uni-app' },
     ],
     improvements: [
-      '优化 JWT Token 刷新机制，提升用户体验连续性',
-      '重构即时通讯模块 WebSocket 连接管理，降低资源占用',
-      '改进页面路由切换动画流畅度',
+      { text: '登录状态保持更稳定，长时间不操作后回来还能继续工作', platform: 'all' },
+      { text: '即时通讯运行更省资源，长时间在线不影响电脑或手机流畅度', platform: 'all' },
+      { text: '页面之间的切换动画更加流畅，整体操作手感更顺滑', platform: 'all' },
     ],
     version: 'V5.5.5',
   },
   {
     date: '2026-02-05',
     features: [
-      '新增文档分享功能，支持链接分享与密码保护',
-      '新增资金账户交易流水自动对账功能',
+      { text: '文档可以生成分享链接并设置密码，安全地分享给团队外部人员', platform: 'all' },
+      { text: '银行资金流水可以自动对账了，大幅减少人工逐笔核对的工作量', platform: 'all' },
     ],
     fixes: [
-      '修复案件归档时附件关联丢失的问题',
-      '修复用户管理中角色分配保存后未即时生效的缺陷',
+      { text: '案件归档时附件不会再丢失关联，归档记录完整可靠', platform: 'all' },
+      { text: '分配角色后立即生效，不需要退出重新登录', platform: 'web' },
     ],
     improvements: [
-      '优化 Excel 导入导出功能，支持大数据量分批处理',
-      '改进文档预览组件，新增 PDF 页码导航与缩放控制',
-      '完善系统全局异常处理机制，提升错误信息可读性',
+      { text: 'Excel 导入导出支持大批量数据，不会因为数据太多而卡住或超时', platform: 'all' },
+      { text: 'PDF 预览时可以跳转到指定页码，还可以放大缩小查看', platform: 'all' },
+      { text: '系统出问题时的提示信息更清晰了，一看就明白发生了什么', platform: 'all' },
     ],
     version: 'V5.5.4',
   },
   {
     date: '2026-01-18',
     features: [
-      '新增债权人会议表决在线记录与统计功能',
-      '新增案件节点延期审批流程',
+      { text: '债权人会议的表决结果可以在线记录并自动汇总统计了', platform: 'all' },
+      { text: '案件关键节点如需延期，可以直接在线提交延期审批', platform: 'all' },
     ],
     fixes: [
-      '修复资金流水新增时账户余额未实时更新的问题',
-      '修复部分场景下待办事项推送延迟的缺陷',
+      { text: '新增资金流水后，账户余额会立即更新显示，不用手动刷新', platform: 'all' },
+      { text: '新任务到账即时通知，待办事项不再延迟推送', platform: 'all' },
     ],
     improvements: [
-      '优化案件阶段任务卡片展示，增加进度百分比指示',
-      '重构审批流程状态机，支持更灵活的流程配置',
-      '改进系统全局搜索功能，支持拼音模糊匹配',
+      { text: '案件各阶段的任务卡片上会显示完成进度的百分比，进度一目了然', platform: 'all' },
+      { text: '审批流程配置更灵活，可以适应各种实际业务场景', platform: 'all' },
+      { text: '全局搜索支持拼音模糊搜索，输入拼音首字母就能找到', platform: 'all' },
     ],
     version: 'V5.5.3',
   },
   {
     date: '2026-01-06',
     features: [
-      '新增破产案件财产调查报告在线生成功能',
-      '新增管理人印章使用登记管理',
+      { text: '破产案件的财产调查报告可以在线生成并一键导出', platform: 'all' },
+      { text: '管理人印章的使用可以登记记录了，用印情况有据可查', platform: 'all' },
     ],
     fixes: [
-      '修复债权审查意见书生成时部分字段为空的问题',
-      '修复 Dashboard 数据看板部分图表自适应异常',
+      { text: '债权审查意见书生成时不会再出现部分字段内容为空的情况', platform: 'all' },
+      { text: '数据看板的图表在不同屏幕尺寸下都能正常显示', platform: 'all' },
     ],
     improvements: [
-      '优化文档库文件夹导航交互，支持面包屑路径跳转',
-      '改进表单验证规则提示信息，更加友好明确',
-      '升级 Spring Boot 后端依赖至最新稳定版',
+      { text: '文档库的文件夹导航支持点击路径跳转，就像电脑上操作文件夹一样', platform: 'all' },
+      { text: '表单填写时的提示信息更加清晰友好，一眼就明白哪里需要修改', platform: 'all' },
+      { text: '后端服务升级，系统整体运行更加稳定高效', platform: 'all' },
     ],
     version: 'V5.5.2',
   },
   {
     date: '2025-12-24',
     features: [
-      '新增即时通讯模块，支持点对点消息与群组聊天',
-      '新增系统通知中心，统一管理各类业务通知',
+      { text: '新增系统内置即时通讯，同事之间可以直接在线聊天和建群讨论', platform: 'all' },
+      { text: '所有业务通知统一管理，审批提醒、任务到期等通知不再遗漏', platform: 'all' },
     ],
     fixes: [
-      '修复案件创建时法定代表人工商信息校验异常',
-      '修复部分低分辨率屏幕下侧边栏菜单展开重叠问题',
+      { text: '新建案件时法定代表人信息校验不再过于严苛导致无法提交', platform: 'all' },
+      { text: '小屏幕设备上侧边栏菜单不会再重叠错位', platform: 'all' },
     ],
     improvements: [
-      '优化系统首次加载性能，代码分割减少初始包体积',
-      '重构用户权限体系，支持更细粒度的操作权限控制',
-      '完善 API 请求拦截器，增加请求重试与超时处理',
+      { text: '系统首次打开速度明显提升，不需要等太久就能开始工作', platform: 'all' },
+      { text: '权限管理更加精细，不同岗位的人员可以有不同的操作权限', platform: 'all' },
+      { text: '网络请求失败时会自动重试，减少因网络波动导致的操作失败', platform: 'all' },
     ],
     version: 'V5.5.1',
   },
   {
     date: '2025-12-10',
     features: [
-      '全新升级至 Vue Vben Admin 5.x 架构，采用 Monorepo 工程化方案',
-      '全面重构破产案件管理模块，支持七阶段二十三节点流程管控',
-      '新增债权申报、审查、确认三阶段全流程管理',
-      '新增资金管理模块，涵盖账户管理、资金流水、统计报表',
-      '新增费用报销管理，支持多类型费用记录与审批',
-      '新增文档库模块，实现文档集中管理与版本控制',
-      '新增基础数据管理，涵盖债权人、债务人、法院、管理人信息维护',
+      { text: '系统底层架构全面升级，运行更稳定，后续功能更新更快', platform: 'all' },
+      { text: '破产案件管理全面改版，支持从立案到结案全流程的节点跟踪和管控', platform: 'all' },
+      { text: '债权管理覆盖申报、审查、确认三大阶段，全流程线上处理', platform: 'all' },
+      { text: '资金管理功能上线，支持账户管理、资金流水记录和统计报表', platform: 'all' },
+      { text: '费用报销功能上线，支持多种费用类型的报销登记和审批', platform: 'all' },
+      { text: '文档库功能上线，所有案件文档集中存储，支持历史版本管理', platform: 'all' },
+      { text: '基础信息管理上线，债权人、债务人、法院、管理人信息统一维护', platform: 'all' },
     ],
     fixes: [],
     improvements: [
-      '全面升级 UI 框架至 Element Plus，替换原有 Ant Design Vue',
-      '采用 Pinia 替代 Vuex 进行状态管理',
-      '全面支持 TypeScript 严格模式，提升代码质量',
-      '引入 Tailwind CSS 工具类，统一样式规范',
-      '建立完善的自动化测试体系，覆盖单元测试与 E2E 测试',
+      { text: '系统界面全面换新，页面更加美观，操作更加流畅', platform: 'all' },
+      { text: '系统响应速度明显提升，数据更新更加及时', platform: 'all' },
+      { text: '代码质量全面提升，系统运行更加稳定可靠', platform: 'all' },
+      { text: '界面风格更加统一，视觉体验更加舒适专业', platform: 'all' },
+      { text: '建立了完善的质量检测机制，系统稳定性更有保障', platform: 'all' },
     ],
     version: 'V5.5.0',
   },
 ];
+
+function filterByPlatform(items: ChangelogItem[]): ChangelogItem[] {
+  return items.filter(
+    (item) => item.platform === 'all' || item.platform === activePlatform.value,
+  );
+}
+
+const filteredChangelogs = computed(() => {
+  return changelogs
+    .map((entry) => ({
+      ...entry,
+      features: filterByPlatform(entry.features),
+      fixes: filterByPlatform(entry.fixes),
+      improvements: filterByPlatform(entry.improvements),
+    }))
+    .filter(
+      (entry) =>
+        entry.features.length > 0 ||
+        entry.fixes.length > 0 ||
+        entry.improvements.length > 0,
+    );
+});
 
 const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
   新增: 'success',
   修复: 'warning',
   优化: '',
 };
+
+const platformTagColors: Record<string, 'success' | 'primary' | ''> = {
+  web: 'primary',
+  'uni-app': 'success',
+};
 </script>
 
 <template>
   <Page description="了解系统各版本的更新内容与功能迭代" title="更新日志">
     <div class="mx-auto max-w-4xl space-y-6 px-4 py-6">
+      <Card class="p-4">
+        <div class="flex items-center justify-center gap-4">
+          <ElButton
+            v-for="opt in platformOptions"
+            :key="opt.key"
+            :type="activePlatform === opt.key ? 'primary' : 'default'"
+            :class="[
+              'min-w-[140px]',
+              activePlatform === opt.key ? 'shadow-sm' : '',
+            ]"
+            size="large"
+            @click="activePlatform = opt.key"
+          >
+            <span class="mr-1">{{ opt.icon }}</span>
+            {{ opt.label }}
+          </ElButton>
+        </div>
+      </Card>
+
       <Card class="p-6">
         <p class="mb-6 text-base leading-relaxed text-gray-600">
           欢迎查阅
@@ -275,7 +370,7 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
 
         <ElTimeline>
           <ElTimelineItem
-            v-for="log in changelogs"
+            v-for="log in filteredChangelogs"
             :key="log.version"
             :timestamp="log.date"
             color="#1677ff"
@@ -298,7 +393,7 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
                   log.date
                 }}</ElTag>
                 <ElTag
-                  v-if="log.version === changelogs[0]?.version"
+                  v-if="log.version === filteredChangelogs[0]?.version"
                   type="success"
                   effect="dark"
                   size="small"
@@ -325,7 +420,25 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
                       >
                         新增
                       </ElTag>
-                      <span>{{ item }}</span>
+                      <span class="flex-1">{{ item.text }}</span>
+                      <ElTag
+                        v-if="item.platform === 'web'"
+                        :type="platformTagColors['web']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        Web
+                      </ElTag>
+                      <ElTag
+                        v-else-if="item.platform === 'uni-app'"
+                        :type="platformTagColors['uni-app']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        移动端
+                      </ElTag>
                     </li>
                   </ul>
                 </div>
@@ -347,7 +460,25 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
                       >
                         优化
                       </ElTag>
-                      <span>{{ item }}</span>
+                      <span class="flex-1">{{ item.text }}</span>
+                      <ElTag
+                        v-if="item.platform === 'web'"
+                        :type="platformTagColors['web']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        Web
+                      </ElTag>
+                      <ElTag
+                        v-else-if="item.platform === 'uni-app'"
+                        :type="platformTagColors['uni-app']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        移动端
+                      </ElTag>
                     </li>
                   </ul>
                 </div>
@@ -369,7 +500,25 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
                       >
                         修复
                       </ElTag>
-                      <span>{{ item }}</span>
+                      <span class="flex-1">{{ item.text }}</span>
+                      <ElTag
+                        v-if="item.platform === 'web'"
+                        :type="platformTagColors['web']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        Web
+                      </ElTag>
+                      <ElTag
+                        v-else-if="item.platform === 'uni-app'"
+                        :type="platformTagColors['uni-app']"
+                        size="small"
+                        effect="plain"
+                        class="shrink-0"
+                      >
+                        移动端
+                      </ElTag>
                     </li>
                   </ul>
                 </div>
@@ -377,6 +526,13 @@ const tagTypes: Record<string, 'success' | 'warning' | 'danger' | ''> = {
             </div>
           </ElTimelineItem>
         </ElTimeline>
+
+        <div
+          v-if="filteredChangelogs.length === 0"
+          class="py-12 text-center text-gray-400"
+        >
+          <p class="text-lg">暂无该端口的更新记录</p>
+        </div>
       </Card>
 
       <div class="py-8 text-center text-sm text-gray-400">

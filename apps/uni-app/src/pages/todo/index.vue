@@ -291,7 +291,7 @@ const getPriorityText = (priority?: string) => {
 
 const formatDate = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('MM-DD HH:mm')
+  return dayjs(date).format('MM-DD')
 }
 </script>
 

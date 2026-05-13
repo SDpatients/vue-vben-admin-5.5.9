@@ -365,7 +365,7 @@ onMounted(async () => {
                 <span class="file-name">{{ file.originalFileName }}</span>
                 <span class="file-meta">
                   {{ formatFileSize(file.fileSize) }} · 
-                  {{ new Date(file.uploadTime).toLocaleString('zh-CN') }}
+                  {{ new Date(file.uploadTime).toLocaleDateString('zh-CN') }}
                 </span>
               </div>
             </div>

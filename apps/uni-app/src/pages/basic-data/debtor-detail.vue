@@ -111,7 +111,7 @@ uni.showToast({ title: '加载失败', icon: 'none' })
 
 const formatDate = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 </script>
 

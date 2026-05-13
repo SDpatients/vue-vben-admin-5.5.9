@@ -37,7 +37,7 @@ import {
 import FileUpload from './FileUpload.vue';
 
 import { getCurrentUserApi } from '#/api/core/auth';
-import { getCaseReviewStatusApi } from '#/api/core/case';
+import { getCaseReviewStatusApi, getCaseAccessibleUsersApi } from '#/api/core/case';
 import { getCreditorClaimStagesApi, getCreditorListApi, searchCreditorApi } from '#/api/core/creditor';
 import { getDebtorListApi } from '#/api/core/debtor';
 import { getAllFilesByClaimRegistrationApi } from '#/api/core/file';
@@ -53,7 +53,9 @@ import {
   getRegistrationStatusTag,
 } from './utils/claimStatusMapper';
 import { claimFormRules } from './utils/claimFormRules';
+import { formatDate } from './utils/dateFormatter';
 import { parseExcelApi } from '#/api/core/claim-registration';
+import { getFundAccountList } from '#/api/core/fund-account';
 
 const props = defineProps<{
   caseId: string;
@@ -77,11 +79,30 @@ const sensitiveDialogVisible = ref(false);
 const sensitiveDataType = ref('');
 const sensitiveId = ref(0);
 const sensitiveLabel = ref('');
+const sensitiveFieldKey = ref<string>('');
 
-const openSensitiveDialog = (dataType: string, id: number, label: string) => {
+const handleSensitiveDataSuccess = (plainTextValue: string) => {
+  if (sensitiveFieldKey.value === 'creditCode') {
+    claimForm.creditCode = plainTextValue;
+    ElMessage.success('已自动填入完整信息');
+  } else if (sensitiveFieldKey.value === 'agentPhone') {
+    claimForm.agentPhone = plainTextValue;
+    ElMessage.success('已自动填入完整信息');
+  } else if (sensitiveFieldKey.value === 'agentIdCard') {
+    claimForm.agentIdCard = plainTextValue;
+    ElMessage.success('已自动填入完整信息');
+  } else if (sensitiveFieldKey.value === 'bankAccount') {
+    claimForm.bankAccount = plainTextValue;
+    ElMessage.success('已自动填入完整信息');
+  }
+  sensitiveFieldKey.value = '';
+};
+
+const openSensitiveDialog = (dataType: string, id: number, label: string, fieldKey?: string) => {
   sensitiveDataType.value = dataType;
   sensitiveId.value = id;
   sensitiveLabel.value = label;
+  sensitiveFieldKey.value = fieldKey || '';
   sensitiveDialogVisible.value = true;
 };
 const addCollapseActive = ref<string[]>([]);
@@ -107,6 +128,81 @@ const currentClaim = ref<ClaimRegistrationApi.ClaimRegistrationInfo | null>(
 );
 const emptyFileList = ref<number[]>([]);
 const importResult = ref<any>(null);
+const fundAccountDialogVisible = ref(false);
+const fundAccountLoading = ref(false);
+const fundAccountList = ref<any[]>([]);
+
+const queryFundAccounts = async () => {
+  fundAccountLoading.value = true;
+  try {
+    const response = await getFundAccountList({
+      caseId: Number(props.caseId),
+      status: 'ACTIVE',
+      pageNum: 1,
+      pageSize: 100,
+    });
+    if (response.code === 200 && response.data?.list) {
+      fundAccountList.value = response.data.list;
+      fundAccountDialogVisible.value = true;
+    } else {
+      fundAccountList.value = [];
+      fundAccountDialogVisible.value = true;
+    }
+  } catch (error) {
+    console.error('查询资金账户失败:', error);
+    ElMessage.error('查询资金账户失败');
+  } finally {
+    fundAccountLoading.value = false;
+  }
+};
+
+const selectFundAccount = (account: any) => {
+  claimForm.accountName = account.accountName || '';
+  if (account.bankAccount && isMaskedDisplayValue(account.bankAccount)) {
+    claimForm.bankAccount = '';
+    openSensitiveDialog(
+      'CREDITOR_BANK_ACCOUNT',
+      account.id || account.accountId || 0,
+      SensitiveDataApi.DataTypeLabels.CREDITOR_BANK_ACCOUNT,
+      'bankAccount',
+    );
+  } else {
+    claimForm.bankAccount = account.bankAccount || '';
+  }
+  claimForm.bankName = account.bankName || '';
+  fundAccountDialogVisible.value = false;
+  ElMessage.success('已自动填写银行账户信息');
+};
+
+const accessibleUserDialogVisible = ref(false);
+const accessibleUserLoading = ref(false);
+const accessibleUserList = ref<any[]>([]);
+
+const queryAccessibleUsers = async () => {
+  accessibleUserLoading.value = true;
+  try {
+    const response = await getCaseAccessibleUsersApi(Number(props.caseId));
+    if (response.code === 200 && response.data) {
+      accessibleUserList.value = response.data;
+      accessibleUserDialogVisible.value = true;
+    } else {
+      accessibleUserList.value = [];
+      accessibleUserDialogVisible.value = true;
+    }
+  } catch (error) {
+    console.error('查询案件关联用户失败:', error);
+    ElMessage.error('查询案件关联用户失败');
+  } finally {
+    accessibleUserLoading.value = false;
+  }
+};
+
+const selectAccessibleUser = (user: any) => {
+  claimForm.agentName = user.realName || user.username || '';
+  claimForm.agentPhone = user.phone || '';
+  accessibleUserDialogVisible.value = false;
+  ElMessage.success('已自动填写代理人信息');
+};
 
 const materialForm = reactive({
   receiver: '',
@@ -193,9 +289,11 @@ const fetchDebtorList = async () => {
 };
 
 const creditorTypeMap: Record<string, string> = {
+  NATURAL_PERSON: '自然人',
+  LEGAL_PERSON: '法人',
+  FINANCIAL_INSTITUTION: '金融机构',
   ENTERPRISE: '企业',
   INDIVIDUAL: '个人',
-  FINANCIAL_INSTITUTION: '金融机构',
   GOVERNMENT: '政府机构',
   OTHER: '其他',
   金融机构: '金融机构',
@@ -203,6 +301,8 @@ const creditorTypeMap: Record<string, string> = {
   个人: '个人',
   政府机构: '政府机构',
   其他: '其他',
+  自然人: '自然人',
+  法人: '法人',
 };
 
 const convertCreditorType = (type: string): string => {
@@ -409,7 +509,9 @@ const handleEditClaim = async (row: any) => {
       claimForm.debtorName = debtorInfo?.label || result.data.debtor || row.debtor || '';
       claimForm.creditorName = result.data.creditorName || '';
       claimForm.creditorType = result.data.creditorType || '';
-      claimForm.creditCode = result.data.creditCode || '';
+      claimForm.creditCode = isMaskedDisplayValue(result.data.creditCode)
+        ? ''
+        : result.data.creditCode || '';
       claimForm.legalRepresentative = result.data.legalRepresentative || '';
       claimForm.serviceAddress = result.data.serviceAddress || '';
       claimForm.agentName = result.data.agentName || '';
@@ -451,7 +553,7 @@ const handleSaveEdit = async () => {
 
   // 验证表单数据
   if (!claimForm.creditorName) {
-    ElMessage.warning('请输入债权人姓名或名称');
+    ElMessage.warning('请输入债权人名称');
     return;
   }
   if (!claimForm.creditorType) {
@@ -611,8 +713,17 @@ const handleCreditorChange = (value: string) => {
     (creditor) => creditor.label === value,
   );
   if (selectedCreditor) {
-    claimForm.creditCode = selectedCreditor.idNumber || '';
-    claimForm.creditorType = selectedCreditor.creditorType;
+    if (selectedCreditor.idNumber && isMaskedDisplayValue(selectedCreditor.idNumber)) {
+      openSensitiveDialog(
+        'CREDITOR_ID_NUMBER',
+        selectedCreditor.value,
+        SensitiveDataApi.DataTypeLabels.CREDITOR_ID_NUMBER,
+        'creditCode',
+      );
+    } else {
+      claimForm.creditCode = selectedCreditor.idNumber || '';
+    }
+    claimForm.creditorType = convertCreditorType(selectedCreditor.creditorType);
     claimForm.legalRepresentative = selectedCreditor.legalRepresentative || '';
     claimForm.serviceAddress = selectedCreditor.address || '';
   }
@@ -623,8 +734,17 @@ const handleCreditorSearchChange = (value: string) => {
     (creditor) => creditor.label === value,
   );
   if (selectedCreditor) {
-    claimForm.creditCode = selectedCreditor.idNumber || '';
-    claimForm.creditorType = selectedCreditor.creditorType;
+    if (selectedCreditor.idNumber && isMaskedDisplayValue(selectedCreditor.idNumber)) {
+      openSensitiveDialog(
+        'CREDITOR_ID_NUMBER',
+        selectedCreditor.value,
+        SensitiveDataApi.DataTypeLabels.CREDITOR_ID_NUMBER,
+        'creditCode',
+      );
+    } else {
+      claimForm.creditCode = selectedCreditor.idNumber || '';
+    }
+    claimForm.creditorType = convertCreditorType(selectedCreditor.creditorType);
     claimForm.legalRepresentative = selectedCreditor.legalRepresentative || '';
     claimForm.serviceAddress = selectedCreditor.address || '';
   }
@@ -665,7 +785,7 @@ const handleEditCollapseChange = (activeNames: string | string[]) => {
 
 const handleAddClaim = async () => {
   if (!claimForm.creditorName) {
-    ElMessage.warning('请输入债权人姓名或名称');
+    ElMessage.warning('请输入债权人名称');
     return;
   }
   if (!claimForm.creditorType) {
@@ -778,13 +898,10 @@ const formatDate = (dateStr: string | undefined | null) => {
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '-';
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   } catch (error) {
     return '-';
   }
@@ -1376,90 +1493,73 @@ onMounted(() => {
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4" @row-click="openDetailDialog">
           <ElTableColumn
-            label="登记状态"
-            width="150"
-          >
+            prop="creditor_name"
+            label="债权人名称"
+            min-width="180"
+          />
+
+          <ElTableColumn label="债权人类型" width="120">
             <template #default="scope">
-              <div class="flex items-center gap-2">
-                <ElTag
-                  :type="{
-                    'PENDING': 'warning',
-                    'REVIEWING': 'primary',
-                    'REVIEW_COMPLETED': 'success',
-                    'CONFIRMING': 'info',
-                    'CONFIRMED': 'success',
-                    'REGISTERED': 'success',
-                    'REJECTED': 'danger',
-                    'pending': 'warning',
-                    'reviewing': 'primary',
-                    'review_completed': 'success',
-                    'confirming': 'info',
-                    'confirmed': 'success',
-                    'registered': 'success',
-                    'rejected': 'danger'
-                  }[scope.row?.registration_status] || 'info'"
-                  size="small"
-                >
-                  {{ 
-                    {
-                      'PENDING': '待处理',
-                      'REVIEWING': '审查中',
-                      'REVIEW_COMPLETED': '审查完成',
-                      'CONFIRMING': '确认中',
-                      'CONFIRMED': '确认完成',
-                      'REGISTERED': '已登记',
-                      'REJECTED': '已驳回',
-                      'pending': '待处理',
-                      'reviewing': '审查中',
-                      'review_completed': '审查完成',
-                      'confirming': '确认中',
-                      'confirmed': '确认完成',
-                      'registered': '已登记',
-                      'rejected': '已驳回'
-                    }[scope.row?.registration_status] || '未知'
-                  }}
-                </ElTag>
-              </div>
+              {{ convertCreditorType(scope.row.creditor_type) }}
             </template>
           </ElTableColumn>
-          <ElTableColumn
-            prop="material_completeness"
-            label="材料完整性"
-            width="100"
-          >
+
+          <ElTableColumn label="债权人状态" width="120">
             <template #default="scope">
               <ElTag
-                :type="
-                  getMaterialCompletenessTag(scope.row.material_completeness)
-                    .type
-                "
+                :type="{
+                  'PENDING': 'warning',
+                  'REVIEWING': 'primary',
+                  'REVIEW_COMPLETED': 'success',
+                  'CONFIRMING': 'info',
+                  'CONFIRMED': 'success',
+                  'REGISTERED': 'success',
+                  'REJECTED': 'danger',
+                  'pending': 'warning',
+                  'reviewing': 'primary',
+                  'review_completed': 'success',
+                  'confirming': 'info',
+                  'confirmed': 'success',
+                  'registered': 'success',
+                  'rejected': 'danger'
+                }[scope.row?.registration_status] || 'info'"
                 size="small"
               >
-                {{
-                  getMaterialCompletenessTag(scope.row.material_completeness)
-                    .text
+                {{ 
+                  {
+                    'PENDING': '待处理',
+                    'REVIEWING': '审查中',
+                    'REVIEW_COMPLETED': '审查完成',
+                    'CONFIRMING': '确认中',
+                    'CONFIRMED': '确认完成',
+                    'REGISTERED': '已登记',
+                    'REJECTED': '已驳回',
+                    'pending': '待处理',
+                    'reviewing': '审查中',
+                    'review_completed': '审查完成',
+                    'confirming': '确认中',
+                    'confirmed': '确认完成',
+                    'registered': '已登记',
+                    'rejected': '已驳回'
+                  }[scope.row?.registration_status] || '未知'
                 }}
               </ElTag>
             </template>
           </ElTableColumn>
+
           <ElTableColumn
-            prop="creditor_name"
-            label="债权人姓名或名称"
-            min-width="180"
+            prop="agent_phone"
+            label="联系电话"
+            width="140"
           />
 
-          <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
           <ElTableColumn
             prop="credit_code"
-            label="统一社会信用代码"
+            label="证件号码"
             width="180"
           />
-          <ElTableColumn prop="principal" label="申报本金" width="120" />
-          <ElTableColumn prop="interest" label="申报利息" width="120" />
-          <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
-          <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
-          <ElTableColumn prop="claim_type" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="450" fixed="right">
+
+          <ElTableColumn label="操作" width="280" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click.stop="openDetailDialog(scope.row)">
                 查看详情
@@ -1533,7 +1633,7 @@ onMounted(() => {
             {{ currentClaim.creditorName }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="债权人类型">
-            {{ currentClaim.creditorType }}
+            {{ convertCreditorType(currentClaim.creditorType) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.creditCode)" label="统一社会信用代码">
             {{ currentClaim.creditCode }}
@@ -1582,16 +1682,16 @@ onMounted(() => {
             </ElTag>
           </ElDescriptionsItem>
           <ElDescriptionsItem label="登记日期">
-            {{ currentClaim.registrationDate }}
+            {{ formatDate(currentClaim.registrationDate) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.registrationDeadline)" label="登记截止日期">
-            {{ currentClaim.registrationDeadline }}
+            {{ formatDate(currentClaim.registrationDeadline) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.materialReceiver)" label="材料接收人">
             {{ currentClaim.materialReceiver }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.materialReceiveDate)" label="材料接收日期">
-            {{ currentClaim.materialReceiveDate }}
+            {{ formatDate(currentClaim.materialReceiveDate) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="材料完整性">
             <ElTag
@@ -1680,10 +1780,10 @@ onMounted(() => {
         </div>
         <ElDescriptions :column="1" border>
           <ElDescriptionsItem label="创建时间">
-            {{ currentClaim.createTime }}
+            {{ formatDate(currentClaim.createTime) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem label="更新时间">
-            {{ currentClaim.updateTime }}
+            {{ formatDate(currentClaim.updateTime) }}
           </ElDescriptionsItem>
           <ElDescriptionsItem v-if="!isEmptyValue(currentClaim.remarks)" label="备注">
             {{ currentClaim.remarks }}
@@ -1862,10 +1962,10 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权人姓名或名称" required>
+              <ElFormItem label="债权人名称" required>
                 <ElSelect
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
+                  placeholder="请输入债权人名称"
                   style="width: 100%"
                   filterable
                   remote
@@ -1893,6 +1993,11 @@ onMounted(() => {
                   <ElOption label="自然人" value="自然人" />
                   <ElOption label="法人" value="法人" />
                   <ElOption label="其他组织" value="其他组织" />
+                  <ElOption label="企业" value="企业" />
+                  <ElOption label="个人" value="个人" />
+                  <ElOption label="金融机构" value="金融机构" />
+                  <ElOption label="政府机构" value="政府机构" />
+                  <ElOption label="其他" value="其他" />
                 </ElSelect>
               </ElFormItem>
             </ElCol>
@@ -2207,10 +2312,10 @@ onMounted(() => {
 
           <ElRow :gutter="20">
             <ElCol :span="12">
-              <ElFormItem label="债权人姓名或名称" required>
+              <ElFormItem label="债权人名称" required>
                 <ElSelect
                   v-model="claimForm.creditorName"
-                  placeholder="请输入债权人姓名或名称"
+                  placeholder="请输入债权人名称"
                   style="width: 100%"
                   filterable
                   remote
@@ -2238,6 +2343,11 @@ onMounted(() => {
                   <ElOption label="自然人" value="自然人" />
                   <ElOption label="法人" value="法人" />
                   <ElOption label="其他组织" value="其他组织" />
+                  <ElOption label="企业" value="企业" />
+                  <ElOption label="个人" value="个人" />
+                  <ElOption label="金融机构" value="金融机构" />
+                  <ElOption label="政府机构" value="政府机构" />
+                  <ElOption label="其他" value="其他" />
                 </ElSelect>
               </ElFormItem>
             </ElCol>
@@ -2262,21 +2372,24 @@ onMounted(() => {
             </ElCol>
           </ElRow>
 
-          <ElRow :gutter="20">
-            <ElCol :span="24">
-              <ElFormItem label="送达地址">
-                <ElInput
-                  v-model="claimForm.serviceAddress"
-                  placeholder="请输入送达地址"
-                />
-              </ElFormItem>
-            </ElCol>
-          </ElRow>
-
           <!-- 调试：代理人信息折叠区域 -->
           <ElCollapse v-model="addCollapseActive" class="mb-4" @change="handleAddCollapseChange">
             <ElCollapseItem title="代理人信息" name="agent">
               <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElButton
+                    type="primary"
+                    plain
+                    :loading="accessibleUserLoading"
+                    @click="queryAccessibleUsers"
+                  >
+                    <Icon icon="mdi:account-search" class="mr-1" />
+                    查询案件关联用户
+                  </ElButton>
+                </ElCol>
+              </ElRow>
+
+              <ElRow :gutter="20" class="mt-3">
                 <ElCol :span="12">
                   <ElFormItem label="代理人姓名">
                     <ElInput
@@ -2319,6 +2432,20 @@ onMounted(() => {
           <ElCollapse v-model="addCollapseActive" class="mb-4" @change="handleAddCollapseChange">
             <ElCollapseItem title="银行账户信息" name="bank">
               <ElRow :gutter="20">
+                <ElCol :span="24">
+                  <ElButton
+                    type="primary"
+                    plain
+                    :loading="fundAccountLoading"
+                    @click="queryFundAccounts"
+                  >
+                    <Icon icon="mdi:bank-search" class="mr-1" />
+                    查询案件关联账户
+                  </ElButton>
+                </ElCol>
+              </ElRow>
+
+              <ElRow :gutter="20" class="mt-3">
                 <ElCol :span="12">
                   <ElFormItem label="账户名称">
                     <ElInput
@@ -2515,12 +2642,84 @@ onMounted(() => {
       </template>
     </ElDialog>
 
+    <!-- 选择案件关联账户弹窗 -->
+    <ElDialog
+      v-model="fundAccountDialogVisible"
+      title="选择案件关联账户"
+      width="900px"
+      destroy-on-close
+    >
+      <ElTable
+        :data="fundAccountList"
+        border
+        highlight-current-row
+        @row-click="selectFundAccount"
+        style="cursor: pointer"
+      >
+        <ElTableColumn prop="accountName" label="账户名称" min-width="150" />
+        <ElTableColumn prop="bankAccount" label="银行账号" min-width="160" />
+        <ElTableColumn prop="bankName" label="开户银行" min-width="200" />
+        <ElTableColumn prop="accountType" label="账户类型" width="100">
+          <template #default="{ row }">
+            <ElTag :type="row.accountType === 'MAIN' ? 'success' : 'info'" size="small">
+              {{ row.accountType === 'MAIN' ? '主账户' : row.accountType }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+      <div v-if="fundAccountList.length === 0" class="empty-state">
+        <ElEmpty description="暂无可关联的资金账户" />
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="fundAccountDialogVisible = false">取消</ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
+    <!-- 选择案件关联用户弹窗 -->
+    <ElDialog
+      v-model="accessibleUserDialogVisible"
+      title="选择案件关联用户"
+      width="700px"
+      destroy-on-close
+    >
+      <ElTable
+        :data="accessibleUserList"
+        border
+        highlight-current-row
+        @row-click="selectAccessibleUser"
+        style="cursor: pointer"
+      >
+        <ElTableColumn prop="realName" label="姓名" min-width="100" />
+        <ElTableColumn prop="username" label="用户名" min-width="120" />
+        <ElTableColumn prop="phone" label="电话" min-width="130" />
+        <ElTableColumn prop="email" label="邮箱" min-width="180" />
+        <ElTableColumn prop="accessType" label="访问类型" width="100">
+          <template #default="{ row }">
+            <ElTag :type="row.accessType === 'CREATOR' ? 'success' : 'info'" size="small">
+              {{ row.accessType === 'CREATOR' ? '创建者' : row.accessType === 'TEAM_MEMBER' ? '团队成员' : row.accessType }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+      <div v-if="accessibleUserList.length === 0" class="empty-state">
+        <ElEmpty description="暂无关联用户" />
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <ElButton @click="accessibleUserDialogVisible = false">取消</ElButton>
+        </span>
+      </template>
+    </ElDialog>
+
     <!-- 查看敏感数据弹窗 -->
     <SensitiveDataDialog
       v-model:visible="sensitiveDialogVisible"
       :data-type="sensitiveDataType"
       :id="sensitiveId"
       :label="sensitiveLabel"
+      @success="handleSensitiveDataSuccess"
     />
   </div>
 </template>

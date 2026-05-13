@@ -1087,7 +1087,7 @@ onUnmounted(() => {
         <ElTableColumn prop="fileExtension" label="类型" width="80" />
         <ElTableColumn prop="uploadTime" label="上传时间" width="180">
           <template #default="scope">
-            {{ new Date(scope.row.uploadTime).toLocaleString('zh-CN') }}
+            {{ new Date(scope.row.uploadTime).toLocaleDateString('zh-CN') }}
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="200" fixed="right">

@@ -244,7 +244,7 @@ const formatDate = (date?: string) => {
 
 const formatDateTime = (date?: string) => {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 
 const handleBack = () => {

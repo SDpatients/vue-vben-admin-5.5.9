@@ -49,6 +49,7 @@ import {
   getReviewStatusTag,
 } from './utils/claimStatusMapper';
 import { reviewFormRules } from './utils/claimFormRules';
+import { formatDate } from './utils/dateFormatter';
 
 const props = defineProps<{
   caseId: string;
@@ -80,6 +81,16 @@ watch(reviewCollapseActive, (newVal) => {
 const { reviewForm, declaredTotalAmount, confirmedTotalAmount, unconfirmedTotalAmount, resetReviewForm } = useReviewForm();
 const { confirmationForm, resetConfirmationForm } = useConfirmationForm();
 const { currentPage, pageSize, total } = useClaimPagination();
+
+const getCreditorTypeText = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    NATURAL_PERSON: '自然人',
+    LEGAL_PERSON: '法人',
+    FINANCIAL_INSTITUTION: '金融机构',
+    OTHER: '其他',
+  };
+  return typeMap[type] || type;
+};
 
 const showConfirmDialog = ref(false);
 const confirmLoading = ref(false);
@@ -453,10 +464,8 @@ const handleRejectReview = async (row: any) => {
         // 已有审查记录，使用驳回接口
         const rejectResult = await ClaimService.rejectClaimReview(row.reviewInfo.id, value.trim());
         if (rejectResult.success) {
-          const completeResult = await ClaimService.completeReview(claimId);
-          if (completeResult.success) {
-            await fetchClaims();
-          }
+          ElMessage.success('驳回成功');
+          await fetchClaims();
         }
       } else {
         // 无审查记录，创建审查记录并设置为驳回
@@ -469,10 +478,8 @@ const handleRejectReview = async (row: any) => {
         };
         const createResult = await ClaimService.createReview(requestData);
         if (createResult.success) {
-          const completeResult = await ClaimService.completeReview(claimId);
-          if (completeResult.success) {
-            await fetchClaims();
-          }
+          ElMessage.success('驳回成功');
+          await fetchClaims();
         }
       }
     })
@@ -482,7 +489,7 @@ const handleRejectReview = async (row: any) => {
 };
 
 const handleStartConfirmation = async (row: any) => {
-  ElMessageBox.confirm('确定要开始债权确认流程吗？', '开始确认', {
+  ElMessageBox.confirm('确定要开始债权复查流程吗？', '开始复查', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'info',
@@ -491,7 +498,7 @@ const handleStartConfirmation = async (row: any) => {
       const claimId = row.claimRegistrationId || row.id;
       const result = await ClaimService.startConfirmation(claimId);
       if (result.success) {
-        ElMessage.success('已开始债权确认流程');
+        ElMessage.success('已开始债权复查流程');
         await fetchClaims();
         emit('switch-tab', 'stage3');
       }
@@ -725,10 +732,14 @@ defineExpose({
           </ElTableColumn>
           <ElTableColumn
             prop="creditor_name"
-            label="债权人姓名或名称"
+            label="债权人名称"
             min-width="180"
           />
-          <ElTableColumn prop="creditor_type" label="债权人类型" width="120" />
+          <ElTableColumn prop="creditor_type" label="债权人类型" width="120">
+            <template #default="scope">
+              {{ getCreditorTypeText(scope.row.creditor_type) }}
+            </template>
+          </ElTableColumn>
           <ElTableColumn
             prop="credit_code"
             label="统一社会信用代码"
@@ -799,7 +810,7 @@ defineExpose({
                 type="primary"
                 @click="handleStartConfirmation(scope.row)"
               >
-                进入确认阶段
+                进入复查阶段
               </ElButton>
               <ElButton
                 v-if="
@@ -865,7 +876,7 @@ defineExpose({
               {{ currentClaim.claimRegistrationId }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="审查日期">
-              {{ currentClaim.reviewDate }}
+              {{ formatDate(currentClaim.reviewDate) }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="审查人">
               {{ currentClaim.reviewer || '-' }}
@@ -927,6 +938,110 @@ defineExpose({
             </ElDescriptionsItem>
           </ElDescriptions>
 
+          <div v-if="currentClaim.unconfirmedPrincipal || currentClaim.unconfirmedInterest || currentClaim.unconfirmedPenalty || currentClaim.unconfirmedOtherLosses" class="section-divider mb-4 mt-4">
+            <h4 class="section-title">未确认金额</h4>
+          </div>
+          <ElDescriptions v-if="currentClaim.unconfirmedPrincipal || currentClaim.unconfirmedInterest || currentClaim.unconfirmedPenalty || currentClaim.unconfirmedOtherLosses" :column="2" border>
+            <ElDescriptionsItem label="未确认本金">
+              {{ currentClaim.unconfirmedPrincipal || 0 }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="未确认利息">
+              {{ currentClaim.unconfirmedInterest || 0 }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="未确认罚金">
+              {{ currentClaim.unconfirmedPenalty || 0 }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="未确认其他损失">
+              {{ currentClaim.unconfirmedOtherLosses || 0 }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="未确认总金额">
+              {{ currentClaim.unconfirmedTotalAmount || 0 }}
+            </ElDescriptionsItem>
+          </ElDescriptions>
+
+          <div v-if="currentClaim.adjustmentReason || currentClaim.unconfirmedReason" class="section-divider mb-4 mt-4">
+            <h4 class="section-title">审查理由</h4>
+          </div>
+          <ElDescriptions v-if="currentClaim.adjustmentReason || currentClaim.unconfirmedReason" :column="2" border>
+            <ElDescriptionsItem v-if="currentClaim.adjustmentReason" label="调整原因" :span="2">
+              {{ currentClaim.adjustmentReason }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.unconfirmedReason" label="未确认原因" :span="2">
+              {{ currentClaim.unconfirmedReason }}
+            </ElDescriptionsItem>
+          </ElDescriptions>
+
+          <div v-if="currentClaim.evidenceAuthenticity || currentClaim.evidenceRelevance || currentClaim.evidenceLegality || currentClaim.evidenceReviewNotes" class="section-divider mb-4 mt-4">
+            <h4 class="section-title">证据审查</h4>
+          </div>
+          <ElDescriptions v-if="currentClaim.evidenceAuthenticity || currentClaim.evidenceRelevance || currentClaim.evidenceLegality || currentClaim.evidenceReviewNotes" :column="2" border>
+            <ElDescriptionsItem v-if="currentClaim.evidenceAuthenticity" label="证据真实性">
+              <ElTag :type="currentClaim.evidenceAuthenticity === 'AUTHENTIC' ? 'success' : currentClaim.evidenceAuthenticity === 'FAKE' ? 'danger' : 'warning'" size="small">
+                {{ currentClaim.evidenceAuthenticity === 'AUTHENTIC' ? '真实' : currentClaim.evidenceAuthenticity === 'FAKE' ? '伪造' : '存疑' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.evidenceRelevance" label="证据关联性">
+              <ElTag :type="currentClaim.evidenceRelevance === 'RELEVANT' ? 'success' : currentClaim.evidenceRelevance === 'IRRELEVANT' ? 'danger' : 'warning'" size="small">
+                {{ currentClaim.evidenceRelevance === 'RELEVANT' ? '相关' : currentClaim.evidenceRelevance === 'IRRELEVANT' ? '不相关' : '待定' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.evidenceLegality" label="证据合法性">
+              <ElTag :type="currentClaim.evidenceLegality === 'LEGAL' ? 'success' : currentClaim.evidenceLegality === 'ILLEGAL' ? 'danger' : 'warning'" size="small">
+                {{ currentClaim.evidenceLegality === 'LEGAL' ? '合法' : currentClaim.evidenceLegality === 'ILLEGAL' ? '非法' : '存疑' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.evidenceReviewNotes" label="证据审查备注" :span="2">
+              {{ currentClaim.evidenceReviewNotes }}
+            </ElDescriptionsItem>
+          </ElDescriptions>
+
+          <div v-if="currentClaim.confirmedClaimNature || currentClaim.isJointLiability || currentClaim.isConditional || currentClaim.isTerm" class="section-divider mb-4 mt-4">
+            <h4 class="section-title">债权属性</h4>
+          </div>
+          <ElDescriptions v-if="currentClaim.confirmedClaimNature || currentClaim.isJointLiability || currentClaim.isConditional || currentClaim.isTerm" :column="2" border>
+            <ElDescriptionsItem v-if="currentClaim.confirmedClaimNature" label="确认债权性质" :span="2">
+              {{ currentClaim.confirmedClaimNature }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.isJointLiability !== undefined && currentClaim.isJointLiability !== null" label="连带债务">
+              <ElTag :type="currentClaim.isJointLiability ? 'success' : 'info'" size="small">
+                {{ currentClaim.isJointLiability ? '是' : '否' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.isConditional !== undefined && currentClaim.isConditional !== null" label="附条件债务">
+              <ElTag :type="currentClaim.isConditional ? 'warning' : 'info'" size="small">
+                {{ currentClaim.isConditional ? '是' : '否' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.isTerm !== undefined && currentClaim.isTerm !== null" label="附期限债务">
+              <ElTag :type="currentClaim.isTerm ? 'warning' : 'info'" size="small">
+                {{ currentClaim.isTerm ? '是' : '否' }}
+              </ElTag>
+            </ElDescriptionsItem>
+          </ElDescriptions>
+
+          <div v-if="currentClaim.collateralType || currentClaim.collateralProperty || currentClaim.collateralAmount || currentClaim.collateralTerm || currentClaim.collateralValidity" class="section-divider mb-4 mt-4">
+            <h4 class="section-title">担保信息</h4>
+          </div>
+          <ElDescriptions v-if="currentClaim.collateralType || currentClaim.collateralProperty || currentClaim.collateralAmount || currentClaim.collateralTerm || currentClaim.collateralValidity" :column="2" border>
+            <ElDescriptionsItem v-if="currentClaim.collateralType" label="担保类型">
+              {{ currentClaim.collateralType }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.collateralValidity" label="担保效力">
+              <ElTag :type="currentClaim.collateralValidity === 'VALID' ? 'success' : currentClaim.collateralValidity === 'INVALID' ? 'danger' : 'warning'" size="small">
+                {{ currentClaim.collateralValidity === 'VALID' ? '有效' : currentClaim.collateralValidity === 'INVALID' ? '无效' : '待定' }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.collateralProperty" label="担保财产" :span="2">
+              {{ currentClaim.collateralProperty }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.collateralAmount" label="担保金额">
+              {{ currentClaim.collateralAmount }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="currentClaim.collateralTerm" label="担保期限">
+              {{ currentClaim.collateralTerm }}
+            </ElDescriptionsItem>
+          </ElDescriptions>
+
           <div v-if="currentClaim.reviewConclusion" class="section-divider mb-4 mt-4">
             <h4 class="section-title">审查结论</h4>
           </div>
@@ -938,8 +1053,8 @@ defineExpose({
                 {{ getReviewConclusionTag(currentClaim.reviewConclusion).text }}
               </ElTag>
             </ElDescriptionsItem>
-            <ElDescriptionsItem label="审查摘要">
-              {{ currentClaim.reviewSummary || '-' }}
+            <ElDescriptionsItem v-if="currentClaim.remarks" label="备注" :span="2">
+              {{ currentClaim.remarks }}
             </ElDescriptionsItem>
           </ElDescriptions>
         </template>
@@ -960,7 +1075,7 @@ defineExpose({
               {{ currentClaim.creditorName }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="债权人类型">
-              {{ currentClaim.creditorType }}
+              {{ getCreditorTypeText(currentClaim.creditorType) }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="统一社会信用代码">
               {{ currentClaim.creditCode }}
@@ -1002,7 +1117,7 @@ defineExpose({
               </ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem label="登记日期">
-              {{ currentClaim.registrationDate }}
+              {{ formatDate(currentClaim.registrationDate) }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="材料接收人">
               {{ currentClaim.materialReceiver }}
@@ -1028,7 +1143,7 @@ defineExpose({
           </div>
           <ElDescriptions v-if="currentClaim.reviewInfo" :column="2" border>
             <ElDescriptionsItem label="审查日期">
-              {{ currentClaim.reviewInfo.reviewDate || '-' }}
+              {{ currentClaim.reviewInfo.reviewDate ? formatDate(currentClaim.reviewInfo.reviewDate) : '-' }}
             </ElDescriptionsItem>
             <ElDescriptionsItem label="审查人">
               {{ currentClaim.reviewInfo.reviewer || '-' }}
@@ -1331,22 +1446,6 @@ defineExpose({
                     placeholder="请输入未确认原因"
                   />
                 </ElFormItem>
-                <ElFormItem label="证据不足原因">
-                  <ElInput
-                    v-model="reviewForm.insufficientEvidenceReason"
-                    type="textarea"
-                    :rows="2"
-                    placeholder="请输入证据不足原因"
-                  />
-                </ElFormItem>
-                <ElFormItem label="过期原因">
-                  <ElInput
-                    v-model="reviewForm.expiredReason"
-                    type="textarea"
-                    :rows="2"
-                    placeholder="请输入过期原因"
-                  />
-                </ElFormItem>
               </ElCollapseItem>
             </ElCollapse>
 
@@ -1515,22 +1614,6 @@ defineExpose({
               </ElCol>
             </ElRow>
 
-            <ElFormItem label="审查摘要">
-              <ElInput
-                v-model="reviewForm.reviewSummary"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入审查摘要"
-              />
-            </ElFormItem>
-            <ElFormItem label="审查报告">
-              <ElInput
-                v-model="reviewForm.reviewReport"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入审查报告"
-              />
-            </ElFormItem>
             <ElFormItem label="备注">
               <ElInput
                 v-model="reviewForm.remarks"

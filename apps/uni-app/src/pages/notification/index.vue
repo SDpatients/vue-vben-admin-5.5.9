@@ -313,7 +313,7 @@ const formatTime = (time?: string) => {
   const diffDays = now.diff(target, 'day')
   if (diffDays < 7) return `${diffDays}天前`
   
-  return target.format('YYYY-MM-DD HH:mm')
+  return target.format('YYYY-MM-DD')
 }
 </script>
 
