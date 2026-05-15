@@ -866,10 +866,30 @@ const handleAddClaim = async () => {
 const getRegistrationStatusTag = (status: string) => {
   const statusMap: Record<string, any> = {
     PENDING: { type: 'warning', text: '待登记' },
+    REVIEWING: { type: 'primary', text: '审查中' },
+    REVIEW_COMPLETED: { type: 'success', text: '审查完成' },
+    CONFIRMING: { type: 'info', text: '确认中' },
+    CONFIRMED: { type: 'success', text: '确认完成' },
     REGISTERED: { type: 'success', text: '已登记' },
     REJECTED: { type: 'danger', text: '已驳回' },
+    pending: { type: 'warning', text: '待登记' },
+    reviewing: { type: 'primary', text: '审查中' },
+    review_completed: { type: 'success', text: '审查完成' },
+    confirming: { type: 'info', text: '确认中' },
+    confirmed: { type: 'success', text: '确认完成' },
+    registered: { type: 'success', text: '已登记' },
+    rejected: { type: 'danger', text: '已驳回' },
   };
-  return statusMap[status] || { type: 'info', text: status };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { type: 'info', text: '未知' };
 };
 
 const getMaterialCompletenessTag = (completeness: string) => {
@@ -877,8 +897,20 @@ const getMaterialCompletenessTag = (completeness: string) => {
     COMPLETE: { type: 'success', text: '完整' },
     INCOMPLETE: { type: 'warning', text: '不完整' },
     PENDING: { type: 'info', text: '待补充' },
+    complete: { type: 'success', text: '完整' },
+    incomplete: { type: 'warning', text: '不完整' },
+    pending: { type: 'info', text: '待补充' },
   };
-  return statusMap[completeness] || { type: 'info', text: completeness };
+  if (completeness && statusMap[completeness]) {
+    return statusMap[completeness];
+  }
+  if (completeness) {
+    const upperCompleteness = completeness.toUpperCase();
+    if (statusMap[upperCompleteness]) {
+      return statusMap[upperCompleteness];
+    }
+  }
+  return { type: 'info', text: '未知' };
 };
 
 const formatCurrency = (value: number | string | undefined | null) => {
@@ -1492,19 +1524,7 @@ onMounted(() => {
 
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4" @row-click="openDetailDialog">
-          <ElTableColumn
-            prop="creditor_name"
-            label="债权人名称"
-            min-width="180"
-          />
-
-          <ElTableColumn label="债权人类型" width="120">
-            <template #default="scope">
-              {{ convertCreditorType(scope.row.creditor_type) }}
-            </template>
-          </ElTableColumn>
-
-          <ElTableColumn label="债权人状态" width="120">
+          <ElTableColumn label="申报状态" width="120">
             <template #default="scope">
               <ElTag
                 :type="{
@@ -1546,26 +1566,43 @@ onMounted(() => {
               </ElTag>
             </template>
           </ElTableColumn>
-
           <ElTableColumn
-            prop="agent_phone"
-            label="联系电话"
-            width="140"
+            prop="creditor_name"
+            label="债权人名称"
+            min-width="150"
           />
-
+          <ElTableColumn label="债权人类型" width="120">
+            <template #default="scope">
+              {{ convertCreditorType(scope.row.creditor_type) }}
+            </template>
+          </ElTableColumn>
           <ElTableColumn
-            prop="credit_code"
-            label="证件号码"
-            width="180"
+            prop="debtor"
+            label="债务人"
+            min-width="150"
           />
-
+          <ElTableColumn label="申报总金额" width="140">
+            <template #default="scope">
+              {{ formatCurrency(scope.row.total_amount || scope.row.totalAmount) }}
+            </template>
+          </ElTableColumn>
+          <ElTableColumn
+            prop="claim_type"
+            label="债权种类"
+            width="120"
+          />
+          <ElTableColumn label="创建时间" width="180">
+            <template #default="scope">
+              {{ formatDate(scope.row.create_time || scope.row.createTime) }}
+            </template>
+          </ElTableColumn>
           <ElTableColumn label="操作" width="280" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click.stop="openDetailDialog(scope.row)">
                 查看详情
               </ElButton>
               <ElButton
-                v-if="scope.row.registration_status === 'PENDING'"
+                v-if="scope.row.registration_status === 'PENDING' || scope.row.registration_status === 'pending'"
                 link
                 size="small"
                 @click.stop="handleRegisterClaim(scope.row)"
@@ -1573,7 +1610,7 @@ onMounted(() => {
                 登记
               </ElButton>
               <ElButton
-                v-if="scope.row.registration_status === 'PENDING'"
+                v-if="scope.row.registration_status === 'PENDING' || scope.row.registration_status === 'pending'"
                 link
                 size="small"
                 type="danger"

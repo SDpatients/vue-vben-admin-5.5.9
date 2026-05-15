@@ -422,10 +422,30 @@ const handlePageSizeChange = (size: number, isReview: boolean = false) => {
 const getRegistrationStatusTag = (status: string) => {
   const statusMap: Record<string, any> = {
     PENDING: { type: 'warning', text: '待登记' },
+    REVIEWING: { type: 'primary', text: '审查中' },
+    REVIEW_COMPLETED: { type: 'success', text: '审查完成' },
+    CONFIRMING: { type: 'info', text: '确认中' },
+    CONFIRMED: { type: 'success', text: '确认完成' },
     REGISTERED: { type: 'success', text: '已登记' },
     REJECTED: { type: 'danger', text: '已驳回' },
+    pending: { type: 'warning', text: '待登记' },
+    reviewing: { type: 'primary', text: '审查中' },
+    review_completed: { type: 'success', text: '审查完成' },
+    confirming: { type: 'info', text: '确认中' },
+    confirmed: { type: 'success', text: '确认完成' },
+    registered: { type: 'success', text: '已登记' },
+    rejected: { type: 'danger', text: '已驳回' },
   };
-  return statusMap[status] || { type: 'info', text: status };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { type: 'info', text: '未知' };
 };
 
 const getReviewStatusTag = (status: string) => {
@@ -434,8 +454,29 @@ const getReviewStatusTag = (status: string) => {
     IN_PROGRESS: { type: 'primary', text: '审查中' },
     COMPLETED: { type: 'success', text: '已完成' },
     SUPPLEMENT: { type: 'danger', text: '待补充' },
+    REVIEWING: { type: 'primary', text: '审查中' },
+    REVIEW_COMPLETED: { type: 'success', text: '审查完成' },
+    CONFIRMING: { type: 'info', text: '确认中' },
+    REJECTED: { type: 'danger', text: '已驳回' },
+    pending: { type: 'warning', text: '待审查' },
+    in_progress: { type: 'primary', text: '审查中' },
+    completed: { type: 'success', text: '已完成' },
+    supplement: { type: 'danger', text: '待补充' },
+    reviewing: { type: 'primary', text: '审查中' },
+    review_completed: { type: 'success', text: '审查完成' },
+    confirming: { type: 'info', text: '确认中' },
+    rejected: { type: 'danger', text: '已驳回' },
   };
-  return statusMap[status] || { type: 'info', text: status };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { type: 'info', text: '未知' };
 };
 
 const getReviewConclusionTag = (conclusion: string) => {
@@ -443,8 +484,24 @@ const getReviewConclusionTag = (conclusion: string) => {
     CONFIRMED: { type: 'success', text: '确认' },
     REJECTED: { type: 'danger', text: '驳回' },
     PARTIAL: { type: 'warning', text: '部分确认' },
+    PARTIAL_CONFIRMED: { type: 'warning', text: '部分确认' },
+    UNCONFIRMED: { type: 'danger', text: '不予确认' },
+    confirmed: { type: 'success', text: '确认' },
+    rejected: { type: 'danger', text: '驳回' },
+    partial: { type: 'warning', text: '部分确认' },
+    partial_confirmed: { type: 'warning', text: '部分确认' },
+    unconfirmed: { type: 'danger', text: '不予确认' },
   };
-  return conclusionMap[conclusion] || { type: 'info', text: conclusion };
+  if (conclusion && conclusionMap[conclusion]) {
+    return conclusionMap[conclusion];
+  }
+  if (conclusion) {
+    const upperConclusion = conclusion.toUpperCase();
+    if (conclusionMap[upperConclusion]) {
+      return conclusionMap[upperConclusion];
+    }
+  }
+  return { type: 'info', text: '未知' };
 };
 
 const handleReceiveMaterial = async (row: any) => {

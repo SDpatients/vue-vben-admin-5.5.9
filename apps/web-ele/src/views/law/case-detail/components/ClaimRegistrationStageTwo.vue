@@ -733,7 +733,7 @@ defineExpose({
           <ElTableColumn
             prop="creditor_name"
             label="债权人名称"
-            min-width="180"
+            min-width="150"
           />
           <ElTableColumn prop="creditor_type" label="债权人类型" width="120">
             <template #default="scope">
@@ -741,15 +741,41 @@ defineExpose({
             </template>
           </ElTableColumn>
           <ElTableColumn
-            prop="credit_code"
-            label="统一社会信用代码"
-            width="180"
+            prop="claim_type"
+            label="债权种类"
+            width="120"
           />
-          <ElTableColumn prop="principal" label="申报本金" width="120" />
-          <ElTableColumn prop="interest" label="申报利息" width="120" />
-          <ElTableColumn prop="total_amount" label="申报总金额" width="120" />
-          <ElTableColumn prop="claim_nature" label="债权性质" width="120" />
-          <ElTableColumn prop="claim_type" label="债权种类" width="120" />
+          <ElTableColumn label="申报总金额" width="140">
+            <template #default="scope">
+              {{ scope.row.total_amount || scope.row.totalAmount || 0 }}
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="确认总金额" width="140">
+            <template #default="scope">
+              <template v-if="scope.row.reviewInfo">
+                {{ scope.row.reviewInfo.confirmedTotalAmount || 0 }}
+              </template>
+              <span v-else>-</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="审查结论" width="120">
+            <template #default="scope">
+              <template v-if="scope.row.reviewInfo">
+                <ElTag
+                  :type="getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion).type"
+                  size="small"
+                >
+                  {{ getReviewConclusionTag(scope.row.reviewInfo.reviewConclusion).text }}
+                </ElTag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="创建时间" width="180">
+            <template #default="scope">
+              {{ formatDate(scope.row.create_time || scope.row.createTime) }}
+            </template>
+          </ElTableColumn>
           <ElTableColumn label="操作" width="450" fixed="right">
             <template #default="scope">
               <ElButton

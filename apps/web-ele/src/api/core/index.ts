@@ -1,6 +1,7 @@
 export * from './actuator';
 export * from './activity';
 export * from './agreement';
+export * from './audit-log';
 export * from './approval';
 export * from './archive';
 export * from './asset';

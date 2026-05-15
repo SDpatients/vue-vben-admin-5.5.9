@@ -147,7 +147,12 @@
     "userManagement": "用户管理",
     "userList": "用户列表",
     "userAdd": "新增用户",
-    "userProfile": "个人中心"
+    "userProfile": "个人中心",
+    "auditLog": "审计日志",
+    "auditLogList": "日志列表",
+    "auditLogDetail": "日志详情",
+    "auditLogStatistics": "统计分析",
+    "auditLogIntegrity": "完整性验证"
   },
   "approval": {
     "title": "审批管理",

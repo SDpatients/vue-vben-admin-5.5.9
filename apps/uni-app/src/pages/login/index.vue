@@ -84,7 +84,7 @@
       <view class="agreement-modal">
         <view class="agreement-header">
           <text class="agreement-title">用户协议与隐私政策</text>
-          <text class="agreement-desc">请阅读并同意以下协议后继续使用</text>
+          <text class="agreement-desc">请阅读并同意以下全部协议后继续使用</text>
         </view>
 
         <view class="agreement-list">
@@ -200,12 +200,12 @@ const allLocalAgreed = computed(() => {
 })
 
 const agreementTypeLabels: Record<string, string> = {
-  PRIVACY_POLICY: '隐私政策',
-  USER_AGREEMENT: '用户协议',
+  PRIVACY_POLICY: '隐私政策与数据授权协议',
+  USER_AGREEMENT: '用户服务协议',
 }
 
 const agreementTypeContents: Record<string, string> = {
-  PRIVACY_POLICY: `${customerConfig.company.name}（以下简称"本公司"）非常重视用户的隐私保护。本隐私政策旨在向您说明我们在您使用${customerConfig.app.fullName}时如何收集、使用、存储和保护您的个人信息。`,
+  PRIVACY_POLICY: `本《隐私政策与数据授权协议》由${customerConfig.company.name}（以下简称"我们"）与使用${customerConfig.app.fullName}的律师事务所（以下简称"律所"或"您"）共同订立。\n\n核心要点：\n• 本系统收集用户身份信息、案件数据及系统操作日志等数据\n• 手机号码、身份证号等敏感信息采用SM4国密算法加密存储\n• 所有数据存储于中华人民共和国境内，数据不出境\n• 数据不会出售、出租或交易给任何第三方\n• 律所有责任确保录入的债权人等数据已获合法授权\n• 用户享有知情权、查阅权、更正权、删除权、撤回同意权等权利`,
   USER_AGREEMENT: `本协议是您（以下简称"用户"）与${customerConfig.company.name}（以下简称"本公司"）之间关于使用本公司提供的${customerConfig.app.fullName}所订立的协议。`,
 }
 

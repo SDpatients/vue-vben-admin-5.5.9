@@ -123,6 +123,64 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.expenseSystem.userProfile'),
         },
       },
+      {
+        name: 'AuditLog',
+        path: 'audit-log',
+        redirect: '/expense-system/audit-log/list',
+        meta: {
+          authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+          icon: 'lucide:shield-check',
+          title: $t('page.expenseSystem.auditLog'),
+        },
+        children: [
+          {
+            name: 'AuditLogList',
+            path: 'list',
+            component: () => import('#/views/audit-log/index.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:list',
+              title: $t('page.expenseSystem.auditLogList'),
+            },
+          },
+          {
+            name: 'AuditLogDetail',
+            path: 'detail/:id',
+            component: () => import('#/views/audit-log/detail.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:file-search',
+              title: $t('page.expenseSystem.auditLogDetail'),
+              hideInMenu: true,
+              hideInTab: true,
+            },
+          },
+          {
+            name: 'AuditLogStatistics',
+            path: 'statistics',
+            component: () => import('#/views/audit-log/statistics.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:bar-chart-3',
+              title: $t('page.expenseSystem.auditLogStatistics'),
+            },
+          },
+          {
+            name: 'AuditLogIntegrity',
+            path: 'integrity',
+            component: () => import('#/views/audit-log/integrity.vue'),
+            meta: {
+              affixTab: false,
+              authority: ['ADMIN', '管理员', 'SUPER_ADMIN', '超级管理员'],
+              icon: 'lucide:shield-alert',
+              title: $t('page.expenseSystem.auditLogIntegrity'),
+            },
+          },
+        ],
+      },
     ],
   },
 ];

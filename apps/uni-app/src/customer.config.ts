@@ -94,7 +94,7 @@ export const customerConfig = {
    *   生产环境：https://api.example.com
    */
   api: {
-    baseUrl: 'http://192.168.0.151:8080',
+    baseUrl: 'http://192.168.1.92',
     prefix: '/api/v1',
     timeout: 30000,
     retryTimes: 3,

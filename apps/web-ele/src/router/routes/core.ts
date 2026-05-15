@@ -15,6 +15,18 @@ const BasicLayout = () => import('#/layouts/basic.vue');
 const AuthPageLayout = () => import('#/layouts/auth.vue');
 
 const LICENSE_PATH = '/license';
+const PRODUCT_INTRO_PATH = '/product-intro';
+
+const productIntroRoute: RouteRecordRaw = {
+  component: () => import('#/views/_core/product-intro/index.vue'),
+  meta: {
+    hideInTab: true,
+    ignoreAccess: true,
+    title: '产品介绍',
+  },
+  name: 'ProductIntro',
+  path: PRODUCT_INTRO_PATH,
+};
 
 const licenseRoute: RouteRecordRaw = {
   component: () => import('#/views/_core/license/index.vue'),
@@ -151,5 +163,7 @@ export {
   coreRoutes,
   fallbackNotFoundRoute,
   LICENSE_PATH,
+  PRODUCT_INTRO_PATH,
   licenseRoute,
+  productIntroRoute,
 };

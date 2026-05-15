@@ -14,7 +14,7 @@ function getApiBaseUrl(): string {
     }
   } catch {
   }
-  return 'http://192.168.0.151:8080'
+  return 'http://192.168.1.92'
 }
 
 const API_BASE_URL = getApiBaseUrl()

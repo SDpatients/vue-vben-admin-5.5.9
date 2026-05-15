@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { UploadFile } from 'element-plus';
 
 import { computed, defineProps, nextTick, onMounted, ref, watch } from 'vue';
@@ -49,6 +49,7 @@ import {
   getDefaultIP,
   formatFileSize as formatFileSizeUtil,
 } from '../../../config/mobile-upload';
+import { exportToExcel } from '../../../utils/export-excel';
 
 import ClaimProcessingModules from '../case-detail/components/ClaimProcessingModules.vue';
 
@@ -144,6 +145,13 @@ const newVideoTag = ref({
   videoTitle: '',
   videoFile: null as File | null,
 });
+const videoUploadProgress = ref(0);
+const isVideoUploading = ref(false);
+const videoUploadError = ref('');
+
+// 视频预览相关
+const showVideoPreviewDialog = ref(false);
+const previewVideoTag = ref<any>(null);
 
 // 添加投票项弹窗
 const showAddVoteDialog = ref(false);
@@ -157,6 +165,102 @@ const newVoteItem = ref({
 
 const addVoteItem = () => {
   showAddVoteDialog.value = true;
+};
+
+const saveVoteStatistics = async () => {
+  if (voteItems.value.length === 0) {
+    ElMessage.warning('暂无投票项数据可保存');
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录，无法保存统计数据');
+      return;
+    }
+
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    const savePromises = voteItems.value.map((item: any) =>
+      fetch(`/api/v1/api/vote-items/${item.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': formattedToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: item.id,
+          meetingId: currentMeetingId.value,
+          itemName: item.name,
+          agreeCount: item.agree,
+          opposeCount: item.oppose,
+          abstainCount: item.abstain,
+          remark: item.remark,
+        }),
+      })
+    );
+
+    await Promise.all(savePromises);
+
+    ElMessage.success('投票统计数据保存成功');
+  } catch (error) {
+    console.error('保存统计数据失败:', error);
+    ElMessage.error('保存统计数据失败');
+    ElMessage.info('数据已保存在本地，请稍后重试');
+  }
+};
+
+const exportVoteTable = () => {
+  if (voteItems.value.length === 0) {
+    ElMessage.warning('暂无投票项数据可导出');
+    return;
+  }
+
+  const totalAgree = voteItems.value.reduce((sum: number, item: any) => sum + (item.agree || 0), 0);
+  const totalOppose = voteItems.value.reduce((sum: number, item: any) => sum + (item.oppose || 0), 0);
+  const totalAbstain = voteItems.value.reduce((sum: number, item: any) => sum + (item.abstain || 0), 0);
+  const totalVotes = totalAgree + totalOppose + totalAbstain;
+
+  const exportData = [
+    ...voteItems.value.map((item: any) => ({
+      投票项名称: item.name,
+      同意票数: item.agree,
+      反对票数: item.oppose,
+      弃权票数: item.abstain,
+      总票数: item.agree + item.oppose + item.abstain,
+      同意比例: totalVotes > 0 ? ((item.agree / totalVotes) * 100).toFixed(2) + '%' : '0%',
+      备注: item.remark,
+    })),
+    {
+      投票项名称: '合计',
+      同意票数: totalAgree,
+      反对票数: totalOppose,
+      弃权票数: totalAbstain,
+      总票数: totalVotes,
+      同意比例: '',
+      备注: '',
+    },
+  ];
+
+  const meetingName = currentMeetingData.value.meetingName || '债权人会议';
+
+  exportToExcel({
+    data: exportData,
+    fileName: `${meetingName}_投票统计`,
+    sheetName: '投票统计',
+    columns: [
+      { field: '投票项名称', title: '投票项名称', width: 25 },
+      { field: '同意票数', title: '同意票数', width: 12 },
+      { field: '反对票数', title: '反对票数', width: 12 },
+      { field: '弃权票数', title: '弃权票数', width: 12 },
+      { field: '总票数', title: '总票数', width: 12 },
+      { field: '同意比例', title: '同意比例', width: 12 },
+      { field: '备注', title: '备注', width: 15 },
+    ],
+  });
+
+  ElMessage.success('投票统计表格导出成功');
 };
 
 const saveNewVoteItem = async () => {
@@ -237,68 +341,193 @@ const resetNewVoteItem = () => {
 // 添加上传视频标签
 const addVideoTag = () => {
   showAddVideoDialog.value = true;
+  resetNewVideoTag();
 };
+
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-ms-wmv', 'video/x-flv', 'video/x-matroska', 'video/webm', 'video/mpeg', 'video/3gpp'];
+const ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv', '.webm', '.mpeg', '.3gp'];
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 
 const saveNewVideoTag = async () => {
   if (!newVideoTag.value.videoTitle) {
     ElMessage.warning('请输入视频标题');
     return;
   }
-  
+
+  const file = newVideoTag.value.videoFile;
+  if (!file) {
+    ElMessage.warning('请选择视频文件');
+    return;
+  }
+
+  const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+  if (!ALLOWED_VIDEO_EXTENSIONS.includes(fileExtension) && !ALLOWED_VIDEO_TYPES.includes(file.type)) {
+    ElMessage.warning(`不支持的视频格式，支持: ${ALLOWED_VIDEO_EXTENSIONS.join(', ')}`);
+    return;
+  }
+
+  if (file.size > MAX_VIDEO_SIZE) {
+    ElMessage.warning('视频文件大小不能超过500MB');
+    return;
+  }
+
+  const token = localStorage.getItem('token');
+  if (!token) {
+    ElMessage.warning('未登录，无法上传视频');
+    return;
+  }
+
+  isVideoUploading.value = true;
+  videoUploadProgress.value = 0;
+  videoUploadError.value = '';
+
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      ElMessage.warning('未登录，无法添加视频标签');
-      return;
-    }
-    
-    const now = new Date().toISOString();
-    const response = await fetch('/api/v1/api/video-tags', {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bizType', 'VIDEO_MEETING');
+    formData.append('bizId', String(currentMeetingId.value));
+
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    const uploadResponse = await fetch('/api/v1/video/upload', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': formattedToken,
+      },
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(errorText || '视频上传失败');
+    }
+
+    const uploadResult = await uploadResponse.json();
+    if (uploadResult.code !== 200) {
+      throw new Error(uploadResult.message || '视频上传失败');
+    }
+
+    const fileData = uploadResult.data;
+    videoUploadProgress.value = 100;
+
+    const now = new Date().toISOString();
+    const tagResponse = await fetch('/api/v1/api/video-tags', {
+      method: 'POST',
+      headers: {
+        'Authorization': formattedToken,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         id: 0,
         meetingId: currentMeetingId.value,
         videoTitle: newVideoTag.value.videoTitle,
-        status: 'pending',
+        fileId: fileData.id,
+        originalFileName: fileData.originalFileName,
+        fileSize: fileData.fileSize,
+        status: 'generated',
         createTime: now,
         updateTime: now,
         createUserId: Number(localStorage.getItem('user_id') || '0'),
         updateUserId: Number(localStorage.getItem('user_id') || '0'),
-        isDeleted: false
-      })
+        isDeleted: false,
+      }),
     });
-    
-    if (!response.ok) {
-      throw new Error('添加视频标签失败');
+
+    if (!tagResponse.ok) {
+      throw new Error('创建视频标签失败');
     }
-    
-    // 关闭弹窗并重置表单
+
     showAddVideoDialog.value = false;
     resetNewVideoTag();
-    
-    // 重新获取视频标签数据，确保显示最新数据
+
     await fetchVideoTags(currentMeetingId.value);
-    
-    ElMessage.success('视频标签添加成功');
-  } catch (error) {
-    console.error('添加视频标签失败:', error);
-    ElMessage.error('添加视频标签失败');
+
+    ElMessage.success('视频上传成功');
+  } catch (error: any) {
+    console.error('视频上传失败:', error);
+    videoUploadError.value = error.message || '视频上传失败';
+    ElMessage.error(videoUploadError.value);
+
+    if (videoUploadProgress.value === 0) {
+      ElMessage.warning('视频上传失败，请重试');
+    }
+  } finally {
+    isVideoUploading.value = false;
   }
 };
 
 const resetNewVideoTag = () => {
   newVideoTag.value = {
     videoTitle: '',
-    videoFile: null
+    videoFile: null,
   };
+  videoUploadProgress.value = 0;
+  isVideoUploading.value = false;
+  videoUploadError.value = '';
 };
 
 const handleVideoFileChange = (file: any) => {
-  newVideoTag.value.videoFile = file.raw;
+  const rawFile = file.raw;
+  if (!rawFile) return;
+
+  const fileExtension = '.' + rawFile.name.split('.').pop()?.toLowerCase();
+  if (!ALLOWED_VIDEO_EXTENSIONS.includes(fileExtension) && !ALLOWED_VIDEO_TYPES.includes(rawFile.type)) {
+    ElMessage.warning(`不支持的视频格式，支持: ${ALLOWED_VIDEO_EXTENSIONS.join(', ')}`);
+    return;
+  }
+
+  if (rawFile.size > MAX_VIDEO_SIZE) {
+    ElMessage.warning('视频文件大小不能超过500MB');
+    return;
+  }
+
+  newVideoTag.value.videoFile = rawFile;
+};
+
+const handleVideoTagPlay = (tag: any) => {
+  if (!tag.fileId || tag.fileId === 0) {
+    ElMessage.warning(`"${tag.title}" 暂无视频文件，请先上传视频`);
+    return;
+  }
+  previewVideoTag.value = tag;
+  showVideoPreviewDialog.value = true;
+};
+
+const handleVideoTagDelete = async (tag: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除视频标签"${tag.title}"吗？`, '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      ElMessage.warning('未登录');
+      return;
+    }
+
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    const response = await fetch(`/api/v1/api/video-tags/${tag.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': formattedToken,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('删除视频标签失败');
+    }
+
+    ElMessage.success('删除成功');
+    await fetchVideoTags(currentMeetingId.value);
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('删除视频标签失败:', error);
+      ElMessage.error('删除视频标签失败');
+    }
+  }
 };
 
 // API调用函数
@@ -406,13 +635,15 @@ const fetchVideoTags = async (meetingId = 1) => {
     }
     
     const data = await response.json();
-    // 转换数据格式以匹配前端使用的格式
-    videoTags.value = data.map((tag) => ({
+    videoTags.value = data.map((tag: any) => ({
       id: tag.id,
       title: tag.videoTitle,
       meeting: '第一次债权人会议',
-      status: tag.status,
-      statusText: tag.status === 'generated' ? '已生成' : '待生成'
+      status: tag.status || 'pending',
+      statusText: tag.status === 'generated' ? '已生成' : '待生成',
+      fileId: tag.fileId,
+      originalFileName: tag.originalFileName,
+      fileSize: tag.fileSize,
     }));
   } catch (error) {
     console.error('获取视频标签数据失败:', error);
@@ -424,43 +655,49 @@ const fetchVideoTags = async (meetingId = 1) => {
         title: '会议开场致辞',
         meeting: '第一次债权人会议',
         status: 'generated',
-        statusText: '已生成'
+        statusText: '已生成',
+        fileId: 0,
       },
       {
         id: 2,
         title: '管理人工作报告',
         meeting: '第一次债权人会议',
         status: 'generated',
-        statusText: '已生成'
+        statusText: '已生成',
+        fileId: 0,
       },
       {
         id: 3,
         title: '财产变价方案说明',
         meeting: '第一次债权人会议',
         status: 'pending',
-        statusText: '待生成'
+        statusText: '待生成',
+        fileId: 0,
       },
       {
         id: 4,
         title: '债权人提问环节',
         meeting: '第一次债权人会议',
         status: 'generated',
-        statusText: '已生成'
+        statusText: '已生成',
+        fileId: 0,
       },
       {
         id: 5,
         title: '投票表决过程',
         meeting: '第一次债权人会议',
         status: 'pending',
-        statusText: '待生成'
+        statusText: '待生成',
+        fileId: 0,
       },
       {
         id: 6,
         title: '会议总结发言',
         meeting: '第一次债权人会议',
         status: 'generated',
-        statusText: '已生成'
-      }
+        statusText: '已生成',
+        fileId: 0,
+      },
     ];
   } finally {
     isLoadingVideoTags.value = false;
@@ -1643,7 +1880,7 @@ const stages = [
       {
         id: '4-1',
         title: '会议资料',
-        description: '管理人筹备第一次债权人会议',
+        description: '管理人筹备与统计债权人会议',
         fields: ['标题', '类型', '内容', '创建人', '日期'],
         data: [],
       },
@@ -3565,11 +3802,11 @@ const openMobileUploadDialog = async () => {
                     <Icon icon="lucide:plus" class="mr-1" />
                     添加投票项
                   </ElButton>
-                  <ElButton type="success" size="small">
+                  <ElButton type="success" size="small" @click="saveVoteStatistics">
                     <Icon icon="lucide:save" class="mr-1" />
                     保存统计结果
                   </ElButton>
-                  <ElButton type="info" size="small">
+                  <ElButton type="info" size="small" @click="exportVoteTable">
                     <Icon icon="lucide:download" class="mr-1" />
                     导出表格
                   </ElButton>
@@ -3648,18 +3885,43 @@ const openMobileUploadDialog = async () => {
               </div>
               <template v-else>
                 <div class="video-tag-card" v-for="tag in videoTags" :key="tag.id">
-                  <div class="video-tag-cover">
-                    <div class="cover-placeholder">
-                      <Icon icon="lucide:video" class="cover-icon" />
+                  <div class="video-tag-cover" @click="tag.fileId > 0 ? handleVideoTagPlay(tag) : null" :class="{ 'no-video': !tag.fileId || tag.fileId === 0 }">
+                      <div class="cover-placeholder">
+                        <Icon icon="lucide:play-circle" class="cover-icon" />
+                        <div v-if="!tag.fileId || tag.fileId === 0" class="no-video-overlay">
+                          <Icon icon="lucide:video-off" class="no-video-icon" />
+                          <span>暂无视频</span>
+                        </div>
+                      </div>
+                      <div class="video-tag-status" :class="tag.status">
+                        {{ tag.statusText }}
+                      </div>
                     </div>
-                    <div class="video-tag-status" :class="tag.status">
-                      {{ tag.statusText }}
+                    <div class="video-tag-info">
+                      <div class="video-tag-title">{{ tag.title }}</div>
+                      <div class="video-tag-meeting">{{ tag.meeting }}</div>
                     </div>
-                  </div>
-                  <div class="video-tag-info">
-                    <div class="video-tag-title">{{ tag.title }}</div>
-                    <div class="video-tag-meeting">{{ tag.meeting }}</div>
-                  </div>
+                    <div class="video-tag-actions">
+                      <ElButton
+                        type="primary"
+                        size="small"
+                        circle
+                        :disabled="!tag.fileId || tag.fileId === 0"
+                        @click="handleVideoTagPlay(tag)"
+                        :title="(!tag.fileId || tag.fileId === 0) ? '暂无视频文件，请先上传' : '播放视频'"
+                      >
+                        <Icon icon="lucide:play" />
+                      </ElButton>
+                      <ElButton
+                        type="danger"
+                        size="small"
+                        circle
+                        @click="handleVideoTagDelete(tag)"
+                        title="删除"
+                      >
+                        <Icon icon="lucide:trash-2" />
+                      </ElButton>
+                    </div>
                 </div>
               </template>
             </div>
@@ -3755,32 +4017,79 @@ const openMobileUploadDialog = async () => {
             :auto-upload="false"
             :show-file-list="false"
             :on-change="handleVideoFileChange"
-            accept="video/*"
+            accept=".mp4,.avi,.mov,.wmv,.flv,.mkv,.webm,.mpeg,.3gp"
           >
-            <ElButton type="primary">
+            <ElButton type="primary" :disabled="isVideoUploading">
               <Icon icon="lucide:folder-open" class="mr-1" />
               选择视频文件
             </ElButton>
             <template #tip>
               <div class="el-upload__tip">
-                支持 mp4、avi、mov 等视频格式
+                支持 mp4、avi、mov、wmv、flv、mkv、webm、mpeg、3gp 等视频格式，最大500MB
               </div>
             </template>
           </ElUpload>
           <div v-if="newVideoTag.videoFile" class="selected-file-info">
             <Icon icon="lucide:video" class="mr-1" />
             {{ newVideoTag.videoFile.name }}
+            <span class="file-size-tag">{{ formatFileSize(newVideoTag.videoFile.size) }}</span>
+          </div>
+        </ElFormItem>
+        <ElFormItem v-if="isVideoUploading" label="上传进度">
+          <div class="upload-progress-container">
+            <div class="upload-progress-bar">
+              <div
+                class="upload-progress-fill"
+                :style="{ width: videoUploadProgress + '%' }"
+              ></div>
+            </div>
+            <span class="upload-progress-text">{{ videoUploadProgress }}%</span>
           </div>
         </ElFormItem>
       </ElForm>
 
       <template #footer>
-        <ElButton @click="showAddVideoDialog = false">取消</ElButton>
-        <ElButton type="primary" @click="saveNewVideoTag">
+        <ElButton @click="showAddVideoDialog = false" :disabled="isVideoUploading">取消</ElButton>
+        <ElButton type="primary" @click="saveNewVideoTag" :loading="isVideoUploading">
           <Icon icon="lucide:check" class="mr-1" />
           保存
         </ElButton>
       </template>
+    </ElDialog>
+
+    <!-- 视频预览弹窗 -->
+    <ElDialog
+      v-model="showVideoPreviewDialog"
+      :title="previewVideoTag?.title || '视频预览'"
+      width="900px"
+      destroy-on-close
+      @close="showVideoPreviewDialog = false"
+    >
+      <div v-if="previewVideoTag" class="video-preview-container">
+        <div class="video-info-bar">
+          <span class="video-info-item">
+            <Icon icon="lucide:file-video" class="mr-1" />
+            {{ previewVideoTag.originalFileName || previewVideoTag.title }}
+          </span>
+          <span v-if="previewVideoTag.fileSize" class="video-info-item">
+            <Icon icon="lucide:hard-drive" class="mr-1" />
+            {{ formatFileSize(previewVideoTag.fileSize) }}
+          </span>
+        </div>
+        <video
+          class="video-player"
+          controls
+          autoplay
+          preload="metadata"
+          style="width: 100%; max-height: 500px; background: #000; border-radius: 8px;"
+        >
+          <source
+            :src="`/api/v1/video/stream/${previewVideoTag.fileId}`"
+            type="video/mp4"
+          />
+          您的浏览器不支持视频播放
+        </video>
+      </div>
     </ElDialog>
   </div>
 </template>
@@ -5663,6 +5972,34 @@ const openMobileUploadDialog = async () => {
   justify-content: center;
 }
 
+.video-tag-cover.no-video {
+  background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+  cursor: default;
+}
+
+.no-video-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  gap: 6px;
+  border-radius: 0;
+}
+
+.no-video-icon {
+  font-size: 32px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.no-video-overlay span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
 .cover-placeholder {
   display: flex;
   align-items: center;
@@ -5723,6 +6060,83 @@ const openMobileUploadDialog = async () => {
   gap: 8px;
   font-size: 14px;
   color: #1a1a2e;
+}
+
+.file-size-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #eef2ff;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #6366f1;
+}
+
+.video-tag-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.upload-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.upload-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+  min-width: 45px;
+  text-align: right;
+}
+
+.video-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: #f8f9ff;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.video-info-item {
+  display: flex;
+  align-items: center;
+}
+
+.video-player {
+  outline: none;
+}
+
+.video-player:focus {
+  outline: none;
 }
 </style>
 

@@ -188,6 +188,14 @@ const formatDate = (dateStr: string) => {
   return `${y}-${m}-${d}`;
 };
 
+const formatAttachmentSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+};
+
 const fetchAnnouncements = async () => {
   loading.value = true;
   try {
@@ -253,9 +261,14 @@ const viewAnnouncementDetail = async (announcement: Announcement) => {
 
       if (attachmentsResponse.code === 200 && attachmentsResponse.data) {
         data.attachments = attachmentsResponse.data.map((attach: any) => ({
-          file_name: attach.originalFileName || '未知文件',
+          file_name:
+            attach.originalFileName ||
+            attach.original_file_name ||
+            '未知文件',
           file_id: attach.id,
-          type: attach.mimeType || 'application/octet-stream',
+          type: attach.mimeType || attach.mime_type || 'application/octet-stream',
+          upload_time: attach.uploadTime || attach.upload_time || '',
+          file_size: attach.fileSize ?? attach.file_size ?? 0,
         }));
       }
 
@@ -982,6 +995,18 @@ onMounted(() => {
                     <span class="attachment-name">{{
                       attachment.file_name || attachment.name || '附件'
                     }}</span>
+                    <span
+                      v-if="attachment.upload_time"
+                      class="attachment-meta"
+                    >
+                      {{ formatDate(attachment.upload_time) }}
+                    </span>
+                    <span
+                      v-if="attachment.file_size"
+                      class="attachment-meta"
+                    >
+                      {{ formatAttachmentSize(attachment.file_size) }}
+                    </span>
                   </div>
                   <div
                     v-if="isImageAttachment(attachment)"
@@ -1351,6 +1376,13 @@ onMounted(() => {
   text-overflow: ellipsis;
   font-size: 14px;
   color: #333;
+  white-space: nowrap;
+}
+
+.attachment-meta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #9ca3af;
   white-space: nowrap;
 }
 

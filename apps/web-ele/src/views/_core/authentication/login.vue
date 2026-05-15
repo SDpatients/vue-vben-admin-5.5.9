@@ -113,6 +113,10 @@ const formSchema = computed((): VbenFormSchema[] => {
 const handleForgetPassword = () => {
   ElMessage.warning('当前版本请联系系统管理员进行密码更改。');
 };
+
+const navigateToProductIntro = () => {
+  router.push('/product-intro');
+};
 </script>
 
 <template>
@@ -134,6 +138,15 @@ const handleForgetPassword = () => {
         <h2 class="text-2xl font-bold">{{ customerConfig.login.title }}</h2>
       </template>
     </AuthenticationLogin>
+    <div class="product-intro-link">
+      <a
+        href="javascript:void(0)"
+        class="product-intro-btn"
+        @click="navigateToProductIntro"
+      >
+        📖 产品介绍
+      </a>
+    </div>
     <div class="login-footer">
       <p class="copyright-text">
         © {{ customerConfig.copyright.year }}
@@ -185,7 +198,7 @@ const handleForgetPassword = () => {
 }
 
 .login-footer {
-  margin-top: 24px;
+  margin-top: 12px;
   text-align: center;
   padding: 16px 0;
 }
@@ -224,5 +237,29 @@ const handleForgetPassword = () => {
 .footer-divider {
   color: #d9d9d9;
   font-size: 12px;
+}
+
+.product-intro-link {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.product-intro-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border: 1px solid #1890ff;
+  border-radius: 6px;
+  color: #1890ff;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #1890ff;
+    color: #fff;
+  }
 }
 </style>

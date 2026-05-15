@@ -8,7 +8,7 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import { mergeRouteModulesAsync, traverseTreeValues } from '@vben/utils';
 
-import { coreRoutes, fallbackNotFoundRoute, licenseRoute } from './core';
+import { coreRoutes, fallbackNotFoundRoute, licenseRoute, productIntroRoute } from './core';
 
 const dynamicRouteFiles = import.meta.glob('./modules/**/*.ts');
 
@@ -18,6 +18,7 @@ const externalRoutes: RouteRecordRaw[] = [];
 const routes: RouteRecordRaw[] = [
   ...coreRoutes,
   licenseRoute,
+  productIntroRoute,
   ...externalRoutes,
   fallbackNotFoundRoute,
 ];

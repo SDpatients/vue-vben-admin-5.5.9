@@ -473,16 +473,12 @@ const handleReset = () => {
 const handleViewDetail = async (row: DocumentApproval) => {
   currentDocument.value = row;
   dialogVisible.value = true;
-  await loadDocumentAttachments(row.id);
-};
 
-// 加载文档附件列表
-const loadDocumentAttachments = async (documentId: number | undefined) => {
-  if (!documentId) return;
-  
+  // 获取附件列表
   try {
-    const response = await getDocumentAttachmentsApi(documentId);
+    const response = await getDocumentAttachmentsApi(row.id);
     if (response && response.data) {
+      const token = localStorage.getItem('token');
       const attachments: DocumentAttachment[] = [];
       
       // 处理每个附件记录
@@ -564,9 +560,7 @@ const loadDocumentAttachments = async (documentId: number | undefined) => {
         }
       }
       
-      if (currentDocument.value) {
-        currentDocument.value.attachments = attachments;
-      }
+      currentDocument.value.attachments = attachments;
     }
   } catch (error) {
     console.error('获取附件列表失败:', error);
@@ -574,24 +568,22 @@ const loadDocumentAttachments = async (documentId: number | undefined) => {
   }
 };
 
-const handleApprove = async (row: DocumentApproval) => {
+const handleApprove = (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
     status: 'APPROVED',
   };
   dialogVisible.value = true;
-  await loadDocumentAttachments(row.id);
 };
 
-const handleReject = async (row: DocumentApproval) => {
+const handleReject = (row: DocumentApproval) => {
   currentDocument.value = row;
   approvalForm.value = {
     remark: '',
     status: 'REJECTED',
   };
   dialogVisible.value = true;
-  await loadDocumentAttachments(row.id);
 };
 
 const handleConfirmApproval = async () => {

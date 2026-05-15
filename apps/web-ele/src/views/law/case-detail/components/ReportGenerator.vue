@@ -676,8 +676,30 @@ const getStatusTagType = (status: string) => {
     'REVIEWING': 'warning',
     'PENDING': 'info',
     'REJECTED': 'danger',
+    'REVIEW_COMPLETED': 'success',
+    'REGISTERED': 'success',
+    'IN_PROGRESS': 'primary',
+    'COMPLETED': 'success',
+    'confirmed': 'success',
+    'confirming': 'primary',
+    'reviewing': 'warning',
+    'pending': 'info',
+    'rejected': 'danger',
+    'review_completed': 'success',
+    'registered': 'success',
+    'in_progress': 'primary',
+    'completed': 'success',
   };
-  return typeMap[status] || 'info';
+  if (status && typeMap[status]) {
+    return typeMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (typeMap[upperStatus]) {
+      return typeMap[upperStatus];
+    }
+  }
+  return 'info';
 };
 
 // 状态文本映射
@@ -686,10 +708,32 @@ const getStatusText = (status: string) => {
     'CONFIRMED': '已确认',
     'CONFIRMING': '确认中',
     'REVIEWING': '审查中',
+    'REVIEW_COMPLETED': '审查完成',
+    'REGISTERED': '已登记',
+    'IN_PROGRESS': '进行中',
+    'COMPLETED': '已完成',
     'PENDING': '待处理',
     'REJECTED': '已驳回',
+    'confirmed': '已确认',
+    'confirming': '确认中',
+    'reviewing': '审查中',
+    'review_completed': '审查完成',
+    'registered': '已登记',
+    'in_progress': '进行中',
+    'completed': '已完成',
+    'pending': '待处理',
+    'rejected': '已驳回',
   };
-  return textMap[status] || status;
+  if (status && textMap[status]) {
+    return textMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (textMap[upperStatus]) {
+      return textMap[upperStatus];
+    }
+  }
+  return '未知';
 };
 
 // 格式化金额

@@ -72,6 +72,18 @@ const confirmationUploadRef = ref<any>();
 const currentClaim = ref<any>(null);
 const confirmationExistingFiles = ref<any[]>([]);
 
+const formatCurrency = (value: number | string | undefined | null) => {
+  if (value === undefined || value === null || value === '') return '-';
+  const num = Number(value);
+  if (isNaN(num)) return '-';
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
+
 const fetchClaims = async () => {
   loading.value = true;
   try {
@@ -513,7 +525,7 @@ defineExpose({
       <div v-loading="loading" class="claim-list-container">
         <ElTable :data="claims" border stripe style="width: 100%" class="mb-4">
 
-          <ElTableColumn prop="confirmationStatus" label="复查状态" width="120">
+          <ElTableColumn label="复查状态" width="100">
             <template #default="scope">
               <ElTag
                 :type="getConfirmationStatusTag(scope.row.confirmationStatus).type"
@@ -523,27 +535,55 @@ defineExpose({
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="最终确认金额" width="140">
+          <ElTableColumn label="确认状态" width="100">
             <template #default="scope">
-              <span class="amount-confirmed">{{ scope.row.finalConfirmedAmount || 0 }}</span>
+              <ElTag
+                :type="getRegistrationStatusTag(scope.row.registration_status).type"
+                size="small"
+              >
+                {{ getRegistrationStatusTag(scope.row.registration_status).text }}
+              </ElTag>
             </template>
           </ElTableColumn>
           <ElTableColumn
             prop="creditorName"
             label="债权人名称"
-            min-width="180"
+            min-width="150"
           />
           <ElTableColumn label="债权人类型" width="120">
             <template #default="scope">
               {{ scope.row.creditorType || '-' }}
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="claimNo" label="债权编号" width="140" />
-          <ElTableColumn prop="principal" label="申报本金" width="120" />
-          <ElTableColumn prop="totalAmount" label="申报总金额" width="120" />
-          <ElTableColumn prop="claimNature" label="债权性质" width="120" />
-          <ElTableColumn prop="claimType" label="债权种类" width="120" />
-          <ElTableColumn label="操作" width="450" fixed="right">
+          <ElTableColumn
+            prop="claimType"
+            label="债权种类"
+            width="120"
+          />
+          <ElTableColumn label="最终确认总金额" width="150">
+            <template #default="scope">
+              <span class="amount-confirmed">{{ formatCurrency(scope.row.finalConfirmedAmount) }}</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="登记时间" width="180">
+            <template #default="scope">
+              {{ formatDate(scope.row.registrationDate || scope.row.registration_date || scope.row.createTime || scope.row.create_time) }}
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="结论" width="120">
+            <template #default="scope">
+              <template v-if="scope.row.confirmationInfo">
+                <ElTag
+                  :type="getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).type"
+                  size="small"
+                >
+                  {{ getConfirmationStatusTag(scope.row.confirmationInfo.confirmationStatus).text }}
+                </ElTag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="操作" width="300" fixed="right">
             <template #default="scope">
               <ElButton link size="small" @click="openDetailDialog(scope.row)">
                 查看详情

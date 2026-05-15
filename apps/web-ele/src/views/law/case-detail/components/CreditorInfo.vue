@@ -369,8 +369,24 @@ const getRegistrationStatusTag = (status: string) => {
     'CONFIRMED': { text: '已确认', type: 'success' },
     'REJECTED': { text: '已驳回', type: 'danger' },
     'PENDING': { text: '待处理', type: 'info' },
+    'registered': { text: '已登记', type: 'success' },
+    'confirming': { text: '确认中', type: 'warning' },
+    'reviewing': { text: '审查中', type: 'warning' },
+    'review_completed': { text: '审查完成', type: 'info' },
+    'confirmed': { text: '已确认', type: 'success' },
+    'rejected': { text: '已驳回', type: 'danger' },
+    'pending': { text: '待处理', type: 'info' },
   };
-  return statusMap[status] || { text: status || '未知', type: 'info' };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { text: '未知', type: 'info' };
 };
 
 const getReviewStatusTag = (status: string) => {
@@ -378,8 +394,30 @@ const getReviewStatusTag = (status: string) => {
     'COMPLETED': { text: '已完成', type: 'success' },
     'IN_PROGRESS': { text: '进行中', type: 'warning' },
     'PENDING': { text: '待审查', type: 'info' },
+    'REVIEWING': { text: '审查中', type: 'warning' },
+    'REVIEW_COMPLETED': { text: '审查完成', type: 'success' },
+    'SUPPLEMENT': { text: '待补充', type: 'danger' },
+    'CONFIRMING': { text: '确认中', type: 'info' },
+    'REJECTED': { text: '已驳回', type: 'danger' },
+    'completed': { text: '已完成', type: 'success' },
+    'in_progress': { text: '进行中', type: 'warning' },
+    'pending': { text: '待审查', type: 'info' },
+    'reviewing': { text: '审查中', type: 'warning' },
+    'review_completed': { text: '审查完成', type: 'success' },
+    'supplement': { text: '待补充', type: 'danger' },
+    'confirming': { text: '确认中', type: 'info' },
+    'rejected': { text: '已驳回', type: 'danger' },
   };
-  return statusMap[status] || { text: status || '未知', type: 'info' };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { text: '未知', type: 'info' };
 };
 
 const getConfirmationStatusTag = (status: string) => {
@@ -387,8 +425,30 @@ const getConfirmationStatusTag = (status: string) => {
     'COMPLETED': { text: '已完成', type: 'success' },
     'IN_PROGRESS': { text: '进行中', type: 'warning' },
     'PENDING': { text: '待确认', type: 'info' },
+    'CONFIRMED': { text: '已确认', type: 'success' },
+    'CONFIRMING': { text: '确认中', type: 'info' },
+    'OBJECTION': { text: '有异议', type: 'danger' },
+    'COURT': { text: '法院裁定', type: 'primary' },
+    'LAWSUIT': { text: '诉讼中', type: 'info' },
+    'completed': { text: '已完成', type: 'success' },
+    'in_progress': { text: '进行中', type: 'warning' },
+    'pending': { text: '待确认', type: 'info' },
+    'confirmed': { text: '已确认', type: 'success' },
+    'confirming': { text: '确认中', type: 'info' },
+    'objection': { text: '有异议', type: 'danger' },
+    'court': { text: '法院裁定', type: 'primary' },
+    'lawsuit': { text: '诉讼中', type: 'info' },
   };
-  return statusMap[status] || { text: status || '未知', type: 'info' };
+  if (status && statusMap[status]) {
+    return statusMap[status];
+  }
+  if (status) {
+    const upperStatus = status.toUpperCase();
+    if (statusMap[upperStatus]) {
+      return statusMap[upperStatus];
+    }
+  }
+  return { text: '未知', type: 'info' };
 };
 
 const getReviewConclusionTag = (conclusion: string) => {
@@ -396,8 +456,24 @@ const getReviewConclusionTag = (conclusion: string) => {
     'CONFIRMED': { text: '确认', type: 'success' },
     'PARTIAL_CONFIRMED': { text: '部分确认', type: 'warning' },
     'UNCONFIRMED': { text: '不确认', type: 'danger' },
+    'confirmed': { text: '确认', type: 'success' },
+    'partial_confirmed': { text: '部分确认', type: 'warning' },
+    'unconfirmed': { text: '不确认', type: 'danger' },
+    'REJECTED': { text: '驳回', type: 'danger' },
+    'rejected': { text: '驳回', type: 'danger' },
+    'PARTIAL': { text: '部分确认', type: 'warning' },
+    'partial': { text: '部分确认', type: 'warning' },
   };
-  return conclusionMap[conclusion] || { text: conclusion || '待定', type: 'info' };
+  if (conclusion && conclusionMap[conclusion]) {
+    return conclusionMap[conclusion];
+  }
+  if (conclusion) {
+    const upperConclusion = conclusion.toUpperCase();
+    if (conclusionMap[upperConclusion]) {
+      return conclusionMap[upperConclusion];
+    }
+  }
+  return { text: '待定', type: 'info' };
 };
 
 const getVoteResultTag = (result: string) => {
@@ -477,7 +553,7 @@ defineExpose({
       </div>
 
       <div v-loading="loading" class="creditor-list-container">
-        <ElTable :data="creditors" border stripe style="width: 100%" class="mb-4" :row-key="(row: any) => row.creditorId" @row-click="openDetailDialog">
+        <ElTable :data="creditors" border stripe style="width: 100%" class="mb-4" :row-key="(row: any) => row.creditorId">
           <ElTableColumn prop="creditorName" label="债权人名称" min-width="150" fixed="left" />
           <ElTableColumn prop="creditorType" label="债权人类型" width="120" align="center">
             <template #default="scope">
@@ -533,86 +609,11 @@ defineExpose({
               </div>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="caseNumber" label="案件编号" width="130" show-overflow-tooltip />
-          <ElTableColumn prop="caseName" label="案件名称" min-width="130" show-overflow-tooltip />
-          <ElTableColumn prop="claimType" label="债权类型" width="120" />
-          <ElTableColumn prop="accountName" label="账户名称" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="creditorBankAccount" label="银行账号" width="210">
+          <ElTableColumn label="操作" width="120" fixed="right">
             <template #default="scope">
-              <div class="sensitive-field-cell">
-                <span>{{ getDisplayValue(scope.row, 'creditorBankAccount', 'CREDITOR_BANK_ACCOUNT') }}</span>
-                <ElButton
-                  v-if="!isRevealed(scope.row, 'CREDITOR_BANK_ACCOUNT')"
-                  link
-                  type="primary"
-                  size="small"
-                  @click.stop="openPasswordDialog(scope.row, 'CREDITOR_BANK_ACCOUNT')"
-                >
-                  查看全部
-                </ElButton>
-              </div>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="bankName" label="开户银行" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="declaredPrincipal" label="申报本金" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.declaredPrincipal) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="declaredInterest" label="申报利息" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.declaredInterest) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="declaredPenalty" label="申报罚金" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.declaredPenalty) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="declaredOtherLosses" label="申报其他损失" width="130" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.declaredOtherLosses) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="declaredTotalAmount" label="申报总金额" width="130" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.declaredTotalAmount) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="confirmedPrincipal" label="确认本金" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.confirmedPrincipal) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="confirmedInterest" label="确认利息" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.confirmedInterest) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="confirmedPenalty" label="确认违约金" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.confirmedPenalty) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="confirmedOtherLosses" label="确认其他损失" width="130" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.confirmedOtherLosses) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="confirmedTotalAmount" label="确认总金额" width="130" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.confirmedTotalAmount) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="reductionAmount" label="核减金额" width="120" align="right">
-            <template #default="scope">
-              {{ formatCurrency(scope.row.reductionAmount) }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="remarks" label="备注" min-width="150" show-overflow-tooltip />
-          <ElTableColumn prop="createTime" label="创建时间" width="170" align="center">
-            <template #default="scope">
-              {{ formatDateTime(scope.row.createTime) }}
+              <ElButton link type="primary" size="small" @click="openDetailDialog(scope.row)">
+                查看详情
+              </ElButton>
             </template>
           </ElTableColumn>
         </ElTable>
@@ -730,18 +731,36 @@ defineExpose({
     <div v-loading="detailLoading" class="creditor-detail-container">
       <div v-if="creditorDetailData" class="creditor-detail-content">
         <div class="creditor-header mb-6">
-          <div class="creditor-info-card">
-            <div>
-              <div class="creditor-name">
-                {{ creditorDetailData.creditorName }}
-              </div>
-              <div class="creditor-meta">
-                <ElTag size="small" type="info">
-                  ID: {{ creditorDetailData.creditorId }}
-                </ElTag>
-              </div>
-            </div>
-          </div>
+          <h4 class="creditor-header-title">债权人基本信息</h4>
+          <ElDescriptions :column="2" border size="small">
+            <ElDescriptionsItem label="债权人名称">
+              <span class="creditor-name-text">{{ creditorDetailData.creditorName }}</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="债权人类型">
+              <ElTag
+                :type="getCreditorTypeTag(creditorDetailData.creditorType).type"
+                size="small"
+              >
+                {{ getCreditorTypeTag(creditorDetailData.creditorType).label }}
+              </ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="债权人状态">
+              <ElTag
+                v-if="creditorDetailData.creditorStatus"
+                :type="creditorDetailData.creditorStatus === 'CONFIRMED' ? 'success' : 'primary'"
+                size="small"
+              >
+                {{ statusMap[creditorDetailData.creditorStatus] || creditorDetailData.creditorStatus }}
+              </ElTag>
+              <span v-else class="text-gray-400">-</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="联系电话">
+              {{ creditorDetailData.contactPhone || '-' }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="证件号码">
+              {{ creditorDetailData.idNumber || '-' }}
+            </ElDescriptionsItem>
+          </ElDescriptions>
         </div>
 
         <ElTabs v-model="detailActiveTab" type="border-card">
@@ -899,40 +918,40 @@ defineExpose({
                       {{ getVoteResultTag(confirmation.voteResult).text }}
                     </ElTag>
                   </ElDescriptionsItem>
-                  <ElDescriptionsItem label="表决说明">{{ confirmation.voteNotes || '-' }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.voteNotes" label="表决说明">{{ confirmation.voteNotes }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="是否有异议">
                     <ElTag :type="confirmation.hasObjection ? 'danger' : 'success'" size="small">
                       {{ confirmation.hasObjection ? '是' : '否' }}
                     </ElTag>
                   </ElDescriptionsItem>
-                  <ElDescriptionsItem label="异议人">{{ confirmation.objector || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="异议原因">{{ confirmation.objectionReason || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="异议金额">{{ formatCurrency(confirmation.objectionAmount) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="异议日期">{{ formatDateTime(confirmation.objectionDate) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="协商结果">{{ confirmation.negotiationResult || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="协商日期">{{ formatDateTime(confirmation.negotiationDate) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="协商参与人">{{ confirmation.negotiationParticipants || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="裁定日期">{{ formatDateTime(confirmation.courtRulingDate) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="裁定编号">{{ confirmation.courtRulingNo || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="裁定结果">{{ confirmation.courtRulingResult || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="裁定金额">{{ formatCurrency(confirmation.courtRulingAmount) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="裁定备注">{{ confirmation.courtRulingNotes || '-' }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.objector" label="异议人">{{ confirmation.objector }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.objectionReason" label="异议原因">{{ confirmation.objectionReason }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.objectionAmount != null && confirmation.objectionAmount !== '' && Number(confirmation.objectionAmount) !== 0" label="异议金额">{{ formatCurrency(confirmation.objectionAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.objectionDate" label="异议日期">{{ formatDateTime(confirmation.objectionDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.negotiationResult" label="协商结果">{{ confirmation.negotiationResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.negotiationDate" label="协商日期">{{ formatDateTime(confirmation.negotiationDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.negotiationParticipants" label="协商参与人">{{ confirmation.negotiationParticipants }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.courtRulingDate" label="裁定日期">{{ formatDateTime(confirmation.courtRulingDate) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.courtRulingNo" label="裁定编号">{{ confirmation.courtRulingNo }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.courtRulingResult" label="裁定结果">{{ confirmation.courtRulingResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.courtRulingAmount != null && confirmation.courtRulingAmount !== '' && Number(confirmation.courtRulingAmount) !== 0" label="裁定金额">{{ formatCurrency(confirmation.courtRulingAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.courtRulingNotes" label="裁定备注">{{ confirmation.courtRulingNotes }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="是否有诉讼">
                     <ElTag :type="confirmation.hasLawsuit ? 'danger' : 'success'" size="small">
                       {{ confirmation.hasLawsuit ? '是' : '否' }}
                     </ElTag>
                   </ElDescriptionsItem>
-                  <ElDescriptionsItem label="诉讼案号">{{ confirmation.lawsuitCaseNo || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="诉讼状态">{{ confirmation.lawsuitStatus || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="诉讼结果">{{ confirmation.lawsuitResult || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="诉讼金额">{{ formatCurrency(confirmation.lawsuitAmount) }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="诉讼备注">{{ confirmation.lawsuitNotes || '-' }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.lawsuitCaseNo" label="诉讼案号">{{ confirmation.lawsuitCaseNo }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.lawsuitStatus" label="诉讼状态">{{ confirmation.lawsuitStatus }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.lawsuitResult" label="诉讼结果">{{ confirmation.lawsuitResult }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.lawsuitAmount != null && confirmation.lawsuitAmount !== '' && Number(confirmation.lawsuitAmount) !== 0" label="诉讼金额">{{ formatCurrency(confirmation.lawsuitAmount) }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.lawsuitNotes" label="诉讼备注">{{ confirmation.lawsuitNotes }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="最终确认金额">
                     <span class="amount-highlight">{{ formatCurrency(confirmation.finalConfirmedAmount) }}</span>
                   </ElDescriptionsItem>
                   <ElDescriptionsItem label="最终确认日期">{{ formatDateTime(confirmation.finalConfirmationDate) }}</ElDescriptionsItem>
                   <ElDescriptionsItem label="最终确认依据" :span="2">{{ confirmation.finalConfirmationBasis || '-' }}</ElDescriptionsItem>
-                  <ElDescriptionsItem label="备注" :span="2">{{ confirmation.remarks || '-' }}</ElDescriptionsItem>
+                  <ElDescriptionsItem v-if="confirmation.remarks" label="备注" :span="2">{{ confirmation.remarks }}</ElDescriptionsItem>
                 </ElDescriptions>
               </div>
             </div>
@@ -1017,23 +1036,17 @@ defineExpose({
   border-radius: 8px;
 }
 
-.creditor-info-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.creditor-name {
-  font-size: 20px;
-  font-weight: 700;
+.creditor-header-title {
+  font-size: 16px;
+  font-weight: 600;
   color: #1e293b;
+  margin: 0 0 16px 0;
 }
 
-.creditor-meta {
-  margin-top: 6px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.creditor-name-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .amount-highlight {
@@ -1086,9 +1099,6 @@ defineExpose({
 }
 
 @media (max-width: 768px) {
-  .creditor-info-card {
-    padding: 20px;
-  }
   
   :deep(.el-descriptions :is(.el-descriptions__label, .el-descriptions__content)) {
     font-size: 14px;

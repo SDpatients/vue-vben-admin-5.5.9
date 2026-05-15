@@ -146,7 +146,12 @@
     "userManagement": "User Management",
     "userList": "User List",
     "userAdd": "Add User",
-    "userProfile": "User Profile"
+    "userProfile": "User Profile",
+    "auditLog": "Audit Log",
+    "auditLogList": "Log List",
+    "auditLogDetail": "Log Detail",
+    "auditLogStatistics": "Statistics",
+    "auditLogIntegrity": "Integrity Verification"
   },
   "approval": {
     "title": "Approval Management",
