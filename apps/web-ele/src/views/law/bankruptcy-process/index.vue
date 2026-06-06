@@ -152,6 +152,9 @@ const videoUploadError = ref('');
 // 视频预览相关
 const showVideoPreviewDialog = ref(false);
 const previewVideoTag = ref<any>(null);
+const previewVideoUrl = ref('');
+const isVideoLoading = ref(false);
+const videoLoadError = ref('');
 
 // 添加投票项弹窗
 const showAddVoteDialog = ref(false);
@@ -381,61 +384,90 @@ const saveNewVideoTag = async () => {
   videoUploadProgress.value = 0;
   videoUploadError.value = '';
 
+  const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  let tagId: number | null = null;
+
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bizType', 'VIDEO_MEETING');
-    formData.append('bizId', String(currentMeetingId.value));
-
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-    const uploadResponse = await fetch('/api/v1/video/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': formattedToken,
-      },
-      body: formData,
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(errorText || '视频上传失败');
-    }
-
-    const uploadResult = await uploadResponse.json();
-    if (uploadResult.code !== 200) {
-      throw new Error(uploadResult.message || '视频上传失败');
-    }
-
-    const fileData = uploadResult.data;
-    videoUploadProgress.value = 100;
-
-    const now = new Date().toISOString();
-    const tagResponse = await fetch('/api/v1/api/video-tags', {
+    // 步骤1：创建视频标签（状态为 pending）
+    const createTagResponse = await fetch('/api/v1/api/video-tags', {
       method: 'POST',
       headers: {
         'Authorization': formattedToken,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        id: 0,
         meetingId: currentMeetingId.value,
         videoTitle: newVideoTag.value.videoTitle,
-        fileId: fileData.id,
-        originalFileName: fileData.originalFileName,
-        fileSize: fileData.fileSize,
-        status: 'generated',
-        createTime: now,
-        updateTime: now,
-        createUserId: Number(localStorage.getItem('user_id') || '0'),
-        updateUserId: Number(localStorage.getItem('user_id') || '0'),
-        isDeleted: false,
       }),
     });
 
-    if (!tagResponse.ok) {
+    if (!createTagResponse.ok) {
       throw new Error('创建视频标签失败');
     }
+
+    const tagResult = await createTagResponse.json();
+    tagId = tagResult.id || tagResult.data?.id;
+    if (!tagId) {
+      throw new Error('创建视频标签失败：未获取到标签ID');
+    }
+
+    videoUploadProgress.value = 10;
+
+    // 步骤2：上传视频文件（使用 XHR 以支持进度追踪）
+    const fileId = await new Promise<number>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bizType', 'VIDEO_MEETING');
+      formData.append('bizId', String(currentMeetingId.value));
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 70) + 10;
+          videoUploadProgress.value = Math.min(progress, 80);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            if (result.code === 200 && result.data?.id) {
+              resolve(result.data.id);
+            } else {
+              reject(new Error(result.message || '视频上传失败'));
+            }
+          } catch {
+            reject(new Error('解析上传响应失败'));
+          }
+        } else {
+          reject(new Error(`上传失败: HTTP ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('网络错误，视频上传失败')));
+      xhr.addEventListener('abort', () => reject(new Error('上传已取消')));
+
+      xhr.open('POST', '/api/v1/video/upload');
+      xhr.setRequestHeader('Authorization', formattedToken);
+      xhr.send(formData);
+    });
+
+    videoUploadProgress.value = 85;
+
+    // 步骤3：绑定文件到标签（自动将状态设为 generated）
+    const bindResponse = await fetch(`/api/v1/api/video-tags/${tagId}/bind-file?fileId=${fileId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': formattedToken,
+      },
+    });
+
+    if (!bindResponse.ok) {
+      throw new Error('绑定视频文件到标签失败');
+    }
+
+    videoUploadProgress.value = 100;
 
     showAddVideoDialog.value = false;
     resetNewVideoTag();
@@ -447,10 +479,6 @@ const saveNewVideoTag = async () => {
     console.error('视频上传失败:', error);
     videoUploadError.value = error.message || '视频上传失败';
     ElMessage.error(videoUploadError.value);
-
-    if (videoUploadProgress.value === 0) {
-      ElMessage.warning('视频上传失败，请重试');
-    }
   } finally {
     isVideoUploading.value = false;
   }
@@ -484,13 +512,63 @@ const handleVideoFileChange = (file: any) => {
   newVideoTag.value.videoFile = rawFile;
 };
 
-const handleVideoTagPlay = (tag: any) => {
+const handleVideoTagPlay = async (tag: any) => {
   if (!tag.fileId || tag.fileId === 0) {
     ElMessage.warning(`"${tag.title}" 暂无视频文件，请先上传视频`);
     return;
   }
+
   previewVideoTag.value = tag;
   showVideoPreviewDialog.value = true;
+  isVideoLoading.value = true;
+  videoLoadError.value = '';
+  previewVideoUrl.value = '';
+
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('未登录，无法播放视频');
+    }
+
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    const response = await fetch(`/api/v1/video/stream/${tag.fileId}`, {
+      headers: {
+        'Authorization': formattedToken,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('视频加载失败：登录已过期，请重新登录');
+      }
+      throw new Error(`视频加载失败: HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    if (previewVideoUrl.value) {
+      URL.revokeObjectURL(previewVideoUrl.value);
+    }
+    previewVideoUrl.value = URL.createObjectURL(blob);
+  } catch (error: any) {
+    console.error('视频加载失败:', error);
+    videoLoadError.value = error.message || '视频加载失败';
+    ElMessage.error(videoLoadError.value);
+  } finally {
+    isVideoLoading.value = false;
+  }
+};
+
+const handlePreviewDialogClose = () => {
+  if (previewVideoUrl.value) {
+    URL.revokeObjectURL(previewVideoUrl.value);
+    previewVideoUrl.value = '';
+  }
+  previewVideoTag.value = null;
+  isVideoLoading.value = false;
+  videoLoadError.value = '';
+  showVideoPreviewDialog.value = false;
 };
 
 const handleVideoTagDelete = async (tag: any) => {
@@ -4036,6 +4114,31 @@ const openMobileUploadDialog = async () => {
           </div>
         </ElFormItem>
         <ElFormItem v-if="isVideoUploading" label="上传进度">
+          <div class="upload-steps-container">
+            <div class="upload-step" :class="{ active: videoUploadProgress >= 10, done: videoUploadProgress > 10 }">
+              <div class="upload-step-dot">
+                <Icon v-if="videoUploadProgress > 10" icon="lucide:check" />
+                <span v-else>1</span>
+              </div>
+              <span class="upload-step-label">创建标签</span>
+            </div>
+            <div class="upload-step-line" :class="{ done: videoUploadProgress > 10 }"></div>
+            <div class="upload-step" :class="{ active: videoUploadProgress >= 10, done: videoUploadProgress >= 85 }">
+              <div class="upload-step-dot">
+                <Icon v-if="videoUploadProgress >= 85" icon="lucide:check" />
+                <span v-else>2</span>
+              </div>
+              <span class="upload-step-label">上传视频</span>
+            </div>
+            <div class="upload-step-line" :class="{ done: videoUploadProgress >= 85 }"></div>
+            <div class="upload-step" :class="{ active: videoUploadProgress >= 85, done: videoUploadProgress >= 100 }">
+              <div class="upload-step-dot">
+                <Icon v-if="videoUploadProgress >= 100" icon="lucide:check" />
+                <span v-else>3</span>
+              </div>
+              <span class="upload-step-label">绑定文件</span>
+            </div>
+          </div>
           <div class="upload-progress-container">
             <div class="upload-progress-bar">
               <div
@@ -4063,7 +4166,7 @@ const openMobileUploadDialog = async () => {
       :title="previewVideoTag?.title || '视频预览'"
       width="900px"
       destroy-on-close
-      @close="showVideoPreviewDialog = false"
+      @close="handlePreviewDialogClose"
     >
       <div v-if="previewVideoTag" class="video-preview-container">
         <div class="video-info-bar">
@@ -4076,7 +4179,16 @@ const openMobileUploadDialog = async () => {
             {{ formatFileSize(previewVideoTag.fileSize) }}
           </span>
         </div>
+        <div v-if="isVideoLoading" class="video-loading-state">
+          <div class="loading-spinner"></div>
+          <span>正在加载视频...</span>
+        </div>
+        <div v-else-if="videoLoadError" class="video-error-state">
+          <Icon icon="lucide:alert-circle" class="error-icon" />
+          <span>{{ videoLoadError }}</span>
+        </div>
         <video
+          v-else-if="previewVideoUrl"
           class="video-player"
           controls
           autoplay
@@ -4084,7 +4196,7 @@ const openMobileUploadDialog = async () => {
           style="width: 100%; max-height: 500px; background: #000; border-radius: 8px;"
         >
           <source
-            :src="`/api/v1/video/stream/${previewVideoTag.fileId}`"
+            :src="previewVideoUrl"
             type="video/mp4"
           />
           您的浏览器不支持视频播放
@@ -6086,6 +6198,73 @@ const openMobileUploadDialog = async () => {
   width: 100%;
 }
 
+.upload-steps-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  gap: 0;
+}
+
+.upload-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e5e7eb;
+  color: #9ca3af;
+  transition: all 0.3s ease;
+}
+
+.upload-step.active .upload-step-dot {
+  background: #6366f1;
+  color: #fff;
+}
+
+.upload-step.done .upload-step-dot {
+  background: #22c55e;
+  color: #fff;
+}
+
+.upload-step-label {
+  font-size: 11px;
+  color: #9ca3af;
+  transition: color 0.3s ease;
+}
+
+.upload-step.active .upload-step-label {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.upload-step.done .upload-step-label {
+  color: #22c55e;
+}
+
+.upload-step-line {
+  width: 50px;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 8px;
+  margin-bottom: 18px;
+  transition: background 0.3s ease;
+}
+
+.upload-step-line.done {
+  background: #22c55e;
+}
+
 .upload-progress-bar {
   flex: 1;
   height: 8px;
@@ -6131,12 +6310,48 @@ const openMobileUploadDialog = async () => {
   align-items: center;
 }
 
-.video-player {
-  outline: none;
+.video-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  gap: 16px;
+  color: #a5b4fc;
+  font-size: 14px;
 }
 
-.video-player:focus {
-  outline: none;
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(99, 102, 241, 0.3);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.video-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  gap: 12px;
+  color: #fca5a5;
+  font-size: 14px;
+}
+
+.video-error-state .error-icon {
+  font-size: 48px;
+  color: #fca5a5;
 }
 </style>
 

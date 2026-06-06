@@ -46,7 +46,8 @@
     "detail": "Chat Detail",
     "contactManagement": "Contact Management",
     "contactAdd": "Add Contact",
-    "contactEdit": "Edit Contact"
+    "contactEdit": "Edit Contact",
+    "aiChat": "AI Legal Assistant"
   },
   "notification": {
     "title": "Notification",

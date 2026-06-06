@@ -35,6 +35,18 @@ const routes: RouteRecordRaw[] = [
           hideInTab: true,
         },
       },
+      {
+        name: 'AiChat',
+        path: 'ai/:caseId',
+        component: () => import('#/views/chat/pages/AiChat.vue'),
+        meta: {
+          affixTab: false,
+          icon: 'lucide:bot',
+          title: $t('page.chat.aiChat'),
+          hideInMenu: true,
+          hideInTab: true,
+        },
+      },
     ],
   },
 ];

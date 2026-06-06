@@ -46,7 +46,8 @@
     "detail": "聊天详情",
     "contactManagement": "联系人管理",
     "contactAdd": "新增联系人",
-    "contactEdit": "编辑联系人"
+    "contactEdit": "编辑联系人",
+    "aiChat": "AI 法律助手"
   },
 
   "notification": {

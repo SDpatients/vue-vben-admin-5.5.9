@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Icon } from '@iconify/vue';
@@ -106,6 +106,7 @@ import FundControlDrawer from './components/FundControlDrawer.vue';
 import ProgressManagementModal from './components/ProgressManagementModal.vue';
 import WorkLogImage from './components/WorkLogImage.vue';
 import WorkPlanDrawer from './components/WorkPlanDrawer.vue';
+import AiChatSidebar from '#/views/chat/components/AiChatSidebar.vue';
 
 // 路由和状态管理
 const route = useRoute();
@@ -5350,261 +5351,7 @@ const checkPermissions = async () => {
   }
 };
 
-// AI聊天悬浮窗相关
 const aiChatVisible = ref(false);
-const aiChatExpanded = ref(false);
-const aiChatMessages = ref([
-  {
-    id: 1,
-    content: '您好！我是AI助手，有什么可以帮助您的吗？',
-    sender: 'ai',
-    timestamp: new Date().toISOString(),
-  },
-]);
-const aiChatInput = ref('');
-const aiChatLoading = ref(false);
-const aiChatPosition = ref({ x: 0, y: 0 }); // 默认位置，通过CSS的bottom和right属性控制在右下角
-const isDragging = ref(false);
-const dragStart = ref({ x: 0, y: 0 });
-
-const toggleAiChat = async () => {
-  aiChatVisible.value = !aiChatVisible.value;
-  if (aiChatVisible.value) {
-    aiChatExpanded.value = true;
-    // 获取聊天历史
-    await fetchChatHistory();
-  }
-};
-
-const toggleAiChatExpanded = () => {
-  aiChatExpanded.value = !aiChatExpanded.value;
-};
-
-const sendAiMessage = async () => {
-  if (!aiChatInput.value.trim() || aiChatLoading.value) return;
-  
-  const message = aiChatInput.value.trim();
-  aiChatInput.value = '';
-  
-  // 添加用户消息
-  const userMessage = {
-    id: Date.now(),
-    content: message,
-    sender: 'user',
-    timestamp: new Date().toISOString(),
-  };
-  aiChatMessages.value.push(userMessage);
-  
-  // 调用真实API
-  aiChatLoading.value = true;
-  
-  // 创建AI消息对象（初始为空，后续会实时更新）
-  const aiMessageId = Date.now() + 1;
-  const aiMessage = {
-    id: aiMessageId,
-    content: '',
-    sender: 'ai',
-    timestamp: new Date().toISOString(),
-    isStreaming: true // 标记为流式消息
-  };
-  aiChatMessages.value.push(aiMessage);
-  
-  try {
-    // 从localStorage获取用户信息
-    let userId = 1; // 默认值
-    const chatUserInfo = localStorage.getItem('chat_user_info');
-    if (chatUserInfo) {
-      try {
-        const userInfo = JSON.parse(chatUserInfo);
-        userId = userInfo.user?.uPid || userId;
-      } catch (error) {
-        console.error('解析用户信息失败:', error);
-      }
-    }
-    
-    // 使用AbortController实现超时控制
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
-    
-    // 调用流式API
-    const response = await fetch('/api/v1/ai/chat/stream', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-      },
-      body: JSON.stringify({
-        caseId: Number(caseId.value),
-        content: message,
-        userId: userId
-      }),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`网络响应失败: ${response.status}`);
-    }
-    
-    // 处理流式响应
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('无法获取响应流');
-    }
-    
-    const decoder = new TextDecoder();
-    let aiResponse = '';
-    
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      
-      const chunk = decoder.decode(value, { stream: true });
-      // 解析SSE格式
-      const lines = chunk.split('\n');
-      lines.forEach(line => {
-        if (line.startsWith('data:')) {
-          const data = line.substring(5).trim();
-          if (data) {
-            try {
-              // 处理不同类型的事件
-              const eventData = JSON.parse(data);
-              if (eventData.type === 'chunk') {
-                aiResponse += eventData.content;
-                // 更新AI消息内容
-                const index = aiChatMessages.value.findIndex(msg => msg.id === aiMessageId);
-                if (index !== -1) {
-                  aiChatMessages.value[index].content = aiResponse;
-                }
-              } else if (eventData.type === 'complete') {
-                // 流式响应完成
-                const index = aiChatMessages.value.findIndex(msg => msg.id === aiMessageId);
-                if (index !== -1) {
-                  aiChatMessages.value[index].isStreaming = false;
-                  aiChatMessages.value[index].timestamp = eventData.timestamp || new Date().toISOString();
-                }
-              }
-            } catch (e) {
-              // 直接显示文本内容
-              aiResponse += data;
-              const index = aiChatMessages.value.findIndex(msg => msg.id === aiMessageId);
-              if (index !== -1) {
-                aiChatMessages.value[index].content = aiResponse;
-              }
-            }
-          }
-        }
-      });
-    }
-    
-    // 确保消息标记为完成
-    const index = aiChatMessages.value.findIndex(msg => msg.id === aiMessageId);
-    if (index !== -1) {
-      aiChatMessages.value[index].isStreaming = false;
-    }
-    
-  } catch (error: any) {
-    console.error('发送消息失败:', error);
-    
-    // 更新AI消息为错误状态
-    const index = aiChatMessages.value.findIndex(msg => msg.id === aiMessageId);
-    if (index !== -1) {
-      aiChatMessages.value[index].content = error.name === 'AbortError' 
-        ? 'AI回复超时，请稍后重试' 
-        : 'AI回复失败，请稍后重试';
-      aiChatMessages.value[index].isStreaming = false;
-      aiChatMessages.value[index].isError = true;
-    }
-  } finally {
-    aiChatLoading.value = false;
-  }
-};
-
-// 获取聊天历史
-const fetchChatHistory = async () => {
-  try {
-    const response = await fileUploadRequestClient.get('/api/v1/ai/chat/history', {
-      params: {
-        caseId: Number(caseId.value)
-      }
-    });
-    
-    if (response.code === 200 && response.data) {
-      aiChatMessages.value = response.data.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender,
-        timestamp: msg.timestamp,
-      }));
-    }
-  } catch (error: any) {
-    console.error('获取聊天历史失败:', error);
-    // 失败时使用默认欢迎消息
-    if (aiChatMessages.value.length === 0) {
-      aiChatMessages.value = [
-        {
-          id: 1,
-          content: '您好！我是AI助手，有什么可以帮助您的吗？',
-          sender: 'ai',
-          timestamp: new Date().toISOString(),
-        },
-      ];
-    }
-  }
-};
-
-// 拖动相关方法
-const startDrag = (event) => {
-  isDragging.value = true;
-  dragStart.value = {
-    x: event.clientX - aiChatPosition.value.x,
-    y: event.clientY - aiChatPosition.value.y
-  };
-  // 阻止事件冒泡，避免影响其他元素
-  event.stopPropagation();
-  // 添加全局鼠标事件监听器
-  document.addEventListener('mousemove', handleGlobalDrag);
-  document.addEventListener('mouseup', handleGlobalEndDrag);
-  document.addEventListener('mouseleave', handleGlobalEndDrag);
-};
-
-const drag = (event) => {
-  if (!isDragging.value) return;
-  aiChatPosition.value = {
-    x: event.clientX - dragStart.value.x,
-    y: event.clientY - dragStart.value.y
-  };
-  // 阻止事件冒泡，避免影响其他元素
-  event.stopPropagation();
-};
-
-const handleGlobalDrag = (event) => {
-  if (!isDragging.value) return;
-  aiChatPosition.value = {
-    x: event.clientX - dragStart.value.x,
-    y: event.clientY - dragStart.value.y
-  };
-};
-
-const handleGlobalEndDrag = () => {
-  endDrag();
-};
-
-const endDrag = () => {
-  isDragging.value = false;
-  // 移除全局鼠标事件监听器
-  document.removeEventListener('mousemove', handleGlobalDrag);
-  document.removeEventListener('mouseup', handleGlobalEndDrag);
-  document.removeEventListener('mouseleave', handleGlobalEndDrag);
-};
-
-// 组件卸载时清理全局事件监听（防止内存泄漏）
-onUnmounted(() => {
-  endDrag();
-});
 </script>
 
 <template>
@@ -5684,6 +5431,14 @@ onUnmounted(() => {
               <ElButton type="primary" @click="openWorkPlanDrawer">
                 <Icon icon="lucide:calendar" class="mr-2" />
                 工作计划
+              </ElButton>
+              <ElButton
+                type="primary"
+                class="ai-chat-header-btn"
+                @click="aiChatVisible = !aiChatVisible"
+              >
+                <Icon icon="lucide:bot" class="mr-2" />
+                AI 助手
               </ElButton>
                   <ElButton
                     v-if="!isCaseCompleted && !isCaseArchived"
@@ -9819,91 +9574,12 @@ onUnmounted(() => {
         </template>
       </ElDialog>
       
-      <!-- AI聊天悬浮窗 - 暂时隐藏 -->
-      <!--
-      <div 
-        class="ai-chat-container"
-        :style="{
-          left: aiChatPosition.x + 'px',
-          top: aiChatPosition.y + 'px'
-        }"
-      >
-        <div 
-          v-if="!aiChatVisible" 
-          class="ai-chat-toggle-button"
-          @click.stop="toggleAiChat"
-          @mousedown="startDrag"
-          @mousemove="drag"
-          @mouseup="endDrag"
-          @mouseleave="endDrag"
-        >
-          <Icon icon="lucide:robot" class="text-white" />
-        </div>
-      </div>
-      
-      <div 
-        v-if="aiChatVisible" 
-        class="ai-chat-sidebar"
-        :class="{ expanded: aiChatExpanded }"
-      >
-        <div class="ai-chat-header">
-          <div class="flex items-center">
-            <Icon icon="lucide:robot" class="text-primary mr-2" />
-            <span class="font-bold">AI助手</span>
-          </div>
-          <div class="ai-chat-header-actions">
-            <button 
-              class="ai-chat-close-button"
-              @click="toggleAiChat"
-            >
-              <Icon icon="lucide:x" />
-            </button>
-          </div>
-        </div>
-        
-        <div class="ai-chat-messages">
-          <div 
-            v-for="message in aiChatMessages" 
-            :key="message.id"
-            class="ai-chat-message"
-            :class="{
-              user: message.sender === 'user',
-              ai: message.sender === 'ai',
-              error: message.isError
-            }"
-          >
-            <div class="ai-chat-message-content">
-              {{ message.content }}
-              <div v-if="message.isStreaming" class="ai-chat-typing-indicator">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-              </div>
-            </div>
-            <div class="ai-chat-message-time">
-              {{ formatDateTime(message.timestamp) }}
-            </div>
-          </div>
-        </div>
-        
-        <div class="ai-chat-input-area">
-          <ElInput
-            v-model="aiChatInput"
-            placeholder="请输入您的问题..."
-            @keyup.enter="sendAiMessage"
-            size="small"
-          />
-          <ElButton 
-            type="primary" 
-            size="small"
-            @click="sendAiMessage"
-            :loading="aiChatLoading"
-          >
-            发送
-          </ElButton>
-        </div>
-      </div>
-      -->
+      <AiChatSidebar
+        :visible="aiChatVisible"
+        :case-id="Number(caseId)"
+        :case-name="caseDetail?.案号 || ''"
+        @update:visible="aiChatVisible = $event"
+      />
     </div>
     </div>
   </div>
@@ -9964,195 +9640,14 @@ onUnmounted(() => {
   margin-top: 20px;
 }
 
-/* AI聊天悬浮窗样式 */
-.ai-chat-container {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  z-index: 9999;
-  width: auto;
-  height: auto;
-  pointer-events: none;
+.ai-chat-header-btn {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
 }
 
-.ai-chat-container .ai-chat-toggle-button {
-  pointer-events: auto;
-}
-
-.ai-chat-container:not(:has(.ai-chat-toggle-button)) {
-  display: none;
-}
-
-.ai-chat-toggle-button {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background-color: #409EFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 9999;
-}
-
-.ai-chat-toggle-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
-}
-
-/* 聊天侧边栏样式 */
-.ai-chat-sidebar {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 350px;
-  height: 100vh;
-  background-color: white;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  z-index: 9998;
-}
-
-.ai-chat-sidebar.expanded {
-  width: 450px;
-}
-
-.ai-chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background-color: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.ai-chat-header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.ai-chat-expand-button,
-.ai-chat-close-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.ai-chat-expand-button:hover,
-.ai-chat-close-button:hover {
-  background-color: #e2e8f0;
-}
-
-.ai-chat-messages {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ai-chat-message {
-  max-width: 80%;
-  padding: 12px;
-  border-radius: 8px;
-  position: relative;
-}
-
-.ai-chat-message.user {
-  align-self: flex-end;
-  background-color: #f0f9ff;
-  border-top-right-radius: 2px;
-}
-
-.ai-chat-message.ai {
-  align-self: flex-start;
-  background-color: #f8fafc;
-  border-top-left-radius: 2px;
-}
-
-.ai-chat-message.error {
-  background-color: #fef2f2;
-  border-left: 4px solid #ef4444;
-}
-
-.ai-chat-message-content {
-  word-wrap: break-word;
-  line-height: 1.4;
-}
-
-.ai-chat-message-time {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
-  text-align: right;
-}
-
-/* 打字动画效果 */
-.ai-chat-typing-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-}
-
-.typing-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #64748b;
-  animation: typing 1.4s infinite ease-in-out both;
-}
-
-.typing-dot:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes typing {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
-}
-
-/* 加载状态 */
-.ai-chat-loading {
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background-color: #f8fafc;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.ai-chat-input-area {
-  display: flex;
-  gap: 8px;
-  padding: 16px;
-  border-top: 1px solid #e2e8f0;
-  background-color: #f8fafc;
-}
-
-.ai-chat-input-area .el-input {
-  flex: 1;
+.ai-chat-header-btn:hover {
+  background: #1e40af !important;
+  border-color: #1e40af !important;
 }
 
 @keyframes spin {

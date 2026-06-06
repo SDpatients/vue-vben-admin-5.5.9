@@ -356,7 +356,7 @@ export const useContactStore = defineStore('contact', () => {
         status: 'ACTIVE',
         loginType: '1',
         lastLoginTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        lastLoginIp: '192.168.1.4',
+        lastLoginIp: '192.168.0.151',
         loginCount: 12,
         createTime: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(),
         updateTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
